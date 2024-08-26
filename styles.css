@@ -1,0 +1,198 @@
+/* styles.css */
+
+.card-navigator-toolbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    width: 100%;
+    height: 50px;
+    background-color: var(--background-primary);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card-navigator-toolbar-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px; /* 툴바 내의 각 섹션(이동 아이콘, 액션 아이콘 등) 사이의 간격 */
+    padding: 10px;
+}
+
+.card-navigator-move-icons-container,
+.card-navigator-action-icons-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px; /* 각 아이콘 사이의 간격 */
+}
+
+.card-navigator-move-icons-container.vertical {
+    flex-direction: column; /* 세로 모드일 때 아이콘들을 세로로 정렬 */
+}
+
+.card-navigator-move-icons-container.horizontal {
+    flex-direction: row; /* 가로 모드일 때 아이콘들을 가로로 정렬 */
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 100%;
+    background-color: var(--separator-color, #ccc);
+}
+
+.card-navigator-search-popup,
+.card-navigator-sort-popup,
+.card-navigator-settings-popup {
+    position: absolute;
+    top: 50px;
+    right: 0;
+    width: 100%;
+    padding: 10px;
+    background-color: var(--background-primary);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.hidden {
+    display: none;
+}
+
+.card-navigator-search-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    flex-grow: 1;
+    margin-right: 10px;
+}
+
+.card-navigator-search-input {
+    width: 100%;
+}
+
+.card-navigator-settings-popup label {
+    display: block;
+    margin: 10px 0 5px;
+}
+
+.card-navigator-settings-popup input[type="checkbox"] {
+    margin-left: 10px;
+}
+
+.card-navigator-settings-popup input[type="range"] {
+    width: 100%;
+}
+
+.card-view-area {
+    overflow: hidden; /* visible에서 hidden으로 변경 */
+    flex: 1;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    margin-top: 50px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* center에서 flex-start로 변경 */
+    background-color: var(--background-secondary);
+}
+
+.card-container {
+    width: 100%;
+    height: 100%; /* 높이 추가 */
+    padding: 10px;
+    display: flex;
+    gap: 15px;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    overflow-y: auto; /* 세로 스크롤 추가 */
+    overflow-x: hidden; /* 가로 스크롤 숨김 */
+    position: relative;
+}
+
+.card-container-horizontal {
+    width: auto; /* 너비를 auto로 변경 */
+    height: 100%;
+    padding: 10px;
+    display: flex;
+    gap: 15px;
+    flex-direction: row;
+    align-items: center;
+    flex: 1;
+    overflow-x: auto; /* 가로 스크롤 추가 */
+    overflow-y: hidden; /* 세로 스크롤 숨김 */
+    position: relative;
+}
+
+.card-navigator-card {
+    padding: 15px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    background-color: var(--background-primary-alt);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+    will-change: transform, box-shadow;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+.card-navigator-card-horizontal {
+    padding: 15px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    background-color: var(--background-primary-alt);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+    will-change: transform, box-shadow;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: row;
+	flex: 0 0 auto;
+}
+
+.card-navigator-card.card-navigator-active {
+    border: 2px solid;
+    border-color: hsla(var(--interactive-accent-hsl), 0.5);
+    background-color: var(--background-primary-alt);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.card-navigator-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+.card-navigator-filename {
+    font-size: var(--filename-font-size);
+    font-weight: bold;
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: var(--text-title);
+}
+
+.card-navigator-first-header {
+    font-size: var(--first-header-font-size);
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: var(--text-normal);
+}
+
+.card-navigator-content {
+    font-size: var(--content-font-size);
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-top: 0;
+    margin-bottom: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+}
