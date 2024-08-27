@@ -13,8 +13,6 @@ export class SettingTab extends PluginSettingTab {
         const { containerEl } = this;
         containerEl.empty();
 
-        containerEl.createEl('h2', { text: 'Card Navigator Settings' });
-
         new Setting(containerEl)
             .setName('Cards per view')
             .setDesc('Number of cards to display at once')
@@ -80,6 +78,8 @@ export class SettingTab extends PluginSettingTab {
 				await this.plugin.saveSettings();
 				this.plugin.refreshViews();
 			}));
+
+		containerEl.createEl('h1', { text: 'Display items Settings' });
 
 
 		new Setting(containerEl)
