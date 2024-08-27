@@ -50,6 +50,7 @@
     width: 80%;
     padding: 10px;
     background-color: var(--background-primary);
+	border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     z-index: 20;
     display: flex;
