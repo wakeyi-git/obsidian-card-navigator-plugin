@@ -1,6 +1,6 @@
 // src/ui/cardContainer/cardContainer.ts
 
-import { WorkspaceLeaf, TFile } from "obsidian";
+import { WorkspaceLeaf, TFile, TFolder } from "obsidian";
 import CardNavigatorPlugin from 'main';
 import { CardMaker } from './cardMaker'
 import { debounce, sortFiles, setContainerSize } from '../../common/utils';
@@ -85,17 +85,26 @@ export class CardContainer {
         );
     }
 
-	async refresh() {
-		const activeFile = this.plugin.app.workspace.getActiveFile();
-		if (!activeFile || !this.containerEl) {
-			return;
-		}
-	
-		setContainerSize(this.containerEl, this.cardWidth, this.cardHeight, this.plugin.settings.cardsPerView, this.isVertical);
-	
-		const cardsData = await this.cardMaker.getCardsForActiveFile(activeFile);
-		this.renderCards(cardsData, this.cardWidth, this.cardHeight);
-	}
+    async refresh() {
+        let folder: TFolder | null = null;
+
+        if (this.plugin.settings.useSelectedFolder && this.plugin.settings.selectedFolder) {
+            folder = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.selectedFolder) as TFolder;
+        } else {
+            const activeFile = this.plugin.app.workspace.getActiveFile();
+            folder = activeFile?.parent || null;
+        }
+
+        if (!folder || !this.containerEl) {
+            return;
+        }
+
+        setContainerSize(this.containerEl, this.cardWidth, this.cardHeight, this.plugin.settings.cardsPerView, this.isVertical);
+
+        const files = folder.children.filter((file): file is TFile => file instanceof TFile);
+        const cardsData = await Promise.all(files.map(file => this.cardMaker.createCard(file)));
+        this.renderCards(cardsData, this.cardWidth, this.cardHeight);
+    }
 
 	private renderCards(cardsData: Card[], cardWidth: number, cardHeight: number) {
 		const containerEl = this.containerEl;
@@ -225,6 +234,12 @@ export class CardContainer {
 		this.renderCards(cards, this.cardWidth, this.cardHeight);
 	}
 	
+	async displayCardsForFolder(folder: TFolder) {
+		const files = folder.children.filter((file): file is TFile => file instanceof TFile);
+		const cards = await Promise.all(files.map(file => this.cardMaker.createCard(file)));
+		this.renderCards(cards, this.cardWidth, this.cardHeight);
+	}
+
 	private async filterFilesByContent(files: TFile[], searchTerm: string): Promise<TFile[]> {
 		const lowercaseSearchTerm = searchTerm.toLowerCase();
 		const filteredFiles = [];
