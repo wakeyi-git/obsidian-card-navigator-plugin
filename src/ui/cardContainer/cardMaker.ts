@@ -1,6 +1,6 @@
 // src/ui/cardContainer/cardMaker.ts
 
-import { Menu, TFile } from 'obsidian';
+import { Menu, TFile, MarkdownRenderer } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { Card } from '../../common/types';
 import { sortFiles, separateFrontmatterAndContent } from '../../common/utils';
@@ -64,11 +64,26 @@ export class CardMaker {
             headerEl.style.fontSize = `${this.plugin.settings.firstHeaderSize}px`;
         }
 
-        if (this.plugin.settings.showContent && card.content) {
-            const contentEl = cardElement.createEl('p', { text: card.content });
-            contentEl.className = 'card-navigator-content';
-            contentEl.style.fontSize = `${this.plugin.settings.contentSize}px`;
-        }
+		if (this.plugin.settings.showContent && card.content) {
+			const contentEl = cardElement.createEl('div');
+			contentEl.className = 'card-navigator-content';
+			contentEl.style.fontSize = `${this.plugin.settings.contentSize}px`;
+		
+			if (this.plugin.settings.renderContentAsHtml) {
+				MarkdownRenderer.render(
+					this.plugin.app,
+					card.content,
+					contentEl,
+					card.file.path,
+					this.plugin
+				);
+			} else {
+				contentEl.textContent = card.content;
+				contentEl.style.overflow = 'hidden';
+				contentEl.style.textOverflow = 'ellipsis';
+				contentEl.style.display = '-webkit-box';
+			}
+		}
 
         if (this.plugin.app.workspace.getActiveFile() === card.file) {
             cardElement.addClass('card-navigator-active');

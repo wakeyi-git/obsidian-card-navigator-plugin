@@ -192,4 +192,15 @@
     text-overflow: ellipsis;
     white-space: normal;
     -webkit-box-orient: vertical;
+	overflow-y: auto;
+}
+
+.card-navigator-content img {
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+
+.card-navigator-content * {
+    max-width: 100%;
 }

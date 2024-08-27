@@ -54,6 +54,17 @@ export class SettingTab extends PluginSettingTab {
 					}));
 		}
 
+			new Setting(containerEl)
+				.setName('Render Content as HTML')
+				.setDesc('If enabled, card content will be rendered as HTML')
+				.addToggle(toggle => toggle
+					.setValue(this.plugin.settings.renderContentAsHtml)
+					.onChange(async (value) => {
+						this.plugin.settings.renderContentAsHtml = value;
+						await this.plugin.saveSettings();
+						this.plugin.refreshViews();
+					}));
+
 		// new Setting(containerEl)
 		// 	.setName('Center Card Method')
 		// 	.setDesc('Choose how to center the active card in the view')

@@ -15,6 +15,7 @@ export interface CardNavigatorSettings {
     cardsPerView: number;
     useSelectedFolder: boolean;
     selectedFolder: string | null;
+	renderContentAsHtml: boolean;
 	centerCardMethod: 'scroll' | 'centered';
     activeCardBorderColor: string;
     activeCardBackgroundColor: string;

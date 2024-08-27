@@ -107,22 +107,38 @@ export class CardContainer {
     }
 
 	private renderCards(cardsData: Card[], cardWidth: number, cardHeight: number) {
-		const containerEl = this.containerEl;
-		if (!containerEl) return;
-	
-		containerEl.innerHTML = '';
-		containerEl.classList.toggle('card-container-horizontal', !this.isVertical);
-	
-		cardsData.forEach((cardData) => {
-			const card = this.cardMaker.createCardElement(cardData);
-			card.classList.toggle('card-navigator-card-horizontal', !this.isVertical);
-			card.style.width = `${cardWidth}px`;
-			card.style.height = `${cardHeight}px`;
-			containerEl.appendChild(card);
-		});
+        const containerEl = this.containerEl;
+        if (!containerEl) return;
+
+        containerEl.innerHTML = '';
+        containerEl.classList.toggle('card-container-horizontal', !this.isVertical);
+
+        cardsData.forEach((cardData) => {
+            const card = this.cardMaker.createCardElement(cardData);
+            card.classList.toggle('card-navigator-card-horizontal', !this.isVertical);
+            card.style.width = `${cardWidth}px`;
+            card.style.height = `${cardHeight}px`;
+            containerEl.appendChild(card);
+
+            // 이미지 로딩 처리
+			if (this.plugin.settings.renderContentAsHtml) {
+				card.querySelectorAll('img').forEach((img: HTMLImageElement) => {
+					img.addEventListener('load', () => {
+						this.adjustCardSize(card);
+					});
+				});
+			}
+        });
 	
 		if (this.plugin.settings.centerCardMethod === 'scroll') {
 			this.scrollToActiveCard(cardsData, cardWidth, cardHeight);
+		}
+	}
+
+	private adjustCardSize(card: HTMLElement) {
+		const content = card.querySelector('.card-navigator-content');
+		if (content instanceof HTMLElement) {
+			content.style.maxHeight = `${card.clientHeight - 40}px`; // 40px는 대략적인 여백
 		}
 	}
 
