@@ -8,6 +8,7 @@ import { DEFAULT_SETTINGS } from './common/settings';
 
 export default class CardNavigatorPlugin extends Plugin {
     settings: CardNavigatorSettings = DEFAULT_SETTINGS;
+	selectedFolder: string | null = null;
 	public containerEl: HTMLElement | undefined;
 
     async onload() {
@@ -32,6 +33,17 @@ export default class CardNavigatorPlugin extends Plugin {
             },
         });
 
+		this.addCommand({
+            id: 'select-folder',
+            name: 'Select folder for Card Navigator',
+            callback: () => {
+                const view = this.app.workspace.getActiveViewOfType(CardNavigator);
+                if (view) {
+                    view.toolbar.openFolderSelector();
+                }
+            }
+        });
+
         this.app.workspace.onLayoutReady(() => {
             this.activateView();
         });
@@ -48,6 +60,12 @@ export default class CardNavigatorPlugin extends Plugin {
     async saveSettings() {
         await this.saveData(this.settings);
         this.refreshViews();
+    }
+
+	setSelectedFolder(folderPath: string) {
+        this.selectedFolder = folderPath;
+        this.settings.selectedFolder = folderPath;
+        this.saveSettings();
     }
 
     refreshViews() {

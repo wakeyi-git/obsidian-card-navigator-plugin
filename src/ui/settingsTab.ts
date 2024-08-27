@@ -2,6 +2,7 @@
 
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../main';
+import { FolderSuggestModal } from './toolbar/toolbarActions';
 
 export class SettingTab extends PluginSettingTab {
     constructor(app: App, private plugin: CardNavigatorPlugin) {
@@ -26,6 +27,34 @@ export class SettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                     this.plugin.refreshViews();
                 }));
+
+		new Setting(containerEl)
+		.setName('Folder Selection')
+		.setDesc('Choose whether to use the active file\'s folder or a selected folder')
+		.addDropdown(dropdown => dropdown
+			.addOption('active', 'Active File\'s Folder')
+			.addOption('selected', 'Selected Folder')
+			.setValue(this.plugin.settings.useSelectedFolder ? 'selected' : 'active')
+			.onChange(async (value) => {
+				this.plugin.settings.useSelectedFolder = value === 'selected';
+				await this.plugin.saveSettings();
+				this.display(); // 설정 변경 시 화면 새로고침
+			}));
+
+		if (this.plugin.settings.useSelectedFolder) {
+			new Setting(containerEl)
+				.setName('Select Folder')
+				.setDesc('Choose a folder for Card Navigator')
+				.addButton(button => button
+					.setButtonText(this.plugin.settings.selectedFolder || 'Choose folder')
+					.onClick(() => {
+						new FolderSuggestModal(this.plugin, (folder) => {
+							this.plugin.settings.selectedFolder = folder.path;
+							this.plugin.saveSettings();
+							this.display(); // 폴더 선택 후 화면 새로고침
+						}).open();
+					}));
+		}
 
 		// new Setting(containerEl)
 		// 	.setName('Center Card Method')

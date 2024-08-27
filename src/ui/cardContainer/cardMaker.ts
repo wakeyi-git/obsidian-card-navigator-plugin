@@ -20,7 +20,7 @@ export class CardMaker {
         return await Promise.all(sortedFiles.map(file => this.createCard(file)));
     }
 
-    private async createCard(file: TFile): Promise<Card> {
+    public async createCard(file: TFile): Promise<Card> {
         const content = await this.plugin.app.vault.cachedRead(file);
         const { cleanContent } = separateFrontmatterAndContent(content);
         const contentWithoutHeader = this.removeFirstHeader(cleanContent);

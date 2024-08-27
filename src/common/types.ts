@@ -13,7 +13,9 @@ export type SortCriterion = 'fileName' | 'lastModified' | 'created';
 
 export interface CardNavigatorSettings {
     cardsPerView: number;
-    centerCardMethod: 'scroll' | 'centered';
+    useSelectedFolder: boolean;
+    selectedFolder: string | null;
+	centerCardMethod: 'scroll' | 'centered';
     activeCardBorderColor: string;
     activeCardBackgroundColor: string;
     sortCriterion: SortCriterion;

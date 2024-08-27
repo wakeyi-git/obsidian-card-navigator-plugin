@@ -1,8 +1,28 @@
 // src/ui/toolbar/toolbarActions.ts
 
+import { TFolder, FuzzySuggestModal } from 'obsidian';
 import { CardNavigator } from '../cardNavigator';
 import { VIEW_TYPE_CARD_NAVIGATOR } from '../cardNavigator';
 import CardNavigatorPlugin from '../../main';
+
+export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
+    constructor(private plugin: CardNavigatorPlugin, private onSelect: (folder: TFolder) => void) {
+        super(plugin.app);
+    }
+
+    getItems(): TFolder[] {
+        return this.plugin.app.vault.getAllLoadedFiles()
+            .filter((file): file is TFolder => file instanceof TFolder);
+    }
+
+    getItemText(folder: TFolder): string {
+        return folder.path;
+    }
+
+    onChooseItem(folder: TFolder): void {
+        this.onSelect(folder);
+    }
+}
 
 export function moveCards(direction: string, plugin: CardNavigatorPlugin, amount: 'single' | 'multiple' = 'single') {
     const view = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0].view as CardNavigator;

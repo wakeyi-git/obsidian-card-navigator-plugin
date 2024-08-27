@@ -4,6 +4,8 @@ import { CardNavigatorSettings } from './types';
 
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     cardsPerView: 6,
+	useSelectedFolder: false,
+    selectedFolder: null,
     centerCardMethod: 'scroll',
     activeCardBorderColor: 'var(--active-border-color)',
     activeCardBackgroundColor: 'var(--active-background-color)',

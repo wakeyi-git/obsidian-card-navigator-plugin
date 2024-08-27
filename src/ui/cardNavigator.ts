@@ -10,7 +10,7 @@ export const VIEW_TYPE_CARD_NAVIGATOR = "card-navigator-view";
 
 export class CardNavigator extends ItemView {
     private plugin: CardNavigatorPlugin;
-    private toolbar: Toolbar;
+    public toolbar: Toolbar;
     public cardContainer: CardContainer;
     private resizeObserver: ResizeObserver;
 	private isVertical: boolean;

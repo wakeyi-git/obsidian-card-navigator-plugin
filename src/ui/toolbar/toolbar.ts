@@ -1,7 +1,9 @@
 // src/ui/toolbar/toolbar.ts
 
-import { setIcon } from 'obsidian';
+import { setIcon, TFolder } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
+import { CardNavigator } from '../cardNavigator';
+import { FolderSuggestModal } from './toolbarActions';
 import { moveCards, toggleSearch, toggleSort, toggleSettings } from './toolbarActions';
 
 export class Toolbar {
@@ -104,6 +106,7 @@ export class Toolbar {
 
         const icons = [
             { name: 'search', label: 'Search', action: () => toggleSearch(this.plugin) },
+			{ name: 'folder', label: 'Select folder', action: () => this.openFolderSelector() },
             { name: 'arrow-up-narrow-wide', label: 'Sort cards', action: () => toggleSort(this.plugin) },
             { name: 'settings', label: 'Settings', action: () => toggleSettings(this.plugin) },
         ];
@@ -133,6 +136,15 @@ export class Toolbar {
         return icon;
     }
 	
+	public openFolderSelector() {
+		new FolderSuggestModal(this.plugin, (folder: TFolder) => {
+			const view = this.plugin.app.workspace.getActiveViewOfType(CardNavigator);
+			if (view) {
+				view.cardContainer.displayCardsForFolder(folder);
+			}
+		}).open();
+	}
+
     refresh() {
         // Implement refresh logic if necessary
     }
