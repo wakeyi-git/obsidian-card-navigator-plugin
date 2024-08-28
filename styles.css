@@ -1,211 +1,278 @@
 /* styles.css */
 
+:root {
+	--card-navigator-toolbar-height: 50px;
+	--card-navigator-gap: 15px;
+	--card-navigator-border-radius: 8px;
+	--card-navigator-box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+	--card-navigator-transition: 0.2s ease;
+	--card-navigator-icon-size: 20px;
+	--card-navigator-popup-width: 50%;
+}
+
+.theme-dark {
+	--card-navigator-background: var(--background-primary-alt);
+	--card-navigator-text: var(--text-muted);
+	--card-navigator-border: var(--background-modifier-border);
+	--card-navigator-hover-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.theme-light {
+	--card-navigator-background: var(--background-primary);
+	--card-navigator-text: var(--text-normal);
+	--card-navigator-border: var(--background-modifier-border);
+	--card-navigator-hover-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+.card-navigator {
+	overflow: visible;
+	flex: 1;
+	flex-direction: column;
+	width: 100%;
+	padding: 1rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: var(--background-secondary);
+}
+
 .card-navigator-toolbar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 10;
-    width: 100%;
-    height: 50px;
-    background-color: var(--background-primary);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 10;
+	width: 100%;
+	height: var(--card-navigator-toolbar-height);
+	background-color: var(--card-navigator-background);
+	box-shadow: var(--card-navigator-box-shadow);
 }
 
 .card-navigator-toolbar-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 20px; /* 툴바 내의 각 섹션(이동 아이콘, 액션 아이콘 등) 사이의 간격 */
-    padding: 10px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: var(--card-navigator-gap);
+	padding: 0.5rem;
+	height: 100%;
 }
 
 .card-navigator-move-icons-container,
 .card-navigator-action-icons-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px; /* 각 아이콘 사이의 간격 */
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: 0.5rem;
 }
 
 .card-navigator-move-icons-container.vertical {
-    flex-direction: column; /* 세로 모드일 때 아이콘들을 세로로 정렬 */
+	flex-direction: column;
 }
 
 .card-navigator-move-icons-container.horizontal {
-    flex-direction: row; /* 가로 모드일 때 아이콘들을 가로로 정렬 */
+	flex-direction: row;
 }
 
 .toolbar-separator {
-    width: 1px;
-    height: 100%;
-    background-color: var(--separator-color, #ccc);
+	width: 1px;
+	height: 100%;
+	background-color: var(--card-navigator-border);
 }
 
 .card-navigator-search-popup,
 .card-navigator-sort-popup,
 .card-navigator-settings-popup {
-    position: absolute;
-    top: 50px;
-    right: 0;
-    width: 50%;
-    padding: 10px;
-    background-color: var(--background-primary);
-	border-radius: 8px;
-	border: 1px solid var(--background-modifier-border);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    z-index: 20;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+	position: absolute;
+	top: var(--card-navigator-toolbar-height);
+	right: 0;
+	width: var(--card-navigator-popup-width);
+	padding: 1rem;
+	background-color: var(--card-navigator-background);
+	border-radius: var(--card-navigator-border-radius);
+	border: 1px solid var(--card-navigator-border);
+	box-shadow: var(--card-navigator-box-shadow);
+	z-index: 20;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
 }
 
 .hidden {
-    display: none;
+	display: none;
 }
 
 .card-navigator-search-container {
-    display: flex;
-    flex-direction: row;
-    width: 100%;
-    flex-grow: 1;
-    margin-right: 10px;
+	display: flex;
+	flex-direction: row;
+	width: 100%;
+	flex-grow: 1;
+	margin-right: 0.5rem;
 }
 
 .card-navigator-search-input {
-    width: 100%;
+	width: 100%;
+	padding: 0.5rem;
+	border: 1px solid var(--card-navigator-border);
+	border-radius: var(--card-navigator-border-radius);
+}
+
+.card-navigator-sort-popup button {
+	padding: 0.5rem;
+	background-color: var(--card-navigator-background);
+	border: 1px solid var(--card-navigator-border);
+	border-radius: var(--card-navigator-border-radius);
+	color: var(--card-navigator-text);
+	cursor: pointer;
+	transition: background-color var(--card-navigator-transition);
 }
 
 .card-navigator-sort-popup button.active {
-    background-color: var(--interactive-accent);
-    color: var(--text-on-accent);
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
 }
 
 .card-navigator-settings-popup label {
-    display: block;
-    margin: 10px 0 5px;
+	display: block;
+	margin: 0.5rem 0 0.25rem;
 }
 
 .card-navigator-settings-popup input[type="checkbox"] {
-    margin-left: 10px;
+	margin-left: 0.5rem;
 }
 
 .card-navigator-settings-popup input[type="range"] {
-    width: 100%;
-}
-
-.card-view-area {
-    overflow: visible;
-    flex: 1;
-    flex-direction: column;
-    width: 100%;
-    height: 100%;
-	margin-top: 50px;
-    padding: 10px 10px 10px 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: var(--background-secondary);
+	width: 100%;
 }
 
 .card-container {
-    width: 100%;
-    padding: 10px;
-    display: flex;
-    gap: 15px;
-    flex-direction: column;
-    align-items: center;
-    flex: 1;
-    overflow: visible;
-    position: relative;
+	width: 100%;
+	margin-top: var(--card-navigator-toolbar-height);
+	padding: 1rem;
+	display: flex;
+	gap: var(--card-navigator-gap);
+	flex-direction: column;
+	align-items: center;
+	flex: 1;
+	overflow: visible;
+	position: relative;
 }
 
 .card-container-horizontal {
-    height: 100%;
-    padding: 10px;
-    display: flex;
-    gap: 15px;
-    flex-direction: row;
-    align-items: center;
-    flex: 1;
-    overflow: visible;
-    position: relative;
+	height: 100%;
+	padding: 1rem;
+	display: flex;
+	gap: var(--card-navigator-gap);
+	flex-direction: row;
+	align-items: center;
+	flex: 1;
+	overflow: visible;
+	position: relative;
 }
 
 .card-navigator-card {
-    padding: 15px;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 8px;
-    background-color: var(--background-primary-alt);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    cursor: pointer;
-    will-change: transform, box-shadow;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
+	padding: 1rem;
+	border: 1px solid var(--card-navigator-border);
+	border-radius: var(--card-navigator-border-radius);
+	background-color: var(--card-navigator-background);
+	box-shadow: var(--card-navigator-box-shadow);
+	transition: transform var(--card-navigator-transition), box-shadow var(--card-navigator-transition);
+	cursor: pointer;
+	display: flex;
+	flex-direction: column;
 }
 
 .card-navigator-card-horizontal {
-    padding: 15px;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 8px;
-    background-color: var(--background-primary-alt);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    cursor: pointer;
-    will-change: transform, box-shadow;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: row;
+	padding: 1rem;
+	border: 1px solid var(--card-navigator-border);
+	border-radius: var(--card-navigator-border-radius);
+	background-color: var(--card-navigator-background);
+	box-shadow: var(--card-navigator-box-shadow);
+	transition: transform var(--card-navigator-transition), box-shadow var(--card-navigator-transition);
+	cursor: pointer;
+	display: flex;
+	flex-direction: row;
 }
 
 .card-navigator-card.card-navigator-active {
-    border: 2px solid;
-    border-color: hsla(var(--interactive-accent-hsl), 0.5);
-    background-color: var(--background-primary-alt);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+	border: 2px solid var(--interactive-accent);
+	background-color: var(--card-navigator-background);
 }
 
-.card-navigator-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+.card-navigator-card:hover,
+.card-navigator-card:focus {
+	transform: translateY(-3px);
+	box-shadow: var(--card-navigator-hover-shadow);
+}
+
+.card-navigator-card:focus {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
 }
 
 .card-navigator-filename {
-    font-size: var(--filename-font-size);
-    font-weight: bold;
-    margin-top: 0;
-    margin-bottom: 10px;
-    color: var(--text-title);
+	font-size: var(--file-name-font-size, 1.2rem);
+	font-weight: bold;
+	margin: 0 0 0.5rem 0;
+	color: var(--text-normal);
 }
 
 .card-navigator-first-header {
-    font-size: var(--first-header-font-size);
-    font-weight: 600;
-    margin-top: 0;
-    margin-bottom: 10px;
-    color: var(--text-normal);
+	font-size: var(--first-header-font-size, 1.1rem);
+	font-weight: 600;
+	margin: 0 0 0.5rem 0;
+	color: var(--text-normal);
 }
 
 .card-navigator-content {
-    font-size: var(--content-font-size);
-    color: var(--text-muted);
-    line-height: 1.5;
-    margin-top: 0;
-    margin-bottom: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: normal;
-    -webkit-box-orient: vertical;
+	font-size: var(--content-font-size, 1rem);
+	color: var(--card-navigator-text);
+	line-height: 1.5;
+	margin: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
 	overflow-y: auto;
 }
 
 .card-navigator-content img {
-    max-width: 100%;
-    height: auto;
-    object-fit: contain;
+	max-width: 100%;
+	height: auto;
+	object-fit: contain;
 }
 
-.card-navigator-content * {
-    max-width: 100%;
+  .card-navigator-content * {
+	max-width: 100%;
+}
+
+.clickable-icon {
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: color var(--card-navigator-transition);
+}
+
+.clickable-icon:hover,
+.clickable-icon:focus {
+	color: var(--text-normal);
+}
+
+.clickable-icon svg {
+	width: var(--card-navigator-icon-size);
+	height: var(--card-navigator-icon-size);
+}
+
+@media (max-width: 768px) {
+	.card-navigator-toolbar-container {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.card-navigator-search-popup,
+	.card-navigator-sort-popup,
+	.card-navigator-settings-popup {
+		width: 100%;
+	}
+
+	.card-view-area {
+		padding: 0.5rem;
+	}
 }
