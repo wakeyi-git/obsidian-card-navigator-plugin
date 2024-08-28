@@ -45,10 +45,12 @@
 	height: var(--card-navigator-toolbar-height);
 	background-color: var(--card-navigator-background);
 	box-shadow: var(--card-navigator-box-shadow);
+	flex-direction: row;
 }
 
 .card-navigator-toolbar-container {
 	display: flex;
+	flex-direction: row;
 	justify-content: center;
 	align-items: center;
 	gap: var(--card-navigator-gap);
@@ -62,14 +64,6 @@
 	justify-content: center;
 	align-items: center;
 	gap: 0.5rem;
-}
-
-.card-navigator-move-icons-container.vertical {
-	flex-direction: column;
-}
-
-.card-navigator-move-icons-container.horizontal {
-	flex-direction: row;
 }
 
 .toolbar-separator {
@@ -275,7 +269,7 @@
 
 @media (max-width: 768px) {
 	.card-navigator-toolbar-container {
-		flex-direction: column;
+		flex-direction: row;
 		align-items: flex-start;
 	}
 
