@@ -27,20 +27,21 @@ export function separateFrontmatterAndContent(content: string): { frontmatter: s
         : { frontmatter: null, cleanContent: content.trim() };
 }
 
-export function sortFiles(files: TFile[], criterion: SortCriterion, locale = 'en'): TFile[] {
-    const collator = new Intl.Collator(locale, { numeric: true, sensitivity: 'base' });
-
+export function sortFiles(files: TFile[], criterion: SortCriterion, order: 'asc' | 'desc'): TFile[] {
     return files.sort((a, b) => {
+        let comparison = 0;
         switch (criterion) {
             case 'fileName':
-                return collator.compare(a.basename, b.basename);
+                comparison = a.basename.localeCompare(b.basename, undefined, { numeric: true, sensitivity: 'base' });
+                break;
             case 'lastModified':
-                return b.stat.mtime - a.stat.mtime;
+                comparison = a.stat.mtime - b.stat.mtime;
+                break;
             case 'created':
-                return b.stat.ctime - a.stat.ctime;
-            default:
-                return 0;
+                comparison = a.stat.ctime - b.stat.ctime;
+                break;
         }
+        return order === 'asc' ? comparison : -comparison;
     });
 }
 

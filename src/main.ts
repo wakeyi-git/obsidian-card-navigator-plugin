@@ -61,13 +61,7 @@ export default class CardNavigatorPlugin extends Plugin {
         await this.saveData(this.settings);
         this.refreshViews();
     }
-
-	setSelectedFolder(folderPath: string) {
-        this.selectedFolder = folderPath;
-        this.settings.selectedFolder = folderPath;
-        this.saveSettings();
-    }
-
+	
     refreshViews() {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach((leaf) => {

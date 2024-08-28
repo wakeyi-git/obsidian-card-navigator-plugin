@@ -15,11 +15,12 @@ export interface CardNavigatorSettings {
     cardsPerView: number;
     useSelectedFolder: boolean;
     selectedFolder: string | null;
+	sortCriterion: SortCriterion;
+    sortOrder: 'asc' | 'desc';
 	renderContentAsHtml: boolean;
 	centerCardMethod: 'scroll' | 'centered';
     activeCardBorderColor: string;
     activeCardBackgroundColor: string;
-    sortCriterion: SortCriterion;
 	dragDropContent: boolean;
     showFileName: boolean;
     fileNameSize: number;

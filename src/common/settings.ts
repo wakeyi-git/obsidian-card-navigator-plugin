@@ -1,16 +1,17 @@
 // src/common/settings.ts
 
-import { CardNavigatorSettings } from './types';
+import { CardNavigatorSettings, SortCriterion } from './types';
 
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     cardsPerView: 6,
 	useSelectedFolder: false,
     selectedFolder: null,
+	sortCriterion: 'fileName' as SortCriterion,
+    sortOrder: 'asc' as 'asc' | 'desc',
 	renderContentAsHtml: false,
     centerCardMethod: 'scroll',
     activeCardBorderColor: 'var(--active-border-color)',
     activeCardBackgroundColor: 'var(--active-background-color)',
-    sortCriterion: 'fileName',
 	dragDropContent: false,
     showFileName: true,
     fileNameSize: 20,

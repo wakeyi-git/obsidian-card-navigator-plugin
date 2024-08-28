@@ -3,6 +3,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../main';
 import { FolderSuggestModal } from './toolbar/toolbarActions';
+import { SortCriterion } from '../common/types';
 
 export class SettingTab extends PluginSettingTab {
     constructor(app: App, private plugin: CardNavigatorPlugin) {
@@ -54,16 +55,37 @@ export class SettingTab extends PluginSettingTab {
 					}));
 		}
 
-			new Setting(containerEl)
-				.setName('Render Content as HTML')
-				.setDesc('If enabled, card content will be rendered as HTML')
-				.addToggle(toggle => toggle
-					.setValue(this.plugin.settings.renderContentAsHtml)
-					.onChange(async (value) => {
-						this.plugin.settings.renderContentAsHtml = value;
-						await this.plugin.saveSettings();
-						this.plugin.refreshViews();
-					}));
+        new Setting(containerEl)
+            .setName('Default sort method')
+            .setDesc('Choose the default sorting method for cards')
+            .addDropdown(dropdown => {
+                dropdown
+                    .addOption('fileName_asc', 'File name (A to Z)')
+                    .addOption('fileName_desc', 'File name (Z to A)')
+                    .addOption('lastModified_desc', 'Last modified (newest first)')
+                    .addOption('lastModified_asc', 'Last modified (oldest first)')
+                    .addOption('created_desc', 'Created (newest first)')
+                    .addOption('created_asc', 'Created (oldest first)')
+                    .setValue(`${this.plugin.settings.sortCriterion}_${this.plugin.settings.sortOrder}`)
+                    .onChange(async (value) => {
+                        const [criterion, order] = value.split('_') as [SortCriterion, 'asc' | 'desc'];
+                        this.plugin.settings.sortCriterion = criterion;
+                        this.plugin.settings.sortOrder = order;
+                        await this.plugin.saveSettings();
+                        this.plugin.refreshViews();
+                    });
+            });
+
+		new Setting(containerEl)
+			.setName('Render Content as HTML')
+			.setDesc('If enabled, card content will be rendered as HTML')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.renderContentAsHtml)
+				.onChange(async (value) => {
+					this.plugin.settings.renderContentAsHtml = value;
+					await this.plugin.saveSettings();
+					this.plugin.refreshViews();
+				}));
 
 		// new Setting(containerEl)
 		// 	.setName('Center Card Method')

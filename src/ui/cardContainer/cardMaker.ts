@@ -8,17 +8,19 @@ import { sortFiles, separateFrontmatterAndContent } from '../../common/utils';
 export class CardMaker {
     constructor(private plugin: CardNavigatorPlugin) {}
 
-    async getCardsForActiveFile(activeFile: TFile): Promise<Card[]> {
-        const folder = activeFile.parent;
-        if (!folder) {
-            return [];
-        }
-
-        const files = folder.children.filter((file): file is TFile => file instanceof TFile);
-        const userLocale = navigator.language || 'en'; 
-        const sortedFiles = sortFiles(files, this.plugin.settings.sortCriterion, userLocale);
-        return await Promise.all(sortedFiles.map(file => this.createCard(file)));
-    }
+	async getCardsForActiveFile(activeFile: TFile): Promise<Card[]> {
+		const folder = activeFile.parent;
+		if (!folder) {
+			return [];
+		}
+		const files = folder.children.filter((file): file is TFile => file instanceof TFile);
+		const sortedFiles = sortFiles(
+			files, 
+			this.plugin.settings.sortCriterion, 
+			this.plugin.settings.sortOrder
+		);
+		return await Promise.all(sortedFiles.map(file => this.createCard(file)));
+	}
 
     public async createCard(file: TFile): Promise<Card> {
         const content = await this.plugin.app.vault.cachedRead(file);

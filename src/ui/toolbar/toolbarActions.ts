@@ -4,6 +4,7 @@ import { TFolder, FuzzySuggestModal } from 'obsidian';
 import { CardNavigator } from '../cardNavigator';
 import { VIEW_TYPE_CARD_NAVIGATOR } from '../cardNavigator';
 import CardNavigatorPlugin from '../../main';
+import { SortCriterion } from '../../common/types';
 
 export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     constructor(private plugin: CardNavigatorPlugin, private onSelect: (folder: TFolder) => void) {
@@ -105,25 +106,29 @@ export function toggleSort(plugin: CardNavigatorPlugin) {
         sortPopup = document.createElement('div');
         sortPopup.className = 'card-navigator-sort-popup';
 
-        const options: Array<'fileName' | 'lastModified' | 'created'> = ['fileName', 'lastModified', 'created'];
-        options.forEach(option => {
-            const ascButton = document.createElement('button');
-            ascButton.textContent = `${option} ↑`;
-            ascButton.addEventListener('click', async () => {
-                await plugin.sortCards(option, 'asc');
-                sortPopup.classList.add('hidden');
-            });
+        const currentSort = `${plugin.settings.sortCriterion}_${plugin.settings.sortOrder}`;
 
-            const descButton = document.createElement('button');
-            descButton.textContent = `${option} ↓`;
-            descButton.addEventListener('click', async () => {
-                await plugin.sortCards(option, 'desc');
-                sortPopup.classList.add('hidden');
+        const addSortOption = (value: string, label: string) => {
+            const option = document.createElement('button');
+            option.textContent = label;
+            option.classList.toggle('active', currentSort === value);
+            option.addEventListener('click', async () => {
+                const [criterion, order] = value.split('_') as [SortCriterion, 'asc' | 'desc'];
+                plugin.settings.sortCriterion = criterion;
+                plugin.settings.sortOrder = order;
+                await plugin.saveSettings();
+                plugin.refreshViews();
+                sortPopup.remove();
             });
+            sortPopup.appendChild(option);
+        };
 
-            sortPopup.appendChild(ascButton);
-            sortPopup.appendChild(descButton);
-        });
+        addSortOption('fileName_asc', 'File name (A to Z)');
+        addSortOption('fileName_desc', 'File name (Z to A)');
+        addSortOption('lastModified_desc', 'Last modified (newest first)');
+        addSortOption('lastModified_asc', 'Last modified (oldest first)');
+        addSortOption('created_desc', 'Created (newest first)');
+        addSortOption('created_asc', 'Created (oldest first)');
 
         // 툴바 하단에 배치
         const toolbarEl = document.querySelector('.card-navigator-toolbar-container');
@@ -139,7 +144,7 @@ export function toggleSort(plugin: CardNavigatorPlugin) {
             });
         }
     } else {
-        sortPopup.classList.toggle('hidden');
+        sortPopup.remove();
     }
 }
 

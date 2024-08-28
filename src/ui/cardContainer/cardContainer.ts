@@ -102,7 +102,8 @@ export class CardContainer {
         setContainerSize(this.containerEl, this.cardWidth, this.cardHeight, this.plugin.settings.cardsPerView, this.isVertical);
 
         const files = folder.children.filter((file): file is TFile => file instanceof TFile);
-        const cardsData = await Promise.all(files.map(file => this.cardMaker.createCard(file)));
+        const sortedFiles = sortFiles(files, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
+        const cardsData = await Promise.all(sortedFiles.map(file => this.cardMaker.createCard(file)));
         this.renderCards(cardsData, this.cardWidth, this.cardHeight);
     }
 
@@ -269,25 +270,12 @@ export class CardContainer {
 		return filteredFiles;
 	}
 
-	public async sortCards(criterion: SortCriterion, order: 'asc' | 'desc') {
-		const activeFile = this.plugin.app.workspace.getActiveFile();
-		if (!activeFile) return;
-	
-		const folder = activeFile.parent;
-		if (!folder) return;
-	
-		const files = folder.children.filter((file): file is TFile => file instanceof TFile);
-		const sortedFiles = sortFiles(files, criterion, order);
-	
-		const cards = await Promise.all(sortedFiles.map(async file => ({
-			file,
-			fileName: this.plugin.settings.showFileName ? file.basename : undefined,
-			firstHeader: this.plugin.settings.showFirstHeader ? await this.findFirstHeader(file) : undefined,
-			content: this.plugin.settings.showContent ? await this.getFileContent(file) : undefined,
-		})));
-	
-		this.renderCards(cards, this.cardWidth, this.cardHeight);
-	}
+    public async sortCards(criterion: SortCriterion, order: 'asc' | 'desc') {
+        this.plugin.settings.sortCriterion = criterion;
+        this.plugin.settings.sortOrder = order;
+        await this.plugin.saveSettings();
+        this.refresh();
+    }
 	
 	private async findFirstHeader(file: TFile): Promise<string | undefined> {
 		const content = await this.plugin.app.vault.cachedRead(file);

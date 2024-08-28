@@ -75,6 +75,11 @@
     width: 100%;
 }
 
+.card-navigator-sort-popup button.active {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
 .card-navigator-settings-popup label {
     display: block;
     margin: 10px 0 5px;

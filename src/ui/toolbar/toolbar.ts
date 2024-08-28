@@ -8,11 +8,11 @@ import { moveCards, toggleSearch, toggleSort, toggleSettings } from './toolbarAc
 
 export class Toolbar {
     private containerEl: HTMLElement | undefined = undefined;
-	private isVertical: boolean;
+    private isVertical: boolean;
 
     constructor(private plugin: CardNavigatorPlugin) {
-		this.isVertical = false;
-	}
+        this.isVertical = false;
+    }
 
     initialize(containerEl: HTMLElement) {
         this.containerEl = containerEl;
@@ -106,26 +106,26 @@ export class Toolbar {
 
         const icons = [
             { name: 'search', label: 'Search', action: () => toggleSearch(this.plugin) },
-			{ name: 'folder', label: 'Select folder', action: () => this.openFolderSelector() },
+            { name: 'folder', label: 'Select folder', action: () => this.openFolderSelector() },
             { name: 'arrow-up-narrow-wide', label: 'Sort cards', action: () => toggleSort(this.plugin) },
             { name: 'settings', label: 'Settings', action: () => toggleSettings(this.plugin) },
         ];
 
         icons.forEach(icon => {
             const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
+            if (icon.name === 'arrow-up-narrow-wide') {
+                iconElement.classList.toggle('active', 
+                    this.plugin.settings.sortCriterion !== 'fileName' || 
+                    this.plugin.settings.sortOrder !== 'asc'
+                );
+            }
             container.appendChild(iconElement);
         });
 
         return container;
     }
 
-    private createSeparator(): HTMLElement {
-        const separator = document.createElement('div');
-        separator.className = 'toolbar-separator';
-        return separator;
-    }
-
-    private createToolbarIcon(iconName: string, ariaLabel: string, action: () => void): HTMLElement {
+    private createToolbarIcon(iconName: string, ariaLabel: string, action: (e: MouseEvent) => void): HTMLElement {
         const icon = document.createElement('div');
         icon.className = 'clickable-icon';
         icon.setAttribute('aria-label', ariaLabel);
@@ -136,6 +136,12 @@ export class Toolbar {
         return icon;
     }
 	
+	private createSeparator(): HTMLElement {
+        const separator = document.createElement('div');
+        separator.className = 'toolbar-separator';
+        return separator;
+    }
+
 	public openFolderSelector() {
 		new FolderSuggestModal(this.plugin, (folder: TFolder) => {
 			const view = this.plugin.app.workspace.getActiveViewOfType(CardNavigator);
