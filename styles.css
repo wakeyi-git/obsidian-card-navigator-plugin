@@ -153,10 +153,6 @@
 	overflow: visible;
 	position: relative;
 	scroll-behavior: smooth;
-	overflow-x: auto;
-	overflow-y: auto;
-	scrollbar-width: thin;
-	scrollbar-color: var(--scrollbar-thumb-bg) var(--scrollbar-bg);
 }
 
 .card-container::-webkit-scrollbar {
