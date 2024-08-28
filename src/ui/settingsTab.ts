@@ -112,7 +112,7 @@ export class SettingTab extends PluginSettingTab {
 				this.plugin.refreshViews();
 			}));
 
-		containerEl.createEl('h1', { text: 'Display items Settings' });
+		containerEl.createEl('h3', { text: 'Display items Settings' });
 
 
 		new Setting(containerEl)

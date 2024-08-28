@@ -78,7 +78,6 @@
 	background-color: var(--card-navigator-border);
 }
 
-.card-navigator-search-popup,
 .card-navigator-sort-popup,
 .card-navigator-settings-popup {
 	position: absolute;
@@ -101,18 +100,17 @@
 }
 
 .card-navigator-search-container {
-	display: flex;
-	flex-direction: row;
-	width: 100%;
-	flex-grow: 1;
-	margin-right: 0.5rem;
+    flex-grow: 1;
+    margin-right: 0.5rem;
 }
 
 .card-navigator-search-input {
-	width: 100%;
-	padding: 0.5rem;
-	border: 1px solid var(--card-navigator-border);
-	border-radius: var(--card-navigator-border-radius);
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--card-navigator-border);
+    border-radius: var(--card-navigator-border-radius);
+    background-color: var(--background-primary);
+    color: var(--text-normal);
 }
 
 .card-navigator-sort-popup button {
@@ -154,6 +152,25 @@
 	flex: 1;
 	overflow: visible;
 	position: relative;
+	scroll-behavior: smooth;
+	overflow-x: auto;
+	overflow-y: auto;
+	scrollbar-width: thin;
+	scrollbar-color: var(--scrollbar-thumb-bg) var(--scrollbar-bg);
+}
+
+.card-container::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+.card-container::-webkit-scrollbar-thumb {
+	background-color: var(--scrollbar-thumb-bg);
+	border-radius: 4px;
+}
+
+.card-container::-webkit-scrollbar-track {
+	background-color: var(--scrollbar-bg);
 }
 
 .card-container-horizontal {

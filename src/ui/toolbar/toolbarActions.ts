@@ -26,76 +26,30 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
 }
 
 export function moveCards(direction: string, plugin: CardNavigatorPlugin, amount: 'single' | 'multiple' = 'single') {
-    const view = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0].view as CardNavigator;
+    const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+    if (leaves.length === 0) return;
+
+    const view = leaves[0].view as CardNavigator;
+    if (!view || !view.cardContainer) return;
+
     const cardContainer = view.cardContainer;
-    const cardContainerEl = cardContainer.getContainerEl();
-    if (!cardContainerEl) return;
-
-    const { cardWidth, cardHeight, isVertical } = cardContainer.getCardSizeAndOrientation();
-
-    const moveAmount = amount === 'single'
-        ? (isVertical ? cardHeight : cardWidth)
-        : (isVertical ? cardHeight : cardWidth) * plugin.settings.cardsPerView;
-    
-    const currentScroll = isVertical ? cardContainerEl.scrollTop : cardContainerEl.scrollLeft;
 
     switch (direction) {
         case 'up':
-            cardContainerEl.scrollTo({ top: currentScroll - moveAmount, behavior: 'smooth' });
+            cardContainer.scrollUp(amount);
             break;
         case 'down':
-            cardContainerEl.scrollTo({ top: currentScroll + moveAmount, behavior: 'smooth' });
+            cardContainer.scrollDown(amount);
             break;
         case 'left':
-            cardContainerEl.scrollTo({ left: currentScroll - moveAmount, behavior: 'smooth' });
+            cardContainer.scrollLeft(amount);
             break;
         case 'right':
-            cardContainerEl.scrollTo({ left: currentScroll + moveAmount, behavior: 'smooth' });
+            cardContainer.scrollRight(amount);
             break;
-        case 'center': {
-            const activeCard = cardContainerEl.querySelector('.card-navigator-active') as HTMLElement;
-            if (activeCard) {
-                activeCard.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-            }
+        case 'center':
+            cardContainer.scrollToCenter();
             break;
-        }
-    }
-}
-
-export function toggleSearch(plugin: CardNavigatorPlugin) {
-    let searchPopup = document.querySelector('.card-navigator-search-popup') as HTMLElement;
-
-    if (!searchPopup) {
-        searchPopup = document.createElement('div');
-        searchPopup.className = 'card-navigator-search-popup';
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.placeholder = 'Search...';
-
-        input.addEventListener('input', async () => {
-            const searchTerm = input.value;
-            const view = plugin.app.workspace.getLeavesOfType('card-navigator-view')[0].view as CardNavigator;
-            await view.cardContainer.searchCards(searchTerm);
-        });
-
-        searchPopup.appendChild(input);
-
-        // 툴바 하단에 배치
-        const toolbarEl = document.querySelector('.card-navigator-toolbar-container');
-        if (toolbarEl) {
-            toolbarEl.insertAdjacentElement('afterend', searchPopup);
-
-            // 화면의 다른 곳을 클릭하면 팝업을 닫는 이벤트 추가
-            document.addEventListener('click', function onClickOutside(event) {
-                if (searchPopup && !searchPopup.contains(event.target as Node) && !toolbarEl.contains(event.target as Node)) {
-                    searchPopup.remove();
-                    document.removeEventListener('click', onClickOutside);
-                }
-            });
-        }
-    } else {
-        searchPopup.classList.toggle('hidden');
     }
 }
 

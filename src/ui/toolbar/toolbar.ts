@@ -1,10 +1,10 @@
 // src/ui/toolbar/toolbar.ts
 
-import { setIcon, TFolder } from 'obsidian';
+import { setIcon, TFolder, debounce } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { CardNavigator } from '../cardNavigator';
 import { FolderSuggestModal } from './toolbarActions';
-import { moveCards, toggleSearch, toggleSort, toggleSettings } from './toolbarActions';
+import { toggleSort, toggleSettings } from './toolbarActions';
 
 export class Toolbar {
     private containerEl: HTMLElement | undefined = undefined;
@@ -44,59 +44,33 @@ export class Toolbar {
         const toolbarContainer = document.createElement('div');
         toolbarContainer.className = 'card-navigator-toolbar-container';
 
-        const moveIconsContainer = this.isVertical ? this.createVerticalMoveIconsContainer() : this.createHorizontalMoveIconsContainer();
+        const searchContainer = this.createSearchContainer();
         const separator = this.createSeparator();
         const actionIconsContainer = this.createActionIconsContainer();
 
-        toolbarContainer.appendChild(moveIconsContainer);
+        toolbarContainer.appendChild(searchContainer);
         toolbarContainer.appendChild(separator);
         toolbarContainer.appendChild(actionIconsContainer);
 
         this.containerEl.appendChild(toolbarContainer);
     }
 
-    private getMode(): 'vertical' | 'horizontal' {
-        const view = this.plugin.app.workspace.getLeavesOfType('card-navigator-view')[0].view;
-        return view.containerEl.clientHeight > view.containerEl.clientWidth ? 'vertical' : 'horizontal';
-    }
-
-    private createVerticalMoveIconsContainer(): HTMLElement {
+    private createSearchContainer(): HTMLElement {
         const container = document.createElement('div');
-        container.className = 'card-navigator-move-icons-container';
+        container.className = 'card-navigator-search-container';
 
-        const icons = [
-            { name: 'chevrons-up', label: 'Move up multiple', action: () => moveCards('up', this.plugin, 'multiple') },
-            { name: 'chevron-up', label: 'Move up single', action: () => moveCards('up', this.plugin, 'single') },
-            { name: 'chevrons-down-up', label: 'Center active card', action: () => moveCards('center', this.plugin) },
-            { name: 'chevron-down', label: 'Move down single', action: () => moveCards('down', this.plugin, 'single') },
-            { name: 'chevrons-down', label: 'Move down multiple', action: () => moveCards('down', this.plugin, 'multiple') },
-        ];
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = 'Search...';
+        input.className = 'card-navigator-search-input';
 
-        icons.forEach(icon => {
-            const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
-            container.appendChild(iconElement);
-        });
+        input.addEventListener('input', debounce(async (e: Event) => {
+            const searchTerm = (e.target as HTMLInputElement).value;
+            const view = this.plugin.app.workspace.getLeavesOfType('card-navigator-view')[0].view as CardNavigator;
+            await view.cardContainer.searchCards(searchTerm);
+        }, 300));
 
-        return container;
-    }
-
-    private createHorizontalMoveIconsContainer(): HTMLElement {
-        const container = document.createElement('div');
-        container.className = 'card-navigator-move-icons-container';
-
-        const icons = [
-            { name: 'chevrons-left', label: 'Move left multiple', action: () => moveCards('left', this.plugin, 'multiple') },
-            { name: 'chevron-left', label: 'Move left single', action: () => moveCards('left', this.plugin, 'single') },
-            { name: 'chevrons-right-left', label: 'Center active card', action: () => moveCards('center', this.plugin) },
-            { name: 'chevron-right', label: 'Move right single', action: () => moveCards('right', this.plugin, 'single') },
-            { name: 'chevrons-right', label: 'Move right multiple', action: () => moveCards('right', this.plugin, 'multiple') },
-        ];
-
-        icons.forEach(icon => {
-            const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
-            container.appendChild(iconElement);
-        });
-
+        container.appendChild(input);
         return container;
     }
 
@@ -105,7 +79,6 @@ export class Toolbar {
         container.className = 'card-navigator-action-icons-container';
 
         const icons = [
-            { name: 'search', label: 'Search', action: () => toggleSearch(this.plugin) },
             { name: 'folder', label: 'Select folder', action: () => this.openFolderSelector() },
             { name: 'arrow-up-narrow-wide', label: 'Sort cards', action: () => toggleSort(this.plugin) },
             { name: 'settings', label: 'Settings', action: () => toggleSettings(this.plugin) },

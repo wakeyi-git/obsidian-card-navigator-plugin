@@ -51,6 +51,38 @@ export class CardContainer {
         };
     }
 
+	scrollUp(amount: 'single' | 'multiple') {
+		if (!this.containerEl) return;
+		const scrollAmount = amount === 'single' ? this.cardHeight : this.cardHeight * this.plugin.settings.cardsPerView;
+		this.containerEl.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
+	}
+	
+	scrollDown(amount: 'single' | 'multiple') {
+		if (!this.containerEl) return;
+		const scrollAmount = amount === 'single' ? this.cardHeight : this.cardHeight * this.plugin.settings.cardsPerView;
+		this.containerEl.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+	}
+	
+	scrollLeft(amount: 'single' | 'multiple') {
+		if (!this.containerEl) return;
+		const scrollAmount = amount === 'single' ? this.cardWidth : this.cardWidth * this.plugin.settings.cardsPerView;
+		this.containerEl.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+	}
+	
+	scrollRight(amount: 'single' | 'multiple') {
+		if (!this.containerEl) return;
+		const scrollAmount = amount === 'single' ? this.cardWidth : this.cardWidth * this.plugin.settings.cardsPerView;
+		this.containerEl.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+	}
+	
+	scrollToCenter() {
+		if (!this.containerEl) return;
+		const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement;
+		if (activeCard) {
+			activeCard.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+		}
+	}
+
 	private updateContainerStyle() {
         if (this.containerEl) {
             if (this.isVertical) {
@@ -241,13 +273,7 @@ export class CardContainer {
 		const files = folder.children.filter((file): file is TFile => file instanceof TFile);
 		const filteredFiles = await this.filterFilesByContent(files, searchTerm);
 	
-		const cards = await Promise.all(filteredFiles.map(async file => ({
-			file,
-			fileName: this.plugin.settings.showFileName ? file.basename : undefined,
-			firstHeader: this.plugin.settings.showFirstHeader ? await this.findFirstHeader(file) : undefined,
-			content: this.plugin.settings.showContent ? await this.getFileContent(file) : undefined,
-		})));
-	
+		const cards = await Promise.all(filteredFiles.map(file => this.cardMaker.createCard(file)));
 		this.renderCards(cards, this.cardWidth, this.cardHeight);
 	}
 	

@@ -45,6 +45,33 @@ export class CardNavigator extends ItemView {
         this.updateLayoutAndRefresh();
     }
     
+	private handleKeyDown(event: KeyboardEvent) {
+		if (this.containerEl && this.containerEl.contains(document.activeElement)) {
+			switch (event.key) {
+				case 'ArrowUp':
+					this.cardContainer.scrollUp('single');
+					event.preventDefault();
+					break;
+				case 'ArrowDown':
+					this.cardContainer.scrollDown('single');
+					event.preventDefault();
+					break;
+				case 'ArrowLeft':
+					this.cardContainer.scrollLeft('single');
+					event.preventDefault();
+					break;
+				case 'ArrowRight':
+					this.cardContainer.scrollRight('single');
+					event.preventDefault();
+					break;
+				case 'Home':
+					this.cardContainer.scrollToCenter();
+					event.preventDefault();
+					break;
+			}
+		}
+	}
+
 	public updateLayoutAndRefresh() {
 		this.isVertical = this.calculateIsVertical();
 		const containerRect = this.leaf.view.containerEl.getBoundingClientRect();
@@ -71,6 +98,8 @@ export class CardNavigator extends ItemView {
 		this.isVertical = this.calculateIsVertical();
         this.updateLayoutAndRefresh();
         this.resizeObserver.observe(this.leaf.view.containerEl);
+
+		this.registerDomEvent(document, 'keydown', this.handleKeyDown.bind(this));
 
         this.refresh();
     }
