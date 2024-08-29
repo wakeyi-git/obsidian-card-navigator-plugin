@@ -14,6 +14,7 @@ export class CardContainer {
 	private isVertical: boolean;
 	private cardWidth = 0;
     private cardHeight = 0;
+	private animationQueue: (() => Promise<void>)[] = [];
 
     constructor(plugin: CardNavigatorPlugin, leaf: WorkspaceLeaf) {
         this.plugin = plugin;
@@ -200,7 +201,12 @@ export class CardContainer {
         const files = folder.children.filter((file): file is TFile => file instanceof TFile);
         const sortedFiles = sortFiles(files, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
         const cardsData = await Promise.all(sortedFiles.map(file => this.cardMaker.createCard(file)));
-        this.renderCards(cardsData, this.cardWidth, this.cardHeight);
+        
+        if (this.plugin.settings.centerCardMethod === 'centered') {
+            await this.renderCenteredCards(cardsData);
+        } else {
+            this.renderCards(cardsData, this.cardWidth, this.cardHeight);
+        }
     }
 
     private adjustCardSize(card: HTMLElement) {
@@ -216,63 +222,112 @@ export class CardContainer {
         }
     }
 
-    private renderActiveCardCentered(cardsData: Card[], activeIndex: number, cardWidth: number, cardHeight: number) {
-        const containerEl = this.containerEl;
-        if (!containerEl) {
+    private async renderCenteredCards(cardsData: Card[]) {
+        if (!this.containerEl) return;
+
+        const activeFile = this.plugin.app.workspace.getActiveFile();
+        const activeIndex = cardsData.findIndex(card => card.file === activeFile);
+
+        if (activeIndex === -1) {
+            this.renderCards(cardsData, this.cardWidth, this.cardHeight);
             return;
         }
 
-        const isVertical = this.isVertical;
+        this.containerEl.innerHTML = '';
 
-        const leftCards = cardsData.slice(0, activeIndex);
-        const rightCards = cardsData.slice(activeIndex + 1);
+        const cardSpacing = 10;
+        const containerSize = this.isVertical ? this.containerEl.clientHeight : this.containerEl.clientWidth;
 
-        const cardSpacing = 15;
-        const containerSize = isVertical ? cardHeight : cardWidth;
-        const totalSize = (containerSize + cardSpacing) * this.plugin.settings.cardsPerView - cardSpacing;
-        const activeCardOffset = ((totalSize - containerSize) / 2);
+        const padding = this.isVertical ? parseFloat(getComputedStyle(this.containerEl).paddingTop) : parseFloat(getComputedStyle(this.containerEl).paddingLeft);
+        const activeCardOffset = (containerSize - (this.isVertical ? this.cardHeight : this.cardWidth)) / 2 + padding;
 
-        let currentOffset = activeCardOffset - ((leftCards.length * containerSize) + (leftCards.length * cardSpacing));
-
-        leftCards.forEach((cardData) => {
-            const card = this.cardMaker.createCardElement(cardData);
-            card.style.position = 'absolute';
-            card.style.width = `${cardWidth}px`;
-            card.style.height = `${cardHeight}px`;
-            if (isVertical) {
-                card.style.top = `${currentOffset}px`;
-            } else {
-                card.style.left = `${currentOffset}px`;
-            }
-            containerEl.appendChild(card);
-            currentOffset += containerSize + cardSpacing;
-        });
-
+        // Render active card
         const activeCard = this.cardMaker.createCardElement(cardsData[activeIndex]);
-        activeCard.style.position = 'absolute';
-        activeCard.style.width = `${cardWidth}px`;
-        activeCard.style.height = `${cardHeight}px`;
-        if (isVertical) {
-            activeCard.style.top = `${activeCardOffset}px`;
-        } else {
-            activeCard.style.left = `${activeCardOffset}px`;
-        }
-        containerEl.appendChild(activeCard);
+        activeCard.classList.add('card-navigator-active');
+        this.setCardPosition(activeCard, activeCardOffset, 9999);
+        this.containerEl.appendChild(activeCard);
 
-        currentOffset = activeCardOffset + containerSize + cardSpacing;
-        rightCards.forEach((cardData) => {
-            const card = this.cardMaker.createCardElement(cardData);
-            card.style.position = 'absolute';
-            card.style.width = `${cardWidth}px`;
-            card.style.height = `${cardHeight}px`;
-            if (isVertical) {
-                card.style.top = `${currentOffset}px`;
-            } else {
-                card.style.left = `${currentOffset}px`;
-            }
-            containerEl.appendChild(card);
-            currentOffset += containerSize + cardSpacing;
+        // Prepare animation queue
+        this.animationQueue = [];
+
+        // Reorder cards: maintain sort order but center active card
+        const reorderedCards = this.reorderCardsFromCenter(cardsData, activeIndex);
+
+        // Render other cards
+        reorderedCards.forEach((card, index) => {
+            if (!this.containerEl) return;
+
+            const cardEl = this.cardMaker.createCardElement(card);
+
+            // Calculate final position
+            const finalOffset = this.calculateCardOffset(activeCardOffset, index + 1, cardSpacing);
+            this.setCardPosition(cardEl, finalOffset, reorderedCards.length - index);
+            cardEl.style.opacity = '0';
+
+            this.containerEl.appendChild(cardEl);
+            this.queueAnimation(cardEl, index);
         });
+
+        // Start animations
+        this.startAnimations();
+    }
+
+    private reorderCardsFromCenter(cards: Card[], centerIndex: number): Card[] {
+        const reorderedCards: Card[] = [];
+        let leftIndex = centerIndex - 1;
+        let rightIndex = centerIndex + 1;
+
+        while (leftIndex >= 0 || rightIndex < cards.length) {
+            if (leftIndex >= 0) {
+                reorderedCards.push(cards[leftIndex]);
+                leftIndex--;
+            }
+            if (rightIndex < cards.length) {
+                reorderedCards.push(cards[rightIndex]);
+                rightIndex++;
+            }
+        }
+
+        return reorderedCards;
+    }
+
+    private calculateCardOffset(activeCardOffset: number, index: number, spacing: number): number {
+        const cardSize = this.isVertical ? this.cardHeight : this.cardWidth;
+        const direction = index % 2 === 0 ? 1 : -1; // Alternate between positive and negative
+        const distance = Math.ceil(index / 2);
+        return activeCardOffset + direction * distance * (cardSize + spacing);
+    }
+
+    private setCardPosition(card: HTMLElement, offset: number, zIndex: number) {
+        card.style.position = 'absolute';
+        if (this.isVertical) {
+            card.style.top = `${offset}px`;
+            card.style.left = '0';
+        } else {
+            card.style.left = `${offset}px`;
+            card.style.top = '0';
+        }
+        card.style.width = `${this.cardWidth}px`;
+        card.style.height = `${this.cardHeight}px`;
+        card.style.transition = `opacity ${this.plugin.settings.animationDuration}ms ease-in-out`;
+        card.style.zIndex = zIndex.toString();
+    }
+
+    private queueAnimation(card: HTMLElement, index: number) {
+        const animate = () => new Promise<void>(resolve => {
+            const delay = index * (this.plugin.settings.animationDuration / 4);
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.addEventListener('transitionend', () => resolve(), { once: true });
+            }, delay);
+        });
+        this.animationQueue.push(animate);
+    }
+
+    private async startAnimations() {
+        for (const animate of this.animationQueue) {
+            await animate();
+        }
     }
 
 	public displayCards(filteredFiles: TFile[]) {

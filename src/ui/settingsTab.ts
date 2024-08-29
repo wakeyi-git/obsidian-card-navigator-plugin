@@ -98,19 +98,33 @@ export class SettingTab extends PluginSettingTab {
 					this.plugin.refreshViews();
 				}));
 
-		// new Setting(containerEl)
-		// 	.setName('Center Card Method')
-		// 	.setDesc('Choose how to center the active card in the view')
-		// 	.addDropdown(dropdown => dropdown
-		// 		.addOption('scroll', 'Scroll to active card')
-		// 		.addOption('centered', 'Render the active card centred')
-		// 		.setValue(this.plugin.settings.centerCardMethod)
-		// 		.onChange(async (value) => {
-		// 			const method = value as 'scroll' | 'centered';
-		// 			this.plugin.settings.centerCardMethod = method;
-		// 			await this.plugin.saveSettings();
-		// 			this.plugin.refreshViews();
-		// 		}));
+		new Setting(containerEl)
+		.setName('Center Card Method')
+		.setDesc('Choose how to center the active card in the view')
+		.addDropdown(dropdown => dropdown
+			.addOption('scroll', 'Scroll to active card')
+			.addOption('centered', 'Render the active card centered')
+			.setValue(this.plugin.settings.centerCardMethod)
+			.onChange(async (value) => {
+				this.plugin.settings.centerCardMethod = value as 'scroll' | 'centered';
+				await this.plugin.saveSettings();
+				this.plugin.refreshViews();
+				this.display(); // 설정 변경 시 화면 새로고침
+			}));
+
+		if (this.plugin.settings.centerCardMethod === 'centered') {
+			new Setting(containerEl)
+				.setName('Animation Duration')
+				.setDesc('Set the duration of the card animation (in milliseconds)')
+				.addSlider(slider => slider
+					.setLimits(0, 1000, 50)
+					.setValue(this.plugin.settings.animationDuration)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						this.plugin.settings.animationDuration = value;
+						await this.plugin.saveSettings();
+					}));
+		}
 
 		new Setting(containerEl)
 		.setName('Drag and Drop Content')

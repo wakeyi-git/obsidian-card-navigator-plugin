@@ -20,6 +20,7 @@ export interface CardNavigatorSettings {
 	fixedCardHeight: boolean;
 	renderContentAsHtml: boolean;
 	centerCardMethod: 'scroll' | 'centered';
+    animationDuration: number;
     activeCardBorderColor: string;
     activeCardBackgroundColor: string;
 	dragDropContent: boolean;
