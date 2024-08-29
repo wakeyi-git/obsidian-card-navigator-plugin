@@ -60,7 +60,7 @@ export function calculateCardSize(
         cardHeight = leafHeight / cardsPerView;
     } else {
         cardWidth = leafWidth / cardsPerView;
-        cardHeight = leafHeight - 2 * padding;
+        cardHeight = leafHeight - 2 * padding - 80;
     }
 
     return { cardWidth, cardHeight };
@@ -79,7 +79,7 @@ export function setContainerSize(
         containerEl.style.height = `${cardHeight * cardsPerView}px`;
     } else {
         containerEl.style.flexDirection = 'row';
-        containerEl.style.width = `${cardWidth * cardsPerView}px`;
+        containerEl.style.width = `${cardWidth * cardsPerView - 30}px`;
         containerEl.style.height = `${cardHeight}px`;
     }
 }

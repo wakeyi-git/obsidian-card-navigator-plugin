@@ -29,6 +29,81 @@ export class CardContainer {
         this.refresh();
     }
 
+    private updateContainerStyle() {
+        if (this.containerEl) {
+            this.containerEl.style.display = 'flex';
+            this.containerEl.style.flexDirection = this.isVertical ? 'column' : 'row';
+            this.containerEl.style.overflowX = this.isVertical ? 'hidden' : 'auto';
+            this.containerEl.style.overflowY = this.isVertical ? 'auto' : 'hidden';
+			this.containerEl.style.marginTop = this.isVertical ? 'var(--card-navigator-toolbar-height)' : '0';
+			this.containerEl.style.padding = this.isVertical ? '0' : '1rem';
+            this.containerEl.style.width = '100%';
+        }
+    }
+
+	private renderCards(cardsData: Card[], cardWidth: number, cardHeight: number) {
+		const containerEl = this.containerEl;
+		if (!containerEl) return;
+	
+		containerEl.innerHTML = '';
+	
+		cardsData.forEach((cardData) => {
+			const card = this.cardMaker.createCardElement(cardData);
+			card.style.width = `${cardWidth}px`;
+			card.style.flexShrink = '0';
+			
+			if (this.plugin.settings.fixedCardHeight) {
+				card.style.height = `${cardHeight}px`;
+			} else {
+				card.style.height = 'auto';
+				card.style.maxHeight = `${cardHeight * 2}px`; // 최대 높이 제한
+			}
+	
+			containerEl.appendChild(card);
+	
+			// 이미지 로딩 처리
+			if (this.plugin.settings.renderContentAsHtml) {
+				card.querySelectorAll('img').forEach((img: HTMLImageElement) => {
+					img.addEventListener('load', () => {
+						this.adjustCardSize(card);
+					});
+				});
+			}
+	
+			// 활성 카드 처리
+			if (cardData.file === this.plugin.app.workspace.getActiveFile()) {
+				card.classList.add('card-navigator-active');
+			}
+		});
+	
+		// 스크롤 위치 조정
+		if (this.plugin.settings.centerCardMethod === 'scroll') {
+			this.scrollToActiveCard();
+		}
+	}
+
+    private scrollToActiveCard() {
+        if (!this.containerEl) return;
+        const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement;
+        if (activeCard) {
+            if (this.isVertical) {
+                const containerTop = this.containerEl.scrollTop;
+                const containerHeight = this.containerEl.clientHeight;
+                const activeCardTop = activeCard.offsetTop;
+                const activeCardHeight = activeCard.clientHeight;
+                const scrollTop = activeCardTop - containerTop - (containerHeight / 2) + (activeCardHeight / 2);
+                this.containerEl.scrollTop += scrollTop;
+            } else {
+                const containerLeft = this.containerEl.scrollLeft;
+                const containerWidth = this.containerEl.clientWidth;
+                const activeCardLeft = activeCard.offsetLeft;
+                const activeCardWidth = activeCard.clientWidth;
+                const scrollLeft = activeCardLeft - containerLeft - (containerWidth / 2) + (activeCardWidth / 2);
+                this.containerEl.scrollLeft += scrollLeft;
+            }
+        }
+    }
+
 	setOrientation(isVertical: boolean) {
         this.isVertical = isVertical;
         this.updateContainerStyle();
@@ -51,47 +126,35 @@ export class CardContainer {
         };
     }
 
-	scrollUp(amount: 'single' | 'multiple') {
-		if (!this.containerEl) return;
-		const scrollAmount = amount === 'single' ? this.cardHeight : this.cardHeight * this.plugin.settings.cardsPerView;
-		this.containerEl.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
-	}
-	
-	scrollDown(amount: 'single' | 'multiple') {
-		if (!this.containerEl) return;
-		const scrollAmount = amount === 'single' ? this.cardHeight : this.cardHeight * this.plugin.settings.cardsPerView;
-		this.containerEl.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-	}
-	
-	scrollLeft(amount: 'single' | 'multiple') {
-		if (!this.containerEl) return;
-		const scrollAmount = amount === 'single' ? this.cardWidth : this.cardWidth * this.plugin.settings.cardsPerView;
-		this.containerEl.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-	}
-	
-	scrollRight(amount: 'single' | 'multiple') {
-		if (!this.containerEl) return;
-		const scrollAmount = amount === 'single' ? this.cardWidth : this.cardWidth * this.plugin.settings.cardsPerView;
-		this.containerEl.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-	}
-	
-	scrollToCenter() {
-		if (!this.containerEl) return;
-		const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement;
-		if (activeCard) {
-			activeCard.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-		}
-	}
+    scrollUp(amount: 'single' | 'multiple') {
+        if (!this.containerEl) return;
+        const scrollAmount = amount === 'single' ? this.cardHeight : this.cardHeight * this.plugin.settings.cardsPerView;
+        this.containerEl.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
+    }
 
-	private updateContainerStyle() {
-        if (this.containerEl) {
-            if (this.isVertical) {
-                this.containerEl.classList.add('vertical');
-                this.containerEl.classList.remove('horizontal');
-            } else {
-                this.containerEl.classList.add('horizontal');
-                this.containerEl.classList.remove('vertical');
-            }
+    scrollDown(amount: 'single' | 'multiple') {
+        if (!this.containerEl) return;
+        const scrollAmount = amount === 'single' ? this.cardHeight : this.cardHeight * this.plugin.settings.cardsPerView;
+        this.containerEl.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+    }
+
+    scrollLeft(amount: 'single' | 'multiple') {
+        if (!this.containerEl) return;
+        const scrollAmount = amount === 'single' ? this.cardWidth : this.cardWidth * this.plugin.settings.cardsPerView;
+        this.containerEl.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    }
+
+    scrollRight(amount: 'single' | 'multiple') {
+        if (!this.containerEl) return;
+        const scrollAmount = amount === 'single' ? this.cardWidth : this.cardWidth * this.plugin.settings.cardsPerView;
+        this.containerEl.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+
+    scrollToCenter() {
+        if (!this.containerEl) return;
+        const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement;
+        if (activeCard) {
+            activeCard.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
         }
     }
 
@@ -138,35 +201,6 @@ export class CardContainer {
         const cardsData = await Promise.all(sortedFiles.map(file => this.cardMaker.createCard(file)));
         this.renderCards(cardsData, this.cardWidth, this.cardHeight);
     }
-
-	private renderCards(cardsData: Card[], cardWidth: number, cardHeight: number) {
-        const containerEl = this.containerEl;
-        if (!containerEl) return;
-
-        containerEl.innerHTML = '';
-        containerEl.classList.toggle('card-container-horizontal', !this.isVertical);
-
-        cardsData.forEach((cardData) => {
-            const card = this.cardMaker.createCardElement(cardData);
-            card.classList.toggle('card-navigator-card-horizontal', !this.isVertical);
-            card.style.width = `${cardWidth}px`;
-            card.style.height = `${cardHeight}px`;
-            containerEl.appendChild(card);
-
-            // 이미지 로딩 처리
-			if (this.plugin.settings.renderContentAsHtml) {
-				card.querySelectorAll('img').forEach((img: HTMLImageElement) => {
-					img.addEventListener('load', () => {
-						this.adjustCardSize(card);
-					});
-				});
-			}
-        });
-	
-		if (this.plugin.settings.centerCardMethod === 'scroll') {
-			this.scrollToActiveCard(cardsData, cardWidth, cardHeight);
-		}
-	}
 
 	private adjustCardSize(card: HTMLElement) {
 		const content = card.querySelector('.card-navigator-content');
@@ -234,32 +268,6 @@ export class CardContainer {
         });
     }
 
-	private scrollToActiveCard(cardsData: Card[], cardWidth: number, cardHeight: number) {
-        const containerEl = this.containerEl;
-        if (!containerEl) {
-            return;
-        }
-
-        containerEl.innerHTML = '';
-
-        let activeCard: HTMLElement | null = null;
-
-        cardsData.forEach((cardData) => {
-            const card = this.cardMaker.createCardElement(cardData);
-            card.style.width = `${cardWidth}px`;
-            card.style.height = `${cardHeight}px`;
-            containerEl.appendChild(card);
-
-            if (card.classList.contains('card-navigator-active')) {
-                activeCard = card;
-            }
-        });
-
-        if (activeCard && this.plugin.settings.centerCardMethod === 'scroll') {
-            (activeCard as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-        }
-    }
-
 	public displayCards(filteredFiles: TFile[]) {
 	}
 
@@ -303,18 +311,18 @@ export class CardContainer {
         this.refresh();
     }
 	
-	private async findFirstHeader(file: TFile): Promise<string | undefined> {
-		const content = await this.plugin.app.vault.cachedRead(file);
-		const headerRegex = /^#+\s+(.+)$/m;
-		const match = content.match(headerRegex);
-		return match ? match[1].trim() : undefined;
-	}
+	// private async findFirstHeader(file: TFile): Promise<string | undefined> {
+	// 	const content = await this.plugin.app.vault.cachedRead(file);
+	// 	const headerRegex = /^#+\s+(.+)$/m;
+	// 	const match = content.match(headerRegex);
+	// 	return match ? match[1].trim() : undefined;
+	// }
 	
-	private async getFileContent(file: TFile): Promise<string> {
-		const content = await this.plugin.app.vault.cachedRead(file);
-		const maxLength = this.plugin.settings.contentLength * 100;
-		return content.length <= maxLength ? content : content.slice(0, maxLength) + '...';
-	}
+	// private async getFileContent(file: TFile): Promise<string> {
+	// 	const content = await this.plugin.app.vault.cachedRead(file);
+	// 	const maxLength = this.plugin.settings.contentLength * 100;
+	// 	return content.length <= maxLength ? content : content.slice(0, maxLength) + '...';
+	// }
 
     onClose() {}
 }

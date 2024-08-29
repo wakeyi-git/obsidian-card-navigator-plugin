@@ -24,15 +24,10 @@
 	--card-navigator-hover-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
 }
 
-.card-navigator {
-	overflow: visible;
-	flex: 1;
-	flex-direction: column;
-	width: 100%;
-	padding: 1rem;
+.view-content {
+	overflow: hidden;
 	display: flex;
-	align-items: center;
-	justify-content: center;
+	flex-direction: column;
 	background-color: var(--background-secondary);
 }
 
@@ -138,41 +133,21 @@
 .card-container {
 	width: 100%;
 	margin-top: var(--card-navigator-toolbar-height);
-	padding: 1rem;
-	display: flex;
 	gap: var(--card-navigator-gap);
 	flex-direction: column;
-	align-items: center;
 	flex: 1;
-	overflow: visible;
 	position: relative;
 	scroll-behavior: smooth;
 }
 
-.card-container::-webkit-scrollbar {
-	width: 8px;
-	height: 8px;
-}
-
-.card-container::-webkit-scrollbar-thumb {
-	background-color: var(--scrollbar-thumb-bg);
-	border-radius: 4px;
-}
-
-.card-container::-webkit-scrollbar-track {
-	background-color: var(--scrollbar-bg);
-}
-
 .card-container-horizontal {
 	height: 100%;
-	padding: 1rem;
-	display: flex;
+	margin-top: 0;
 	gap: var(--card-navigator-gap);
 	flex-direction: row;
-	align-items: center;
 	flex: 1;
-	overflow: visible;
 	position: relative;
+	scroll-behavior: smooth;
 }
 
 .card-navigator-card {
@@ -249,22 +224,6 @@
 
   .card-navigator-content * {
 	max-width: 100%;
-}
-
-.clickable-icon {
-	color: var(--text-muted);
-	cursor: pointer;
-	transition: color var(--card-navigator-transition);
-}
-
-.clickable-icon:hover,
-.clickable-icon:focus {
-	color: var(--text-normal);
-}
-
-.clickable-icon svg {
-	width: var(--card-navigator-icon-size);
-	height: var(--card-navigator-icon-size);
 }
 
 @media (max-width: 768px) {

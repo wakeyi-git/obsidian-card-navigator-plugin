@@ -47,6 +47,7 @@ export class CardNavigator extends ItemView {
     
 	private handleKeyDown(event: KeyboardEvent) {
 		if (this.containerEl && this.containerEl.contains(document.activeElement)) {
+			const { isVertical } = this.cardContainer.getCardSizeAndOrientation();
 			switch (event.key) {
 				case 'ArrowUp':
 					this.cardContainer.scrollUp('single');
@@ -62,6 +63,22 @@ export class CardNavigator extends ItemView {
 					break;
 				case 'ArrowRight':
 					this.cardContainer.scrollRight('single');
+					event.preventDefault();
+					break;
+				case 'PageUp':
+					if (isVertical) {
+						this.cardContainer.scrollUp('multiple');
+					} else {
+						this.cardContainer.scrollLeft('multiple');
+					}
+					event.preventDefault();
+					break;
+				case 'PageDown':
+					if (isVertical) {
+						this.cardContainer.scrollDown('multiple');
+					} else {
+						this.cardContainer.scrollRight('multiple');
+					}
 					event.preventDefault();
 					break;
 				case 'Home':
@@ -88,9 +105,8 @@ export class CardNavigator extends ItemView {
         const container = this.containerEl.children[1] as HTMLElement;
         container.empty();
 
-        const cardNavigatorContainerEl = container.createDiv('card-navigator');
-        const toolbarEl = cardNavigatorContainerEl.createDiv('card-navigator-toolbar');
-        const cardContainerEl = cardNavigatorContainerEl.createDiv('card-container');
+        const toolbarEl = container.createDiv('card-navigator-toolbar');
+        const cardContainerEl = container.createDiv('card-container');
 
         this.toolbar.initialize(toolbarEl);
         this.cardContainer.initialize(cardContainerEl);
@@ -99,7 +115,7 @@ export class CardNavigator extends ItemView {
         this.updateLayoutAndRefresh();
         this.resizeObserver.observe(this.leaf.view.containerEl);
 
-		this.registerDomEvent(document, 'keydown', this.handleKeyDown.bind(this));
+		this.registerDomEvent(this.containerEl, 'keydown', this.handleKeyDown.bind(this));
 
         this.refresh();
     }
@@ -108,6 +124,8 @@ export class CardNavigator extends ItemView {
         this.resizeObserver.disconnect();
         this.toolbar.onClose();
         this.cardContainer.onClose();
+
+		this.containerEl.removeEventListener('keydown', this.handleKeyDown.bind(this));
     }
 
     refresh() {

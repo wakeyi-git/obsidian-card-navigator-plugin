@@ -17,6 +17,7 @@ export interface CardNavigatorSettings {
     selectedFolder: string | null;
 	sortCriterion: SortCriterion;
     sortOrder: 'asc' | 'desc';
+	fixedCardHeight: boolean;
 	renderContentAsHtml: boolean;
 	centerCardMethod: 'scroll' | 'centered';
     activeCardBorderColor: string;

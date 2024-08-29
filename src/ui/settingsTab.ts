@@ -77,6 +77,17 @@ export class SettingTab extends PluginSettingTab {
             });
 
 		new Setting(containerEl)
+			.setName('Fixed Card Height')
+			.setDesc('If enabled, all cards will have the same height. If disabled, card height will adjust to content.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.fixedCardHeight)
+				.onChange(async (value) => {
+				this.plugin.settings.fixedCardHeight = value;
+				await this.plugin.saveSettings();
+				this.plugin.refreshViews();
+				}));
+
+		new Setting(containerEl)
 			.setName('Render Content as HTML')
 			.setDesc('If enabled, card content will be rendered as HTML')
 			.addToggle(toggle => toggle

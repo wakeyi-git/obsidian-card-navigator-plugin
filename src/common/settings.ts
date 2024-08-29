@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     selectedFolder: null,
 	sortCriterion: 'fileName' as SortCriterion,
     sortOrder: 'asc' as 'asc' | 'desc',
+	fixedCardHeight: true,
 	renderContentAsHtml: false,
     centerCardMethod: 'scroll',
     activeCardBorderColor: 'var(--active-border-color)',
