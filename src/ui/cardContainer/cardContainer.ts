@@ -47,19 +47,20 @@ export class CardContainer {
 	
 		containerEl.innerHTML = '';
 	
-		cardsData.forEach((cardData) => {
-			const card = this.cardMaker.createCardElement(cardData);
-			card.style.width = `${cardWidth}px`;
-			card.style.flexShrink = '0';
-			
-			if (this.plugin.settings.fixedCardHeight) {
-				card.style.height = `${cardHeight}px`;
-			} else {
-				card.style.height = 'auto';
-				card.style.maxHeight = `${cardHeight * 2}px`; // 최대 높이 제한
-			}
-	
-			containerEl.appendChild(card);
+        cardsData.forEach((cardData) => {
+            const card = this.cardMaker.createCardElement(cardData);
+            card.style.width = `${cardWidth}px`;
+            card.style.flexShrink = '0';
+
+            if (this.plugin.settings.fixedCardHeight) {
+                card.style.height = `${cardHeight}px`;
+                card.style.overflow = 'hidden';
+            } else {
+                card.style.height = 'auto';
+                card.style.maxHeight = 'none';
+            }
+
+            containerEl.appendChild(card);
 	
 			// 이미지 로딩 처리
 			if (this.plugin.settings.renderContentAsHtml) {
@@ -202,12 +203,18 @@ export class CardContainer {
         this.renderCards(cardsData, this.cardWidth, this.cardHeight);
     }
 
-	private adjustCardSize(card: HTMLElement) {
-		const content = card.querySelector('.card-navigator-content');
-		if (content instanceof HTMLElement) {
-			content.style.maxHeight = `${card.clientHeight - 40}px`; // 40px는 대략적인 여백
-		}
-	}
+    private adjustCardSize(card: HTMLElement) {
+        const content = card.querySelector('.card-navigator-content');
+        if (content instanceof HTMLElement) {
+            if (this.plugin.settings.fixedCardHeight) {
+                content.style.maxHeight = `${card.clientHeight - 40}px`; // 40px는 대략적인 여백
+                content.style.overflow = 'hidden';
+            } else {
+                content.style.maxHeight = 'none';
+                content.style.overflow = 'visible';
+            }
+        }
+    }
 
     private renderActiveCardCentered(cardsData: Card[], activeIndex: number, cardWidth: number, cardHeight: number) {
         const containerEl = this.containerEl;
@@ -310,19 +317,6 @@ export class CardContainer {
         await this.plugin.saveSettings();
         this.refresh();
     }
-	
-	// private async findFirstHeader(file: TFile): Promise<string | undefined> {
-	// 	const content = await this.plugin.app.vault.cachedRead(file);
-	// 	const headerRegex = /^#+\s+(.+)$/m;
-	// 	const match = content.match(headerRegex);
-	// 	return match ? match[1].trim() : undefined;
-	// }
-	
-	// private async getFileContent(file: TFile): Promise<string> {
-	// 	const content = await this.plugin.app.vault.cachedRead(file);
-	// 	const maxLength = this.plugin.settings.contentLength * 100;
-	// 	return content.length <= maxLength ? content : content.slice(0, maxLength) + '...';
-	// }
 
     onClose() {}
 }
