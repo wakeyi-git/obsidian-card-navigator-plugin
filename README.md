@@ -1,64 +1,66 @@
-# Obsidian용 Card Navigator 플러그인
+# Card Navigator for Obsidian
 
-Card Navigator는 Obsidian에서 노트를 카드 형태로 보고 탐색할 수 있게 해주는 플러그인입니다. 이 플러그인은 Obsidian 보관함을 시각적이고 카드 기반의 인터페이스로 탐색할 수 있게 하여 노트 브라우징 경험을 향상시킵니다.
+Card Navigator is a plugin for Obsidian that allows you to view and navigate your notes in a card-based interface. It provides an intuitive way to browse, sort, and manage your notes, enhancing your productivity and note-taking experience.
 
-## 주요 기능
+## Features
 
-- **카드 뷰**: 현재 편집창에 열려있는 파일이 있는 폴더의 노트를 카드 형태로 오른쪽 사이드바에 표시합니다. 스크롤하여 쉽게 탐색할 수 있습니다.
-	- **활성 카드**: 편집창에 열려 있는 노트의 카드(활성 카드)가 사이드바의 중앙에 표시됩니다.
-- **카드 액션**: 카드를 마우스 왼쪽 클릭, 마우스 오른쪽 클릭, 드래그 앤 드롭하여 다음의 동작을 할 수 있습니다.
-	- **마우스 왼쪽 클릭**: 해당 카드의 노트가 편집창에 열립니다.
-	- **마우스 오른쪽 클릭**: 해당 카드의 파일에 대한 컨텍스트 메뉴가 표시됩니다.
-	- **드래그 앤 드롭**: 카드 내용이나 링크를 노트에 쉽게 삽입할 수 있습니다.
-- **유연한 레이아웃(아직 구현되지 않음)**: 세로 및 가로 레이아웃을 전환하여 사용자 선호에 맞출 수 있습니다.
-- **툴바**: 탐색 및 플러그인 기능에 접근하기 위한 편리한 툴바를 제공합니다.
-	- **카드 이동 버튼(아직 구현되지 않음)**: 한 번에 표시되도록 설정한 카드 수만큼, 한 장씩 이동합니다.
-	- **맞춤형 표시**: 각 카드에 표시할 정보(파일 이름, 첫 번째 제목, 내용)를 선택할 수 있습니다.
-	- **검색 기능**: 내장된 검색 기능으로 원하는 카드를 빠르게 찾을 수 있습니다.
-	- **정렬 옵션**: 파일 이름, 최종 수정 날짜 또는 생성 날짜별로 카드를 정렬할 수 있습니다.
+- **Card View**: Display your notes as cards for easy browsing and overview.
+- **Flexible Navigation**: Scroll through cards vertically or horizontally.
+- **Smart Sorting**: Sort cards by file name, last modified date, or creation date.
+- **Quick Search**: Easily find cards with the built-in search functionality.
+- **Customizable Display**: Toggle visibility of file names, headers, and content.
+- **Folder Selection**: Choose specific folders to display as cards.
+- **Drag and Drop**: You can drag and drop cards to create links with file names or add the card's content to your notes.
+- **Responsive Layout**: Automatically adjusts to vertical or horizontal orientation.
+- **Keyboard Shortcuts**: Navigate quickly using customizable hotkeys.
+- **Fixed or Flexible Card Height**: Choose between uniform or content-based card heights.
+- **HTML Rendering**: Option to render card content as HTML for rich formatting.
+- **Active Card Highlighting**: Easily identify the currently active note.
 
-## 설치 방법
+## Installation
 
-1. main.js, styles.css, manifest.json 파일을 Obsidian Vault의 .obsidian/plugins/obsidian-card-navigator-plugin/에 저장합니다.
-2. Obsidian을 열고 설정으로 이동합니다.
-3. 커뮤니티 플러그인으로 이동하여 안전 모드를 비활성화합니다.
-4. 플러그인을 활성화합니다.
+1. Open Obsidian and go to Settings.
+2. Navigate to Community Plugins and disable Safe Mode.
+3. Click on Browse and search for "Card Navigator".
+4. Install the plugin and enable it.
 
-## 사용 방법
+## Usage
 
-1. 리본에 있는 Card Navigator 아이콘을 클릭하여 Card Navigator 뷰를 엽니다.
-2. 현재 편집창에 열려있는 파일이 있는 폴더의 노트를 카드 형태로 오른쪽 사이드바에 표시합니다.
-3. 툴바를 사용하여 카드를 검색하고, 정렬하거나 설정에 접근합니다.
-4. 카드를 클릭하여 해당 노트를 엽니다.
-5. 카드를 드래그하여 그 내용이나 링크를 다른 노트에 삽입합니다.
+1. Click on the Card Navigator icon in the left sidebar to open the view.
+2. Use the toolbar to search, sort, or change settings.
+3. Scroll through your cards to browse your notes.
+4. Click on a card to open the corresponding note.
+5. Use keyboard shortcuts for quick navigation:
+   - Scroll Up/Down: `Ctrl + Alt + Shift + ↑/↓`
+   - Scroll Left/Right: `Ctrl + Alt + Shift + ←/→`
+   - Scroll Page Up/Down: `Ctrl + Alt + Shift + PageUp/PageDown`
+   - Center Active Card: `Ctrl + Alt + Shift + Home`
 
-## 커스터마이징
+## Configuration
 
-Card Navigator는 다양한 커스터마이징 옵션을 제공하여 사용자의 선호에 맞게 플러그인을 조정할 수 있습니다:
+You can customize Card Navigator through the plugin settings:
 
-- **뷰당 카드 수**: 한 번에 표시되는 카드의 수를 조정합니다.
-- **중앙 카드 방식(아직 구현되지 않음)**: 활성 카드를 스크롤하거나 중앙에 배치하는 방식을 선택합니다.
-- **카드 내용**: 카드에 파일 이름, 첫 번째 제목, 내용 표시를 토글할 수 있습니다.
-- **글꼴 크기**: 파일 이름, 제목, 내용의 글꼴 크기를 사용자 정의할 수 있습니다.
-- **내용 길이**: 각 카드에 표시되는 내용의 최대 길이를 설정합니다.
-- **드래그 앤 드롭 동작(툴바 옵션에서만 선택 가능)**: 드래그 시 카드 내용을 삽입할지 또는 링크만 삽입할지 선택합니다.
+- **Cards per View**: Adjust the number of cards visible at once.
+- **Folder Selection**: Choose between active file's folder or a specific folder.
+- **Sorting**: Set default sorting method and order.
+- **Card Height**: Choose between fixed or flexible card heights.
+- **Content Display**: Toggle visibility of file names, headers, and content.
+- **Font Sizes**: Customize font sizes for different card elements.
+- **Content Length**: Set the maximum content length displayed on cards.
+- **Drag and Drop**: Choose between inserting content or links when dragging cards.
 
-이러한 설정은 플러그인 설정 메뉴나 Card Navigator 툴바의 빠른 설정 팝업을 통해 접근할 수 있습니다.
+## Development
 
-## 스타일링
+To set up the development environment:
 
-Card Navigator는 Obsidian의 CSS 변수를 사용하여 선택한 테마와 원활하게 통합됩니다. 주요 스타일 클래스는 다음과 같습니다:
+1. Clone the repository
+2. Run `npm install` to install dependencies
+3. Run `npm run dev` to start compilation in watch mode
 
-- `.card-navigator-toolbar`: 메인 툴바의 스타일
-- `.card-navigator-card`: 개별 카드의 스타일
-- `.card-navigator-active`: 현재 활성화된 카드의 스타일
+## Contributing
 
-Obsidian의 모양 설정에서 CSS 스니펫을 추가하여 외관을 더욱 사용자 정의할 수 있습니다.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 피드백 및 지원
+## License
 
-문제가 발생하거나 개선 제안이 있는 경우, [GitHub 저장소](https://github.com/yourusername/obsidian-card-navigator-plugin)를 방문하여 이슈를 열거나 프로젝트에 기여해 주세요.
-
-## 라이선스
-
-이 플러그인은 MIT 라이선스 하에 배포됩니다. 자세한 내용은 LICENSE 파일을 참조하세요.
+[MIT](LICENSE)
