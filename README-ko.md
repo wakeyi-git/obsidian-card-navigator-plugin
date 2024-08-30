@@ -31,8 +31,8 @@ Card Navigator는 Obsidian을 위한 플러그인으로, 카드 기반 인터페
 3. 카드를 스크롤하여 노트를 탐색합니다.
 4. 카드를 클릭하여 해당 노트를 엽니다.
 5. 빠른 탐색을 위해 키보드 단축키를 사용합니다:
-   - 위/아래로 스크롤: `Ctrl + Alt + Shift + ↑/↓`
-   - 왼쪽/오른쪽으로 스크롤: `Ctrl + Alt + Shift + ←/→`
+   - 위/아래로 스크롤(세로 모드): `Ctrl + Alt + Shift + ↑/↓`
+   - 왼쪽/오른쪽으로 스크롤(가로 모드): `Ctrl + Alt + Shift + ←/→`
    - 페이지 위/아래로 스크롤: `Ctrl + Alt + Shift + PageUp/PageDown`
    - 활성 카드 중앙 정렬: `Ctrl + Alt + Shift + Home`
 
