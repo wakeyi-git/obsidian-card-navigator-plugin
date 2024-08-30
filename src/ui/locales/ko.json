@@ -1,0 +1,97 @@
+{
+	"settings": {
+		"hotkey": {
+			"notSet": "설정되지 않음"
+		},
+		"cardsPerView": {
+			"name": "화면당 카드 수",
+			"desc": "한 번에 표시할 카드의 수"
+		},
+		"folderSelection": {
+			"name": "폴더 선택",
+			"desc": "활성 파일의 폴더를 사용할지 선택한 폴더를 사용할지 선택",
+			"options": {
+				"active": "활성 파일의 폴더",
+				"selected": "선택한 폴더"
+			}
+		},
+		"selectFolder": {
+			"name": "폴더 선택",
+			"desc": "Card Navigator용 폴더 선택",
+			"buttonText": "폴더 선택"
+		},
+		"defaultSortMethod": {
+			"name": "기본 정렬 방식",
+			"desc": "카드의 기본 정렬 방식 선택",
+			"options": {
+				"fileName_asc": "파일 이름 (오름차순)",
+				"fileName_desc": "파일 이름 (내림차순)",
+				"lastModified_desc": "최종 수정 (최신순)",
+				"lastModified_asc": "최종 수정 (오래된 순)",
+				"created_desc": "생성일 (최신순)",
+				"created_asc": "생성일 (오래된 순)"
+			}
+		},
+		"fixedCardHeight": {
+			"name": "고정 카드 높이",
+			"desc": "활성화하면 모든 카드의 높이가 동일합니다. 비활성화하면 카드 높이가 내용에 따라 조정됩니다."
+		},
+		"renderContentAsHtml": {
+			"name": "HTML로 내용 렌더링",
+			"desc": "활성화하면 카드 내용이 HTML로 렌더링됩니다."
+		},
+		"centerActiveCardOnOpen": {
+			"name": "열 때 활성 카드 중앙 정렬",
+			"desc": "Card Navigator를 열 때 활성 카드를 자동으로 중앙에 정렬합니다."
+		},
+		"centerCardMethod": {
+			"name": "카드 중앙 정렬 방식",
+			"desc": "활성 카드를 뷰에서 중앙에 정렬하는 방식 선택",
+			"options": {
+				"scroll": "활성 카드로 스크롤",
+				"centered": "활성 카드를 중앙에 렌더링"
+			}
+		},
+		"animationDuration": {
+			"name": "애니메이션 지속 시간",
+			"desc": "카드 애니메이션의 지속 시간 설정 (밀리초)"
+		},
+		"dragDropContent": {
+			"name": "드래그 앤 드롭 내용",
+			"desc": "활성화하면 카드를 드래그할 때 링크 대신 노트 내용을 삽입합니다."
+		},
+		"displayItems": {
+			"title": "표시 항목 설정",
+			"showFileName": {
+				"name": "파일 이름 표시",
+				"desc": "카드에 파일 이름을 표시하거나 숨깁니다."
+			},
+			"showFirstHeader": {
+				"name": "첫 번째 헤더 표시",
+				"desc": "카드에 첫 번째 헤더를 표시하거나 숨깁니다."
+			},
+			"showContent": {
+				"name": "내용 표시",
+				"desc": "카드에 내용을 표시하거나 숨깁니다."
+			}
+		},
+		"fontSize": {
+			"fileName": {
+				"name": "파일 이름 크기",
+				"desc": "파일 이름의 글꼴 크기 설정"
+			},
+			"firstHeader": {
+				"name": "첫 번째 헤더 크기",
+				"desc": "첫 번째 헤더의 글꼴 크기 설정"
+			},
+			"content": {
+				"name": "내용 크기",
+				"desc": "내용의 글꼴 크기 설정"
+			}
+		},
+		"contentLength": {
+			"name": "내용 길이",
+			"desc": "각 카드에 표시되는 최대 내용 길이"
+		}
+	}
+}

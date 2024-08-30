@@ -3,7 +3,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../main';
 import { FolderSuggestModal } from './toolbar/toolbarActions';
-import { SortCriterion } from '../common/types';
+import { SortCriterion, CardNavigatorSettings } from '../common/types';
 
 export class SettingTab extends PluginSettingTab {
     constructor(app: App, private plugin: CardNavigatorPlugin) {
@@ -14,50 +14,53 @@ export class SettingTab extends PluginSettingTab {
         const { containerEl } = this;
         containerEl.empty();
 
-        new Setting(containerEl)
-            .setName('Cards per view')
-            .setDesc('Number of cards to display at once')
+        const createSetting = (name: string, desc: string, settingKey: keyof CardNavigatorSettings) => {
+            return new Setting(containerEl)
+                .setName(name)
+                .setDesc(desc);
+        };
+
+		const updateSetting = async <K extends keyof CardNavigatorSettings>(
+            settingKey: K,
+            value: CardNavigatorSettings[K]
+        ) => {
+            this.plugin.settings[settingKey] = value;
+            await this.plugin.saveSettings();
+            this.plugin.triggerRefresh();
+        };
+
+        createSetting('Cards per view', 'Number of cards to display at once', 'cardsPerView')
             .addSlider(slider => slider
-                .setLimits(3, 9, 1)
+                .setLimits(1, 10, 1)
                 .setValue(this.plugin.settings.cardsPerView)
                 .setDynamicTooltip()
                 .onChange(async (value) => {
-                    this.plugin.settings.cardsPerView = value;
-                    await this.plugin.saveSettings();
-                    this.plugin.refreshViews();
+                    await updateSetting('cardsPerView', value);
                 }));
 
-		new Setting(containerEl)
-		.setName('Folder Selection')
-		.setDesc('Choose whether to use the active file\'s folder or a selected folder')
-		.addDropdown(dropdown => dropdown
-			.addOption('active', 'Active File\'s Folder')
-			.addOption('selected', 'Selected Folder')
-			.setValue(this.plugin.settings.useSelectedFolder ? 'selected' : 'active')
-			.onChange(async (value) => {
-				this.plugin.settings.useSelectedFolder = value === 'selected';
-				await this.plugin.saveSettings();
-				this.display(); // 설정 변경 시 화면 새로고침
-			}));
+        createSetting('Folder Selection', 'Choose whether to use the active file\'s folder or a selected folder', 'useSelectedFolder')
+            .addDropdown(dropdown => dropdown
+                .addOption('active', 'Active File\'s Folder')
+                .addOption('selected', 'Selected Folder')
+                .setValue(this.plugin.settings.useSelectedFolder ? 'selected' : 'active')
+                .onChange(async (value) => {
+                    await updateSetting('useSelectedFolder', value === 'selected');
+                    this.display();
+                }));
 
-		if (this.plugin.settings.useSelectedFolder) {
-			new Setting(containerEl)
-				.setName('Select Folder')
-				.setDesc('Choose a folder for Card Navigator')
-				.addButton(button => button
-					.setButtonText(this.plugin.settings.selectedFolder || 'Choose folder')
-					.onClick(() => {
-						new FolderSuggestModal(this.plugin, (folder) => {
-							this.plugin.settings.selectedFolder = folder.path;
-							this.plugin.saveSettings();
-							this.display(); // 폴더 선택 후 화면 새로고침
-						}).open();
-					}));
-		}
+        if (this.plugin.settings.useSelectedFolder) {
+            createSetting('Select Folder', 'Choose a folder for Card Navigator', 'selectedFolder')
+                .addButton(button => button
+                    .setButtonText(this.plugin.settings.selectedFolder || 'Choose folder')
+                    .onClick(() => {
+                        new FolderSuggestModal(this.plugin, async (folder) => {
+                            await updateSetting('selectedFolder', folder.path);
+                            this.display();
+                        }).open();
+                    }));
+        }
 
-        new Setting(containerEl)
-            .setName('Default sort method')
-            .setDesc('Choose the default sorting method for cards')
+        createSetting('Default sort method', 'Choose the default sorting method for cards', 'sortCriterion')
             .addDropdown(dropdown => {
                 dropdown
                     .addOption('fileName_asc', 'File name (A to Z)')
@@ -69,160 +72,102 @@ export class SettingTab extends PluginSettingTab {
                     .setValue(`${this.plugin.settings.sortCriterion}_${this.plugin.settings.sortOrder}`)
                     .onChange(async (value) => {
                         const [criterion, order] = value.split('_') as [SortCriterion, 'asc' | 'desc'];
-                        this.plugin.settings.sortCriterion = criterion;
-                        this.plugin.settings.sortOrder = order;
-                        await this.plugin.saveSettings();
-                        this.plugin.refreshViews();
+                        await updateSetting('sortCriterion', criterion);
+                        await updateSetting('sortOrder', order);
                     });
             });
 
-		new Setting(containerEl)
-			.setName('Fixed Card Height')
-			.setDesc('If enabled, all cards will have the same height. If disabled, card height will adjust to content.')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.fixedCardHeight)
-				.onChange(async (value) => {
-				this.plugin.settings.fixedCardHeight = value;
-				await this.plugin.saveSettings();
-				this.plugin.refreshViews();
-				}));
+        createSetting('Fixed Card Height', 'If enabled, all cards will have the same height. If disabled, card height will adjust to content.', 'fixedCardHeight')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.fixedCardHeight)
+                .onChange(async (value) => {
+                    await updateSetting('fixedCardHeight', value);
+                }));
 
-		new Setting(containerEl)
-			.setName('Render Content as HTML')
-			.setDesc('If enabled, card content will be rendered as HTML')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.renderContentAsHtml)
-				.onChange(async (value) => {
-					this.plugin.settings.renderContentAsHtml = value;
-					await this.plugin.saveSettings();
-					this.plugin.refreshViews();
-				}));
+        createSetting('Render Content as HTML', 'If enabled, card content will be rendered as HTML', 'renderContentAsHtml')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.renderContentAsHtml)
+                .onChange(async (value) => {
+                    await updateSetting('renderContentAsHtml', value);
+                }));
 
-		new Setting(containerEl)
-		.setName('Center Card Method')
-		.setDesc('Choose how to center the active card in the view')
-		.addDropdown(dropdown => dropdown
-			.addOption('scroll', 'Scroll to active card')
-			.addOption('centered', 'Render the active card centered')
-			.setValue(this.plugin.settings.centerCardMethod)
-			.onChange(async (value) => {
-				this.plugin.settings.centerCardMethod = value as 'scroll' | 'centered';
-				await this.plugin.saveSettings();
-				this.plugin.refreshViews();
-				this.display(); // 설정 변경 시 화면 새로고침
-			}));
-
-		if (this.plugin.settings.centerCardMethod === 'centered') {
-			new Setting(containerEl)
-				.setName('Animation Duration')
-				.setDesc('Set the duration of the card animation (in milliseconds)')
-				.addSlider(slider => slider
-					.setLimits(0, 1000, 50)
-					.setValue(this.plugin.settings.animationDuration)
-					.setDynamicTooltip()
-					.onChange(async (value) => {
-						this.plugin.settings.animationDuration = value;
-						await this.plugin.saveSettings();
-					}));
-		}
-
-		new Setting(containerEl)
-		.setName('Drag and Drop Content')
-		.setDesc('When enabled, dragging a card will insert the note content instead of a link.')
+        createSetting('Center Active Card on Open', 'Automatically center the active card when opening the Card Navigator', 'centerActiveCardOnOpen')
 		.addToggle(toggle => toggle
-			.setValue(this.plugin.settings.dragDropContent)
+			.setValue(this.plugin.settings.centerActiveCardOnOpen)
 			.onChange(async (value) => {
-				this.plugin.settings.dragDropContent = value;
+				this.plugin.settings.centerActiveCardOnOpen = value;
 				await this.plugin.saveSettings();
-				this.plugin.refreshViews();
 			}));
 
-		containerEl.createEl('h3', { text: 'Display items Settings' });
+        createSetting('Center Card Method', 'Choose how to center the active card in the view', 'centerCardMethod')
+            .addDropdown(dropdown => dropdown
+                .addOption('scroll', 'Scroll to active card')
+                .addOption('centered', 'Render the active card centered')
+                .setValue(this.plugin.settings.centerCardMethod)
+                .onChange(async (value) => {
+                    await updateSetting('centerCardMethod', value as 'scroll' | 'centered');
+                    this.display();
+                }));
 
+        if (this.plugin.settings.centerCardMethod === 'centered') {
+            createSetting('Animation Duration', 'Set the duration of the card animation (in milliseconds)', 'animationDuration')
+                .addSlider(slider => slider
+                    .setLimits(0, 1000, 50)
+                    .setValue(this.plugin.settings.animationDuration)
+                    .setDynamicTooltip()
+                    .onChange(async (value) => {
+                        await updateSetting('animationDuration', value);
+                    }));
+        }
 
-		new Setting(containerEl)
-		.setName('Show File Name')
-		.setDesc('Toggle to display or hide the file name on cards')
-		.addToggle(toggle => toggle
-			.setValue(this.plugin.settings.showFileName)
-			.onChange(async (value) => {
-				this.plugin.settings.showFileName = value;
-				await this.plugin.saveSettings();
-				this.plugin.refreshViews();
-			}));
+        createSetting('Drag and Drop Content', 'When enabled, dragging a card will insert the note content instead of a link.', 'dragDropContent')
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.dragDropContent)
+                .onChange(async (value) => {
+                    await updateSetting('dragDropContent', value);
+                }));
 
-		new Setting(containerEl)
-			.setName('File Name Size')
-			.setDesc('Set the font size for the file name')
-			.addSlider(slider => slider
-				.setLimits(15, 25, 1)
-				.setValue(this.plugin.settings.fileNameSize)
-				.setDynamicTooltip()
-				.onChange(async (value) => {
-					this.plugin.settings.fileNameSize = value;
-					await this.plugin.saveSettings();
-					this.plugin.refreshViews();
-				}));
+        containerEl.createEl('h3', { text: 'Display items Settings' });
 
-		new Setting(containerEl)
-			.setName('Show First Header')
-			.setDesc('Toggle to display or hide the first header on cards')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.showFirstHeader)
-				.onChange(async (value) => {
-					this.plugin.settings.showFirstHeader = value;
-					await this.plugin.saveSettings();
-					this.plugin.refreshViews();
-				}));
+        const displaySettings = [
+            { name: 'Show File Name', key: 'showFileName' },
+            { name: 'Show First Header', key: 'showFirstHeader' },
+            { name: 'Show Content', key: 'showContent' },
+        ] as const;
 
-		new Setting(containerEl)
-			.setName('First Header Size')
-			.setDesc('Set the font size for the first header')
-			.addSlider(slider => slider
-				.setLimits(15, 25, 1)
-				.setValue(this.plugin.settings.firstHeaderSize)
-				.setDynamicTooltip()
-				.onChange(async (value) => {
-					this.plugin.settings.firstHeaderSize = value;
-					await this.plugin.saveSettings();
-					this.plugin.refreshViews();
-				}));
+        displaySettings.forEach(({ name, key }) => {
+            createSetting(name, `Toggle to display or hide the ${name.toLowerCase()} on cards`, key)
+                .addToggle(toggle => toggle
+                    .setValue(this.plugin.settings[key])
+                    .onChange(async (value) => {
+                        await updateSetting(key, value);
+                    }));
+        });
 
-		new Setting(containerEl)
-			.setName('Show Content')
-			.setDesc('Toggle to display or hide the content on cards')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.showContent)
-				.onChange(async (value) => {
-					this.plugin.settings.showContent = value;
-					await this.plugin.saveSettings();
-					this.plugin.refreshViews();
-				}));
+        const fontSizeSettings = [
+            { name: 'File Name Size', key: 'fileNameSize', min: 15, max: 25 },
+            { name: 'First Header Size', key: 'firstHeaderSize', min: 15, max: 25 },
+            { name: 'Content Size', key: 'contentSize', min: 10, max: 20 },
+        ] as const;
 
-		new Setting(containerEl)
-			.setName('Content Size')
-			.setDesc('Set the font size for the content')
-			.addSlider(slider => slider
-				.setLimits(10, 20, 1)
-				.setValue(this.plugin.settings.contentSize)
-				.setDynamicTooltip()
-				.onChange(async (value) => {
-					this.plugin.settings.contentSize = value;
-					await this.plugin.saveSettings();
-					this.plugin.refreshViews();
-				}));
+        fontSizeSettings.forEach(({ name, key, min, max }) => {
+            createSetting(name, `Set the font size for the ${name.toLowerCase()}`, key)
+                .addSlider(slider => slider
+                    .setLimits(min, max, 1)
+                    .setValue(this.plugin.settings[key])
+                    .setDynamicTooltip()
+                    .onChange(async (value) => {
+                        await updateSetting(key, value);
+                    }));
+        });
 
-		new Setting(containerEl)
-		.setName('Content Length')
-		.setDesc('Maximum content length displayed on each card')
-		.addSlider(slider => slider
-			.setLimits(1, 10, 1)
-			.setValue(this.plugin.settings.contentLength)
-			.setDynamicTooltip()
-			.onChange(async (value) => {
-				this.plugin.settings.contentLength = value;
-				await this.plugin.saveSettings();
-				this.plugin.refreshViews();
-			}));
+        createSetting('Content Length', 'Maximum content length displayed on each card', 'contentLength')
+            .addSlider(slider => slider
+                .setLimits(1, 10, 1)
+                .setValue(this.plugin.settings.contentLength)
+                .setDynamicTooltip()
+                .onChange(async (value) => {
+                    await updateSetting('contentLength', value);
+                }));
     }
 }

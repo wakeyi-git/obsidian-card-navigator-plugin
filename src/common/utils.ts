@@ -3,22 +3,6 @@
 import { TFile } from 'obsidian';
 import { SortCriterion } from './types';
 
-export function debounce<F extends (...args: unknown[]) => unknown>(func: F, waitFor: number) {
-    let timeout: NodeJS.Timeout | null = null;
-
-    return (...args: Parameters<F>): Promise<ReturnType<F>> => {
-        if (timeout) {
-            clearTimeout(timeout);
-        }
-        return new Promise<ReturnType<F>>((resolve) => {
-            timeout = setTimeout(() => {
-                const result = func(...args);
-                resolve(result as ReturnType<F>);
-            }, waitFor);
-        });
-    };
-}
-
 export function separateFrontmatterAndContent(content: string): { frontmatter: string | null, cleanContent: string } {
     const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n/;
     const match = content.match(frontmatterRegex);
@@ -43,43 +27,4 @@ export function sortFiles(files: TFile[], criterion: SortCriterion, order: 'asc'
         }
         return order === 'asc' ? comparison : -comparison;
     });
-}
-
-export function calculateCardSize(
-    isVertical: boolean, 
-    containerRect: DOMRect, 
-    cardsPerView: number, 
-    padding = 15
-) {
-    const { width: leafWidth, height: leafHeight } = containerRect;
-
-    let cardWidth: number, cardHeight: number;
-
-    if (isVertical) {
-        cardWidth = leafWidth - 2 * padding;
-        cardHeight = leafHeight / cardsPerView;
-    } else {
-        cardWidth = leafWidth / cardsPerView;
-        cardHeight = leafHeight - 2 * padding - 80;
-    }
-
-    return { cardWidth, cardHeight };
-}
-
-export function setContainerSize(
-    containerEl: HTMLElement,
-    cardWidth: number,
-    cardHeight: number,
-    cardsPerView: number,
-    isVertical: boolean
-) {
-    if (isVertical) {
-        containerEl.style.flexDirection = 'column';
-        containerEl.style.width = `${cardWidth}px`;
-        containerEl.style.height = `${cardHeight * cardsPerView}px`;
-    } else {
-        containerEl.style.flexDirection = 'row';
-        containerEl.style.width = `${cardWidth * cardsPerView - 30}px`;
-        containerEl.style.height = `${cardHeight}px`;
-    }
 }

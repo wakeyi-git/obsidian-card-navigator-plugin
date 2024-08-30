@@ -3,7 +3,7 @@
 import { WorkspaceLeaf, TFile, TFolder } from "obsidian";
 import CardNavigatorPlugin from 'main';
 import { CardMaker } from './cardMaker'
-import { debounce, sortFiles, setContainerSize } from '../../common/utils';
+import { sortFiles } from '../../common/utils';
 import { Card, SortCriterion } from '../../common/types';
 
 export class CardContainer {
@@ -11,175 +11,101 @@ export class CardContainer {
     private containerEl: HTMLElement | null = null;
     private cardMaker: CardMaker;
     private plugin: CardNavigatorPlugin;
-	private isVertical: boolean;
-	private cardWidth = 0;
-    private cardHeight = 0;
-	private animationQueue: (() => Promise<void>)[] = [];
+    public isVertical: boolean;
+    private toolbarHeight: number;
+    private cardGap: number;
+    private containerPadding: number;
 
     constructor(plugin: CardNavigatorPlugin, leaf: WorkspaceLeaf) {
         this.plugin = plugin;
         this.leaf = leaf;
         this.cardMaker = new CardMaker(this.plugin);
         this.isVertical = false;
+        this.toolbarHeight = this.getCSSVariable('--card-navigator-toolbar-height', 50);
+        this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
+        this.containerPadding = this.getCSSVariable('--card-navigator-container-padding', 10);
+    }
+
+    private getCSSVariable(variableName: string, defaultValue: number): number {
+        const valueStr = getComputedStyle(document.documentElement)
+            .getPropertyValue(variableName)
+            .trim();
+        return parseInt(valueStr) || defaultValue;
     }
 
     async initialize(containerEl: HTMLElement) {
         this.containerEl = containerEl;
         await this.waitForLeafCreation();
         this.registerEvents();
+        this.updateContainerStyle();
         this.refresh();
     }
 
-    private updateContainerStyle() {
-        if (this.containerEl) {
-            this.containerEl.style.display = 'flex';
-            this.containerEl.style.flexDirection = this.isVertical ? 'column' : 'row';
-            this.containerEl.style.overflowX = this.isVertical ? 'hidden' : 'auto';
-            this.containerEl.style.overflowY = this.isVertical ? 'auto' : 'hidden';
-			this.containerEl.style.marginTop = this.isVertical ? 'var(--card-navigator-toolbar-height)' : '0';
-			this.containerEl.style.padding = this.isVertical ? '0' : '1rem';
-            this.containerEl.style.width = '100%';
-        }
-    }
-
-	private renderCards(cardsData: Card[], cardWidth: number, cardHeight: number) {
-		const containerEl = this.containerEl;
-		if (!containerEl) return;
-	
-		containerEl.innerHTML = '';
-	
-        cardsData.forEach((cardData) => {
-            const card = this.cardMaker.createCardElement(cardData);
-            card.style.width = `${cardWidth}px`;
-            card.style.flexShrink = '0';
-
-            if (this.plugin.settings.fixedCardHeight) {
-                card.style.height = `${cardHeight}px`;
-                card.style.overflow = 'hidden';
-            } else {
-                card.style.height = 'auto';
-                card.style.maxHeight = 'none';
-            }
-
-            containerEl.appendChild(card);
-	
-			// 이미지 로딩 처리
-			if (this.plugin.settings.renderContentAsHtml) {
-				card.querySelectorAll('img').forEach((img: HTMLImageElement) => {
-					img.addEventListener('load', () => {
-						this.adjustCardSize(card);
-					});
-				});
-			}
-	
-			// 활성 카드 처리
-			if (cardData.file === this.plugin.app.workspace.getActiveFile()) {
-				card.classList.add('card-navigator-active');
-			}
+	private async waitForLeafCreation(): Promise<void> {
+		return new Promise((resolve) => {
+			const checkLeaf = () => {
+				if (this.containerEl && this.containerEl.getBoundingClientRect().width > 0 && this.containerEl.clientHeight > 0) {
+					resolve();
+				} else {
+					requestAnimationFrame(checkLeaf);
+				}
+			};
+			checkLeaf();
 		});
-	
-		// 스크롤 위치 조정
-		if (this.plugin.settings.centerCardMethod === 'scroll') {
-			this.scrollToActiveCard();
-		}
 	}
 
-    private scrollToActiveCard() {
-        if (!this.containerEl) return;
-        const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement;
-        if (activeCard) {
-            if (this.isVertical) {
-                const containerTop = this.containerEl.scrollTop;
-                const containerHeight = this.containerEl.clientHeight;
-                const activeCardTop = activeCard.offsetTop;
-                const activeCardHeight = activeCard.clientHeight;
-                const scrollTop = activeCardTop - containerTop - (containerHeight / 2) + (activeCardHeight / 2);
-                this.containerEl.scrollTop += scrollTop;
-            } else {
-                const containerLeft = this.containerEl.scrollLeft;
-                const containerWidth = this.containerEl.clientWidth;
-                const activeCardLeft = activeCard.offsetLeft;
-                const activeCardWidth = activeCard.clientWidth;
-                const scrollLeft = activeCardLeft - containerLeft - (containerWidth / 2) + (activeCardWidth / 2);
-                this.containerEl.scrollLeft += scrollLeft;
-            }
-        }
+    private registerEvents() {
+        this.plugin.registerEvent(
+            this.plugin.app.workspace.on('active-leaf-change', () => {
+                this.plugin.triggerRefresh();
+            })
+        );
+        this.plugin.registerEvent(
+            this.plugin.app.vault.on('modify', () => {
+                this.plugin.triggerRefresh();
+            })
+        );
     }
 
 	setOrientation(isVertical: boolean) {
         this.isVertical = isVertical;
         this.updateContainerStyle();
+		this.refresh();
     }
 
-    setCardSize(cardWidth: number, cardHeight: number) {
-        this.cardWidth = cardWidth;
-        this.cardHeight = cardHeight;
-    }
+    private updateContainerStyle() {
+        if (this.containerEl) {
+            this.containerEl.classList.add('card-navigator-container');
+            this.containerEl.classList.toggle('vertical', this.isVertical);
+            this.containerEl.classList.toggle('horizontal', !this.isVertical);
+            this.containerEl.classList.toggle('fixed-height', this.plugin.settings.fixedCardHeight);
+            this.containerEl.classList.toggle('flexible-height', !this.plugin.settings.fixedCardHeight);
 
-    getContainerEl(): HTMLElement | null {
-        return this.containerEl;
-    }
+            // CSS variables
+            this.containerEl.style.setProperty('--cards-per-view', this.plugin.settings.cardsPerView.toString());
+            this.containerEl.style.setProperty('--card-navigator-gap', `${this.cardGap}px`);
+            this.containerEl.style.setProperty('--card-navigator-toolbar-height', `${this.toolbarHeight}px`);
 
-    getCardSizeAndOrientation() {
-        return {
-            cardWidth: this.cardWidth,
-            cardHeight: this.cardHeight,
-            isVertical: this.isVertical,
-        };
-    }
-
-    scrollUp(amount: 'single' | 'multiple') {
-        if (!this.containerEl) return;
-        const scrollAmount = amount === 'single' ? this.cardHeight : this.cardHeight * this.plugin.settings.cardsPerView;
-        this.containerEl.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
-    }
-
-    scrollDown(amount: 'single' | 'multiple') {
-        if (!this.containerEl) return;
-        const scrollAmount = amount === 'single' ? this.cardHeight : this.cardHeight * this.plugin.settings.cardsPerView;
-        this.containerEl.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-    }
-
-    scrollLeft(amount: 'single' | 'multiple') {
-        if (!this.containerEl) return;
-        const scrollAmount = amount === 'single' ? this.cardWidth : this.cardWidth * this.plugin.settings.cardsPerView;
-        this.containerEl.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-    }
-
-    scrollRight(amount: 'single' | 'multiple') {
-        if (!this.containerEl) return;
-        const scrollAmount = amount === 'single' ? this.cardWidth : this.cardWidth * this.plugin.settings.cardsPerView;
-        this.containerEl.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    }
-
-    scrollToCenter() {
-        if (!this.containerEl) return;
-        const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement;
-        if (activeCard) {
-            activeCard.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            if (this.isVertical) {
+                this.containerEl.style.flexDirection = 'column';
+                this.containerEl.style.overflowY = 'auto';
+                this.containerEl.style.overflowX = 'hidden';
+                this.containerEl.style.height = `calc(100% - ${this.toolbarHeight}px)`;
+                this.containerEl.style.marginTop = `${this.toolbarHeight}px`;
+				this.containerEl.style.gap = `${this.cardGap}px`;
+				this.containerEl.style.marginRight = `-10px`;
+				this.containerEl.style.paddingRight = `${this.containerPadding}px`;
+            } else {
+                this.containerEl.style.flexDirection = 'row';
+                this.containerEl.style.overflowX = 'auto';
+                this.containerEl.style.overflowY = 'hidden';
+                this.containerEl.style.height = '100%';
+                this.containerEl.style.marginTop = '0';
+				this.containerEl.style.gap = `${this.cardGap}px`;
+                this.containerEl.style.paddingTop = `${this.containerPadding}px`;
+				this.containerEl.style.paddingBottom = `${this.containerPadding}px`;
+            }
         }
-    }
-
-    private async waitForLeafCreation(): Promise<void> {
-        return new Promise((resolve) => {
-            const checkLeaf = () => {
-                if (this.containerEl && this.containerEl.getBoundingClientRect().width > 0) {
-                    resolve();
-                } else {
-                    requestAnimationFrame(checkLeaf);
-                }
-            };
-            checkLeaf();
-        });
-    }
-
-    private registerEvents() {
-        this.plugin.registerEvent(
-            this.plugin.app.workspace.on('active-leaf-change', debounce(this.refresh.bind(this), 100))
-        );
-        this.plugin.registerEvent(
-            this.plugin.app.vault.on('modify', debounce(this.refresh.bind(this), 100))
-        );
     }
 
     async refresh() {
@@ -196,181 +122,227 @@ export class CardContainer {
             return;
         }
 
-        setContainerSize(this.containerEl, this.cardWidth, this.cardHeight, this.plugin.settings.cardsPerView, this.isVertical);
-
         const files = folder.children.filter((file): file is TFile => file instanceof TFile);
         const sortedFiles = sortFiles(files, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
         const cardsData = await Promise.all(sortedFiles.map(file => this.cardMaker.createCard(file)));
-        
-        if (this.plugin.settings.centerCardMethod === 'centered') {
-            await this.renderCenteredCards(cardsData);
-        } else {
-            this.renderCards(cardsData, this.cardWidth, this.cardHeight);
-        }
+
+        this.renderCards(cardsData);
     }
 
-    private adjustCardSize(card: HTMLElement) {
-        const content = card.querySelector('.card-navigator-content');
-        if (content instanceof HTMLElement) {
-            if (this.plugin.settings.fixedCardHeight) {
-                content.style.maxHeight = `${card.clientHeight - 40}px`; // 40px는 대략적인 여백
-                content.style.overflow = 'hidden';
-            } else {
-                content.style.maxHeight = 'none';
-                content.style.overflow = 'visible';
-            }
-        }
-    }
+	private renderCards(cardsData: Card[]) {
+		const containerEl = this.containerEl;
+		if (!containerEl) return;
+	
+		// Store the current scroll position
+		const currentScrollTop = containerEl.scrollTop;
+		const currentScrollLeft = containerEl.scrollLeft;
+	
+		// Find the active card's index before clearing
+		const activeCardIndex = Array.from(containerEl.children).findIndex(
+			child => child.classList.contains('card-navigator-active')
+		);
+	
+		containerEl.innerHTML = '';
+	
+		const containerHeight = containerEl.clientHeight;
+		const availableHeight = containerHeight - this.toolbarHeight;
+	
+		cardsData.forEach((cardData, index) => {
+			const card = this.cardMaker.createCardElement(cardData);
+			card.style.flexShrink = '0';
+	
+			if (this.isVertical) {
+				card.style.width = '100%';
+				if (this.plugin.settings.fixedCardHeight) {
+					card.style.height = `${availableHeight / this.plugin.settings.cardsPerView}px`;
+					card.style.overflow = 'auto';
+				} else {
+					card.style.height = 'auto';
+					card.style.minHeight = `${availableHeight / this.plugin.settings.cardsPerView / 2}px`;
+					card.style.maxHeight = `${availableHeight / 2}px`;
+				}
+			} else {
+				card.style.width = `${100 / this.plugin.settings.cardsPerView}%`;
+				card.style.height = '100%';
+			}
+	
+			if (cardData.file === this.plugin.app.workspace.getActiveFile()) {
+				card.classList.add('card-navigator-active');
+			}
+	
+			containerEl.appendChild(card);
+		});
+	
+		// Restore the scroll position
+		containerEl.scrollTop = currentScrollTop;
+		containerEl.scrollLeft = currentScrollLeft;
+	
+		// If the active card has moved, scroll to it
+		const newActiveCardIndex = Array.from(containerEl.children).findIndex(
+			child => child.classList.contains('card-navigator-active')
+		);
+	
+		if (activeCardIndex !== newActiveCardIndex && newActiveCardIndex !== -1) {
+			this.scrollToActiveCard(false);
+		}
+	}
+	
+	private scrollToActiveCard(animate = true) {
+		if (!this.containerEl) return;
+		const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement | null;
+		if (!activeCard) return;
+	
+		const containerRect = this.containerEl.getBoundingClientRect();
+		const activeCardRect = activeCard.getBoundingClientRect();
+	
+		let offset = 0;
+		let scrollProperty: 'scrollTop' | 'scrollLeft';
+	
+		if (this.isVertical) {
+			const containerCenter = containerRect.top + containerRect.height / 2;
+			const cardCenter = activeCardRect.top + activeCardRect.height / 2;
+			offset = cardCenter - containerCenter;
+			scrollProperty = 'scrollTop';
+		} else {
+			const containerCenter = containerRect.left + containerRect.width / 2;
+			const cardCenter = activeCardRect.left + activeCardRect.width / 2;
+			offset = cardCenter - containerCenter;
+			scrollProperty = 'scrollLeft';
+		}
+	
+		// Check if the card is already in view
+		const threshold = 50; // px
+		if (Math.abs(offset) < threshold) return;
+	
+		// Calculate the new scroll position
+		const newScrollPosition = this.containerEl[scrollProperty] + offset;
+	
+		if (animate) {
+			// Animate the scroll
+			const start = this.containerEl[scrollProperty];
+			const change = newScrollPosition - start;
+			const duration = 300; // ms
+			let startTime: number | null = null;
+	
+			const animateScroll = (currentTime: number) => {
+				if (startTime === null) startTime = currentTime;
+				const timeElapsed = currentTime - startTime;
+				const progress = Math.min(timeElapsed / duration, 1);
+				const easeProgress = 0.5 - Math.cos(progress * Math.PI) / 2; // easeInOutSine
+	
+				if (this.containerEl) {
+					this.containerEl[scrollProperty] = start + change * easeProgress;
+				}
+	
+				if (timeElapsed < duration && this.containerEl) {
+					requestAnimationFrame(animateScroll);
+				}
+			};
+	
+			requestAnimationFrame(animateScroll);
+		} else {
+			// Instant scroll without animation
+			this.containerEl[scrollProperty] = newScrollPosition;
+		}
+	}
+	
+	public centerActiveCard() {
+		this.scrollToActiveCard(true);
+	}
 
-    private async renderCenteredCards(cardsData: Card[]) {
+    scrollUp(count = 1) {
         if (!this.containerEl) return;
-
-        const activeFile = this.plugin.app.workspace.getActiveFile();
-        const activeIndex = cardsData.findIndex(card => card.file === activeFile);
-
-        if (activeIndex === -1) {
-            this.renderCards(cardsData, this.cardWidth, this.cardHeight);
-            return;
-        }
-
-        this.containerEl.innerHTML = '';
-
-        const cardSpacing = 10;
-        const containerSize = this.isVertical ? this.containerEl.clientHeight : this.containerEl.clientWidth;
-
-        const padding = this.isVertical ? parseFloat(getComputedStyle(this.containerEl).paddingTop) : parseFloat(getComputedStyle(this.containerEl).paddingLeft);
-        const activeCardOffset = (containerSize - (this.isVertical ? this.cardHeight : this.cardWidth)) / 2 + padding;
-
-        // Render active card
-        const activeCard = this.cardMaker.createCardElement(cardsData[activeIndex]);
-        activeCard.classList.add('card-navigator-active');
-        this.setCardPosition(activeCard, activeCardOffset, 9999);
-        this.containerEl.appendChild(activeCard);
-
-        // Prepare animation queue
-        this.animationQueue = [];
-
-        // Reorder cards: maintain sort order but center active card
-        const reorderedCards = this.reorderCardsFromCenter(cardsData, activeIndex);
-
-        // Render other cards
-        reorderedCards.forEach((card, index) => {
-            if (!this.containerEl) return;
-
-            const cardEl = this.cardMaker.createCardElement(card);
-
-            // Calculate final position
-            const finalOffset = this.calculateCardOffset(activeCardOffset, index + 1, cardSpacing);
-            this.setCardPosition(cardEl, finalOffset, reorderedCards.length - index);
-            cardEl.style.opacity = '0';
-
-            this.containerEl.appendChild(cardEl);
-            this.queueAnimation(cardEl, index);
-        });
-
-        // Start animations
-        this.startAnimations();
-    }
-
-    private reorderCardsFromCenter(cards: Card[], centerIndex: number): Card[] {
-        const reorderedCards: Card[] = [];
-        let leftIndex = centerIndex - 1;
-        let rightIndex = centerIndex + 1;
-
-        while (leftIndex >= 0 || rightIndex < cards.length) {
-            if (leftIndex >= 0) {
-                reorderedCards.push(cards[leftIndex]);
-                leftIndex--;
-            }
-            if (rightIndex < cards.length) {
-                reorderedCards.push(cards[rightIndex]);
-                rightIndex++;
-            }
-        }
-
-        return reorderedCards;
-    }
-
-    private calculateCardOffset(activeCardOffset: number, index: number, spacing: number): number {
-        const cardSize = this.isVertical ? this.cardHeight : this.cardWidth;
-        const direction = index % 2 === 0 ? 1 : -1; // Alternate between positive and negative
-        const distance = Math.ceil(index / 2);
-        return activeCardOffset + direction * distance * (cardSize + spacing);
-    }
-
-    private setCardPosition(card: HTMLElement, offset: number, zIndex: number) {
-        card.style.position = 'absolute';
         if (this.isVertical) {
-            card.style.top = `${offset}px`;
-            card.style.left = '0';
+            const scrollAmount = this.getCardHeight() * count;
+            this.containerEl.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
         } else {
-            card.style.left = `${offset}px`;
-            card.style.top = '0';
+            // 가로 모드에서는 왼쪽으로 스크롤
+            const scrollAmount = this.getCardWidth() * count;
+            this.containerEl.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
         }
-        card.style.width = `${this.cardWidth}px`;
-        card.style.height = `${this.cardHeight}px`;
-        card.style.transition = `opacity ${this.plugin.settings.animationDuration}ms ease-in-out`;
-        card.style.zIndex = zIndex.toString();
     }
 
-    private queueAnimation(card: HTMLElement, index: number) {
-        const animate = () => new Promise<void>(resolve => {
-            const delay = index * (this.plugin.settings.animationDuration / 4);
-            setTimeout(() => {
-                card.style.opacity = '1';
-                card.addEventListener('transitionend', () => resolve(), { once: true });
-            }, delay);
-        });
-        this.animationQueue.push(animate);
+    scrollDown(count = 1) {
+        if (!this.containerEl) return;
+        if (this.isVertical) {
+            const scrollAmount = this.getCardHeight() * count;
+            this.containerEl.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+        } else {
+            // 가로 모드에서는 오른쪽으로 스크롤
+            const scrollAmount = this.getCardWidth() * count;
+            this.containerEl.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
     }
 
-    private async startAnimations() {
-        for (const animate of this.animationQueue) {
-            await animate();
-        }
+    scrollLeft(count = 1) {
+        if (!this.containerEl) return;
+        const scrollAmount = this.getCardWidth() * count;
+        this.containerEl.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    }
+
+    scrollRight(count = 1) {
+        if (!this.containerEl) return;
+        const scrollAmount = this.getCardWidth() * count;
+        this.containerEl.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+
+    private getCardHeight(): number {
+        if (!this.containerEl) return 0;
+        const firstCard = this.containerEl.querySelector('.card-navigator-card');
+        return firstCard ? firstCard.clientHeight : 0;
+    }
+
+    private getCardWidth(): number {
+        if (!this.containerEl) return 0;
+        const firstCard = this.containerEl.querySelector('.card-navigator-card');
+        return firstCard ? firstCard.clientWidth : 0;
+    }
+
+    scrollToCenter() {
+        this.scrollToActiveCard();
     }
 
 	public displayCards(filteredFiles: TFile[]) {
 	}
 
-	public async searchCards(searchTerm: string) {
-		const activeFile = this.plugin.app.workspace.getActiveFile();
-		if (!activeFile) return;
-	
-		const folder = activeFile.parent;
-		if (!folder) return;
-	
-		const files = folder.children.filter((file): file is TFile => file instanceof TFile);
-		const filteredFiles = await this.filterFilesByContent(files, searchTerm);
-	
-		const cards = await Promise.all(filteredFiles.map(file => this.cardMaker.createCard(file)));
-		this.renderCards(cards, this.cardWidth, this.cardHeight);
-	}
-	
-	async displayCardsForFolder(folder: TFolder) {
-		const files = folder.children.filter((file): file is TFile => file instanceof TFile);
-		const cards = await Promise.all(files.map(file => this.cardMaker.createCard(file)));
-		this.renderCards(cards, this.cardWidth, this.cardHeight);
-	}
+    public async searchCards(searchTerm: string) {
+        const activeFile = this.plugin.app.workspace.getActiveFile();
+        if (!activeFile) return;
 
-	private async filterFilesByContent(files: TFile[], searchTerm: string): Promise<TFile[]> {
-		const lowercaseSearchTerm = searchTerm.toLowerCase();
-		const filteredFiles = [];
-		for (const file of files) {
-			const content = await this.plugin.app.vault.cachedRead(file);
-			if (file.basename.toLowerCase().includes(lowercaseSearchTerm) ||
-				content.toLowerCase().includes(lowercaseSearchTerm)) {
-				filteredFiles.push(file);
-			}
-		}
-		return filteredFiles;
-	}
+        const folder = activeFile.parent;
+        if (!folder) return;
+
+        const files = folder.children.filter((file): file is TFile => file instanceof TFile);
+        const filteredFiles = await this.filterFilesByContent(files, searchTerm);
+
+        const cards = await Promise.all(filteredFiles.map(file => this.cardMaker.createCard(file)));
+        this.renderCards(cards);
+    }
+
+    async displayCardsForFolder(folder: TFolder) {
+        const files = folder.children.filter((file): file is TFile => file instanceof TFile);
+        const cards = await Promise.all(files.map(file => this.cardMaker.createCard(file)));
+        this.renderCards(cards);
+    }
+
+    private async filterFilesByContent(files: TFile[], searchTerm: string): Promise<TFile[]> {
+        const lowercaseSearchTerm = searchTerm.toLowerCase();
+        const filteredFiles = [];
+        for (const file of files) {
+            const content = await this.plugin.app.vault.cachedRead(file);
+            if (file.basename.toLowerCase().includes(lowercaseSearchTerm) ||
+                content.toLowerCase().includes(lowercaseSearchTerm)) {
+                filteredFiles.push(file);
+            }
+        }
+        return filteredFiles;
+    }
 
     public async sortCards(criterion: SortCriterion, order: 'asc' | 'desc') {
         this.plugin.settings.sortCriterion = criterion;
         this.plugin.settings.sortOrder = order;
         await this.plugin.saveSettings();
-        this.refresh();
+        this.plugin.triggerRefresh();
     }
 
     onClose() {}

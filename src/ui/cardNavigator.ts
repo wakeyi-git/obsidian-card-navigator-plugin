@@ -4,7 +4,6 @@ import { ItemView, WorkspaceLeaf } from "obsidian";
 import CardNavigatorPlugin from '../main';
 import { Toolbar } from './toolbar/toolbar';
 import { CardContainer } from './cardContainer/cardContainer';
-import { calculateCardSize } from '../common/utils';
 
 export const VIEW_TYPE_CARD_NAVIGATOR = "card-navigator-view";
 
@@ -13,14 +12,14 @@ export class CardNavigator extends ItemView {
     public toolbar: Toolbar;
     public cardContainer: CardContainer;
     private resizeObserver: ResizeObserver;
-	private isVertical: boolean;
+    private isVertical: boolean;
 
     constructor(leaf: WorkspaceLeaf, plugin: CardNavigatorPlugin) {
         super(leaf);
         this.plugin = plugin;
         this.toolbar = new Toolbar(this.plugin);
         this.cardContainer = new CardContainer(this.plugin, this.leaf);
-		this.isVertical = this.calculateIsVertical();
+        this.isVertical = this.calculateIsVertical();
         this.resizeObserver = new ResizeObserver(this.handleResize.bind(this));
     }
 
@@ -38,68 +37,68 @@ export class CardNavigator extends ItemView {
 
     private calculateIsVertical(): boolean {
         const { width, height } = this.leaf.view.containerEl.getBoundingClientRect();
-        return height > width;
+        const isVertical = height > width;
+        this.cardContainer.setOrientation(isVertical);
+        return isVertical;
     }
 
     private handleResize() {
-        this.updateLayoutAndRefresh();
+        const newIsVertical = this.calculateIsVertical();
+        if (newIsVertical !== this.isVertical) {
+            this.isVertical = newIsVertical;
+            this.cardContainer.setOrientation(this.isVertical);
+        }
     }
-    
-	private handleKeyDown(event: KeyboardEvent) {
-		if (this.containerEl && this.containerEl.contains(document.activeElement)) {
-			const { isVertical } = this.cardContainer.getCardSizeAndOrientation();
-			switch (event.key) {
-				case 'ArrowUp':
-					this.cardContainer.scrollUp('single');
-					event.preventDefault();
-					break;
-				case 'ArrowDown':
-					this.cardContainer.scrollDown('single');
-					event.preventDefault();
-					break;
-				case 'ArrowLeft':
-					this.cardContainer.scrollLeft('single');
-					event.preventDefault();
-					break;
-				case 'ArrowRight':
-					this.cardContainer.scrollRight('single');
-					event.preventDefault();
-					break;
-				case 'PageUp':
-					if (isVertical) {
-						this.cardContainer.scrollUp('multiple');
-					} else {
-						this.cardContainer.scrollLeft('multiple');
-					}
-					event.preventDefault();
-					break;
-				case 'PageDown':
-					if (isVertical) {
-						this.cardContainer.scrollDown('multiple');
-					} else {
-						this.cardContainer.scrollRight('multiple');
-					}
-					event.preventDefault();
-					break;
-				case 'Home':
-					this.cardContainer.scrollToCenter();
-					event.preventDefault();
-					break;
-			}
-		}
-	}
 
 	public updateLayoutAndRefresh() {
-		this.isVertical = this.calculateIsVertical();
-		const containerRect = this.leaf.view.containerEl.getBoundingClientRect();
-		const { cardWidth, cardHeight } = calculateCardSize(this.isVertical, containerRect, this.plugin.settings.cardsPerView);
-		
-		this.cardContainer.setOrientation(this.isVertical);
-		this.cardContainer.setCardSize(cardWidth, cardHeight);
-		this.toolbar.setOrientation(this.isVertical);
-		
-		this.refresh();
-	}
+        this.isVertical = this.calculateIsVertical();
+        this.cardContainer.setOrientation(this.isVertical);
+        this.toolbar.setOrientation(this.isVertical);
+        this.refresh();
+    }
+
+    private handleKeyDown(event: KeyboardEvent) {
+        if (this.containerEl && this.containerEl.contains(document.activeElement)) {
+            switch (event.key) {
+                case 'ArrowUp':
+                    this.cardContainer.scrollUp();
+                    event.preventDefault();
+                    break;
+                case 'ArrowDown':
+                    this.cardContainer.scrollDown();
+                    event.preventDefault();
+                    break;
+                case 'ArrowLeft':
+                    this.cardContainer.scrollLeft();
+                    event.preventDefault();
+                    break;
+                case 'ArrowRight':
+                    this.cardContainer.scrollRight();
+                    event.preventDefault();
+                    break;
+                case 'PageUp':
+                    if (this.isVertical) {
+                        this.cardContainer.scrollUp();
+                    } else {
+                        this.cardContainer.scrollLeft();
+                    }
+                    event.preventDefault();
+                    break;
+                case 'PageDown':
+                    if (this.isVertical) {
+                        this.cardContainer.scrollDown();
+                    } else {
+                        this.cardContainer.scrollRight();
+                    }
+                    event.preventDefault();
+                    break;
+                case 'Home':
+                    this.cardContainer.scrollToCenter();
+                    event.preventDefault();
+                    break;
+            }
+        }
+    }
 
     async onOpen() {
         const container = this.containerEl.children[1] as HTMLElement;
@@ -111,21 +110,31 @@ export class CardNavigator extends ItemView {
         this.toolbar.initialize(toolbarEl);
         this.cardContainer.initialize(cardContainerEl);
 
-		this.isVertical = this.calculateIsVertical();
+        this.isVertical = this.calculateIsVertical();
         this.updateLayoutAndRefresh();
         this.resizeObserver.observe(this.leaf.view.containerEl);
 
-		this.registerDomEvent(this.containerEl, 'keydown', this.handleKeyDown.bind(this));
+        this.registerDomEvent(this.containerEl, 'keydown', this.handleKeyDown.bind(this));
 
         this.refresh();
+
+		this.centerActiveCardOnOpen();
     }
+
+	private centerActiveCardOnOpen() {
+		if (this.plugin.settings.centerActiveCardOnOpen) {
+			setTimeout(() => {
+				this.cardContainer.centerActiveCard();
+			}, 300);
+		}
+	}
 
     async onClose() {
         this.resizeObserver.disconnect();
         this.toolbar.onClose();
         this.cardContainer.onClose();
 
-		this.containerEl.removeEventListener('keydown', this.handleKeyDown.bind(this));
+        this.containerEl.removeEventListener('keydown', this.handleKeyDown.bind(this));
     }
 
     refresh() {

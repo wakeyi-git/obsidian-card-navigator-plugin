@@ -2,12 +2,14 @@
 
 :root {
 	--card-navigator-toolbar-height: 50px;
+	--card-navigator-container-padding: 10px;
+	--card-navigator-card-padding: 1rem;
 	--card-navigator-gap: 15px;
 	--card-navigator-border-radius: 8px;
 	--card-navigator-box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 	--card-navigator-transition: 0.2s ease;
 	--card-navigator-icon-size: 20px;
-	--card-navigator-popup-width: 50%;
+	--card-navigator-popup-width: 250px;
 }
 
 .theme-dark {
@@ -22,13 +24,6 @@
 	--card-navigator-text: var(--text-normal);
 	--card-navigator-border: var(--background-modifier-border);
 	--card-navigator-hover-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-}
-
-.view-content {
-	overflow: hidden;
-	display: flex;
-	flex-direction: column;
-	background-color: var(--background-secondary);
 }
 
 .card-navigator-toolbar {
@@ -130,48 +125,39 @@
 	width: 100%;
 }
 
-.card-container {
-	width: 100%;
-	margin-top: var(--card-navigator-toolbar-height);
-	gap: var(--card-navigator-gap);
-	flex-direction: column;
-	flex: 1;
-	position: relative;
-	scroll-behavior: smooth;
-}
-
-.card-container-horizontal {
-	height: 100%;
-	margin-top: 0;
-	gap: var(--card-navigator-gap);
-	flex-direction: row;
-	flex: 1;
-	position: relative;
-	scroll-behavior: smooth;
-}
-
 .card-navigator-card {
-	padding: 1rem;
-	border: 1px solid var(--card-navigator-border);
-	border-radius: var(--card-navigator-border-radius);
-	background-color: var(--card-navigator-background);
-	box-shadow: var(--card-navigator-box-shadow);
-	transition: transform var(--card-navigator-transition), box-shadow var(--card-navigator-transition);
-	cursor: pointer;
-	display: flex;
-	flex-direction: column;
+    flex: 0 0 auto;
+	overflow: auto;
+	padding: var(--card-navigator-card-padding);
+    border: 1px solid var(--card-navigator-border);
+    border-radius: var(--card-navigator-border-radius);
+    background-color: var(--card-navigator-background);
+    box-shadow: var(--card-navigator-box-shadow);
+    transition: transform var(--card-navigator-transition), box-shadow var(--card-navigator-transition);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
 }
 
-.card-navigator-card-horizontal {
-	padding: 1rem;
-	border: 1px solid var(--card-navigator-border);
-	border-radius: var(--card-navigator-border-radius);
-	background-color: var(--card-navigator-background);
-	box-shadow: var(--card-navigator-box-shadow);
-	transition: transform var(--card-navigator-transition), box-shadow var(--card-navigator-transition);
-	cursor: pointer;
-	display: flex;
-	flex-direction: row;
+.card-container-vertical .card-navigator-card {
+    width: 100%;
+}
+
+.card-container-horizontal .card-navigator-card {
+    height: 100%;
+	width: calc((100% - (var(--cards-per-view) - 1) * var(--card-navigator-gap)) / var(--cards-per-view));
+}
+
+.card-container.fixed-height .card-navigator-card {
+	overflow: hidden;
+}
+
+.card-container.vertical.fixed-height .card-navigator-card {
+	height: calc((100% - (var(--cards-per-view) - 1) * var(--card-navigator-gap)) / var(--cards-per-view));
+}
+
+.card-container.flexible-height .card-navigator-card {
+	min-height: var(--card-navigator-min-height);
 }
 
 .card-navigator-card.card-navigator-active {

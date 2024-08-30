@@ -1,10 +1,8 @@
 // src/ui/toolbar/toolbarActions.ts
 
 import { TFolder, FuzzySuggestModal } from 'obsidian';
-import { CardNavigator } from '../cardNavigator';
-import { VIEW_TYPE_CARD_NAVIGATOR } from '../cardNavigator';
 import CardNavigatorPlugin from '../../main';
-import { SortCriterion } from '../../common/types';
+import { SortCriterion, CardNavigatorSettings } from '../../common/types';
 
 export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     constructor(private plugin: CardNavigatorPlugin, private onSelect: (folder: TFolder) => void) {
@@ -22,34 +20,6 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
 
     onChooseItem(folder: TFolder): void {
         this.onSelect(folder);
-    }
-}
-
-export function moveCards(direction: string, plugin: CardNavigatorPlugin, amount: 'single' | 'multiple' = 'single') {
-    const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-    if (leaves.length === 0) return;
-
-    const view = leaves[0].view as CardNavigator;
-    if (!view || !view.cardContainer) return;
-
-    const cardContainer = view.cardContainer;
-
-    switch (direction) {
-        case 'up':
-            cardContainer.scrollUp(amount);
-            break;
-        case 'down':
-            cardContainer.scrollDown(amount);
-            break;
-        case 'left':
-            cardContainer.scrollLeft(amount);
-            break;
-        case 'right':
-            cardContainer.scrollRight(amount);
-            break;
-        case 'center':
-            cardContainer.scrollToCenter();
-            break;
     }
 }
 
@@ -71,7 +41,7 @@ export function toggleSort(plugin: CardNavigatorPlugin) {
                 plugin.settings.sortCriterion = criterion;
                 plugin.settings.sortOrder = order;
                 await plugin.saveSettings();
-                plugin.refreshViews();
+                plugin.triggerRefresh();
                 sortPopup.remove();
             });
             sortPopup.appendChild(option);
@@ -109,6 +79,15 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
         settingsPopup = document.createElement('div');
         settingsPopup.className = 'card-navigator-settings-popup';
 
+        const updateSetting = async <K extends keyof CardNavigatorSettings>(
+            settingKey: K,
+            value: CardNavigatorSettings[K]
+        ) => {
+            plugin.settings[settingKey] = value;
+            await plugin.saveSettings();
+            plugin.triggerRefresh();
+        };
+
         // 카드 수 설정
         const cardsPerViewSetting = document.createElement('input');
         cardsPerViewSetting.type = 'range';
@@ -116,10 +95,8 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
         cardsPerViewSetting.max = '10';
         cardsPerViewSetting.value = plugin.settings.cardsPerView.toString();
         cardsPerViewSetting.addEventListener('input', (e) => {
-            const value = (e.target as HTMLInputElement).value;
-            plugin.settings.cardsPerView = parseInt(value, 10);
-            plugin.saveSettings();
-            plugin.refreshViews();
+            const value = parseInt((e.target as HTMLInputElement).value, 10);
+            updateSetting('cardsPerView', value);
         });
         const cardsPerViewLabel = document.createElement('label');
         cardsPerViewLabel.textContent = 'Cards Per View:';
@@ -133,10 +110,8 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
         fontSizeSetting.max = '30';
         fontSizeSetting.value = plugin.settings.contentSize.toString();
         fontSizeSetting.addEventListener('input', (e) => {
-            const value = (e.target as HTMLInputElement).value;
-            plugin.settings.contentSize = parseInt(value, 10);
-            plugin.saveSettings();
-            plugin.refreshViews();
+            const value = parseInt((e.target as HTMLInputElement).value, 10);
+            updateSetting('contentSize', value);
         });
         const fontSizeLabel = document.createElement('label');
         fontSizeLabel.textContent = 'Content Font Size:';
@@ -144,18 +119,16 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
         settingsPopup.appendChild(fontSizeSetting);
 
         // 표시 항목 선택을 위한 토글 버튼들
-        const createToggle = (labelText: string, initialValue: boolean, onChange: (value: boolean) => void) => {
+        const createToggle = (labelText: string, settingKey: keyof CardNavigatorSettings) => {
             const container = document.createElement('div');
             const label = document.createElement('label');
             label.textContent = labelText;
 
             const toggle = document.createElement('input');
             toggle.type = 'checkbox';
-            toggle.checked = initialValue;
+            toggle.checked = plugin.settings[settingKey] as boolean;
             toggle.addEventListener('change', (e) => {
-                onChange((e.target as HTMLInputElement).checked);
-                plugin.saveSettings();
-                plugin.refreshViews();
+                updateSetting(settingKey, (e.target as HTMLInputElement).checked);
             });
 
             container.appendChild(label);
@@ -164,27 +137,19 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
         };
 
         // File Name 표시
-        const fileNameToggle = createToggle('Show File Name', plugin.settings.showFileName, (value) => {
-            plugin.settings.showFileName = value;
-        });
+        const fileNameToggle = createToggle('Show File Name', 'showFileName');
         settingsPopup.appendChild(fileNameToggle);
 
         // First Header 표시
-        const firstHeaderToggle = createToggle('Show First Header', plugin.settings.showFirstHeader, (value) => {
-            plugin.settings.showFirstHeader = value;
-        });
+        const firstHeaderToggle = createToggle('Show First Header', 'showFirstHeader');
         settingsPopup.appendChild(firstHeaderToggle);
 
         // Content 표시
-        const contentToggle = createToggle('Show Content', plugin.settings.showContent, (value) => {
-            plugin.settings.showContent = value;
-        });
+        const contentToggle = createToggle('Show Content', 'showContent');
         settingsPopup.appendChild(contentToggle);
 
-        // Drag and Drop Content 표시 (새로 추가된 부분)
-        const dragDropContentToggle = createToggle('Drag and Drop Content', plugin.settings.dragDropContent, (value) => {
-            plugin.settings.dragDropContent = value;
-        });
+        // Drag and Drop Content 표시
+        const dragDropContentToggle = createToggle('Drag and Drop Content', 'dragDropContent');
         settingsPopup.appendChild(dragDropContentToggle);
 
         // 툴바 하단에 배치

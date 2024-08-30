@@ -1,6 +1,6 @@
 // src/common/types.ts
 
-import { TFile } from 'obsidian';
+import { TFile, Hotkey } from 'obsidian';
 
 export interface Card {
     file: TFile;
@@ -19,8 +19,10 @@ export interface CardNavigatorSettings {
     sortOrder: 'asc' | 'desc';
 	fixedCardHeight: boolean;
 	renderContentAsHtml: boolean;
+	centerActiveCardOnOpen: boolean;
 	centerCardMethod: 'scroll' | 'centered';
     animationDuration: number;
+	centerActiveCardHotkey?: Hotkey;
     activeCardBorderColor: string;
     activeCardBackgroundColor: string;
 	dragDropContent: boolean;
