@@ -9,6 +9,7 @@ import i18next from 'i18next';
 
 import en from './locales/en.json'
 import ko from './locales/ko.json';
+import { t } from 'i18next';
 
 export const languageResources = {
 	en: { translation: en },
@@ -45,59 +46,59 @@ export default class CardNavigatorPlugin extends Plugin {
 
         this.addCommand({
             id: 'scroll-up-one-card',
-            name: 'Scroll Up One Card',
+            name: t('Scroll Up One Card'),
             callback: () => this.scrollCards('up', 1),
-            hotkeys: [{ modifiers: ['Ctrl', 'Mod'], key: 'ArrowUp' }]
+            hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'ArrowUp' }]
         });
 
         this.addCommand({
             id: 'scroll-down-one-card',
-            name: 'Scroll Down One Card',
+            name: t('Scroll Down One Card'),
             callback: () => this.scrollCards('down', 1),
-            hotkeys: [{ modifiers: ['Ctrl', 'Mod'], key: 'ArrowDown' }]
+            hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'ArrowDown' }]
         });
 
         this.addCommand({
             id: 'scroll-left-one-card',
-            name: 'Scroll Left One Card',
+            name: t('Scroll Left One Card'),
             callback: () => this.scrollCards('left', 1),
-            hotkeys: [{ modifiers: ['Ctrl', 'Mod'], key: 'ArrowLeft' }]
+            hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'ArrowLeft' }]
         });
 
         this.addCommand({
             id: 'scroll-right-one-card',
-            name: 'Scroll Right One Card',
+            name: t('Scroll Right One Card'),
             callback: () => this.scrollCards('right', 1),
-            hotkeys: [{ modifiers: ['Ctrl', 'Mod'], key: 'ArrowRight' }]
+            hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'ArrowRight' }]
         });
 
         this.addCommand({
             id: 'scroll-up-page',
-            name: 'Scroll Up One Page',
+            name: t('Scroll Up One Page'),
             callback: () => this.scrollCards('up', this.settings.cardsPerView),
-            hotkeys: [{ modifiers: ['Ctrl', 'Mod'], key: 'PageUp' }]
+            hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'PageUp' }]
         });
 
         this.addCommand({
             id: 'scroll-down-page',
-            name: 'Scroll Down One Page',
+            name: t('Scroll Down One Page'),
             callback: () => this.scrollCards('down', this.settings.cardsPerView),
-            hotkeys: [{ modifiers: ['Ctrl', 'Mod'], key: 'PageDown' }]
+            hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'PageDown' }]
         });
 
-        this.addCommand({
-            id: 'center-active-card',
-            name: 'Center Active Card',
-            callback: () => {
-                const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-                for (const leaf of leaves) {
-                    if (leaf.view instanceof CardNavigator) {
-                        leaf.view.cardContainer.centerActiveCard();
-                    }
-                }
-            },
-            hotkeys: this.settings.centerActiveCardHotkey ? [this.settings.centerActiveCardHotkey] : []
-        });
+		this.addCommand({
+			id: 'center-active-card',
+			name: t('Center Active Card'),
+			callback: () => {
+				const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+				for (const leaf of leaves) {
+					if (leaf.view instanceof CardNavigator) {
+						leaf.view.cardContainer.centerActiveCard();
+					}
+				}
+			},
+			hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'Home' }]
+		});
 
         this.app.workspace.onLayoutReady(() => {
             this.activateView();

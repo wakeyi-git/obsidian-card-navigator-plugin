@@ -1,5 +1,5 @@
 {
-    "Cards per view": "화면당 카드 수",
+	"Cards per view": "화면당 카드 수",
     "Number of cards to display at once": "한 번에 표시할 카드 수",
     "Folder Selection": "폴더 선택",
     "Choose whether to use the active file's folder or a selected folder": "활성 파일의 폴더 또는 선택한 폴더 중 사용할 폴더 선택",
@@ -38,5 +38,15 @@
     "Set the font size for the first header": "첫 번째 헤더의 글꼴 크기 설정",
     "Set the font size for the content": "내용의 글꼴 크기 설정",
     "Content Length": "내용 길이",
-    "Maximum content length displayed on each card": "각 카드에 표시되는 최대 내용 길이"
+    "Maximum content length displayed on each card": "각 카드에 표시되는 최대 내용 길이",
+	"Keyboard Shortcuts": "키보드 단축키",
+	"Card Navigator provides the following default shortcuts. You can customize these in Obsidian's Hotkeys settings:": "Card Navigator는 다음과 같은 기본 단축키를 제공합니다. Obsidian의 단축키 설정에서 이를 사용자 지정할 수 있습니다:",
+	"Scroll Up One Card": "카드 한 개 위로 스크롤",
+	"Scroll Down One Card": "카드 한 개 아래로 스크롤",
+	"Scroll Left One Card": "카드 한 개 왼쪽으로 스크롤",
+	"Scroll Right One Card": "카드 한 개 오른쪽으로 스크롤",
+	"Scroll Up One Page": "페이지 한 개 위로 스크롤",
+	"Scroll Down One Page": "페이지 한 개 아래로 스크롤",
+	"Center Active Card": "활성 카드 중앙 정렬",
+	"To customize these shortcuts, go to Settings → Hotkeys and search for \"Card Navigator\".": "이 단축키를 사용자 지정하려면 설정 → 단축키로 이동하여 \"Card Navigator\"를 검색하세요."
 }

@@ -149,5 +149,27 @@ export class SettingTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     await updateSetting('contentLength', value);
                 }));
+
+				containerEl.createEl('h3', { text: t('Keyboard Shortcuts') });
+
+				const shortcutDesc = containerEl.createEl('p');
+				shortcutDesc.setText(t('Card Navigator provides the following default shortcuts. You can customize these in Obsidian\'s Hotkeys settings:'));
+			
+				const shortcutList = containerEl.createEl('ul');
+				[
+					{ name: t('Scroll Up One Card'), hotkey: 'Ctrl + Alt/Option + Shift + ↑' },
+					{ name: t('Scroll Down One Card'), hotkey: 'Ctrl + Alt/Option + Shift + ↓' },
+					{ name: t('Scroll Left One Card'), hotkey: 'Ctrl + Alt/Option + Shift + ←' },
+					{ name: t('Scroll Right One Card'), hotkey: 'Ctrl + Alt/Option + Shift + →' },
+					{ name: t('Scroll Up One Page'), hotkey: 'Ctrl + Alt/Option + Shift + Page Up' },
+					{ name: t('Scroll Down One Page'), hotkey: 'Ctrl + Alt/Option + Shift + Page Down' },
+					{ name: t('Center Active Card'), hotkey: 'Ctrl + Alt/Option + Shift + Home' }
+				].forEach(({ name, hotkey }) => {
+					const item = shortcutList.createEl('li');
+					item.setText(`${name}: ${hotkey}`);
+				});
+			
+				const customizeNote = containerEl.createEl('p');
+				customizeNote.setText(t('To customize these shortcuts, go to Settings → Hotkeys and search for "Card Navigator".'));
     }
 }

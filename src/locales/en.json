@@ -38,5 +38,15 @@
 	"Set the font size for the first header": "Set the font size for the first header",
 	"Set the font size for the content": "Set the font size for the content",
 	"Content Length": "Content Length",
-	"Maximum content length displayed on each card": "Maximum content length displayed on each card"
+	"Maximum content length displayed on each card": "Maximum content length displayed on each card",
+	"Keyboard Shortcuts": "Keyboard Shortcuts",
+	"Card Navigator provides the following default shortcuts. You can customize these in Obsidian's Hotkeys settings:": "Card Navigator provides the following default shortcuts. You can customize these in Obsidian's Hotkeys settings:",
+	"Scroll Up One Card": "Scroll Up One Card",
+	"Scroll Down One Card": "Scroll Down One Card",
+	"Scroll Left One Card": "Scroll Left One Card",
+	"Scroll Right One Card": "Scroll Right One Card",
+	"Scroll Up One Page": "Scroll Up One Page",
+	"Scroll Down One Page": "Scroll Down One Page",
+	"Center Active Card": "Center Active Card",
+	"To customize these shortcuts, go to Settings → Hotkeys and search for \"Card Navigator\".": "To customize these shortcuts, go to Settings → Hotkeys and search for \"Card Navigator\"."
 }
