@@ -1,5 +1,5 @@
 {
-	"name": "obsidian-card-navigator",
+	"name": "card-navigator",
 	"version": "1.0.0",
 	"description": "Navigate your notes visually with card-based interface in Obsidian",
 	"main": "main.js",
