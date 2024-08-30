@@ -1,10 +1,21 @@
 // src/main.ts
 
-import { Plugin, TFile, debounce } from 'obsidian';
+import { Plugin, TFile, debounce, moment } from 'obsidian';
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settingsTab';
 import { CardNavigatorSettings, SortCriterion } from './common/types';
 import { DEFAULT_SETTINGS } from './common/settings';
+import i18next from 'i18next';
+
+import en from './locales/en.json'
+import ko from './locales/ko.json';
+
+export const languageResources = {
+	en: { translation: en },
+	ko: { translation: ko },
+} as const;
+
+export const translationLanguage = Object.keys(languageResources).find(i => i==moment.locale()) ? moment.locale() : "en";
 
 export default class CardNavigatorPlugin extends Plugin {
     settings: CardNavigatorSettings = DEFAULT_SETTINGS;
@@ -15,12 +26,18 @@ export default class CardNavigatorPlugin extends Plugin {
     async onload() {
         await this.loadSettings();
 
+		i18next.init({
+			lng: translationLanguage,
+			fallbackLng: "en",
+			resources: languageResources,
+		});
+
+		this.addSettingTab(new SettingTab(this.app, this));
+
         this.registerView(
             VIEW_TYPE_CARD_NAVIGATOR,
             (leaf) => new CardNavigator(leaf, this)
         );
-
-        this.addSettingTab(new SettingTab(this.app, this));
 
         this.addRibbonIcon('layers-3', 'Activate Card Navigator', () => {
             this.activateView();

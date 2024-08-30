@@ -3,6 +3,7 @@
 import { TFolder, FuzzySuggestModal } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SortCriterion, CardNavigatorSettings } from '../../common/types';
+import { t } from 'i18next';
 
 export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     constructor(private plugin: CardNavigatorPlugin, private onSelect: (folder: TFolder) => void) {
@@ -47,12 +48,12 @@ export function toggleSort(plugin: CardNavigatorPlugin) {
             sortPopup.appendChild(option);
         };
 
-        addSortOption('fileName_asc', 'File name (A to Z)');
-        addSortOption('fileName_desc', 'File name (Z to A)');
-        addSortOption('lastModified_desc', 'Last modified (newest first)');
-        addSortOption('lastModified_asc', 'Last modified (oldest first)');
-        addSortOption('created_desc', 'Created (newest first)');
-        addSortOption('created_asc', 'Created (oldest first)');
+        addSortOption(t('fileName_asc'), t('File name (A to Z)'));
+        addSortOption(t('fileName_desc'), t('File name (Z to A)'));
+        addSortOption(t('lastModified_desc'), t('Last modified (newest first)'));
+        addSortOption(t('lastModified_asc'), t('Last modified (oldest first)'));
+        addSortOption(t('created_desc'), t('Created (newest first)'));
+        addSortOption(t('created_asc'), t('Created (oldest first)'));
 
         // 툴바 하단에 배치
         const toolbarEl = document.querySelector('.card-navigator-toolbar-container');
@@ -99,7 +100,7 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
             updateSetting('cardsPerView', value);
         });
         const cardsPerViewLabel = document.createElement('label');
-        cardsPerViewLabel.textContent = 'Cards Per View:';
+        cardsPerViewLabel.textContent = t('Cards per view:');
         settingsPopup.appendChild(cardsPerViewLabel);
         settingsPopup.appendChild(cardsPerViewSetting);
 
@@ -114,7 +115,7 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
             updateSetting('contentSize', value);
         });
         const fontSizeLabel = document.createElement('label');
-        fontSizeLabel.textContent = 'Content Font Size:';
+        fontSizeLabel.textContent = t('Content Size:');
         settingsPopup.appendChild(fontSizeLabel);
         settingsPopup.appendChild(fontSizeSetting);
 
@@ -137,19 +138,19 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
         };
 
         // File Name 표시
-        const fileNameToggle = createToggle('Show File Name', 'showFileName');
+        const fileNameToggle = createToggle(t('Show File Name'), t('showFileName'));
         settingsPopup.appendChild(fileNameToggle);
 
         // First Header 표시
-        const firstHeaderToggle = createToggle('Show First Header', 'showFirstHeader');
+        const firstHeaderToggle = createToggle(t('Show First Header'), t('showFirstHeader'));
         settingsPopup.appendChild(firstHeaderToggle);
 
         // Content 표시
-        const contentToggle = createToggle('Show Content', 'showContent');
+        const contentToggle = createToggle(t('Show Content'), t('showContent'));
         settingsPopup.appendChild(contentToggle);
 
         // Drag and Drop Content 표시
-        const dragDropContentToggle = createToggle('Drag and Drop Content', 'dragDropContent');
+        const dragDropContentToggle = createToggle(t('Drag and Drop Content'), t('dragDropContent'));
         settingsPopup.appendChild(dragDropContentToggle);
 
         // 툴바 하단에 배치

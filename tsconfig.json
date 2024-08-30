@@ -13,6 +13,8 @@
     "importHelpers": true,
     "isolatedModules": true,
     "strictNullChecks": true,
+	"resolveJsonModule": true,
+    "esModuleInterop": true,
     "outDir": "./dist",
     "rootDir": "./",
     "lib": [
