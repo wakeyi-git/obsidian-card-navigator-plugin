@@ -105,7 +105,7 @@ export class CardNavigator extends ItemView {
         container.empty();
 
         const toolbarEl = container.createDiv('card-navigator-toolbar');
-        const cardContainerEl = container.createDiv('card-container');
+        const cardContainerEl = container.createDiv('card-navigator-container');
 
         this.toolbar.initialize(toolbarEl);
         this.cardContainer.initialize(cardContainerEl);

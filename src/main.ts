@@ -44,48 +44,42 @@ export default class CardNavigatorPlugin extends Plugin {
             this.activateView();
         });
 
-        this.addCommand({
-            id: 'scroll-up-one-card',
-            name: t('Scroll Up One Card'),
-            callback: () => this.scrollCards('up', 1),
-            hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'ArrowUp' }]
-        });
-
-        this.addCommand({
-            id: 'scroll-down-one-card',
-            name: t('Scroll Down One Card'),
-            callback: () => this.scrollCards('down', 1),
-            hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'ArrowDown' }]
-        });
-
-        this.addCommand({
-            id: 'scroll-left-one-card',
-            name: t('Scroll Left One Card'),
-            callback: () => this.scrollCards('left', 1),
-            hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'ArrowLeft' }]
-        });
-
-        this.addCommand({
-            id: 'scroll-right-one-card',
-            name: t('Scroll Right One Card'),
-            callback: () => this.scrollCards('right', 1),
-            hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'ArrowRight' }]
-        });
-
-        this.addCommand({
-            id: 'scroll-up-page',
-            name: t('Scroll Up One Page'),
-            callback: () => this.scrollCards('up', this.settings.cardsPerView),
-            hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'PageUp' }]
-        });
-
-        this.addCommand({
-            id: 'scroll-down-page',
-            name: t('Scroll Down One Page'),
-            callback: () => this.scrollCards('down', this.settings.cardsPerView),
-            hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'PageDown' }]
-        });
-
+		this.addCommand({
+			id: 'scroll-up-one-card',
+			name: t('Scroll Up One Card'),
+			callback: () => this.scrollCards('up', 1)
+		});
+	
+		this.addCommand({
+			id: 'scroll-down-one-card',
+			name: t('Scroll Down One Card'),
+			callback: () => this.scrollCards('down', 1)
+		});
+	
+		this.addCommand({
+			id: 'scroll-left-one-card',
+			name: t('Scroll Left One Card'),
+			callback: () => this.scrollCards('left', 1)
+		});
+	
+		this.addCommand({
+			id: 'scroll-right-one-card',
+			name: t('Scroll Right One Card'),
+			callback: () => this.scrollCards('right', 1)
+		});
+	
+		this.addCommand({
+			id: 'scroll-up-page',
+			name: t('Scroll Up One Page'),
+			callback: () => this.scrollCards('up', this.settings.cardsPerView)
+		});
+	
+		this.addCommand({
+			id: 'scroll-down-page',
+			name: t('Scroll Down One Page'),
+			callback: () => this.scrollCards('down', this.settings.cardsPerView)
+		});
+	
 		this.addCommand({
 			id: 'center-active-card',
 			name: t('Center Active Card'),
@@ -96,8 +90,7 @@ export default class CardNavigatorPlugin extends Plugin {
 						leaf.view.cardContainer.centerActiveCard();
 					}
 				}
-			},
-			hotkeys: [{ modifiers: ['Ctrl', 'Alt', 'Shift'], key: 'Home' }]
+			}
 		});
 
         this.app.workspace.onLayoutReady(() => {
@@ -109,8 +102,8 @@ export default class CardNavigatorPlugin extends Plugin {
     }
 
     async onunload() {
-        this.app.workspace.detachLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-    }
+
+	}
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());

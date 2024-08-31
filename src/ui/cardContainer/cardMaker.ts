@@ -57,19 +57,18 @@ export class CardMaker {
         if (this.plugin.settings.showFileName && card.fileName) {
             const fileNameEl = cardElement.createEl('h3', { text: card.fileName });
             fileNameEl.className = 'card-navigator-filename';
-            fileNameEl.style.fontSize = `${this.plugin.settings.fileNameSize}px`;
+            fileNameEl.style.setProperty('--file-name-font-size', `${this.plugin.settings.fileNameSize}px`);
         }
 
         if (this.plugin.settings.showFirstHeader && card.firstHeader) {
             const headerEl = cardElement.createEl('h4', { text: card.firstHeader });
             headerEl.className = 'card-navigator-first-header';
-            headerEl.style.fontSize = `${this.plugin.settings.firstHeaderSize}px`;
+            headerEl.style.setProperty('--first-header-font-size', `${this.plugin.settings.firstHeaderSize}px`);
         }
 
 		if (this.plugin.settings.showContent && card.content) {
-			const contentEl = cardElement.createEl('div');
-			contentEl.className = 'card-navigator-content';
-			contentEl.style.fontSize = `${this.plugin.settings.contentSize}px`;
+			const contentEl = cardElement.createEl('div', { cls: 'card-navigator-content' });
+			contentEl.style.setProperty('--content-font-size', `${this.plugin.settings.contentSize}px`);
 		
 			if (this.plugin.settings.renderContentAsHtml) {
 				MarkdownRenderer.render(
@@ -81,9 +80,7 @@ export class CardMaker {
 				);
 			} else {
 				contentEl.textContent = card.content;
-				contentEl.style.overflow = 'hidden';
-				contentEl.style.textOverflow = 'ellipsis';
-				contentEl.style.display = '-webkit-box';
+				contentEl.addClass('ellipsis');
 			}
 		}
 

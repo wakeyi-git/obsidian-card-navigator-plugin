@@ -14,7 +14,6 @@ export class CardContainer {
     public isVertical: boolean;
     private toolbarHeight: number;
     private cardGap: number;
-    private containerPadding: number;
 
     constructor(plugin: CardNavigatorPlugin, leaf: WorkspaceLeaf) {
         this.plugin = plugin;
@@ -23,7 +22,6 @@ export class CardContainer {
         this.isVertical = false;
         this.toolbarHeight = this.getCSSVariable('--card-navigator-toolbar-height', 50);
         this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
-        this.containerPadding = this.getCSSVariable('--card-navigator-container-padding', 10);
     }
 
     private getCSSVariable(variableName: string, defaultValue: number): number {
@@ -81,42 +79,27 @@ export class CardContainer {
             this.containerEl.classList.toggle('fixed-height', this.plugin.settings.fixedCardHeight);
             this.containerEl.classList.toggle('flexible-height', !this.plugin.settings.fixedCardHeight);
 
-            // CSS variables
+            // CSS 변수 설정
             this.containerEl.style.setProperty('--cards-per-view', this.plugin.settings.cardsPerView.toString());
             this.containerEl.style.setProperty('--card-navigator-gap', `${this.cardGap}px`);
             this.containerEl.style.setProperty('--card-navigator-toolbar-height', `${this.toolbarHeight}px`);
-
-            if (this.isVertical) {
-                this.containerEl.style.flexDirection = 'column';
-                this.containerEl.style.overflowY = 'auto';
-                this.containerEl.style.overflowX = 'hidden';
-                this.containerEl.style.height = `calc(100% - ${this.toolbarHeight}px)`;
-                this.containerEl.style.marginTop = `${this.toolbarHeight}px`;
-				this.containerEl.style.gap = `${this.cardGap}px`;
-				this.containerEl.style.marginRight = `-10px`;
-				this.containerEl.style.paddingRight = `${this.containerPadding}px`;
-            } else {
-                this.containerEl.style.flexDirection = 'row';
-                this.containerEl.style.overflowX = 'auto';
-                this.containerEl.style.overflowY = 'hidden';
-                this.containerEl.style.height = '100%';
-                this.containerEl.style.marginTop = '0';
-				this.containerEl.style.gap = `${this.cardGap}px`;
-                this.containerEl.style.paddingTop = `${this.containerPadding}px`;
-				this.containerEl.style.paddingBottom = `${this.containerPadding}px`;
-            }
         }
     }
 
     async refresh() {
         let folder: TFolder | null = null;
 
-        if (this.plugin.settings.useSelectedFolder && this.plugin.settings.selectedFolder) {
-            folder = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.selectedFolder) as TFolder;
-        } else {
-            const activeFile = this.plugin.app.workspace.getActiveFile();
-            folder = activeFile?.parent || null;
-        }
+		if (this.plugin.settings.useSelectedFolder && this.plugin.settings.selectedFolder) {
+			const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.selectedFolder);
+			if (abstractFile instanceof TFolder) {
+				folder = abstractFile;
+			} else {
+				console.warn(`Selected path is not a folder: ${this.plugin.settings.selectedFolder}`);
+			}
+		} else {
+			const activeFile = this.plugin.app.workspace.getActiveFile();
+			folder = activeFile?.parent || null;
+		}
 
         if (!folder || !this.containerEl) {
             return;
@@ -142,29 +125,24 @@ export class CardContainer {
 			child => child.classList.contains('card-navigator-active')
 		);
 	
-		containerEl.innerHTML = '';
+		// Clear existing cards
+		while (containerEl.firstChild) {
+			containerEl.removeChild(containerEl.firstChild);
+		}
 	
-		const containerHeight = containerEl.clientHeight;
-		const availableHeight = containerHeight - this.toolbarHeight;
+		// Update container classes based on leaf orientation
+		containerEl.classList.toggle('vertical', this.isVertical);
+		containerEl.classList.toggle('horizontal', !this.isVertical);
+	
+		// Set the CSS variable for cards per view
+		containerEl.style.setProperty('--cards-per-view', this.plugin.settings.cardsPerView.toString());
 	
 		cardsData.forEach((cardData, index) => {
 			const card = this.cardMaker.createCardElement(cardData);
-			card.style.flexShrink = '0';
-	
-			if (this.isVertical) {
-				card.style.width = '100%';
-				if (this.plugin.settings.fixedCardHeight) {
-					card.style.height = `${availableHeight / this.plugin.settings.cardsPerView}px`;
-					card.style.overflow = 'auto';
-				} else {
-					card.style.height = 'auto';
-					card.style.minHeight = `${availableHeight / this.plugin.settings.cardsPerView / 2}px`;
-					card.style.maxHeight = `${availableHeight / 2}px`;
-				}
-			} else {
-				card.style.width = `${100 / this.plugin.settings.cardsPerView}%`;
-				card.style.height = '100%';
-			}
+			
+			// Apply classes based on leaf orientation and fixed-height setting
+			card.classList.add(this.isVertical ? 'vertical' : 'horizontal');
+			card.classList.toggle('fixed-height', this.plugin.settings.fixedCardHeight);
 	
 			if (cardData.file === this.plugin.app.workspace.getActiveFile()) {
 				card.classList.add('card-navigator-active');
@@ -173,11 +151,10 @@ export class CardContainer {
 			containerEl.appendChild(card);
 		});
 	
-		// Restore the scroll position
+		// Restore scroll position
 		containerEl.scrollTop = currentScrollTop;
 		containerEl.scrollLeft = currentScrollLeft;
 	
-		// If the active card has moved, scroll to it
 		const newActiveCardIndex = Array.from(containerEl.children).findIndex(
 			child => child.classList.contains('card-navigator-active')
 		);
@@ -186,7 +163,7 @@ export class CardContainer {
 			this.scrollToActiveCard(false);
 		}
 	}
-	
+
 	private scrollToActiveCard(animate = true) {
 		if (!this.containerEl) return;
 		const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement | null;
@@ -199,26 +176,20 @@ export class CardContainer {
 		let scrollProperty: 'scrollTop' | 'scrollLeft';
 	
 		if (this.isVertical) {
-			const containerCenter = containerRect.top + containerRect.height / 2;
-			const cardCenter = activeCardRect.top + activeCardRect.height / 2;
-			offset = cardCenter - containerCenter;
+			const containerVisibleHeight = containerRect.height;
+			const cardHeight = activeCardRect.height;
+			offset = activeCardRect.top - containerRect.top - (containerVisibleHeight - cardHeight) / 2;
 			scrollProperty = 'scrollTop';
 		} else {
-			const containerCenter = containerRect.left + containerRect.width / 2;
-			const cardCenter = activeCardRect.left + activeCardRect.width / 2;
-			offset = cardCenter - containerCenter;
+			const containerVisibleWidth = containerRect.width;
+			const cardWidth = activeCardRect.width;
+			offset = activeCardRect.left - containerRect.left - (containerVisibleWidth - cardWidth) / 2;
 			scrollProperty = 'scrollLeft';
 		}
 	
-		// Check if the card is already in view
-		const threshold = 50; // px
-		if (Math.abs(offset) < threshold) return;
-	
-		// Calculate the new scroll position
 		const newScrollPosition = this.containerEl[scrollProperty] + offset;
 	
 		if (animate) {
-			// Animate the scroll
 			const start = this.containerEl[scrollProperty];
 			const change = newScrollPosition - start;
 			const duration = 300; // ms
@@ -228,7 +199,7 @@ export class CardContainer {
 				if (startTime === null) startTime = currentTime;
 				const timeElapsed = currentTime - startTime;
 				const progress = Math.min(timeElapsed / duration, 1);
-				const easeProgress = 0.5 - Math.cos(progress * Math.PI) / 2; // easeInOutSine
+				const easeProgress = 0.5 - Math.cos(progress * Math.PI) / 2;
 	
 				if (this.containerEl) {
 					this.containerEl[scrollProperty] = start + change * easeProgress;
@@ -241,7 +212,6 @@ export class CardContainer {
 	
 			requestAnimationFrame(animateScroll);
 		} else {
-			// Instant scroll without animation
 			this.containerEl[scrollProperty] = newScrollPosition;
 		}
 	}
@@ -256,7 +226,6 @@ export class CardContainer {
             const scrollAmount = this.getCardHeight() * count;
             this.containerEl.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
         } else {
-            // 가로 모드에서는 왼쪽으로 스크롤
             const scrollAmount = this.getCardWidth() * count;
             this.containerEl.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
         }
@@ -268,7 +237,6 @@ export class CardContainer {
             const scrollAmount = this.getCardHeight() * count;
             this.containerEl.scrollBy({ top: scrollAmount, behavior: 'smooth' });
         } else {
-            // 가로 모드에서는 오른쪽으로 스크롤
             const scrollAmount = this.getCardWidth() * count;
             this.containerEl.scrollBy({ left: scrollAmount, behavior: 'smooth' });
         }
