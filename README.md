@@ -30,10 +30,10 @@ Card Navigator is a plugin for Obsidian that allows you to view and navigate you
 2. Use the toolbar to search, sort, or change settings.
 3. Scroll through your cards to browse your notes.
 4. Click on a card to open the corresponding note.
-5. Use keyboard shortcuts for quick navigation:
+5. Use keyboard shortcuts for quick navigation(Examples of hotkey settings):
    - Scroll Up/Down: `Ctrl + Alt + Shift + ↑/↓`
    - Scroll Left/Right: `Ctrl + Alt + Shift + ←/→`
-   - Scroll Page Up/Down: `Ctrl + Alt + Shift + PageUp/PageDown`
+   - Scroll Page Up(Left)/Down(Right): `Ctrl + Alt + Shift + PageUp/PageDown`
    - Center Active Card: `Ctrl + Alt + Shift + Home`
 
 ## Configuration
