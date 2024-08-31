@@ -89,17 +89,17 @@ export class CardContainer {
     async refresh() {
         let folder: TFolder | null = null;
 
-		if (this.plugin.settings.useSelectedFolder && this.plugin.settings.selectedFolder) {
-			const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.selectedFolder);
-			if (abstractFile instanceof TFolder) {
-				folder = abstractFile;
-			} else {
-				console.warn(`Selected path is not a folder: ${this.plugin.settings.selectedFolder}`);
-			}
-		} else {
-			const activeFile = this.plugin.app.workspace.getActiveFile();
-			folder = activeFile?.parent || null;
-		}
+        if (this.plugin.settings.useSelectedFolder && this.plugin.settings.selectedFolder) {
+            const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.selectedFolder);
+            if (abstractFile instanceof TFolder) {
+                folder = abstractFile;
+            } else {
+                console.warn(`Selected path is not a folder: ${this.plugin.settings.selectedFolder}`);
+            }
+        } else {
+            const activeFile = this.plugin.app.workspace.getActiveFile();
+            folder = activeFile?.parent || null;
+        }
 
         if (!folder || !this.containerEl) {
             return;
@@ -289,7 +289,8 @@ export class CardContainer {
 
     async displayCardsForFolder(folder: TFolder) {
         const files = folder.children.filter((file): file is TFile => file instanceof TFile);
-        const cards = await Promise.all(files.map(file => this.cardMaker.createCard(file)));
+        const sortedFiles = sortFiles(files, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
+        const cards = await Promise.all(sortedFiles.map(file => this.cardMaker.createCard(file)));
         this.renderCards(cards);
     }
 
