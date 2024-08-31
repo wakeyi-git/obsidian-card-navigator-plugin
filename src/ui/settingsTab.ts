@@ -153,23 +153,23 @@ export class SettingTab extends PluginSettingTab {
 				containerEl.createEl('h3', { text: t('Keyboard Shortcuts') });
 
 				const shortcutDesc = containerEl.createEl('p');
-				shortcutDesc.setText(t('Card Navigator provides the following default shortcuts. You can customize these in Obsidian\'s Hotkeys settings:'));
-			
+				shortcutDesc.setText(t('Card Navigator provides the following features that can be assigned keyboard shortcuts. You can set these up in Obsidian\'s Hotkeys settings:'));
+				
 				const shortcutList = containerEl.createEl('ul');
 				[
-					{ name: t('Scroll Up One Card'), hotkey: 'Ctrl + Alt/Option + Shift + ↑' },
-					{ name: t('Scroll Down One Card'), hotkey: 'Ctrl + Alt/Option + Shift + ↓' },
-					{ name: t('Scroll Left One Card'), hotkey: 'Ctrl + Alt/Option + Shift + ←' },
-					{ name: t('Scroll Right One Card'), hotkey: 'Ctrl + Alt/Option + Shift + →' },
-					{ name: t('Scroll Up One Page'), hotkey: 'Ctrl + Alt/Option + Shift + Page Up' },
-					{ name: t('Scroll Down One Page'), hotkey: 'Ctrl + Alt/Option + Shift + Page Down' },
-					{ name: t('Center Active Card'), hotkey: 'Ctrl + Alt/Option + Shift + Home' }
-				].forEach(({ name, hotkey }) => {
+					{ name: t('Scroll Up One Card') },
+					{ name: t('Scroll Down One Card') },
+					{ name: t('Scroll Left One Card') },
+					{ name: t('Scroll Right One Card') },
+					{ name: t('Scroll Up One Page') },
+					{ name: t('Scroll Down One Page') },
+					{ name: t('Center Active Card') }
+				].forEach(({ name }) => {
 					const item = shortcutList.createEl('li');
-					item.setText(`${name}: ${hotkey}`);
+					item.setText(name);
 				});
-			
+				
 				const customizeNote = containerEl.createEl('p');
-				customizeNote.setText(t('To customize these shortcuts, go to Settings → Hotkeys and search for "Card Navigator".'));
+				customizeNote.setText(t('To set up shortcuts for these actions, go to Settings → Hotkeys and search for "Card Navigator". You can then assign your preferred key combinations for each action.'));
     }
 }
