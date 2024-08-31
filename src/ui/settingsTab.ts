@@ -161,8 +161,8 @@ export class SettingTab extends PluginSettingTab {
 					{ name: t('Scroll Down One Card') },
 					{ name: t('Scroll Left One Card') },
 					{ name: t('Scroll Right One Card') },
-					{ name: t('Scroll Up One Page') },
-					{ name: t('Scroll Down One Page') },
+					{ name: t('Scroll Up/Left One Page') },
+					{ name: t('Scroll Down/Right One Page') },
 					{ name: t('Center Active Card') }
 				].forEach(({ name }) => {
 					const item = shortcutList.createEl('li');

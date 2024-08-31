@@ -45,8 +45,8 @@
 	"Scroll Down One Card": "Scroll Down One Card",
 	"Scroll Left One Card": "Scroll Left One Card",
 	"Scroll Right One Card": "Scroll Right One Card",
-	"Scroll Up One Page": "Scroll Up One Page",
-	"Scroll Down One Page": "Scroll Down One Page",
+	"Scroll Up/Left One Page": "Scroll Up One/Left Page",
+	"Scroll Down/Right One Page": "Scroll Down/Right One Page",
 	"Center Active Card": "Center Active Card",
 	"To set up shortcuts for these actions, go to Settings → Hotkeys and search for \"Card Navigator\". You can then assign your preferred key combinations for each action.": "To set up shortcuts for these actions, go to Settings → Hotkeys and search for \"Card Navigator\". You can then assign your preferred key combinations for each action."
 }

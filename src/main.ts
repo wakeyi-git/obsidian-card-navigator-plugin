@@ -70,13 +70,13 @@ export default class CardNavigatorPlugin extends Plugin {
 	
 		this.addCommand({
 			id: 'scroll-up-page',
-			name: t('Scroll Up One Page'),
+			name: t('Scroll Up/Left One Page'),
 			callback: () => this.scrollCards('up', this.settings.cardsPerView)
 		});
 	
 		this.addCommand({
 			id: 'scroll-down-page',
-			name: t('Scroll Down One Page'),
+			name: t('Scroll Down/Right One Page'),
 			callback: () => this.scrollCards('down', this.settings.cardsPerView)
 		});
 	

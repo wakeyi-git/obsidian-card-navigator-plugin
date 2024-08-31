@@ -45,8 +45,8 @@
 	"Scroll Down One Card": "카드 한 개 아래로 스크롤",
 	"Scroll Left One Card": "카드 한 개 왼쪽으로 스크롤",
 	"Scroll Right One Card": "카드 한 개 오른쪽으로 스크롤",
-	"Scroll Up One Page": "페이지 한 개 위로 스크롤",
-	"Scroll Down One Page": "페이지 한 개 아래로 스크롤",
+	"Scroll Up/Left One Page": "페이지 한 개 위로/왼쪽으로 스크롤",
+	"Scroll Down/Right One Page": "페이지 한 개 아래로/오른쪽으로 스크롤",
 	"Center Active Card": "활성 카드 중앙 정렬",
 	"To set up shortcuts for these actions, go to Settings → Hotkeys and search for \"Card Navigator\". You can then assign your preferred key combinations for each action.": "이 기능들에 대한 단축키를 설정하려면 설정 → 단축키로 이동하여 \"Card Navigator\"를 검색하세요. 그런 다음 각 기능에 원하는 키 조합을 할당할 수 있습니다."
 }
