@@ -4,6 +4,7 @@ import { ItemView, WorkspaceLeaf } from "obsidian";
 import CardNavigatorPlugin from '../main';
 import { Toolbar } from './toolbar/toolbar';
 import { CardContainer } from './cardContainer/cardContainer';
+import { t } from "i18next";
 
 export const VIEW_TYPE_CARD_NAVIGATOR = "card-navigator-view";
 
@@ -28,7 +29,7 @@ export class CardNavigator extends ItemView {
     }
 
     getDisplayText() {
-        return "Card Navigator";
+        return t("Card Navigator");
     }
 
     getIcon(): string {
@@ -77,23 +78,15 @@ export class CardNavigator extends ItemView {
                     event.preventDefault();
                     break;
                 case 'PageUp':
-                    if (this.isVertical) {
-                        this.cardContainer.scrollUp();
-                    } else {
-                        this.cardContainer.scrollLeft();
-                    }
+                    this.cardContainer.scrollUp(this.plugin.settings.cardsPerView);
                     event.preventDefault();
                     break;
                 case 'PageDown':
-                    if (this.isVertical) {
-                        this.cardContainer.scrollDown();
-                    } else {
-                        this.cardContainer.scrollRight();
-                    }
+                    this.cardContainer.scrollDown(this.plugin.settings.cardsPerView);
                     event.preventDefault();
                     break;
                 case 'Home':
-                    this.cardContainer.scrollToCenter();
+                    this.cardContainer.centerActiveCard();
                     event.preventDefault();
                     break;
             }

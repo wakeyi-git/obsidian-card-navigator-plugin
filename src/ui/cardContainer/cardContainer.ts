@@ -4,7 +4,7 @@ import { WorkspaceLeaf, TFile, TFolder } from "obsidian";
 import CardNavigatorPlugin from 'main';
 import { CardMaker } from './cardMaker'
 import { sortFiles } from '../../common/utils';
-import { Card, SortCriterion } from '../../common/types';
+import { Card, SortCriterion, SortOrder } from '../../common/types';
 
 export class CardContainer {
     private leaf: WorkspaceLeaf;
@@ -76,12 +76,11 @@ export class CardContainer {
             this.containerEl.classList.add('card-navigator-container');
             this.containerEl.classList.toggle('vertical', this.isVertical);
             this.containerEl.classList.toggle('horizontal', !this.isVertical);
-            this.containerEl.classList.toggle('fixed-height', this.plugin.settings.fixedCardHeight);
-            this.containerEl.classList.toggle('flexible-height', !this.plugin.settings.fixedCardHeight);
+            this.containerEl.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
+            this.containerEl.classList.toggle('flexible-height', !this.plugin.settings.alignCardHeight);
 
             // CSS 변수 설정
             this.containerEl.style.setProperty('--cards-per-view', this.plugin.settings.cardsPerView.toString());
-            this.containerEl.style.setProperty('--card-navigator-gap', `${this.cardGap}px`);
             this.containerEl.style.setProperty('--card-navigator-toolbar-height', `${this.toolbarHeight}px`);
         }
     }
@@ -140,9 +139,9 @@ export class CardContainer {
 		cardsData.forEach((cardData, index) => {
 			const card = this.cardMaker.createCardElement(cardData);
 			
-			// Apply classes based on leaf orientation and fixed-height setting
+			// Apply classes based on leaf orientation and align-height setting
 			card.classList.add(this.isVertical ? 'vertical' : 'horizontal');
-			card.classList.toggle('fixed-height', this.plugin.settings.fixedCardHeight);
+			card.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
 	
 			if (cardData.file === this.plugin.app.workspace.getActiveFile()) {
 				card.classList.add('card-navigator-active');
@@ -164,111 +163,114 @@ export class CardContainer {
 		}
 	}
 
-	private scrollToActiveCard(animate = true) {
-		if (!this.containerEl) return;
-		const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement | null;
-		if (!activeCard) return;
-	
-		const containerRect = this.containerEl.getBoundingClientRect();
-		const activeCardRect = activeCard.getBoundingClientRect();
-	
-		let offset = 0;
-		let scrollProperty: 'scrollTop' | 'scrollLeft';
-	
-		if (this.isVertical) {
-			const containerVisibleHeight = containerRect.height;
-			const cardHeight = activeCardRect.height;
-			offset = activeCardRect.top - containerRect.top - (containerVisibleHeight - cardHeight) / 2;
-			scrollProperty = 'scrollTop';
-		} else {
-			const containerVisibleWidth = containerRect.width;
-			const cardWidth = activeCardRect.width;
-			offset = activeCardRect.left - containerRect.left - (containerVisibleWidth - cardWidth) / 2;
-			scrollProperty = 'scrollLeft';
-		}
-	
-		const newScrollPosition = this.containerEl[scrollProperty] + offset;
-	
-		if (animate) {
-			const start = this.containerEl[scrollProperty];
-			const change = newScrollPosition - start;
-			const duration = 300; // ms
-			let startTime: number | null = null;
-	
-			const animateScroll = (currentTime: number) => {
-				if (startTime === null) startTime = currentTime;
-				const timeElapsed = currentTime - startTime;
-				const progress = Math.min(timeElapsed / duration, 1);
-				const easeProgress = 0.5 - Math.cos(progress * Math.PI) / 2;
-	
-				if (this.containerEl) {
-					this.containerEl[scrollProperty] = start + change * easeProgress;
-				}
-	
-				if (timeElapsed < duration && this.containerEl) {
-					requestAnimationFrame(animateScroll);
-				}
-			};
-	
-			requestAnimationFrame(animateScroll);
-		} else {
-			this.containerEl[scrollProperty] = newScrollPosition;
-		}
-	}
+    private scrollToActiveCard(animate = true) {
+        if (!this.containerEl) return;
+        const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement | null;
+        if (!activeCard) return;
+
+        const containerRect = this.containerEl.getBoundingClientRect();
+        const activeCardRect = activeCard.getBoundingClientRect();
+        const { width: cardWidth, height: cardHeight } = this.getCardSize();
+
+        let offset = 0;
+        let scrollProperty: 'scrollTop' | 'scrollLeft';
+
+        if (this.isVertical) {
+            const containerVisibleHeight = containerRect.height - this.toolbarHeight;
+            offset = activeCardRect.top - containerRect.top - this.toolbarHeight - (containerVisibleHeight - cardHeight) / 2;
+            scrollProperty = 'scrollTop';
+        } else {
+            const containerVisibleWidth = containerRect.width;
+            offset = activeCardRect.left - containerRect.left - (containerVisibleWidth - cardWidth) / 2;
+            scrollProperty = 'scrollLeft';
+        }
+
+        const newScrollPosition = this.containerEl[scrollProperty] + offset;
+
+        if (animate) {
+            const start = this.containerEl[scrollProperty];
+            const change = newScrollPosition - start;
+            const duration = 300; // ms
+            let startTime: number | null = null;
+
+            const animateScroll = (currentTime: number) => {
+                if (startTime === null) startTime = currentTime;
+                const timeElapsed = currentTime - startTime;
+                const progress = Math.min(timeElapsed / duration, 1);
+                const easeProgress = 0.5 - Math.cos(progress * Math.PI) / 2;
+
+                if (this.containerEl) {
+                    this.containerEl[scrollProperty] = start + change * easeProgress;
+                }
+
+                if (timeElapsed < duration && this.containerEl) {
+                    requestAnimationFrame(animateScroll);
+                }
+            };
+
+            requestAnimationFrame(animateScroll);
+        } else {
+            this.containerEl[scrollProperty] = newScrollPosition;
+        }
+    }
 	
 	public centerActiveCard() {
 		this.scrollToActiveCard(true);
 	}
 
-    scrollUp(count = 1) {
-        if (!this.containerEl) return;
-        if (this.isVertical) {
-            const scrollAmount = this.getCardHeight() * count;
-            this.containerEl.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
-        } else {
-            const scrollAmount = this.getCardWidth() * count;
-            this.containerEl.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-        }
-    }
-
-    scrollDown(count = 1) {
-        if (!this.containerEl) return;
-        if (this.isVertical) {
-            const scrollAmount = this.getCardHeight() * count;
-            this.containerEl.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-        } else {
-            const scrollAmount = this.getCardWidth() * count;
-            this.containerEl.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-        }
-    }
-
-    scrollLeft(count = 1) {
-        if (!this.containerEl) return;
-        const scrollAmount = this.getCardWidth() * count;
-        this.containerEl.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-    }
-
-    scrollRight(count = 1) {
-        if (!this.containerEl) return;
-        const scrollAmount = this.getCardWidth() * count;
-        this.containerEl.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    }
-
-    private getCardHeight(): number {
-        if (!this.containerEl) return 0;
-        const firstCard = this.containerEl.querySelector('.card-navigator-card');
-        return firstCard ? firstCard.clientHeight : 0;
-    }
-
-    private getCardWidth(): number {
-        if (!this.containerEl) return 0;
-        const firstCard = this.containerEl.querySelector('.card-navigator-card');
-        return firstCard ? firstCard.clientWidth : 0;
-    }
-
-    scrollToCenter() {
-        this.scrollToActiveCard();
-    }
+	private getCardSize(): { width: number, height: number } {
+		if (!this.containerEl) return { width: 0, height: 0 };
+		const firstCard = this.containerEl.querySelector('.card-navigator-card') as HTMLElement;
+		if (!firstCard) return { width: 0, height: 0 };
+	
+		const computedStyle = getComputedStyle(this.containerEl);
+		const gap = parseInt(computedStyle.getPropertyValue('--card-navigator-gap') || '0', 10);
+	
+		return {
+			width: firstCard.offsetWidth + gap,
+			height: firstCard.offsetHeight + gap
+		};
+	}
+	
+	scrollUp(count = 1) {
+		if (!this.containerEl) return;
+		const { height } = this.getCardSize();
+		const scrollAmount = height * count;
+		this.containerEl.scrollBy({
+			top: -scrollAmount,
+			behavior: 'smooth'
+		});
+	}
+	
+	scrollDown(count = 1) {
+		if (!this.containerEl) return;
+		const { height } = this.getCardSize();
+		const scrollAmount = height * count;
+		this.containerEl.scrollBy({
+			top: scrollAmount,
+			behavior: 'smooth'
+		});
+	}
+	
+	scrollLeft(count = 1) {
+		if (!this.containerEl) return;
+		const { width } = this.getCardSize();
+		const scrollAmount = width * count;
+		this.containerEl.scrollBy({
+			left: -scrollAmount,
+			behavior: 'smooth'
+		});
+	}
+	
+	scrollRight(count = 1) {
+		if (!this.containerEl) return;
+		const { width } = this.getCardSize();
+		const scrollAmount = width * count;
+		this.containerEl.scrollBy({
+			left: scrollAmount,
+			behavior: 'smooth'
+		});
+	}
 
 	public displayCards(filteredFiles: TFile[]) {
 	}
@@ -307,7 +309,7 @@ export class CardContainer {
         return filteredFiles;
     }
 
-    public async sortCards(criterion: SortCriterion, order: 'asc' | 'desc') {
+    public async sortCards(criterion: SortCriterion, order: SortOrder) {
         this.plugin.settings.sortCriterion = criterion;
         this.plugin.settings.sortOrder = order;
         await this.plugin.saveSettings();

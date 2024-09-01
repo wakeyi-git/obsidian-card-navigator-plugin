@@ -10,7 +10,8 @@ import {
     sortOptions, 
     displaySettings, 
     fontSizeSettings, 
-    keyboardShortcuts 
+    keyboardShortcuts, 
+	SortOrder
 } from './types';
 import { DEFAULT_SETTINGS } from './settings';
 import { TFolder } from 'obsidian';
@@ -27,7 +28,7 @@ export class SettingsManager {
         this.plugin.triggerRefresh();
     }
 
-    private async updateSetting<K extends keyof CardNavigatorSettings>(
+    public async updateSetting<K extends keyof CardNavigatorSettings>(
         key: K,
         value: CardNavigatorSettings[K]
     ) {
@@ -35,7 +36,7 @@ export class SettingsManager {
         await this.plugin.saveSettings();
     }
 
-    async updateSortSettings(criterion: SortCriterion, order: 'asc' | 'desc') {
+    async updateSortSettings(criterion: SortCriterion, order: SortOrder) {
         await this.updateSetting('sortCriterion', criterion);
         await this.updateSetting('sortOrder', order);
     }

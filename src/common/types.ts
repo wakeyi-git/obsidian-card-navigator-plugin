@@ -1,7 +1,6 @@
 // src/common/types.ts
 
 import { TFile } from 'obsidian';
-import { t } from 'i18next';
 
 export interface Card {
     file: TFile;
@@ -18,38 +17,28 @@ export type ScrollDirection = 'up' | 'down' | 'left' | 'right';
 
 export type SortCriterion = 'fileName' | 'lastModified' | 'created';
 
+export type SortOrder = 'asc' | 'desc';
+
 export const sortOptions: Array<{ value: string, label: string }> = [
-    { value: 'fileName_asc', label: t('File name (A to Z)') },
-    { value: 'fileName_desc', label: t('File name (Z to A)') },
-    { value: 'lastModified_desc', label: t('Last modified (newest first)') },
-    { value: 'lastModified_asc', label: t('Last modified (oldest first)') },
-    { value: 'created_desc', label: t('Created (newest first)') },
-    { value: 'created_asc', label: t('Created (oldest first)') },
+    { value: 'fileName_asc', label: 'File name (A to Z)' },
+    { value: 'fileName_desc', label: 'File name (Z to A)' },
+    { value: 'lastModified_desc', label: 'Last modified (newest first)' },
+    { value: 'lastModified_asc', label: 'Last modified (oldest first)' },
+    { value: 'created_desc', label: 'Created (newest first)' },
+    { value: 'created_asc', label: 'Created (oldest first)' },
 ];
 
-export const displaySettings: Array<{ name: string, key: keyof CardNavigatorSettings }> = [
-    { name: t('Show File Name'), key: 'showFileName' },
-    { name: t('Show First Header'), key: 'showFirstHeader' },
-    { name: t('Show Content'), key: 'showContent' },
-];
-
-export const keyboardShortcuts: Array<{ name: string }> = [
-    { name: t('Scroll Up One Card') },
-    { name: t('Scroll Down One Card') },
-    { name: t('Scroll Left One Card') },
-    { name: t('Scroll Right One Card') },
-    { name: t('Scroll Up/Left One Page') },
-    { name: t('Scroll Down/Right One Page') },
-    { name: t('Center Active Card') }
-];
+export type NumberSettingKey = Extract<keyof CardNavigatorSettings, {
+    [K in keyof CardNavigatorSettings]: CardNavigatorSettings[K] extends number ? K : never
+}[keyof CardNavigatorSettings]>;
 
 export interface CardNavigatorSettings {
     cardsPerView: number;
     useSelectedFolder: boolean;
     selectedFolder: string | null;
     sortCriterion: SortCriterion;
-    sortOrder: 'asc' | 'desc';
-    fixedCardHeight: boolean;
+    sortOrder: SortOrder;
+    alignCardHeight: boolean;
     renderContentAsHtml: boolean;
     centerActiveCardOnOpen: boolean;
     centerCardMethod: 'scroll' | 'centered';
@@ -66,10 +55,6 @@ export interface CardNavigatorSettings {
     contentLength: number;
 }
 
-export type NumberSettingKey = Extract<keyof CardNavigatorSettings, {
-    [K in keyof CardNavigatorSettings]: CardNavigatorSettings[K] extends number ? K : never
-}[keyof CardNavigatorSettings]>;
-
 export interface RangeSettingConfig {
     min: number;
     max: number;
@@ -81,12 +66,28 @@ export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> =
     fileNameSize: { min: 15, max: 25, step: 1 },
     firstHeaderSize: { min: 15, max: 25, step: 1 },
     contentSize: { min: 10, max: 20, step: 1 },
-    contentLength: { min: 1, max: 10, step: 1 },
+    contentLength: { min: 0, max: 1000, step: 50 },
     animationDuration: { min: 100, max: 1000, step: 100 },
 };
 
+export const displaySettings: Array<{ name: string, key: keyof CardNavigatorSettings }> = [
+    { name: 'Show File Name', key: 'showFileName' },
+    { name: 'Show First Header', key: 'showFirstHeader' },
+    { name: 'Show Content', key: 'showContent' },
+];
+
 export const fontSizeSettings: Array<{ name: string, key: NumberSettingKey }> = [
-    { name: t('File Name Size'), key: 'fileNameSize' },
-    { name: t('First Header Size'), key: 'firstHeaderSize' },
-    { name: t('Content Size'), key: 'contentSize' },
+    { name: 'File Name Font Size', key: 'fileNameSize' },
+    { name: 'First Header Font Size', key: 'firstHeaderSize' },
+    { name: 'Content Font Size', key: 'contentSize' },
+];
+
+export const keyboardShortcuts: Array<{ name: string }> = [
+    { name: 'Scroll Up One Card' },
+    { name: 'Scroll Down One Card' },
+    { name: 'Scroll Left One Card' },
+    { name: 'Scroll Right One Card' },
+    { name: 'Scroll Up/Left One Page' },
+    { name: 'Scroll Down/Right One Page' },
+    { name: 'Center Active Card' }
 ];

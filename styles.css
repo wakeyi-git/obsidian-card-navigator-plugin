@@ -4,7 +4,7 @@
     --card-navigator-toolbar-height: 50px;
 	--card-navigator-container-padding: 10px;
     --card-navigator-card-padding: 1rem;
-    --card-navigator-gap: 15px;
+    --card-navigator-gap: 10px;
     --card-navigator-border-radius: 8px;
     --card-navigator-box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     --card-navigator-transition: 0.2s ease;
@@ -36,7 +36,6 @@
     height: var(--card-navigator-toolbar-height);
     background-color: var(--card-navigator-background);
     box-shadow: var(--card-navigator-box-shadow);
-    flex-direction: row;
 }
 
 .card-navigator-toolbar-container {
@@ -49,7 +48,6 @@
     height: 100%;
 }
 
-.card-navigator-move-icons-container,
 .card-navigator-action-icons-container {
     display: flex;
     justify-content: center;
@@ -86,7 +84,7 @@
 }
 
 .sort-option:hover {
-    background-color: var(--background-secondary);
+    background-color: var(--background-primary-alt);
 }
 
 .sort-option.active {
@@ -98,8 +96,42 @@
 .card-navigator-settings-popup {
     display: flex;
 	flex-direction: column;
-	gap: 1rem;
 	font-size: small;
+}
+
+.settings-top-buttons {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.settings-icon-button {
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    transition: background-color 0.1s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--icon-color);
+    opacity: 0.8;
+}
+
+.settings-icon-button:hover {
+    background-color: var(--interactive-hover);
+    color: var(--icon-color-hover);
+    opacity: 1;
+}
+
+.settings-icon-button svg {
+    width: 18px;
+    height: 18px;
+}
+
+.card-navigator-settings-popup {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-right: 10px;
 }
 
 .card-navigator-settings-popup input[type="range"] {
@@ -125,75 +157,76 @@ input[type="range"] {
     padding: 0;
 }
 
-.slider-tooltip {
-	width: 35px;
-    position: absolute;
-    top: -5px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: #333;
-    color: #fff;
-    padding: 4px;
-    border-radius: 4px;
-    font-size: 12px;
-    pointer-events: none;
-    white-space: nowrap;
-    z-index: 10;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-	text-align: center;
+/* Card Navigator 설정 팝업 스타일 */
+.card-navigator-settings-popup {
+    max-width: 400px;
 }
 
-.slider-tooltip.visible {
-    opacity: 1;
+/* 설정 항목 컨테이너 스타일 */
+.card-navigator-settings-popup .setting-item {
+    display: flex;
+    flex-direction: column;
+    border-top: none;
 }
 
-.slider-tooltip::after {
-    content: '';
-    position: absolute;
-	bottom: 0;
-    left: 50%;
-	border: 5px solid transparent;
-	bottom: -5px;
-	border-top-color: #333;
-	border-bottom: 0;
-	margin-left: -5px;
+/* 설정 이름(레이블) 스타일 */
+.card-navigator-settings-popup .setting-item-name {
+    text-align: left;
 }
 
-.toggle-wrapper {
-    display: inline-block;
-    vertical-align: middle;
+/* 설정 컨트롤 영역 스타일 */
+.card-navigator-settings-popup .setting-item-control {
+    display: flex;
+    align-items: center;
 }
 
-.toggle-button {
-    width: 32px;
-    height: 18px;
-    background-color: var(--background-modifier-border);
-    border-radius: 9px;
-    position: relative;
+/* 슬라이더 스타일 */
+.card-navigator-settings-popup .slider {
+    width: 100%;
+	margin-top: 1rem;
+}
+
+/* 토글 버튼을 위한 특별한 레이아웃 */
+.card-navigator-settings-popup .card-navigator-toggle-setting {
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.card-navigator-settings-popup .card-navigator-toggle-setting .setting-item-info {
+    flex-grow: 1;
+}
+
+.card-navigator-settings-popup .card-navigator-toggle-setting .setting-item-control {
+    flex-shrink: 0;
+}
+
+/* 레인지 설정을 위한 특별한 레이아웃 */
+.card-navigator-settings-popup .card-navigator-range-setting {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.card-navigator-settings-popup .card-navigator-range-setting .setting-item-control {
+    width: 100%;
+}
+
+/* 설정 상단 버튼 컨테이너 스타일 */
+.card-navigator-settings-popup .settings-top-buttons {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.card-navigator-settings-popup .settings-icon-button {
     cursor: pointer;
-    transition: background-color 0.3s;
+    border-radius: 4px;
+    color: var(--text-muted);
+    margin-left: 10px;
 }
 
-.toggle-button::before {
-    content: '';
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background-color: var(--background-primary);
-    top: 2px;
-    left: 2px;
-    transition: transform 0.3s;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.toggle-button.active {
-    background-color: var(--interactive-accent);
-}
-
-.toggle-button.active::before {
-    transform: translateX(14px);
+.card-navigator-settings-popup .settings-icon-button:hover {
+    color: var(--text-normal);
+    background-color: var(--background-modifier-hover);
 }
 
 /* Search container styles */
@@ -215,30 +248,37 @@ input[type="range"] {
 .card-navigator-container {
     display: flex;
     gap: var(--card-navigator-gap);
-    overflow: auto;
 	position: relative;
-    padding-right: 12px;
+	box-sizing: border-box;
 }
 
 .card-navigator-container.vertical {
-    width: calc(100% + 12px);
-	height: calc(100% - var(--card-navigator-toolbar-height));
+	width: calc(100% + 12px);
+	height: 100%;
+	margin-right: -12px;
+	padding-right: 12px;
     flex-direction: column;
-    margin-top: var(--card-navigator-toolbar-height);
+	padding-top: var(--card-navigator-toolbar-height);
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .card-navigator-container.horizontal {
-	height: 100%;
+	width: 100%;
     flex-direction: row;
-    padding-top: var(--card-navigator-container-padding);
+	padding-top: var(--card-navigator-container-padding);
+	overflow-x: auto;
     overflow-y: hidden;
+}
+
+.card-navigator-container.horizontal.align-height {
+	height: 100%;
 }
 
 /* Card styles */
 .card-navigator-card {
     flex: 0 0 auto;
     padding: var(--card-navigator-card-padding);
-    padding-bottom: var(--card-navigator-card-padding);
     border: 1px solid var(--card-navigator-border);
     border-radius: var(--card-navigator-border-radius);
     background-color: var(--card-navigator-background);
@@ -250,7 +290,7 @@ input[type="range"] {
 }
 
 /* Fixed height cards */
-.card-navigator-card.fixed-height {
+.card-navigator-card.align-height {
     overflow: hidden;
 }
 
@@ -259,11 +299,11 @@ input[type="range"] {
     width: 100%;
 }
 
-.card-navigator-card.vertical.fixed-height {
+.card-navigator-card.vertical.align-height {
     height: calc((100% - (var(--cards-per-view) - 1) * var(--card-navigator-gap)) / var(--cards-per-view));
 }
 
-.card-navigator-card.vertical:not(.fixed-height) {
+.card-navigator-card.vertical:not(.align-height) {
     height: auto;
 	overflow: visible;
 }
@@ -273,13 +313,14 @@ input[type="range"] {
     width: calc((100% - (var(--cards-per-view) - 1) * var(--card-navigator-gap)) / var(--cards-per-view));
 }
 
-.card-navigator-card.horizontal.fixed-height {
+.card-navigator-card.horizontal.align-height {
 	height: auto;
-	overflow: hidden;
+	overflow: visible;
 }
 
-.card-navigator-card.horizontal:not(.fixed-height) {
-	height: calc(100% - var(--card-navigator-container-padding));
+.card-navigator-card.horizontal:not(.align-height) {
+	height: 100%;
+	overflow: hidden;
 }
 
 /* cards Other */
@@ -358,4 +399,13 @@ input[type="range"] {
     .card-view-area {
         padding: 0.5rem;
     }
+}
+
+/* SettingsTab styles */
+.settings-section h3.settings-section-title {
+    margin-top: 1em;
+}
+
+.setting-number .setting-item-control input {
+    width: 250px;
 }

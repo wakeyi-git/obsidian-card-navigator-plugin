@@ -1,12 +1,14 @@
 // src/ui/toolbar/toolbarActions.ts
 
-import { TFolder, FuzzySuggestModal } from 'obsidian';
+import { TFolder, FuzzySuggestModal, setIcon, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
-import { SortCriterion, CardNavigatorSettings, NumberSettingKey, rangeSettingConfigs } from '../../common/types';
+import { SortCriterion, CardNavigatorSettings, NumberSettingKey, rangeSettingConfigs, displaySettings, fontSizeSettings } from '../../common/types';
 import { SettingsManager } from 'common/settingsManager';
+import { DEFAULT_SETTINGS } from 'common/settings';
+
 import { t } from 'i18next';
 
-let currentPopup: HTMLElement | null = null;
+let currentPopup: { element: HTMLElement, type: 'sort' | 'settings' } | null = null;
 
 export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     constructor(private plugin: CardNavigatorPlugin, private onSelect: (folder: TFolder) => void) {
@@ -27,21 +29,21 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     }
 }
 
-function createPopup(className: string): HTMLElement {
+function createPopup(className: string, type: 'sort' | 'settings'): HTMLElement {
     closeCurrentPopup();
     const popup = document.createElement('div');
     popup.className = className;
     const toolbarEl = document.querySelector('.card-navigator-toolbar-container');
     if (toolbarEl) {
         toolbarEl.insertAdjacentElement('afterend', popup);
-        currentPopup = popup;
+        currentPopup = { element: popup, type };
         document.addEventListener('click', onClickOutside);
     }
     return popup;
 }
 
 export function toggleSort(plugin: CardNavigatorPlugin) {
-    const sortPopup = createPopup('card-navigator-sort-popup');
+    const sortPopup = createPopup('card-navigator-sort-popup', 'sort');
     const currentSort = `${plugin.settings.sortCriterion}_${plugin.settings.sortOrder}`;
 
     const sortOptions: Array<{ value: string, label: string }> = [
@@ -57,6 +59,9 @@ export function toggleSort(plugin: CardNavigatorPlugin) {
         const button = createSortOption(option.value, option.label, currentSort, plugin);
         sortPopup.appendChild(button);
     });
+
+    // 이벤트 전파 중지
+    sortPopup.addEventListener('click', (e) => e.stopPropagation());
 }
 
 function createSortOption(value: string, label: string, currentSort: string, plugin: CardNavigatorPlugin): HTMLButtonElement {
@@ -80,99 +85,99 @@ async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCr
 }
 
 export function toggleSettings(plugin: CardNavigatorPlugin) {
-    const settingsPopup = createPopup('card-navigator-settings-popup');
+    const settingsPopup = createPopup('card-navigator-settings-popup', 'settings');
     const settingsManager = new SettingsManager(plugin);
 
-    const settings: Array<{ key: keyof CardNavigatorSettings, label: string, type: 'range' | 'toggle' }> = [
-        { key: 'cardsPerView', label: t('Cards per view'), type: 'range' },
-        { key: 'fileNameSize', label: t('File Name Font Size'), type: 'range' },
-        { key: 'firstHeaderSize', label: t('First Header Font Size'), type: 'range' },
-		{ key: 'contentSize', label: t('Content Font Size'), type: 'range' },
-        { key: 'contentLength', label: t('Content Length'), type: 'range' },
-        { key: 'showFileName', label: t('Show File Name'), type: 'toggle' },
-        { key: 'showFirstHeader', label: t('Show First Header'), type: 'toggle' },
-        { key: 'showContent', label: t('Show Content'), type: 'toggle' },
-        { key: 'dragDropContent', label: t('Drag and Drop Content'), type: 'toggle' },
-    ];
+    const topButtonsContainer = document.createElement('div');
+    topButtonsContainer.className = 'settings-top-buttons';
+    settingsPopup.appendChild(topButtonsContainer);
 
-    settings.forEach(setting => {
-        const container = createSettingContainer(setting.label, setting.type);
-        
-        if (setting.type === 'range' && setting.key in rangeSettingConfigs) {
-            addRangeSetting(container, plugin, setting.key as NumberSettingKey, settingsManager);
-        } else if (setting.type === 'toggle') {
-            addToggleSetting(container, plugin, setting.key, settingsManager);
+    const resetButton = createIconButton('rotate-ccw', t('Reset to Defaults'), () => resetToDefaults(plugin, settingsManager));
+    topButtonsContainer.appendChild(resetButton);
+
+    const closeButton = createIconButton('x', t('Close'), closeCurrentPopup);
+    topButtonsContainer.appendChild(closeButton);
+
+	// Cards per view 설정 (Range이지만 fontSizeSettings에 포함되어 있지 않음)
+	addRangeSetting(settingsPopup, plugin, 'cardsPerView', t('Cards per view'), settingsManager);
+
+    // Range settings
+    fontSizeSettings.forEach(setting => {
+        addRangeSetting(settingsPopup, plugin, setting.key, setting.name, settingsManager);
+    });
+
+	// Content Length 설정 (Range이지만 fontSizeSettings에 포함되어 있지 않음)
+	addRangeSetting(settingsPopup, plugin, 'contentLength', t('Content Length'), settingsManager);
+
+    // Toggle settings
+    displaySettings.forEach(setting => {
+        addToggleSetting(settingsPopup, plugin, setting.key, setting.name, settingsManager);
+    });
+
+    // Drag and Drop Content 설정 (Toggle이지만 displaySettings에 포함되어 있지 않음)
+    addToggleSetting(settingsPopup, plugin, 'dragDropContent', t('Drag and Drop Content'), settingsManager);
+}
+
+function createIconButton(iconName: string, tooltip: string, onClick: () => void): HTMLElement {
+    const button = document.createElement('div');
+    button.className = 'settings-icon-button';
+    setIcon(button, iconName);
+    button.setAttribute('aria-label', tooltip);
+    button.addEventListener('click', onClick);
+    return button;
+}
+
+async function resetToDefaults(plugin: CardNavigatorPlugin, settingsManager: SettingsManager) {
+    for (const key in DEFAULT_SETTINGS) {
+        if (Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key)) {
+            const settingKey = key as keyof CardNavigatorSettings;
+            const defaultValue = DEFAULT_SETTINGS[settingKey];
+            
+            if (typeof defaultValue === 'number') {
+                await settingsManager.updateNumberSetting(settingKey as NumberSettingKey, defaultValue);
+            } else if (typeof defaultValue === 'boolean') {
+                await settingsManager.updateBooleanSetting(settingKey, defaultValue);
+            }
         }
-        
-        settingsPopup.appendChild(container);
-    });
+    }
+    
+    plugin.triggerRefresh();
+    closeCurrentPopup();
+    toggleSettings(plugin);
 }
 
-function createSettingContainer(labelText: string, type: 'range' | 'toggle'): HTMLElement {
-    const container = document.createElement('div');
-    container.className = `setting-container ${type}-setting-container`;
-    
-    const label = document.createElement('label');
-    label.textContent = labelText;
-    container.appendChild(label);
-    
-    return container;
-}
-
-function addRangeSetting(container: HTMLElement, plugin: CardNavigatorPlugin, key: NumberSettingKey, settingsManager: SettingsManager) {
+function addRangeSetting(container: HTMLElement, plugin: CardNavigatorPlugin, key: NumberSettingKey, name: string, settingsManager: SettingsManager) {
     const config = rangeSettingConfigs[key];
-    
-    const input = document.createElement('input');
-    input.type = 'range';
-    input.min = config.min.toString();
-    input.max = config.max.toString();
-    input.step = config.step.toString();
-    input.value = plugin.settings[key].toString();
-
-    const tooltip = document.createElement('div');
-    tooltip.className = 'slider-tooltip';
-
-    input.addEventListener('input', () => {
-        tooltip.textContent = input.value;
-        tooltip.classList.add('visible');
-    });
-
-    input.addEventListener('change', async () => {
-        const value = parseInt(input.value, 10);
-        await settingsManager.updateNumberSetting(key, value);
-        plugin.triggerRefresh();
-    });
-
-    input.addEventListener('mouseleave', () => {
-        tooltip.classList.remove('visible');
-    });
-
-    container.appendChild(input);
-    container.appendChild(tooltip);
+    new Setting(container)
+        .setClass('card-navigator-range-setting')
+        .setName(t(name))
+        .addSlider(slider => slider
+            .setLimits(config.min, config.max, config.step)
+            .setValue(plugin.settings[key])
+            .setDynamicTooltip()
+            .onChange(async (value) => {
+                await settingsManager.updateNumberSetting(key, value);
+                plugin.triggerRefresh();
+            })
+        );
 }
 
-function addToggleSetting(container: HTMLElement, plugin: CardNavigatorPlugin, key: keyof CardNavigatorSettings, settingsManager: SettingsManager) {
-    const toggleWrapper = document.createElement('div');
-    toggleWrapper.className = 'toggle-wrapper';
-    
-    const toggle = document.createElement('div');
-    toggle.className = 'toggle-button';
-    toggle.classList.toggle('active', plugin.settings[key] as boolean);
-    
-    toggle.addEventListener('click', async () => {
-        const newValue = !plugin.settings[key];
-        toggle.classList.toggle('active', newValue);
-        await settingsManager.updateBooleanSetting(key, newValue);
-        plugin.triggerRefresh();
-    });
-
-    toggleWrapper.appendChild(toggle);
-    container.appendChild(toggleWrapper);
+function addToggleSetting(container: HTMLElement, plugin: CardNavigatorPlugin, key: keyof CardNavigatorSettings, name: string, settingsManager: SettingsManager) {
+    new Setting(container)
+        .setClass('card-navigator-toggle-setting')
+        .setName(t(name))
+        .addToggle(toggle => toggle
+            .setValue(plugin.settings[key] as boolean)
+            .onChange(async (value) => {
+                await settingsManager.updateBooleanSetting(key, value);
+                plugin.triggerRefresh();
+            })
+        );
 }
 
 function closeCurrentPopup() {
     if (currentPopup) {
-        currentPopup.remove();
+        currentPopup.element.remove();
         currentPopup = null;
         document.removeEventListener('click', onClickOutside);
     }
@@ -180,7 +185,11 @@ function closeCurrentPopup() {
 
 function onClickOutside(event: MouseEvent) {
     const toolbarEl = document.querySelector('.card-navigator-toolbar-container');
-    if (currentPopup && !currentPopup.contains(event.target as Node) && !toolbarEl?.contains(event.target as Node)) {
-        closeCurrentPopup();
+    if (currentPopup && !currentPopup.element.contains(event.target as Node) && !toolbarEl?.contains(event.target as Node)) {
+        if (currentPopup.type === 'sort') {
+            closeCurrentPopup();
+        } else if (currentPopup.type === 'settings' && !event.composedPath().some(el => (el as HTMLElement).classList?.contains('card-navigator-settings-popup'))) {
+            closeCurrentPopup();
+        }
     }
 }

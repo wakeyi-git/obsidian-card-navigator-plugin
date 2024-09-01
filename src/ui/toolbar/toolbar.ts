@@ -5,6 +5,7 @@ import CardNavigatorPlugin from '../../main';
 import { CardNavigator } from '../cardNavigator';
 import { FolderSuggestModal } from './toolbarActions';
 import { toggleSort, toggleSettings } from './toolbarActions';
+import { t } from 'i18next';
 
 export class Toolbar {
     private containerEl: HTMLElement | undefined = undefined;
@@ -79,9 +80,9 @@ export class Toolbar {
         container.className = 'card-navigator-action-icons-container';
 
         const icons = [
-            { name: 'folder', label: 'Select folder', action: () => this.openFolderSelector() },
-            { name: 'arrow-up-narrow-wide', label: 'Sort cards', action: () => toggleSort(this.plugin) },
-            { name: 'settings', label: 'Settings', action: () => toggleSettings(this.plugin) },
+            { name: 'folder', label: t('Select folder'), action: () => this.openFolderSelector() },
+            { name: 'arrow-up-narrow-wide', label: t('Sort cards'), action: () => toggleSort(this.plugin) },
+            { name: 'settings', label: t('Settings'), action: () => toggleSettings(this.plugin) },
         ];
 
         icons.forEach(icon => {

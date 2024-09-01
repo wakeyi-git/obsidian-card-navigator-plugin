@@ -46,7 +46,7 @@ export class CardMaker {
     }
 
     private truncateContent(content: string): string {
-        const maxLength = this.plugin.settings.contentLength * 100;
+        const maxLength = this.plugin.settings.contentLength;
         return content.length <= maxLength ? content : content.slice(0, maxLength) + '...';
     }
 

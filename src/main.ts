@@ -3,13 +3,13 @@
 import { Plugin, TFile, debounce, moment } from 'obsidian';
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settingsTab';
-import { CardNavigatorSettings, SortCriterion } from './common/types';
+import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder } from './common/types';
 import { DEFAULT_SETTINGS } from './common/settings';
 import i18next from 'i18next';
+import { t } from 'i18next';
 
 import en from './locales/en.json'
 import ko from './locales/ko.json';
-import { t } from 'i18next';
 
 export const languageResources = {
 	en: { translation: en },
@@ -40,7 +40,7 @@ export default class CardNavigatorPlugin extends Plugin {
             (leaf) => new CardNavigator(leaf, this)
         );
 
-        this.addRibbonIcon('layers-3', 'Activate Card Navigator', () => {
+        this.addRibbonIcon('layers-3', t('Activate Card Navigator'), () => {
             this.activateView();
         });
 
@@ -107,36 +107,24 @@ export default class CardNavigatorPlugin extends Plugin {
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-		this.updateHotkey();
 	}
 
     async saveSettings() {
         await this.saveData(this.settings);
         this.refreshDebounced();
-		this.updateHotkey();
     }
 
-    private updateHotkey() {
-        // @ts-ignore
-        const command = this.app.commands.commands['card-navigator-plugin:center-active-card'];
-        if (command) {
-            command.hotkeys = this.settings.centerActiveCardHotkey ? [this.settings.centerActiveCardHotkey] : [];
-        }
-    }
-
-	private scrollCards(direction: 'up' | 'down' | 'left' | 'right', count: number) {
+	private scrollCards(direction: ScrollDirection, count: number) {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
 		for (const leaf of leaves) {
 			if (leaf.view instanceof CardNavigator) {
 				const { cardContainer } = leaf.view;
-				const isVertical = cardContainer.isVertical;
-	
 				switch (direction) {
 					case 'up':
-						isVertical ? cardContainer.scrollUp(count) : cardContainer.scrollLeft(count);
+						cardContainer.scrollUp(count);
 						break;
 					case 'down':
-						isVertical ? cardContainer.scrollDown(count) : cardContainer.scrollRight(count);
+						cardContainer.scrollDown(count);
 						break;
 					case 'left':
 						cardContainer.scrollLeft(count);
@@ -165,7 +153,7 @@ export default class CardNavigatorPlugin extends Plugin {
         }
     }
 
-    sortCards(criterion: SortCriterion, order: 'asc' | 'desc') {
+    sortCards(criterion: SortCriterion, order:SortOrder) {
         const view = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]?.view as CardNavigator;
         if (view) {
             view.cardContainer.sortCards(criterion, order);
