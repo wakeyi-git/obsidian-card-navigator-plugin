@@ -1,5 +1,3 @@
-// src/ui/settingsTab.ts
-
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../main';
 import { FolderSuggestModal } from './toolbar/toolbarActions';
@@ -8,10 +6,10 @@ import {
     CardNavigatorSettings, 
     NumberSettingKey,
     displaySettings,
-	fontSizeSettings,
+    fontSizeSettings,
     keyboardShortcuts,
     sortOptions,
-	SortOrder
+    SortOrder
 } from '../common/types';
 import { t } from 'i18next';
 import { SettingsManager } from '../common/settingsManager';
@@ -34,6 +32,7 @@ export class SettingTab extends PluginSettingTab {
         this.addKeyboardShortcutsInfo();
     }
 
+    // Add general settings to the settings tab
     private addGeneralSettings(): void {
         const sectionEl = this.containerEl.createDiv({ cls: 'settings-section general-settings' });
         
@@ -53,7 +52,8 @@ export class SettingTab extends PluginSettingTab {
         });
     }
 
-	private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): void {
+    // Add a number setting with a slider
+    private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): void {
         const setting = new Setting(parentEl)
             .setName(name)
             .setDesc(desc);
@@ -70,6 +70,7 @@ export class SettingTab extends PluginSettingTab {
         setting.settingEl.addClass('setting-number');
     }
 
+    // Add folder selection setting
     private addFolderSelectionSetting(parentEl: HTMLElement): void {
         const folderSettingEl = new Setting(parentEl)
             .setName(t('Folder Selection'))
@@ -90,6 +91,7 @@ export class SettingTab extends PluginSettingTab {
         }
     }
 
+    // Add folder setting when 'Selected Folder' option is chosen
     private addFolderSetting(parentEl: HTMLElement): void {
         const folderEl = new Setting(parentEl)
             .setName(t('Select Folder'))
@@ -106,6 +108,7 @@ export class SettingTab extends PluginSettingTab {
         folderEl.addClass('setting-select-folder');
     }
 
+    // Add sort setting for default sorting method
     private addSortSetting(parentEl: HTMLElement): void {
         const sortEl = new Setting(parentEl)
             .setName(t('Default sort method'))
@@ -125,6 +128,7 @@ export class SettingTab extends PluginSettingTab {
         sortEl.addClass('setting-sort-method');
     }
 
+    // Add toggle setting for boolean options
     private addToggleSetting(key: keyof CardNavigatorSettings, name: string, desc: string, parentEl: HTMLElement): void {
         const settingEl = new Setting(parentEl)
             .setName(name)
@@ -138,7 +142,8 @@ export class SettingTab extends PluginSettingTab {
         settingEl.addClass('setting-toggle');
     }
 
-	private addDisplaySettings(): void {
+    // Add display settings section
+    private addDisplaySettings(): void {
         const sectionEl = this.containerEl.createDiv({ cls: 'settings-section display-settings' });
         sectionEl.createEl('h6', { text: t('Settings What to Show'), cls: 'settings-section-title' });
 
@@ -149,6 +154,7 @@ export class SettingTab extends PluginSettingTab {
         this.addNumberSetting('contentLength', t('Content Length'), t('Maximum content length displayed on each card'), sectionEl);
     }
 
+    // Add font settings section
     private addFontSettings(): void {
         const sectionEl = this.containerEl.createDiv({ cls: 'settings-section font-settings' });
         sectionEl.createEl('h6', { text: t('Font Size Settings'), cls: 'settings-section-title' });
@@ -158,6 +164,7 @@ export class SettingTab extends PluginSettingTab {
         });
     }
 
+    // Add keyboard shortcuts information section
     private addKeyboardShortcutsInfo(): void {
         const sectionEl = this.containerEl.createDiv({ cls: 'settings-section keyboard-shortcuts' });
         sectionEl.createEl('h6', { text: t('Keyboard Shortcuts'), cls: 'settings-section-title' });

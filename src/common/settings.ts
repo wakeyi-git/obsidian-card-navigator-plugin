@@ -1,5 +1,3 @@
-// src/common/settings.ts
-
 import { CardNavigatorSettings, SortCriterion, SortOrder } from './types';
 
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {

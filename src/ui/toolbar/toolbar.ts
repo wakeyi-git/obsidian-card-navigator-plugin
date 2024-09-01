@@ -1,5 +1,3 @@
-// src/ui/toolbar/toolbar.ts
-
 import { setIcon, TFolder, debounce } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { CardNavigator } from '../cardNavigator';
@@ -15,12 +13,14 @@ export class Toolbar {
         this.isVertical = false;
     }
 
+    // Initialize the toolbar
     initialize(containerEl: HTMLElement) {
         this.containerEl = containerEl;
         this.createToolbar();
     }
 
-	setOrientation(isVertical: boolean) {
+    // Set the orientation of the toolbar
+    setOrientation(isVertical: boolean) {
         if (this.isVertical !== isVertical) {
             this.isVertical = isVertical;
             this.updateToolbarStyle();
@@ -28,13 +28,15 @@ export class Toolbar {
         }
     }
 
-	private updateToolbarStyle() {
+    // Update toolbar style based on orientation
+    private updateToolbarStyle() {
         if (this.containerEl) {
             this.containerEl.classList.toggle('vertical', this.isVertical);
             this.containerEl.classList.toggle('horizontal', !this.isVertical);
         }
     }
 
+    // Create the main toolbar structure
     private createToolbar() {
         if (!this.containerEl) {
             return;
@@ -56,6 +58,7 @@ export class Toolbar {
         this.containerEl.appendChild(toolbarContainer);
     }
 
+    // Create the search container with input field
     private createSearchContainer(): HTMLElement {
         const container = document.createElement('div');
         container.className = 'card-navigator-search-container';
@@ -75,6 +78,7 @@ export class Toolbar {
         return container;
     }
 
+    // Create the container for action icons
     private createActionIconsContainer(): HTMLElement {
         const container = document.createElement('div');
         container.className = 'card-navigator-action-icons-container';
@@ -99,6 +103,7 @@ export class Toolbar {
         return container;
     }
 
+    // Create a toolbar icon
     private createToolbarIcon(iconName: string, ariaLabel: string, action: (e: MouseEvent) => void): HTMLElement {
         const icon = document.createElement('div');
         icon.className = 'clickable-icon';
@@ -109,21 +114,23 @@ export class Toolbar {
 
         return icon;
     }
-	
-	private createSeparator(): HTMLElement {
+    
+    // Create a separator element
+    private createSeparator(): HTMLElement {
         const separator = document.createElement('div');
         separator.className = 'toolbar-separator';
         return separator;
     }
 
-	public openFolderSelector() {
-		new FolderSuggestModal(this.plugin, (folder: TFolder) => {
-			const view = this.plugin.app.workspace.getActiveViewOfType(CardNavigator);
-			if (view) {
-				view.cardContainer.displayCardsForFolder(folder);
-			}
-		}).open();
-	}
+    // Open the folder selector modal
+    public openFolderSelector() {
+        new FolderSuggestModal(this.plugin, (folder: TFolder) => {
+            const view = this.plugin.app.workspace.getActiveViewOfType(CardNavigator);
+            if (view) {
+                view.cardContainer.displayCardsForFolder(folder);
+            }
+        }).open();
+    }
 
     refresh() {
         // Implement refresh logic if necessary

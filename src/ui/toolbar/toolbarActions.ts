@@ -1,15 +1,13 @@
-// src/ui/toolbar/toolbarActions.ts
-
 import { TFolder, FuzzySuggestModal, setIcon, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SortCriterion, CardNavigatorSettings, NumberSettingKey, rangeSettingConfigs, displaySettings, fontSizeSettings } from '../../common/types';
 import { SettingsManager } from 'common/settingsManager';
 import { DEFAULT_SETTINGS } from 'common/settings';
-
 import { t } from 'i18next';
 
 let currentPopup: { element: HTMLElement, type: 'sort' | 'settings' } | null = null;
 
+// Modal for folder suggestion
 export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     constructor(private plugin: CardNavigatorPlugin, private onSelect: (folder: TFolder) => void) {
         super(plugin.app);
@@ -29,6 +27,7 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     }
 }
 
+// Create a popup for sort or settings
 function createPopup(className: string, type: 'sort' | 'settings'): HTMLElement {
     closeCurrentPopup();
     const popup = document.createElement('div');
@@ -42,6 +41,7 @@ function createPopup(className: string, type: 'sort' | 'settings'): HTMLElement 
     return popup;
 }
 
+// Toggle sort options
 export function toggleSort(plugin: CardNavigatorPlugin) {
     const sortPopup = createPopup('card-navigator-sort-popup', 'sort');
     const currentSort = `${plugin.settings.sortCriterion}_${plugin.settings.sortOrder}`;
@@ -60,10 +60,10 @@ export function toggleSort(plugin: CardNavigatorPlugin) {
         sortPopup.appendChild(button);
     });
 
-    // 이벤트 전파 중지
     sortPopup.addEventListener('click', (e) => e.stopPropagation());
 }
 
+// Create a sort option button
 function createSortOption(value: string, label: string, currentSort: string, plugin: CardNavigatorPlugin): HTMLButtonElement {
     const option = document.createElement('button');
     option.textContent = label;
@@ -77,6 +77,7 @@ function createSortOption(value: string, label: string, currentSort: string, plu
     return option;
 }
 
+// Update sort settings
 async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCriterion, order: 'asc' | 'desc') {
     plugin.settings.sortCriterion = criterion;
     plugin.settings.sortOrder = order;
@@ -84,6 +85,7 @@ async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCr
     plugin.triggerRefresh();
 }
 
+// Toggle settings popup
 export function toggleSettings(plugin: CardNavigatorPlugin) {
     const settingsPopup = createPopup('card-navigator-settings-popup', 'settings');
     const settingsManager = new SettingsManager(plugin);
@@ -98,26 +100,23 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
     const closeButton = createIconButton('x', t('Close'), closeCurrentPopup);
     topButtonsContainer.appendChild(closeButton);
 
-	// Cards per view 설정 (Range이지만 fontSizeSettings에 포함되어 있지 않음)
-	addRangeSetting(settingsPopup, plugin, 'cardsPerView', t('Cards per view'), settingsManager);
+    // Add range and toggle settings
+    addRangeSetting(settingsPopup, plugin, 'cardsPerView', t('Cards per view'), settingsManager);
 
-    // Range settings
     fontSizeSettings.forEach(setting => {
         addRangeSetting(settingsPopup, plugin, setting.key, setting.name, settingsManager);
     });
 
-	// Content Length 설정 (Range이지만 fontSizeSettings에 포함되어 있지 않음)
-	addRangeSetting(settingsPopup, plugin, 'contentLength', t('Content Length'), settingsManager);
+    addRangeSetting(settingsPopup, plugin, 'contentLength', t('Content Length'), settingsManager);
 
-    // Toggle settings
     displaySettings.forEach(setting => {
         addToggleSetting(settingsPopup, plugin, setting.key, setting.name, settingsManager);
     });
 
-    // Drag and Drop Content 설정 (Toggle이지만 displaySettings에 포함되어 있지 않음)
     addToggleSetting(settingsPopup, plugin, 'dragDropContent', t('Drag and Drop Content'), settingsManager);
 }
 
+// Create an icon button
 function createIconButton(iconName: string, tooltip: string, onClick: () => void): HTMLElement {
     const button = document.createElement('div');
     button.className = 'settings-icon-button';
@@ -127,6 +126,7 @@ function createIconButton(iconName: string, tooltip: string, onClick: () => void
     return button;
 }
 
+// Reset settings to default values
 async function resetToDefaults(plugin: CardNavigatorPlugin, settingsManager: SettingsManager) {
     for (const key in DEFAULT_SETTINGS) {
         if (Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key)) {
@@ -146,6 +146,7 @@ async function resetToDefaults(plugin: CardNavigatorPlugin, settingsManager: Set
     toggleSettings(plugin);
 }
 
+// Add a range setting to the settings popup
 function addRangeSetting(container: HTMLElement, plugin: CardNavigatorPlugin, key: NumberSettingKey, name: string, settingsManager: SettingsManager) {
     const config = rangeSettingConfigs[key];
     new Setting(container)
@@ -162,6 +163,7 @@ function addRangeSetting(container: HTMLElement, plugin: CardNavigatorPlugin, ke
         );
 }
 
+// Add a toggle setting to the settings popup
 function addToggleSetting(container: HTMLElement, plugin: CardNavigatorPlugin, key: keyof CardNavigatorSettings, name: string, settingsManager: SettingsManager) {
     new Setting(container)
         .setClass('card-navigator-toggle-setting')
@@ -175,6 +177,7 @@ function addToggleSetting(container: HTMLElement, plugin: CardNavigatorPlugin, k
         );
 }
 
+// Close the current popup
 function closeCurrentPopup() {
     if (currentPopup) {
         currentPopup.element.remove();
@@ -183,6 +186,7 @@ function closeCurrentPopup() {
     }
 }
 
+// Handle clicks outside the popup
 function onClickOutside(event: MouseEvent) {
     const toolbarEl = document.querySelector('.card-navigator-toolbar-container');
     if (currentPopup && !currentPopup.element.contains(event.target as Node) && !toolbarEl?.contains(event.target as Node)) {

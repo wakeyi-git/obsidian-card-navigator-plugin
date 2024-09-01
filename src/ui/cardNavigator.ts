@@ -1,5 +1,3 @@
-// src/ui/cardNavigator.ts
-
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import CardNavigatorPlugin from '../main';
 import { Toolbar } from './toolbar/toolbar';
@@ -24,18 +22,22 @@ export class CardNavigator extends ItemView {
         this.resizeObserver = new ResizeObserver(this.handleResize.bind(this));
     }
 
+    // Return the unique identifier for this view
     getViewType() {
         return VIEW_TYPE_CARD_NAVIGATOR;
     }
 
+    // Return the display name for this view
     getDisplayText() {
         return t("Card Navigator");
     }
 
+    // Return the icon name for this view
     getIcon(): string {
         return "layers-3";
     }
 
+    // Calculate whether the view should be vertical based on its dimensions
     private calculateIsVertical(): boolean {
         const { width, height } = this.leaf.view.containerEl.getBoundingClientRect();
         const isVertical = height > width;
@@ -43,6 +45,7 @@ export class CardNavigator extends ItemView {
         return isVertical;
     }
 
+    // Handle resize events and update orientation if necessary
     private handleResize() {
         const newIsVertical = this.calculateIsVertical();
         if (newIsVertical !== this.isVertical) {
@@ -51,48 +54,15 @@ export class CardNavigator extends ItemView {
         }
     }
 
-	public updateLayoutAndRefresh() {
+    // Update layout and refresh the view
+    public updateLayoutAndRefresh() {
         this.isVertical = this.calculateIsVertical();
         this.cardContainer.setOrientation(this.isVertical);
         this.toolbar.setOrientation(this.isVertical);
         this.refresh();
     }
 
-    private handleKeyDown(event: KeyboardEvent) {
-        if (this.containerEl && this.containerEl.contains(document.activeElement)) {
-            switch (event.key) {
-                case 'ArrowUp':
-                    this.cardContainer.scrollUp();
-                    event.preventDefault();
-                    break;
-                case 'ArrowDown':
-                    this.cardContainer.scrollDown();
-                    event.preventDefault();
-                    break;
-                case 'ArrowLeft':
-                    this.cardContainer.scrollLeft();
-                    event.preventDefault();
-                    break;
-                case 'ArrowRight':
-                    this.cardContainer.scrollRight();
-                    event.preventDefault();
-                    break;
-                case 'PageUp':
-                    this.cardContainer.scrollUp(this.plugin.settings.cardsPerView);
-                    event.preventDefault();
-                    break;
-                case 'PageDown':
-                    this.cardContainer.scrollDown(this.plugin.settings.cardsPerView);
-                    event.preventDefault();
-                    break;
-                case 'Home':
-                    this.cardContainer.centerActiveCard();
-                    event.preventDefault();
-                    break;
-            }
-        }
-    }
-
+    // Initialize the view when it's opened
     async onOpen() {
         const container = this.containerEl.children[1] as HTMLElement;
         container.empty();
@@ -107,29 +77,28 @@ export class CardNavigator extends ItemView {
         this.updateLayoutAndRefresh();
         this.resizeObserver.observe(this.leaf.view.containerEl);
 
-        this.registerDomEvent(this.containerEl, 'keydown', this.handleKeyDown.bind(this));
-
         this.refresh();
 
-		this.centerActiveCardOnOpen();
+        this.centerActiveCardOnOpen();
     }
 
-	private centerActiveCardOnOpen() {
-		if (this.plugin.settings.centerActiveCardOnOpen) {
-			setTimeout(() => {
-				this.cardContainer.centerActiveCard();
-			}, 300);
-		}
-	}
+    // Center the active card when opening the view, if enabled in settings
+    private centerActiveCardOnOpen() {
+        if (this.plugin.settings.centerActiveCardOnOpen) {
+            setTimeout(() => {
+                this.cardContainer.centerActiveCard();
+            }, 300);
+        }
+    }
 
+    // Clean up when the view is closed
     async onClose() {
         this.resizeObserver.disconnect();
         this.toolbar.onClose();
         this.cardContainer.onClose();
-
-        this.containerEl.removeEventListener('keydown', this.handleKeyDown.bind(this));
     }
 
+    // Refresh the view
     refresh() {
         this.toolbar.refresh();
         this.cardContainer.refresh();

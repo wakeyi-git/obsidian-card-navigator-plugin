@@ -1,5 +1,3 @@
-// src/main.ts
-
 import { Plugin, TFile, debounce, moment } from 'obsidian';
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settingsTab';
@@ -11,12 +9,14 @@ import { t } from 'i18next';
 import en from './locales/en.json'
 import ko from './locales/ko.json';
 
+// Define language resources for internationalization
 export const languageResources = {
-	en: { translation: en },
-	ko: { translation: ko },
+    en: { translation: en },
+    ko: { translation: ko },
 } as const;
 
-export const translationLanguage = Object.keys(languageResources).find(i => i==moment.locale()) ? moment.locale() : "en";
+// Set the translation language based on the current locale
+export const translationLanguage = Object.keys(languageResources).find(i => i == moment.locale()) ? moment.locale() : "en";
 
 export default class CardNavigatorPlugin extends Plugin {
     settings: CardNavigatorSettings = DEFAULT_SETTINGS;
@@ -27,13 +27,14 @@ export default class CardNavigatorPlugin extends Plugin {
     async onload() {
         await this.loadSettings();
 
-		i18next.init({
-			lng: translationLanguage,
-			fallbackLng: "en",
-			resources: languageResources,
-		});
+        // Initialize i18next for internationalization
+        i18next.init({
+            lng: translationLanguage,
+            fallbackLng: "en",
+            resources: languageResources,
+        });
 
-		this.addSettingTab(new SettingTab(this.app, this));
+        this.addSettingTab(new SettingTab(this.app, this));
 
         this.registerView(
             VIEW_TYPE_CARD_NAVIGATOR,
@@ -44,54 +45,55 @@ export default class CardNavigatorPlugin extends Plugin {
             this.activateView();
         });
 
-		this.addCommand({
-			id: 'scroll-up-one-card',
-			name: t('Scroll Up One Card'),
-			callback: () => this.scrollCards('up', 1)
-		});
-	
-		this.addCommand({
-			id: 'scroll-down-one-card',
-			name: t('Scroll Down One Card'),
-			callback: () => this.scrollCards('down', 1)
-		});
-	
-		this.addCommand({
-			id: 'scroll-left-one-card',
-			name: t('Scroll Left One Card'),
-			callback: () => this.scrollCards('left', 1)
-		});
-	
-		this.addCommand({
-			id: 'scroll-right-one-card',
-			name: t('Scroll Right One Card'),
-			callback: () => this.scrollCards('right', 1)
-		});
-	
-		this.addCommand({
-			id: 'scroll-up-page',
-			name: t('Scroll Up/Left One Page'),
-			callback: () => this.scrollCards('up', this.settings.cardsPerView)
-		});
-	
-		this.addCommand({
-			id: 'scroll-down-page',
-			name: t('Scroll Down/Right One Page'),
-			callback: () => this.scrollCards('down', this.settings.cardsPerView)
-		});
-	
-		this.addCommand({
-			id: 'center-active-card',
-			name: t('Center Active Card'),
-			callback: () => {
-				const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-				for (const leaf of leaves) {
-					if (leaf.view instanceof CardNavigator) {
-						leaf.view.cardContainer.centerActiveCard();
-					}
-				}
-			}
-		});
+        // Add commands for scrolling and centering cards
+        this.addCommand({
+            id: 'scroll-up-one-card',
+            name: t('Scroll Up One Card'),
+            callback: () => this.scrollCards('up', 1)
+        });
+
+        this.addCommand({
+            id: 'scroll-down-one-card',
+            name: t('Scroll Down One Card'),
+            callback: () => this.scrollCards('down', 1)
+        });
+
+        this.addCommand({
+            id: 'scroll-left-one-card',
+            name: t('Scroll Left One Card'),
+            callback: () => this.scrollCards('left', 1)
+        });
+
+        this.addCommand({
+            id: 'scroll-right-one-card',
+            name: t('Scroll Right One Card'),
+            callback: () => this.scrollCards('right', 1)
+        });
+
+        this.addCommand({
+            id: 'scroll-up-page',
+            name: t('Scroll Up/Left One Page'),
+            callback: () => this.scrollCards('up', this.settings.cardsPerView)
+        });
+
+        this.addCommand({
+            id: 'scroll-down-page',
+            name: t('Scroll Down/Right One Page'),
+            callback: () => this.scrollCards('down', this.settings.cardsPerView)
+        });
+
+        this.addCommand({
+            id: 'center-active-card',
+            name: t('Center Active Card'),
+            callback: () => {
+                const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+                for (const leaf of leaves) {
+                    if (leaf.view instanceof CardNavigator) {
+                        leaf.view.cardContainer.centerActiveCard();
+                    }
+                }
+            }
+        });
 
         this.app.workspace.onLayoutReady(() => {
             this.activateView();
@@ -102,12 +104,12 @@ export default class CardNavigatorPlugin extends Plugin {
     }
 
     async onunload() {
+        // Cleanup code can be added here if needed
+    }
 
-	}
-
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
 
     async saveSettings() {
         await this.saveData(this.settings);
@@ -119,12 +121,14 @@ export default class CardNavigatorPlugin extends Plugin {
 		for (const leaf of leaves) {
 			if (leaf.view instanceof CardNavigator) {
 				const { cardContainer } = leaf.view;
+				const isVertical = cardContainer.isVertical;
+	
 				switch (direction) {
 					case 'up':
-						cardContainer.scrollUp(count);
+						isVertical ? cardContainer.scrollUp(count) : cardContainer.scrollLeft(count);
 						break;
 					case 'down':
-						cardContainer.scrollDown(count);
+						isVertical ? cardContainer.scrollDown(count) : cardContainer.scrollRight(count);
 						break;
 					case 'left':
 						cardContainer.scrollLeft(count);
@@ -153,7 +157,7 @@ export default class CardNavigatorPlugin extends Plugin {
         }
     }
 
-    sortCards(criterion: SortCriterion, order:SortOrder) {
+    sortCards(criterion: SortCriterion, order: SortOrder) {
         const view = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]?.view as CardNavigator;
         if (view) {
             view.cardContainer.sortCards(criterion, order);
@@ -176,7 +180,7 @@ export default class CardNavigatorPlugin extends Plugin {
             workspace.revealLeaf(leaf);
         }
     }
-	
+
     triggerRefresh() {
         this.refreshDebounced();
     }

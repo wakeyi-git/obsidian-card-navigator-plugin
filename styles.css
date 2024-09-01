@@ -157,36 +157,30 @@ input[type="range"] {
     padding: 0;
 }
 
-/* Card Navigator 설정 팝업 스타일 */
 .card-navigator-settings-popup {
     max-width: 400px;
 }
 
-/* 설정 항목 컨테이너 스타일 */
 .card-navigator-settings-popup .setting-item {
     display: flex;
     flex-direction: column;
     border-top: none;
 }
 
-/* 설정 이름(레이블) 스타일 */
 .card-navigator-settings-popup .setting-item-name {
     text-align: left;
 }
 
-/* 설정 컨트롤 영역 스타일 */
 .card-navigator-settings-popup .setting-item-control {
     display: flex;
     align-items: center;
 }
 
-/* 슬라이더 스타일 */
 .card-navigator-settings-popup .slider {
     width: 100%;
 	margin-top: 1rem;
 }
 
-/* 토글 버튼을 위한 특별한 레이아웃 */
 .card-navigator-settings-popup .card-navigator-toggle-setting {
     flex-direction: row;
     justify-content: space-between;
@@ -200,7 +194,6 @@ input[type="range"] {
     flex-shrink: 0;
 }
 
-/* 레인지 설정을 위한 특별한 레이아웃 */
 .card-navigator-settings-popup .card-navigator-range-setting {
     display: flex;
     flex-direction: column;
@@ -211,7 +204,6 @@ input[type="range"] {
     width: 100%;
 }
 
-/* 설정 상단 버튼 컨테이너 스타일 */
 .card-navigator-settings-popup .settings-top-buttons {
     display: flex;
     justify-content: flex-end;
