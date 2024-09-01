@@ -125,9 +125,9 @@ export class SettingTab extends PluginSettingTab {
         });
 
         const fontSizeSettings = [
-            { name: t('File Name Size'), key: 'fileNameSize', min: 15, max: 25 },
-            { name: t('First Header Size'), key: 'firstHeaderSize', min: 15, max: 25 },
-            { name: t('Content Size'), key: 'contentSize', min: 10, max: 20 },
+            { name: t('File Name Font Size'), key: 'fileNameSize', min: 15, max: 25 },
+            { name: t('First Header Font Size'), key: 'firstHeaderSize', min: 15, max: 25 },
+            { name: t('Content Font Size'), key: 'contentSize', min: 10, max: 20 },
         ] as const;
 
         fontSizeSettings.forEach(({ name, key, min, max }) => {
