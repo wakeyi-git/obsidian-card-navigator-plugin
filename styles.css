@@ -242,6 +242,7 @@ input[type="range"] {
     gap: var(--card-navigator-gap);
 	position: relative;
 	box-sizing: border-box;
+	padding-top: var(--card-navigator-toolbar-height);
 }
 
 .card-navigator-container.vertical {
@@ -250,7 +251,6 @@ input[type="range"] {
 	margin-right: -12px;
 	padding-right: 12px;
     flex-direction: column;
-	padding-top: var(--card-navigator-toolbar-height);
     overflow-y: auto;
     overflow-x: hidden;
 }
@@ -258,7 +258,6 @@ input[type="range"] {
 .card-navigator-container.horizontal {
 	width: 100%;
     flex-direction: row;
-	padding-top: var(--card-navigator-container-padding);
 	overflow-x: auto;
     overflow-y: hidden;
 }
