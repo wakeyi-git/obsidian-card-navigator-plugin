@@ -143,42 +143,49 @@ export class SettingTab extends PluginSettingTab {
     }
 
     // Add display settings section
-    private addDisplaySettings(): void {
-        const sectionEl = this.containerEl.createDiv({ cls: 'settings-section display-settings' });
-        sectionEl.createEl('h6', { text: t('Settings What to Show'), cls: 'settings-section-title' });
-
-        displaySettings.forEach(({ key, name }) => {
-            this.addToggleSetting(key, t(name), t(`Toggle to display or hide the ${name.toLowerCase()} on cards`), sectionEl);
-        });
-
-        this.addNumberSetting('contentLength', t('Content Length'), t('Maximum content length displayed on each card'), sectionEl);
-    }
+	private addDisplaySettings(): void {
+		const sectionEl = this.containerEl.createDiv({ cls: 'settings-section display-settings' });
+		new Setting(sectionEl)
+			.setName(t('Settings What to Show'))
+			.setHeading();
+	
+		displaySettings.forEach(({ key, name }) => {
+			this.addToggleSetting(key, t(name), t(`Toggle to display or hide the ${name.toLowerCase()} on cards`), sectionEl);
+		});
+	
+		this.addNumberSetting('contentLength', t('Content Length'), t('Maximum content length displayed on each card'), sectionEl);
+	}
 
     // Add font settings section
-    private addFontSettings(): void {
-        const sectionEl = this.containerEl.createDiv({ cls: 'settings-section font-settings' });
-        sectionEl.createEl('h6', { text: t('Font Size Settings'), cls: 'settings-section-title' });
-
-        fontSizeSettings.forEach(({ key, name }) => {
-            this.addNumberSetting(key, t(name), t(`Set the font size for the ${name.toLowerCase()}`), sectionEl);
-        });
-    }
+	private addFontSettings(): void {
+		const sectionEl = this.containerEl.createDiv({ cls: 'settings-section font-settings' });
+		new Setting(sectionEl)
+			.setName(t('Font Size Settings'))
+			.setHeading();
+	
+		fontSizeSettings.forEach(({ key, name }) => {
+			this.addNumberSetting(key, t(name), t(`Set the font size for the ${name.toLowerCase()}`), sectionEl);
+		});
+	}
 
     // Add keyboard shortcuts information section
-    private addKeyboardShortcutsInfo(): void {
-        const sectionEl = this.containerEl.createDiv({ cls: 'settings-section keyboard-shortcuts' });
-        sectionEl.createEl('h6', { text: t('Keyboard Shortcuts'), cls: 'settings-section-title' });
-
-        const shortcutDesc = sectionEl.createEl('p');
-        shortcutDesc.setText(t('Card Navigator provides the following features that can be assigned keyboard shortcuts. You can set these up in Obsidian\'s Hotkeys settings:'));
-        
-        const shortcutList = sectionEl.createEl('ul');
-        keyboardShortcuts.forEach(({ name }) => {
-            const item = shortcutList.createEl('li');
-            item.setText(t(name));
-        });
-        
-        const customizeNote = sectionEl.createEl('p');
-        customizeNote.setText(t('To set up shortcuts for these actions, go to Settings → Hotkeys and search for "Card Navigator". You can then assign your preferred key combinations for each action.'));
-    }
+	private addKeyboardShortcutsInfo(): void {
+		const sectionEl = this.containerEl.createDiv({ cls: 'settings-section keyboard-shortcuts' });
+	
+		new Setting(sectionEl)
+			.setName(t('Keyboard Shortcuts'))
+			.setHeading();
+	
+		const shortcutDesc = sectionEl.createEl('p');
+		shortcutDesc.setText(t('Card Navigator provides the following features that can be assigned keyboard shortcuts. You can set these up in Obsidian\'s Hotkeys settings:'));
+		
+		const shortcutList = sectionEl.createEl('ul');
+		keyboardShortcuts.forEach(({ name }) => {
+			const item = shortcutList.createEl('li');
+			item.setText(t(name));
+		});
+		
+		const customizeNote = sectionEl.createEl('p');
+		customizeNote.setText(t('To set up shortcuts for these actions, go to Settings → Hotkeys and search for "Card Navigator". You can then assign your preferred key combinations for each action.'));
+	}	
 }

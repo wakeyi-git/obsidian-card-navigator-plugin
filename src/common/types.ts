@@ -23,6 +23,9 @@ export type SortCriterion = 'fileName' | 'lastModified' | 'created';
 // Defines the possible sort orders
 export type SortOrder = 'asc' | 'desc';
 
+// Defines the possible sort orders
+export type ToolbarMenu = 'sort' | 'settings';
+
 // Defines the available sort options
 export const sortOptions: Array<{ value: string, label: string }> = [
     { value: 'fileName_asc', label: 'File name (A to Z)' },

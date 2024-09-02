@@ -22,17 +22,23 @@ export class CardMaker {
     }
 
     // Create a card object from a file
-    public async createCard(file: TFile): Promise<Card> {
-        const content = await this.plugin.app.vault.cachedRead(file);
-        const { cleanContent } = separateFrontmatterAndContent(content);
-        const contentWithoutHeader = this.removeFirstHeader(cleanContent);
-        return {
-            file,
-            fileName: this.plugin.settings.showFileName ? file.basename : undefined,
-            firstHeader: this.plugin.settings.showFirstHeader ? this.findFirstHeader(cleanContent) : undefined,
-            content: this.plugin.settings.showContent ? this.truncateContent(contentWithoutHeader) : undefined,
-        };
-    }
+	public async createCard(file: TFile): Promise<Card> {
+		try {
+			const content = await this.plugin.app.vault.cachedRead(file);
+			const { cleanContent } = separateFrontmatterAndContent(content);
+			const contentWithoutHeader = this.removeFirstHeader(cleanContent);
+	
+			return {
+				file,
+				fileName: this.plugin.settings.showFileName ? file.basename : undefined,
+				firstHeader: this.plugin.settings.showFirstHeader ? this.findFirstHeader(cleanContent) : undefined,
+				content: this.plugin.settings.showContent ? this.truncateContent(contentWithoutHeader) : undefined,
+			};
+		} catch (error) {
+			console.error(`Failed to create card for file ${file.path}:`, error);
+			throw error;
+		}
+	}
 
     // Remove the first header from the content
     private removeFirstHeader(content: string): string {

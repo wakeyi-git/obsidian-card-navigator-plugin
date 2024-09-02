@@ -393,8 +393,8 @@ input[type="range"] {
 }
 
 /* SettingsTab styles */
-.settings-section h3.settings-section-title {
-    margin-top: 1em;
+.setting-item.setting-item-heading {
+    margin-top: 2em;
 }
 
 .setting-number .setting-item-control input {

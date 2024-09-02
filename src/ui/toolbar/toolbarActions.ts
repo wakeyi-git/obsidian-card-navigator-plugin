@@ -1,11 +1,11 @@
 import { TFolder, FuzzySuggestModal, setIcon, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
-import { SortCriterion, CardNavigatorSettings, NumberSettingKey, rangeSettingConfigs, displaySettings, fontSizeSettings } from '../../common/types';
+import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey, rangeSettingConfigs, displaySettings, fontSizeSettings } from '../../common/types';
 import { SettingsManager } from 'common/settingsManager';
 import { DEFAULT_SETTINGS } from 'common/settings';
 import { t } from 'i18next';
 
-let currentPopup: { element: HTMLElement, type: 'sort' | 'settings' } | null = null;
+let currentPopup: { element: HTMLElement, type: ToolbarMenu } | null = null;
 
 // Modal for folder suggestion
 export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
@@ -28,7 +28,7 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
 }
 
 // Create a popup for sort or settings
-function createPopup(className: string, type: 'sort' | 'settings'): HTMLElement {
+function createPopup(className: string, type: ToolbarMenu): HTMLElement {
     closeCurrentPopup();
     const popup = document.createElement('div');
     popup.className = className;
@@ -70,7 +70,7 @@ function createSortOption(value: string, label: string, currentSort: string, plu
     option.classList.add('sort-option');
     option.classList.toggle('active', currentSort === value);
     option.addEventListener('click', async () => {
-        const [criterion, order] = value.split('_') as [SortCriterion, 'asc' | 'desc'];
+        const [criterion, order] = value.split('_') as [SortCriterion, SortOrder];
         await updateSortSettings(plugin, criterion, order);
         closeCurrentPopup();
     });
@@ -78,7 +78,7 @@ function createSortOption(value: string, label: string, currentSort: string, plu
 }
 
 // Update sort settings
-async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCriterion, order: 'asc' | 'desc') {
+async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCriterion, order: SortOrder) {
     plugin.settings.sortCriterion = criterion;
     plugin.settings.sortOrder = order;
     await plugin.saveSettings();

@@ -1,5 +1,5 @@
 import { TFile } from 'obsidian';
-import { SortCriterion } from './types';
+import { SortCriterion, SortOrder } from './types';
 
 // Separates frontmatter from the main content of a markdown file.
 export function separateFrontmatterAndContent(content: string): { frontmatter: string | null, cleanContent: string } {
@@ -11,7 +11,7 @@ export function separateFrontmatterAndContent(content: string): { frontmatter: s
 }
 
 // Sorts an array of TFile objects based on the specified criterion and order.
-export function sortFiles(files: TFile[], criterion: SortCriterion, order: 'asc' | 'desc'): TFile[] {
+export function sortFiles(files: TFile[], criterion: SortCriterion, order: SortOrder): TFile[] {
     return files.sort((a, b) => {
         let comparison = 0;
         switch (criterion) {
@@ -28,3 +28,4 @@ export function sortFiles(files: TFile[], criterion: SortCriterion, order: 'asc'
         return order === 'asc' ? comparison : -comparison;
     });
 }
+

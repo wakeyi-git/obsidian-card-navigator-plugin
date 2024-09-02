@@ -117,48 +117,49 @@ export class CardContainer {
     }
 
     // Render cards in the container
-    private renderCards(cardsData: Card[]) {
-        const containerEl = this.containerEl;
-        if (!containerEl) return;
-    
-        const currentScrollTop = containerEl.scrollTop;
-        const currentScrollLeft = containerEl.scrollLeft;
-    
-        const activeCardIndex = Array.from(containerEl.children).findIndex(
-            child => child.classList.contains('card-navigator-active')
-        );
-    
-        containerEl.innerHTML = '';
-    
-        containerEl.classList.toggle('vertical', this.isVertical);
-        containerEl.classList.toggle('horizontal', !this.isVertical);
-    
-        containerEl.style.setProperty('--cards-per-view', this.plugin.settings.cardsPerView.toString());
-    
-        cardsData.forEach((cardData, index) => {
-            const card = this.cardMaker.createCardElement(cardData);
-            
-            card.classList.add(this.isVertical ? 'vertical' : 'horizontal');
-            card.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
-    
-            if (cardData.file === this.plugin.app.workspace.getActiveFile()) {
-                card.classList.add('card-navigator-active');
-            }
-    
-            containerEl.appendChild(card);
-        });
-    
-        containerEl.scrollTop = currentScrollTop;
-        containerEl.scrollLeft = currentScrollLeft;
-    
-        const newActiveCardIndex = Array.from(containerEl.children).findIndex(
-            child => child.classList.contains('card-navigator-active')
-        );
-    
-        if (activeCardIndex !== newActiveCardIndex && newActiveCardIndex !== -1) {
-            this.scrollToActiveCard(false);
-        }
-    }
+	private renderCards(cardsData: Card[]) {
+		const containerEl = this.containerEl;
+		if (!containerEl) return;
+	
+		const currentScrollTop = containerEl.scrollTop;
+		const currentScrollLeft = containerEl.scrollLeft;
+	
+		const activeCardIndex = Array.from(containerEl.children).findIndex(
+			child => child.classList.contains('card-navigator-active')
+		);
+	
+		// Safely empty the container element
+		containerEl.empty();
+	
+		containerEl.classList.toggle('vertical', this.isVertical);
+		containerEl.classList.toggle('horizontal', !this.isVertical);
+	
+		containerEl.style.setProperty('--cards-per-view', this.plugin.settings.cardsPerView.toString());
+	
+		cardsData.forEach((cardData, index) => {
+			const card = this.cardMaker.createCardElement(cardData);
+	
+			card.classList.add(this.isVertical ? 'vertical' : 'horizontal');
+			card.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
+	
+			if (cardData.file === this.plugin.app.workspace.getActiveFile()) {
+				card.classList.add('card-navigator-active');
+			}
+	
+			containerEl.appendChild(card);
+		});
+	
+		containerEl.scrollTop = currentScrollTop;
+		containerEl.scrollLeft = currentScrollLeft;
+	
+		const newActiveCardIndex = Array.from(containerEl.children).findIndex(
+			child => child.classList.contains('card-navigator-active')
+		);
+	
+		if (activeCardIndex !== newActiveCardIndex && newActiveCardIndex !== -1) {
+			this.scrollToActiveCard(false);
+		}
+	}
 
     // Scroll to the active card
     private scrollToActiveCard(animate = true) {
@@ -322,5 +323,8 @@ export class CardContainer {
         this.plugin.triggerRefresh();
     }
 
-    onClose() {}
+	onClose() {
+		this.plugin.app.workspace.off('active-leaf-change', this.plugin.triggerRefresh);
+		this.plugin.app.vault.off('modify', this.plugin.triggerRefresh);
+	}
 }
