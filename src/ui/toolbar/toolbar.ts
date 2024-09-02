@@ -6,20 +6,16 @@ import { toggleSort, toggleSettings } from './toolbarActions';
 import { t } from 'i18next';
 
 export class Toolbar {
-    private containerEl: HTMLElement | undefined = undefined;
-    private isVertical: boolean;
+    private containerEl: HTMLElement | null = null;
+    private isVertical = false;
 
-    constructor(private plugin: CardNavigatorPlugin) {
-        this.isVertical = false;
-    }
+    constructor(private plugin: CardNavigatorPlugin) {}
 
-    // Initialize the toolbar
     initialize(containerEl: HTMLElement) {
         this.containerEl = containerEl;
         this.createToolbar();
     }
 
-    // Set the orientation of the toolbar
     setOrientation(isVertical: boolean) {
         if (this.isVertical !== isVertical) {
             this.isVertical = isVertical;
@@ -28,7 +24,6 @@ export class Toolbar {
         }
     }
 
-    // Update toolbar style based on orientation
     private updateToolbarStyle() {
         if (this.containerEl) {
             this.containerEl.classList.toggle('vertical', this.isVertical);
@@ -36,58 +31,46 @@ export class Toolbar {
         }
     }
 
-    // Create the main toolbar structure
     private createToolbar() {
-        if (!this.containerEl) {
-            return;
-        }
+        if (!this.containerEl) return;
 
         this.containerEl.empty();
 
-        const toolbarContainer = document.createElement('div');
-        toolbarContainer.className = 'card-navigator-toolbar-container';
+        const toolbarContainer = this.containerEl.createDiv('card-navigator-toolbar-container');
 
-        const searchContainer = this.createSearchContainer();
-        const separator = this.createSeparator();
-        const actionIconsContainer = this.createActionIconsContainer();
-
-        toolbarContainer.appendChild(searchContainer);
-        toolbarContainer.appendChild(separator);
-        toolbarContainer.appendChild(actionIconsContainer);
-
-        this.containerEl.appendChild(toolbarContainer);
+        toolbarContainer.appendChild(this.createSearchContainer());
+        toolbarContainer.appendChild(this.createSeparator());
+        toolbarContainer.appendChild(this.createActionIconsContainer());
     }
 
-    // Create the search container with input field
     private createSearchContainer(): HTMLElement {
-        const container = document.createElement('div');
-        container.className = 'card-navigator-search-container';
+        const container = createDiv('card-navigator-search-container');
 
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.placeholder = 'Search...';
-        input.className = 'card-navigator-search-input';
+        const input = container.createEl('input', {
+            type: 'text',
+            placeholder: t('Search...'),
+            cls: 'card-navigator-search-input'
+        });
 
         input.addEventListener('input', debounce(async (e: Event) => {
             const searchTerm = (e.target as HTMLInputElement).value;
-            const view = this.plugin.app.workspace.getLeavesOfType('card-navigator-view')[0].view as CardNavigator;
-            await view.cardContainer.searchCards(searchTerm);
+            const view = this.plugin.app.workspace.getActiveViewOfType(CardNavigator);
+            if (view) {
+                await view.cardContainer.searchCards(searchTerm);
+            }
         }, 300));
 
-        container.appendChild(input);
         return container;
     }
 
-    // Create the container for action icons
     private createActionIconsContainer(): HTMLElement {
-        const container = document.createElement('div');
-        container.className = 'card-navigator-action-icons-container';
+        const container = createDiv('card-navigator-action-icons-container');
 
         const icons = [
             { name: 'folder', label: t('Select folder'), action: () => this.openFolderSelector() },
             { name: 'arrow-up-narrow-wide', label: t('Sort cards'), action: () => toggleSort(this.plugin) },
             { name: 'settings', label: t('Settings'), action: () => toggleSettings(this.plugin) },
-        ];
+        ] as const;
 
         icons.forEach(icon => {
             const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
@@ -103,11 +86,9 @@ export class Toolbar {
         return container;
     }
 
-    // Create a toolbar icon
     private createToolbarIcon(iconName: string, ariaLabel: string, action: (e: MouseEvent) => void): HTMLElement {
-        const icon = document.createElement('div');
-        icon.className = 'clickable-icon';
-        icon.setAttribute('aria-label', ariaLabel);
+        const icon = createDiv('clickable-icon');
+        icon.ariaLabel = ariaLabel;
 
         setIcon(icon, iconName);
         icon.addEventListener('click', action);
@@ -115,14 +96,10 @@ export class Toolbar {
         return icon;
     }
     
-    // Create a separator element
     private createSeparator(): HTMLElement {
-        const separator = document.createElement('div');
-        separator.className = 'toolbar-separator';
-        return separator;
+        return createDiv('toolbar-separator');
     }
 
-    // Open the folder selector modal
     public openFolderSelector() {
         new FolderSuggestModal(this.plugin, (folder: TFolder) => {
             const view = this.plugin.app.workspace.getActiveViewOfType(CardNavigator);

@@ -1,18 +1,20 @@
 import { TFile } from 'obsidian';
 import { SortCriterion, SortOrder } from './types';
 
-// Separates frontmatter from the main content of a markdown file.
 export function separateFrontmatterAndContent(content: string): { frontmatter: string | null, cleanContent: string } {
     const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n/;
     const match = content.match(frontmatterRegex);
-    return match
-        ? { frontmatter: match[1], cleanContent: content.slice(match[0].length).trim() }
-        : { frontmatter: null, cleanContent: content.trim() };
+    if (match) {
+        return {
+            frontmatter: match[1],
+            cleanContent: content.slice(match[0].length).trim()
+        };
+    }
+    return { frontmatter: null, cleanContent: content.trim() };
 }
 
-// Sorts an array of TFile objects based on the specified criterion and order.
 export function sortFiles(files: TFile[], criterion: SortCriterion, order: SortOrder): TFile[] {
-    return files.sort((a, b) => {
+    return [...files].sort((a, b) => {
         let comparison = 0;
         switch (criterion) {
             case 'fileName':
@@ -29,3 +31,11 @@ export function sortFiles(files: TFile[], criterion: SortCriterion, order: SortO
     });
 }
 
+export function safelyParseFloat(value: string, fallback = 0): number {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? fallback : parsed;
+}
+
+export function clamp(value: number, min: number, max: number): number {
+    return Math.min(Math.max(value, min), max);
+}

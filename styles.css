@@ -2,7 +2,7 @@
 
 :root {
     --card-navigator-toolbar-height: 50px;
-	--card-navigator-container-padding: 10px;
+    --card-navigator-container-padding: 10px;
     --card-navigator-card-padding: 1rem;
     --card-navigator-gap: 10px;
     --card-navigator-border-radius: 8px;
@@ -40,7 +40,6 @@
 
 .card-navigator-toolbar-container {
     display: flex;
-    flex-direction: row;
     justify-content: center;
     align-items: center;
     gap: var(--card-navigator-gap);
@@ -80,7 +79,7 @@
 .card-navigator-sort-popup {
     display: flex;
     flex-direction: column;
-	gap: 0.5rem;
+    gap: 0.5rem;
 }
 
 .sort-option:hover {
@@ -95,8 +94,12 @@
 /* Settings popup styles */
 .card-navigator-settings-popup {
     display: flex;
-	flex-direction: column;
-	font-size: small;
+    flex-direction: column;
+    font-size: small;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-right: 10px;
+    max-width: 400px;
 }
 
 .settings-top-buttons {
@@ -113,112 +116,19 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--icon-color);
+    color: var(--text-muted);
     opacity: 0.8;
 }
 
 .settings-icon-button:hover {
     background-color: var(--interactive-hover);
-    color: var(--icon-color-hover);
+    color: var(--text-normal);
     opacity: 1;
 }
 
 .settings-icon-button svg {
     width: 18px;
     height: 18px;
-}
-
-.card-navigator-settings-popup {
-    max-height: 70vh;
-    overflow-y: auto;
-    padding-right: 10px;
-}
-
-.card-navigator-settings-popup input[type="range"] {
-    width: 100%;
-}
-
-.range-setting-container {
-    display: flex;
-    flex-direction: column;
-	position: relative;
-	gap: 0.8rem;
-    align-items: flex-start;
-}
-
-.toggle-setting-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-input[type="range"] {
-    width: 100%;
-    padding: 0;
-}
-
-.card-navigator-settings-popup {
-    max-width: 400px;
-}
-
-.card-navigator-settings-popup .setting-item {
-    display: flex;
-    flex-direction: column;
-    border-top: none;
-}
-
-.card-navigator-settings-popup .setting-item-name {
-    text-align: left;
-}
-
-.card-navigator-settings-popup .setting-item-control {
-    display: flex;
-    align-items: center;
-}
-
-.card-navigator-settings-popup .slider {
-    width: 100%;
-	margin-top: 1rem;
-}
-
-.card-navigator-settings-popup .card-navigator-toggle-setting {
-    flex-direction: row;
-    justify-content: space-between;
-}
-
-.card-navigator-settings-popup .card-navigator-toggle-setting .setting-item-info {
-    flex-grow: 1;
-}
-
-.card-navigator-settings-popup .card-navigator-toggle-setting .setting-item-control {
-    flex-shrink: 0;
-}
-
-.card-navigator-settings-popup .card-navigator-range-setting {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-}
-
-.card-navigator-settings-popup .card-navigator-range-setting .setting-item-control {
-    width: 100%;
-}
-
-.card-navigator-settings-popup .settings-top-buttons {
-    display: flex;
-    justify-content: flex-end;
-}
-
-.card-navigator-settings-popup .settings-icon-button {
-    cursor: pointer;
-    border-radius: 4px;
-    color: var(--text-muted);
-    margin-left: 10px;
-}
-
-.card-navigator-settings-popup .settings-icon-button:hover {
-    color: var(--text-normal);
-    background-color: var(--background-modifier-hover);
 }
 
 /* Search container styles */
@@ -240,30 +150,30 @@ input[type="range"] {
 .card-navigator-container {
     display: flex;
     gap: var(--card-navigator-gap);
-	position: relative;
-	box-sizing: border-box;
-	padding-top: var(--card-navigator-toolbar-height);
+    position: relative;
+    box-sizing: border-box;
+    padding-top: var(--card-navigator-toolbar-height);
 }
 
 .card-navigator-container.vertical {
-	width: calc(100% + 12px);
-	height: 100%;
-	margin-right: -12px;
-	padding-right: 12px;
+    width: calc(100% + 12px);
+    height: 100%;
+    margin-right: -12px;
+    padding-right: 12px;
     flex-direction: column;
     overflow-y: auto;
     overflow-x: hidden;
 }
 
 .card-navigator-container.horizontal {
-	width: 100%;
+    width: 100%;
     flex-direction: row;
-	overflow-x: auto;
+    overflow-x: auto;
     overflow-y: hidden;
 }
 
 .card-navigator-container.horizontal.align-height {
-	height: 100%;
+    height: 100%;
 }
 
 /* Card styles */
@@ -280,12 +190,10 @@ input[type="range"] {
     flex-direction: column;
 }
 
-/* Fixed height cards */
 .card-navigator-card.align-height {
     overflow: hidden;
 }
 
-/* Vertical cards */
 .card-navigator-card.vertical {
     width: 100%;
 }
@@ -296,28 +204,26 @@ input[type="range"] {
 
 .card-navigator-card.vertical:not(.align-height) {
     height: auto;
-	overflow: visible;
+    overflow: visible;
 }
 
-/* Horizontal cards */
 .card-navigator-card.horizontal {
     width: calc((100% - (var(--cards-per-view) - 1) * var(--card-navigator-gap)) / var(--cards-per-view));
 }
 
 .card-navigator-card.horizontal.align-height {
-	height: auto;
-	overflow: visible;
+    height: auto;
+    overflow: visible;
 }
 
 .card-navigator-card.horizontal:not(.align-height) {
-	height: 100%;
-	overflow: hidden;
+    height: 100%;
+    overflow: hidden;
 }
 
-/* cards Other */
 .card-navigator-card.card-navigator-active {
     border: 2px solid var(--interactive-accent);
-    background-color: var(--card-navigator-background);
+    background-color: var(--background-primary-alt);
 }
 
 .card-navigator-card:hover,
@@ -377,8 +283,8 @@ input[type="range"] {
 /* Responsive styles */
 @media (max-width: 768px) {
     .card-navigator-toolbar-container {
-        flex-direction: row;
-        align-items: flex-start;
+        flex-direction: column;
+        align-items: stretch;
     }
 
     .card-navigator-search-popup,

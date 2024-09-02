@@ -1,28 +1,23 @@
 import { WorkspaceLeaf, TFile, TFolder } from "obsidian";
 import CardNavigatorPlugin from 'main';
 import { CardMaker } from './cardMaker'
-import { sortFiles } from '../../common/utils';
-import { Card, SortCriterion, SortOrder } from '../../common/types';
+import { sortFiles } from 'common/utils';
+import { Card, SortCriterion, SortOrder } from 'common/types';
 
 export class CardContainer {
-    private leaf: WorkspaceLeaf;
     private containerEl: HTMLElement | null = null;
     private cardMaker: CardMaker;
-    private plugin: CardNavigatorPlugin;
     public isVertical: boolean;
     private toolbarHeight: number;
     private cardGap: number;
 
-    constructor(plugin: CardNavigatorPlugin, leaf: WorkspaceLeaf) {
-        this.plugin = plugin;
-        this.leaf = leaf;
+    constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
         this.cardMaker = new CardMaker(this.plugin);
         this.isVertical = false;
         this.toolbarHeight = this.getCSSVariable('--card-navigator-toolbar-height', 50);
         this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
     }
 
-	// Get CSS variable value or use default
     private getCSSVariable(variableName: string, defaultValue: number): number {
         const valueStr = getComputedStyle(document.documentElement)
             .getPropertyValue(variableName)
@@ -30,40 +25,33 @@ export class CardContainer {
         return parseInt(valueStr) || defaultValue;
     }
 
-    // Initialize the card container
     async initialize(containerEl: HTMLElement) {
         this.containerEl = containerEl;
         await this.waitForLeafCreation();
         this.registerEvents();
         this.updateContainerStyle();
-        this.refresh();
+        await this.refresh();
     }
 
-	// Wait for the leaf to be fully created
-	private async waitForLeafCreation(): Promise<void> {
-		return new Promise((resolve) => {
-			const checkLeaf = () => {
-				if (this.containerEl && this.containerEl.getBoundingClientRect().width > 0 && this.containerEl.clientHeight > 0) {
-					resolve();
-				} else {
-					requestAnimationFrame(checkLeaf);
-				}
-			};
-			checkLeaf();
-		});
-	}
+    private async waitForLeafCreation(): Promise<void> {
+        return new Promise((resolve) => {
+            const checkLeaf = () => {
+                if (this.containerEl && this.containerEl.getBoundingClientRect().width > 0 && this.containerEl.clientHeight > 0) {
+                    resolve();
+                } else {
+                    requestAnimationFrame(checkLeaf);
+                }
+            };
+            checkLeaf();
+        });
+    }
 
-    // Register events for refreshing the container
     private registerEvents() {
         this.plugin.registerEvent(
-            this.plugin.app.workspace.on('active-leaf-change', () => {
-                this.plugin.triggerRefresh();
-            })
+            this.plugin.app.workspace.on('active-leaf-change', this.plugin.triggerRefresh.bind(this.plugin))
         );
         this.plugin.registerEvent(
-            this.plugin.app.vault.on('modify', () => {
-                this.plugin.triggerRefresh();
-            })
+            this.plugin.app.vault.on('modify', this.plugin.triggerRefresh.bind(this.plugin))
         );
     }
 

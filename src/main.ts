@@ -16,12 +16,11 @@ export const languageResources = {
 } as const;
 
 // Set the translation language based on the current locale
-export const translationLanguage = Object.keys(languageResources).find(i => i == moment.locale()) ? moment.locale() : "en";
+export const translationLanguage = Object.keys(languageResources).includes(moment.locale()) ? moment.locale() : "en";
 
 export default class CardNavigatorPlugin extends Plugin {
     settings: CardNavigatorSettings = DEFAULT_SETTINGS;
     selectedFolder: string | null = null;
-    public containerEl: HTMLElement | undefined;
     private refreshDebounced: () => void = () => {};
 
     async onload() {

@@ -2,37 +2,32 @@ import { ItemView, WorkspaceLeaf } from "obsidian";
 import CardNavigatorPlugin from '../main';
 import { Toolbar } from './toolbar/toolbar';
 import { CardContainer } from './cardContainer/cardContainer';
-import { t } from "i18next";
+import { t } from 'i18next';
 
 export const VIEW_TYPE_CARD_NAVIGATOR = "card-navigator-view";
 
 export class CardNavigator extends ItemView {
-    private plugin: CardNavigatorPlugin;
     public toolbar: Toolbar;
     public cardContainer: CardContainer;
     private resizeObserver: ResizeObserver;
     private isVertical: boolean;
 
-    constructor(leaf: WorkspaceLeaf, plugin: CardNavigatorPlugin) {
+    constructor(leaf: WorkspaceLeaf, private plugin: CardNavigatorPlugin) {
         super(leaf);
-        this.plugin = plugin;
         this.toolbar = new Toolbar(this.plugin);
         this.cardContainer = new CardContainer(this.plugin, this.leaf);
         this.isVertical = this.calculateIsVertical();
         this.resizeObserver = new ResizeObserver(this.handleResize.bind(this));
     }
 
-    // Return the unique identifier for this view
-    getViewType() {
+    getViewType(): string {
         return VIEW_TYPE_CARD_NAVIGATOR;
     }
 
-    // Return the display name for this view
-    getDisplayText() {
+    getDisplayText(): string {
         return t("Card Navigator");
     }
 
-    // Return the icon name for this view
     getIcon(): string {
         return "layers-3";
     }

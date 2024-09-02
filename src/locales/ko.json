@@ -3,7 +3,7 @@
 	"Activate Card Navigator": "카드 네비게이터 활성화",
 	"Select folder": "폴더 선택",
 	"Sort cards": "정렬 순서 변경",
-	"Settings": "카드 네비게이터 설정 열기",
+	"Settings": "설정",
 	"Reset to Defaults": "기본 설정으로 되돌리기",
 	"Close": "닫기",
 	"Cards per view": "화면당 카드 수",
@@ -28,7 +28,7 @@
     "Render Content as HTML": "내용을 HTML로 렌더링",
     "If enabled, card content will be rendered as HTML": "활성화하면 카드 내용이 HTML로 렌더링됩니다",
     "Center Active Card on Open": "열 때 활성 카드 중앙 정렬",
-    "Automatically center the active card when opening the Card Navigator": "Card Navigator를 열 때 활성 카드를 자동으로 중앙에 위치시킵니다",
+    "Automatically center the active card when opening the Card Navigator": "카드 네비게이터를 열 때 활성 카드를 자동으로 중앙에 위치시킵니다",
     "Drag and Drop Content": "내용 드래그 앤 드롭",
     "When enabled, dragging a card will insert the note content instead of a link.": "활성화하면 카드를 드래그할 때 링크 대신 노트 내용이 삽입됩니다.",
     "Settings What to Show": "표시 항목 설정",
@@ -56,5 +56,6 @@
 	"Scroll Up/Left One Page": "한 페이지 위로/왼쪽으로 스크롤",
 	"Scroll Down/Right One Page": "한 페이지 아래로/오른쪽으로 스크롤",
 	"Center Active Card": "활성 카드 중앙 정렬",
-	"To set up shortcuts for these actions, go to Settings → Hotkeys and search for \"Card Navigator\". You can then assign your preferred key combinations for each action.": "이 기능들에 대한 단축키를 설정하려면 설정 → 단축키로 이동하여 \"Card Navigator\"를 검색하세요. 그런 다음 각 기능에 원하는 키 조합을 할당할 수 있습니다."
+	"To set up shortcuts for these actions, go to Settings → Hotkeys and search for \"Card Navigator\". You can then assign your preferred key combinations for each action.": "이 기능들에 대한 단축키를 설정하려면 설정 → 단축키로 이동하여 \"Card Navigator\"를 검색하세요. 그런 다음 각 기능에 원하는 키 조합을 할당할 수 있습니다.",
+	"Search...": "검색..."
 }

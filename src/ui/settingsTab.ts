@@ -32,7 +32,6 @@ export class SettingTab extends PluginSettingTab {
         this.addKeyboardShortcutsInfo();
     }
 
-    // Add general settings to the settings tab
     private addGeneralSettings(): void {
         const sectionEl = this.containerEl.createDiv({ cls: 'settings-section general-settings' });
         

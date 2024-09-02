@@ -31,7 +31,7 @@
 	"Automatically center the active card when opening the Card Navigator": "Automatically center the active card when opening the Card Navigator",
 	"Drag and Drop Content": "Drag and Drop Content",
 	"When enabled, dragging a card will insert the note content instead of a link.": "When enabled, dragging a card will insert the note content instead of a link.",
-	"Settings What to Show": "Settings What to Show",
+	"Settings What to Show": "Settings: What to Show",
 	"Show File Name": "Show File Name",
 	"Show First Header": "Show First Header",
 	"Show Content": "Show Content",
@@ -53,8 +53,9 @@
 	"Scroll Down One Card": "Scroll Down One Card",
 	"Scroll Left One Card": "Scroll Left One Card",
 	"Scroll Right One Card": "Scroll Right One Card",
-	"Scroll Up/Left One Page": "Scroll Up One/Left Page",
+	"Scroll Up/Left One Page": "Scroll Up/Left One Page",
 	"Scroll Down/Right One Page": "Scroll Down/Right One Page",
 	"Center Active Card": "Center Active Card",
-	"To set up shortcuts for these actions, go to Settings → Hotkeys and search for \"Card Navigator\". You can then assign your preferred key combinations for each action.": "To set up shortcuts for these actions, go to Settings → Hotkeys and search for \"Card Navigator\". You can then assign your preferred key combinations for each action."
+	"To set up shortcuts for these actions, go to Settings → Hotkeys and search for \"Card Navigator\". You can then assign your preferred key combinations for each action.": "To set up shortcuts for these actions, go to Settings → Hotkeys and search for \"Card Navigator\". You can then assign your preferred key combinations for each action.",
+	"Search...": "Search..."
 }
