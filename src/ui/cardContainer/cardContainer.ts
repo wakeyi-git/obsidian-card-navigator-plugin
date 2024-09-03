@@ -30,7 +30,6 @@ export class CardContainer {
     async initialize(containerEl: HTMLElement) {
         this.containerEl = containerEl;
         await this.waitForLeafCreation();
-        this.registerEvents();
         this.updateContainerStyle();
         await this.refresh();
     }
@@ -46,15 +45,6 @@ export class CardContainer {
             };
             checkLeaf();
         });
-    }
-
-    private registerEvents() {
-        this.plugin.registerEvent(
-            this.plugin.app.workspace.on('active-leaf-change', this.plugin.triggerRefresh.bind(this.plugin))
-        );
-        this.plugin.registerEvent(
-            this.plugin.app.vault.on('modify', this.plugin.triggerRefresh.bind(this.plugin))
-        );
     }
 
     setOrientation(isVertical: boolean) {

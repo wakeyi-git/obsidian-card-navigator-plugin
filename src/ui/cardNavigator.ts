@@ -67,10 +67,6 @@ export class CardNavigator extends ItemView {
         this.updateLayoutAndRefresh();
         this.resizeObserver.observe(this.leaf.view.containerEl);
 
-        this.registerEvent(
-            this.plugin.events.on('settings-updated', this.refresh.bind(this))
-        );
-
         await this.refresh();
         await this.centerActiveCardOnOpen();
     }

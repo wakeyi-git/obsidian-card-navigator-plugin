@@ -386,9 +386,9 @@ input[type="range"] {
 }
 
 /* SettingsTab styles */
-.setting-item.setting-item-heading {
-    margin-top: 2em;
-}
+/* .setting-item.setting-item-heading {
+    margin-top: 1em;
+} */
 
 .setting-number .setting-item-control input {
     width: 250px;

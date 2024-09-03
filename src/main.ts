@@ -26,9 +26,14 @@ export default class CardNavigatorPlugin extends Plugin {
         await this.initializePlugin();
     }
 
-    async onunload() {
-        this.app.workspace.detachLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-    }
+	onunload() {
+		this.events.off('settings-updated', this.refreshDebounced);
+	
+		const ribbonIconEl = this.addRibbonIcon('layers-3', t('Activate Card Navigator'), () => {
+			this.activateView();
+		});
+		ribbonIconEl.detach();
+	}
 
     private async initializePlugin() {
         await this.initializeI18n();
@@ -44,7 +49,7 @@ export default class CardNavigatorPlugin extends Plugin {
             this.activateView();
         });
 
-		this.addCommand({
+        this.addCommand({
             id: 'open-card-navigator',
             name: t('Open Card Navigator'),
             callback: () => this.activateView(),
@@ -57,6 +62,28 @@ export default class CardNavigatorPlugin extends Plugin {
         });
 
         this.refreshDebounced = debounce(() => this.refreshViews(), 200);
+
+        this.registerCentralizedEvents();
+    }
+
+    private registerCentralizedEvents() {
+        this.registerEvent(
+            this.app.vault.on('rename', (file) => {
+                if (file instanceof TFile) {
+                    this.refreshDebounced();
+                }
+            })
+        );
+
+        this.registerEvent(
+            this.app.workspace.on('active-leaf-change', this.refreshDebounced)
+        );
+
+        this.registerEvent(
+            this.app.vault.on('modify', this.refreshDebounced)
+        );
+
+        this.events.on('settings-updated', this.refreshDebounced);
     }
 
     private async initializeI18n() {
