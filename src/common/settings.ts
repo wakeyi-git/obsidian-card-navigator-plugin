@@ -1,3 +1,5 @@
+//src/ui/common/settings.ts
+
 import { CardNavigatorSettings } from './types';
 
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {

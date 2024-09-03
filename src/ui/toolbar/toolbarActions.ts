@@ -1,3 +1,5 @@
+//src/ui/toolbar/toolbarActions.ts
+
 import { TFolder, FuzzySuggestModal, setIcon, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey, rangeSettingConfigs, displaySettings, fontSizeSettings } from '../../common/types';

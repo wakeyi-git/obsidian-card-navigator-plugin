@@ -1,3 +1,5 @@
+// src/main.ts
+
 import { Plugin, TFile, debounce, moment } from 'obsidian';
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settingsTab';
@@ -6,13 +8,10 @@ import { DEFAULT_SETTINGS } from './common/settings';
 import i18next from 'i18next';
 import { t } from 'i18next';
 
-import en from './locales/en.json'
-import ko from './locales/ko.json';
-
 // Define language resources for internationalization
 export const languageResources = {
-    en: { translation: en },
-    ko: { translation: ko },
+    en: () => import('./locales/en.json'),
+    ko: () => import('./locales/ko.json'),
 } as const;
 
 // Set the translation language based on the current locale
@@ -27,10 +26,11 @@ export default class CardNavigatorPlugin extends Plugin {
         await this.loadSettings();
 
         // Initialize i18next for internationalization
+        const resources = await this.loadLanguageResources();
         i18next.init({
             lng: translationLanguage,
             fallbackLng: "en",
-            resources: languageResources,
+            resources,
         });
 
         this.addSettingTab(new SettingTab(this.app, this));
@@ -44,62 +44,14 @@ export default class CardNavigatorPlugin extends Plugin {
             this.activateView();
         });
 
-        // Add commands for scrolling and centering cards
-        this.addCommand({
-            id: 'scroll-up-one-card',
-            name: t('Scroll Up One Card'),
-            callback: () => this.scrollCards('up', 1)
-        });
-
-        this.addCommand({
-            id: 'scroll-down-one-card',
-            name: t('Scroll Down One Card'),
-            callback: () => this.scrollCards('down', 1)
-        });
-
-        this.addCommand({
-            id: 'scroll-left-one-card',
-            name: t('Scroll Left One Card'),
-            callback: () => this.scrollCards('left', 1)
-        });
-
-        this.addCommand({
-            id: 'scroll-right-one-card',
-            name: t('Scroll Right One Card'),
-            callback: () => this.scrollCards('right', 1)
-        });
-
-        this.addCommand({
-            id: 'scroll-up-page',
-            name: t('Scroll Up/Left One Page'),
-            callback: () => this.scrollCards('up', this.settings.cardsPerView)
-        });
-
-        this.addCommand({
-            id: 'scroll-down-page',
-            name: t('Scroll Down/Right One Page'),
-            callback: () => this.scrollCards('down', this.settings.cardsPerView)
-        });
-
-        this.addCommand({
-            id: 'center-active-card',
-            name: t('Center Active Card'),
-            callback: () => {
-                const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-                for (const leaf of leaves) {
-                    if (leaf.view instanceof CardNavigator) {
-                        leaf.view.cardContainer.centerActiveCard();
-                    }
-                }
-            }
-        });
+        this.addScrollCommands();
 
         this.app.workspace.onLayoutReady(() => {
             this.activateView();
         });
 
         // Initialize debounced refresh function
-        this.refreshDebounced = debounce(this.refreshViews.bind(this), 100, true);
+        this.refreshDebounced = debounce(() => this.refreshViews(), 200);
     }
 
     async onunload() {
@@ -115,30 +67,78 @@ export default class CardNavigatorPlugin extends Plugin {
         this.refreshDebounced();
     }
 
-	private scrollCards(direction: ScrollDirection, count: number) {
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-		for (const leaf of leaves) {
-			if (leaf.view instanceof CardNavigator) {
-				const { cardContainer } = leaf.view;
-				const isVertical = cardContainer.isVertical;
-	
-				switch (direction) {
-					case 'up':
-						isVertical ? cardContainer.scrollUp(count) : cardContainer.scrollLeft(count);
-						break;
-					case 'down':
-						isVertical ? cardContainer.scrollDown(count) : cardContainer.scrollRight(count);
-						break;
-					case 'left':
-						cardContainer.scrollLeft(count);
-						break;
-					case 'right':
-						cardContainer.scrollRight(count);
-						break;
-				}
-			}
-		}
-	}
+    private async loadLanguageResources() {
+        const en = await languageResources.en();
+        const ko = await languageResources.ko();
+        return {
+            en: { translation: en.default },
+            ko: { translation: ko.default },
+        };
+    }
+
+    private scrollCards(direction: ScrollDirection, count: number) {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        leaves.forEach((leaf) => {
+            if (leaf.view instanceof CardNavigator) {
+                const { cardContainer } = leaf.view;
+                const isVertical = cardContainer.isVertical;
+
+                switch (direction) {
+                    case 'up':
+                        isVertical ? cardContainer.scrollUp(count) : cardContainer.scrollLeft(count);
+                        break;
+                    case 'down':
+                        isVertical ? cardContainer.scrollDown(count) : cardContainer.scrollRight(count);
+                        break;
+                    case 'left':
+                        cardContainer.scrollLeft(count);
+                        break;
+                    case 'right':
+                        cardContainer.scrollRight(count);
+                        break;
+                }
+            }
+        });
+    }
+
+    private addScrollCommands() {
+        const scrollCommands = [
+            { id: 'scroll-up-one-card', name: t('Scroll Up One Card'), direction: 'up', count: 1 },
+            { id: 'scroll-down-one-card', name: t('Scroll Down One Card'), direction: 'down', count: 1 },
+            { id: 'scroll-left-one-card', name: t('Scroll Left One Card'), direction: 'left', count: 1 },
+            { id: 'scroll-right-one-card', name: t('Scroll Right One Card'), direction: 'right', count: 1 },
+            { id: 'scroll-up-page', name: t('Scroll Up/Left One Page'), direction: 'up', count: this.settings.cardsPerView },
+            { id: 'scroll-down-page', name: t('Scroll Down/Right One Page'), direction: 'down', count: this.settings.cardsPerView },
+            { id: 'center-active-card', name: t('Center Active Card'), direction: '', count: 0 },
+        ];
+
+        scrollCommands.forEach(({ id, name, direction, count }) => {
+            this.addCommand({
+                id,
+                name,
+                callback: () => {
+                    if (id === 'center-active-card') {
+                        this.centerActiveCard();
+                    } else {
+                        this.scrollCards(direction as ScrollDirection, count);
+                    }
+                },
+            });
+        });
+    }
+
+    private async updateSortSettings(criterion: SortCriterion, order: SortOrder) {
+        const validCriteria: SortCriterion[] = ["fileName", "lastModified", "created"];
+        const validOrders: SortOrder[] = ["asc", "desc"];
+
+        if (!validCriteria.includes(criterion) || !validOrders.includes(order)) {
+            throw new Error('Invalid sort criterion or order');
+        }
+        this.settings.sortCriterion = criterion;
+        this.settings.sortOrder = order;
+        await this.saveSettings();
+        this.refreshDebounced();
+    }
 
     refreshViews() {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
@@ -182,5 +182,14 @@ export default class CardNavigatorPlugin extends Plugin {
 
     triggerRefresh() {
         this.refreshDebounced();
+    }
+
+    private centerActiveCard() {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        leaves.forEach((leaf) => {
+            if (leaf.view instanceof CardNavigator) {
+                leaf.view.cardContainer.centerActiveCard();
+            }
+        });
     }
 }

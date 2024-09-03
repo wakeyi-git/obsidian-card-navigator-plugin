@@ -1,3 +1,5 @@
+//src/ui/common/types.ts
+
 import { TFile } from 'obsidian';
 import { t } from 'i18next';
 

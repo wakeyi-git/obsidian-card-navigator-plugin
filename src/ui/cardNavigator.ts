@@ -1,3 +1,5 @@
+//src/ui/cardNavigator.ts
+
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import CardNavigatorPlugin from '../main';
 import { Toolbar } from './toolbar/toolbar';
@@ -32,7 +34,6 @@ export class CardNavigator extends ItemView {
         return "layers-3";
     }
 
-    // Calculate whether the view should be vertical based on its dimensions
     private calculateIsVertical(): boolean {
         const { width, height } = this.leaf.view.containerEl.getBoundingClientRect();
         const isVertical = height > width;
@@ -40,7 +41,6 @@ export class CardNavigator extends ItemView {
         return isVertical;
     }
 
-    // Handle resize events and update orientation if necessary
     private handleResize() {
         const newIsVertical = this.calculateIsVertical();
         if (newIsVertical !== this.isVertical) {
@@ -49,7 +49,6 @@ export class CardNavigator extends ItemView {
         }
     }
 
-    // Update layout and refresh the view
     public updateLayoutAndRefresh() {
         this.isVertical = this.calculateIsVertical();
         this.cardContainer.setOrientation(this.isVertical);
@@ -57,7 +56,6 @@ export class CardNavigator extends ItemView {
         this.refresh();
     }
 
-    // Initialize the view when it's opened
     async onOpen() {
         const container = this.containerEl.children[1] as HTMLElement;
         container.empty();
@@ -74,11 +72,10 @@ export class CardNavigator extends ItemView {
 
         this.refresh();
 
-        this.centerActiveCardOnOpen();
+        await this.centerActiveCardOnOpen();
     }
 
-    // Center the active card when opening the view, if enabled in settings
-    private centerActiveCardOnOpen() {
+    private async centerActiveCardOnOpen() {
         if (this.plugin.settings.centerActiveCardOnOpen) {
             setTimeout(() => {
                 this.cardContainer.centerActiveCard();
@@ -86,14 +83,14 @@ export class CardNavigator extends ItemView {
         }
     }
 
-    // Clean up when the view is closed
     async onClose() {
         this.resizeObserver.disconnect();
         this.toolbar.onClose();
         this.cardContainer.onClose();
+        this.plugin.app.workspace.off('active-leaf-change', this.plugin.triggerRefresh);
+        this.plugin.app.vault.off('modify', this.plugin.triggerRefresh);
     }
 
-    // Refresh the view
     refresh() {
         this.toolbar.refresh();
         this.cardContainer.refresh();

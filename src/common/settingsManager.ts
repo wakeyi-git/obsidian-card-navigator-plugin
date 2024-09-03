@@ -1,3 +1,5 @@
+//src/ui/common/settingsManager.ts
+
 import CardNavigatorPlugin from '../main';
 import { 
     CardNavigatorSettings, 

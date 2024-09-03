@@ -1,3 +1,5 @@
+//src/ui/settingsTab.ts
+
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../main';
 import { FolderSuggestModal } from './toolbar/toolbarActions';
