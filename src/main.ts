@@ -1,6 +1,6 @@
 // src/main.ts
 
-import { Plugin, TFile, debounce, moment } from 'obsidian';
+import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf } from 'obsidian';
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settingsTab';
 import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder } from './common/types';
@@ -8,30 +8,30 @@ import { DEFAULT_SETTINGS } from './common/settings';
 import i18next from 'i18next';
 import { t } from 'i18next';
 
-// Define language resources for internationalization
 export const languageResources = {
     en: () => import('./locales/en.json'),
     ko: () => import('./locales/ko.json'),
 } as const;
 
-// Set the translation language based on the current locale
 export const translationLanguage = Object.keys(languageResources).includes(moment.locale()) ? moment.locale() : "en";
 
 export default class CardNavigatorPlugin extends Plugin {
     settings: CardNavigatorSettings = DEFAULT_SETTINGS;
     selectedFolder: string | null = null;
     private refreshDebounced: () => void = () => {};
+	public events: Events = new Events();
 
     async onload() {
         await this.loadSettings();
+        await this.initializePlugin();
+    }
 
-        // Initialize i18next for internationalization
-        const resources = await this.loadLanguageResources();
-        i18next.init({
-            lng: translationLanguage,
-            fallbackLng: "en",
-            resources,
-        });
+    async onunload() {
+        this.app.workspace.detachLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+    }
+
+    private async initializePlugin() {
+        await this.initializeI18n();
 
         this.addSettingTab(new SettingTab(this.app, this));
 
@@ -44,27 +44,28 @@ export default class CardNavigatorPlugin extends Plugin {
             this.activateView();
         });
 
+		this.addCommand({
+            id: 'open-card-navigator',
+            name: t('Open Card Navigator'),
+            callback: () => this.activateView(),
+        });
+
         this.addScrollCommands();
 
         this.app.workspace.onLayoutReady(() => {
             this.activateView();
         });
 
-        // Initialize debounced refresh function
         this.refreshDebounced = debounce(() => this.refreshViews(), 200);
     }
 
-    async onunload() {
-        // Cleanup code can be added here if needed
-    }
-
-    async loadSettings() {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-    }
-
-    async saveSettings() {
-        await this.saveData(this.settings);
-        this.refreshDebounced();
+    private async initializeI18n() {
+        const resources = await this.loadLanguageResources();
+        await i18next.init({
+            lng: translationLanguage,
+            fallbackLng: "en",
+            resources,
+        });
     }
 
     private async loadLanguageResources() {
@@ -74,6 +75,16 @@ export default class CardNavigatorPlugin extends Plugin {
             en: { translation: en.default },
             ko: { translation: ko.default },
         };
+    }
+
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
+
+    async saveSettings() {
+        await this.saveData(this.settings);
+        this.events.trigger('settings-updated');
+        this.refreshDebounced();
     }
 
     private scrollCards(direction: ScrollDirection, count: number) {
@@ -127,24 +138,11 @@ export default class CardNavigatorPlugin extends Plugin {
         });
     }
 
-    private async updateSortSettings(criterion: SortCriterion, order: SortOrder) {
-        const validCriteria: SortCriterion[] = ["fileName", "lastModified", "created"];
-        const validOrders: SortOrder[] = ["asc", "desc"];
-
-        if (!validCriteria.includes(criterion) || !validOrders.includes(order)) {
-            throw new Error('Invalid sort criterion or order');
-        }
-        this.settings.sortCriterion = criterion;
-        this.settings.sortOrder = order;
-        await this.saveSettings();
-        this.refreshDebounced();
-    }
-
     refreshViews() {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach((leaf) => {
             if (leaf.view instanceof CardNavigator) {
-                leaf.view.updateLayoutAndRefresh();
+                leaf.view.refresh();
             }
         });
     }
@@ -163,22 +161,27 @@ export default class CardNavigatorPlugin extends Plugin {
         }
     }
 
-    async activateView() {
-        const { workspace } = this.app;
-        let leaf = workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0];
-
-        if (!leaf) {
-            const rightLeaf = workspace.getRightLeaf(false);
-            if (rightLeaf) {
-                await rightLeaf.setViewState({ type: VIEW_TYPE_CARD_NAVIGATOR, active: true });
-                leaf = workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0];
-            }
-        }
-
-        if (leaf) {
-            workspace.revealLeaf(leaf);
-        }
-    }
+	async activateView() {
+		const { workspace } = this.app;
+		let leaf: WorkspaceLeaf | null = null;
+		
+		const leaves = workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+		
+		if (leaves.length > 0) {
+			leaf = leaves[0];
+		} else {
+			leaf = workspace.getRightLeaf(false);
+			if (leaf) {
+				await leaf.setViewState({ type: VIEW_TYPE_CARD_NAVIGATOR, active: true });
+			}
+		}
+	
+		if (leaf) {
+			workspace.revealLeaf(leaf);
+		} else {
+			console.error("Failed to activate Card Navigator view");
+		}
+	}
 
     triggerRefresh() {
         this.refreshDebounced();

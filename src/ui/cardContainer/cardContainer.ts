@@ -38,7 +38,7 @@ export class CardContainer {
     private async waitForLeafCreation(): Promise<void> {
         return new Promise((resolve) => {
             const checkLeaf = () => {
-                if (this.containerEl && this.containerEl.getBoundingClientRect().width > 0 && this.containerEl.clientHeight > 0) {
+                if (this.containerEl && this.containerEl.offsetWidth > 0 && this.containerEl.offsetHeight > 0) {
                     resolve();
                 } else {
                     requestAnimationFrame(checkLeaf);
@@ -60,7 +60,6 @@ export class CardContainer {
     setOrientation(isVertical: boolean) {
         this.isVertical = isVertical;
         this.updateContainerStyle();
-        this.refresh();
     }
 
     private updateContainerStyle() {
@@ -76,73 +75,90 @@ export class CardContainer {
         }
     }
 
-    async refresh() {
-        let folder: TFolder | null = null;
+	async refresh() {
+		const folder = await this.getCurrentFolder();
+		if (!folder || !this.containerEl) return;
+	
+		this.updateContainerStyle();
+	
+		const files = folder.children.filter((file): file is TFile => file instanceof TFile);
+		const sortedFiles = this.sortFiles(files);
+		const cardsData = await this.createCardsData(sortedFiles);
+	
+		await this.renderCards(cardsData);
+	}
 
+    private async getCurrentFolder(): Promise<TFolder | null> {
         if (this.plugin.settings.useSelectedFolder && this.plugin.settings.selectedFolder) {
             const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.selectedFolder);
-            if (abstractFile instanceof TFolder) {
-                folder = abstractFile;
-            } else {
-                console.warn(`Selected path is not a folder: ${this.plugin.settings.selectedFolder}`);
-            }
+            return abstractFile instanceof TFolder ? abstractFile : null;
         } else {
             const activeFile = this.plugin.app.workspace.getActiveFile();
-            folder = activeFile?.parent || null;
+            return activeFile?.parent || null;
         }
-
-        if (!folder || !this.containerEl) {
-            return;
-        }
-
-        const files = folder.children.filter((file): file is TFile => file instanceof TFile);
-        const sortedFiles = sortFiles(files, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
-        const cardsData = await Promise.all(sortedFiles.map(file => this.cardMaker.createCard(file)));
-
-        this.renderCards(cardsData);
     }
 
-    private renderCards(cardsData: Card[]) {
-        const containerEl = this.containerEl;
-        if (!containerEl) return;
+    private sortFiles(files: TFile[]): TFile[] {
+        return sortFiles(files, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
+    }
 
-        const currentScrollTop = containerEl.scrollTop;
-        const currentScrollLeft = containerEl.scrollLeft;
+    private async createCardsData(files: TFile[]): Promise<Card[]> {
+        return Promise.all(files.map(file => this.cardMaker.createCard(file)));
+    }
 
-        const activeCardIndex = Array.from(containerEl.children).findIndex(
-            child => child.classList.contains('card-navigator-active')
-        );
+	private renderCards(cardsData: Card[]) {
+		if (!this.containerEl) return;
+	
+		const containerEl = this.containerEl; // 로컬 변수에 할당
+	
+		const currentScrollTop = containerEl.scrollTop;
+		const currentScrollLeft = containerEl.scrollLeft;
+	
+		const activeCardIndex = Array.from(containerEl.children).findIndex(
+			child => child.classList.contains('card-navigator-active')
+		);
+	
+		containerEl.empty();
+	
+		cardsData.forEach((cardData, index) => {
+			const card = this.cardMaker.createCardElement(cardData);
+	
+			card.classList.add(this.isVertical ? 'vertical' : 'horizontal');
+			card.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
+	
+			if (cardData.file === this.plugin.app.workspace.getActiveFile()) {
+				card.classList.add('card-navigator-active');
+			}
+	
+			containerEl.appendChild(card);
+		});
+	
+		containerEl.scrollTop = currentScrollTop;
+		containerEl.scrollLeft = currentScrollLeft;
+	
+		const newActiveCardIndex = Array.from(containerEl.children).findIndex(
+			child => child.classList.contains('card-navigator-active')
+		);
+	
+		if (activeCardIndex !== newActiveCardIndex && newActiveCardIndex !== -1) {
+			this.scrollToActiveCard(false);
+		}
+	
+		void this.ensureCardSizesAreSet();
+	}
 
-        containerEl.empty();
-
-        containerEl.classList.toggle('vertical', this.isVertical);
-        containerEl.classList.toggle('horizontal', !this.isVertical);
-
-        containerEl.style.setProperty('--cards-per-view', this.plugin.settings.cardsPerView.toString());
-
-        cardsData.forEach((cardData, index) => {
-            const card = this.cardMaker.createCardElement(cardData);
-
-            card.classList.add(this.isVertical ? 'vertical' : 'horizontal');
-            card.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
-
-            if (cardData.file === this.plugin.app.workspace.getActiveFile()) {
-                card.classList.add('card-navigator-active');
-            }
-
-            containerEl.appendChild(card);
+    private async ensureCardSizesAreSet(): Promise<void> {
+        return new Promise((resolve) => {
+            const checkSizes = () => {
+                const firstCard = this.containerEl?.querySelector('.card-navigator-card') as HTMLElement;
+                if (firstCard && firstCard.offsetWidth > 0 && firstCard.offsetHeight > 0) {
+                    resolve();
+                } else {
+                    requestAnimationFrame(checkSizes);
+                }
+            };
+            checkSizes();
         });
-
-        containerEl.scrollTop = currentScrollTop;
-        containerEl.scrollLeft = currentScrollLeft;
-
-        const newActiveCardIndex = Array.from(containerEl.children).findIndex(
-            child => child.classList.contains('card-navigator-active')
-        );
-
-        if (activeCardIndex !== newActiveCardIndex && newActiveCardIndex !== -1) {
-            this.scrollToActiveCard(false);
-        }
     }
 
     private scrollToActiveCard(animate = true) {
@@ -170,30 +186,36 @@ export class CardContainer {
         const newScrollPosition = this.containerEl[scrollProperty] + offset;
 
         if (animate) {
-            const start = this.containerEl[scrollProperty];
-            const change = newScrollPosition - start;
-            const duration = 300; // ms
-            let startTime: number | null = null;
-
-            const animateScroll = (currentTime: number) => {
-                if (startTime === null) startTime = currentTime;
-                const timeElapsed = currentTime - startTime;
-                const progress = Math.min(timeElapsed / duration, 1);
-                const easeProgress = 0.5 - Math.cos(progress * Math.PI) / 2;
-
-                if (this.containerEl) {
-                    this.containerEl[scrollProperty] = start + change * easeProgress;
-                }
-
-                if (timeElapsed < duration && this.containerEl) {
-                    requestAnimationFrame(animateScroll);
-                }
-            };
-
-            requestAnimationFrame(animateScroll);
+            this.smoothScroll(scrollProperty, newScrollPosition);
         } else {
             this.containerEl[scrollProperty] = newScrollPosition;
         }
+    }
+
+    private smoothScroll(scrollProperty: 'scrollTop' | 'scrollLeft', targetPosition: number) {
+        if (!this.containerEl) return;
+
+        const startPosition = this.containerEl[scrollProperty];
+        const distance = targetPosition - startPosition;
+        const duration = 300; // ms
+        let startTime: number | null = null;
+
+        const animation = (currentTime: number) => {
+            if (startTime === null) startTime = currentTime;
+            const timeElapsed = currentTime - startTime;
+            const progress = Math.min(timeElapsed / duration, 1);
+            const easeProgress = 0.5 - Math.cos(progress * Math.PI) / 2;
+
+            if (this.containerEl) {
+                this.containerEl[scrollProperty] = startPosition + distance * easeProgress;
+            }
+
+            if (timeElapsed < duration && this.containerEl) {
+                requestAnimationFrame(animation);
+            }
+        };
+
+        requestAnimationFrame(animation);
     }
 
     public centerActiveCard() {
@@ -254,28 +276,20 @@ export class CardContainer {
         });
     }
 
-    public displayCards(filteredFiles: TFile[]) {
+    public async displayCards(filteredFiles: TFile[]) {
+        const sortedFiles = this.sortFiles(filteredFiles);
+        const cardsData = await this.createCardsData(sortedFiles);
+        await this.renderCards(cardsData);
     }
 
     public async searchCards(searchTerm: string) {
-        const activeFile = this.plugin.app.workspace.getActiveFile();
-        if (!activeFile) return;
-
-        const folder = activeFile.parent;
+        const folder = await this.getCurrentFolder();
         if (!folder) return;
 
         const files = folder.children.filter((file): file is TFile => file instanceof TFile);
         const filteredFiles = await this.filterFilesByContent(files, searchTerm);
 
-        const cards = await Promise.all(filteredFiles.map(file => this.cardMaker.createCard(file)));
-        this.renderCards(cards);
-    }
-
-    async displayCardsForFolder(folder: TFolder) {
-        const files = folder.children.filter((file): file is TFile => file instanceof TFile);
-        const sortedFiles = sortFiles(files, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
-        const cards = await Promise.all(sortedFiles.map(file => this.cardMaker.createCard(file)));
-        this.renderCards(cards);
+        await this.displayCards(filteredFiles);
     }
 
     private async filterFilesByContent(files: TFile[], searchTerm: string): Promise<TFile[]> {
@@ -291,11 +305,16 @@ export class CardContainer {
         return filteredFiles;
     }
 
+    public async displayCardsForFolder(folder: TFolder) {
+        const files = folder.children.filter((file): file is TFile => file instanceof TFile);
+        await this.displayCards(files);
+    }
+
     public async sortCards(criterion: SortCriterion, order: SortOrder) {
         this.plugin.settings.sortCriterion = criterion;
         this.plugin.settings.sortOrder = order;
         await this.plugin.saveSettings();
-        this.plugin.triggerRefresh();
+        await this.refresh();
     }
 
     onClose() {

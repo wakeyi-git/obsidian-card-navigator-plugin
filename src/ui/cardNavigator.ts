@@ -36,21 +36,18 @@ export class CardNavigator extends ItemView {
 
     private calculateIsVertical(): boolean {
         const { width, height } = this.leaf.view.containerEl.getBoundingClientRect();
-        const isVertical = height > width;
-        this.cardContainer.setOrientation(isVertical);
-        return isVertical;
+        return height > width;
     }
 
     private handleResize() {
         const newIsVertical = this.calculateIsVertical();
         if (newIsVertical !== this.isVertical) {
             this.isVertical = newIsVertical;
-            this.cardContainer.setOrientation(this.isVertical);
+            this.updateLayoutAndRefresh();
         }
     }
 
     public updateLayoutAndRefresh() {
-        this.isVertical = this.calculateIsVertical();
         this.cardContainer.setOrientation(this.isVertical);
         this.toolbar.setOrientation(this.isVertical);
         this.refresh();
@@ -70,8 +67,11 @@ export class CardNavigator extends ItemView {
         this.updateLayoutAndRefresh();
         this.resizeObserver.observe(this.leaf.view.containerEl);
 
-        this.refresh();
+        this.registerEvent(
+            this.plugin.events.on('settings-updated', this.refresh.bind(this))
+        );
 
+        await this.refresh();
         await this.centerActiveCardOnOpen();
     }
 
@@ -79,7 +79,7 @@ export class CardNavigator extends ItemView {
         if (this.plugin.settings.centerActiveCardOnOpen) {
             setTimeout(() => {
                 this.cardContainer.centerActiveCard();
-            }, 300);
+            }, 200);
         }
     }
 
@@ -87,12 +87,10 @@ export class CardNavigator extends ItemView {
         this.resizeObserver.disconnect();
         this.toolbar.onClose();
         this.cardContainer.onClose();
-        this.plugin.app.workspace.off('active-leaf-change', this.plugin.triggerRefresh);
-        this.plugin.app.vault.off('modify', this.plugin.triggerRefresh);
     }
 
-    refresh() {
-        this.toolbar.refresh();
-        this.cardContainer.refresh();
+    async refresh() {
+        await this.toolbar.refresh();
+        await this.cardContainer.refresh();
     }
 }
