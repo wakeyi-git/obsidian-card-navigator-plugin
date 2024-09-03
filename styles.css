@@ -310,7 +310,7 @@ input[type="range"] {
 
 .card-navigator-card.card-navigator-active {
     border: 2px solid var(--interactive-accent);
-    background-color: var(--background-primary-alt);
+    background-color: var(--card-navigator-background);
 }
 
 .card-navigator-card:hover,

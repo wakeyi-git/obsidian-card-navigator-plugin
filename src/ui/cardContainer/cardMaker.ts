@@ -75,7 +75,8 @@ export class CardMaker {
             contentEl.style.setProperty('--content-font-size', `${this.plugin.settings.contentSize}px`);
         
             if (this.plugin.settings.renderContentAsHtml) {
-                MarkdownRenderer.renderMarkdown(
+                MarkdownRenderer.render(
+					this.plugin.app,
                     card.content,
                     contentEl,
                     card.file.path,
