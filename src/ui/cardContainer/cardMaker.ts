@@ -13,7 +13,7 @@ export class CardMaker {
         if (!folder) {
             return [];
         }
-        const files = folder.children.filter((file): file is TFile => file instanceof TFile);
+        const files = folder.children.filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
         const sortedFiles = sortFiles(
             files, 
             this.plugin.settings.sortCriterion, 

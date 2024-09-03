@@ -89,11 +89,13 @@ export class CardContainer {
     }
 
     private sortFiles(files: TFile[]): TFile[] {
-        return sortFiles(files, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
+        const mdFiles = files.filter(file => file.extension === 'md');
+        return sortFiles(mdFiles, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
     }
 
     private async createCardsData(files: TFile[]): Promise<Card[]> {
-        return Promise.all(files.map(file => this.cardMaker.createCard(file)));
+        const mdFiles = files.filter(file => file.extension === 'md');
+        return Promise.all(mdFiles.map(file => this.cardMaker.createCard(file)));
     }
 
 	private renderCards(cardsData: Card[]) {
