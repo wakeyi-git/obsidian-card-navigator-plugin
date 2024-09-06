@@ -8,11 +8,17 @@
     --card-navigator-popup-width: 250px;
 }
 
+.card-navigator {
+    position: relative;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
 /* Toolbar styles */
 .card-navigator-toolbar {
-    position: absolute;
+    position: sticky;
     top: 0;
-    left: 0;
     z-index: 10;
     width: 100%;
     height: var(--card-navigator-toolbar-height);
@@ -23,7 +29,7 @@
 .card-navigator-toolbar-container {
     display: flex;
     flex-direction: row;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
     gap: var(--card-navigator-gap);
     padding: 0.5rem;
@@ -47,6 +53,7 @@
 .card-navigator-search-container {
     flex-grow: 1;
     margin-right: 0.5rem;
+	min-width: 0;
 }
 
 .card-navigator-search-input {
@@ -178,10 +185,12 @@
 /* Container styles */
 .card-navigator-container {
     display: flex;
+	flex-grow: 1;
+    overflow-y: auto;
     gap: var(--card-navigator-gap);
     position: relative;
     box-sizing: border-box;
-    padding-top: var(--card-navigator-toolbar-height);
+    padding-top: var(--size-4-3);
 }
 
 .card-navigator-container.vertical {
@@ -360,10 +369,34 @@
 
 /* Responsive styles */
 @media (max-width: 768px) {
-    .card-navigator-toolbar-container {
-        flex-direction: column;
-        align-items: stretch;
-    }
+	.card-navigator-toolbar-container {
+		flex-wrap: nowrap; /* Prevent wrapping */
+		justify-content: space-between; /* Distribute space between search and icons */
+	}
+
+	.card-navigator-search-container {
+		flex-grow: 1;
+		flex-shrink: 1; /* Allow search container to shrink */
+		min-width: 0; /* Allow container to shrink below content size */
+	}
+
+	.card-navigator-search-input {
+		width: 100%;
+		min-width: 0; /* Allow input to shrink */
+	}
+
+	.card-navigator-action-icons-container {
+		flex-shrink: 0; /* Prevent icons from shrinking */
+	}
+
+	.card-navigator-sort-popup,
+	.card-navigator-settings-popup {
+		width: 100%;
+	}
+
+	.card-navigator-settings-popup {
+		max-width: 100%;
+	}
 
     .card-navigator-sort-popup,
     .card-navigator-settings-popup {
