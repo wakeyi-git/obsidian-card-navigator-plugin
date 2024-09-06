@@ -28,19 +28,18 @@ export class SettingTab extends PluginSettingTab {
         const { containerEl } = this;
         containerEl.empty();
 
-        this.addPresetSection();
-        this.addContainerSettings();
-        this.addCardSettings();
-        this.addKeyboardShortcutsInfo();
+        this.addPresetSection(containerEl);
+        this.addContainerSettings(containerEl);
+        this.addCardSettings(containerEl);
+        this.addKeyboardShortcutsInfo(containerEl);
     }
 
-    private addPresetSection(): void {
-        const sectionEl = this.containerEl.createDiv({ cls: 'settings-section preset-settings' });
+    private addPresetSection(containerEl: HTMLElement): void {
     
         const presets = this.settingsManager.getPresets();
 
 		// Add dropdown for selecting presets
-		new Setting(sectionEl)
+		new Setting(containerEl)
 			.setName(t('Select Preset'))
 			.setDesc(t('Select a preset created by the user to load the settings.'))
 			.addDropdown(dropdown => {
@@ -57,11 +56,12 @@ export class SettingTab extends PluginSettingTab {
 			});
 
         // Add buttons for saving new preset and updating current preset
-        new Setting(sectionEl)
+        new Setting(containerEl)
             .setName(t('Managing Presets'))
 			.setDesc(t('Create, update, or delete presets.'))
             .addButton(button => button
                 .setButtonText(t('Create New'))
+				.setCta()
                 .onClick(() => {
                     new SavePresetModal(this.plugin.app, async (presetName) => {
                         if (presetName) {
@@ -104,7 +104,7 @@ export class SettingTab extends PluginSettingTab {
                 }));
 
         // Add button for reverting to default settings
-        new Setting(sectionEl)
+        new Setting(containerEl)
 			.setName(t('Revert to Default Settings'))
 			.setDesc(t('This button will revert the settings to their default values.'))
 			.addButton(button => button
@@ -116,17 +116,16 @@ export class SettingTab extends PluginSettingTab {
                 }));
     }
 
-    private addContainerSettings(): void {
-        const sectionEl = this.containerEl.createDiv({ cls: 'settings-section container-settings' });
+    private addContainerSettings(containerEl: HTMLElement): void {
 
-		new Setting(sectionEl)
+		new Setting(containerEl)
 		.setName(t('Container Settings'))
 		.setHeading();
 
-        this.addFolderSelectionSetting(sectionEl);
-        this.addSortSetting(sectionEl);
+        this.addFolderSelectionSetting(containerEl);
+        this.addSortSetting(containerEl);
 
-		this.addNumberSetting('cardsPerView', t('Cards per view'), t('Number of cards to display at once'), sectionEl);
+		this.addNumberSetting('cardsPerView', t('Cards per view'), t('Number of cards to display at once'), containerEl);
 
         const toggleSettings = [
             { key: 'alignCardHeight', name: t('Align Card Height'), desc: t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.') },
@@ -134,7 +133,7 @@ export class SettingTab extends PluginSettingTab {
         ] as const;
 
         toggleSettings.forEach(setting => {
-            this.addToggleSetting(setting.key, setting.name, setting.desc, sectionEl);
+            this.addToggleSetting(setting.key, setting.name, setting.desc, containerEl);
         });
     }
 
@@ -229,9 +228,9 @@ export class SettingTab extends PluginSettingTab {
     }
 
     // Add display settings section
-	private addCardSettings(): void {
-		const sectionEl = this.containerEl.createDiv({ cls: 'settings-section card-settings' });
-		new Setting(sectionEl)
+    private addCardSettings(containerEl: HTMLElement): void {
+
+		new Setting(containerEl)
 			.setName(t('Card Settings'))
 			.setHeading();
 	
@@ -241,7 +240,7 @@ export class SettingTab extends PluginSettingTab {
 		] as const;
 
 		toggleSettings.forEach(setting => {
-			this.addToggleSetting(setting.key, setting.name, setting.desc, sectionEl);
+			this.addToggleSetting(setting.key, setting.name, setting.desc, containerEl);
 		});
 
 		displaySettings.forEach(({ key, name }) => {
@@ -249,40 +248,39 @@ export class SettingTab extends PluginSettingTab {
 				key, 
 				t(name), 
 				t('toggleDisplayFor', { name: t(name.toLowerCase()) }),
-				sectionEl
+				containerEl
 			);
 		});
 
-		this.addNumberSetting('contentLength', t('Content Length'), t('Maximum content length displayed on each card'), sectionEl);
+		this.addNumberSetting('contentLength', t('Content Length'), t('Maximum content length displayed on each card'), containerEl);
 
 		fontSizeSettings.forEach(({ key, name }) => {
 			this.addNumberSetting(
 				key, 
 				t(name), 
 				t('setFontSizeFor', { name: t(name.toLowerCase()) }),
-				sectionEl
+				containerEl
 			);
 		});
 	}
 
     // Add keyboard shortcuts information section
-	private addKeyboardShortcutsInfo(): void {
-		const sectionEl = this.containerEl.createDiv({ cls: 'settings-section keyboard-shortcuts' });
+    private addKeyboardShortcutsInfo(containerEl: HTMLElement): void {
 	
-		new Setting(sectionEl)
+		new Setting(containerEl)
 			.setName(t('Keyboard Shortcuts'))
 			.setHeading();
 	
-		const shortcutDesc = sectionEl.createEl('p');
+		const shortcutDesc = containerEl.createEl('p');
 		shortcutDesc.setText(t('Card Navigator provides the following features that can be assigned keyboard shortcuts. You can set these up in Obsidian\'s Hotkeys settings:'));
 		
-		const shortcutList = sectionEl.createEl('ul');
+		const shortcutList = containerEl.createEl('ul');
 		keyboardShortcuts.forEach(({ name }) => {
 			const item = shortcutList.createEl('li');
 			item.setText(t(name));
 		});
 		
-		const customizeNote = sectionEl.createEl('p');
+		const customizeNote = containerEl.createEl('p');
 		customizeNote.setText(t('To set up shortcuts for these actions, go to Settings → Hotkeys and search for "Card Navigator". You can then assign your preferred key combinations for each action.'));
 	}	
 }

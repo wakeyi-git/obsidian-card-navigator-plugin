@@ -2,28 +2,10 @@
 :root {
     --card-navigator-toolbar-height: 50px;
     --card-navigator-container-padding: 10px;
-    --card-navigator-card-padding: 1rem;
     --card-navigator-gap: 10px;
-    --card-navigator-border-radius: 8px;
-    --card-navigator-box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     --card-navigator-transition: 0.2s ease;
     --card-navigator-icon-size: 20px;
     --card-navigator-popup-width: 250px;
-    --card-navigator-hover-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-}
-
-/* Theme-specific styles */
-.theme-dark {
-    --card-navigator-background: var(--background-primary-alt);
-    --card-navigator-text: var(--text-muted);
-    --card-navigator-border: var(--background-modifier-border);
-    --card-navigator-hover-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
-}
-
-.theme-light {
-    --card-navigator-background: var(--background-primary);
-    --card-navigator-text: var(--text-normal);
-    --card-navigator-border: var(--background-modifier-border);
 }
 
 /* Toolbar styles */
@@ -34,8 +16,8 @@
     z-index: 10;
     width: 100%;
     height: var(--card-navigator-toolbar-height);
-    background-color: var(--card-navigator-background);
-    box-shadow: var(--card-navigator-box-shadow);
+    background-color: var(--background-primary);
+    box-shadow: var(--shadow-s);
 }
 
 .card-navigator-toolbar-container {
@@ -226,11 +208,11 @@
 /* Card styles */
 .card-navigator-card {
     flex: 0 0 auto;
-    padding: var(--card-navigator-card-padding);
-    border: 1px solid var(--card-navigator-border);
-    border-radius: var(--card-navigator-border-radius);
-    background-color: var(--card-navigator-background);
-    box-shadow: var(--card-navigator-box-shadow);
+    padding: var(--size-4-4);
+    border: var(--border-width) solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+    background-color: var(--background-primary);
+    box-shadow: var(--shadow-s);
     transition: transform var(--card-navigator-transition), box-shadow var(--card-navigator-transition);
     cursor: pointer;
     display: flex;
@@ -255,13 +237,13 @@
 
 .card-navigator-card.card-navigator-active {
     border: 2px solid var(--interactive-accent);
-    background-color: var(--card-navigator-background);
+    background-color: var(--background-primary);
 }
 
 .card-navigator-card:hover,
 .card-navigator-card:focus {
     transform: translateY(-3px);
-    box-shadow: var(--card-navigator-hover-shadow);
+    box-shadow: var(--shadow-m);
 }
 
 .card-navigator-card:focus {
@@ -271,22 +253,22 @@
 
 .card-navigator-filename {
     font-size: var(--file-name-font-size, 1.2rem);
-    font-weight: bold;
-    margin: 0 0 0.5rem 0;
-    color: var(--text-normal);
+    font-weight: var(--font-bold);
+    margin: 0 0 var(--size-4-2) 0;
+	color: var(--text-normal);
 }
 
 .card-navigator-first-header {
     font-size: var(--first-header-font-size, 1.1rem);
-    font-weight: 600;
-    margin: 0 0 0.5rem 0;
+    font-weight: var(--font-semibold);
+    margin: 0 0 var(--size-4-2) 0;
     color: var(--text-normal);
 }
 
 .card-navigator-content {
     font-size: var(--content-font-size, 1rem);
-    color: var(--card-navigator-text);
-    line-height: 1.5;
+    color: var(--text-muted);
+    line-height: var(--line-height-normal);
     margin: 0;
     overflow: hidden;
     text-overflow: ellipsis;
