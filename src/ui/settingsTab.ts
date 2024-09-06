@@ -1,6 +1,6 @@
 //src/ui/settingsTab.ts
 
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, Modal, Notice } from 'obsidian';
 import CardNavigatorPlugin from '../main';
 import { FolderSuggestModal } from './toolbar/toolbarActions';
 import { 
@@ -21,31 +21,116 @@ export class SettingTab extends PluginSettingTab {
 
     constructor(app: App, private plugin: CardNavigatorPlugin) {
         super(app, plugin);
-        this.settingsManager = new SettingsManager(plugin);
+        this.settingsManager = plugin.settingsManager;
     }
 
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
 
-        this.addGeneralSettings();
-        this.addDisplaySettings();
-        this.addFontSettings();
+        this.addPresetSection();
+        this.addContainerSettings();
+        this.addCardSettings();
         this.addKeyboardShortcutsInfo();
     }
 
-    private addGeneralSettings(): void {
-        const sectionEl = this.containerEl.createDiv({ cls: 'settings-section general-settings' });
-        
-        this.addNumberSetting('cardsPerView', t('Cards per view'), t('Number of cards to display at once'), sectionEl);
+    private addPresetSection(): void {
+        const sectionEl = this.containerEl.createDiv({ cls: 'settings-section preset-settings' });
+    
+        const presets = this.settingsManager.getPresets();
+
+		// Add dropdown for selecting presets
+		new Setting(sectionEl)
+			.setName(t('Select Preset'))
+			.setDesc(t('Select a preset created by the user to load the settings.'))
+			.addDropdown(dropdown => {
+				Object.keys(presets).forEach(presetName => {
+					dropdown.addOption(presetName, presetName);
+				});
+				dropdown.setValue(this.plugin.settings.lastActivePreset)
+					.onChange(async (value) => {
+						await this.settingsManager.applyPreset(value);
+						this.plugin.settings.lastActivePreset = value;
+						await this.plugin.saveSettings();
+						this.display(); // Refresh the settings tab
+					});
+			});
+
+        // Add buttons for saving new preset and updating current preset
+        new Setting(sectionEl)
+            .setName(t('Managing Presets'))
+			.setDesc(t('Create, update, or delete presets.'))
+            .addButton(button => button
+                .setButtonText(t('Create New'))
+                .onClick(() => {
+                    new SavePresetModal(this.plugin.app, async (presetName) => {
+                        if (presetName) {
+                            await this.settingsManager.saveAsNewPreset(presetName);
+                            new Notice(t('presetSaved', { presetName }));
+                            this.plugin.settings.lastActivePreset = presetName;
+                            await this.plugin.saveSettings();
+                            this.display(); // Refresh the settings tab
+                        }
+                    }, this.plugin).open();
+                }))
+            .addButton(button => button
+                .setButtonText(t('Update'))
+                .onClick(async () => {
+                    const currentPreset = this.plugin.settings.lastActivePreset;
+                    if (currentPreset !== 'default') {
+                        await this.settingsManager.updateCurrentPreset(currentPreset);
+                        new Notice(t('presetUpdated', { presetName: currentPreset }));
+                        this.display(); // Refresh the settings tab
+                    } else {
+                        new Notice(t('defaultPresetCannotBeModified'));
+                    }
+                }))
+            .addButton(button => button
+                .setButtonText(t('Delete'))
+                .setWarning()
+                .onClick(async () => {
+                    const currentPreset = this.plugin.settings.lastActivePreset;
+                    if (currentPreset !== 'default') {
+                        await this.settingsManager.deletePreset(currentPreset);
+                        // Apply default preset after deletion
+                        await this.settingsManager.applyPreset('default');
+                        this.plugin.settings.lastActivePreset = 'default';
+                        await this.plugin.saveSettings();
+                        new Notice(t('presetDeletedDefaultApplied', { presetName: currentPreset }));
+                        this.display(); // Refresh the settings tab
+                    } else {
+                        new Notice(t('defaultPresetCannotBeDeleted'));
+                    }
+                }));
+
+        // Add button for reverting to default settings
+        new Setting(sectionEl)
+			.setName(t('Revert to Default Settings'))
+			.setDesc(t('This button will revert the settings to their default values.'))
+			.addButton(button => button
+				.setButtonText(t('Revert'))
+				.onClick(async () => {
+					await this.settingsManager.revertToDefaultSettings();
+					new Notice(t('Settings reverted to default values'));
+					this.display(); // Refresh the settings tab
+                }));
+    }
+
+    private addContainerSettings(): void {
+        const sectionEl = this.containerEl.createDiv({ cls: 'settings-section container-settings' });
+
+		new Setting(sectionEl)
+		.setName(t('Container Settings'))
+		.setHeading();
+
         this.addFolderSelectionSetting(sectionEl);
         this.addSortSetting(sectionEl);
 
+		this.addNumberSetting('cardsPerView', t('Cards per view'), t('Number of cards to display at once'), sectionEl);
+
         const toggleSettings = [
             { key: 'alignCardHeight', name: t('Align Card Height'), desc: t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.') },
-            { key: 'renderContentAsHtml', name: t('Render Content as HTML'), desc: t('If enabled, card content will be rendered as HTML') },
             { key: 'centerActiveCardOnOpen', name: t('Center Active Card on Open'), desc: t('Automatically center the active card when opening the Card Navigator') },
-            { key: 'dragDropContent', name: t('Drag and Drop Content'), desc: t('When enabled, dragging a card will insert the note content instead of a link.') },
         ] as const;
 
         toggleSettings.forEach(setting => {
@@ -144,28 +229,39 @@ export class SettingTab extends PluginSettingTab {
     }
 
     // Add display settings section
-	private addDisplaySettings(): void {
-		const sectionEl = this.containerEl.createDiv({ cls: 'settings-section display-settings' });
+	private addCardSettings(): void {
+		const sectionEl = this.containerEl.createDiv({ cls: 'settings-section card-settings' });
 		new Setting(sectionEl)
-			.setName(t('Settings What to Show'))
+			.setName(t('Card Settings'))
 			.setHeading();
 	
-		displaySettings.forEach(({ key, name }) => {
-			this.addToggleSetting(key, t(name), t(`Toggle to display or hide the ${name.toLowerCase()} on cards`), sectionEl);
-		});
-	
-		this.addNumberSetting('contentLength', t('Content Length'), t('Maximum content length displayed on each card'), sectionEl);
-	}
+		const toggleSettings = [
+			{ key: 'renderContentAsHtml', name: t('Render Content as HTML'), desc: t('If enabled, card content will be rendered as HTML') },
+			{ key: 'dragDropContent', name: t('Drag and Drop Content'), desc: t('When enabled, dragging a card will insert the note content instead of a link.') },
+		] as const;
 
-    // Add font settings section
-	private addFontSettings(): void {
-		const sectionEl = this.containerEl.createDiv({ cls: 'settings-section font-settings' });
-		new Setting(sectionEl)
-			.setName(t('Font Size Settings'))
-			.setHeading();
-	
+		toggleSettings.forEach(setting => {
+			this.addToggleSetting(setting.key, setting.name, setting.desc, sectionEl);
+		});
+
+		displaySettings.forEach(({ key, name }) => {
+			this.addToggleSetting(
+				key, 
+				t(name), 
+				t('toggleDisplayFor', { name: t(name.toLowerCase()) }),
+				sectionEl
+			);
+		});
+
+		this.addNumberSetting('contentLength', t('Content Length'), t('Maximum content length displayed on each card'), sectionEl);
+
 		fontSizeSettings.forEach(({ key, name }) => {
-			this.addNumberSetting(key, t(name), t(`Set the font size for the ${name.toLowerCase()}`), sectionEl);
+			this.addNumberSetting(
+				key, 
+				t(name), 
+				t('setFontSizeFor', { name: t(name.toLowerCase()) }),
+				sectionEl
+			);
 		});
 	}
 
@@ -189,4 +285,55 @@ export class SettingTab extends PluginSettingTab {
 		const customizeNote = sectionEl.createEl('p');
 		customizeNote.setText(t('To set up shortcuts for these actions, go to Settings → Hotkeys and search for "Card Navigator". You can then assign your preferred key combinations for each action.'));
 	}	
+}
+
+class SavePresetModal extends Modal {
+    private result = '';
+    private existingPresets: string[];
+
+    constructor(
+        app: App,
+        private onSubmit: (result: string) => void,
+        private plugin: CardNavigatorPlugin
+    ) {
+        super(app);
+        this.existingPresets = Object.keys(this.plugin.settingsManager.getPresets());
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.createEl("h2", { text: t("Save New Preset") });
+
+        new Setting(contentEl)
+            .setName(t("Preset Name"))
+            .addText((text) =>
+                text.onChange((value) => {
+                    this.result = value;
+                }));
+
+        const warningEl = contentEl.createEl("p", { cls: "preset-warning", text: "" });
+        warningEl.style.color = "var(--text-error)";
+        warningEl.style.display = "none";
+
+        new Setting(contentEl)
+            .addButton((btn) =>
+                btn
+                    .setButtonText(t("Save"))
+                    .setCta()
+                    .onClick(() => {
+                        if (this.existingPresets.includes(this.result)) {
+                            warningEl.textContent = t("A preset with this name already exists. Please use the Update button to modify existing presets.");
+                            warningEl.style.display = "block";
+                        } else {
+                            this.close();
+                            this.onSubmit(this.result);
+                        }
+                    }));
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
+    }
 }

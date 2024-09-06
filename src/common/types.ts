@@ -10,6 +10,11 @@ export interface Card {
     content?: string;
 }
 
+export interface Preset {
+    name: string;
+    settings: Partial<CardNavigatorSettings>;
+}
+
 export type EventHandler = () => void;
 
 export type IconName = 'folder' | 'arrow-up-narrow-wide' | 'settings';
@@ -50,13 +55,66 @@ export interface CardNavigatorSettings {
     activeCardBackgroundColor: string;
     dragDropContent: boolean;
     showFileName: boolean;
-    fileNameSize: number;
+    fileNameFontSize: number;
     showFirstHeader: boolean;
-    firstHeaderSize: number;
+    firstHeaderFontSize: number;
     showContent: boolean;
-    contentSize: number;
+    contentFontSize: number;
     contentLength: number;
+    lastActivePreset: string;
+    presets: Record<string, Preset>;
 }
+
+export const DEFAULT_SETTINGS: CardNavigatorSettings = {
+    cardsPerView: 5,
+    useSelectedFolder: false,
+    selectedFolder: null,
+    sortCriterion: 'fileName',
+    sortOrder: 'asc',
+    alignCardHeight: true,
+    renderContentAsHtml: false,
+    centerActiveCardOnOpen: true,
+    centerCardMethod: 'scroll',
+    animationDuration: 300,
+    activeCardBorderColor: 'var(--active-border-color)',
+    activeCardBackgroundColor: 'var(--active-background-color)',
+    dragDropContent: false,
+    showFileName: true,
+    fileNameFontSize: 20,
+    showFirstHeader: true,
+    firstHeaderFontSize: 20,
+    showContent: true,
+    contentFontSize: 15,
+    contentLength: 500,
+    lastActivePreset: 'default',
+    presets: {
+        default: {
+            name: 'Default',
+            settings: {
+                cardsPerView: 5,
+                useSelectedFolder: false,
+                selectedFolder: null,
+                sortCriterion: 'fileName',
+                sortOrder: 'asc',
+                alignCardHeight: true,
+                renderContentAsHtml: false,
+                centerActiveCardOnOpen: true,
+                centerCardMethod: 'scroll',
+                animationDuration: 300,
+                activeCardBorderColor: 'var(--active-border-color)',
+                activeCardBackgroundColor: 'var(--active-background-color)',
+                dragDropContent: false,
+                showFileName: true,
+                fileNameFontSize: 20,
+                showFirstHeader: true,
+                firstHeaderFontSize: 20,
+                showContent: true,
+                contentFontSize: 15,
+                contentLength: 500,
+            }
+        }
+    }
+};
 
 export interface RangeSettingConfig {
     min: number;
@@ -66,9 +124,9 @@ export interface RangeSettingConfig {
 
 export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> = {
     cardsPerView: { min: 1, max: 10, step: 1 },
-    fileNameSize: { min: 15, max: 25, step: 1 },
-    firstHeaderSize: { min: 15, max: 25, step: 1 },
-    contentSize: { min: 10, max: 20, step: 1 },
+    fileNameFontSize: { min: 15, max: 25, step: 1 },
+    firstHeaderFontSize: { min: 15, max: 25, step: 1 },
+    contentFontSize: { min: 10, max: 20, step: 1 },
     contentLength: { min: 0, max: 1000, step: 50 },
     animationDuration: { min: 100, max: 1000, step: 100 },
 };
@@ -80,9 +138,9 @@ export const displaySettings: Array<{ name: string, key: keyof CardNavigatorSett
 ];
 
 export const fontSizeSettings: Array<{ name: string, key: NumberSettingKey }> = [
-    { name: 'File Name Font Size', key: 'fileNameSize' },
-    { name: 'First Header Font Size', key: 'firstHeaderSize' },
-    { name: 'Content Font Size', key: 'contentSize' },
+    { name: 'File Name Font Size', key: 'fileNameFontSize' },
+    { name: 'First Header Font Size', key: 'firstHeaderFontSize' },
+    { name: 'Content Font Size', key: 'contentFontSize' },
 ];
 
 export const keyboardShortcuts: Array<{ name: string }> = [

@@ -11,9 +11,9 @@ import {
     displaySettings, 
     fontSizeSettings, 
     keyboardShortcuts, 
-	SortOrder
+	SortOrder, 
+	DEFAULT_SETTINGS
 } from './types';
-import { DEFAULT_SETTINGS } from './settings';
 import { TFolder } from 'obsidian';
 
 export class SettingsManager {
@@ -35,9 +35,17 @@ export class SettingsManager {
         key: K,
         value: CardNavigatorSettings[K]
     ) {
-        this.plugin.settings[key] = value;
-        await this.plugin.saveSettings();
+        this.plugin.presetManager.updateTempSetting(key, value);
+        await this.saveSettings();
     }
+
+    // Reverts to default settings as defined in DEFAULT_SETTINGS
+	async revertToDefaultSettings() {
+        this.plugin.settings = { ...DEFAULT_SETTINGS };
+        await this.saveSettings();
+        this.plugin.triggerRefresh();
+    }
+
 
 	// Updates the sort settings
     async updateSortSettings(criterion: SortCriterion, order: SortOrder) {
@@ -93,4 +101,53 @@ export class SettingsManager {
     getKeyboardShortcuts() {
         return keyboardShortcuts;
     }
+
+	// Gets the current settings
+	getCurrentSettings(): CardNavigatorSettings {
+		return this.plugin.presetManager.getTempPreset() as CardNavigatorSettings;
+	}
+
+	// Applies a preset
+	async applyPreset(presetName: string) {
+		await this.plugin.presetManager.applyPreset(presetName);
+	}
+
+	// Saves the current settings as a new preset
+	async saveAsNewPreset(presetName: string) {
+		await this.plugin.presetManager.savePreset(presetName);
+	}
+
+	async updateCurrentPreset(presetName: string) {
+		if (presetName === 'default') {
+			throw new Error("Default preset cannot be modified.");
+		}
+		this.plugin.settings.presets[presetName] = {
+			name: presetName,
+			settings: { ...this.plugin.presetManager.getTempPreset() }
+		};
+		this.plugin.settings.lastActivePreset = presetName;
+		await this.plugin.saveSettings();
+	}
+
+	// Deletes a preset
+	async deletePreset(presetName: string) {
+		if (presetName === 'default') {
+			throw new Error("Default preset cannot be deleted.");
+		}
+		delete this.plugin.settings.presets[presetName];
+		// Apply default preset after deletion
+		await this.applyPreset('default');
+		this.plugin.settings.lastActivePreset = 'default';
+		await this.plugin.saveSettings();
+	}
+
+	// Gets all available presets
+	getPresets() {
+		return this.plugin.presetManager.getPresets();
+	}
+
+	// Reverts to default settings
+	async revertToDefault() {
+		await this.plugin.presetManager.revertToDefault();
+	}
 }

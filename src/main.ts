@@ -3,8 +3,9 @@
 import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf } from 'obsidian';
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settingsTab';
-import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder } from './common/types';
-import { DEFAULT_SETTINGS } from './common/settings';
+import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS } from './common/types';
+import { PresetManager } from './common/presetManager';
+import { SettingsManager } from './common/settingsManager';
 import i18next from 'i18next';
 import { t } from 'i18next';
 
@@ -18,22 +19,36 @@ export const translationLanguage = Object.keys(languageResources).includes(momen
 export default class CardNavigatorPlugin extends Plugin {
     settings: CardNavigatorSettings = DEFAULT_SETTINGS;
     selectedFolder: string | null = null;
+    presetManager!: PresetManager;
+    settingsManager!: SettingsManager;
     private refreshDebounced: () => void = () => {};
 	public events: Events = new Events();
 
     async onload() {
         await this.loadSettings();
+		this.initializeManagers();
         await this.initializePlugin();
+		this.presetManager.initializeTempPreset();
     }
 
-	onunload() {
+	async onunload() {
 		this.events.off('settings-updated', this.refreshDebounced);
+		this.presetManager.saveLastActivePreset();
 	
 		const ribbonIconEl = this.addRibbonIcon('layers-3', t('Activate Card Navigator'), () => {
 			this.activateView();
 		});
 		ribbonIconEl.detach();
 	}
+
+    private async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
+
+    private initializeManagers() {
+        this.presetManager = new PresetManager(this);
+        this.settingsManager = new SettingsManager(this);
+    }
 
     private async initializePlugin() {
         await this.initializeI18n();
@@ -66,6 +81,30 @@ export default class CardNavigatorPlugin extends Plugin {
         this.registerCentralizedEvents();
     }
 
+    private async initializeI18n() {
+        const resources = await this.loadLanguageResources();
+        await i18next.init({
+            lng: translationLanguage,
+            fallbackLng: "en",
+            resources,
+        });
+    }
+
+    private async loadLanguageResources() {
+        const en = await languageResources.en();
+        const ko = await languageResources.ko();
+        return {
+            en: { translation: en.default },
+            ko: { translation: ko.default },
+        };
+    }
+
+    async saveSettings() {
+        await this.saveData(this.settings);
+        this.events.trigger('settings-updated');
+        this.refreshDebounced();
+    }
+
     private registerCentralizedEvents() {
         this.registerEvent(
             this.app.vault.on('rename', (file) => {
@@ -86,31 +125,7 @@ export default class CardNavigatorPlugin extends Plugin {
         this.events.on('settings-updated', this.refreshDebounced);
     }
 
-    private async initializeI18n() {
-        const resources = await this.loadLanguageResources();
-        await i18next.init({
-            lng: translationLanguage,
-            fallbackLng: "en",
-            resources,
-        });
-    }
-
-    private async loadLanguageResources() {
-        const en = await languageResources.en();
-        const ko = await languageResources.ko();
-        return {
-            en: { translation: en.default },
-            ko: { translation: ko.default },
-        };
-    }
-
-    async loadSettings() {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-    }
-
-    async saveSettings() {
-        await this.saveData(this.settings);
-        this.events.trigger('settings-updated');
+	triggerRefresh() {
         this.refreshDebounced();
     }
 
@@ -209,10 +224,6 @@ export default class CardNavigatorPlugin extends Plugin {
 			console.error("Failed to activate Card Navigator view");
 		}
 	}
-
-    triggerRefresh() {
-        this.refreshDebounced();
-    }
 
     private centerActiveCard() {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);

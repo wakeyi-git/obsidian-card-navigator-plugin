@@ -62,17 +62,17 @@ export class CardMaker {
 
         if (this.plugin.settings.showFileName && card.fileName) {
             const fileNameEl = cardElement.createEl('h3', { text: card.fileName, cls: 'card-navigator-filename' });
-            fileNameEl.style.setProperty('--file-name-font-size', `${this.plugin.settings.fileNameSize}px`);
+            fileNameEl.style.setProperty('--file-name-font-size', `${this.plugin.settings.fileNameFontSize}px`);
         }
 
         if (this.plugin.settings.showFirstHeader && card.firstHeader) {
             const headerEl = cardElement.createEl('h4', { text: card.firstHeader, cls: 'card-navigator-first-header' });
-            headerEl.style.setProperty('--first-header-font-size', `${this.plugin.settings.firstHeaderSize}px`);
+            headerEl.style.setProperty('--first-header-font-size', `${this.plugin.settings.firstHeaderFontSize}px`);
         }
 
         if (this.plugin.settings.showContent && card.content) {
             const contentEl = cardElement.createEl('div', { cls: 'card-navigator-content' });
-            contentEl.style.setProperty('--content-font-size', `${this.plugin.settings.contentSize}px`);
+            contentEl.style.setProperty('--content-font-size', `${this.plugin.settings.contentFontSize}px`);
         
             if (this.plugin.settings.renderContentAsHtml) {
                 MarkdownRenderer.render(

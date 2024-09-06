@@ -1,10 +1,9 @@
 //src/ui/toolbar/toolbarActions.ts
 
-import { TFolder, FuzzySuggestModal, setIcon, Setting } from 'obsidian';
+import { TFolder, FuzzySuggestModal, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
-import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey, rangeSettingConfigs, displaySettings, fontSizeSettings } from '../../common/types';
+import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey } from '../../common/types';
 import { SettingsManager } from '../../common/settingsManager';
-import { DEFAULT_SETTINGS } from '../../common/settings';
 import { t } from 'i18next';
 
 let currentPopup: { element: HTMLElement, type: ToolbarMenu } | null = null;
@@ -83,75 +82,106 @@ async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCr
 
 export function toggleSettings(plugin: CardNavigatorPlugin) {
     const settingsPopup = createPopup('card-navigator-settings-popup', 'settings');
-    const settingsManager = new SettingsManager(plugin);
+    const settingsManager = plugin.settingsManager;
 
-    const topButtonsContainer = settingsPopup.createDiv('settings-top-buttons');
+    // Add preset selection dropdown at the top
+    addPresetDropdown(settingsPopup, plugin, settingsManager);
 
-    const resetButton = createIconButton('rotate-ccw', t('Reset to Defaults'), () => resetToDefaults(plugin, settingsManager));
-    topButtonsContainer.appendChild(resetButton);
+    // Container Settings Section
+    const containerSection = createCollapsibleSection(settingsPopup, t('Container Settings'));
+    addFolderSelectionSetting(containerSection, plugin, settingsManager);
+    addNumberSetting('cardsPerView', t('Cards per view'), containerSection, plugin, settingsManager);
+    addToggleSetting('alignCardHeight', t('Align Card Height'), containerSection, plugin, settingsManager);
 
-    const closeButton = createIconButton('x', t('Close'), closeCurrentPopup);
-    topButtonsContainer.appendChild(closeButton);
+    // Card Settings Section
+    const cardSection = createCollapsibleSection(settingsPopup, t('Card Settings'));
+    addToggleSetting('renderContentAsHtml', t('Render Content as HTML'), cardSection, plugin, settingsManager);
+    addToggleSetting('dragDropContent', t('Drag and Drop Content'), cardSection, plugin, settingsManager);
+    addToggleSetting('showFileName', t('Show File Name'), cardSection, plugin, settingsManager);
+    addToggleSetting('showFirstHeader', t('Show First Header'), cardSection, plugin, settingsManager);
+    addToggleSetting('showContent', t('Show Content'), cardSection, plugin, settingsManager);
+    addNumberSetting('contentLength', t('Content Length'), cardSection, plugin, settingsManager);
+    addNumberSetting('fileNameFontSize', t('File Name Font Size'), cardSection, plugin, settingsManager);
+    addNumberSetting('firstHeaderFontSize', t('First Header Font Size'), cardSection, plugin, settingsManager);
+    addNumberSetting('contentFontSize', t('Content Font Size'), cardSection, plugin, settingsManager);
 
-    addRangeSetting(settingsPopup, plugin, 'cardsPerView', t('Cards per view'), settingsManager);
+    settingsPopup.addEventListener('click', (e) => e.stopPropagation());
+}
 
-    fontSizeSettings.forEach(setting => {
-        addRangeSetting(settingsPopup, plugin, setting.key, t(setting.name), settingsManager);
+function createCollapsibleSection(parentEl: HTMLElement, title: string): HTMLElement {
+    const sectionEl = parentEl.createDiv('tree-item graph-control-section');
+    const selfEl = sectionEl.createDiv('tree-item-self');
+    const iconEl = selfEl.createDiv('tree-item-icon collapse-icon');
+    iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon right-triangle"><path d="M3 8L12 17L21 8"></path></svg>';
+    const innerEl = selfEl.createDiv('tree-item-inner');
+    innerEl.createEl('header', { text: title, cls: 'graph-control-section-header' });
+    const contentEl = sectionEl.createDiv('tree-item-children');
+
+    selfEl.addEventListener('click', () => {
+        const isCollapsed = sectionEl.hasClass('is-collapsed');
+        sectionEl.toggleClass('is-collapsed', !isCollapsed);
+        contentEl.style.display = !isCollapsed ? 'none' : 'block';
     });
 
-    addRangeSetting(settingsPopup, plugin, 'contentLength', t('Content Length'), settingsManager);
-
-    displaySettings.forEach(setting => {
-        addToggleSetting(settingsPopup, plugin, setting.key, t(setting.name), settingsManager);
-    });
-
-    addToggleSetting(settingsPopup, plugin, 'dragDropContent', t('Drag and Drop Content'), settingsManager);
+    return contentEl;
 }
 
-function createIconButton(iconName: string, tooltip: string, onClick: () => void): HTMLElement {
-    const button = createDiv('settings-icon-button');
-    setIcon(button, iconName);
-    button.ariaLabel = tooltip;
-    button.addEventListener('click', onClick);
-    return button;
+function addPresetDropdown(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager) {
+    new Setting(containerEl)
+        .setName(t('Select Preset'))
+		.setClass('setting-item-dropdown')
+        .addDropdown(dropdown => {
+            const presets = settingsManager.getPresets();
+            Object.keys(presets).forEach(presetName => {
+                dropdown.addOption(presetName, presetName);
+            });
+            dropdown.setValue(plugin.settings.lastActivePreset)
+                .onChange(async (value) => {
+                    await settingsManager.applyPreset(value);
+                    plugin.settings.lastActivePreset = value;
+                    await plugin.saveSettings();
+                    toggleSettings(plugin);
+                });
+        });
 }
 
-async function resetToDefaults(plugin: CardNavigatorPlugin, settingsManager: SettingsManager) {
-    for (const [key, defaultValue] of Object.entries(DEFAULT_SETTINGS)) {
-        const settingKey = key as keyof CardNavigatorSettings;
-        
-        if (typeof defaultValue === 'number') {
-            await settingsManager.updateNumberSetting(settingKey as NumberSettingKey, defaultValue);
-        } else if (typeof defaultValue === 'boolean') {
-            await settingsManager.updateBooleanSetting(settingKey, defaultValue);
-        }
-    }
-    
-    plugin.triggerRefresh();
-    closeCurrentPopup();
-    toggleSettings(plugin);
-}
-
-function addRangeSetting(container: HTMLElement, plugin: CardNavigatorPlugin, key: NumberSettingKey, name: string, settingsManager: SettingsManager) {
-    const config = rangeSettingConfigs[key];
-    new Setting(container)
-        .setClass('card-navigator-range-setting')
-        .setName(name)
-        .addSlider(slider => slider
-            .setLimits(config.min, config.max, config.step)
-            .setValue(plugin.settings[key])
-            .setDynamicTooltip()
+function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
+    const folderSettingEl = new Setting(parentEl)
+        .setName(t('Folder Selection'))
+		.setClass('setting-item-dropdown')
+        .addDropdown(dropdown => dropdown
+            .addOption('active', t('Active File\'s Folder'))
+            .addOption('selected', t('Selected Folder'))
+            .setValue(plugin.settings.useSelectedFolder ? 'selected' : 'active')
             .onChange(async (value) => {
-                await settingsManager.updateNumberSetting(key, value);
-                plugin.triggerRefresh();
-            })
-        );
+                await settingsManager.updateBooleanSetting('useSelectedFolder', value === 'selected');
+                toggleSettings(plugin);
+            })).settingEl;
+
+    folderSettingEl.addClass('setting-folder-selection');
+
+    if (plugin.settings.useSelectedFolder) {
+        addFolderSetting(parentEl, plugin, settingsManager);
+    }
 }
 
-function addToggleSetting(container: HTMLElement, plugin: CardNavigatorPlugin, key: keyof CardNavigatorSettings, name: string, settingsManager: SettingsManager) {
+function addFolderSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
+    new Setting(parentEl)
+        .setName(t('Select Folder'))
+        .addButton(button => button
+            .setButtonText(plugin.settings.selectedFolder || t('Choose folder'))
+            .onClick(() => {
+                new FolderSuggestModal(plugin, async (folder) => {
+                    await settingsManager.updateSelectedFolder(folder);
+                    toggleSettings(plugin);
+                }).open();
+            }));
+}
+
+function addToggleSetting(key: keyof CardNavigatorSettings, name: string, container: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager) {
     new Setting(container)
-        .setClass('card-navigator-toggle-setting')
         .setName(name)
+        .setClass('setting-item-toggle')
         .addToggle(toggle => toggle
             .setValue(plugin.settings[key] as boolean)
             .onChange(async (value) => {
@@ -159,6 +189,22 @@ function addToggleSetting(container: HTMLElement, plugin: CardNavigatorPlugin, k
                 plugin.triggerRefresh();
             })
         );
+}
+
+function addNumberSetting(key: NumberSettingKey, name: string, parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
+    const setting = new Setting(parentEl)
+        .setName(name)
+        .setClass('setting-item-slider');
+
+    const config = settingsManager.getNumberSettingConfig(key);
+    setting.addSlider(slider => slider
+        .setLimits(config.min, config.max, config.step)
+        .setValue(plugin.settings[key])
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+            await settingsManager.updateNumberSetting(key, value);
+            plugin.triggerRefresh();
+        }));
 }
 
 function closeCurrentPopup() {
