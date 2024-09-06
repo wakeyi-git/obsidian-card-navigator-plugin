@@ -1,65 +1,72 @@
-# Card Navigator for Obsidian
+# Card Navigator
 
-Card Navigator is a plugin for Obsidian that allows you to view and navigate your notes in a card-based interface. It provides an intuitive way to browse, sort, and manage your notes, enhancing your productivity and note-taking experience.
+Card Navigator is an Obsidian plugin that provides a unique way to visualize and navigate through your notes. It displays your notes as cards in a horizontal or vertical scrollable view, making it easier to browse and manage your content.
 
 ## Features
 
-- **Card View**: Display your notes as cards for easy browsing and overview.
-- **Flexible Navigation**: Scroll through cards vertically or horizontally.
-- **Smart Sorting**: Sort cards by file name, last modified date, or creation date.
-- **Quick Search**: Easily find cards with the built-in search functionality.
-- **Customizable Display**: Toggle visibility of file names, headers, and content.
-- **Folder Selection**: Choose specific folders to display as cards.
-- **Drag and Drop**: You can drag and drop cards to create links with file names or add the card's content to your notes.
-- **Responsive Layout**: Automatically adjusts to vertical or horizontal orientation.
-- **Keyboard Shortcuts**: Navigate quickly using customizable hotkeys.
-- **Fixed or Flexible Card Height**: Choose between uniform or content-based card heights.
-- **HTML Rendering**: Option to render card content as HTML for rich formatting.
-- **Active Card Highlighting**: Easily identify the currently active note.
+- Display notes as cards with customizable information (filename, first header, content)
+- Horizontal or vertical scrolling view
+- Customizable number of cards per view
+- Sort cards by various criteria (name, creation date, modification date)
+- Quick navigation between cards using keyboard shortcuts
+- Search functionality within the current folder
+- Drag and drop support for easy note linking
+- Customizable card appearance (font sizes, content length, etc.)
+- Preset management for quick switching between different configurations
+- Folder selection for viewing cards from specific folders
+- Option to render card content as HTML
+- Align card heights for a uniform look
 
 ## Installation
 
-1. Open Obsidian and go to Settings.
-2. Navigate to Community Plugins and disable Safe Mode.
-3. Click on Browse and search for "Card Navigator".
-4. Install the plugin and enable it.
+1. Open Obsidian and go to Settings
+2. Navigate to Community Plugins and disable Safe Mode
+3. Click on Browse and search for "Card Navigator"
+4. Install the plugin and enable it
 
 ## Usage
 
-1. Click on the Card Navigator icon in the left sidebar to open the view.
-2. Use the toolbar to search, sort, or change settings.
-3. Scroll through your cards to browse your notes.
-4. Click on a card to open the corresponding note.
-5. Use keyboard shortcuts for quick navigation(Examples of hotkey settings):
-   - Scroll Up/Down: `Ctrl + Alt + Shift + ↑/↓`
-   - Scroll Left/Right: `Ctrl + Alt + Shift + ←/→`
-   - Scroll Page Up(Left)/Down(Right): `Ctrl + Alt + Shift + PageUp/PageDown`
-   - Center Active Card: `Ctrl + Alt + Shift + Home`
+After installation, you can open the Card Navigator view by:
 
-## Configuration
+1. Clicking on the Card Navigator icon in the left sidebar
+2. Using the command palette and searching for "Open Card Navigator"
 
-You can customize Card Navigator through the plugin settings:
+### Basic Navigation
 
-- **Cards per View**: Adjust the number of cards visible at once.
-- **Folder Selection**: Choose between active file's folder or a specific folder.
-- **Sorting**: Set default sorting method and order.
-- **Card Height**: Choose between fixed or flexible card heights.
-- **Content Display**: Toggle visibility of file names, headers, and content.
-- **Font Sizes**: Customize font sizes for different card elements.
-- **Content Length**: Set the maximum content length displayed on cards.
-- **Drag and Drop**: Choose between inserting content or links when dragging cards.
+- Use the scroll wheel or trackpad to navigate through cards
+- Click on a card to open the corresponding note
+- Use the search bar in the toolbar to filter cards
 
-## Development
+### Customization
 
-To set up the development environment:
+1. Click the settings icon in the Card Navigator toolbar
+2. Adjust settings such as cards per view, card appearance, and display options
+3. Create and manage presets for quick configuration switching
 
-1. Clone the repository
-2. Run `npm install` to install dependencies
-3. Run `npm run dev` to start compilation in watch mode
+### Keyboard Shortcuts
 
-## Contributing
+Card Navigator supports various keyboard shortcuts for navigation:
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+- Scroll Up/Down: Move through cards vertically
+- Scroll Left/Right: Move through cards horizontally
+- Center Active Card: Focus on the currently active note
+
+You can customize these shortcuts in Obsidian's Hotkeys settings.
+
+## Settings
+
+Card Navigator offers a wide range of customization options:
+
+- **Container Settings**: Adjust the number of cards per view and card alignment
+- **Card Settings**: Customize what information is displayed on cards (filename, first header, content)
+- **Appearance**: Set font sizes for different card elements
+- **Sorting**: Choose default sorting method for cards
+- **Folder Selection**: Option to use the active file's folder or a selected folder
+- **Presets**: Save and load different configurations
+
+## Feedback and Support
+
+If you encounter any issues or have suggestions for improvement, please visit the [GitHub repository](https://github.com/your-username/obsidian-card-navigator) to open an issue or contribute to the project.
 
 ## License
 
