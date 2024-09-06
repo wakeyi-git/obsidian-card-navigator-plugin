@@ -19,10 +19,12 @@ Card Navigator is an Obsidian plugin that provides a unique way to visualize and
 
 ## Installation
 
-1. Open Obsidian and go to Settings
-2. Navigate to Community Plugins and disable Safe Mode
-3. Click on Browse and search for "Card Navigator"
-4. Install the plugin and enable it
+1. It has not yet passed Obsidian's review process.
+2. Download main.js, manifest.json, and styles.css from the Releases section.
+3. Create a folder with an appropriate name inside .obsidian/plugins/ and paste the files downloaded in step 2.
+4. Open Obsidian and go to Settings.
+5. Navigate to Community Plugins and disable Safe Mode.
+6. Activate the plugin.
 
 ## Usage
 
