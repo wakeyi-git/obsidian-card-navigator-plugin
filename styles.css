@@ -1,6 +1,5 @@
 /* Root variables */
 :root {
-    --card-navigator-toolbar-height: 50px;
     --card-navigator-container-padding: 10px;
     --card-navigator-gap: 10px;
     --card-navigator-transition: 0.2s ease;
@@ -21,9 +20,7 @@
     top: 0;
     z-index: 10;
     width: 100%;
-    height: var(--card-navigator-toolbar-height);
-    background-color: var(--background-primary);
-    box-shadow: var(--shadow-s);
+	margin-bottom: var(--size-4-3);
 }
 
 .card-navigator-toolbar-container {
@@ -32,7 +29,6 @@
     justify-content: space-between;
     align-items: center;
     gap: var(--card-navigator-gap);
-    padding: 0.5rem;
     height: 100%;
 }
 
@@ -46,7 +42,7 @@
 .toolbar-separator {
     width: 1px;
     height: 100%;
-    background-color: var(--card-navigator-border);
+	background-color: var(--background-modifier-border);
 }
 
 /* Search container styles */
@@ -59,8 +55,8 @@
 .card-navigator-search-input {
     width: 100%;
     padding: 0.5rem;
-    border: 1px solid var(--card-navigator-border);
-    border-radius: var(--card-navigator-border-radius);
+    border: var(--border-width);
+    border-radius: var(--radius-s);
     background-color: var(--background-primary);
     color: var(--text-normal);
 }
@@ -69,15 +65,13 @@
 .card-navigator-sort-popup,
 .card-navigator-settings-popup {
     position: absolute;
-    top: var(--card-navigator-toolbar-height);
     right: 0;
     width: var(--card-navigator-popup-width);
     background-color: var(--background-primary);
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--card-navigator-border-radius);
+    border: var(--border-width) solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
     padding: 15px;
     z-index: 1000;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     min-width: 100px;
 }
 
@@ -97,16 +91,6 @@
 }
 
 /* Settings popup styles */
-.card-navigator-settings-popup {
-    max-width: 300px;
-    max-height: 80vh;
-    overflow-y: auto;
-    padding: var(--size-4-3);
-    background-color: var(--background-primary);
-    border: 1px solid var(--background-modifier-border);
-    box-shadow: var(--shadow-s);
-}
-
 .card-navigator-settings-popup .tree-item-self {
     cursor: pointer;
     display: flex;
@@ -190,7 +174,7 @@
     gap: var(--card-navigator-gap);
     position: relative;
     box-sizing: border-box;
-    padding-top: var(--size-4-3);
+    padding-top: var(--size-2-1);
 }
 
 .card-navigator-container.vertical {
@@ -221,7 +205,6 @@
     border: var(--border-width) solid var(--background-modifier-border);
     border-radius: var(--radius-m);
     background-color: var(--background-primary);
-    box-shadow: var(--shadow-s);
     transition: transform var(--card-navigator-transition), box-shadow var(--card-navigator-transition);
     cursor: pointer;
     display: flex;
@@ -251,8 +234,8 @@
 
 .card-navigator-card:hover,
 .card-navigator-card:focus {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-m);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-s);
 }
 
 .card-navigator-card:focus {
@@ -302,70 +285,6 @@
     display: -webkit-box;
     -webkit-box-orient: vertical;
 }
-
-/* Preset management styles */
-.preset-container {
-    margin-bottom: 20px;
-    padding: 10px;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--card-navigator-border-radius);
-}
-
-.preset-container .setting-item {
-    border-top: none;
-    padding-top: 0.75em;
-    padding-bottom: 0.75em;
-}
-
-.preset-container .setting-item:not(:last-child) {
-    border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.preset-container .dropdown {
-    width: 100%;
-}
-
-.preset-container input[type="text"] {
-    width: 100%;
-    margin-bottom: 0.5em;
-}
-
-.preset-container .setting-item-control {
-    justify-content: flex-end;
-}
-
-.preset-container button {
-    margin-left: 0.5em;
-}
-
-/* Range setting styles */
-.card-navigator-range-setting {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 1em;
-}
-
-.card-navigator-range-setting .slider {
-    width: 100%;
-    margin-top: 0.5em;
-}
-
-/* Toggle setting styles */
-.card-navigator-toggle-setting {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1em;
-}
-
-/* SettingTab styles */
-/* .setting-item.setting-item-heading {
-    margin-top: var(--size-4-3);
-} */
-
-/* .setting-item-control input[type="range"] {
-    width: 250px;
-} */
 
 /* Responsive styles */
 @media (max-width: 768px) {

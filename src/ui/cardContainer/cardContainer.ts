@@ -10,13 +10,11 @@ export class CardContainer {
     private containerEl: HTMLElement | null = null;
     private cardMaker: CardMaker;
     public isVertical: boolean;
-    private toolbarHeight: number;
     private cardGap: number;
 
     constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
         this.cardMaker = new CardMaker(this.plugin);
         this.isVertical = false;
-        this.toolbarHeight = this.getCSSVariable('--card-navigator-toolbar-height', 50);
         this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
     }
 
@@ -61,7 +59,6 @@ export class CardContainer {
             this.containerEl.classList.toggle('flexible-height', !this.plugin.settings.alignCardHeight);
 
             this.containerEl.style.setProperty('--cards-per-view', this.plugin.settings.cardsPerView.toString());
-            this.containerEl.style.setProperty('--card-navigator-toolbar-height', `${this.toolbarHeight}px`);
         }
     }
 
@@ -166,8 +163,8 @@ export class CardContainer {
         let scrollProperty: 'scrollTop' | 'scrollLeft';
 
         if (this.isVertical) {
-            const containerVisibleHeight = containerRect.height - this.toolbarHeight;
-            offset = activeCardRect.top - containerRect.top - this.toolbarHeight - (containerVisibleHeight - cardHeight) / 2;
+			const containerVisibleHeight = containerRect.height;
+            offset = activeCardRect.top - containerRect.top - (containerVisibleHeight - cardHeight) / 2;
             scrollProperty = 'scrollTop';
         } else {
             const containerVisibleWidth = containerRect.width;
