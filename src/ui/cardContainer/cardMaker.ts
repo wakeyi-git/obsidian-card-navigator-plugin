@@ -1,6 +1,6 @@
 //src/ui/cardContainer/cardMaker.ts
 
-import { Menu, TFile, MarkdownRenderer } from 'obsidian';
+import { Menu, TFile, MarkdownRenderer, Notice } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { Card } from 'common/types';
 import { sortFiles, separateFrontmatterAndContent } from 'common/utils';
@@ -135,9 +135,58 @@ export class CardMaker {
         cardElement.addEventListener('contextmenu', (e: MouseEvent) => {
             e.preventDefault();
             const menu = new Menu();
+
+            // 기존 옵시디언 파일 메뉴 항목 추가
             this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
+
+            // 구분선 추가
+            menu.addSeparator();
+
+            // 링크 복사 메뉴 항목 추가
+            menu.addItem((item) => {
+                item
+                    .setTitle('Copy as Link')
+                    .setIcon('link')
+                    .onClick(() => {
+                        this.copyLink(file);
+                    });
+            });
+
+            // 카드 내용 복사 메뉴 항목 추가
+            menu.addItem((item) => {
+                item
+                    .setTitle('Copy Card Content')
+                    .setIcon('file-text')
+                    .onClick(() => {
+                        this.copyCardContent(file);
+                    });
+            });
+
             menu.showAtPosition({ x: e.clientX, y: e.clientY });
         });
+    }
+
+    public copyLink(file: TFile) {
+        const link = this.plugin.app.fileManager.generateMarkdownLink(file, '');
+        navigator.clipboard.writeText(link).then(() => {
+            new Notice('Link copied to clipboard');
+        }).catch(err => {
+            console.error('Failed to copy link: ', err);
+            new Notice('Failed to copy link');
+        });
+    }
+
+    public async copyCardContent(file: TFile) {
+        try {
+            const content = await this.plugin.app.vault.read(file);
+            const { cleanContent } = separateFrontmatterAndContent(content);
+            const truncatedContent = this.truncateContent(cleanContent);
+            await navigator.clipboard.writeText(truncatedContent);
+            new Notice('Card content copied to clipboard');
+        } catch (err) {
+            console.error('Failed to copy card content: ', err);
+            new Notice('Failed to copy card content');
+        }
     }
 
     private openFile(file: TFile) {

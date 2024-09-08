@@ -70,6 +70,43 @@ export default class CardNavigatorPlugin extends Plugin {
             callback: () => this.activateView(),
         });
 
+		this.addCommand({
+			id: 'focus-card-navigator',
+			name: 'Focus Card Navigator',
+			callback: () => {
+				const cardNavigator = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]?.view as CardNavigator;
+				if (cardNavigator) {
+					cardNavigator.cardContainer.focusNavigator();
+				}
+			}
+		});
+		
+		this.addCommand({
+			id: 'blur-card-navigator',
+			name: 'Blur Card Navigator',
+			callback: () => {
+				const cardNavigator = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]?.view as CardNavigator;
+				if (cardNavigator) {
+					cardNavigator.cardContainer.blurNavigator();
+				}
+			}
+		});
+
+		this.addCommand({
+            id: 'open-card-context-menu',
+            name: 'Open Card Context Menu',
+            checkCallback: (checking: boolean) => {
+                const cardNavigator = this.getActiveCardNavigator();
+                if (cardNavigator) {
+                    if (!checking) {
+                        cardNavigator.openContextMenu();
+                    }
+                    return true;
+                }
+                return false;
+            }
+        });
+
         this.addScrollCommands();
 
         this.app.workspace.onLayoutReady(() => {
@@ -224,6 +261,14 @@ export default class CardNavigatorPlugin extends Plugin {
 			console.error("Failed to activate Card Navigator view");
 		}
 	}
+
+	private getActiveCardNavigator(): CardNavigator | null {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        if (leaves.length > 0) {
+            return leaves[0].view as CardNavigator;
+        }
+        return null;
+    }
 
     private centerActiveCard() {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);

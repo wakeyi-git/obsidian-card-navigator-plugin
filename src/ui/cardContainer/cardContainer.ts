@@ -3,6 +3,7 @@
 import { WorkspaceLeaf, TFile, TFolder } from "obsidian";
 import CardNavigatorPlugin from 'main';
 import { CardMaker } from './cardMaker';
+import { KeyboardNavigator } from './keyboardNavigator';
 import { sortFiles } from 'common/utils';
 import { Card, SortCriterion, SortOrder } from 'common/types';
 
@@ -11,6 +12,8 @@ export class CardContainer {
     private cardMaker: CardMaker;
     public isVertical: boolean;
     private cardGap: number;
+    private keyboardNavigator: KeyboardNavigator | null = null;
+    private cards: Card[] = [];
 
     constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
         this.cardMaker = new CardMaker(this.plugin);
@@ -29,6 +32,7 @@ export class CardContainer {
         this.containerEl = containerEl;
         await this.waitForLeafCreation();
         this.updateContainerStyle();
+        this.keyboardNavigator = new KeyboardNavigator(this.plugin, this, this.containerEl);
         await this.refresh();
     }
 
@@ -90,13 +94,57 @@ export class CardContainer {
         return sortFiles(mdFiles, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
     }
 
+    public getFileFromCard(cardElement: HTMLElement): TFile | null {
+        if (!this.containerEl) return null;
+        const cardIndex = Array.from(this.containerEl.children).indexOf(cardElement);
+        if (cardIndex !== -1 && cardIndex < this.cards.length) {
+            return this.cards[cardIndex].file;
+        }
+        return null;
+    }
+
+	public focusNavigator() {
+		this.keyboardNavigator?.focusNavigator();
+	}
+	
+	public blurNavigator() {
+		this.keyboardNavigator?.blurNavigator();
+	}
+
+	public centerCard(card: HTMLElement) {
+        if (!this.containerEl) return;
+
+        const containerRect = this.containerEl.getBoundingClientRect();
+        const cardRect = card.getBoundingClientRect();
+
+        if (this.isVertical) {
+            const containerCenter = containerRect.top + containerRect.height / 2;
+            const cardCenter = cardRect.top + cardRect.height / 2;
+            const offset = cardCenter - containerCenter;
+
+            this.containerEl.scrollBy({
+                top: offset,
+                behavior: 'smooth'
+            });
+        } else {
+            const containerCenter = containerRect.left + containerRect.width / 2;
+            const cardCenter = cardRect.left + cardRect.width / 2;
+            const offset = cardCenter - containerCenter;
+
+            this.containerEl.scrollBy({
+                left: offset,
+                behavior: 'smooth'
+            });
+        }
+    }
+
     private async createCardsData(files: TFile[]): Promise<Card[]> {
         const mdFiles = files.filter(file => file.extension === 'md');
         return Promise.all(mdFiles.map(file => this.cardMaker.createCard(file)));
     }
 
-	private renderCards(cardsData: Card[]) {
-		if (!this.containerEl) return;
+    private async renderCards(cardsData: Card[]) {
+        if (!this.containerEl) return;
 	
 		const containerEl = this.containerEl; // 로컬 변수에 할당
 	
@@ -108,6 +156,8 @@ export class CardContainer {
 		);
 	
 		containerEl.empty();
+
+		this.cards = cardsData;
 	
 		cardsData.forEach((cardData, index) => {
 			const card = this.cardMaker.createCardElement(cardData);
@@ -304,6 +354,14 @@ export class CardContainer {
         this.plugin.settings.sortOrder = order;
         await this.plugin.saveSettings();
         await this.refresh();
+    }
+
+    public copyLink(file: TFile) {
+        this.cardMaker.copyLink(file);
+    }
+    
+    public async copyCardContent(file: TFile) {
+        await this.cardMaker.copyCardContent(file);
     }
 
     onClose() {

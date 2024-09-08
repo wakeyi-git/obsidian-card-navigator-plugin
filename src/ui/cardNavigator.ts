@@ -4,6 +4,7 @@ import { ItemView, WorkspaceLeaf } from "obsidian";
 import CardNavigatorPlugin from '../main';
 import { Toolbar } from './toolbar/toolbar';
 import { CardContainer } from './cardContainer/cardContainer';
+import { KeyboardNavigator } from "./cardContainer/keyboardNavigator";
 import { t } from 'i18next';
 
 export const VIEW_TYPE_CARD_NAVIGATOR = "card-navigator-view";
@@ -13,6 +14,7 @@ export class CardNavigator extends ItemView {
     public cardContainer: CardContainer;
     private resizeObserver: ResizeObserver;
     private isVertical: boolean;
+    private keyboardNavigator: KeyboardNavigator;
 
     constructor(leaf: WorkspaceLeaf, private plugin: CardNavigatorPlugin) {
         super(leaf);
@@ -20,6 +22,7 @@ export class CardNavigator extends ItemView {
         this.cardContainer = new CardContainer(this.plugin, this.leaf);
         this.isVertical = this.calculateIsVertical();
         this.resizeObserver = new ResizeObserver(this.handleResize.bind(this));
+        this.keyboardNavigator = new KeyboardNavigator(this.plugin, this.cardContainer, this.containerEl.children[1] as HTMLElement);
     }
 
     getViewType(): string {
@@ -47,6 +50,10 @@ export class CardNavigator extends ItemView {
         }
     }
 
+    public openContextMenu() {
+        this.keyboardNavigator.openContextMenu();
+    }
+
     public updateLayoutAndRefresh() {
         this.cardContainer.setOrientation(this.isVertical);
         this.toolbar.setOrientation(this.isVertical);
@@ -57,13 +64,14 @@ export class CardNavigator extends ItemView {
         const container = this.containerEl.children[1] as HTMLElement;
         container.empty();
 
-		const navigatorEl = container.createDiv('card-navigator');
+        const navigatorEl = container.createDiv('card-navigator');
     
-		const toolbarEl = navigatorEl.createDiv('card-navigator-toolbar');
-		const cardContainerEl = navigatorEl.createDiv('card-navigator-container');
+        const toolbarEl = navigatorEl.createDiv('card-navigator-toolbar');
+        const cardContainerEl = navigatorEl.createDiv('card-navigator-container');
 
         this.toolbar.initialize(toolbarEl);
         this.cardContainer.initialize(cardContainerEl);
+        this.keyboardNavigator = new KeyboardNavigator(this.plugin, this.cardContainer, cardContainerEl);
 
         this.isVertical = this.calculateIsVertical();
         this.updateLayoutAndRefresh();

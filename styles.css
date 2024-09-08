@@ -232,15 +232,13 @@
     background-color: var(--background-primary);
 }
 
-.card-navigator-card:hover,
-.card-navigator-card:focus {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-s);
+.card-navigator-card.card-navigator-focused {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: -2px;
 }
 
-.card-navigator-card:focus {
-    outline: 2px solid var(--interactive-accent);
-    outline-offset: 2px;
+.card-navigator-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .card-navigator-filename {
