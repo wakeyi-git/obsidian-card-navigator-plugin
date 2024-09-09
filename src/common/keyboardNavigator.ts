@@ -1,6 +1,6 @@
 // src/ui/cardContainer/common/keyboardNavigator.ts
 
-import { Menu, MenuItem } from 'obsidian';
+import { Menu, MenuItem, debounce } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { CardContainer } from '../ui/cardContainer/cardContainer';
 import { t } from 'i18next';
@@ -56,10 +56,16 @@ export class KeyboardNavigator {
                 e.preventDefault();
                 this.openFocusedCard();
                 break;
-            case 'ContextMenu':
-                e.preventDefault();
-                this.openContextMenu();
-                break;
+			case 'ContextMenu':
+				e.preventDefault();
+				this.openContextMenu();
+				break;
+			case 'e':
+				if (e.metaKey && e.ctrlKey) {  // Command + Control + E
+					e.preventDefault();
+					this.openContextMenu();
+				}
+				break;
         }
     }
 
@@ -87,19 +93,14 @@ export class KeyboardNavigator {
         }
 
         this.updateFocusedCard();
-        
-        // Delay the scroll to ensure the focus style is applied
-        setTimeout(() => {
-            this.scrollToFocusedCard(true);
-        }, 50);
     }
 
-    public blurNavigator() {
-        this.containerEl.blur();
-        this.isFocused = false;
-        this.focusedCardIndex = null;
-        this.updateFocusedCard();
-    }
+	public blurNavigator() {
+		this.containerEl.blur();
+		this.isFocused = false;
+		this.focusedCardIndex = null;
+		this.updateFocusedCard();
+	}
 
     private moveFocus(delta: number) {
         if (this.focusedCardIndex === null) {
@@ -126,11 +127,23 @@ export class KeyboardNavigator {
         this.scrollToFocusedCard();
     }
 
-    private updateFocusedCard() {
-        Array.from(this.containerEl.children).forEach((card, index) => {
-            card.classList.toggle('card-navigator-focused', index === this.focusedCardIndex);
-        });
-    }
+	private updateFocusedCard = debounce(() => {
+		if (!this.containerEl || this.focusedCardIndex === null) return;
+	
+		const focusedCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
+		if (!focusedCard) return;
+	
+		// 현재 포커스된 카드의 스타일만 업데이트
+		Array.from(this.containerEl.children).forEach((card, index) => {
+			if (index === this.focusedCardIndex) {
+				card.classList.add('card-navigator-focused');
+			} else {
+				card.classList.remove('card-navigator-focused');
+			}
+		});
+	
+		this.scrollToFocusedCard();
+	}, 50);
 
     private scrollToFocusedCard(immediate = false) {
         if (this.focusedCardIndex === null) return;

@@ -74,9 +74,9 @@ export default class CardNavigatorPlugin extends Plugin {
 			id: 'focus-card-navigator',
 			name: t('Focus Card Navigator'),
 			callback: () => {
-				const cardNavigator = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]?.view as CardNavigator;
+				const cardNavigator = this.getActiveCardNavigator();
 				if (cardNavigator) {
-					cardNavigator.cardContainer.focusNavigator();
+					cardNavigator.focusNavigator();
 				}
 			}
 		});
@@ -92,16 +92,16 @@ export default class CardNavigatorPlugin extends Plugin {
 		// 	}
 		// });
 
-        // this.addCommand({
-        //     id: 'open-card-context-menu',
-        //     name: t('Open Card Context Menu'),
-        //     callback: () => {
-        //         const cardNavigator = this.getActiveCardNavigator();
-        //         if (cardNavigator) {
-        //             cardNavigator.openContextMenu();
-        //         }
-        //     }
-        // });
+		this.addCommand({
+			id: 'open-card-context-menu',
+			name: t('Open Card Context Menu'),
+			callback: () => {
+				const cardNavigator = this.getActiveCardNavigator();
+				if (cardNavigator) {
+					cardNavigator.openContextMenu();
+				}
+			}
+		});
 
         this.addScrollCommands();
 
@@ -258,7 +258,7 @@ export default class CardNavigatorPlugin extends Plugin {
 		}
 	}
 
-    private getActiveCardNavigator(): CardNavigator | null {
+	private getActiveCardNavigator(): CardNavigator | null {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         if (leaves.length > 0) {
             return leaves[0].view as CardNavigator;

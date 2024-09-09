@@ -1,6 +1,6 @@
 //src/ui/cardNavigator.ts
 
-import { ItemView, WorkspaceLeaf } from "obsidian";
+import { ItemView, WorkspaceLeaf, Menu } from "obsidian";
 import CardNavigatorPlugin from '../main';
 import { Toolbar } from './toolbar/toolbar';
 import { CardContainer } from './cardContainer/cardContainer';
@@ -51,7 +51,51 @@ export class CardNavigator extends ItemView {
     }
 
     public openContextMenu() {
-        this.keyboardNavigator.openContextMenu();
+        const focusedCard = this.getFocusedCard();
+        if (!focusedCard) return;
+
+        const file = this.cardContainer.getFileFromCard(focusedCard);
+        if (!file) return;
+
+        const menu = new Menu();
+
+        // 기존 옵시디언 파일 메뉴 항목 추가
+        this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
+
+        // 구분선 추가
+        menu.addSeparator();
+
+        // 링크 복사 메뉴 항목 추가
+        menu.addItem((item) => {
+            item
+                .setTitle(t('Copy as Link'))
+                .setIcon('link')
+                .onClick(() => {
+                    this.cardContainer.copyLink(file);
+                });
+        });
+
+        // 카드 내용 복사 메뉴 항목 추가
+        menu.addItem((item) => {
+            item
+                .setTitle(t('Copy Card Content'))
+                .setIcon('file-text')
+                .onClick(() => {
+                    this.cardContainer.copyCardContent(file);
+                });
+        });
+
+        // 포커스된 카드의 위치에 메뉴 표시
+        const rect = focusedCard.getBoundingClientRect();
+        menu.showAtPosition({ x: rect.left, y: rect.bottom });
+    }
+
+	public focusNavigator() {
+    this.keyboardNavigator.focusNavigator();
+}
+
+    private getFocusedCard(): HTMLElement | null {
+        return this.containerEl.querySelector('.card-navigator-card.card-navigator-focused');
     }
 
     public updateLayoutAndRefresh() {

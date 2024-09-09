@@ -1,11 +1,12 @@
 //src/ui/cardContainer/cardContainer.ts
 
-import { WorkspaceLeaf, TFile, TFolder } from "obsidian";
+import { WorkspaceLeaf, TFile, TFolder, Notice } from "obsidian";
 import CardNavigatorPlugin from 'main';
 import { CardMaker } from './cardMaker';
 import { KeyboardNavigator } from '../../common/keyboardNavigator';
-import { sortFiles } from 'common/utils';
+import { sortFiles, separateFrontmatterAndContent } from 'common/utils';
 import { Card, SortCriterion, SortOrder } from 'common/types';
+import { t } from "i18next";
 
 export class CardContainer {
     private containerEl: HTMLElement | null = null;
@@ -357,12 +358,35 @@ export class CardContainer {
     }
 
     public copyLink(file: TFile) {
-        this.cardMaker.copyLink(file);
+        const link = this.plugin.app.fileManager.generateMarkdownLink(file, '');
+        navigator.clipboard.writeText(link).then(() => {
+            new Notice(t('Link copied to clipboard'));
+        }).catch(err => {
+            console.error(t('Failed to copy link: '), err);
+            new Notice(t('Failed to copy link'));
+        });
     }
-    
-    public async copyCardContent(file: TFile) {
-        await this.cardMaker.copyCardContent(file);
-    }
+
+	public async copyCardContent(file: TFile) {
+		try {
+			const content = await this.plugin.app.vault.read(file);
+			const { cleanContent } = separateFrontmatterAndContent(content);
+			const truncatedContent = this.truncateContent(cleanContent);
+			await navigator.clipboard.writeText(truncatedContent);
+			new Notice(t('Card content copied to clipboard'));
+		} catch (err) {
+			console.error(t('Failed to copy card content: '), err);
+			new Notice(t('Failed to copy card content'));
+		}
+	}
+
+	private truncateContent(content: string): string {
+		if (this.plugin.settings.isContentLengthUnlimited) {
+			return content;
+		}
+		const maxLength = this.plugin.settings.contentLength;
+		return content.length <= maxLength ? content : `${content.slice(0, maxLength)}...`;
+	}
 
     onClose() {
         this.plugin.app.workspace.off('active-leaf-change', this.plugin.triggerRefresh);
