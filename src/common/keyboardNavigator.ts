@@ -128,21 +128,15 @@ export class KeyboardNavigator {
     }
 
 	private updateFocusedCard = debounce(() => {
-		if (!this.containerEl || this.focusedCardIndex === null) return;
+		if (!this.containerEl) return;
 	
-		const focusedCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
-		if (!focusedCard) return;
-	
-		// 현재 포커스된 카드의 스타일만 업데이트
 		Array.from(this.containerEl.children).forEach((card, index) => {
-			if (index === this.focusedCardIndex) {
+			if (this.isFocused && index === this.focusedCardIndex) {
 				card.classList.add('card-navigator-focused');
 			} else {
 				card.classList.remove('card-navigator-focused');
 			}
 		});
-	
-		this.scrollToFocusedCard();
 	}, 50);
 
     private scrollToFocusedCard(immediate = false) {

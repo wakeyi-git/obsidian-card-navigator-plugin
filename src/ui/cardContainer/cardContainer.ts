@@ -144,33 +144,30 @@ export class CardContainer {
         return Promise.all(mdFiles.map(file => this.cardMaker.createCard(file)));
     }
 
-    private async renderCards(cardsData: Card[]) {
-        if (!this.containerEl) return;
+	private async renderCards(cardsData: Card[]) {
+		if (!this.containerEl) return;
 	
-		const containerEl = this.containerEl; // 로컬 변수에 할당
-	
+		const containerEl = this.containerEl;
 		const currentScrollTop = containerEl.scrollTop;
 		const currentScrollLeft = containerEl.scrollLeft;
 	
-		const activeCardIndex = Array.from(containerEl.children).findIndex(
-			child => child.classList.contains('card-navigator-active')
+		// 현재 포커스된 카드의 인덱스를 저장
+		const focusedCardIndex = Array.from(containerEl.children).findIndex(
+			child => child.classList.contains('card-navigator-focused')
 		);
 	
 		containerEl.empty();
-
+	
 		this.cards = cardsData;
 	
 		cardsData.forEach((cardData, index) => {
-			const card = this.cardMaker.createCardElement(cardData);
+			const cardEl = this.cardMaker.createCardElement(cardData);
+			containerEl.appendChild(cardEl);
 	
-			card.classList.add(this.isVertical ? 'vertical' : 'horizontal');
-			card.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
-	
-			if (cardData.file === this.plugin.app.workspace.getActiveFile()) {
-				card.classList.add('card-navigator-active');
-			}
-	
-			containerEl.appendChild(card);
+			cardEl.classList.add(this.isVertical ? 'vertical' : 'horizontal');
+			cardEl.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
+			cardEl.classList.toggle('card-navigator-active', cardData.file === this.plugin.app.workspace.getActiveFile());
+			cardEl.classList.toggle('card-navigator-focused', index === focusedCardIndex);
 		});
 	
 		containerEl.scrollTop = currentScrollTop;
@@ -180,11 +177,18 @@ export class CardContainer {
 			child => child.classList.contains('card-navigator-active')
 		);
 	
-		if (activeCardIndex !== newActiveCardIndex && newActiveCardIndex !== -1) {
+		if (newActiveCardIndex !== -1) {
 			this.scrollToActiveCard(false);
 		}
 	
 		void this.ensureCardSizesAreSet();
+	}
+
+	public clearFocusedCards() {
+		if (!this.containerEl) return;
+		Array.from(this.containerEl.children).forEach((card) => {
+			card.classList.remove('card-navigator-focused');
+		});
 	}
 
     private async ensureCardSizesAreSet(): Promise<void> {

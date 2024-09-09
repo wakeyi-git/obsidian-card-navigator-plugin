@@ -137,6 +137,7 @@ export class CardNavigator extends ItemView {
         this.resizeObserver.disconnect();
         this.toolbar.onClose();
         this.cardContainer.onClose();
+		this.keyboardNavigator.blurNavigator(); 
     }
 
     async refresh() {

@@ -60,46 +60,42 @@ export class CardMaker {
 		return content.length <= maxLength ? content : `${content.slice(0, maxLength)}...`;
 	}
 
-    createCardElement(card: Card): HTMLElement {
-        const cardElement = document.createElement('div');
-        cardElement.className = 'card-navigator-card';
-
-        if (this.plugin.settings.showFileName && card.fileName) {
-            const fileNameEl = cardElement.createEl('h3', { text: card.fileName, cls: 'card-navigator-filename' });
-            fileNameEl.style.setProperty('--file-name-font-size', `${this.plugin.settings.fileNameFontSize}px`);
-        }
-
-        if (this.plugin.settings.showFirstHeader && card.firstHeader) {
-            const headerEl = cardElement.createEl('h4', { text: card.firstHeader, cls: 'card-navigator-first-header' });
-            headerEl.style.setProperty('--first-header-font-size', `${this.plugin.settings.firstHeaderFontSize}px`);
-        }
-
-        if (this.plugin.settings.showContent && card.content) {
-            const contentEl = cardElement.createEl('div', { cls: 'card-navigator-content' });
-            contentEl.style.setProperty('--content-font-size', `${this.plugin.settings.contentFontSize}px`);
-        
-            if (this.plugin.settings.renderContentAsHtml) {
-                MarkdownRenderer.render(
+	createCardElement(card: Card): HTMLElement {
+		const cardElement = document.createElement('div');
+		cardElement.className = 'card-navigator-card';
+	
+		if (this.plugin.settings.showFileName && card.fileName) {
+			const fileNameEl = cardElement.createEl('h3', { text: card.fileName, cls: 'card-navigator-filename' });
+			fileNameEl.style.setProperty('--file-name-font-size', `${this.plugin.settings.fileNameFontSize}px`);
+		}
+	
+		if (this.plugin.settings.showFirstHeader && card.firstHeader) {
+			const headerEl = cardElement.createEl('h4', { text: card.firstHeader, cls: 'card-navigator-first-header' });
+			headerEl.style.setProperty('--first-header-font-size', `${this.plugin.settings.firstHeaderFontSize}px`);
+		}
+	
+		if (this.plugin.settings.showContent && card.content) {
+			const contentEl = cardElement.createEl('div', { cls: 'card-navigator-content' });
+			contentEl.style.setProperty('--content-font-size', `${this.plugin.settings.contentFontSize}px`);
+		
+			if (this.plugin.settings.renderContentAsHtml) {
+				MarkdownRenderer.render(
 					this.plugin.app,
-                    card.content,
-                    contentEl,
-                    card.file.path,
-                    this.plugin
-                );
-            } else {
-                contentEl.textContent = card.content;
-                contentEl.addClass('ellipsis');
-            }
-        }
-
-        if (this.plugin.app.workspace.getActiveFile() === card.file) {
-            cardElement.addClass('card-navigator-active');
-        }
-
-        this.addCardInteractions(cardElement, card);
-
-        return cardElement;
-    }
+					card.content,
+					contentEl,
+					card.file.path,
+					this.plugin
+				);
+			} else {
+				contentEl.textContent = card.content;
+				contentEl.addClass('ellipsis');
+			}
+		}
+	
+		this.addCardInteractions(cardElement, card);
+	
+		return cardElement;
+	}
 
     private addCardInteractions(cardElement: HTMLElement, card: Card) {
         cardElement.addEventListener('click', () => this.openFile(card.file));
