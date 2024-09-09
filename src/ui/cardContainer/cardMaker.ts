@@ -166,15 +166,26 @@ export class CardMaker {
         });
     }
 
+    // public copyLink(file: TFile) {
+    //     const link = this.plugin.app.fileManager.generateMarkdownLink(file, '');
+    //     navigator.clipboard.writeText(link).then(() => {
+	// 		new Notice(t('Link copied to clipboard'));
+    //     }).catch(err => {
+	// 		console.error(t('Failed to copy link: '), err);
+	// 		new Notice(t('Failed to copy link'));
+    //     });
+    // }
+
     public copyLink(file: TFile) {
-        const link = this.plugin.app.fileManager.generateMarkdownLink(file, '');
+        const link = `[[${file.basename}]]`;
         navigator.clipboard.writeText(link).then(() => {
-			new Notice(t('Link copied to clipboard'));
+            new Notice(t('Link copied to clipboard'));
         }).catch(err => {
-			console.error(t('Failed to copy link: '), err);
-			new Notice(t('Failed to copy link'));
+            console.error(t('Failed to copy link: '), err);
+            new Notice(t('Failed to copy link'));
         });
     }
+    
 
     public async copyCardContent(file: TFile) {
         try {
