@@ -3,7 +3,7 @@
 import { WorkspaceLeaf, TFile, TFolder } from "obsidian";
 import CardNavigatorPlugin from 'main';
 import { CardMaker } from './cardMaker';
-import { KeyboardNavigator } from './keyboardNavigator';
+import { KeyboardNavigator } from '../../common/keyboardNavigator';
 import { sortFiles } from 'common/utils';
 import { Card, SortCriterion, SortOrder } from 'common/types';
 

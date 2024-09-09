@@ -15,6 +15,7 @@ import {
 	DEFAULT_SETTINGS
 } from './types';
 import { TFolder } from 'obsidian';
+import { t } from 'i18next';
 
 export class SettingsManager {
     constructor(private plugin: CardNavigatorPlugin) {}
@@ -55,10 +56,27 @@ export class SettingsManager {
 
 	// Updates a number setting, clamping the value to the allowed range
     async updateNumberSetting(key: NumberSettingKey, value: number) {
-        const config = this.getNumberSettingConfig(key);
-        const clampedValue = Math.max(config.min, Math.min(config.max, value));
-        await this.updateSetting(key, clampedValue);
+        if (key === 'contentLength') {
+            await this.updateContentLengthSetting(value);
+        } else {
+            const config = this.getNumberSettingConfig(key);
+            const clampedValue = Math.max(config.min, Math.min(config.max, value));
+            await this.updateSetting(key, clampedValue);
+        }
     }
+
+	async updateContentLengthSetting(value: number) {
+		if (value <= 0) {
+			await this.updateSetting('isContentLengthUnlimited', true);
+			await this.updateSetting('contentLength', -1);
+		} else {
+			const config = this.getNumberSettingConfig('contentLength');
+			const clampedValue = Math.max(config.min, Math.min(config.max, value));
+			await this.updateSetting('isContentLengthUnlimited', false);
+			await this.updateSetting('contentLength', clampedValue);
+		}
+		this.plugin.triggerRefresh();
+	}
 
 	// Updates a boolean setting
     async updateBooleanSetting(key: keyof CardNavigatorSettings, value: boolean) {
@@ -119,7 +137,7 @@ export class SettingsManager {
 
 	async updateCurrentPreset(presetName: string) {
 		if (presetName === 'default') {
-			throw new Error("Default preset cannot be modified.");
+			throw new Error(t('Default preset cannot be modified.'));
 		}
 		this.plugin.settings.presets[presetName] = {
 			name: presetName,
@@ -132,7 +150,7 @@ export class SettingsManager {
 	// Deletes a preset
 	async deletePreset(presetName: string) {
 		if (presetName === 'default') {
-			throw new Error("Default preset cannot be deleted.");
+			throw new Error(t('Default preset cannot be deleted.'));
 		}
 		delete this.plugin.settings.presets[presetName];
 		// Apply default preset after deletion

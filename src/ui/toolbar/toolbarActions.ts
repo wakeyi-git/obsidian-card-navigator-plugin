@@ -1,6 +1,6 @@
 //src/ui/toolbar/toolbarActions.ts
 
-import { TFolder, FuzzySuggestModal, Setting } from 'obsidian';
+import { TFolder, FuzzySuggestModal, Setting, SliderComponent } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey } from '../../common/types';
 import { SettingsManager } from '../../common/settingsManager';
@@ -100,7 +100,13 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
     addToggleSetting('showFileName', t('Show File Name'), cardSection, plugin, settingsManager);
     addToggleSetting('showFirstHeader', t('Show First Header'), cardSection, plugin, settingsManager);
     addToggleSetting('showContent', t('Show Content'), cardSection, plugin, settingsManager);
+    
+    // Add content length limit toggle
+    addToggleSetting('isContentLengthUnlimited', t('Content Length Limit'), cardSection, plugin, settingsManager);
+    
+    // Add content length slider
     addNumberSetting('contentLength', t('Content Length'), cardSection, plugin, settingsManager);
+    
     addNumberSetting('fileNameFontSize', t('File Name Font Size'), cardSection, plugin, settingsManager);
     addNumberSetting('firstHeaderFontSize', t('First Header Font Size'), cardSection, plugin, settingsManager);
     addNumberSetting('contentFontSize', t('Content Font Size'), cardSection, plugin, settingsManager);
@@ -183,28 +189,54 @@ function addToggleSetting(key: keyof CardNavigatorSettings, name: string, contai
         .setName(name)
         .setClass('setting-item-toggle')
         .addToggle(toggle => toggle
-            .setValue(plugin.settings[key] as boolean)
+            .setValue(key === 'isContentLengthUnlimited' ? !plugin.settings[key] : plugin.settings[key] as boolean)
             .onChange(async (value) => {
+                if (key === 'isContentLengthUnlimited') {
+                    value = !value;  // Invert the value for this specific setting
+                }
                 await settingsManager.updateBooleanSetting(key, value);
+                if (key === 'isContentLengthUnlimited') {
+                    const contentLengthSlider = container.querySelector('.setting-item[data-setting="contentLength"]');
+                    if (contentLengthSlider) {
+                        (contentLengthSlider as HTMLElement).style.opacity = value ? '0.5' : '1';
+                        const sliderComponent = (contentLengthSlider as HTMLElement).querySelector('.slider');
+                        if (sliderComponent) {
+                            (sliderComponent as HTMLInputElement).disabled = value;
+                        }
+                    }
+                }
                 plugin.triggerRefresh();
             })
         );
 }
 
 function addNumberSetting(key: NumberSettingKey, name: string, parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
+    const config = settingsManager.getNumberSettingConfig(key);
+
     const setting = new Setting(parentEl)
         .setName(name)
         .setClass('setting-item-slider');
 
-    const config = settingsManager.getNumberSettingConfig(key);
-    setting.addSlider(slider => slider
-        .setLimits(config.min, config.max, config.step)
-        .setValue(plugin.settings[key])
-        .setDynamicTooltip()
-        .onChange(async (value) => {
-            await settingsManager.updateNumberSetting(key, value);
-            plugin.triggerRefresh();
-        }));
+    setting.settingEl.setAttribute('data-setting', key);
+
+    if (key === 'contentLength') {
+        setting.setDisabled(plugin.settings.isContentLengthUnlimited);
+    }
+
+    setting.addSlider((slider: SliderComponent) => {
+        slider
+            .setLimits(config.min, config.max, config.step)
+            .setValue(plugin.settings[key])
+            .setDynamicTooltip()
+            .onChange(async (value: number) => {
+                if (key === 'contentLength' && plugin.settings.isContentLengthUnlimited) {
+                    return;
+                }
+                await settingsManager.updateNumberSetting(key, value);
+                plugin.triggerRefresh();
+            });
+        return slider;
+    });
 }
 
 function closeCurrentPopup() {

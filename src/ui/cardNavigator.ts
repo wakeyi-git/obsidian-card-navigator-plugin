@@ -4,7 +4,7 @@ import { ItemView, WorkspaceLeaf } from "obsidian";
 import CardNavigatorPlugin from '../main';
 import { Toolbar } from './toolbar/toolbar';
 import { CardContainer } from './cardContainer/cardContainer';
-import { KeyboardNavigator } from "./cardContainer/keyboardNavigator";
+import { KeyboardNavigator } from "../common/keyboardNavigator";
 import { t } from 'i18next';
 
 export const VIEW_TYPE_CARD_NAVIGATOR = "card-navigator-view";

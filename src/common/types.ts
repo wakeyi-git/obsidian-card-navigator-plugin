@@ -61,7 +61,8 @@ export interface CardNavigatorSettings {
     showContent: boolean;
     contentFontSize: number;
     contentLength: number;
-    lastActivePreset: string;
+    isContentLengthUnlimited: boolean;
+	lastActivePreset: string;
     presets: Record<string, Preset>;
 }
 
@@ -86,7 +87,8 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     showContent: true,
     contentFontSize: 15,
     contentLength: 500,
-    lastActivePreset: 'default',
+    isContentLengthUnlimited: false,
+	lastActivePreset: 'default',
     presets: {
         default: {
             name: 'Default',
@@ -110,8 +112,9 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
                 firstHeaderFontSize: 20,
                 showContent: true,
                 contentFontSize: 15,
-                contentLength: 500,
-            }
+				contentLength: 500,
+				isContentLengthUnlimited: false,
+			}
         }
     }
 };
@@ -127,7 +130,7 @@ export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> =
     fileNameFontSize: { min: 15, max: 25, step: 1 },
     firstHeaderFontSize: { min: 15, max: 25, step: 1 },
     contentFontSize: { min: 10, max: 20, step: 1 },
-    contentLength: { min: 0, max: 1000, step: 50 },
+    contentLength: { min: 1, max: 1001, step: 50 },
     animationDuration: { min: 100, max: 1000, step: 100 },
 };
 

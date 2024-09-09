@@ -4,6 +4,7 @@ import { Menu, TFile, MarkdownRenderer, Notice } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { Card } from 'common/types';
 import { sortFiles, separateFrontmatterAndContent } from 'common/utils';
+import { t } from 'i18next';
 
 export class CardMaker {
     constructor(private plugin: CardNavigatorPlugin) {}
@@ -51,10 +52,13 @@ export class CardMaker {
         return match ? match[1].trim() : undefined;
     }
 
-    private truncateContent(content: string): string {
-        const maxLength = this.plugin.settings.contentLength;
-        return content.length <= maxLength ? content : `${content.slice(0, maxLength)}...`;
-    }
+	private truncateContent(content: string): string {
+		if (this.plugin.settings.isContentLengthUnlimited) {
+			return content;
+		}
+		const maxLength = this.plugin.settings.contentLength;
+		return content.length <= maxLength ? content : `${content.slice(0, maxLength)}...`;
+	}
 
     createCardElement(card: Card): HTMLElement {
         const cardElement = document.createElement('div');
@@ -145,7 +149,7 @@ export class CardMaker {
             // 링크 복사 메뉴 항목 추가
             menu.addItem((item) => {
                 item
-                    .setTitle('Copy as Link')
+                    .setTitle(t('Copy as Link'))
                     .setIcon('link')
                     .onClick(() => {
                         this.copyLink(file);
@@ -155,7 +159,7 @@ export class CardMaker {
             // 카드 내용 복사 메뉴 항목 추가
             menu.addItem((item) => {
                 item
-                    .setTitle('Copy Card Content')
+                    .setTitle(t('Copy Card Content'))
                     .setIcon('file-text')
                     .onClick(() => {
                         this.copyCardContent(file);
@@ -169,10 +173,10 @@ export class CardMaker {
     public copyLink(file: TFile) {
         const link = this.plugin.app.fileManager.generateMarkdownLink(file, '');
         navigator.clipboard.writeText(link).then(() => {
-            new Notice('Link copied to clipboard');
+			new Notice(t('Link copied to clipboard'));
         }).catch(err => {
-            console.error('Failed to copy link: ', err);
-            new Notice('Failed to copy link');
+			console.error(t('Failed to copy link: '), err);
+			new Notice(t('Failed to copy link'));
         });
     }
 
@@ -182,10 +186,10 @@ export class CardMaker {
             const { cleanContent } = separateFrontmatterAndContent(content);
             const truncatedContent = this.truncateContent(cleanContent);
             await navigator.clipboard.writeText(truncatedContent);
-            new Notice('Card content copied to clipboard');
+			new Notice(t('Card content copied to clipboard'));
         } catch (err) {
-            console.error('Failed to copy card content: ', err);
-            new Notice('Failed to copy card content');
+			console.error(t('Failed to copy card content: '), err);
+			new Notice(t('Failed to copy card content'));
         }
     }
 

@@ -138,22 +138,33 @@ export class SettingTab extends PluginSettingTab {
     }
 
     // Add a number setting with a slider
-    private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): void {
-        const setting = new Setting(parentEl)
-            .setName(name)
-            .setDesc(desc);
-
-        const config = this.settingsManager.getNumberSettingConfig(key);
-        setting.addSlider(slider => slider
-            .setLimits(config.min, config.max, config.step)
-            .setValue(this.plugin.settings[key])
-            .setDynamicTooltip()
-            .onChange(async (value) => {
-                await this.settingsManager.updateNumberSetting(key, value);
-            }));
-        
-        setting.settingEl.addClass('setting-number');
-    }
+	private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): void {
+		const setting = new Setting(parentEl)
+			.setName(name)
+			.setDesc(desc);
+	
+		const config = this.settingsManager.getNumberSettingConfig(key);
+	
+		if (key === 'contentLength') {
+			setting.setClass('content-length-slider')
+				.setDisabled(this.plugin.settings.isContentLengthUnlimited);
+		}
+	
+		setting.addSlider(slider => slider
+			.setLimits(config.min, config.max, config.step)
+			.setValue(this.plugin.settings[key])
+			.setDynamicTooltip()
+			.onChange(async (value) => {
+				if (key === 'contentLength' && this.plugin.settings.isContentLengthUnlimited) {
+					return;
+				}
+				await this.settingsManager.updateNumberSetting(key, value);
+				this.plugin.triggerRefresh();
+			})
+		);
+	
+		setting.settingEl.addClass('setting-number');
+	}	
 
     // Add folder selection setting
     private addFolderSelectionSetting(parentEl: HTMLElement): void {
@@ -214,22 +225,36 @@ export class SettingTab extends PluginSettingTab {
     }
 
     // Add toggle setting for boolean options
-    private addToggleSetting(key: keyof CardNavigatorSettings, name: string, desc: string, parentEl: HTMLElement): void {
-        const settingEl = new Setting(parentEl)
-            .setName(name)
-            .setDesc(desc)
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings[key] as boolean)
-                .onChange(async (value) => {
-                    await this.settingsManager.updateBooleanSetting(key, value);
-                })).settingEl;
-
-        settingEl.addClass('setting-toggle');
-    }
+	private addToggleSetting(key: keyof CardNavigatorSettings, name: string, desc: string, parentEl: HTMLElement): void {
+		const settingEl = new Setting(parentEl)
+			.setName(name)
+			.setDesc(desc)
+			.addToggle(toggle => toggle
+				.setValue(key === 'isContentLengthUnlimited' ? !this.plugin.settings[key] : this.plugin.settings[key] as boolean)
+				.onChange(async (value) => {
+					if (key === 'isContentLengthUnlimited') {
+						value = !value;  // Invert the value for this specific setting
+					}
+					await this.settingsManager.updateBooleanSetting(key, value);
+					if (key === 'isContentLengthUnlimited') {
+						const contentLengthSlider = parentEl.querySelector('.content-length-slider');
+						if (contentLengthSlider) {
+							(contentLengthSlider as HTMLElement).style.opacity = value ? '0.5' : '1';
+							const sliderComponent = (contentLengthSlider as HTMLElement).querySelector('.slider');
+							if (sliderComponent) {
+								(sliderComponent as HTMLInputElement).disabled = value;
+							}
+						}
+					}
+					this.plugin.triggerRefresh();
+				})
+			).settingEl;
+	
+		settingEl.addClass('setting-toggle');
+	}
 
     // Add display settings section
-    private addCardSettings(containerEl: HTMLElement): void {
-
+	private addCardSettings(containerEl: HTMLElement): void {
 		new Setting(containerEl)
 			.setName(t('Card Settings'))
 			.setHeading();
@@ -238,11 +263,11 @@ export class SettingTab extends PluginSettingTab {
 			{ key: 'renderContentAsHtml', name: t('Render Content as HTML'), desc: t('If enabled, card content will be rendered as HTML') },
 			{ key: 'dragDropContent', name: t('Drag and Drop Content'), desc: t('When enabled, dragging a card will insert the note content instead of a link.') },
 		] as const;
-
+	
 		toggleSettings.forEach(setting => {
 			this.addToggleSetting(setting.key, setting.name, setting.desc, containerEl);
 		});
-
+	
 		displaySettings.forEach(({ key, name }) => {
 			this.addToggleSetting(
 				key, 
@@ -251,9 +276,23 @@ export class SettingTab extends PluginSettingTab {
 				containerEl
 			);
 		});
-
-		this.addNumberSetting('contentLength', t('Content Length'), t('Maximum content length displayed on each card'), containerEl);
-
+	
+		// Add content length limit toggle
+		this.addToggleSetting(
+			'isContentLengthUnlimited',
+			t('Content Length Limit'),
+			t('Toggle between limited and unlimited content length'),
+			containerEl
+		);
+	
+		// Add content length slider
+		this.addNumberSetting(
+			'contentLength',
+			t('Content Length Limit'),
+			t('Set the maximum content length displayed on each card when content length is limited.'),
+			containerEl
+		);
+	
 		fontSizeSettings.forEach(({ key, name }) => {
 			this.addNumberSetting(
 				key, 
@@ -263,7 +302,6 @@ export class SettingTab extends PluginSettingTab {
 			);
 		});
 	}
-
     // Add keyboard shortcuts information section
     private addKeyboardShortcutsInfo(containerEl: HTMLElement): void {
 	

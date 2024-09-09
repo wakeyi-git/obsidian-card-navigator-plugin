@@ -156,6 +156,29 @@
     width: 100%;
 }
 
+.content-length-container {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+    position: relative;
+}
+
+.content-length-container .slider-container {
+    flex-grow: 1;
+    width: calc(100% - 60px);
+    margin-right: 20px;
+    padding: 5px 0;
+}
+
+.content-length-container .toggle-container {
+    flex-shrink: 0;
+    width: 40px;
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
 .card-navigator-settings-popup .collapse-icon svg {
     width: 14px;
     height: 14px;
@@ -227,14 +250,15 @@
     width: calc((100% - (var(--cards-per-view) - 1) * var(--card-navigator-gap)) / var(--cards-per-view));
 }
 
-.card-navigator-card.card-navigator-active {
-    border: 2px solid var(--interactive-accent);
-    background-color: var(--background-primary);
+.card-navigator-card.card-navigator-active .card-navigator-filename,
+.card-navigator-card.card-navigator-active .card-navigator-first-header,
+.card-navigator-card.card-navigator-active .card-navigator-content {
+    color: var(--interactive-accent);
 }
 
 .card-navigator-card.card-navigator-focused {
-    outline: 2px solid var(--interactive-accent);
-    outline-offset: -2px;
+    border: 2px solid var(--interactive-accent);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .card-navigator-card:hover {

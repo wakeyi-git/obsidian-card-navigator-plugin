@@ -72,7 +72,7 @@ export default class CardNavigatorPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'focus-card-navigator',
-			name: 'Focus Card Navigator',
+			name: t('Focus Card Navigator'),
 			callback: () => {
 				const cardNavigator = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]?.view as CardNavigator;
 				if (cardNavigator) {
@@ -81,31 +81,27 @@ export default class CardNavigatorPlugin extends Plugin {
 			}
 		});
 		
-		this.addCommand({
-			id: 'blur-card-navigator',
-			name: 'Blur Card Navigator',
-			callback: () => {
-				const cardNavigator = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]?.view as CardNavigator;
-				if (cardNavigator) {
-					cardNavigator.cardContainer.blurNavigator();
-				}
-			}
-		});
+		// this.addCommand({
+		// 	id: 'blur-card-navigator',
+		// 	name: t('Blur Card Navigator'),
+		// 	callback: () => {
+		// 		const cardNavigator = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]?.view as CardNavigator;
+		// 		if (cardNavigator) {
+		// 			cardNavigator.cardContainer.blurNavigator();
+		// 		}
+		// 	}
+		// });
 
-		this.addCommand({
-            id: 'open-card-context-menu',
-            name: 'Open Card Context Menu',
-            checkCallback: (checking: boolean) => {
-                const cardNavigator = this.getActiveCardNavigator();
-                if (cardNavigator) {
-                    if (!checking) {
-                        cardNavigator.openContextMenu();
-                    }
-                    return true;
-                }
-                return false;
-            }
-        });
+        // this.addCommand({
+        //     id: 'open-card-context-menu',
+        //     name: t('Open Card Context Menu'),
+        //     callback: () => {
+        //         const cardNavigator = this.getActiveCardNavigator();
+        //         if (cardNavigator) {
+        //             cardNavigator.openContextMenu();
+        //         }
+        //     }
+        // });
 
         this.addScrollCommands();
 
@@ -262,7 +258,7 @@ export default class CardNavigatorPlugin extends Plugin {
 		}
 	}
 
-	private getActiveCardNavigator(): CardNavigator | null {
+    private getActiveCardNavigator(): CardNavigator | null {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         if (leaves.length > 0) {
             return leaves[0].view as CardNavigator;

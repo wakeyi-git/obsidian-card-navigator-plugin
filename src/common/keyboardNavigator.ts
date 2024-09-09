@@ -1,12 +1,13 @@
-// src/ui/cardContainer/keyboardNavigator.ts
+// src/ui/cardContainer/common/keyboardNavigator.ts
 
 import { Menu, MenuItem } from 'obsidian';
 import CardNavigatorPlugin from 'main';
-import { CardContainer } from './cardContainer';
+import { CardContainer } from '../ui/cardContainer/cardContainer';
+import { t } from 'i18next';
 
 export class KeyboardNavigator {
     private focusedCardIndex: number | null = null;
-	private isFocused = false;
+    private isFocused = false;
 
     constructor(
         private plugin: CardNavigatorPlugin,
@@ -59,21 +60,21 @@ export class KeyboardNavigator {
                 e.preventDefault();
                 this.openContextMenu();
                 break;
-		}
+        }
     }
 
-	private handleBlur() {
+    private handleBlur() {
         this.isFocused = false;
+        this.updateFocusedCard();
     }
 
     public focusNavigator() {
         if (!this.containerEl) return;
 
-        this.containerEl.tabIndex = -1;  // 키보드 포커스를 받을 수 있도록 설정
+        this.containerEl.tabIndex = -1;
         this.containerEl.focus();
         this.isFocused = true;
 
-        // 초기 포커스 설정 (이전 코드와 동일)
         const activeCardIndex = this.findActiveCardIndex();
         if (activeCardIndex !== -1) {
             this.focusedCardIndex = activeCardIndex;
@@ -86,6 +87,11 @@ export class KeyboardNavigator {
         }
 
         this.updateFocusedCard();
+        
+        // Delay the scroll to ensure the focus style is applied
+        setTimeout(() => {
+            this.scrollToFocusedCard(true);
+        }, 50);
     }
 
     public blurNavigator() {
@@ -105,31 +111,44 @@ export class KeyboardNavigator {
             }
         }
         this.updateFocusedCard();
+        this.scrollToFocusedCard();
     }
 
     private moveFocusToStart() {
         this.focusedCardIndex = 0;
         this.updateFocusedCard();
+        this.scrollToFocusedCard();
     }
 
     private moveFocusToEnd() {
         this.focusedCardIndex = this.containerEl.children.length - 1;
         this.updateFocusedCard();
+        this.scrollToFocusedCard();
     }
 
     private updateFocusedCard() {
-        if (this.focusedCardIndex === null) return;
-
         Array.from(this.containerEl.children).forEach((card, index) => {
             card.classList.toggle('card-navigator-focused', index === this.focusedCardIndex);
         });
-
-        const focusedCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
-        this.scrollToCard(focusedCard);
     }
 
-    private scrollToCard(card: HTMLElement) {
-        this.cardContainer.centerCard(card);
+    private scrollToFocusedCard(immediate = false) {
+        if (this.focusedCardIndex === null) return;
+
+        const focusedCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
+        this.cardContainer.centerCard(focusedCard);
+
+        if (immediate) {
+            // Force immediate scroll without animation
+            const containerRect = this.containerEl.getBoundingClientRect();
+            const cardRect = focusedCard.getBoundingClientRect();
+            
+            if (this.cardContainer.isVertical) {
+                this.containerEl.scrollTop += cardRect.top - containerRect.top - (containerRect.height - cardRect.height) / 2;
+            } else {
+                this.containerEl.scrollLeft += cardRect.left - containerRect.left - (containerRect.width - cardRect.width) / 2;
+            }
+        }
     }
 
     private openFocusedCard() {
@@ -151,36 +170,27 @@ export class KeyboardNavigator {
             const menu = new Menu();
             this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
 
-			menu.addItem((item: MenuItem) => {
-				item
-					.setTitle('Copy as Link')
-					.setIcon('link')
-					.onClick(() => {
-						this.cardContainer.copyLink(file);
-					});
-			});
-		
-			menu.addItem((item: MenuItem) => {
-				item
-					.setTitle('Copy Card Content')
-					.setIcon('file-text')
-					.onClick(() => {
-						this.cardContainer.copyCardContent(file);
-					});
-			});
+            menu.addItem((item: MenuItem) => {
+                item
+                    .setTitle(t('Copy as Link'))
+                    .setIcon('link')
+                    .onClick(() => {
+                        this.cardContainer.copyLink(file);
+                    });
+            });
+        
+            menu.addItem((item: MenuItem) => {
+                item
+                    .setTitle(t('Copy Card Content'))
+                    .setIcon('file-text')
+                    .onClick(() => {
+                        this.cardContainer.copyCardContent(file);
+                    });
+            });
 
             const rect = focusedCard.getBoundingClientRect();
             menu.showAtPosition({ x: rect.left, y: rect.bottom });
         }
-    }
-
-    private truncateContent(content: string): string {
-        const maxLength = this.plugin.settings.contentLength;
-        return content.length <= maxLength ? content : `${content.slice(0, maxLength)}...`;
-    }
-
-	public getContextMenuInstructions(): string {
-        return "컨텍스트 메뉴를 열려면 Obsidian 설정의 단축키 섹션에서 'Open Card Context Menu' 명령에 대한 단축키를 설정하세요.";
     }
 
     private findActiveCardIndex(): number {

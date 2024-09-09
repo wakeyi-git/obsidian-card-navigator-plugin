@@ -3,6 +3,7 @@
 import { Notice } from 'obsidian';
 import CardNavigatorPlugin from '../main';
 import { Preset, CardNavigatorSettings } from './types';
+import { t } from 'i18next';
 
 export class PresetManager {
     private plugin: CardNavigatorPlugin;
@@ -26,15 +27,15 @@ export class PresetManager {
         if (this.plugin.settings.presets[presetName]) {
             this.tempPreset = { ...this.plugin.settings.presets[presetName].settings };
             this.applyTempPreset();
-            new Notice(`Preset '${presetName}' applied to temporary settings.`);
+			new Notice(t('Preset \'{presetName}\' applied to temporary settings.', { presetName }));
         } else {
-            new Notice(`Preset '${presetName}' does not exist.`);
+			new Notice(t('Preset \'{presetName}\' does not exist.', { presetName }));
         }
     }
 
     savePreset(presetName: string) {
         if (presetName === 'default') {
-            new Notice("Default preset cannot be modified.");
+			new Notice(t('Default preset cannot be modified.'));
             return;
         }
         this.plugin.settings.presets[presetName] = {
@@ -43,12 +44,12 @@ export class PresetManager {
         };
         this.plugin.settings.lastActivePreset = presetName;
         this.plugin.saveSettings();
-        new Notice(`Preset '${presetName}' saved successfully.`);
+		new Notice(t('Preset \'{presetName}\' saved successfully.', { presetName }));
     }
 
     deletePreset(presetName: string) {
         if (presetName === 'default') {
-            new Notice("Default preset cannot be deleted.");
+			new Notice(t('Default preset cannot be deleted.'));
             return;
         }
         delete this.plugin.settings.presets[presetName];
@@ -56,13 +57,13 @@ export class PresetManager {
             this.plugin.settings.lastActivePreset = 'default';
         }
         this.plugin.saveSettings();
-        new Notice(`Preset '${presetName}' deleted successfully.`);
+		new Notice(t('Preset \'{presetName}\' deleted successfully.', { presetName }));
     }
 
     revertToDefault() {
         this.tempPreset = { ...this.plugin.settings.presets['default'].settings };
         this.applyTempPreset();
-        new Notice("Reverted to default settings.");
+		new Notice(t('Reverted to default settings.'));
     }
 
     updateTempSetting<K extends keyof CardNavigatorSettings>(
