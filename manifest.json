@@ -1,7 +1,7 @@
 {
     "id": "card-navigator",
     "name": "Card Navigator",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "minAppVersion": "1.7.0",
     "description": "Navigate your notes visually with card-based interface",
     "author": "wakeyi",

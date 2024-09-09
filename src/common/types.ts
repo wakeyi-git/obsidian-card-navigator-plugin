@@ -146,15 +146,25 @@ export const fontSizeSettings: Array<{ name: string, key: NumberSettingKey }> = 
     { name: 'Content Font Size', key: 'contentFontSize' },
 ];
 
-export const keyboardShortcuts: Array<{ name: string }> = [
-    { name: 'Scroll Up One Card' },
-    { name: 'Scroll Down One Card' },
-    { name: 'Scroll Left One Card' },
-    { name: 'Scroll Right One Card' },
-    { name: 'Scroll Up/Left One Page' },
-    { name: 'Scroll Down/Right One Page' },
-    { name: 'Center Active Card' }
+export const keyboardShortcuts: Array<{ name: string, description: string }> = [
+    { name: 'Scroll Up One Card', description: 'Move up by one card' },
+    { name: 'Scroll Down One Card', description: 'Move down by one card' },
+    { name: 'Scroll Left One Card', description: 'Move left by one card' },
+    { name: 'Scroll Right One Card', description: 'Move right by one card' },
+    { name: 'Scroll Up/Left One Page', description: 'Move up/left by one page of cards' },
+    { name: 'Scroll Down/Right One Page', description: 'Move down/right by one page of cards' },
+    { name: 'Center Active Card', description: 'Center the currently active card' },
+    { name: 'Focus Card Navigator', description: 'Set focus to the Card Navigator' },
+    { name: 'Open Card Context Menu', description: 'Open the context menu for the focused card' }
 ];
+
+// Function to translate the keyboard shortcuts
+export function getTranslatedKeyboardShortcuts() {
+    return keyboardShortcuts.map(shortcut => ({
+        name: t(shortcut.name),
+        description: t(shortcut.description)
+    }));
+}
 
 // Function to translate the labels
 export function getTranslatedSortOptions() {
@@ -175,12 +185,5 @@ export function getTranslatedFontSizeSettings() {
     return fontSizeSettings.map(setting => ({
         ...setting,
         name: t(setting.name)
-    }));
-}
-
-export function getTranslatedKeyboardShortcuts() {
-    return keyboardShortcuts.map(shortcut => ({
-        ...shortcut,
-        name: t(shortcut.name)
     }));
 }

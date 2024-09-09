@@ -302,25 +302,29 @@ export class SettingTab extends PluginSettingTab {
 			);
 		});
 	}
-    // Add keyboard shortcuts information section
-    private addKeyboardShortcutsInfo(containerEl: HTMLElement): void {
 	
+    // Add keyboard shortcuts information section
+	private addKeyboardShortcutsInfo(containerEl: HTMLElement): void {
 		new Setting(containerEl)
 			.setName(t('Keyboard Shortcuts'))
 			.setHeading();
 	
 		const shortcutDesc = containerEl.createEl('p');
 		shortcutDesc.setText(t('Card Navigator provides the following features that can be assigned keyboard shortcuts. You can set these up in Obsidian\'s Hotkeys settings:'));
-		
+	
 		const shortcutList = containerEl.createEl('ul');
-		keyboardShortcuts.forEach(({ name }) => {
+		keyboardShortcuts.forEach(({ name, description }) => {
 			const item = shortcutList.createEl('li');
-			item.setText(t(name));
+			item.createEl('span', { text: t(name), cls: 'keyboard-shortcut-name' });
+			item.createEl('span', { text: ` - ${t(description)}`, cls: 'keyboard-shortcut-description' });
 		});
-		
+	
 		const customizeNote = containerEl.createEl('p');
 		customizeNote.setText(t('To set up shortcuts for these actions, go to Settings → Hotkeys and search for "Card Navigator". You can then assign your preferred key combinations for each action.'));
-	}	
+	
+		const additionalNote = containerEl.createEl('p');
+		additionalNote.setText(t('Note: Some shortcuts like arrow keys for navigation and Enter for opening cards are built-in and cannot be customized.'));
+	}
 }
 
 class SavePresetModal extends Modal {

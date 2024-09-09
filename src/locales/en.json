@@ -105,5 +105,15 @@
 	"Unlimited/limited Toggle": "Unlimited/limited Toggle",
 	"Content Length Limit": "Content Length Limit",
 	"Toggle between limited and unlimited content length":	"Toggle between limited and unlimited content length",
-	"Set the maximum content length displayed on each card when content length is limited.": "Set the maximum content length displayed on each card when content length is limited."
+	"Set the maximum content length displayed on each card when content length is limited.": "Set the maximum content length displayed on each card when content length is limited.",
+    "Move up by one card": "Move up by one card",
+    "Move down by one card": "Move down by one card",
+    "Move left by one card": "Move left by one card",
+    "Move right by one card": "Move right by one card",
+    "Move up/left by one page of cards": "Move up/left by one page of cards",
+    "Move down/right by one page of cards": "Move down/right by one page of cards",
+    "Center the currently active card": "Center the currently active card",
+    "Set focus to the Card Navigator": "Set focus to the Card Navigator",
+    "Open the context menu for the focused card": "Open the context menu for the focused card",
+	"Note: Some shortcuts like arrow keys for navigation and Enter for opening cards are built-in and cannot be customized.": "Note: Some shortcuts like arrow keys for navigation and Enter for opening cards are built-in and cannot be customized."
 }

@@ -108,5 +108,15 @@
 	"Unlimited/limited Toggle": "무제한/제한 토글", 
 	"Content Length Limit": "본문 길이 제한",
 	"Toggle between limited and unlimited content length":	"제한된 콘텐츠 길이와 무제한 콘텐츠 길이 간 전환",
-	"Set the maximum content length displayed on each card when content length is limited.": "콘텐츠 길이가 제한된 경우 각 카드에 표시되는 최대 콘텐츠 길이를 설정합니다."
+	"Set the maximum content length displayed on each card when content length is limited.": "콘텐츠 길이가 제한된 경우 각 카드에 표시되는 최대 콘텐츠 길이를 설정합니다.",
+    "Move up by one card": "카드 한 개 위로 이동",
+    "Move down by one card": "카드 한 개 아래로 이동",
+    "Move left by one card": "카드 한 개 왼쪽으로 이동",
+    "Move right by one card": "카드 한 개 오른쪽으로 이동",
+    "Move up/left by one page of cards": "카드 한 페이지만큼 위로/왼쪽으로 이동",
+    "Move down/right by one page of cards": "카드 한 페이지만큼 아래로/오른쪽으로 이동",
+    "Center the currently active card": "현재 활성화된 카드를 중앙에 배치",
+    "Set focus to the Card Navigator": "카드 네비게이터에 포커스 설정",
+    "Open the context menu for the focused card": "포커스된 카드의 컨텍스트 메뉴 열기",
+	"Note: Some shortcuts like arrow keys for navigation and Enter for opening cards are built-in and cannot be customized.": "참고: 탐색을 위한 화살표 키와 카드를 열기 위한 Enter 키와 같은 일부 단축키는 내장되어 있으며 사용자 정의할 수 없습니다."
 }
