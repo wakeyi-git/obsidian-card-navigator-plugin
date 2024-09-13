@@ -1,5 +1,3 @@
-//src/ui/common/types.ts
-
 import { TFile } from 'obsidian';
 import { t } from 'i18next';
 
@@ -41,6 +39,13 @@ export type NumberSettingKey = Extract<keyof CardNavigatorSettings, {
 }[keyof CardNavigatorSettings]>;
 
 export interface CardNavigatorSettings {
+	defaultLayout: 'auto' | 'list' | 'grid' | 'masonry';
+	minCardWidth: number;
+	maxCardWidth: number;
+	listLayoutThreshold: number;
+	gridLayoutThreshold: number;
+    gridColumns: number;
+    masonryColumns: number;
     cardsPerView: number;
     useSelectedFolder: boolean;
     selectedFolder: string | null;
@@ -67,8 +72,15 @@ export interface CardNavigatorSettings {
 }
 
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {
-    cardsPerView: 5,
-    useSelectedFolder: false,
+	defaultLayout: 'auto',
+	minCardWidth: 250,
+	maxCardWidth: 300,
+	listLayoutThreshold: 600,
+	gridLayoutThreshold: 900,
+    gridColumns: 4,
+    masonryColumns: 4,
+    cardsPerView: 4,
+	useSelectedFolder: false,
     selectedFolder: null,
     sortCriterion: 'fileName',
     sortOrder: 'asc',
@@ -93,8 +105,15 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
         default: {
             name: 'Default',
             settings: {
-                cardsPerView: 5,
-                useSelectedFolder: false,
+				defaultLayout: 'auto',
+				minCardWidth: 250,
+				maxCardWidth: 300,
+				listLayoutThreshold: 600,
+				gridLayoutThreshold: 900,
+				gridColumns: 4,
+				masonryColumns: 4,
+				cardsPerView: 4,
+				useSelectedFolder: false,
                 selectedFolder: null,
                 sortCriterion: 'fileName',
                 sortOrder: 'asc',
@@ -126,6 +145,12 @@ export interface RangeSettingConfig {
 }
 
 export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> = {
+	minCardWidth: { min: 150, max: 400, step: 10 },
+	maxCardWidth: { min: 200, max: 600, step: 10 },
+	listLayoutThreshold: { min: 300, max: 1200, step: 50 },
+	gridLayoutThreshold: { min: 600, max: 1800, step: 50 },
+	gridColumns: { min: 1, max: 10, step: 1 },
+    masonryColumns: { min: 1, max: 10, step: 1 },
     cardsPerView: { min: 1, max: 10, step: 1 },
     fileNameFontSize: { min: 15, max: 25, step: 1 },
     firstHeaderFontSize: { min: 15, max: 25, step: 1 },

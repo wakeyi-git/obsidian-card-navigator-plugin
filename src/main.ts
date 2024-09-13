@@ -109,6 +109,40 @@ export default class CardNavigatorPlugin extends Plugin {
         this.refreshDebounced = debounce(() => this.refreshViews(), 200); // Debounce the refresh function to avoid excessive calls
 
         this.registerCentralizedEvents(); // Register central events for handling file and workspace changes
+
+		// Refresh card navigator when layout changes
+		this.registerEvent(
+            this.app.workspace.on('layout-change', () => {
+                this.refreshCardNavigator();
+            })
+        );
+    }
+
+	// Refresh card navigator when layout changes
+	refreshCardNavigator() {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        leaves.forEach((leaf) => {
+            if (leaf.view instanceof CardNavigator) {
+                leaf.view.cardContainer.handleResize();
+            }
+        });
+    }
+
+	// Updates the layout of the active Card Navigator
+	public updateCardNavigatorLayout(layout: CardNavigatorSettings['defaultLayout']) {
+        const cardNavigator = this.getActiveCardNavigator();
+        if (cardNavigator) {
+            cardNavigator.cardContainer.setLayout(layout);
+        }
+    }
+
+    // Get the active Card Navigator view
+    private getActiveCardNavigator(): CardNavigator | null {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        if (leaves.length > 0) {
+            return leaves[0].view as CardNavigator;
+        }
+        return null;
     }
 
     // Initialize the translation system (i18n)
@@ -268,15 +302,6 @@ export default class CardNavigatorPlugin extends Plugin {
         } else {
             console.error("Failed to activate Card Navigator view");
         }
-    }
-
-    // Get the active Card Navigator view
-    private getActiveCardNavigator(): CardNavigator | null {
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        if (leaves.length > 0) {
-            return leaves[0].view as CardNavigator; // Return the active Card Navigator view
-        }
-        return null;
     }
 
     // Center the active card in the Card Navigator

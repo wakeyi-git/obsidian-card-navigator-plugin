@@ -1,6 +1,10 @@
-import { WorkspaceLeaf, TFile, TFolder, Notice } from "obsidian";
+import { WorkspaceLeaf, TFile, TFolder, Notice, debounce } from "obsidian";
 import CardNavigatorPlugin from 'main';
 import { CardMaker } from './cardMaker';
+import { LayoutStrategy } from '../layouts/layoutStrategy';
+import { ListLayout } from '../layouts/listLayout';
+import { GridLayout } from '../layouts/gridLayout';
+import { MasonryLayout } from '../layouts/masonryLayout';
 import { KeyboardNavigator } from '../../common/keyboardNavigator';
 import { sortFiles, separateFrontmatterAndContent } from 'common/utils';
 import { Card, SortCriterion, SortOrder } from 'common/types';
@@ -9,10 +13,12 @@ import { t } from "i18next";
 export class CardContainer {
     private containerEl: HTMLElement | null = null;
     private cardMaker: CardMaker;
+    private layoutStrategy: LayoutStrategy;
     public isVertical: boolean;
     private cardGap: number;
     private keyboardNavigator: KeyboardNavigator | null = null;
     private cards: Card[] = [];
+    private resizeObserver: ResizeObserver;
 
     constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
 		this.cardMaker = new CardMaker(
@@ -22,6 +28,10 @@ export class CardContainer {
 		);
 		this.isVertical = false;
         this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
+		this.layoutStrategy = this.determineAutoLayout();
+        this.resizeObserver = new ResizeObserver(debounce(() => {
+            this.handleResize();
+        }, 100));
     }
 
     // Retrieves the value of a CSS variable. If not available, returns a default value.
@@ -32,12 +42,21 @@ export class CardContainer {
         return parseInt(valueStr) || defaultValue;
     }
 
+	// Sets up a ResizeObserver to monitor size changes of the container element.
+	private setupResizeObserver() {
+        if (this.containerEl) {
+            this.resizeObserver.observe(this.containerEl);
+        }
+    }
+
     // Initializes the card container with necessary settings and prepares it for use.
     async initialize(containerEl: HTMLElement) {
         this.containerEl = containerEl;
         await this.waitForLeafCreation();
         this.updateContainerStyle();
         this.keyboardNavigator = new KeyboardNavigator(this.plugin, this, this.containerEl);
+		this.setupResizeObserver();
+        this.layoutStrategy = this.determineAutoLayout();
         await this.refresh();
     }
 
@@ -53,6 +72,67 @@ export class CardContainer {
             };
             checkLeaf();
         });
+    }
+
+	// Determines the appropriate layout strategy based on the container size and plugin settings.
+	private determineAutoLayout(): LayoutStrategy {
+        if (!this.containerEl) return new ListLayout(true, this.cardGap, this.plugin.settings.alignCardHeight);
+    
+        const containerWidth = this.containerEl.offsetWidth;
+        const { 
+            alignCardHeight, 
+            isContentLengthUnlimited, 
+            contentLength,
+            minCardWidth,
+            maxCardWidth,
+            listLayoutThreshold,
+            gridLayoutThreshold
+        } = this.plugin.settings;
+	
+		let columns = Math.floor(containerWidth / maxCardWidth);
+		columns = Math.max(1, Math.min(columns, Math.floor(containerWidth / minCardWidth)));
+	
+        if (containerWidth < listLayoutThreshold) {
+            return new ListLayout(true, this.cardGap, alignCardHeight);
+        } else if (containerWidth < gridLayoutThreshold) {
+            return new GridLayout(2, this.cardGap);
+        } else {
+            if (alignCardHeight) {
+                return new GridLayout(columns, this.cardGap);
+            } else {
+                return new MasonryLayout(columns, this.cardGap, isContentLengthUnlimited, contentLength);
+            }
+        }
+    }
+
+	// Handles resizing of the container and applies a new layout strategy if needed.
+    public handleResize() {
+        if (this.plugin.settings.defaultLayout === 'auto') {
+            this.layoutStrategy = this.determineAutoLayout();
+        }
+        this.refresh();
+    }
+
+	// Sets the layout strategy based on the provided layout type ('auto', 'list', 'grid', or 'masonry').
+    setLayout(layout: 'auto' | 'list' | 'grid' | 'masonry') {
+        const { gridColumns, masonryColumns, isContentLengthUnlimited, contentLength, alignCardHeight } = this.plugin.settings;
+        
+        if (layout === 'auto') {
+            this.layoutStrategy = this.determineAutoLayout();
+        } else {
+            switch (layout) {
+                case 'list':
+                    this.layoutStrategy = new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
+                    break;
+                case 'grid':
+                    this.layoutStrategy = new GridLayout(gridColumns, this.cardGap);
+                    break;
+                case 'masonry':
+                    this.layoutStrategy = new MasonryLayout(masonryColumns, this.cardGap, isContentLengthUnlimited, contentLength);
+                    break;
+            }
+        }
+        this.refresh();
     }
 
     // Sets the layout orientation of the cards (vertical or horizontal).
@@ -139,22 +219,39 @@ export class CardContainer {
         const currentScrollTop = containerEl.scrollTop;
         const currentScrollLeft = containerEl.scrollLeft;
 
-        // Saves the index of the currently focused card.
         const focusedCardIndex = Array.from(containerEl.children).findIndex(
             child => child.classList.contains('card-navigator-focused')
+        );
+
+        const containerRect = containerEl.getBoundingClientRect();
+        const containerStyle = window.getComputedStyle(containerEl);
+        const paddingLeft = parseFloat(containerStyle.paddingLeft);
+        const paddingRight = parseFloat(containerStyle.paddingRight);
+        const availableWidth = containerRect.width - paddingLeft - paddingRight;
+
+        const cardPositions = this.layoutStrategy.arrange(
+            cardsData,
+            availableWidth,
+            containerRect.height,
+            this.plugin.settings.cardsPerView
         );
 
         containerEl.empty();
 
         this.cards = cardsData;
-
-        cardsData.forEach((cardData, index) => {
-            const cardEl = this.cardMaker.createCardElement(cardData);
+    
+        cardPositions.forEach(({ card, x, y, width, height }, index) => {
+            const cardEl = this.cardMaker.createCardElement(card);
+            cardEl.style.position = 'absolute';
+            cardEl.style.left = `${x + paddingLeft}px`;
+            cardEl.style.top = `${y}px`;
+            cardEl.style.width = `${width}px`;
+            cardEl.style.height = `${height}px`;
             containerEl.appendChild(cardEl);
-
-            cardEl.classList.add(this.isVertical ? 'vertical' : 'horizontal');
+    
+            cardEl.classList.add(this.layoutStrategy.getScrollDirection() === 'vertical' ? 'vertical' : 'horizontal');
             cardEl.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
-            cardEl.classList.toggle('card-navigator-active', cardData.file === this.plugin.app.workspace.getActiveFile());
+            cardEl.classList.toggle('card-navigator-active', card.file === this.plugin.app.workspace.getActiveFile());
             cardEl.classList.toggle('card-navigator-focused', index === focusedCardIndex);
         });
 
@@ -169,8 +266,17 @@ export class CardContainer {
             this.scrollToActiveCard(false);
         }
 
+        this.updateScrollDirection();
         void this.ensureCardSizesAreSet();
     }
+
+	// Updates the scroll direction of the container element based on the layout strategy.
+	private updateScrollDirection() {
+		if (!this.containerEl) return;
+		const scrollDirection = this.layoutStrategy.getScrollDirection();
+		this.containerEl.style.overflowY = scrollDirection === 'vertical' ? 'auto' : 'hidden';
+		this.containerEl.style.overflowX = scrollDirection === 'horizontal' ? 'auto' : 'hidden';
+	}
 
     // Clears the 'focused' status from all card elements.
     public clearFocusedCards() {
@@ -408,5 +514,8 @@ export class CardContainer {
     onClose() {
         this.plugin.app.workspace.off('active-leaf-change', this.plugin.triggerRefresh);
         this.plugin.app.vault.off('modify', this.plugin.triggerRefresh);
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+        }
     }
 }
