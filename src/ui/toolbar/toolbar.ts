@@ -17,23 +17,6 @@ export class Toolbar {
         this.createToolbar();
     }
 
-    // Sets the toolbar orientation (vertical or horizontal)
-    setOrientation(isVertical: boolean) {
-        if (this.isVertical !== isVertical) {
-            this.isVertical = isVertical;
-            this.updateToolbarStyle();
-            this.createToolbar();
-        }
-    }
-
-    // Updates the toolbar style based on orientation
-    private updateToolbarStyle() {
-        if (this.containerEl) {
-            this.containerEl.classList.toggle('vertical', this.isVertical);
-            this.containerEl.classList.toggle('horizontal', !this.isVertical);
-        }
-    }
-
     // Creates the toolbar UI elements
     private createToolbar() {
         if (!this.containerEl) return;

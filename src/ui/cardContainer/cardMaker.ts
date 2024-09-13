@@ -1,11 +1,15 @@
-import { Menu, TFile, MarkdownRenderer, Notice } from 'obsidian';
+import { Menu, TFile, MarkdownRenderer } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { Card } from 'common/types';
 import { sortFiles, separateFrontmatterAndContent } from 'common/utils';
 import { t } from 'i18next';
 
 export class CardMaker {
-    constructor(private plugin: CardNavigatorPlugin) {}
+	constructor(
+		private plugin: CardNavigatorPlugin,
+		private copyLinkCallback: (file: TFile) => void,
+		private copyContentCallback: (file: TFile) => void
+	) {}
 
     // Retrieve and create cards for all markdown files in the folder of the active file
     async getCardsForActiveFile(activeFile: TFile): Promise<Card[]> {
@@ -127,84 +131,58 @@ export class CardMaker {
     }
 
     // Determine the content to be dragged based on plugin settings
-    private getDragContent(card: Card): string {
-        if (this.plugin.settings.dragDropContent) {
-            let content = '';
-            if (this.plugin.settings.showFileName && card.fileName) {
-                content += `## ${card.fileName}\n\n`;
-            }
-            if (this.plugin.settings.showFirstHeader && card.firstHeader) {
-                content += `# ${card.firstHeader}\n\n`;
-            }
-            if (this.plugin.settings.showContent && card.content) {
-                content += `${card.content}\n\n`;
-            }
-            return content.trim() || `[[${card.file.name}]]`;
-        }
-        return `[[${card.file.name}]]`; // Default to file link
-    }
+	private getDragContent(card: Card): string {
+		if (this.plugin.settings.dragDropContent) {
+			let content = '';
+			if (this.plugin.settings.showFileName && card.fileName) {
+				content += `## ${card.fileName}\n\n`;
+			}
+			if (this.plugin.settings.showFirstHeader && card.firstHeader) {
+				content += `# ${card.firstHeader}\n\n`;
+			}
+			if (this.plugin.settings.showContent && card.content) {
+				content += `${card.content}\n\n`;
+			}
+			return content.trim() || this.plugin.app.fileManager.generateMarkdownLink(card.file, '');
+		}
+		return this.plugin.app.fileManager.generateMarkdownLink(card.file, ''); // Default to file link
+	}
 
     // Setup context menu for the card element with additional options
-    private setupContextMenu(cardElement: HTMLElement, file: TFile) {
-        cardElement.addEventListener('contextmenu', (e: MouseEvent) => {
-            e.preventDefault();
-            const menu = new Menu();
+	private setupContextMenu(cardElement: HTMLElement, file: TFile) {
+		cardElement.addEventListener('contextmenu', (e: MouseEvent) => {
+			e.preventDefault();
+			const menu = new Menu();
 
-            // Add Obsidian's default file menu options
-            this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
+			// Add Obsidian's default file menu options
+			this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
 
-            // Add separator in the context menu
-            menu.addSeparator();
+			// Add separator in the context menu
+			menu.addSeparator();
 
-            // Add option to copy link
-            menu.addItem((item) => {
-                item
-                    .setTitle(t('Copy as Link'))
-                    .setIcon('link')
-                    .onClick(() => {
-                        this.copyLink(file);
-                    });
-            });
+			// Add option to copy link
+			menu.addItem((item) => {
+				item
+					.setTitle(t('Copy as Link'))
+					.setIcon('link')
+					.onClick(() => {
+						this.copyLinkCallback(file);
+					});
+			});
 
-            // Add option to copy card content
-            menu.addItem((item) => {
-                item
-                    .setTitle(t('Copy Card Content'))
-                    .setIcon('file-text')
-                    .onClick(() => {
-                        this.copyCardContent(file);
-                    });
-            });
+			// Add option to copy card content
+			menu.addItem((item) => {
+				item
+					.setTitle(t('Copy Card Content'))
+					.setIcon('file-text')
+					.onClick(() => {
+						this.copyContentCallback(file);
+					});
+			});
 
-            menu.showAtPosition({ x: e.clientX, y: e.clientY });
-        });
-    }
-
-    // Copy the file link to clipboard
-    public copyLink(file: TFile) {
-        const link = `[[${file.basename}]]`;
-        navigator.clipboard.writeText(link).then(() => {
-            new Notice(t('Link copied to clipboard'));
-        }).catch(err => {
-            console.error(t('Failed to copy link: '), err);
-            new Notice(t('Failed to copy link'));
-        });
-    }
-    
-
-    // Copy the card content to clipboard
-    public async copyCardContent(file: TFile) {
-        try {
-            const content = await this.plugin.app.vault.read(file);
-            const { cleanContent } = separateFrontmatterAndContent(content); // Remove frontmatter
-            const truncatedContent = this.truncateContent(cleanContent); // Truncate the content
-            await navigator.clipboard.writeText(truncatedContent);
-			new Notice(t('Card content copied to clipboard'));
-        } catch (err) {
-			console.error(t('Failed to copy card content: '), err);
-			new Notice(t('Failed to copy card content'));
-        }
-    }
+			menu.showAtPosition({ x: e.clientX, y: e.clientY });
+		});
+	}
 
     // Open the file in a new workspace leaf
     private openFile(file: TFile) {

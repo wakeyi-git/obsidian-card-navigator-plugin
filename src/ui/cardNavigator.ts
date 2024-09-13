@@ -98,7 +98,6 @@ export class CardNavigator extends ItemView {
 
     public updateLayoutAndRefresh() {
         this.cardContainer.setOrientation(this.isVertical); // Set orientation for the card container
-        this.toolbar.setOrientation(this.isVertical); // Set orientation for the toolbar
         this.refresh(); // Refresh the view
     }
 

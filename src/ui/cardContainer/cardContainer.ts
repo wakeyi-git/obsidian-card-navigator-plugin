@@ -15,8 +15,12 @@ export class CardContainer {
     private cards: Card[] = [];
 
     constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
-        this.cardMaker = new CardMaker(this.plugin);
-        this.isVertical = false;
+		this.cardMaker = new CardMaker(
+			this.plugin,
+			(file: TFile) => this.copyLink(file),
+			(file: TFile) => this.copyCardContent(file)
+		);
+		this.isVertical = false;
         this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
     }
 
