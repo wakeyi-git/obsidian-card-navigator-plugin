@@ -1,5 +1,3 @@
-//src/ui/common/settingsManager.ts
-
 import CardNavigatorPlugin from '../main';
 import { 
     CardNavigatorSettings, 
@@ -65,6 +63,7 @@ export class SettingsManager {
         }
     }
 
+	// Updates the content length setting, with handling for unlimited content length
 	async updateContentLengthSetting(value: number) {
 		if (value <= 0) {
 			await this.updateSetting('isContentLengthUnlimited', true);
@@ -135,6 +134,7 @@ export class SettingsManager {
 		await this.plugin.presetManager.savePreset(presetName);
 	}
 
+	// Updates the current preset if it isn't the default preset
 	async updateCurrentPreset(presetName: string) {
 		if (presetName === 'default') {
 			throw new Error(t('Default preset cannot be modified.'));

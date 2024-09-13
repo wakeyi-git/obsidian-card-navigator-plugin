@@ -1,5 +1,3 @@
-// src/ui/cardContainer/common/keyboardNavigator.ts
-
 import { Menu, MenuItem, debounce } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { CardContainer } from '../ui/cardContainer/cardContainer';
@@ -9,6 +7,7 @@ export class KeyboardNavigator {
     private focusedCardIndex: number | null = null;
     private isFocused = false;
 
+    // Constructor to initialize the plugin, card container, and the container element
     constructor(
         private plugin: CardNavigatorPlugin,
         private cardContainer: CardContainer,
@@ -17,11 +16,13 @@ export class KeyboardNavigator {
         this.setupKeyboardEvents();
     }
 
+    // Set up keyboard events to listen for navigation actions
     private setupKeyboardEvents() {
         this.containerEl.addEventListener('keydown', this.handleKeyDown.bind(this));
         this.containerEl.addEventListener('blur', this.handleBlur.bind(this));
     }
 
+    // Handle various keyboard events for card navigation and interaction
     private handleKeyDown(e: KeyboardEvent) {
         if (!this.isFocused) return;
 
@@ -61,7 +62,8 @@ export class KeyboardNavigator {
 				this.openContextMenu();
 				break;
 			case 'e':
-				if (e.metaKey && e.ctrlKey) {  // Command + Control + E
+				// Open context menu with Command + Control + E
+				if (e.metaKey && e.ctrlKey) {  
 					e.preventDefault();
 					this.openContextMenu();
 				}
@@ -69,11 +71,13 @@ export class KeyboardNavigator {
         }
     }
 
+    // Handle the blur event by unfocusing and updating the UI
     private handleBlur() {
         this.isFocused = false;
         this.updateFocusedCard();
     }
 
+    // Focus the navigator, highlight the active or first visible card
     public focusNavigator() {
         if (!this.containerEl) return;
 
@@ -95,6 +99,7 @@ export class KeyboardNavigator {
         this.updateFocusedCard();
     }
 
+	// Blur the navigator and reset the focused card index
 	public blurNavigator() {
 		this.containerEl.blur();
 		this.isFocused = false;
@@ -102,6 +107,7 @@ export class KeyboardNavigator {
 		this.updateFocusedCard();
 	}
 
+    // Move focus between cards using a delta value
     private moveFocus(delta: number) {
         if (this.focusedCardIndex === null) {
             this.focusedCardIndex = 0;
@@ -115,18 +121,21 @@ export class KeyboardNavigator {
         this.scrollToFocusedCard();
     }
 
+    // Move focus to the first card
     private moveFocusToStart() {
         this.focusedCardIndex = 0;
         this.updateFocusedCard();
         this.scrollToFocusedCard();
     }
 
+    // Move focus to the last card
     private moveFocusToEnd() {
         this.focusedCardIndex = this.containerEl.children.length - 1;
         this.updateFocusedCard();
         this.scrollToFocusedCard();
     }
 
+	// Update the visual focus of the card with debouncing
 	private updateFocusedCard = debounce(() => {
 		if (!this.containerEl) return;
 	
@@ -139,6 +148,7 @@ export class KeyboardNavigator {
 		});
 	}, 50);
 
+    // Scroll the view to the focused card, optionally with immediate effect
     private scrollToFocusedCard(immediate = false) {
         if (this.focusedCardIndex === null) return;
 
@@ -158,6 +168,7 @@ export class KeyboardNavigator {
         }
     }
 
+    // Open the file linked to the focused card
     private openFocusedCard() {
         if (this.focusedCardIndex === null) return;
         
@@ -168,6 +179,7 @@ export class KeyboardNavigator {
         }
     }
 
+    // Open a context menu for the focused card
     public openContextMenu() {
         if (this.focusedCardIndex === null) return;
         
@@ -200,12 +212,14 @@ export class KeyboardNavigator {
         }
     }
 
+    // Find the currently active card (if any)
     private findActiveCardIndex(): number {
         return Array.from(this.containerEl.children).findIndex(
             child => child.classList.contains('card-navigator-active')
         );
     }
 
+    // Find the first visible card in the container
     private findFirstVisibleCardIndex(): number | null {
         const containerRect = this.containerEl.getBoundingClientRect();
         for (let i = 0; i < this.containerEl.children.length; i++) {
@@ -217,6 +231,7 @@ export class KeyboardNavigator {
         return null;
     }
 
+    // Check if the card is visible in the container's viewport
     private isCardVisible(cardRect: DOMRect, containerRect: DOMRect): boolean {
         return (
             cardRect.top >= containerRect.top &&

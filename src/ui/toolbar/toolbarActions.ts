@@ -1,5 +1,3 @@
-//src/ui/toolbar/toolbarActions.ts
-
 import { TFolder, FuzzySuggestModal, Setting, SliderComponent } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey } from '../../common/types';
@@ -8,25 +6,30 @@ import { t } from 'i18next';
 
 let currentPopup: { element: HTMLElement, type: ToolbarMenu } | null = null;
 
+// Modal for folder selection in the toolbar.
 export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     constructor(private plugin: CardNavigatorPlugin, private onSelect: (folder: TFolder) => void) {
         super(plugin.app);
     }
 
+    // Get all folders in the vault.
     getItems(): TFolder[] {
         return this.plugin.app.vault.getAllLoadedFiles()
             .filter((file): file is TFolder => file instanceof TFolder);
     }
 
+    // Display the folder path as the item text.
     getItemText(folder: TFolder): string {
         return folder.path;
     }
 
+    // Triggered when a folder is selected.
     onChooseItem(folder: TFolder): void {
         this.onSelect(folder);
     }
 }
 
+// Create a popup and attach it to the toolbar.
 function createPopup(className: string, type: ToolbarMenu): HTMLElement {
     closeCurrentPopup();
     const popup = createDiv(className);
@@ -39,6 +42,7 @@ function createPopup(className: string, type: ToolbarMenu): HTMLElement {
     return popup;
 }
 
+// Toggle the sort options in the toolbar.
 export function toggleSort(plugin: CardNavigatorPlugin) {
     const sortPopup = createPopup('card-navigator-sort-popup', 'sort');
     const currentSort = `${plugin.settings.sortCriterion}_${plugin.settings.sortOrder}`;
@@ -52,19 +56,23 @@ export function toggleSort(plugin: CardNavigatorPlugin) {
         { value: 'created_asc', label: t('Created (oldest first)') },
     ];
 
+    // Create a button for each sort option.
     sortOptions.forEach(option => {
         const button = createSortOption(option.value, option.label, currentSort, plugin);
         sortPopup.appendChild(button);
     });
 
+    // Prevent click events from closing the popup.
     sortPopup.addEventListener('click', (e) => e.stopPropagation());
 }
 
+// Create a button for a specific sort option.
 function createSortOption(value: string, label: string, currentSort: string, plugin: CardNavigatorPlugin): HTMLButtonElement {
     const option = createEl('button', {
         text: label,
         cls: `sort-option${currentSort === value ? ' active' : ''}`
     });
+    // Update sort settings when a sort option is clicked.
     option.addEventListener('click', async () => {
         const [criterion, order] = value.split('_') as [SortCriterion, SortOrder];
         await updateSortSettings(plugin, criterion, order);
@@ -73,6 +81,7 @@ function createSortOption(value: string, label: string, currentSort: string, plu
     return option;
 }
 
+// Update the plugin's sort settings and refresh the view.
 async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCriterion, order: SortOrder) {
     plugin.settings.sortCriterion = criterion;
     plugin.settings.sortOrder = order;
@@ -80,20 +89,21 @@ async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCr
     plugin.triggerRefresh();
 }
 
+// Toggle the settings popup in the toolbar.
 export function toggleSettings(plugin: CardNavigatorPlugin) {
     const settingsPopup = createPopup('card-navigator-settings-popup', 'settings');
     const settingsManager = plugin.settingsManager;
 
-    // Add preset selection dropdown at the top
+    // Add preset selection dropdown.
     addPresetDropdown(settingsPopup, plugin, settingsManager);
 
-    // Container Settings Section
+    // Add container settings section.
     const containerSection = createCollapsibleSection(settingsPopup, t('Container Settings'));
     addFolderSelectionSetting(containerSection, plugin, settingsManager);
     addNumberSetting('cardsPerView', t('Cards per view'), containerSection, plugin, settingsManager);
     addToggleSetting('alignCardHeight', t('Align Card Height'), containerSection, plugin, settingsManager);
 
-    // Card Settings Section
+    // Add card settings section.
     const cardSection = createCollapsibleSection(settingsPopup, t('Card Settings'));
     addToggleSetting('renderContentAsHtml', t('Render Content as HTML'), cardSection, plugin, settingsManager);
     addToggleSetting('dragDropContent', t('Drag and Drop Content'), cardSection, plugin, settingsManager);
@@ -101,19 +111,21 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
     addToggleSetting('showFirstHeader', t('Show First Header'), cardSection, plugin, settingsManager);
     addToggleSetting('showContent', t('Show Content'), cardSection, plugin, settingsManager);
     
-    // Add content length limit toggle
+    // Add content length limit toggle.
     addToggleSetting('isContentLengthUnlimited', t('Content Length Limit'), cardSection, plugin, settingsManager);
     
-    // Add content length slider
+    // Add content length slider.
     addNumberSetting('contentLength', t('Content Length'), cardSection, plugin, settingsManager);
     
     addNumberSetting('fileNameFontSize', t('File Name Font Size'), cardSection, plugin, settingsManager);
     addNumberSetting('firstHeaderFontSize', t('First Header Font Size'), cardSection, plugin, settingsManager);
     addNumberSetting('contentFontSize', t('Content Font Size'), cardSection, plugin, settingsManager);
 
+    // Prevent click events from closing the popup.
     settingsPopup.addEventListener('click', (e) => e.stopPropagation());
 }
 
+// Create a collapsible section for settings.
 function createCollapsibleSection(parentEl: HTMLElement, title: string): HTMLElement {
     const sectionEl = parentEl.createDiv('tree-item graph-control-section');
     const selfEl = sectionEl.createDiv('tree-item-self');
@@ -123,6 +135,7 @@ function createCollapsibleSection(parentEl: HTMLElement, title: string): HTMLEle
     innerEl.createEl('header', { text: title, cls: 'graph-control-section-header' });
     const contentEl = sectionEl.createDiv('tree-item-children');
 
+    // Toggle the display of the section's content when clicked.
     selfEl.addEventListener('click', () => {
         const isCollapsed = sectionEl.hasClass('is-collapsed');
         sectionEl.toggleClass('is-collapsed', !isCollapsed);
@@ -132,10 +145,11 @@ function createCollapsibleSection(parentEl: HTMLElement, title: string): HTMLEle
     return contentEl;
 }
 
+// Add the dropdown to select a preset.
 function addPresetDropdown(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager) {
     new Setting(containerEl)
         .setName(t('Select Preset'))
-		.setClass('setting-item-dropdown')
+        .setClass('setting-item-dropdown')
         .addDropdown(dropdown => {
             const presets = settingsManager.getPresets();
             Object.keys(presets).forEach(presetName => {
@@ -151,10 +165,11 @@ function addPresetDropdown(containerEl: HTMLElement, plugin: CardNavigatorPlugin
         });
 }
 
+// Add the folder selection setting to the settings UI.
 function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
     const folderSettingEl = new Setting(parentEl)
         .setName(t('Folder Selection'))
-		.setClass('setting-item-dropdown')
+        .setClass('setting-item-dropdown')
         .addDropdown(dropdown => dropdown
             .addOption('active', t('Active File\'s Folder'))
             .addOption('selected', t('Selected Folder'))
@@ -171,6 +186,7 @@ function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorP
     }
 }
 
+// Add the folder picker when "Selected Folder" is enabled.
 function addFolderSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
     new Setting(parentEl)
         .setName(t('Select Folder'))
@@ -184,6 +200,7 @@ function addFolderSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, se
             }));
 }
 
+// Add a toggle switch for a setting.
 function addToggleSetting(key: keyof CardNavigatorSettings, name: string, container: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager) {
     new Setting(container)
         .setName(name)
@@ -210,6 +227,7 @@ function addToggleSetting(key: keyof CardNavigatorSettings, name: string, contai
         );
 }
 
+// Add a number input slider for a setting.
 function addNumberSetting(key: NumberSettingKey, name: string, parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
     const config = settingsManager.getNumberSettingConfig(key);
 
@@ -239,6 +257,7 @@ function addNumberSetting(key: NumberSettingKey, name: string, parentEl: HTMLEle
     });
 }
 
+// Close the current popup.
 function closeCurrentPopup() {
     if (currentPopup) {
         currentPopup.element.remove();
@@ -247,6 +266,7 @@ function closeCurrentPopup() {
     }
 }
 
+// Close the popup if clicked outside of it.
 function onClickOutside(event: MouseEvent) {
     const toolbarEl = document.querySelector('.card-navigator-toolbar-container');
     if (currentPopup && !currentPopup.element.contains(event.target as Node) && !toolbarEl?.contains(event.target as Node)) {

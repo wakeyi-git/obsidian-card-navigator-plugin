@@ -1,5 +1,3 @@
-//src/ui/cardNavigator.ts
-
 import { ItemView, WorkspaceLeaf, Menu } from "obsidian";
 import CardNavigatorPlugin from '../main';
 import { Toolbar } from './toolbar/toolbar';
@@ -18,130 +16,130 @@ export class CardNavigator extends ItemView {
 
     constructor(leaf: WorkspaceLeaf, private plugin: CardNavigatorPlugin) {
         super(leaf);
-        this.toolbar = new Toolbar(this.plugin);
-        this.cardContainer = new CardContainer(this.plugin, this.leaf);
-        this.isVertical = this.calculateIsVertical();
-        this.resizeObserver = new ResizeObserver(this.handleResize.bind(this));
-        this.keyboardNavigator = new KeyboardNavigator(this.plugin, this.cardContainer, this.containerEl.children[1] as HTMLElement);
+        this.toolbar = new Toolbar(this.plugin); // Initialize toolbar
+        this.cardContainer = new CardContainer(this.plugin, this.leaf); // Initialize card container
+        this.isVertical = this.calculateIsVertical(); // Determine if the layout is vertical
+        this.resizeObserver = new ResizeObserver(this.handleResize.bind(this)); // Observer to detect resize events
+        this.keyboardNavigator = new KeyboardNavigator(this.plugin, this.cardContainer, this.containerEl.children[1] as HTMLElement); // Keyboard navigation for the cards
     }
 
     getViewType(): string {
-        return VIEW_TYPE_CARD_NAVIGATOR;
+        return VIEW_TYPE_CARD_NAVIGATOR; // Return the view type identifier
     }
 
     getDisplayText(): string {
-        return t("Card Navigator");
+        return t("Card Navigator"); // Displayed name for the view
     }
 
     getIcon(): string {
-        return "layers-3";
+        return "layers-3"; // Icon for the view
     }
 
     private calculateIsVertical(): boolean {
         const { width, height } = this.leaf.view.containerEl.getBoundingClientRect();
-        return height > width;
+        return height > width; // Check if the layout should be vertical based on dimensions
     }
 
     private handleResize() {
         const newIsVertical = this.calculateIsVertical();
         if (newIsVertical !== this.isVertical) {
             this.isVertical = newIsVertical;
-            this.updateLayoutAndRefresh();
+            this.updateLayoutAndRefresh(); // Update layout if orientation has changed
         }
     }
 
     public openContextMenu() {
-        const focusedCard = this.getFocusedCard();
+        const focusedCard = this.getFocusedCard(); // Get the currently focused card
         if (!focusedCard) return;
 
-        const file = this.cardContainer.getFileFromCard(focusedCard);
+        const file = this.cardContainer.getFileFromCard(focusedCard); // Get the file associated with the card
         if (!file) return;
 
         const menu = new Menu();
 
-        // 기존 옵시디언 파일 메뉴 항목 추가
+        // Trigger the default Obsidian file menu
         this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
 
-        // 구분선 추가
+        // Add a separator in the context menu
         menu.addSeparator();
 
-        // 링크 복사 메뉴 항목 추가
+        // Add a menu item for copying as a link
         menu.addItem((item) => {
             item
                 .setTitle(t('Copy as Link'))
                 .setIcon('link')
                 .onClick(() => {
-                    this.cardContainer.copyLink(file);
+                    this.cardContainer.copyLink(file); // Copy link to the card's file
                 });
         });
 
-        // 카드 내용 복사 메뉴 항목 추가
+        // Add a menu item for copying the card's content
         menu.addItem((item) => {
             item
                 .setTitle(t('Copy Card Content'))
                 .setIcon('file-text')
                 .onClick(() => {
-                    this.cardContainer.copyCardContent(file);
+                    this.cardContainer.copyCardContent(file); // Copy the card's content
                 });
         });
 
-        // 포커스된 카드의 위치에 메뉴 표시
+        // Display the menu at the card's location
         const rect = focusedCard.getBoundingClientRect();
         menu.showAtPosition({ x: rect.left, y: rect.bottom });
     }
 
 	public focusNavigator() {
-    this.keyboardNavigator.focusNavigator();
-}
+        this.keyboardNavigator.focusNavigator(); // Focus the keyboard navigator
+    }
 
     private getFocusedCard(): HTMLElement | null {
-        return this.containerEl.querySelector('.card-navigator-card.card-navigator-focused');
+        return this.containerEl.querySelector('.card-navigator-card.card-navigator-focused'); // Get the currently focused card element
     }
 
     public updateLayoutAndRefresh() {
-        this.cardContainer.setOrientation(this.isVertical);
-        this.toolbar.setOrientation(this.isVertical);
-        this.refresh();
+        this.cardContainer.setOrientation(this.isVertical); // Set orientation for the card container
+        this.toolbar.setOrientation(this.isVertical); // Set orientation for the toolbar
+        this.refresh(); // Refresh the view
     }
 
     async onOpen() {
         const container = this.containerEl.children[1] as HTMLElement;
-        container.empty();
+        container.empty(); // Clear container content
 
         const navigatorEl = container.createDiv('card-navigator');
     
-        const toolbarEl = navigatorEl.createDiv('card-navigator-toolbar');
-        const cardContainerEl = navigatorEl.createDiv('card-navigator-container');
+        const toolbarEl = navigatorEl.createDiv('card-navigator-toolbar'); // Create toolbar element
+        const cardContainerEl = navigatorEl.createDiv('card-navigator-container'); // Create card container element
 
-        this.toolbar.initialize(toolbarEl);
-        this.cardContainer.initialize(cardContainerEl);
-        this.keyboardNavigator = new KeyboardNavigator(this.plugin, this.cardContainer, cardContainerEl);
+        this.toolbar.initialize(toolbarEl); // Initialize the toolbar
+        this.cardContainer.initialize(cardContainerEl); // Initialize the card container
+        this.keyboardNavigator = new KeyboardNavigator(this.plugin, this.cardContainer, cardContainerEl); // Initialize keyboard navigation
 
-        this.isVertical = this.calculateIsVertical();
-        this.updateLayoutAndRefresh();
-        this.resizeObserver.observe(this.leaf.view.containerEl);
+        this.isVertical = this.calculateIsVertical(); // Check initial layout orientation
+        this.updateLayoutAndRefresh(); // Update layout and refresh
+        this.resizeObserver.observe(this.leaf.view.containerEl); // Start observing for resize events
 
-        await this.refresh();
-        await this.centerActiveCardOnOpen();
+        await this.refresh(); // Refresh the view
+        await this.centerActiveCardOnOpen(); // Center the active card when the view opens
     }
 
     private async centerActiveCardOnOpen() {
         if (this.plugin.settings.centerActiveCardOnOpen) {
             setTimeout(() => {
-                this.cardContainer.centerActiveCard();
+                this.cardContainer.centerActiveCard(); // Center the active card after a delay
             }, 200);
         }
     }
 
     async onClose() {
-        this.resizeObserver.disconnect();
-        this.toolbar.onClose();
-        this.cardContainer.onClose();
-		this.keyboardNavigator.blurNavigator(); 
+        this.resizeObserver.disconnect(); // Stop observing resize events
+        this.toolbar.onClose(); // Clean up toolbar
+        this.cardContainer.onClose(); // Clean up card container
+		this.keyboardNavigator.blurNavigator(); // Remove focus from keyboard navigation
     }
 
     async refresh() {
-        await this.toolbar.refresh();
-        await this.cardContainer.refresh();
+        await this.toolbar.refresh(); // Refresh the toolbar
+        await this.cardContainer.refresh(); // Refresh the card container
     }
 }

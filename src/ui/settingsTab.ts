@@ -1,5 +1,3 @@
-//src/ui/settingsTab.ts
-
 import { App, PluginSettingTab, Setting, Modal, Notice } from 'obsidian';
 import CardNavigatorPlugin from '../main';
 import { FolderSuggestModal } from './toolbar/toolbarActions';
@@ -16,6 +14,7 @@ import {
 import { t } from 'i18next';
 import { SettingsManager } from '../common/settingsManager';
 
+// Class to manage the settings tab in the plugin settings panel
 export class SettingTab extends PluginSettingTab {
     private settingsManager: SettingsManager;
 
@@ -24,44 +23,46 @@ export class SettingTab extends PluginSettingTab {
         this.settingsManager = plugin.settingsManager;
     }
 
+    // Main method to render the settings UI
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
 
+        // Add different sections to the settings tab
         this.addPresetSection(containerEl);
         this.addContainerSettings(containerEl);
         this.addCardSettings(containerEl);
         this.addKeyboardShortcutsInfo(containerEl);
     }
 
+    // Section for managing presets (create, update, delete)
     private addPresetSection(containerEl: HTMLElement): void {
-    
         const presets = this.settingsManager.getPresets();
 
-		// Add dropdown for selecting presets
-		new Setting(containerEl)
-			.setName(t('Select Preset'))
-			.setDesc(t('Select a preset created by the user to load the settings.'))
-			.addDropdown(dropdown => {
-				Object.keys(presets).forEach(presetName => {
-					dropdown.addOption(presetName, presetName);
-				});
-				dropdown.setValue(this.plugin.settings.lastActivePreset)
-					.onChange(async (value) => {
-						await this.settingsManager.applyPreset(value);
-						this.plugin.settings.lastActivePreset = value;
-						await this.plugin.saveSettings();
-						this.display(); // Refresh the settings tab
-					});
-			});
+        // Dropdown to select existing presets
+        new Setting(containerEl)
+            .setName(t('Select Preset'))
+            .setDesc(t('Select a preset created by the user to load the settings.'))
+            .addDropdown(dropdown => {
+                Object.keys(presets).forEach(presetName => {
+                    dropdown.addOption(presetName, presetName);
+                });
+                dropdown.setValue(this.plugin.settings.lastActivePreset)
+                    .onChange(async (value) => {
+                        await this.settingsManager.applyPreset(value);
+                        this.plugin.settings.lastActivePreset = value;
+                        await this.plugin.saveSettings();
+                        this.display(); // Refresh the settings tab
+                    });
+            });
 
-        // Add buttons for saving new preset and updating current preset
+        // Buttons to manage presets: Create, Update, Delete
         new Setting(containerEl)
             .setName(t('Managing Presets'))
-			.setDesc(t('Create, update, or delete presets.'))
+            .setDesc(t('Create, update, or delete presets.'))
             .addButton(button => button
                 .setButtonText(t('Create New'))
-				.setCta()
+                .setCta()
                 .onClick(() => {
                     new SavePresetModal(this.plugin.app, async (presetName) => {
                         if (presetName) {
@@ -103,70 +104,75 @@ export class SettingTab extends PluginSettingTab {
                     }
                 }));
 
-        // Add button for reverting to default settings
+        // Button to revert settings to default values
         new Setting(containerEl)
-			.setName(t('Revert to Default Settings'))
-			.setDesc(t('This button will revert the settings to their default values.'))
-			.addButton(button => button
-				.setButtonText(t('Revert'))
-				.onClick(async () => {
-					await this.settingsManager.revertToDefaultSettings();
-					new Notice(t('Settings reverted to default values'));
-					this.display(); // Refresh the settings tab
+            .setName(t('Revert to Default Settings'))
+            .setDesc(t('This button will revert the settings to their default values.'))
+            .addButton(button => button
+                .setButtonText(t('Revert'))
+                .onClick(async () => {
+                    await this.settingsManager.revertToDefaultSettings();
+                    new Notice(t('Settings reverted to default values'));
+                    this.display(); // Refresh the settings tab
                 }));
     }
 
+    // Section for container-related settings
     private addContainerSettings(containerEl: HTMLElement): void {
-
-		new Setting(containerEl)
-		.setName(t('Container Settings'))
-		.setHeading();
+        new Setting(containerEl)
+            .setName(t('Container Settings'))
+            .setHeading();
 
         this.addFolderSelectionSetting(containerEl);
         this.addSortSetting(containerEl);
 
-		this.addNumberSetting('cardsPerView', t('Cards per view'), t('Number of cards to display at once'), containerEl);
+        // Add a number setting for cards per view
+        this.addNumberSetting('cardsPerView', t('Cards per view'), t('Number of cards to display at once'), containerEl);
 
+        // List of toggle settings for the container
         const toggleSettings = [
             { key: 'alignCardHeight', name: t('Align Card Height'), desc: t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.') },
             { key: 'centerActiveCardOnOpen', name: t('Center Active Card on Open'), desc: t('Automatically center the active card when opening the Card Navigator') },
         ] as const;
 
+        // Add each toggle setting to the UI
         toggleSettings.forEach(setting => {
             this.addToggleSetting(setting.key, setting.name, setting.desc, containerEl);
         });
     }
 
     // Add a number setting with a slider
-	private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): void {
-		const setting = new Setting(parentEl)
-			.setName(name)
-			.setDesc(desc);
-	
-		const config = this.settingsManager.getNumberSettingConfig(key);
-	
-		if (key === 'contentLength') {
-			setting.setClass('content-length-slider')
-				.setDisabled(this.plugin.settings.isContentLengthUnlimited);
-		}
-	
-		setting.addSlider(slider => slider
-			.setLimits(config.min, config.max, config.step)
-			.setValue(this.plugin.settings[key])
-			.setDynamicTooltip()
-			.onChange(async (value) => {
-				if (key === 'contentLength' && this.plugin.settings.isContentLengthUnlimited) {
-					return;
-				}
-				await this.settingsManager.updateNumberSetting(key, value);
-				this.plugin.triggerRefresh();
-			})
-		);
-	
-		setting.settingEl.addClass('setting-number');
-	}	
+    private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): void {
+        const setting = new Setting(parentEl)
+            .setName(name)
+            .setDesc(desc);
 
-    // Add folder selection setting
+        const config = this.settingsManager.getNumberSettingConfig(key);
+
+        // Disable the slider if content length is unlimited
+        if (key === 'contentLength') {
+            setting.setClass('content-length-slider')
+                .setDisabled(this.plugin.settings.isContentLengthUnlimited);
+        }
+
+        // Add slider control
+        setting.addSlider(slider => slider
+            .setLimits(config.min, config.max, config.step)
+            .setValue(this.plugin.settings[key])
+            .setDynamicTooltip()
+            .onChange(async (value) => {
+                if (key === 'contentLength' && this.plugin.settings.isContentLengthUnlimited) {
+                    return;
+                }
+                await this.settingsManager.updateNumberSetting(key, value);
+                this.plugin.triggerRefresh();
+            })
+        );
+
+        setting.settingEl.addClass('setting-number');
+    }
+
+    // Section for folder selection settings
     private addFolderSelectionSetting(parentEl: HTMLElement): void {
         const folderSettingEl = new Setting(parentEl)
             .setName(t('Folder Selection'))
@@ -182,12 +188,13 @@ export class SettingTab extends PluginSettingTab {
 
         folderSettingEl.addClass('setting-folder-selection');
 
+        // Show folder selection if 'selected folder' is enabled
         if (this.plugin.settings.useSelectedFolder) {
             this.addFolderSetting(parentEl);
         }
     }
 
-    // Add folder setting when 'Selected Folder' option is chosen
+    // Add folder selection button when 'Selected Folder' is chosen
     private addFolderSetting(parentEl: HTMLElement): void {
         const folderEl = new Setting(parentEl)
             .setName(t('Select Folder'))
@@ -204,7 +211,7 @@ export class SettingTab extends PluginSettingTab {
         folderEl.addClass('setting-select-folder');
     }
 
-    // Add sort setting for default sorting method
+    // Section for sorting settings
     private addSortSetting(parentEl: HTMLElement): void {
         const sortEl = new Setting(parentEl)
             .setName(t('Default sort method'))
@@ -224,109 +231,113 @@ export class SettingTab extends PluginSettingTab {
         sortEl.addClass('setting-sort-method');
     }
 
-    // Add toggle setting for boolean options
-	private addToggleSetting(key: keyof CardNavigatorSettings, name: string, desc: string, parentEl: HTMLElement): void {
-		const settingEl = new Setting(parentEl)
-			.setName(name)
-			.setDesc(desc)
-			.addToggle(toggle => toggle
-				.setValue(key === 'isContentLengthUnlimited' ? !this.plugin.settings[key] : this.plugin.settings[key] as boolean)
-				.onChange(async (value) => {
-					if (key === 'isContentLengthUnlimited') {
-						value = !value;  // Invert the value for this specific setting
-					}
-					await this.settingsManager.updateBooleanSetting(key, value);
-					if (key === 'isContentLengthUnlimited') {
-						const contentLengthSlider = parentEl.querySelector('.content-length-slider');
-						if (contentLengthSlider) {
-							(contentLengthSlider as HTMLElement).style.opacity = value ? '0.5' : '1';
-							const sliderComponent = (contentLengthSlider as HTMLElement).querySelector('.slider');
-							if (sliderComponent) {
-								(sliderComponent as HTMLInputElement).disabled = value;
-							}
-						}
-					}
-					this.plugin.triggerRefresh();
-				})
-			).settingEl;
-	
-		settingEl.addClass('setting-toggle');
-	}
+    // Add toggle settings (boolean options)
+    private addToggleSetting(key: keyof CardNavigatorSettings, name: string, desc: string, parentEl: HTMLElement): void {
+        const settingEl = new Setting(parentEl)
+            .setName(name)
+            .setDesc(desc)
+            .addToggle(toggle => toggle
+                .setValue(key === 'isContentLengthUnlimited' ? !this.plugin.settings[key] : this.plugin.settings[key] as boolean)
+                .onChange(async (value) => {
+                    if (key === 'isContentLengthUnlimited') {
+                        value = !value;  // Invert the value for this specific setting
+                    }
+                    await this.settingsManager.updateBooleanSetting(key, value);
+                    if (key === 'isContentLengthUnlimited') {
+                        const contentLengthSlider = parentEl.querySelector('.content-length-slider');
+                        if (contentLengthSlider) {
+                            (contentLengthSlider as HTMLElement).style.opacity = value ? '0.5' : '1';
+                            const sliderComponent = (contentLengthSlider as HTMLElement).querySelector('.slider');
+                            if (sliderComponent) {
+                                (sliderComponent as HTMLInputElement).disabled = value;
+                            }
+                        }
+                    }
+                    this.plugin.triggerRefresh();
+                })
+            ).settingEl;
 
-    // Add display settings section
-	private addCardSettings(containerEl: HTMLElement): void {
-		new Setting(containerEl)
-			.setName(t('Card Settings'))
-			.setHeading();
-	
-		const toggleSettings = [
-			{ key: 'renderContentAsHtml', name: t('Render Content as HTML'), desc: t('If enabled, card content will be rendered as HTML') },
-			{ key: 'dragDropContent', name: t('Drag and Drop Content'), desc: t('When enabled, dragging a card will insert the note content instead of a link.') },
-		] as const;
-	
-		toggleSettings.forEach(setting => {
-			this.addToggleSetting(setting.key, setting.name, setting.desc, containerEl);
-		});
-	
-		displaySettings.forEach(({ key, name }) => {
-			this.addToggleSetting(
-				key, 
-				t(name), 
-				t('toggleDisplayFor', { name: t(name.toLowerCase()) }),
-				containerEl
-			);
-		});
-	
-		// Add content length limit toggle
-		this.addToggleSetting(
-			'isContentLengthUnlimited',
-			t('Content Length Limit'),
-			t('Toggle between limited and unlimited content length'),
-			containerEl
-		);
-	
-		// Add content length slider
-		this.addNumberSetting(
-			'contentLength',
-			t('Content Length Limit'),
-			t('Set the maximum content length displayed on each card when content length is limited.'),
-			containerEl
-		);
-	
-		fontSizeSettings.forEach(({ key, name }) => {
-			this.addNumberSetting(
-				key, 
-				t(name), 
-				t('setFontSizeFor', { name: t(name.toLowerCase()) }),
-				containerEl
-			);
-		});
-	}
-	
-    // Add keyboard shortcuts information section
-	private addKeyboardShortcutsInfo(containerEl: HTMLElement): void {
-		new Setting(containerEl)
-			.setName(t('Keyboard Shortcuts'))
-			.setHeading();
-	
-		const shortcutDesc = containerEl.createEl('p');
-		shortcutDesc.setText(t('Card Navigator provides the following features that can be assigned keyboard shortcuts. You can set these up in Obsidian\'s Hotkeys settings:'));
-	
-		const shortcutList = containerEl.createEl('ul');
-		keyboardShortcuts.forEach(({ name, description }) => {
-			const item = shortcutList.createEl('li');
-			item.createEl('span', { text: t(name), cls: 'keyboard-shortcut-name' });
-			item.createEl('span', { text: ` - ${t(description)}`, cls: 'keyboard-shortcut-description' });
-		});
-	
-		const customizeNote = containerEl.createEl('p');
-		customizeNote.setText(t('To set up shortcuts for these actions, go to Settings → Hotkeys and search for "Card Navigator". You can then assign your preferred key combinations for each action.'));
-	
-		const additionalNote = containerEl.createEl('p');
-		additionalNote.setText(t('Note: Some shortcuts like arrow keys for navigation and Enter for opening cards are built-in and cannot be customized.'));
-	}
+        settingEl.addClass('setting-toggle');
+    }
+
+    // Section for card display settings
+    private addCardSettings(containerEl: HTMLElement): void {
+        new Setting(containerEl)
+            .setName(t('Card Settings'))
+            .setHeading();
+
+        const toggleSettings = [
+            { key: 'renderContentAsHtml', name: t('Render Content as HTML'), desc: t('If enabled, card content will be rendered as HTML') },
+            { key: 'dragDropContent', name: t('Drag and Drop Content'), desc: t('When enabled, dragging a card will insert the note content instead of a link.') },
+        ] as const;
+
+        // Add each toggle setting
+        toggleSettings.forEach(setting => {
+            this.addToggleSetting(setting.key, setting.name, setting.desc, containerEl);
+        });
+
+        // Add display settings for card visuals
+        displaySettings.forEach(({ key, name }) => {
+            this.addToggleSetting(
+                key, 
+                t(name), 
+                t('toggleDisplayFor', { name: t(name.toLowerCase()) }),
+                containerEl
+            );
+        });
+
+        // Toggle for content length limit
+        this.addToggleSetting(
+            'isContentLengthUnlimited',
+            t('Content Length Limit'),
+            t('Toggle between limited and unlimited content length'),
+            containerEl
+        );
+
+        // Slider for content length when limit is enabled
+        this.addNumberSetting(
+            'contentLength',
+            t('Content Length Limit'),
+            t('Set the maximum content length displayed on each card when content length is limited.'),
+            containerEl
+        );
+
+        // Font size settings
+        fontSizeSettings.forEach(({ key, name }) => {
+            this.addNumberSetting(
+                key, 
+                t(name), 
+                t('setFontSizeFor', { name: t(name.toLowerCase()) }),
+                containerEl
+            );
+        });
+    }
+
+    // Section for displaying keyboard shortcuts information
+    private addKeyboardShortcutsInfo(containerEl: HTMLElement): void {
+        new Setting(containerEl)
+            .setName(t('Keyboard Shortcuts'))
+            .setHeading();
+
+        const shortcutDesc = containerEl.createEl('p');
+        shortcutDesc.setText(t('Card Navigator provides the following features that can be assigned keyboard shortcuts. You can set these up in Obsidian\'s Hotkeys settings:'));
+
+        const shortcutList = containerEl.createEl('ul');
+        keyboardShortcuts.forEach(({ name, description }) => {
+            const item = shortcutList.createEl('li');
+            item.createEl('span', { text: t(name), cls: 'keyboard-shortcut-name' });
+            item.createEl('span', { text: ` - ${t(description)}`, cls: 'keyboard-shortcut-description' });
+        });
+
+        const customizeNote = containerEl.createEl('p');
+        customizeNote.setText(t('To set up shortcuts for these actions, go to Settings → Hotkeys and search for "Card Navigator". You can then assign your preferred key combinations for each action.'));
+
+        const additionalNote = containerEl.createEl('p');
+        additionalNote.setText(t('Note: Some shortcuts like arrow keys for navigation and Enter for opening cards are built-in and cannot be customized.'));
+    }
 }
 
+// Modal to handle saving a new preset
 class SavePresetModal extends Modal {
     private result = '';
     private existingPresets: string[];
@@ -340,6 +351,7 @@ class SavePresetModal extends Modal {
         this.existingPresets = Object.keys(this.plugin.settingsManager.getPresets());
     }
 
+    // Display the modal when it's opened
     onOpen() {
         const { contentEl } = this;
         contentEl.empty();
@@ -356,6 +368,7 @@ class SavePresetModal extends Modal {
         warningEl.style.color = "var(--text-error)";
         warningEl.style.display = "none";
 
+        // Save button with validation for duplicate preset names
         new Setting(contentEl)
             .addButton((btn) =>
                 btn
@@ -372,6 +385,7 @@ class SavePresetModal extends Modal {
                     }));
     }
 
+    // Clear the modal content when it's closed
     onClose() {
         const { contentEl } = this;
         contentEl.empty();
