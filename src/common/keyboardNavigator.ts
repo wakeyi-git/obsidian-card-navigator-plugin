@@ -39,11 +39,11 @@ export class KeyboardNavigator {
                 break;
             case 'PageUp':
                 e.preventDefault();
-                this.moveFocus(-this.plugin.settings.cardsPerView);
+                this.moveFocusPage(-1);
                 break;
             case 'PageDown':
                 e.preventDefault();
-                this.moveFocus(this.plugin.settings.cardsPerView);
+                this.moveFocusPage(1);
                 break;
             case 'Home':
                 e.preventDefault();
@@ -113,13 +113,17 @@ export class KeyboardNavigator {
             this.focusedCardIndex = 0;
         } else {
             const newIndex = this.focusedCardIndex + delta;
-            if (newIndex >= 0 && newIndex < this.containerEl.children.length) {
-                this.focusedCardIndex = newIndex;
-            }
+            this.focusedCardIndex = Math.max(0, Math.min(newIndex, this.containerEl.children.length - 1));
         }
         this.updateFocusedCard();
         this.scrollToFocusedCard();
     }
+
+	// Move focus by a page (cardsPerView)
+	private moveFocusPage(direction: number) {
+		const pageSize = this.plugin.settings.cardsPerView;
+		this.moveFocus(direction * pageSize);
+	}
 
     // Move focus to the first card
     private moveFocusToStart() {
@@ -150,10 +154,10 @@ export class KeyboardNavigator {
 
     // Scroll the view to the focused card, optionally with immediate effect
     private scrollToFocusedCard(immediate = false) {
-        if (this.focusedCardIndex === null) return;
+        if (this.focusedCardIndex === null || !this.containerEl) return;
 
         const focusedCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
-        this.cardContainer.centerCard(focusedCard);
+        this.cardContainer.centerCard(focusedCard, !immediate);
 
         if (immediate) {
             // Force immediate scroll without animation

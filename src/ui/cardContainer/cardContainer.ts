@@ -125,34 +125,6 @@ export class CardContainer {
         this.keyboardNavigator?.blurNavigator();
     }
 
-    // Centers a specific card within the container, either horizontally or vertically.
-    public centerCard(card: HTMLElement) {
-        if (!this.containerEl) return;
-
-        const containerRect = this.containerEl.getBoundingClientRect();
-        const cardRect = card.getBoundingClientRect();
-
-        if (this.isVertical) {
-            const containerCenter = containerRect.top + containerRect.height / 2;
-            const cardCenter = cardRect.top + cardRect.height / 2;
-            const offset = cardCenter - containerCenter;
-
-            this.containerEl.scrollBy({
-                top: offset,
-                behavior: 'smooth'
-            });
-        } else {
-            const containerCenter = containerRect.left + containerRect.width / 2;
-            const cardCenter = cardRect.left + cardRect.width / 2;
-            const offset = cardCenter - containerCenter;
-
-            this.containerEl.scrollBy({
-                left: offset,
-                behavior: 'smooth'
-            });
-        }
-    }
-
     // Creates card data objects for a list of files.
     private async createCardsData(files: TFile[]): Promise<Card[]> {
         const mdFiles = files.filter(file => file.extension === 'md');
@@ -229,20 +201,26 @@ export class CardContainer {
         const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement | null;
         if (!activeCard) return;
 
+        this.centerCard(activeCard, animate);
+    }
+
+	// Centers a specific card within the container, either horizontally or vertically.
+    public centerCard(card: HTMLElement, animate = true) {
+        if (!this.containerEl) return;
+
         const containerRect = this.containerEl.getBoundingClientRect();
-        const activeCardRect = activeCard.getBoundingClientRect();
-        const { width: cardWidth, height: cardHeight } = this.getCardSize();
+        const cardRect = card.getBoundingClientRect();
 
         let offset = 0;
         let scrollProperty: 'scrollTop' | 'scrollLeft';
 
         if (this.isVertical) {
             const containerVisibleHeight = containerRect.height;
-            offset = activeCardRect.top - containerRect.top - (containerVisibleHeight - cardHeight) / 2;
+            offset = cardRect.top - containerRect.top - (containerVisibleHeight - cardRect.height) / 2;
             scrollProperty = 'scrollTop';
         } else {
             const containerVisibleWidth = containerRect.width;
-            offset = activeCardRect.left - containerRect.left - (containerVisibleWidth - cardWidth) / 2;
+            offset = cardRect.left - containerRect.left - (containerVisibleWidth - cardRect.width) / 2;
             scrollProperty = 'scrollLeft';
         }
 
