@@ -20,6 +20,7 @@ Card Navigator is an Obsidian plugin that offers a unique way to visualize and n
 - Context menu for quick actions on cards (1.0.2)
 - Multi-language support for English and Korean
 - Responsive design for improved mobile experience (1.0.2)
+- Multiple layout options: Auto, List, Grid, and Masonry (1.0.3)
 
 ## Installation
 
@@ -82,14 +83,7 @@ Card Navigator offers various customization options:
 - **Sorting**: Choose default sorting method for cards
 - **Folder Selection**: Option to use active file's folder or selected folder
 - **Presets**: Save and load different configurations
-
-## Presets (1.0.1)
-
-You can now create, update, and delete custom presets to quickly switch between different Card Navigator configurations:
-
-1. Open Card Navigator settings
-2. Use the preset dropdown to select, create, or manage presets
-3. Apply a preset to change multiple settings at once
+- **Layout**: Choose between Auto, List, Grid, and Masonry layouts (1.0.3)
 
 ## Multi-language Support
 
@@ -100,9 +94,58 @@ Card Navigator now supports multiple languages:
 
 The plugin will automatically use the Obsidian interface language when supported. You can contribute translations for other languages by submitting a pull request to the GitHub repository.
 
-## Mobile Responsiveness (1.0.2)
+## Presets (1.0.1)
 
-The Card Navigator interface has been optimized for improved performance on mobile devices, providing a seamless experience across various screen sizes.
+You can now create, update, and delete custom presets to quickly switch between different Card Navigator configurations:
+
+1. Open Card Navigator settings
+2. Use the preset dropdown to select, create, or manage presets
+3. Apply a preset to change multiple settings at once
+
+### Keyboard Navigation (1.0.2)
+
+Card Navigator now offers comprehensive keyboard navigation support, allowing you to browse and interact with your notes efficiently without using a mouse. Here's how to use the keyboard navigation features:
+
+1. **Focusing the Card Navigator**:
+   - Use the assigned hotkey to focus the Card Navigator (configurable in Obsidian's hotkey settings).
+   - When focused, the current card will be highlighted.
+
+2. **Navigating Between Cards**:
+   - Use arrow keys to move between cards:
+     - Left/Right: Move horizontally between cards
+     - Up/Down: Move vertically between cards
+   - PageUp/PageDown: Scroll one page of cards up or down
+   - Home: Move to the first card
+   - End: Move to the last card
+
+3. **Interacting with Cards**:
+   - Enter: Open the focused card in Obsidian
+   - Context Menu key or Cmd/Ctrl + E: Open the context menu for the focused card
+
+4. **Context Menu Actions**:
+   - When the context menu is open, use arrow keys to navigate menu items
+   - Enter: Select the highlighted menu item
+
+5. **Exiting Card Navigator Focus**:
+   - Press Tab or click outside the Card Navigator to exit focus mode
+
+The keyboard navigation works seamlessly with all layout options (Auto, List, Grid, and Masonry), adjusting its behavior based on the current layout.
+
+### Layout Options (1.0.3)
+
+Card Navigator now offers multiple layout options to suit your preferences:
+
+1. Auto: Automatically adjusts between list and grid layout based on the available space
+2. List: Displays cards in a single column, either vertically or horizontally
+3. Grid: Arranges cards in a fixed-column grid layout
+4. Masonry: Creates a dynamic grid where cards can have varying heights
+
+To change the layout:
+
+1. Open Card Navigator settings
+2. Go to the "Layout Settings" section
+3. Choose your preferred layout from the "Default Layout" dropdown
+4. Adjust additional settings specific to each layout type (e.g., number of columns for Grid and Masonry layouts)
 
 ## Feedback and Support
 
