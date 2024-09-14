@@ -339,10 +339,10 @@ export class SettingTab extends PluginSettingTab {
                     let invertOpacity = false;
                     
                     if (key === 'isBodyLengthUnlimited') {
-                        sliderClass = '.setting-item-slider';
+                        sliderClass = '.setting-body-length';
                         invertOpacity = true;
                     } else if (key === 'alignCardHeight') {
-                        sliderClass = '.setting-item-slider';
+                        sliderClass = '.setting-card-height';
                     }
                     
                     if (sliderClass) {
@@ -350,7 +350,7 @@ export class SettingTab extends PluginSettingTab {
                         if (slider) {
                             const opacity = invertOpacity ? (value ? '0.5' : '1') : (value ? '1' : '0.5');
                             (slider as HTMLElement).style.opacity = opacity;
-                            const sliderComponent = (slider as HTMLElement).querySelector('.slider');
+                            const sliderComponent = (slider as HTMLElement).querySelector('input[type="range"]');
                             if (sliderComponent) {
                                 (sliderComponent as HTMLInputElement).disabled = invertOpacity ? value : !value;
                             }
@@ -373,12 +373,12 @@ export class SettingTab extends PluginSettingTab {
         const config = this.settingsManager.getNumberSettingConfig(key);
 
         if (key === 'bodyLength') {
-            setting.setClass('setting-item-slider')
+            setting.setClass('setting-body-length')
                 .setDisabled(this.plugin.settings.isBodyLengthUnlimited);
         }
 
         if (key === 'cardsPerView') {
-            setting.setClass('setting-item-slider')
+            setting.setClass('setting-card-height')
                 .setDisabled(!this.plugin.settings.alignCardHeight);
         }
 
