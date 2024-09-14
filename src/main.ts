@@ -112,38 +112,39 @@ export default class CardNavigatorPlugin extends Plugin {
 
 		// Refresh card navigator when layout changes
 		this.registerEvent(
-            this.app.workspace.on('layout-change', () => {
-                this.refreshCardNavigator();
-            })
-        );
+			this.app.workspace.on('layout-change', () => {
+				this.refreshCardNavigator();
+			})
+		);
+
+		// Add this new event listener for settings changes
+		this.events.on('settings-updated', () => {
+			this.refreshCardNavigator();
+		});
     }
+
+	// Updates the layout of all Card Navigator instances
+	public updateCardNavigatorLayout(layout: CardNavigatorSettings['defaultLayout']) {
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+		leaves.forEach((leaf) => {
+			if (leaf.view instanceof CardNavigator) {
+				leaf.view.cardContainer.setLayout(layout);
+				leaf.view.refresh(); // Refresh the view to apply the new layout
+			}
+		});
+		this.saveSettings(); // Save the new layout setting
+	}
 
 	// Refresh card navigator when layout changes
 	refreshCardNavigator() {
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        leaves.forEach((leaf) => {
-            if (leaf.view instanceof CardNavigator) {
-                leaf.view.cardContainer.handleResize();
-            }
-        });
-    }
-
-	// Updates the layout of the active Card Navigator
-	public updateCardNavigatorLayout(layout: CardNavigatorSettings['defaultLayout']) {
-        const cardNavigator = this.getActiveCardNavigator();
-        if (cardNavigator) {
-            cardNavigator.cardContainer.setLayout(layout);
-        }
-    }
-
-    // Get the active Card Navigator view
-    private getActiveCardNavigator(): CardNavigator | null {
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        if (leaves.length > 0) {
-            return leaves[0].view as CardNavigator;
-        }
-        return null;
-    }
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+		leaves.forEach((leaf) => {
+			if (leaf.view instanceof CardNavigator) {
+				leaf.view.cardContainer.handleResize();
+				leaf.view.refresh(); // Refresh the view after handling resize
+			}
+		});
+	}
 
     // Initialize the translation system (i18n)
     private async initializeI18n() {
@@ -302,6 +303,15 @@ export default class CardNavigatorPlugin extends Plugin {
         } else {
             console.error("Failed to activate Card Navigator view");
         }
+    }
+
+    // Get the active Card Navigator view
+    private getActiveCardNavigator(): CardNavigator | null {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        if (leaves.length > 0) {
+            return leaves[0].view as CardNavigator; // Return the active Card Navigator view
+        }
+        return null;
     }
 
     // Center the active card in the Card Navigator

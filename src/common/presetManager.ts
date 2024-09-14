@@ -29,9 +29,15 @@ export class PresetManager {
         if (this.plugin.settings.presets[presetName]) {
             this.tempPreset = { ...this.plugin.settings.presets[presetName].settings };
             this.applyTempPreset();
-			new Notice(t('Preset \'{presetName}\' applied to temporary settings.', { presetName }));
+            
+            const newLayout = this.tempPreset.defaultLayout;
+            if (newLayout) {
+                this.plugin.updateCardNavigatorLayout(newLayout);
+            }
+
+            new Notice(t('Preset \'{presetName}\' applied to temporary settings.', { presetName }));
         } else {
-			new Notice(t('Preset \'{presetName}\' does not exist.', { presetName }));
+            new Notice(t('Preset \'{presetName}\' does not exist.', { presetName }));
         }
     }
 

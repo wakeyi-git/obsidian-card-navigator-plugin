@@ -82,58 +82,49 @@ export class CardContainer {
     }
 
 	// Determines the appropriate layout strategy based on the container size and plugin settings.
-    private determineAutoLayout(): LayoutStrategy {
-        if (!this.containerEl) return new ListLayout(true, this.cardGap, this.plugin.settings.alignCardHeight);
-    
-        const containerStyle = window.getComputedStyle(this.containerEl);
-        const containerWidth = this.containerEl.offsetWidth;
-        const paddingLeft = parseFloat(containerStyle.paddingLeft);
-        const paddingRight = parseFloat(containerStyle.paddingRight);
-        const availableWidth = containerWidth - paddingLeft - paddingRight;
-
-        const { 
-            alignCardHeight, 
-            isContentLengthUnlimited, 
-            contentLength,
-            cardWidthThreshold,
-            defaultLayout
-        } = this.plugin.settings;
-    
-        if (defaultLayout !== 'auto') {
-            this.plugin.settings.layout = defaultLayout;
-            switch (defaultLayout) {
-                case 'list':
-                    return new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
-                case 'grid':
-                    return new GridLayout(this.plugin.settings.gridColumns, this.cardGap);
-                case 'masonry':
-                    return new MasonryLayout(this.plugin.settings.masonryColumns, this.cardGap, isContentLengthUnlimited, contentLength);
-            }
-        }
-
-        // Calculate the number of columns
-        let columns = Math.floor((availableWidth + this.cardGap) / (cardWidthThreshold + this.cardGap));
-        columns = Math.max(1, columns); // Ensure at least one column
-        
-		// Note: Actual card width can be calculated as follows if needed in the future:
-        // const cardWidth = (availableWidth - (columns - 1) * this.cardGap) / columns;
-
-        // Adjust gap for single column layout
-        const adjustedGap = columns === 1 ? Math.min(this.cardGap, 10) : this.cardGap;
-
-        if (columns === 1) {
-            this.plugin.settings.layout = 'list';
-            return new ListLayout(this.isVertical, adjustedGap, alignCardHeight);
-        } else {
-            if (alignCardHeight) {
-                this.plugin.settings.layout = 'grid';
-                return new GridLayout(columns, this.cardGap);
-            } else {
-                this.plugin.settings.layout = 'masonry';
-                return new MasonryLayout(columns, this.cardGap, isContentLengthUnlimited, contentLength);
-            }
-        }
-    }
+	private determineAutoLayout(): LayoutStrategy {
+		if (!this.containerEl) return new ListLayout(true, this.cardGap, this.plugin.settings.alignCardHeight);
+	
+		const containerStyle = window.getComputedStyle(this.containerEl);
+		const containerWidth = this.containerEl.offsetWidth;
+		const paddingLeft = parseFloat(containerStyle.paddingLeft);
+		const paddingRight = parseFloat(containerStyle.paddingRight);
+		const availableWidth = containerWidth - paddingLeft - paddingRight;
+	
+		const {
+			alignCardHeight,
+			isContentLengthUnlimited,
+			contentLength,
+			cardWidthThreshold,
+			defaultLayout
+		} = this.plugin.settings;
+	
+		if (defaultLayout !== 'auto') {
+			switch (defaultLayout) {
+				case 'list':
+					return new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
+				case 'grid':
+					return new GridLayout(this.plugin.settings.gridColumns, this.cardGap);
+				case 'masonry':
+					return new MasonryLayout(this.plugin.settings.masonryColumns, this.cardGap, isContentLengthUnlimited, contentLength);
+			}
+		}
+	
+		// Calculate the number of columns
+		let columns = Math.floor((availableWidth + this.cardGap) / (cardWidthThreshold + this.cardGap));
+		columns = Math.max(1, columns); // Ensure at least one column
+	
+		// Adjust gap for single column layout
+		const adjustedGap = columns === 1 ? Math.min(this.cardGap, 10) : this.cardGap;
+	
+		if (columns === 1) {
+			return new ListLayout(this.isVertical, adjustedGap, alignCardHeight);
+		} else if (alignCardHeight) {
+			return new GridLayout(columns, this.cardGap);
+		} else {
+			return new MasonryLayout(columns, this.cardGap, isContentLengthUnlimited, contentLength);
+		}
+	}
 
 	// Handles resizing of the container and applies a new layout strategy if needed.
     public handleResize() {

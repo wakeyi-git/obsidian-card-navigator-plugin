@@ -40,7 +40,6 @@ export type NumberSettingKey = Extract<keyof CardNavigatorSettings, {
 
 export interface CardNavigatorSettings {
     defaultLayout: 'auto' | 'list' | 'grid' | 'masonry';
-    layout: 'list' | 'grid' | 'masonry';
     cardWidthThreshold: number;
     gridColumns: number;
     masonryColumns: number;
@@ -71,7 +70,6 @@ export interface CardNavigatorSettings {
 
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     defaultLayout: 'auto',
-    layout: 'list',
     cardWidthThreshold: 250,
     gridColumns: 4,
     masonryColumns: 4,
@@ -102,7 +100,6 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
             name: 'Default',
             settings: {
 				defaultLayout: 'auto',
-				layout: 'list',
 				cardWidthThreshold: 250,
 				gridColumns: 4,
 				masonryColumns: 4,
