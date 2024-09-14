@@ -221,12 +221,9 @@ export class SettingTab extends PluginSettingTab {
 				.setHeading();
 
 			fontSizeSettings.forEach(({ key, name, description }) => {
-				this.addToggleSetting(
-					key,
-					t(name),
-					t(description),
-					containerEl
-				);
+				if (key === 'fileNameFontSize' || key === 'firstHeaderFontSize' || key === 'bodyFontSize') {
+					this.addNumberSetting(key, t(name), t(description), containerEl);
+				}
 			});
 		}
 
@@ -365,7 +362,7 @@ export class SettingTab extends PluginSettingTab {
     }
 
     // Add a number setting with a slider
-    private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): void {
+	private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): void {
         const setting = new Setting(parentEl)
             .setName(name)
             .setDesc(desc);
