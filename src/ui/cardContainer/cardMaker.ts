@@ -1,7 +1,7 @@
 import { Menu, TFile, MarkdownRenderer } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { Card } from 'common/types';
-import { sortFiles, separateFrontmatterAndContent } from 'common/utils';
+import { sortFiles, separateFrontmatterAndBody } from 'common/utils';
 import { t } from 'i18next';
 
 export class CardMaker {
@@ -31,14 +31,14 @@ export class CardMaker {
     public async createCard(file: TFile): Promise<Card> {
         try {
             const content = await this.plugin.app.vault.cachedRead(file);
-            const { cleanContent } = separateFrontmatterAndContent(content); // Remove frontmatter from content
-            const contentWithoutHeader = this.removeFirstHeader(cleanContent); // Remove first header from content
+            const { cleanBody } = separateFrontmatterAndBody(content); // Remove frontmatter from body
+            const bodyWithoutHeader = this.removeFirstHeader(cleanBody); // Remove first header from body
     
             return {
                 file,
                 fileName: this.plugin.settings.showFileName ? file.basename : undefined, // Show file name if enabled
-                firstHeader: this.plugin.settings.showFirstHeader ? this.findFirstHeader(cleanContent) : undefined, // Show first header if enabled
-                content: this.plugin.settings.showContent ? this.truncateContent(contentWithoutHeader) : undefined, // Show truncated content if enabled
+                firstHeader: this.plugin.settings.showFirstHeader ? this.findFirstHeader(cleanBody) : undefined, // Show first header if enabled
+                body: this.plugin.settings.showBody ? this.truncateBody(bodyWithoutHeader) : undefined, // Show truncated body if enabled
             };
         } catch (error) {
             console.error(`Failed to create card for file ${file.path}:`, error);
@@ -46,26 +46,26 @@ export class CardMaker {
         }
     }
 
-    // Remove the first header found in the content
-    private removeFirstHeader(content: string): string {
+    // Remove the first header found in the body
+    private removeFirstHeader(body: string): string {
         const headerRegex = /^#+\s+(.+)$/m;
-        return content.replace(headerRegex, '').trim();
+        return body.replace(headerRegex, '').trim();
     }
 
-    // Find the first header in the content, if any
-    private findFirstHeader(content: string): string | undefined {
+    // Find the first header in the body, if any
+    private findFirstHeader(body: string): string | undefined {
         const headerRegex = /^#+\s+(.+)$/m;
-        const match = content.match(headerRegex);
+        const match = body.match(headerRegex);
         return match ? match[1].trim() : undefined;
     }
 
-    // Truncate the content based on plugin settings
-	private truncateContent(content: string): string {
-		if (this.plugin.settings.isContentLengthUnlimited) {
-			return content;
+    // Truncate the body based on plugin settings
+	private truncateBody(body: string): string {
+		if (this.plugin.settings.isBodyLengthUnlimited) {
+			return body;
 		}
-		const maxLength = this.plugin.settings.contentLength;
-		return content.length <= maxLength ? content : `${content.slice(0, maxLength)}...`;
+		const maxLength = this.plugin.settings.bodyLength;
+		return body.length <= maxLength ? body : `${body.slice(0, maxLength)}...`;
 	}
 
     // Create the card element and add it to the DOM
@@ -85,23 +85,23 @@ export class CardMaker {
 			headerEl.style.setProperty('--first-header-font-size', `${this.plugin.settings.firstHeaderFontSize}px`);
 		}
 	
-		// Add content if enabled in settings
-		if (this.plugin.settings.showContent && card.content) {
-			const contentEl = cardElement.createEl('div', { cls: 'card-navigator-content' });
-			contentEl.style.setProperty('--content-font-size', `${this.plugin.settings.contentFontSize}px`);
+		// Add body if enabled in settings
+		if (this.plugin.settings.showBody && card.body) {
+			const contentEl = cardElement.createEl('div', { cls: 'card-navigator-body' });
+			contentEl.style.setProperty('--body-font-size', `${this.plugin.settings.bodyFontSize}px`);
 		
 			if (this.plugin.settings.renderContentAsHtml) {
 				// Render content as HTML if enabled
 				MarkdownRenderer.render(
 					this.plugin.app,
-					card.content,
+					card.body,
 					contentEl,
 					card.file.path,
 					this.plugin
 				);
 			} else {
 				// Render content as plain text
-				contentEl.textContent = card.content;
+				contentEl.textContent = card.body;
 				contentEl.addClass('ellipsis');
 			}
 		}
@@ -140,8 +140,8 @@ export class CardMaker {
 			if (this.plugin.settings.showFirstHeader && card.firstHeader) {
 				content += `# ${card.firstHeader}\n\n`;
 			}
-			if (this.plugin.settings.showContent && card.content) {
-				content += `${card.content}\n\n`;
+			if (this.plugin.settings.showBody && card.body) {
+				content += `${card.body}\n\n`;
 			}
 			return content.trim() || this.plugin.app.fileManager.generateMarkdownLink(card.file, '');
 		}

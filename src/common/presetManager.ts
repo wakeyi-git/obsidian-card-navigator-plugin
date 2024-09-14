@@ -2,7 +2,7 @@
 
 import { Notice } from 'obsidian';
 import CardNavigatorPlugin from '../main';
-import { Preset, CardNavigatorSettings } from './types';
+import { Preset, CardNavigatorSettings, DEFAULT_SETTINGS } from './types';
 import { t } from 'i18next';
 
 export class PresetManager {
@@ -83,6 +83,15 @@ export class PresetManager {
         value: CardNavigatorSettings[K]
     ) {
         this.tempPreset[key] = value;
+        this.applyTempPreset();
+    }
+
+    // Updates the temporary preset to default settings
+    updateTempPresetToDefault() {
+        const currentPresetName = this.plugin.settings.lastActivePreset;
+        this.tempPreset = { ...DEFAULT_SETTINGS };
+        delete this.tempPreset.presets; // Remove nested presets
+        this.tempPreset.lastActivePreset = currentPresetName; // Maintain the current preset
         this.applyTempPreset();
     }
 

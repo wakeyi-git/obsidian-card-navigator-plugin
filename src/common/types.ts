@@ -5,7 +5,7 @@ export interface Card {
     file: TFile;
     fileName?: string;
     firstHeader?: string;
-    content?: string;
+    body?: string;
 }
 
 export interface Preset {
@@ -60,10 +60,10 @@ export interface CardNavigatorSettings {
     fileNameFontSize: number;
     showFirstHeader: boolean;
     firstHeaderFontSize: number;
-    showContent: boolean;
-    contentFontSize: number;
-    contentLength: number;
-    isContentLengthUnlimited: boolean;
+    showBody: boolean;
+    bodyFontSize: number;
+    bodyLength: number;
+    isBodyLengthUnlimited: boolean;
 	lastActivePreset: string;
     presets: Record<string, Preset>;
 }
@@ -90,14 +90,14 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     fileNameFontSize: 20,
     showFirstHeader: true,
     firstHeaderFontSize: 20,
-    showContent: true,
-    contentFontSize: 15,
-    contentLength: 500,
-    isContentLengthUnlimited: false,
+    showBody: true,
+    bodyFontSize: 15,
+    bodyLength: 500,
+    isBodyLengthUnlimited: false,
     lastActivePreset: 'default',
     presets: {
         default: {
-            name: 'Default',
+            name: 'default',
             settings: {
 				defaultLayout: 'auto',
 				cardWidthThreshold: 250,
@@ -120,10 +120,10 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
 				fileNameFontSize: 20,
 				showFirstHeader: true,
 				firstHeaderFontSize: 20,
-				showContent: true,
-				contentFontSize: 15,
-				contentLength: 500,
-				isContentLengthUnlimited: false,
+				showBody: true,
+				bodyFontSize: 15,
+				bodyLength: 500,
+				isBodyLengthUnlimited: false,
 			}
         }
     }
@@ -142,21 +142,21 @@ export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> =
     cardsPerView: { min: 1, max: 10, step: 1 },
     fileNameFontSize: { min: 15, max: 25, step: 1 },
     firstHeaderFontSize: { min: 15, max: 25, step: 1 },
-    contentFontSize: { min: 10, max: 20, step: 1 },
-    contentLength: { min: 1, max: 1001, step: 50 },
+    bodyFontSize: { min: 10, max: 20, step: 1 },
+    bodyLength: { min: 1, max: 1001, step: 50 },
     animationDuration: { min: 100, max: 1000, step: 100 },
 };
 
-export const displaySettings: Array<{ name: string, key: keyof CardNavigatorSettings }> = [
-    { name: 'Show File Name', key: 'showFileName' },
-    { name: 'Show First Header', key: 'showFirstHeader' },
-    { name: 'Show Content', key: 'showContent' },
+export const displaySettings: Array<{ name: string, key: keyof CardNavigatorSettings, description: string }> = [
+    { name: 'Show File Name', key: 'showFileName', description: 'Toggle File Name Display' },
+    { name: 'Show First Header', key: 'showFirstHeader', description: 'Toggle First Header Display' },
+    { name: 'Show Body', key: 'showBody', description: 'Toggle Body Display' },
 ];
 
-export const fontSizeSettings: Array<{ name: string, key: NumberSettingKey }> = [
-    { name: 'File Name Font Size', key: 'fileNameFontSize' },
-    { name: 'First Header Font Size', key: 'firstHeaderFontSize' },
-    { name: 'Content Font Size', key: 'contentFontSize' },
+export const fontSizeSettings: Array<{ name: string, key: keyof CardNavigatorSettings, description: string }> = [
+    { name: 'File Name Font Size', key: 'fileNameFontSize', description: 'Set Font Size for File Name' },
+    { name: 'First Header Font Size', key: 'firstHeaderFontSize', description: 'Set Font Size for First Header' },
+    { name: 'Body Font Size', key: 'bodyFontSize', description: 'Set Font Size for Body' },
 ];
 
 export const keyboardShortcuts: Array<{ name: string, description: string }> = [

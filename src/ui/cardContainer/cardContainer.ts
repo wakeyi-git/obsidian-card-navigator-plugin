@@ -6,7 +6,7 @@ import { ListLayout } from '../layouts/listLayout';
 import { GridLayout } from '../layouts/gridLayout';
 import { MasonryLayout } from '../layouts/masonryLayout';
 import { KeyboardNavigator } from '../../common/keyboardNavigator';
-import { sortFiles, separateFrontmatterAndContent } from 'common/utils';
+import { sortFiles, separateFrontmatterAndBody } from 'common/utils';
 import { Card, SortCriterion, SortOrder } from 'common/types';
 import { t } from "i18next";
 
@@ -93,8 +93,8 @@ export class CardContainer {
 	
 		const {
 			alignCardHeight,
-			isContentLengthUnlimited,
-			contentLength,
+			isBodyLengthUnlimited,
+			bodyLength,
 			cardWidthThreshold,
 			defaultLayout
 		} = this.plugin.settings;
@@ -106,7 +106,7 @@ export class CardContainer {
 				case 'grid':
 					return new GridLayout(this.plugin.settings.gridColumns, this.cardGap);
 				case 'masonry':
-					return new MasonryLayout(this.plugin.settings.masonryColumns, this.cardGap, isContentLengthUnlimited, contentLength);
+					return new MasonryLayout(this.plugin.settings.masonryColumns, this.cardGap, isBodyLengthUnlimited, bodyLength);
 			}
 		}
 	
@@ -122,7 +122,7 @@ export class CardContainer {
 		} else if (alignCardHeight) {
 			return new GridLayout(columns, this.cardGap);
 		} else {
-			return new MasonryLayout(columns, this.cardGap, isContentLengthUnlimited, contentLength);
+			return new MasonryLayout(columns, this.cardGap, isBodyLengthUnlimited, bodyLength);
 		}
 	}
 
@@ -147,7 +147,7 @@ export class CardContainer {
 
 	// Sets the layout strategy based on the provided layout type ('auto', 'list', 'grid', or 'masonry').
 	setLayout(layout: 'auto' | 'list' | 'grid' | 'masonry') {
-        const { gridColumns, masonryColumns, isContentLengthUnlimited, contentLength, alignCardHeight } = this.plugin.settings;
+        const { gridColumns, masonryColumns, isBodyLengthUnlimited, bodyLength, alignCardHeight } = this.plugin.settings;
         
         if (layout === 'auto') {
             this.layoutStrategy = this.determineAutoLayout();
@@ -160,7 +160,7 @@ export class CardContainer {
                     this.layoutStrategy = new GridLayout(gridColumns, this.cardGap);
                     break;
                 case 'masonry':
-                    this.layoutStrategy = new MasonryLayout(masonryColumns, this.cardGap, isContentLengthUnlimited, contentLength);
+                    this.layoutStrategy = new MasonryLayout(masonryColumns, this.cardGap, isBodyLengthUnlimited, bodyLength);
                     break;
             }
         }
@@ -496,7 +496,7 @@ export class CardContainer {
         await this.renderCards(cardsData);
     }
 
-    // Searches for cards by file content or file name and displays them.
+    // Searches for cards by file body or file name and displays them.
     public async searchCards(searchTerm: string) {
         const folder = await this.getCurrentFolder();
         if (!folder) return;
@@ -507,7 +507,7 @@ export class CardContainer {
         await this.displayCards(filteredFiles);
     }
 
-    // Filters files based on their content or name.
+    // Filters files based on their body or name.
     private async filterFilesByContent(files: TFile[], searchTerm: string): Promise<TFile[]> {
         const lowercaseSearchTerm = searchTerm.toLowerCase();
         const filteredFiles = [];
@@ -550,9 +550,9 @@ export class CardContainer {
     public async copyCardContent(file: TFile) {
         try {
             const content = await this.plugin.app.vault.read(file);
-            const { cleanContent } = separateFrontmatterAndContent(content);
-            const truncatedContent = this.truncateContent(cleanContent);
-            await navigator.clipboard.writeText(truncatedContent);
+            const { cleanBody } = separateFrontmatterAndBody(content);
+            const truncatedBody = this.truncateBody(cleanBody);
+            await navigator.clipboard.writeText(truncatedBody);
             new Notice(t('Card content copied to clipboard'));
         } catch (err) {
             console.error(t('Failed to copy card content: '), err);
@@ -560,13 +560,13 @@ export class CardContainer {
         }
     }
 
-    // Truncates card content if it's longer than the allowed maximum length.
-    private truncateContent(content: string): string {
-        if (this.plugin.settings.isContentLengthUnlimited) {
-            return content;
+    // Truncates card body if it's longer than the allowed maximum length.
+    private truncateBody(body: string): string {
+        if (this.plugin.settings.isBodyLengthUnlimited) {
+            return body;
         }
-        const maxLength = this.plugin.settings.contentLength;
-        return content.length <= maxLength ? content : `${content.slice(0, maxLength)}...`;
+        const maxLength = this.plugin.settings.bodyLength;
+        return body.length <= maxLength ? body : `${body.slice(0, maxLength)}...`;
     }
 
     // Cleans up event listeners when the card container is closed.

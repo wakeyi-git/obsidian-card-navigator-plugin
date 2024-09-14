@@ -230,7 +230,7 @@
 
 .card-navigator-card.card-navigator-active .card-navigator-filename,
 .card-navigator-card.card-navigator-active .card-navigator-first-header,
-.card-navigator-card.card-navigator-active .card-navigator-content {
+.card-navigator-card.card-navigator-active .card-navigator-body {
     color: var(--interactive-accent); /* Highlight active card */
 }
 
@@ -258,8 +258,8 @@
     color: var(--text-normal);
 }
 
-.card-navigator-content {
-    font-size: var(--content-font-size, 1rem);
+.card-navigator-body {
+    font-size: var(--body-font-size, 1rem);
     color: var(--text-muted);
     line-height: var(--line-height-normal);
     margin: 0;
@@ -270,17 +270,17 @@
     overflow-y: auto;
 }
 
-.card-navigator-content img {
+.card-navigator-body img {
     max-width: 100%;
     height: auto;
     object-fit: contain; /* Ensure images maintain aspect ratio */
 }
 
-.card-navigator-content * {
-    max-width: 100%; /* Limit content width */
+.card-navigator-body * {
+    max-width: 100%; /* Limit body width */
 }
 
-.card-navigator-content.ellipsis {
+.card-navigator-body.ellipsis {
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;

@@ -2,20 +2,20 @@ import { TFile } from 'obsidian';
 import { SortCriterion, SortOrder } from './types';
 
 /**
- * Separates the frontmatter from the main content of a file.
- * @param content - The full content of a file, including frontmatter.
- * @returns An object containing the frontmatter (if any) and the clean content.
+ * Separates the frontmatter from the body of a file.
+ * @param body - The full body of a file, including frontmatter.
+ * @returns An object containing the frontmatter (if any) and the clean body.
  */
-export function separateFrontmatterAndContent(content: string): { frontmatter: string | null, cleanContent: string } {
+export function separateFrontmatterAndBody(body: string): { frontmatter: string | null, cleanBody: string } {
     const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n/;
-    const match = content.match(frontmatterRegex);
+    const match = body.match(frontmatterRegex);
     if (match) {
         return {
             frontmatter: match[1],
-            cleanContent: content.slice(match[0].length).trim()
+            cleanBody: body.slice(match[0].length).trim()
         };
     }
-    return { frontmatter: null, cleanContent: content.trim() };
+    return { frontmatter: null, cleanBody: body.trim() };
 }
 
 /**

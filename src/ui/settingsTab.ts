@@ -68,7 +68,7 @@ export class SettingTab extends PluginSettingTab {
                     new SavePresetModal(this.plugin.app, async (presetName) => {
                         if (presetName) {
                             await this.settingsManager.saveAsNewPreset(presetName);
-                            new Notice(t('presetSaved', { presetName }));
+                            new Notice(t('preset Saved', { presetName }));
                             this.plugin.settings.lastActivePreset = presetName;
                             await this.plugin.saveSettings();
                             this.display(); // Refresh the settings tab
@@ -81,10 +81,10 @@ export class SettingTab extends PluginSettingTab {
 					const currentPreset = this.plugin.settings.lastActivePreset;
 					if (currentPreset !== 'default') {
 						await this.settingsManager.updateCurrentPreset(currentPreset);
-						new Notice(t('presetUpdated', { presetName: currentPreset }));
+						new Notice(t('preset Updated', { presetName: currentPreset }));
 						this.display(); // Refresh the settings tab
 					} else {
-						new Notice(t('defaultPresetCannotBeModified'));
+						new Notice(t('default Preset Cannot Be Modified'));
 					}
 				}))
 			.addButton(button => button
@@ -98,23 +98,23 @@ export class SettingTab extends PluginSettingTab {
 						await this.settingsManager.applyPreset('default');
 						this.plugin.settings.lastActivePreset = 'default';
 						await this.plugin.saveSettings();
-						new Notice(t('presetDeletedDefaultApplied', { presetName: currentPreset }));
+						new Notice(t('preset Deleted and Default Applied', { presetName: currentPreset }));
 						this.display(); // Refresh the settings tab
 					} else {
-						new Notice(t('defaultPresetCannotBeDeleted'));
+						new Notice(t('default Preset Cannot Be Deleted'));
 					}
 				}));
 
         // Button to revert settings to default values
         new Setting(containerEl)
             .setName(t('Revert to Default Settings'))
-            .setDesc(t('This button will revert the settings to their default values.'))
+            .setDesc(t('This button will revert the current preset\'s settings to their default values without changing the selected preset.'))
             .addButton(button => button
                 .setButtonText(t('Revert'))
                 .onClick(async () => {
-                    await this.settingsManager.revertToDefaultSettings();
-                    new Notice(t('Settings reverted to default values'));
-                    this.display(); // Refresh the settings tab
+                    await this.settingsManager.revertCurrentPresetToDefault();
+                    new Notice(t('Current preset settings reverted to default values'));
+                    this.display(); // Refresh the settings tab to show updated values
                 }));
 	}
 
@@ -189,27 +189,27 @@ export class SettingTab extends PluginSettingTab {
 			.setHeading();
 
 		// Card display settings
-		displaySettings.forEach(({ key, name }) => {
+		displaySettings.forEach(({ key, name, description }) => {
 			this.addToggleSetting(
-				key, 
-				t(name), 
-				t('toggleDisplayFor', { name: t(name.toLowerCase()) }),
+				key,
+				t(name),
+				t(description),
 				containerEl
 			);
 		});
 
-		// Content length settings
+		// Body length settings
 		this.addToggleSetting(
-			'isContentLengthUnlimited',
-			t('Content Length Limit'),
-			t('Toggle between limited and unlimited content length'),
+			'isBodyLengthUnlimited',
+			t('Body Length Limit'),
+			t('Toggle between limited and unlimited body length'),
 			containerEl
 		);
 
 		this.addNumberSetting(
-			'contentLength',
-			t('Content Length Limit'),
-			t('Set the maximum content length displayed on each card when content length is limited.'),
+			'bodyLength',
+			t('Body Length'),
+			t('Set the maximum body length displayed on each card when body length is limited.'),
 			containerEl
 		);
 	}
@@ -219,12 +219,12 @@ export class SettingTab extends PluginSettingTab {
 			new Setting(containerEl)
 				.setName(t('Card Styling Settings'))
 				.setHeading();
-	
-			fontSizeSettings.forEach(({ key, name }) => {
-				this.addNumberSetting(
-					key, 
-					t(name), 
-					t('setFontSizeFor', { name: t(name.toLowerCase()) }),
+
+			fontSizeSettings.forEach(({ key, name, description }) => {
+				this.addToggleSetting(
+					key,
+					t(name),
+					t(description),
 					containerEl
 				);
 			});
@@ -269,7 +269,7 @@ export class SettingTab extends PluginSettingTab {
 				.setName(t('Folder Selection'))
 				.setDesc(t('Choose whether to use the active file\'s folder or a selected folder'))
 				.addDropdown(dropdown => dropdown
-					.addOption('active', t('Active File\'s Folder'))
+					.addOption('active', t('Active Folder'))
 					.addOption('selected', t('Selected Folder'))
 					.setValue(this.plugin.settings.useSelectedFolder ? 'selected' : 'active')
 					.onChange(async (value) => {
@@ -328,9 +328,9 @@ export class SettingTab extends PluginSettingTab {
             .setName(name)
             .setDesc(desc)
             .addToggle(toggle => toggle
-                .setValue(key === 'isContentLengthUnlimited' ? !this.plugin.settings[key] : this.plugin.settings[key] as boolean)
+                .setValue(key === 'isBodyLengthUnlimited' ? !this.plugin.settings[key] : this.plugin.settings[key] as boolean)
                 .onChange(async (value) => {
-                    if (key === 'isContentLengthUnlimited') {
+                    if (key === 'isBodyLengthUnlimited') {
                         value = !value; // Invert the value for this specific setting
                     }
                     await this.settingsManager.updateBooleanSetting(key, value);
@@ -338,11 +338,11 @@ export class SettingTab extends PluginSettingTab {
                     let sliderClass = '';
                     let invertOpacity = false;
                     
-                    if (key === 'isContentLengthUnlimited') {
-                        sliderClass = '.content-length-slider';
+                    if (key === 'isBodyLengthUnlimited') {
+                        sliderClass = '.setting-item-slider';
                         invertOpacity = true;
                     } else if (key === 'alignCardHeight') {
-                        sliderClass = '.cards-per-view-slider';
+                        sliderClass = '.setting-item-slider';
                     }
                     
                     if (sliderClass) {
@@ -372,13 +372,13 @@ export class SettingTab extends PluginSettingTab {
 
         const config = this.settingsManager.getNumberSettingConfig(key);
 
-        if (key === 'contentLength') {
-            setting.setClass('content-length-slider')
-                .setDisabled(this.plugin.settings.isContentLengthUnlimited);
+        if (key === 'bodyLength') {
+            setting.setClass('setting-item-slider')
+                .setDisabled(this.plugin.settings.isBodyLengthUnlimited);
         }
 
         if (key === 'cardsPerView') {
-            setting.setClass('cards-per-view-slider')
+            setting.setClass('setting-item-slider')
                 .setDisabled(!this.plugin.settings.alignCardHeight);
         }
 
@@ -387,7 +387,7 @@ export class SettingTab extends PluginSettingTab {
             .setValue(this.plugin.settings[key])
             .setDynamicTooltip()
             .onChange(async (value) => {
-                if ((key === 'contentLength' && this.plugin.settings.isContentLengthUnlimited) ||
+                if ((key === 'bodyLength' && this.plugin.settings.isBodyLengthUnlimited) ||
                     (key === 'cardsPerView' && !this.plugin.settings.alignCardHeight)) {
                     return;
                 }

@@ -57,8 +57,8 @@ export class Toolbar {
         const container = createDiv('card-navigator-action-icons-container');
 
         const icons = [
-            { name: 'folder', label: t('Select folder'), action: () => this.openFolderSelector() },
-            { name: 'arrow-up-narrow-wide', label: t('Sort cards'), action: () => toggleSort(this.plugin) },
+            { name: 'folder', label: t('Select Folder'), action: () => this.openFolderSelector() },
+            { name: 'arrow-up-narrow-wide', label: t('Sort Cards'), action: () => toggleSort(this.plugin) },
             { name: 'settings', label: t('Settings'), action: () => toggleSettings(this.plugin) },
         ] as const;
 

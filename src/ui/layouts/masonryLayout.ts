@@ -5,8 +5,8 @@ export class MasonryLayout implements LayoutStrategy {
     constructor(
         private columns: number,
         private cardGap: number,
-        private isContentLengthUnlimited: boolean,
-        private contentLength: number
+        private isBodyLengthUnlimited: boolean,
+        private bodyLength: number
     ) {}
 
     arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[] {
@@ -46,13 +46,13 @@ export class MasonryLayout implements LayoutStrategy {
         const baseHeight = 100;
 
         // 내용의 길이 계산
-        let contentLength = card.content?.length || 0;
-        if (!this.isContentLengthUnlimited) {
-            contentLength = Math.min(contentLength, this.contentLength);
+        let bodyLength = card.body?.length || 0;
+        if (!this.isBodyLengthUnlimited) {
+            bodyLength = Math.min(bodyLength, this.bodyLength);
         }
 
         // 내용의 줄 수 추정 (대략적인 계산)
-        const estimatedLines = Math.ceil(contentLength / (width / 10)); // 글자 크기를 10px로 가정
+        const estimatedLines = Math.ceil(bodyLength / (width / 10)); // 글자 크기를 10px로 가정
 
         // 줄 높이 (픽셀)
         const lineHeight = 20;

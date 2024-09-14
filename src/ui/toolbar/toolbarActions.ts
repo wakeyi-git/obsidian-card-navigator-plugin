@@ -1,4 +1,4 @@
-import { TFolder, FuzzySuggestModal, Setting, SliderComponent } from 'obsidian';
+import { TFolder, FuzzySuggestModal, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey } from '../../common/types';
 import { SettingsManager } from '../../common/settingsManager';
@@ -89,44 +89,110 @@ async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCr
     plugin.triggerRefresh();
 }
 
-// Toggle the settings popup in the toolbar.
 export function toggleSettings(plugin: CardNavigatorPlugin) {
     const settingsPopup = createPopup('card-navigator-settings-popup', 'settings');
     const settingsManager = plugin.settingsManager;
 
-    // Add preset selection dropdown.
+    // Add preset selection dropdown
     addPresetDropdown(settingsPopup, plugin, settingsManager);
 
-    // Add container settings section.
-    const containerSection = createCollapsibleSection(settingsPopup, t('Container Settings'));
-    addFolderSelectionSetting(containerSection, plugin, settingsManager);
-    addNumberSetting('cardsPerView', t('Cards per view'), containerSection, plugin, settingsManager);
-    addToggleSetting('alignCardHeight', t('Align Card Height'), containerSection, plugin, settingsManager);
+    // Add Folder Selection setting
+    addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
 
-    // Add card settings section.
-    const cardSection = createCollapsibleSection(settingsPopup, t('Card Settings'));
-    addToggleSetting('renderContentAsHtml', t('Render Content as HTML'), cardSection, plugin, settingsManager);
-    addToggleSetting('dragDropContent', t('Drag and Drop Content'), cardSection, plugin, settingsManager);
-    addToggleSetting('showFileName', t('Show File Name'), cardSection, plugin, settingsManager);
-    addToggleSetting('showFirstHeader', t('Show First Header'), cardSection, plugin, settingsManager);
-    addToggleSetting('showContent', t('Show Content'), cardSection, plugin, settingsManager);
+    // Add Layout Settings section
+    const layoutSection = createCollapsibleSection(settingsPopup, t('Layout Settings'), true);
     
-    // Add content length limit toggle.
-    addToggleSetting('isContentLengthUnlimited', t('Content Length Limit'), cardSection, plugin, settingsManager);
-    
-    // Add content length slider.
-    addNumberSetting('contentLength', t('Content Length'), cardSection, plugin, settingsManager);
-    
-    addNumberSetting('fileNameFontSize', t('File Name Font Size'), cardSection, plugin, settingsManager);
-    addNumberSetting('firstHeaderFontSize', t('First Header Font Size'), cardSection, plugin, settingsManager);
-    addNumberSetting('contentFontSize', t('Content Font Size'), cardSection, plugin, settingsManager);
+    // Function to update layout settings visibility
+    const updateLayoutSettings = (layout: CardNavigatorSettings['defaultLayout']) => {
+        // Clear existing settings
+        layoutSection.empty();
 
-    // Prevent click events from closing the popup.
+        // Add Default Layout dropdown
+        addDropdownSetting('defaultLayout', t('Default Layout'), layoutSection, plugin, settingsManager, [
+            { value: 'auto', label: t('Auto') },
+            { value: 'list', label: t('List') },
+            { value: 'grid', label: t('Grid') },
+            { value: 'masonry', label: t('Masonry') }
+        ], (value) => {
+            updateLayoutSettings(value as CardNavigatorSettings['defaultLayout']);
+        });
+
+        // Add settings based on selected layout
+        if (layout === 'auto') {
+            addNumberSetting('cardWidthThreshold', t('Card Width Threshold'), layoutSection, plugin, settingsManager);
+        }
+        if (layout === 'grid') {
+            addNumberSetting('gridColumns', t('Grid Columns'), layoutSection, plugin, settingsManager);
+        }
+        if (layout === 'masonry') {
+            addNumberSetting('masonryColumns', t('Masonry Columns'), layoutSection, plugin, settingsManager);
+        }
+        if (layout === 'auto' || layout === 'list') {
+            addToggleSetting('alignCardHeight', t('Align Card Height'), layoutSection, plugin, settingsManager, () => {
+                updateCardsPerViewSetting();
+            });
+            updateCardsPerViewSetting();
+        }
+    };
+
+    // Function to update cardsPerView setting
+    const updateCardsPerViewSetting = () => {
+        const cardsPerViewSetting = layoutSection.querySelector('.setting-cards-per-view');
+        if (cardsPerViewSetting) {
+            cardsPerViewSetting.remove();
+        }
+        if (plugin.settings.alignCardHeight) {
+            addNumberSetting('cardsPerView', t('Cards per view'), layoutSection, plugin, settingsManager)
+                .settingEl.addClass('setting-cards-per-view');
+        }
+    };
+
+    // Initial update of layout settings
+    updateLayoutSettings(plugin.settings.defaultLayout);
+
+    // Add Card Display Settings section
+    const displaySection = createCollapsibleSection(settingsPopup, t('Card Display Settings'), true);
+    addToggleSetting('showFileName', t('Show File Name'), displaySection, plugin, settingsManager);
+    addToggleSetting('showFirstHeader', t('Show First Header'), displaySection, plugin, settingsManager);
+    addToggleSetting('showBody', t('Show Body'), displaySection, plugin, settingsManager);
+
+	// Function to update bodyLength setting visibility
+	const updateBodyLengthSetting = () => {
+		const bodyLengthSetting = displaySection.querySelector('.setting-body-length');
+		if (bodyLengthSetting) {
+			bodyLengthSetting.remove();
+		}
+		if (!plugin.settings.isBodyLengthUnlimited) {
+			addNumberSetting('bodyLength', t('Body Length Limit'), displaySection, plugin, settingsManager)
+				.settingEl.addClass('setting-body-length');
+		}
+	};
+
+	// Add Body Length Limit toggle with updateBodyLengthSetting callback
+	addToggleSetting('isBodyLengthUnlimited', t('Body Length Unlimited'), displaySection, plugin, settingsManager, () => {
+		updateBodyLengthSetting();
+	});
+
+	// Initial update of bodyLength setting
+	updateBodyLengthSetting();
+
+    // Add Card Styling Settings section
+    const stylingSection = createCollapsibleSection(settingsPopup, t('Card Styling Settings'), true);
+    addNumberSetting('fileNameFontSize', t('File Name Font Size'), stylingSection, plugin, settingsManager);
+    addNumberSetting('firstHeaderFontSize', t('First Header Font Size'), stylingSection, plugin, settingsManager);
+    addNumberSetting('bodyFontSize', t('Body Font Size'), stylingSection, plugin, settingsManager);
+
+    // Add Advanced Settings section
+    const advancedSection = createCollapsibleSection(settingsPopup, t('Advanced Settings'), true);
+    addToggleSetting('renderContentAsHtml', t('Render Content as HTML'), advancedSection, plugin, settingsManager);
+    addToggleSetting('dragDropContent', t('Drag and Drop Content'), advancedSection, plugin, settingsManager);
+
+    // Prevent click events from closing the popup
     settingsPopup.addEventListener('click', (e) => e.stopPropagation());
 }
 
-// Create a collapsible section for settings.
-function createCollapsibleSection(parentEl: HTMLElement, title: string): HTMLElement {
+// Create a collapsible section for settings
+function createCollapsibleSection(parentEl: HTMLElement, title: string, collapsed = true): HTMLElement {
     const sectionEl = parentEl.createDiv('tree-item graph-control-section');
     const selfEl = sectionEl.createDiv('tree-item-self');
     const iconEl = selfEl.createDiv('tree-item-icon collapse-icon');
@@ -135,14 +201,40 @@ function createCollapsibleSection(parentEl: HTMLElement, title: string): HTMLEle
     innerEl.createEl('header', { text: title, cls: 'graph-control-section-header' });
     const contentEl = sectionEl.createDiv('tree-item-children');
 
-    // Toggle the display of the section's content when clicked.
+    if (collapsed) {
+        sectionEl.addClass('is-collapsed');
+        iconEl.addClass('is-collapsed');
+        contentEl.style.display = 'none';
+    }
+
     selfEl.addEventListener('click', () => {
         const isCollapsed = sectionEl.hasClass('is-collapsed');
         sectionEl.toggleClass('is-collapsed', !isCollapsed);
-        contentEl.style.display = !isCollapsed ? 'none' : 'block';
+        iconEl.toggleClass('is-collapsed', !isCollapsed);
+        contentEl.style.display = isCollapsed ? 'block' : 'none';
     });
 
     return contentEl;
+}
+
+// Add dropdown setting
+function addDropdownSetting(key: keyof CardNavigatorSettings, name: string, container: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, options: {value: string, label: string}[], onChange?: (value: string) => void) {
+    new Setting(container)
+        .setName(name)
+        .setClass('setting-item-dropdown')
+        .addDropdown(dropdown => {
+            options.forEach(option => {
+                dropdown.addOption(option.value, option.label);
+            });
+            dropdown.setValue(plugin.settings[key] as string)
+                .onChange(async (value) => {
+                    await settingsManager.updateSetting(key, value);
+                    plugin.triggerRefresh();
+                    if (onChange) {
+                        onChange(value);
+                    }
+                });
+        });
 }
 
 // Add the dropdown to select a preset.
@@ -171,7 +263,7 @@ function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorP
         .setName(t('Folder Selection'))
         .setClass('setting-item-dropdown')
         .addDropdown(dropdown => dropdown
-            .addOption('active', t('Active File\'s Folder'))
+            .addOption('active', t('Active Folder'))
             .addOption('selected', t('Selected Folder'))
             .setValue(plugin.settings.useSelectedFolder ? 'selected' : 'active')
             .onChange(async (value) => {
@@ -201,60 +293,66 @@ function addFolderSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, se
 }
 
 // Add a toggle switch for a setting.
-function addToggleSetting(key: keyof CardNavigatorSettings, name: string, container: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager) {
+function addToggleSetting(
+    key: keyof CardNavigatorSettings, 
+    name: string, 
+    container: HTMLElement, 
+    plugin: CardNavigatorPlugin, 
+    settingsManager: SettingsManager, 
+    onChange?: () => void
+) {
     new Setting(container)
         .setName(name)
-        .setClass('setting-item-toggle')
         .addToggle(toggle => toggle
-            .setValue(key === 'isContentLengthUnlimited' ? !plugin.settings[key] : plugin.settings[key] as boolean)
+            .setValue(key === 'isBodyLengthUnlimited' ? !plugin.settings[key] : plugin.settings[key] as boolean)
             .onChange(async (value) => {
-                if (key === 'isContentLengthUnlimited') {
-                    value = !value;  // Invert the value for this specific setting
+                if (key === 'isBodyLengthUnlimited') {
+                    value = !value;
                 }
                 await settingsManager.updateBooleanSetting(key, value);
-                if (key === 'isContentLengthUnlimited') {
-                    const contentLengthSlider = container.querySelector('.setting-item[data-setting="contentLength"]');
-                    if (contentLengthSlider) {
-                        (contentLengthSlider as HTMLElement).style.opacity = value ? '0.5' : '1';
-                        const sliderComponent = (contentLengthSlider as HTMLElement).querySelector('.slider');
-                        if (sliderComponent) {
-                            (sliderComponent as HTMLInputElement).disabled = value;
-                        }
-                    }
-                }
                 plugin.triggerRefresh();
+                if (onChange) {
+                    onChange();
+                }
             })
         );
 }
 
 // Add a number input slider for a setting.
-function addNumberSetting(key: NumberSettingKey, name: string, parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
+function addNumberSetting(
+    key: NumberSettingKey, 
+    name: string, 
+    container: HTMLElement, 
+    plugin: CardNavigatorPlugin, 
+    settingsManager: SettingsManager
+): Setting {
     const config = settingsManager.getNumberSettingConfig(key);
-
-    const setting = new Setting(parentEl)
+    const setting = new Setting(container)
         .setName(name)
         .setClass('setting-item-slider');
 
-    setting.settingEl.setAttribute('data-setting', key);
+    setting.addSlider(slider => slider
+        .setLimits(config.min, config.max, config.step)
+        .setValue(plugin.settings[key])
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+            if ((key === 'bodyLength' && plugin.settings.isBodyLengthUnlimited) ||
+                (key === 'cardsPerView' && !plugin.settings.alignCardHeight)) {
+                return;
+            }
+            await settingsManager.updateNumberSetting(key, value);
+            if (key === 'gridColumns' || key === 'masonryColumns') {
+                plugin.updateCardNavigatorLayout(plugin.settings.defaultLayout);
+            }
+            plugin.triggerRefresh();
+        })
+    );
 
-    if (key === 'contentLength') {
-        setting.setDisabled(plugin.settings.isContentLengthUnlimited);
+    if (key === 'bodyLength') {
+        setting.setDisabled(plugin.settings.isBodyLengthUnlimited);
     }
 
-    setting.addSlider((slider: SliderComponent) => {
-        slider
-            .setLimits(config.min, config.max, config.step)
-            .setValue(plugin.settings[key])
-            .setDynamicTooltip()
-            .onChange(async (value: number) => {
-                if (key === 'contentLength' && plugin.settings.isContentLengthUnlimited) {
-                    return;
-                }
-                await settingsManager.updateNumberSetting(key, value);
-                plugin.triggerRefresh();
-            });
-        return slider;
-    });
+    return setting;
 }
 
 // Close the current popup.

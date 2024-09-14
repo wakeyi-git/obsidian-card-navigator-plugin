@@ -53,11 +53,51 @@ export class SettingsManager {
     }
 
     // Reverts to default settings as defined in DEFAULT_SETTINGS
-	async revertToDefaultSettings() {
-        this.plugin.settings = { ...DEFAULT_SETTINGS };
+    async revertToDefaultSettings() {
+        const currentPresetName = this.plugin.settings.lastActivePreset;
+        const currentPreset = this.plugin.settings.presets[currentPresetName];
+
+        // Update the current preset with default settings
+        currentPreset.settings = { ...DEFAULT_SETTINGS };
+        delete currentPreset.settings.presets; // Remove nested presets
+
+        // Update plugin settings
+        this.plugin.settings = {
+            ...DEFAULT_SETTINGS,
+            lastActivePreset: currentPresetName,
+            presets: this.plugin.settings.presets
+        };
+
         await this.saveSettings();
         this.plugin.triggerRefresh();
+
+        // Update the temporary preset in PresetManager
+        this.plugin.presetManager.updateTempPresetToDefault();
     }
+
+	// Reverts the current preset's settings to default values
+	async revertCurrentPresetToDefault() {
+		const currentPresetName = this.plugin.settings.lastActivePreset;
+		const currentPreset = this.plugin.settings.presets[currentPresetName];
+
+		// Update the current preset with default settings
+		currentPreset.settings = { ...DEFAULT_SETTINGS };
+		delete currentPreset.settings.presets; // Remove nested presets
+
+		// Update plugin settings
+		this.plugin.settings = {
+			...this.plugin.settings,
+			...DEFAULT_SETTINGS,
+			lastActivePreset: currentPresetName,
+			presets: this.plugin.settings.presets
+		};
+
+		await this.saveSettings();
+		this.plugin.triggerRefresh();
+
+		// Update the temporary preset in PresetManager
+		this.plugin.presetManager.updateTempPresetToDefault();
+	}
 
 	// Updates the sort settings
     async updateSortSettings(criterion: SortCriterion, order: SortOrder) {
@@ -67,8 +107,8 @@ export class SettingsManager {
 
 	// Updates a number setting, clamping the value to the allowed range
     async updateNumberSetting(key: NumberSettingKey, value: number) {
-        if (key === 'contentLength') {
-            await this.updateContentLengthSetting(value);
+        if (key === 'bodyLength') {
+            await this.updateBodyLengthSetting(value);
         } else {
             const config = this.getNumberSettingConfig(key);
             const clampedValue = Math.max(config.min, Math.min(config.max, value));
@@ -76,16 +116,16 @@ export class SettingsManager {
         }
     }
 
-	// Updates the content length setting, with handling for unlimited content length
-	async updateContentLengthSetting(value: number) {
+	// Updates the body length setting, with handling for unlimited body length
+	async updateBodyLengthSetting(value: number) {
 		if (value <= 0) {
-			await this.updateSetting('isContentLengthUnlimited', true);
-			await this.updateSetting('contentLength', -1);
+			await this.updateSetting('isBodyLengthUnlimited', true);
+			await this.updateSetting('bodyLength', -1);
 		} else {
-			const config = this.getNumberSettingConfig('contentLength');
+			const config = this.getNumberSettingConfig('bodyLength');
 			const clampedValue = Math.max(config.min, Math.min(config.max, value));
-			await this.updateSetting('isContentLengthUnlimited', false);
-			await this.updateSetting('contentLength', clampedValue);
+			await this.updateSetting('isBodyLengthUnlimited', false);
+			await this.updateSetting('bodyLength', clampedValue);
 		}
 		this.plugin.triggerRefresh();
 	}
