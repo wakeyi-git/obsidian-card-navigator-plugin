@@ -39,11 +39,9 @@ export type NumberSettingKey = Extract<keyof CardNavigatorSettings, {
 }[keyof CardNavigatorSettings]>;
 
 export interface CardNavigatorSettings {
-	defaultLayout: 'auto' | 'list' | 'grid' | 'masonry';
-	minCardWidth: number;
-	maxCardWidth: number;
-	listLayoutThreshold: number;
-	gridLayoutThreshold: number;
+    defaultLayout: 'auto' | 'list' | 'grid' | 'masonry';
+    layout: 'list' | 'grid' | 'masonry';
+    cardWidthThreshold: number;
     gridColumns: number;
     masonryColumns: number;
     cardsPerView: number;
@@ -72,15 +70,13 @@ export interface CardNavigatorSettings {
 }
 
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {
-	defaultLayout: 'auto',
-	minCardWidth: 250,
-	maxCardWidth: 300,
-	listLayoutThreshold: 600,
-	gridLayoutThreshold: 900,
+    defaultLayout: 'auto',
+    layout: 'list',
+    cardWidthThreshold: 250,
     gridColumns: 4,
     masonryColumns: 4,
     cardsPerView: 4,
-	useSelectedFolder: false,
+    useSelectedFolder: false,
     selectedFolder: null,
     sortCriterion: 'fileName',
     sortOrder: 'asc',
@@ -100,37 +96,35 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     contentFontSize: 15,
     contentLength: 500,
     isContentLengthUnlimited: false,
-	lastActivePreset: 'default',
+    lastActivePreset: 'default',
     presets: {
         default: {
             name: 'Default',
             settings: {
 				defaultLayout: 'auto',
-				minCardWidth: 250,
-				maxCardWidth: 300,
-				listLayoutThreshold: 600,
-				gridLayoutThreshold: 900,
+				layout: 'list',
+				cardWidthThreshold: 250,
 				gridColumns: 4,
 				masonryColumns: 4,
 				cardsPerView: 4,
 				useSelectedFolder: false,
-                selectedFolder: null,
-                sortCriterion: 'fileName',
-                sortOrder: 'asc',
-                alignCardHeight: true,
-                renderContentAsHtml: false,
-                centerActiveCardOnOpen: true,
-                centerCardMethod: 'scroll',
-                animationDuration: 300,
-                activeCardBorderColor: 'var(--active-border-color)',
-                activeCardBackgroundColor: 'var(--active-background-color)',
-                dragDropContent: false,
-                showFileName: true,
-                fileNameFontSize: 20,
-                showFirstHeader: true,
-                firstHeaderFontSize: 20,
-                showContent: true,
-                contentFontSize: 15,
+				selectedFolder: null,
+				sortCriterion: 'fileName',
+				sortOrder: 'asc',
+				alignCardHeight: true,
+				renderContentAsHtml: false,
+				centerActiveCardOnOpen: true,
+				centerCardMethod: 'scroll',
+				animationDuration: 300,
+				activeCardBorderColor: 'var(--active-border-color)',
+				activeCardBackgroundColor: 'var(--active-background-color)',
+				dragDropContent: false,
+				showFileName: true,
+				fileNameFontSize: 20,
+				showFirstHeader: true,
+				firstHeaderFontSize: 20,
+				showContent: true,
+				contentFontSize: 15,
 				contentLength: 500,
 				isContentLengthUnlimited: false,
 			}
@@ -145,10 +139,7 @@ export interface RangeSettingConfig {
 }
 
 export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> = {
-	minCardWidth: { min: 150, max: 400, step: 10 },
-	maxCardWidth: { min: 200, max: 600, step: 10 },
-	listLayoutThreshold: { min: 300, max: 1200, step: 50 },
-	gridLayoutThreshold: { min: 600, max: 1800, step: 50 },
+	cardWidthThreshold: { min: 150, max: 600, step: 10 },
 	gridColumns: { min: 1, max: 10, step: 1 },
     masonryColumns: { min: 1, max: 10, step: 1 },
     cardsPerView: { min: 1, max: 10, step: 1 },

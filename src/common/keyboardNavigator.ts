@@ -2,12 +2,14 @@ import { Menu, MenuItem, debounce } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { CardContainer } from '../ui/cardContainer/cardContainer';
 import { t } from 'i18next';
+import { LayoutStrategy } from 'ui/layouts/layoutStrategy';
+import { GridLayout } from 'ui/layouts/gridLayout';
+import { MasonryLayout } from 'ui/layouts/masonryLayout';
 
 export class KeyboardNavigator {
     private focusedCardIndex: number | null = null;
     private isFocused = false;
 
-    // Constructor to initialize the plugin, card container, and the container element
     constructor(
         private plugin: CardNavigatorPlugin,
         private cardContainer: CardContainer,
@@ -16,26 +18,30 @@ export class KeyboardNavigator {
         this.setupKeyboardEvents();
     }
 
-    // Set up keyboard events to listen for navigation actions
     private setupKeyboardEvents() {
         this.containerEl.addEventListener('keydown', this.handleKeyDown.bind(this));
         this.containerEl.addEventListener('blur', this.handleBlur.bind(this));
     }
 
-    // Handle various keyboard events for card navigation and interaction
     private handleKeyDown(e: KeyboardEvent) {
         if (!this.isFocused) return;
 
         switch(e.key) {
             case 'ArrowLeft':
-            case 'ArrowUp':
                 e.preventDefault();
-                this.moveFocus(-1);
+                this.moveFocus(0, -1);
                 break;
             case 'ArrowRight':
+                e.preventDefault();
+                this.moveFocus(0, 1);
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                this.moveFocus(-1, 0);
+                break;
             case 'ArrowDown':
                 e.preventDefault();
-                this.moveFocus(1);
+                this.moveFocus(1, 0);
                 break;
             case 'PageUp':
                 e.preventDefault();
@@ -57,27 +63,24 @@ export class KeyboardNavigator {
                 e.preventDefault();
                 this.openFocusedCard();
                 break;
-			case 'ContextMenu':
-				e.preventDefault();
-				this.openContextMenu();
-				break;
-			case 'e':
-				// Open context menu with Command + Control + E
-				if (e.metaKey && e.ctrlKey) {  
-					e.preventDefault();
-					this.openContextMenu();
-				}
-				break;
+            case 'ContextMenu':
+                e.preventDefault();
+                this.openContextMenu();
+                break;
+            case 'e':
+                if (e.metaKey && e.ctrlKey) {  
+                    e.preventDefault();
+                    this.openContextMenu();
+                }
+                break;
         }
     }
 
-    // Handle the blur event by unfocusing and updating the UI
     private handleBlur() {
         this.isFocused = false;
         this.updateFocusedCard();
     }
 
-    // Focus the navigator, highlight the active or first visible card
     public focusNavigator() {
         if (!this.containerEl) return;
 
@@ -99,80 +102,96 @@ export class KeyboardNavigator {
         this.updateFocusedCard();
     }
 
-	// Blur the navigator and reset the focused card index
-	public blurNavigator() {
-		this.containerEl.blur();
-		this.isFocused = false;
-		this.focusedCardIndex = null;
-		this.updateFocusedCard();
-	}
+    public blurNavigator() {
+        this.containerEl.blur();
+        this.isFocused = false;
+        this.focusedCardIndex = null;
+        this.updateFocusedCard();
+    }
 
-    // Move focus between cards using a delta value
-    private moveFocus(delta: number) {
+    private moveFocus(rowDelta: number, colDelta: number) {
         if (this.focusedCardIndex === null) {
             this.focusedCardIndex = 0;
         } else {
-            const newIndex = this.focusedCardIndex + delta;
-            this.focusedCardIndex = Math.max(0, Math.min(newIndex, this.containerEl.children.length - 1));
+            const totalCards = this.containerEl.children.length;
+            const layoutStrategy = this.cardContainer.getLayoutStrategy();
+            
+            if (layoutStrategy instanceof GridLayout || layoutStrategy instanceof MasonryLayout) {
+                this.focusedCardIndex = this.calculateGridIndex(rowDelta, colDelta, totalCards);
+            } else {
+                this.focusedCardIndex = this.calculateListIndex(rowDelta, colDelta, totalCards);
+            }
         }
         this.updateFocusedCard();
         this.scrollToFocusedCard();
     }
 
-	// Move focus by a page (cardsPerView)
-	private moveFocusPage(direction: number) {
-		const pageSize = this.plugin.settings.cardsPerView;
-		this.moveFocus(direction * pageSize);
-	}
+    private calculateGridIndex(rowDelta: number, colDelta: number, totalCards: number): number {
+        const layoutStrategy = this.cardContainer.getLayoutStrategy();
+        if (!(layoutStrategy instanceof GridLayout || layoutStrategy instanceof MasonryLayout)) {
+            return this.focusedCardIndex ?? 0;
+        }
+        const columns = layoutStrategy.getColumnsCount();
+        const currentRow = Math.floor((this.focusedCardIndex ?? 0) / columns);
+        const currentCol = (this.focusedCardIndex ?? 0) % columns;
+        
+        let newRow = currentRow + rowDelta;
+        let newCol = currentCol + colDelta;
 
-    // Move focus to the first card
+        if (newCol < 0) {
+            newRow--;
+            newCol = columns - 1;
+        } else if (newCol >= columns) {
+            newRow++;
+            newCol = 0;
+        }
+
+        const newIndex = newRow * columns + newCol;
+        return newIndex >= 0 && newIndex < totalCards ? newIndex : (this.focusedCardIndex ?? 0);
+    }
+
+    private calculateListIndex(rowDelta: number, colDelta: number, totalCards: number): number {
+        const newIndex = (this.focusedCardIndex ?? 0) + rowDelta + colDelta;
+        return newIndex >= 0 && newIndex < totalCards ? newIndex : (this.focusedCardIndex ?? 0);
+    }
+
+
+    private moveFocusPage(direction: number) {
+        const pageSize = this.plugin.settings.cardsPerView;
+        this.moveFocus(0, direction * pageSize);
+    }
+
     private moveFocusToStart() {
         this.focusedCardIndex = 0;
         this.updateFocusedCard();
         this.scrollToFocusedCard();
     }
 
-    // Move focus to the last card
     private moveFocusToEnd() {
         this.focusedCardIndex = this.containerEl.children.length - 1;
         this.updateFocusedCard();
         this.scrollToFocusedCard();
     }
 
-	// Update the visual focus of the card with debouncing
-	private updateFocusedCard = debounce(() => {
-		if (!this.containerEl) return;
-	
-		Array.from(this.containerEl.children).forEach((card, index) => {
-			if (this.isFocused && index === this.focusedCardIndex) {
-				card.classList.add('card-navigator-focused');
-			} else {
-				card.classList.remove('card-navigator-focused');
-			}
-		});
-	}, 50);
+    private updateFocusedCard = debounce(() => {
+        if (!this.containerEl) return;
+    
+        Array.from(this.containerEl.children).forEach((card, index) => {
+            if (this.isFocused && index === this.focusedCardIndex) {
+                card.classList.add('card-navigator-focused');
+            } else {
+                card.classList.remove('card-navigator-focused');
+            }
+        });
+    }, 50);
 
-    // Scroll the view to the focused card, optionally with immediate effect
     private scrollToFocusedCard(immediate = false) {
         if (this.focusedCardIndex === null || !this.containerEl) return;
 
         const focusedCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
         this.cardContainer.centerCard(focusedCard, !immediate);
-
-        if (immediate) {
-            // Force immediate scroll without animation
-            const containerRect = this.containerEl.getBoundingClientRect();
-            const cardRect = focusedCard.getBoundingClientRect();
-            
-            if (this.cardContainer.isVertical) {
-                this.containerEl.scrollTop += cardRect.top - containerRect.top - (containerRect.height - cardRect.height) / 2;
-            } else {
-                this.containerEl.scrollLeft += cardRect.left - containerRect.left - (containerRect.width - cardRect.width) / 2;
-            }
-        }
     }
 
-    // Open the file linked to the focused card
     private openFocusedCard() {
         if (this.focusedCardIndex === null) return;
         
@@ -183,7 +202,6 @@ export class KeyboardNavigator {
         }
     }
 
-    // Open a context menu for the focused card
     public openContextMenu() {
         if (this.focusedCardIndex === null) return;
         
@@ -216,14 +234,12 @@ export class KeyboardNavigator {
         }
     }
 
-    // Find the currently active card (if any)
     private findActiveCardIndex(): number {
         return Array.from(this.containerEl.children).findIndex(
             child => child.classList.contains('card-navigator-active')
         );
     }
 
-    // Find the first visible card in the container
     private findFirstVisibleCardIndex(): number | null {
         const containerRect = this.containerEl.getBoundingClientRect();
         for (let i = 0; i < this.containerEl.children.length; i++) {
@@ -235,7 +251,6 @@ export class KeyboardNavigator {
         return null;
     }
 
-    // Check if the card is visible in the container's viewport
     private isCardVisible(cardRect: DOMRect, containerRect: DOMRect): boolean {
         return (
             cardRect.top >= containerRect.top &&
@@ -244,4 +259,8 @@ export class KeyboardNavigator {
             cardRect.right <= containerRect.right
         );
     }
+
+    public updateLayout(layoutStrategy: LayoutStrategy) {
+
+	}
 }

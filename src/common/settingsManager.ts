@@ -9,8 +9,8 @@ import {
     displaySettings, 
     fontSizeSettings, 
     keyboardShortcuts, 
-	SortOrder, 
-	DEFAULT_SETTINGS
+    SortOrder, 
+    DEFAULT_SETTINGS
 } from './types';
 import { TFolder } from 'obsidian';
 import { t } from 'i18next';
@@ -20,7 +20,18 @@ export class SettingsManager {
 
 	// Loads the plugin settings from storage
     async loadSettings() {
-        this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS, await this.plugin.loadData());
+        const loadedData = await this.plugin.loadData();
+        this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+        
+        // Ensure presets are properly loaded
+        if (!this.plugin.settings.presets) {
+            this.plugin.settings.presets = DEFAULT_SETTINGS.presets;
+        }
+        
+        // Ensure lastActivePreset is set
+        if (!this.plugin.settings.lastActivePreset) {
+            this.plugin.settings.lastActivePreset = 'default';
+        }
     }
 
 	// Saves the current plugin settings to storage
@@ -36,6 +47,9 @@ export class SettingsManager {
     ) {
         this.plugin.presetManager.updateTempSetting(key, value);
         await this.saveSettings();
+        if (key === 'defaultLayout') {
+            this.plugin.updateCardNavigatorLayout(value as CardNavigatorSettings['defaultLayout']);
+        }
     }
 
     // Reverts to default settings as defined in DEFAULT_SETTINGS
@@ -44,7 +58,6 @@ export class SettingsManager {
         await this.saveSettings();
         this.plugin.triggerRefresh();
     }
-
 
 	// Updates the sort settings
     async updateSortSettings(criterion: SortCriterion, order: SortOrder) {
@@ -127,12 +140,14 @@ export class SettingsManager {
 	// Applies a preset
 	async applyPreset(presetName: string) {
 		await this.plugin.presetManager.applyPreset(presetName);
+		this.plugin.settings.lastActivePreset = presetName;
+		await this.plugin.saveSettings();
 	}
 
 	// Saves the current settings as a new preset
-	async saveAsNewPreset(presetName: string) {
-		await this.plugin.presetManager.savePreset(presetName);
-	}
+    async saveAsNewPreset(presetName: string) {
+        await this.plugin.presetManager.savePreset(presetName);
+    }
 
 	// Updates the current preset if it isn't the default preset
 	async updateCurrentPreset(presetName: string) {

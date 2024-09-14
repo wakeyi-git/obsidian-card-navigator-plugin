@@ -30,31 +30,32 @@ export class SettingTab extends PluginSettingTab {
 
         // Add different sections to the settings tab
         this.addPresetSection(containerEl);
+		this.addGeneralSettings(containerEl);
         this.addLayoutSettings(containerEl);
-        this.addContentSettings(containerEl);
+        this.addCardDisplaySettings(containerEl);
+		this.addCardStylingSettings(containerEl);
+		this.addAdvancedSettings(containerEl);
         this.addKeyboardShortcutsInfo(containerEl);
     }
 
     // Section for managing presets (create, update, delete)
-    private addPresetSection(containerEl: HTMLElement): void {
-        const presets = this.settingsManager.getPresets();
+	private addPresetSection(containerEl: HTMLElement): void {
+		const presets = this.settingsManager.getPresets();
 
         // Dropdown to select existing presets
-        new Setting(containerEl)
-            .setName(t('Select Preset'))
-            .setDesc(t('Select a preset created by the user to load the settings.'))
-            .addDropdown(dropdown => {
-                Object.keys(presets).forEach(presetName => {
-                    dropdown.addOption(presetName, presetName);
-                });
-                dropdown.setValue(this.plugin.settings.lastActivePreset)
-                    .onChange(async (value) => {
-                        await this.settingsManager.applyPreset(value);
-                        this.plugin.settings.lastActivePreset = value;
-                        await this.plugin.saveSettings();
-                        this.display(); // Refresh the settings tab
-                    });
-            });
+		new Setting(containerEl)
+		.setName(t('Select Preset'))
+		.setDesc(t('Select a preset created by the user to load the settings.'))
+		.addDropdown(dropdown => {
+			Object.keys(presets).forEach(presetName => {
+				dropdown.addOption(presetName, presetName);
+			});
+			dropdown.setValue(this.plugin.settings.lastActivePreset)
+				.onChange(async (value) => {
+					await this.settingsManager.applyPreset(value);
+					this.display(); // Refresh the settings tab
+				});
+		});
 
         // Buttons to manage presets: Create, Update, Delete
         new Setting(containerEl)
@@ -74,35 +75,35 @@ export class SettingTab extends PluginSettingTab {
                         }
                     }, this.plugin).open();
                 }))
-            .addButton(button => button
-                .setButtonText(t('Update'))
-                .onClick(async () => {
-                    const currentPreset = this.plugin.settings.lastActivePreset;
-                    if (currentPreset !== 'default') {
-                        await this.settingsManager.updateCurrentPreset(currentPreset);
-                        new Notice(t('presetUpdated', { presetName: currentPreset }));
-                        this.display(); // Refresh the settings tab
-                    } else {
-                        new Notice(t('defaultPresetCannotBeModified'));
-                    }
-                }))
-            .addButton(button => button
-                .setButtonText(t('Delete'))
-                .setWarning()
-                .onClick(async () => {
-                    const currentPreset = this.plugin.settings.lastActivePreset;
-                    if (currentPreset !== 'default') {
-                        await this.settingsManager.deletePreset(currentPreset);
-                        // Apply default preset after deletion
-                        await this.settingsManager.applyPreset('default');
-                        this.plugin.settings.lastActivePreset = 'default';
-                        await this.plugin.saveSettings();
-                        new Notice(t('presetDeletedDefaultApplied', { presetName: currentPreset }));
-                        this.display(); // Refresh the settings tab
-                    } else {
-                        new Notice(t('defaultPresetCannotBeDeleted'));
-                    }
-                }));
+			.addButton(button => button
+				.setButtonText(t('Update'))
+				.onClick(async () => {
+					const currentPreset = this.plugin.settings.lastActivePreset;
+					if (currentPreset !== 'default') {
+						await this.settingsManager.updateCurrentPreset(currentPreset);
+						new Notice(t('presetUpdated', { presetName: currentPreset }));
+						this.display(); // Refresh the settings tab
+					} else {
+						new Notice(t('defaultPresetCannotBeModified'));
+					}
+				}))
+			.addButton(button => button
+				.setButtonText(t('Delete'))
+				.setWarning()
+				.onClick(async () => {
+					const currentPreset = this.plugin.settings.lastActivePreset;
+					if (currentPreset !== 'default') {
+						await this.settingsManager.deletePreset(currentPreset);
+						// Apply default preset after deletion
+						await this.settingsManager.applyPreset('default');
+						this.plugin.settings.lastActivePreset = 'default';
+						await this.plugin.saveSettings();
+						new Notice(t('presetDeletedDefaultApplied', { presetName: currentPreset }));
+						this.display(); // Refresh the settings tab
+					} else {
+						new Notice(t('defaultPresetCannotBeDeleted'));
+					}
+				}));
 
         // Button to revert settings to default values
         new Setting(containerEl)
@@ -115,79 +116,110 @@ export class SettingTab extends PluginSettingTab {
                     new Notice(t('Settings reverted to default values'));
                     this.display(); // Refresh the settings tab
                 }));
-    }
+	}
 
-    // Section for layout-related settings
-	private addLayoutSettings(containerEl: HTMLElement): void {
+	// Section for general settings
+	private addGeneralSettings(containerEl: HTMLElement): void {
 		new Setting(containerEl)
-			.setName(t('Layout Settings'))
+			.setName(t('General Settings'))
 			.setHeading();
-	
-		new Setting(containerEl)
-			.setName(t('Default Layout'))
-			.setDesc(t('Choose the default layout for cards'))
-			.addDropdown((dropdown: DropdownComponent) => {
-				dropdown
-					.addOption('auto', t('Auto'))
-					.addOption('list', t('List'))
-					.addOption('grid', t('Grid'))
-					.addOption('masonry', t('Masonry'))
-					.setValue(this.plugin.settings.defaultLayout)
-					.onChange(async (value: string) => {
-						const layout = value as CardNavigatorSettings['defaultLayout'];
-						await this.plugin.settingsManager.updateSetting('defaultLayout', layout);
-						this.plugin.updateCardNavigatorLayout(layout);
-						this.display(); // Refresh the settings tab to show/hide relevant options
-					});
-			});
-	
-		if (this.plugin.settings.defaultLayout === 'auto' || this.plugin.settings.defaultLayout === 'list') {
-			this.addNumberSetting('minCardWidth', t('Minimum Card Width'), t('Minimum width of a card in pixels'), containerEl);
-			this.addNumberSetting('maxCardWidth', t('Maximum Card Width'), t('Maximum width of a card in pixels'), containerEl);
-		}
-	
-		if (this.plugin.settings.defaultLayout === 'auto') {
-			this.addNumberSetting('listLayoutThreshold', t('List Layout Threshold'), t('Container width below which list layout is used'), containerEl);
-			this.addNumberSetting('gridLayoutThreshold', t('Grid Layout Threshold'), t('Container width below which grid layout is used'), containerEl);
-		}
-	
-		if (this.plugin.settings.defaultLayout === 'auto' || this.plugin.settings.defaultLayout === 'grid') {
-			this.addNumberSetting('gridColumns', t('Grid Columns'), t('Number of columns in grid layout'), containerEl);
-		}
-	
-		if (this.plugin.settings.defaultLayout === 'auto' || this.plugin.settings.defaultLayout === 'masonry') {
-			this.addNumberSetting('masonryColumns', t('Masonry Columns'), t('Number of columns in masonry layout'), containerEl);
-		}
-	
-		this.addNumberSetting('cardsPerView', t('Cards per view'), t('Number of cards to display at once'), containerEl);
-	
-		if (this.plugin.settings.defaultLayout !== 'masonry') {
-			this.addToggleSetting('alignCardHeight', t('Align Card Height'), t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.'), containerEl);
-		}
-	
+
+		this.addFolderSelectionSetting(containerEl);
+		this.addSortSetting(containerEl);
 		this.addToggleSetting('centerActiveCardOnOpen', t('Center Active Card on Open'), t('Automatically center the active card when opening the Card Navigator'), containerEl);
 	}
 
-		// Section for card display settings
-		private addContentSettings(containerEl: HTMLElement): void {
+    // Section for layout-related settings
+    private addLayoutSettings(containerEl: HTMLElement): void {
+        new Setting(containerEl)
+            .setName(t('Layout Settings'))
+            .setHeading();
+
+        new Setting(containerEl)
+            .setName(t('Default Layout'))
+            .setDesc(t('Choose the default layout for cards'))
+            .addDropdown((dropdown: DropdownComponent) => {
+                dropdown
+                    .addOption('auto', t('Auto'))
+                    .addOption('list', t('List'))
+                    .addOption('grid', t('Grid'))
+                    .addOption('masonry', t('Masonry'))
+                    .setValue(this.plugin.settings.defaultLayout)
+                    .onChange(async (value: string) => {
+                        const layout = value as CardNavigatorSettings['defaultLayout'];
+                        await this.plugin.settingsManager.updateSetting('defaultLayout', layout);
+                        this.plugin.updateCardNavigatorLayout(layout);
+                        this.display(); // Refresh the settings tab to show/hide relevant options
+                    });
+            });
+
+        if (this.plugin.settings.defaultLayout === 'auto') {
+            this.addNumberSetting('cardWidthThreshold', t('Card Width Threshold'), t('Width threshold for adding/removing columns'), containerEl);
+        }
+
+        if (this.plugin.settings.defaultLayout === 'grid') {
+            this.addNumberSetting('gridColumns', t('Grid Columns'), t('Number of columns in grid layout'), containerEl);
+        }
+
+        if (this.plugin.settings.defaultLayout === 'masonry') {
+            this.addNumberSetting('masonryColumns', t('Masonry Columns'), t('Number of columns in masonry layout'), containerEl);
+        }
+
+        if (this.plugin.settings.defaultLayout === 'auto' || this.plugin.settings.defaultLayout === 'list') {
+            this.addToggleSetting(
+                'alignCardHeight',
+                t('Align Card Height'),
+                t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.'),
+                containerEl
+            );
+
+            this.addNumberSetting(
+                'cardsPerView',
+                t('Cards per view'),
+                t('Number of cards to display at once'),
+                containerEl
+            );
+        }
+    }
+
+	// Section for card display settings
+	private addCardDisplaySettings(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName(t('Card Display Settings'))
+			.setHeading();
+
+		// Card display settings
+		displaySettings.forEach(({ key, name }) => {
+			this.addToggleSetting(
+				key, 
+				t(name), 
+				t('toggleDisplayFor', { name: t(name.toLowerCase()) }),
+				containerEl
+			);
+		});
+
+		// Content length settings
+		this.addToggleSetting(
+			'isContentLengthUnlimited',
+			t('Content Length Limit'),
+			t('Toggle between limited and unlimited content length'),
+			containerEl
+		);
+
+		this.addNumberSetting(
+			'contentLength',
+			t('Content Length Limit'),
+			t('Set the maximum content length displayed on each card when content length is limited.'),
+			containerEl
+		);
+	}
+
+		// Section for card styling settings
+		private addCardStylingSettings(containerEl: HTMLElement): void {
 			new Setting(containerEl)
-				.setName(t('Content Settings'))
+				.setName(t('Card Styling Settings'))
 				.setHeading();
 	
-			this.addFolderSelectionSetting(containerEl);
-			this.addSortSetting(containerEl);
-	
-			// Card display settings
-			displaySettings.forEach(({ key, name }) => {
-				this.addToggleSetting(
-					key, 
-					t(name), 
-					t('toggleDisplayFor', { name: t(name.toLowerCase()) }),
-					containerEl
-				);
-			});
-	
-			// Font size settings
 			fontSizeSettings.forEach(({ key, name }) => {
 				this.addNumberSetting(
 					key, 
@@ -196,23 +228,14 @@ export class SettingTab extends PluginSettingTab {
 					containerEl
 				);
 			});
+		}
+
+		// Section for advanced settings
+		private addAdvancedSettings(containerEl: HTMLElement): void {
+			new Setting(containerEl)
+				.setName(t('Advanced Settings'))
+				.setHeading();
 	
-			// Content length settings
-			this.addToggleSetting(
-				'isContentLengthUnlimited',
-				t('Content Length Limit'),
-				t('Toggle between limited and unlimited content length'),
-				containerEl
-			);
-	
-			this.addNumberSetting(
-				'contentLength',
-				t('Content Length Limit'),
-				t('Set the maximum content length displayed on each card when content length is limited.'),
-				containerEl
-			);
-	
-			// Additional content settings
 			this.addToggleSetting('renderContentAsHtml', t('Render Content as HTML'), t('If enabled, card content will be rendered as HTML'), containerEl);
 			this.addToggleSetting('dragDropContent', t('Drag and Drop Content'), t('When enabled, dragging a card will insert the note content instead of a link.'), containerEl);
 		}
@@ -240,95 +263,64 @@ export class SettingTab extends PluginSettingTab {
 			additionalNote.setText(t('Note: Some shortcuts like arrow keys for navigation and Enter for opening cards are built-in and cannot be customized.'));
 		}
 
-    // Add a number setting with a slider
-    private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): void {
-        const setting = new Setting(parentEl)
-            .setName(name)
-            .setDesc(desc);
-
-        const config = this.settingsManager.getNumberSettingConfig(key);
-
-        // Disable the slider if content length is unlimited
-        if (key === 'contentLength') {
-            setting.setClass('content-length-slider')
-                .setDisabled(this.plugin.settings.isContentLengthUnlimited);
-        }
-
-        // Add slider control
-        setting.addSlider(slider => slider
-            .setLimits(config.min, config.max, config.step)
-            .setValue(this.plugin.settings[key])
-            .setDynamicTooltip()
-            .onChange(async (value) => {
-                if (key === 'contentLength' && this.plugin.settings.isContentLengthUnlimited) {
-                    return;
-                }
-                await this.settingsManager.updateNumberSetting(key, value);
-                this.plugin.triggerRefresh();
-            })
-        );
-
-        setting.settingEl.addClass('setting-number');
-    }
-
-    // Section for folder selection settings
-    private addFolderSelectionSetting(parentEl: HTMLElement): void {
-        const folderSettingEl = new Setting(parentEl)
-            .setName(t('Folder Selection'))
-            .setDesc(t('Choose whether to use the active file\'s folder or a selected folder'))
-            .addDropdown(dropdown => dropdown
-                .addOption('active', t('Active File\'s Folder'))
-                .addOption('selected', t('Selected Folder'))
-                .setValue(this.plugin.settings.useSelectedFolder ? 'selected' : 'active')
-                .onChange(async (value) => {
-                    await this.settingsManager.updateBooleanSetting('useSelectedFolder', value === 'selected');
-                    this.display();
-                })).settingEl;
-
-        folderSettingEl.addClass('setting-folder-selection');
-
-        // Show folder selection if 'selected folder' is enabled
-        if (this.plugin.settings.useSelectedFolder) {
-            this.addFolderSetting(parentEl);
-        }
-    }
-
-    // Add folder selection button when 'Selected Folder' is chosen
-    private addFolderSetting(parentEl: HTMLElement): void {
-        const folderEl = new Setting(parentEl)
-            .setName(t('Select Folder'))
-            .setDesc(t('Choose a folder for Card Navigator'))
-            .addButton(button => button
-                .setButtonText(this.plugin.settings.selectedFolder || t('Choose folder'))
-                .onClick(() => {
-                    new FolderSuggestModal(this.plugin, async (folder) => {
-                        await this.settingsManager.updateSelectedFolder(folder);
-                        this.display();
-                    }).open();
-                })).settingEl;
-
-        folderEl.addClass('setting-select-folder');
-    }
-
-    // Section for sorting settings
-    private addSortSetting(parentEl: HTMLElement): void {
-        const sortEl = new Setting(parentEl)
-            .setName(t('Default sort method'))
-            .setDesc(t('Choose the default sorting method for cards'))
-            .addDropdown(dropdown => {
-                sortOptions.forEach(option => {
-                    dropdown.addOption(option.value, t(option.label));
-                });
-                dropdown
-                    .setValue(`${this.plugin.settings.sortCriterion}_${this.plugin.settings.sortOrder}`)
-                    .onChange(async (value) => {
-                        const [criterion, order] = value.split('_') as [SortCriterion, SortOrder];
-                        await this.settingsManager.updateSortSettings(criterion, order);
-                    });
-            }).settingEl;
-
-        sortEl.addClass('setting-sort-method');
-    }
+		// Section for folder selection settings
+		private addFolderSelectionSetting(parentEl: HTMLElement): void {
+			const folderSettingEl = new Setting(parentEl)
+				.setName(t('Folder Selection'))
+				.setDesc(t('Choose whether to use the active file\'s folder or a selected folder'))
+				.addDropdown(dropdown => dropdown
+					.addOption('active', t('Active File\'s Folder'))
+					.addOption('selected', t('Selected Folder'))
+					.setValue(this.plugin.settings.useSelectedFolder ? 'selected' : 'active')
+					.onChange(async (value) => {
+						await this.settingsManager.updateBooleanSetting('useSelectedFolder', value === 'selected');
+						this.display();
+					})).settingEl;
+	
+			folderSettingEl.addClass('setting-folder-selection');
+	
+			// Show folder selection if 'selected folder' is enabled
+			if (this.plugin.settings.useSelectedFolder) {
+				this.addFolderSetting(parentEl);
+			}
+		}
+	
+		// Add folder selection button when 'Selected Folder' is chosen
+		private addFolderSetting(parentEl: HTMLElement): void {
+			const folderEl = new Setting(parentEl)
+				.setName(t('Select Folder'))
+				.setDesc(t('Choose a folder for Card Navigator'))
+				.addButton(button => button
+					.setButtonText(this.plugin.settings.selectedFolder || t('Choose folder'))
+					.onClick(() => {
+						new FolderSuggestModal(this.plugin, async (folder) => {
+							await this.settingsManager.updateSelectedFolder(folder);
+							this.display();
+						}).open();
+					})).settingEl;
+	
+			folderEl.addClass('setting-select-folder');
+		}
+	
+		// Section for sorting settings
+		private addSortSetting(parentEl: HTMLElement): void {
+			const sortEl = new Setting(parentEl)
+				.setName(t('Default sort method'))
+				.setDesc(t('Choose the default sorting method for cards'))
+				.addDropdown(dropdown => {
+					sortOptions.forEach(option => {
+						dropdown.addOption(option.value, t(option.label));
+					});
+					dropdown
+						.setValue(`${this.plugin.settings.sortCriterion}_${this.plugin.settings.sortOrder}`)
+						.onChange(async (value) => {
+							const [criterion, order] = value.split('_') as [SortCriterion, SortOrder];
+							await this.settingsManager.updateSortSettings(criterion, order);
+						});
+				}).settingEl;
+	
+			sortEl.addClass('setting-sort-method');
+		}
 
     // Add toggle settings (boolean options)
     private addToggleSetting(key: keyof CardNavigatorSettings, name: string, desc: string, parentEl: HTMLElement): void {
@@ -339,24 +331,77 @@ export class SettingTab extends PluginSettingTab {
                 .setValue(key === 'isContentLengthUnlimited' ? !this.plugin.settings[key] : this.plugin.settings[key] as boolean)
                 .onChange(async (value) => {
                     if (key === 'isContentLengthUnlimited') {
-                        value = !value;  // Invert the value for this specific setting
+                        value = !value; // Invert the value for this specific setting
                     }
                     await this.settingsManager.updateBooleanSetting(key, value);
+                    
+                    let sliderClass = '';
+                    let invertOpacity = false;
+                    
                     if (key === 'isContentLengthUnlimited') {
-                        const contentLengthSlider = parentEl.querySelector('.content-length-slider');
-                        if (contentLengthSlider) {
-                            (contentLengthSlider as HTMLElement).style.opacity = value ? '0.5' : '1';
-                            const sliderComponent = (contentLengthSlider as HTMLElement).querySelector('.slider');
+                        sliderClass = '.content-length-slider';
+                        invertOpacity = true;
+                    } else if (key === 'alignCardHeight') {
+                        sliderClass = '.cards-per-view-slider';
+                    }
+                    
+                    if (sliderClass) {
+                        const slider = parentEl.querySelector(sliderClass);
+                        if (slider) {
+                            const opacity = invertOpacity ? (value ? '0.5' : '1') : (value ? '1' : '0.5');
+                            (slider as HTMLElement).style.opacity = opacity;
+                            const sliderComponent = (slider as HTMLElement).querySelector('.slider');
                             if (sliderComponent) {
-                                (sliderComponent as HTMLInputElement).disabled = value;
+                                (sliderComponent as HTMLInputElement).disabled = invertOpacity ? value : !value;
                             }
                         }
                     }
+                    
                     this.plugin.triggerRefresh();
                 })
             ).settingEl;
 
         settingEl.addClass('setting-toggle');
+    }
+
+    // Add a number setting with a slider
+    private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): void {
+        const setting = new Setting(parentEl)
+            .setName(name)
+            .setDesc(desc);
+
+        const config = this.settingsManager.getNumberSettingConfig(key);
+
+        if (key === 'contentLength') {
+            setting.setClass('content-length-slider')
+                .setDisabled(this.plugin.settings.isContentLengthUnlimited);
+        }
+
+        if (key === 'cardsPerView') {
+            setting.setClass('cards-per-view-slider')
+                .setDisabled(!this.plugin.settings.alignCardHeight);
+        }
+
+        setting.addSlider(slider => slider
+            .setLimits(config.min, config.max, config.step)
+            .setValue(this.plugin.settings[key])
+            .setDynamicTooltip()
+            .onChange(async (value) => {
+                if ((key === 'contentLength' && this.plugin.settings.isContentLengthUnlimited) ||
+                    (key === 'cardsPerView' && !this.plugin.settings.alignCardHeight)) {
+                    return;
+                }
+                await this.settingsManager.updateNumberSetting(key, value);
+                
+                if (key === 'gridColumns' || key === 'masonryColumns') {
+                    this.plugin.updateCardNavigatorLayout(this.plugin.settings.defaultLayout);
+                }
+                
+                this.plugin.triggerRefresh();
+            })
+        );
+
+        setting.settingEl.addClass('setting-number');
     }
 }
 

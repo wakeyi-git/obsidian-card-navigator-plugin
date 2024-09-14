@@ -21,17 +21,24 @@ export class CardContainer {
     private resizeObserver: ResizeObserver;
 
     constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
-		this.cardMaker = new CardMaker(
-			this.plugin,
-			(file: TFile) => this.copyLink(file),
-			(file: TFile) => this.copyCardContent(file)
-		);
-		this.isVertical = false;
+        this.cardMaker = new CardMaker(
+            this.plugin,
+            (file: TFile) => this.copyLink(file),
+            (file: TFile) => this.copyCardContent(file)
+        );
+        this.isVertical = this.calculateIsVertical();
         this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
-		this.layoutStrategy = this.determineAutoLayout();
+        this.layoutStrategy = this.determineAutoLayout();
         this.resizeObserver = new ResizeObserver(debounce(() => {
             this.handleResize();
         }, 100));
+    }
+
+	// Determines whether the container should be considered vertical.
+	private calculateIsVertical(): boolean {
+        if (!this.containerEl) return true;
+        const { width, height } = this.containerEl.getBoundingClientRect();
+        return height > width;
     }
 
     // Retrieves the value of a CSS variable. If not available, returns a default value.
@@ -75,31 +82,54 @@ export class CardContainer {
     }
 
 	// Determines the appropriate layout strategy based on the container size and plugin settings.
-	private determineAutoLayout(): LayoutStrategy {
+    private determineAutoLayout(): LayoutStrategy {
         if (!this.containerEl) return new ListLayout(true, this.cardGap, this.plugin.settings.alignCardHeight);
     
+        const containerStyle = window.getComputedStyle(this.containerEl);
         const containerWidth = this.containerEl.offsetWidth;
+        const paddingLeft = parseFloat(containerStyle.paddingLeft);
+        const paddingRight = parseFloat(containerStyle.paddingRight);
+        const availableWidth = containerWidth - paddingLeft - paddingRight;
+
         const { 
             alignCardHeight, 
             isContentLengthUnlimited, 
             contentLength,
-            minCardWidth,
-            maxCardWidth,
-            listLayoutThreshold,
-            gridLayoutThreshold
+            cardWidthThreshold,
+            defaultLayout
         } = this.plugin.settings;
-	
-		let columns = Math.floor(containerWidth / maxCardWidth);
-		columns = Math.max(1, Math.min(columns, Math.floor(containerWidth / minCardWidth)));
-	
-        if (containerWidth < listLayoutThreshold) {
-            return new ListLayout(true, this.cardGap, alignCardHeight);
-        } else if (containerWidth < gridLayoutThreshold) {
-            return new GridLayout(2, this.cardGap);
+    
+        if (defaultLayout !== 'auto') {
+            this.plugin.settings.layout = defaultLayout;
+            switch (defaultLayout) {
+                case 'list':
+                    return new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
+                case 'grid':
+                    return new GridLayout(this.plugin.settings.gridColumns, this.cardGap);
+                case 'masonry':
+                    return new MasonryLayout(this.plugin.settings.masonryColumns, this.cardGap, isContentLengthUnlimited, contentLength);
+            }
+        }
+
+        // Calculate the number of columns
+        let columns = Math.floor((availableWidth + this.cardGap) / (cardWidthThreshold + this.cardGap));
+        columns = Math.max(1, columns); // Ensure at least one column
+        
+		// Note: Actual card width can be calculated as follows if needed in the future:
+        // const cardWidth = (availableWidth - (columns - 1) * this.cardGap) / columns;
+
+        // Adjust gap for single column layout
+        const adjustedGap = columns === 1 ? Math.min(this.cardGap, 10) : this.cardGap;
+
+        if (columns === 1) {
+            this.plugin.settings.layout = 'list';
+            return new ListLayout(this.isVertical, adjustedGap, alignCardHeight);
         } else {
             if (alignCardHeight) {
+                this.plugin.settings.layout = 'grid';
                 return new GridLayout(columns, this.cardGap);
             } else {
+                this.plugin.settings.layout = 'masonry';
                 return new MasonryLayout(columns, this.cardGap, isContentLengthUnlimited, contentLength);
             }
         }
@@ -107,14 +137,25 @@ export class CardContainer {
 
 	// Handles resizing of the container and applies a new layout strategy if needed.
     public handleResize() {
-        if (this.plugin.settings.defaultLayout === 'auto') {
+        const previousIsVertical = this.isVertical;
+        this.isVertical = this.calculateIsVertical();
+        
+        if (this.plugin.settings.defaultLayout === 'auto' || 
+            this.plugin.settings.defaultLayout === 'list' || 
+            previousIsVertical !== this.isVertical) {
             this.layoutStrategy = this.determineAutoLayout();
         }
-        this.refresh();
-    }
+        
+		this.keyboardNavigator?.updateLayout(this.layoutStrategy);
+		this.refresh();
+	}
+
+	public getLayoutStrategy(): LayoutStrategy {
+		return this.layoutStrategy;
+	}
 
 	// Sets the layout strategy based on the provided layout type ('auto', 'list', 'grid', or 'masonry').
-    setLayout(layout: 'auto' | 'list' | 'grid' | 'masonry') {
+	setLayout(layout: 'auto' | 'list' | 'grid' | 'masonry') {
         const { gridColumns, masonryColumns, isContentLengthUnlimited, contentLength, alignCardHeight } = this.plugin.settings;
         
         if (layout === 'auto') {
@@ -132,7 +173,12 @@ export class CardContainer {
                     break;
             }
         }
-        this.refresh();
+		this.keyboardNavigator?.updateLayout(this.layoutStrategy);
+		this.refresh();
+	}
+
+    public isGridLayout(): boolean {
+        return this.layoutStrategy instanceof GridLayout;
     }
 
     // Sets the layout orientation of the cards (vertical or horizontal).
@@ -227,7 +273,22 @@ export class CardContainer {
         const containerStyle = window.getComputedStyle(containerEl);
         const paddingLeft = parseFloat(containerStyle.paddingLeft);
         const paddingRight = parseFloat(containerStyle.paddingRight);
+        const paddingTop = parseFloat(containerStyle.paddingTop);
         const availableWidth = containerRect.width - paddingLeft - paddingRight;
+
+        // Apply container styles for List layout
+        if (this.layoutStrategy instanceof ListLayout) {
+            const listContainerStyle = this.layoutStrategy.getContainerStyle();
+            Object.assign(containerEl.style, listContainerStyle);
+        } else {
+            // Reset styles for other layouts
+            containerEl.style.display = '';
+            containerEl.style.flexDirection = '';
+            containerEl.style.gap = '';
+            containerEl.style.alignItems = '';
+            containerEl.style.overflowY = '';
+            containerEl.style.height = '100%';
+        }
 
         const cardPositions = this.layoutStrategy.arrange(
             cardsData,
@@ -237,18 +298,25 @@ export class CardContainer {
         );
 
         containerEl.empty();
-
         this.cards = cardsData;
-    
-        cardPositions.forEach(({ card, x, y, width, height }, index) => {
+
+        cardsData.forEach((card, index) => {
             const cardEl = this.cardMaker.createCardElement(card);
-            cardEl.style.position = 'absolute';
-            cardEl.style.left = `${x + paddingLeft}px`;
-            cardEl.style.top = `${y}px`;
-            cardEl.style.width = `${width}px`;
-            cardEl.style.height = `${height}px`;
+
+            if (this.layoutStrategy instanceof ListLayout) {
+                const cardStyle = this.layoutStrategy.getCardStyle();
+                Object.assign(cardEl.style, cardStyle);
+            } else {
+                const position = cardPositions[index];
+                cardEl.style.position = 'absolute';
+                cardEl.style.left = `${position.x + paddingLeft}px`;
+                cardEl.style.top = `${position.y + paddingTop}px`;
+                cardEl.style.width = `${position.width}px`;
+                cardEl.style.height = typeof position.height === 'number' ? `${position.height}px` : position.height;
+            }
+
             containerEl.appendChild(cardEl);
-    
+
             cardEl.classList.add(this.layoutStrategy.getScrollDirection() === 'vertical' ? 'vertical' : 'horizontal');
             cardEl.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
             cardEl.classList.toggle('card-navigator-active', card.file === this.plugin.app.workspace.getActiveFile());

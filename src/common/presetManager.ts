@@ -1,3 +1,5 @@
+// src/common/presetManager.ts
+
 import { Notice } from 'obsidian';
 import CardNavigatorPlugin from '../main';
 import { Preset, CardNavigatorSettings } from './types';
@@ -11,7 +13,7 @@ export class PresetManager {
         this.plugin = plugin;
     }
 
-    // Initializes the temporary preset with the last active or default preset settings
+	// Initializes the temporary preset with the last active or default preset settings
     initializeTempPreset() {
         const lastActivePresetName = this.plugin.settings.lastActivePreset;
         if (lastActivePresetName && this.plugin.settings.presets[lastActivePresetName]) {
@@ -22,7 +24,7 @@ export class PresetManager {
         this.applyTempPreset();
     }
 
-    // Applies a preset to the temporary settings
+	// Applies a preset to the temporary settings
     applyPreset(presetName: string) {
         if (this.plugin.settings.presets[presetName]) {
             this.tempPreset = { ...this.plugin.settings.presets[presetName].settings };
@@ -33,7 +35,7 @@ export class PresetManager {
         }
     }
 
-    // Saves the current temporary settings as a preset
+	// Saves the current temporary settings as a preset
     savePreset(presetName: string) {
         if (presetName === 'default') {
 			new Notice(t('Default preset cannot be modified.'));
@@ -62,7 +64,7 @@ export class PresetManager {
 		new Notice(t('Preset \'{presetName}\' deleted successfully.', { presetName }));
     }
 
-    // Reverts the temporary settings to the default preset
+	// Reverts the temporary settings to the default preset
     revertToDefault() {
         this.tempPreset = { ...this.plugin.settings.presets['default'].settings };
         this.applyTempPreset();
@@ -83,18 +85,18 @@ export class PresetManager {
         return { ...this.tempPreset };
     }
 
-    // Returns all available presets
-    getPresets(): Record<string, Preset> {
-        return this.plugin.settings.presets;
-    }
-
-    // Applies the temporary preset settings and saves them
+	// Applies the temporary preset settings and saves them
     private applyTempPreset() {
         Object.assign(this.plugin.settings, this.tempPreset);
         this.plugin.saveSettings();
     }
 
-    // Saves the last active preset based on the current temporary settings
+	// Returns all available presets
+	getPresets(): Record<string, Preset> {
+		return this.plugin.settings.presets;
+	}
+
+	// Saves the last active preset based on the current temporary settings
     saveLastActivePreset() {
         const lastActivePresetName = Object.entries(this.plugin.settings.presets).find(
             ([_, preset]) => JSON.stringify(preset.settings) === JSON.stringify(this.tempPreset)
