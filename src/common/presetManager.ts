@@ -25,41 +25,37 @@ export class PresetManager {
     }
 
 	// Applies a preset to the temporary settings
-    applyPreset(presetName: string) {
-        if (this.plugin.settings.presets[presetName]) {
-            this.tempPreset = { ...this.plugin.settings.presets[presetName].settings };
-            this.applyTempPreset();
-            
-            const newLayout = this.tempPreset.defaultLayout;
-            if (newLayout) {
-                this.plugin.updateCardNavigatorLayout(newLayout);
-            }
-
-            new Notice(t('Preset \'{presetName}\' applied to temporary settings.', { presetName }));
-        } else {
-            new Notice(t('Preset \'{presetName}\' does not exist.', { presetName }));
-        }
-    }
+	applyPresetInternal(presetName: string) {
+		if (this.plugin.settings.presets[presetName]) {
+			this.tempPreset = { ...this.plugin.settings.presets[presetName].settings };
+			this.tempPreset.lastActivePreset = presetName;
+			this.applyTempPreset();
+			
+			const newLayout = this.tempPreset.defaultLayout;
+			if (newLayout) {
+				this.plugin.updateCardNavigatorLayout(newLayout);
+			}
+			new Notice(`${t('Preset \'{presetName}\' Applied.').replace('{presetName}', presetName)}`);
+		} else {
+			new Notice(`${t('Preset \'{presetName}\' does not exist.').replace('{presetName}', presetName)}`);
+		}
+	}
 
 	// Saves the current temporary settings as a preset
-    savePreset(presetName: string) {
-        if (presetName === 'default') {
-			new Notice(t('Default preset cannot be modified.'));
-            return;
-        }
-        this.plugin.settings.presets[presetName] = {
-            name: presetName,
-            settings: { ...this.tempPreset }
-        };
-        this.plugin.settings.lastActivePreset = presetName;
-        this.plugin.saveSettings();
-		new Notice(t('Preset \'{presetName}\' saved successfully.', { presetName }));
-    }
+	savePresetInternal(presetName: string) {
+		if (presetName === 'default') {
+			return;
+		}
+		this.plugin.settings.presets[presetName] = {
+			name: presetName,
+			settings: { ...this.tempPreset }
+		};
+		this.plugin.settings.lastActivePreset = presetName;
+	}
 
     // Deletes a preset, reverting to default if necessary
-    deletePreset(presetName: string) {
+    deletePresetInternal(presetName: string) {
         if (presetName === 'default') {
-			new Notice(t('Default preset cannot be deleted.'));
             return;
         }
         delete this.plugin.settings.presets[presetName];
@@ -67,14 +63,12 @@ export class PresetManager {
             this.plugin.settings.lastActivePreset = 'default';
         }
         this.plugin.saveSettings();
-		new Notice(t('Preset \'{presetName}\' deleted successfully.', { presetName }));
     }
 
 	// Reverts the temporary settings to the default preset
     revertToDefault() {
         this.tempPreset = { ...this.plugin.settings.presets['default'].settings };
         this.applyTempPreset();
-		new Notice(t('Reverted to default settings.'));
     }
 
     // Updates a specific setting in the temporary preset
@@ -87,13 +81,11 @@ export class PresetManager {
     }
 
     // Updates the temporary preset to default settings
-    updateTempPresetToDefault() {
-        const currentPresetName = this.plugin.settings.lastActivePreset;
-        this.tempPreset = { ...DEFAULT_SETTINGS };
-        delete this.tempPreset.presets; // Remove nested presets
-        this.tempPreset.lastActivePreset = currentPresetName; // Maintain the current preset
-        this.applyTempPreset();
-    }
+	updateTempPresetToDefault(currentPresetName: string) {
+		this.tempPreset = { ...DEFAULT_SETTINGS };
+		delete this.tempPreset.presets; // Remove nested presets
+		this.tempPreset.lastActivePreset = currentPresetName; // Maintain the current preset
+	}
 
     // Returns a copy of the current temporary preset
     getTempPreset(): Partial<CardNavigatorSettings> {
@@ -101,23 +93,48 @@ export class PresetManager {
     }
 
 	// Applies the temporary preset settings and saves them
-    private applyTempPreset() {
-        Object.assign(this.plugin.settings, this.tempPreset);
-        this.plugin.saveSettings();
-    }
+	applyTempPreset() {
+		Object.assign(this.plugin.settings, this.tempPreset);
+		this.plugin.triggerRefresh();
+	}
+
+	// Ensuring synchronization between tempPreset and actual settings
+	syncTempPresetWithSettings() {
+		const currentSettings = { ...this.plugin.settings };
+		const { ...tempPreset } = currentSettings;
+		this.tempPreset = tempPreset;
+	}
 
 	// Returns all available presets
 	getPresets(): Record<string, Preset> {
 		return this.plugin.settings.presets;
 	}
 
-	// Saves the last active preset based on the current temporary settings
-    saveLastActivePreset() {
-        const lastActivePresetName = Object.entries(this.plugin.settings.presets).find(
-            ([_, preset]) => JSON.stringify(preset.settings) === JSON.stringify(this.tempPreset)
-        )?.[0] || 'default';
+	// Updates the settings of the currently active preset.
+	updateActivePreset() {
+		const currentPresetName = this.plugin.settings.lastActivePreset;
+		if (currentPresetName !== 'default') {
+			this.plugin.settings.presets[currentPresetName].settings = { ...this.tempPreset };
+			this.plugin.saveSettings();
+		}
+	}
 
-        this.plugin.settings.lastActivePreset = lastActivePresetName;
-        this.plugin.saveSettings();
-    }
+	// Saves the last active preset based on the current temporary settings
+	saveLastActivePreset() {
+		const lastActivePresetName = Object.entries(this.plugin.settings.presets).find(
+			([_, preset]) => {
+				const presetSettings = preset.settings as Partial<CardNavigatorSettings>;
+				const tempPreset = this.tempPreset as Partial<CardNavigatorSettings>;
+				return Object.keys(tempPreset).every(key => 
+					JSON.stringify(presetSettings[key as keyof CardNavigatorSettings]) === 
+					JSON.stringify(tempPreset[key as keyof CardNavigatorSettings])
+				);
+			}
+		)?.[0] || this.plugin.settings.lastActivePreset;
+	
+		if (lastActivePresetName !== this.plugin.settings.lastActivePreset) {
+			this.plugin.settings.lastActivePreset = lastActivePresetName;
+			this.plugin.saveSettings();
+		}
+	}
 }

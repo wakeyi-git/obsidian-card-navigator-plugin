@@ -53,7 +53,9 @@ export class SettingTab extends PluginSettingTab {
 			dropdown.setValue(this.plugin.settings.lastActivePreset)
 				.onChange(async (value) => {
 					await this.settingsManager.applyPreset(value);
-					this.display(); // Refresh the settings tab
+					this.plugin.settings.lastActivePreset = value;
+					await this.plugin.saveSettings();
+					this.display();
 				});
 		});
 
@@ -71,7 +73,7 @@ export class SettingTab extends PluginSettingTab {
                             new Notice(t('preset Saved', { presetName }));
                             this.plugin.settings.lastActivePreset = presetName;
                             await this.plugin.saveSettings();
-                            this.display(); // Refresh the settings tab
+                            this.display();
                         }
                     }, this.plugin).open();
                 }))
@@ -80,9 +82,10 @@ export class SettingTab extends PluginSettingTab {
 				.onClick(async () => {
 					const currentPreset = this.plugin.settings.lastActivePreset;
 					if (currentPreset !== 'default') {
-						await this.settingsManager.updateCurrentPreset(currentPreset);
+						await this.settingsManager.updateCurrentPresetAs(currentPreset);
+						await this.plugin.saveSettings();
 						new Notice(t('preset Updated', { presetName: currentPreset }));
-						this.display(); // Refresh the settings tab
+						this.display();
 					} else {
 						new Notice(t('default Preset Cannot Be Modified'));
 					}
@@ -93,29 +96,25 @@ export class SettingTab extends PluginSettingTab {
 				.onClick(async () => {
 					const currentPreset = this.plugin.settings.lastActivePreset;
 					if (currentPreset !== 'default') {
-						await this.settingsManager.deletePreset(currentPreset);
-						// Apply default preset after deletion
-						await this.settingsManager.applyPreset('default');
-						this.plugin.settings.lastActivePreset = 'default';
-						await this.plugin.saveSettings();
-						new Notice(t('preset Deleted and Default Applied', { presetName: currentPreset }));
-						this.display(); // Refresh the settings tab
+							await this.settingsManager.deletePreset(currentPreset);
+							new Notice(t('preset Deleted and Default Applied', { presetName: currentPreset }));
+							this.display(); 
 					} else {
 						new Notice(t('default Preset Cannot Be Deleted'));
 					}
-				}));
+				}))
 
         // Button to revert settings to default values
-        new Setting(containerEl)
-            .setName(t('Revert to Default Settings'))
-            .setDesc(t('This button will revert the current preset\'s settings to their default values without changing the selected preset.'))
-            .addButton(button => button
-                .setButtonText(t('Revert'))
-                .onClick(async () => {
-                    await this.settingsManager.revertCurrentPresetToDefault();
-                    new Notice(t('Current preset settings reverted to default values'));
-                    this.display(); // Refresh the settings tab to show updated values
-                }));
+		new Setting(containerEl)
+			.setName(t('Revert to Default Settings'))
+			.setDesc(t('This button will revert the current preset\'s settings to their default values without saving the changes.'))
+			.addButton(button => button
+				.setButtonText(t('Revert'))
+				.onClick(async () => {
+					await this.settingsManager.revertCurrentPresetToDefault();
+					new Notice(t('Current preset settings reverted to default values (not saved)'));
+					this.display(); // Refresh the settings tab to reflect the changes
+				}));
 	}
 
 	// Section for general settings
@@ -130,57 +129,97 @@ export class SettingTab extends PluginSettingTab {
 	}
 
     // Section for layout-related settings
-    private addLayoutSettings(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(t('Layout Settings'))
-            .setHeading();
+	private addLayoutSettings(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName(t('Layout Settings'))
+			.setHeading();
 
-        new Setting(containerEl)
-            .setName(t('Default Layout'))
-            .setDesc(t('Choose the default layout for cards'))
-            .addDropdown((dropdown: DropdownComponent) => {
-                dropdown
-                    .addOption('auto', t('Auto'))
-                    .addOption('list', t('List'))
-                    .addOption('grid', t('Grid'))
-                    .addOption('masonry', t('Masonry'))
-                    .setValue(this.plugin.settings.defaultLayout)
-                    .onChange(async (value: string) => {
-                        const layout = value as CardNavigatorSettings['defaultLayout'];
-                        await this.plugin.settingsManager.updateSetting('defaultLayout', layout);
-                        this.plugin.updateCardNavigatorLayout(layout);
-                        this.display(); // Refresh the settings tab to show/hide relevant options
-                    });
-            });
+		new Setting(containerEl)
+			.setName(t('Default Layout'))
+			.setDesc(t('Choose the default layout for cards'))
+			.addDropdown((dropdown: DropdownComponent) => {
+				dropdown
+					.addOption('auto', t('Auto'))
+					.addOption('list', t('List'))
+					.addOption('grid', t('Grid'))
+					.addOption('masonry', t('Masonry'))
+					.setValue(this.plugin.settings.defaultLayout)
+					.onChange(async (value: string) => {
+						const layout = value as CardNavigatorSettings['defaultLayout'];
+						await this.plugin.settingsManager.updateSetting('defaultLayout', layout);
+						this.plugin.updateCardNavigatorLayout(layout);
+						this.display(); // Refresh the settings tab to show/hide relevant options
+					});
+			});
 
-        if (this.plugin.settings.defaultLayout === 'auto') {
-            this.addNumberSetting('cardWidthThreshold', t('Card Width Threshold'), t('Width threshold for adding/removing columns'), containerEl);
-        }
+		const updateLayoutSettings = async (layout: CardNavigatorSettings['defaultLayout']) => {
+				// Remove existing layout-specific settings
+			containerEl.querySelectorAll('.layout-specific-setting').forEach(el => el.remove());
 
-        if (this.plugin.settings.defaultLayout === 'grid') {
-            this.addNumberSetting('gridColumns', t('Grid Columns'), t('Number of columns in grid layout'), containerEl);
-        }
+			if (layout === 'auto') {
+				this.addNumberSetting(
+					'cardWidthThreshold',
+					t('Card Width Threshold'),
+					t('Width threshold for adding/removing columns'),
+					containerEl
+				);
+			}
+			
+			if (layout === 'grid') {
+				this.addNumberSetting(
+					'gridColumns',
+					t('Grid Columns'),
+					t('Number of columns in grid layout'),
+					containerEl
+				);
+			}
+			
+			if (layout === 'masonry') {
+				this.addNumberSetting(
+					'masonryColumns',
+					t('Masonry Columns'),
+					t('Number of columns in masonry layout'),
+					containerEl
+				);
+			}
 
-        if (this.plugin.settings.defaultLayout === 'masonry') {
-            this.addNumberSetting('masonryColumns', t('Masonry Columns'), t('Number of columns in masonry layout'), containerEl);
-        }
+			if (layout === 'auto' || layout === 'list') {
+				new Setting(containerEl)
+					.setName(t('Align Card Height'))
+					.setDesc(t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.'))
+					.addToggle(toggle => toggle
+						.setValue(this.plugin.settings.alignCardHeight)
+						.onChange(async (value) => {
+							await this.settingsManager.updateBooleanSetting('alignCardHeight', value);
+							this.display(); // Refresh to show/hide Cards per view setting
+						})
+					)
+					.settingEl.addClass('layout-specific-setting');
 
-        if (this.plugin.settings.defaultLayout === 'auto' || this.plugin.settings.defaultLayout === 'list') {
-            this.addToggleSetting(
-                'alignCardHeight',
-                t('Align Card Height'),
-                t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.'),
-                containerEl
-            );
+				if (this.plugin.settings.alignCardHeight) {
+					this.addNumberSetting(
+						'cardsPerView',
+						t('Cards per view'),
+						t('Number of cards to display at once'),
+						containerEl
+					);
+				}
+			}
+		};
 
-            this.addNumberSetting(
-                'cardsPerView',
-                t('Cards per view'),
-                t('Number of cards to display at once'),
-                containerEl
-            );
-        }
-    }
+		// Initial update of layout settings
+		updateLayoutSettings(this.plugin.settings.defaultLayout);
+
+		(async () => {
+			await updateLayoutSettings(this.plugin.settings.defaultLayout);
+		})();
+
+		// Listen for changes in the layout dropdown
+		containerEl.querySelector('.setting-item-dropdown select')?.addEventListener('change', async (e) => {
+			const layout = (e.target as HTMLSelectElement).value as CardNavigatorSettings['defaultLayout'];
+			await updateLayoutSettings(layout);
+		});
+	}
 
 	// Section for card display settings
 	private addCardDisplaySettings(containerEl: HTMLElement): void {
@@ -362,44 +401,45 @@ export class SettingTab extends PluginSettingTab {
     }
 
     // Add a number setting with a slider
-	private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): void {
-        const setting = new Setting(parentEl)
-            .setName(name)
-            .setDesc(desc);
-
-        const config = this.settingsManager.getNumberSettingConfig(key);
-
-        if (key === 'bodyLength') {
-            setting.setClass('setting-body-length')
-                .setDisabled(this.plugin.settings.isBodyLengthUnlimited);
-        }
-
-        if (key === 'cardsPerView') {
-            setting.setClass('setting-card-height')
-                .setDisabled(!this.plugin.settings.alignCardHeight);
-        }
-
-        setting.addSlider(slider => slider
-            .setLimits(config.min, config.max, config.step)
-            .setValue(this.plugin.settings[key])
-            .setDynamicTooltip()
-            .onChange(async (value) => {
-                if ((key === 'bodyLength' && this.plugin.settings.isBodyLengthUnlimited) ||
-                    (key === 'cardsPerView' && !this.plugin.settings.alignCardHeight)) {
-                    return;
-                }
-                await this.settingsManager.updateNumberSetting(key, value);
-                
-                if (key === 'gridColumns' || key === 'masonryColumns') {
-                    this.plugin.updateCardNavigatorLayout(this.plugin.settings.defaultLayout);
-                }
-                
-                this.plugin.triggerRefresh();
-            })
-        );
-
-        setting.settingEl.addClass('setting-number');
-    }
+	private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): Setting {
+		const setting = new Setting(parentEl)
+			.setName(name)
+			.setDesc(desc);
+	
+		const config = this.settingsManager.getNumberSettingConfig(key);
+	
+		if (key === 'bodyLength') {
+			setting.setClass('setting-body-length')
+				.setDisabled(this.plugin.settings.isBodyLengthUnlimited);
+		}
+	
+		if (key === 'cardsPerView') {
+			setting.setClass('setting-card-height')
+				.setDisabled(!this.plugin.settings.alignCardHeight);
+		}
+	
+		setting.addSlider(slider => slider
+			.setLimits(config.min, config.max, config.step)
+			.setValue(this.plugin.settings[key])
+			.setDynamicTooltip()
+			.onChange(async (value) => {
+				if ((key === 'bodyLength' && this.plugin.settings.isBodyLengthUnlimited) ||
+					(key === 'cardsPerView' && !this.plugin.settings.alignCardHeight)) {
+					return;
+				}
+				await this.settingsManager.updateNumberSetting(key, value);
+				
+				if (key === 'gridColumns' || key === 'masonryColumns') {
+					this.plugin.updateCardNavigatorLayout(this.plugin.settings.defaultLayout);
+				}
+				
+				this.plugin.triggerRefresh();
+			})
+		);
+	
+		setting.settingEl.addClass('setting-number');
+		return setting;
+	}
 }
 
 // Modal to handle saving a new preset

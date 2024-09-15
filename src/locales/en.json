@@ -15,9 +15,9 @@
 	"preset Deleted and Default Applied": "The preset deleted and default applied.",
 	"default Preset Cannot Be Deleted": "The default preset cannot be deleted.",
 	"Revert to Default Settings": "Revert to Default Settings",
-	"This button will revert the current preset's settings to their default values without changing the selected preset.": "This button will revert the current preset's settings to their default values without changing the selected preset.",
+	"This button will revert the current preset's settings to their default values without saving the changes.": "This button will revert the current preset's settings to their default values without saving the changes.",
 	"Revert": "Revert",
-	"Current preset settings reverted to default values": "Current preset settings reverted to default values.",
+	"Current preset settings reverted to default values (not saved)": "Current preset settings reverted to default values (not saved)",
 	"General Settings": "General Settings",
 	"Center Active Card on Open": "Center Active Card on Open",
 	"Automatically center the active card when opening the Card Navigator": "Automatically center the active card when opening the Card Navigator.",
@@ -128,9 +128,7 @@
 	"Default preset cannot be modified.": "Default preset cannot be modified.",
 	"Default preset cannot be deleted.": "Default preset cannot be deleted.",
 
-	"Preset '{presetName}' applied to temporary settings.": "Preset '{presetName}' applied to temporary settings.",
-	"Preset '{presetName}' does not exist.": "Preset '{presetName}' does not exist.",
-	"Preset '{presetName}' saved successfully.": "Preset '{presetName}' saved successfully.",
-	"Preset '{presetName}' deleted successfully.": "Preset '{presetName}' deleted successfully.",
+	"Preset '{presetName}' Applied.": "{presetName} preset applied.",
+	"Preset '{presetName}' does not exist.": "Preset {presetName} does not exist.",
 	"Reverted to default settings.": "Reverted to default settings."
 }

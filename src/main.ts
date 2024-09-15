@@ -19,6 +19,7 @@ export const translationLanguage = Object.keys(languageResources).includes(momen
 export default class CardNavigatorPlugin extends Plugin {
     // Plugin settings and managers
     settings: CardNavigatorSettings = DEFAULT_SETTINGS;
+	settingTab!: SettingTab;
     selectedFolder: string | null = null;
     presetManager!: PresetManager;
     settingsManager!: SettingsManager;
@@ -59,7 +60,9 @@ export default class CardNavigatorPlugin extends Plugin {
     private async initializePlugin() {
         await this.initializeI18n(); // Initialize translation
 
-        this.addSettingTab(new SettingTab(this.app, this)); // Add the plugin's settings tab
+        // Add the plugin's settings tab
+		this.settingTab = new SettingTab(this.app, this);
+        this.addSettingTab(this.settingTab);
 
         this.registerView(
             VIEW_TYPE_CARD_NAVIGATOR,

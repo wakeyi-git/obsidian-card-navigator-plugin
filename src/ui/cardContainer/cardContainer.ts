@@ -92,12 +92,12 @@ export class CardContainer {
 		const availableWidth = containerWidth - paddingLeft - paddingRight;
 	
 		const {
-			alignCardHeight,
-			isBodyLengthUnlimited,
-			bodyLength,
-			cardWidthThreshold,
-			defaultLayout
-		} = this.plugin.settings;
+			alignCardHeight = false,
+			isBodyLengthUnlimited = false,
+			bodyLength = 500,
+			cardWidthThreshold = 250,
+			defaultLayout = 'auto'
+		} = this.plugin.presetManager.getTempPreset();
 	
 		if (defaultLayout !== 'auto') {
 			switch (defaultLayout) {

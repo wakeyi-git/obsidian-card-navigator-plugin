@@ -41,16 +41,16 @@ export class SettingsManager {
     }
 
 	// Updates a specific setting
-    public async updateSetting<K extends keyof CardNavigatorSettings>(
-        key: K,
-        value: CardNavigatorSettings[K]
-    ) {
-        this.plugin.presetManager.updateTempSetting(key, value);
-        await this.saveSettings();
-        if (key === 'defaultLayout') {
-            this.plugin.updateCardNavigatorLayout(value as CardNavigatorSettings['defaultLayout']);
-        }
-    }
+	public async updateSetting<K extends keyof CardNavigatorSettings>(
+		key: K,
+		value: CardNavigatorSettings[K]
+	) {
+		this.plugin.presetManager.updateTempSetting(key, value);
+		if (key === 'defaultLayout') {
+			this.plugin.updateCardNavigatorLayout(value as CardNavigatorSettings['defaultLayout']);
+		}
+		this.plugin.triggerRefresh();
+	}
 
     // Reverts to default settings as defined in DEFAULT_SETTINGS
     async revertToDefaultSettings() {
@@ -72,31 +72,22 @@ export class SettingsManager {
         this.plugin.triggerRefresh();
 
         // Update the temporary preset in PresetManager
-        this.plugin.presetManager.updateTempPresetToDefault();
+        this.plugin.presetManager.updateTempPresetToDefault(currentPresetName);
     }
 
 	// Reverts the current preset's settings to default values
 	async revertCurrentPresetToDefault() {
 		const currentPresetName = this.plugin.settings.lastActivePreset;
-		const currentPreset = this.plugin.settings.presets[currentPresetName];
-
-		// Update the current preset with default settings
-		currentPreset.settings = { ...DEFAULT_SETTINGS };
-		delete currentPreset.settings.presets; // Remove nested presets
-
-		// Update plugin settings
-		this.plugin.settings = {
-			...this.plugin.settings,
-			...DEFAULT_SETTINGS,
-			lastActivePreset: currentPresetName,
-			presets: this.plugin.settings.presets
-		};
-
-		await this.saveSettings();
+		this.plugin.presetManager.updateTempPresetToDefault(currentPresetName);
+		this.plugin.presetManager.applyTempPreset();
+		
+		this.plugin.presetManager.updateTempSetting('lastActivePreset', currentPresetName);
+		
 		this.plugin.triggerRefresh();
-
-		// Update the temporary preset in PresetManager
-		this.plugin.presetManager.updateTempPresetToDefault();
+		
+		if (this.plugin.settingTab) {
+			this.plugin.settingTab.display();
+		}
 	}
 
 	// Updates the sort settings
@@ -106,15 +97,21 @@ export class SettingsManager {
     }
 
 	// Updates a number setting, clamping the value to the allowed range
-    async updateNumberSetting(key: NumberSettingKey, value: number) {
-        if (key === 'bodyLength') {
-            await this.updateBodyLengthSetting(value);
-        } else {
-            const config = this.getNumberSettingConfig(key);
-            const clampedValue = Math.max(config.min, Math.min(config.max, value));
-            await this.updateSetting(key, clampedValue);
-        }
-    }
+	async updateNumberSetting(key: NumberSettingKey, value: number) {
+		if (key === 'bodyLength') {
+			await this.updateBodyLengthSetting(value);
+		} else {
+			const config = this.getNumberSettingConfig(key);
+			const clampedValue = Math.max(config.min, Math.min(config.max, value));
+			await this.updateSetting(key, clampedValue);
+		}
+		
+		if (key === 'cardWidthThreshold') {
+			this.plugin.updateCardNavigatorLayout(this.plugin.settings.defaultLayout);
+		}
+		
+		this.plugin.triggerRefresh();
+	}
 
 	// Updates the body length setting, with handling for unlimited body length
 	async updateBodyLengthSetting(value: number) {
@@ -179,18 +176,17 @@ export class SettingsManager {
 
 	// Applies a preset
 	async applyPreset(presetName: string) {
-		await this.plugin.presetManager.applyPreset(presetName);
-		this.plugin.settings.lastActivePreset = presetName;
-		await this.plugin.saveSettings();
+		await this.plugin.presetManager.applyPresetInternal(presetName);
+		this.plugin.triggerRefresh();
 	}
 
 	// Saves the current settings as a new preset
     async saveAsNewPreset(presetName: string) {
-        await this.plugin.presetManager.savePreset(presetName);
+        await this.plugin.presetManager.savePresetInternal(presetName);
     }
 
 	// Updates the current preset if it isn't the default preset
-	async updateCurrentPreset(presetName: string) {
+	async updateCurrentPresetAs(presetName: string) {
 		if (presetName === 'default') {
 			throw new Error(t('Default preset cannot be modified.'));
 		}
@@ -207,11 +203,17 @@ export class SettingsManager {
 		if (presetName === 'default') {
 			throw new Error(t('Default preset cannot be deleted.'));
 		}
-		delete this.plugin.settings.presets[presetName];
-		// Apply default preset after deletion
-		await this.applyPreset('default');
-		this.plugin.settings.lastActivePreset = 'default';
+		this.plugin.presetManager.deletePresetInternal(presetName);
+		
+		if (this.plugin.settings.lastActivePreset === presetName) {
+			await this.applyPreset('default');
+		}
+		
 		await this.plugin.saveSettings();
+		
+		if (this.plugin.settingTab) {
+			this.plugin.settingTab.display();
+		}
 	}
 
 	// Gets all available presets

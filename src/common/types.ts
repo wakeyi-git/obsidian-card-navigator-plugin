@@ -153,7 +153,7 @@ export const displaySettings: Array<{ name: string, key: keyof CardNavigatorSett
     { name: 'Show Body', key: 'showBody', description: 'Toggle Body Display' },
 ];
 
-export const fontSizeSettings: Array<{ name: string, key: keyof CardNavigatorSettings, description: string }> = [
+export const fontSizeSettings: Array<{ name: string, key: NumberSettingKey, description: string }> = [
     { name: 'File Name Font Size', key: 'fileNameFontSize', description: 'Set Font Size for File Name' },
     { name: 'First Header Font Size', key: 'firstHeaderFontSize', description: 'Set Font Size for First Header' },
     { name: 'Body Font Size', key: 'bodyFontSize', description: 'Set Font Size for Body' },
