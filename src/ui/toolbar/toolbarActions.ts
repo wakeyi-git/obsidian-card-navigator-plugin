@@ -136,16 +136,16 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
     };
 
     // Function to update cardsPerView setting
-	const updateCardsPerViewSetting = () => {
-		const cardsPerViewSetting = layoutSection.querySelector('.setting-cards-per-view');
-		if (cardsPerViewSetting) {
-			cardsPerViewSetting.remove();
-		}
-		if (plugin.settings.alignCardHeight) {
-			const setting = addNumberSetting('cardsPerView', t('Cards per view'), layoutSection, plugin, settingsManager);
-			setting.settingEl.addClass('setting-cards-per-view');
-		}
-	};
+    const updateCardsPerViewSetting = () => {
+        const cardsPerViewSetting = layoutSection.querySelector('.setting-cards-per-view');
+        if (cardsPerViewSetting) {
+            cardsPerViewSetting.remove();
+        }
+        if (plugin.settings.alignCardHeight) {
+            addNumberSetting('cardsPerView', t('Cards per view'), layoutSection, plugin, settingsManager)
+                .settingEl.addClass('setting-cards-per-view');
+        }
+    };
 
     // Initial update of layout settings
     updateLayoutSettings(plugin.settings.defaultLayout);
@@ -163,8 +163,8 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
 			bodyLengthSetting.remove();
 		}
 		if (!plugin.settings.isBodyLengthUnlimited) {
-			const setting = addNumberSetting('bodyLength', t('Body Length Limit'), displaySection, plugin, settingsManager);
-			setting.settingEl.addClass('setting-body-length');
+			addNumberSetting('bodyLength', t('Body Length Limit'), displaySection, plugin, settingsManager)
+				.settingEl.addClass('setting-body-length');
 		}
 	};
 
@@ -331,23 +331,22 @@ function addNumberSetting(
         .setName(name)
         .setClass('setting-item-slider');
 
-    setting.addSlider(slider => {
-        slider
-            .setLimits(config.min, config.max, config.step)
-            .setValue(plugin.settings[key])
-            .setDynamicTooltip()
-            .onChange(async (value) => {
-                if ((key === 'bodyLength' && plugin.settings.isBodyLengthUnlimited) ||
-                    (key === 'cardsPerView' && !plugin.settings.alignCardHeight)) {
-                    return;
-                }
-                await settingsManager.updateNumberSetting(key, value);
-                if (key === 'gridColumns' || key === 'masonryColumns' || key === 'cardWidthThreshold') {
-                    plugin.updateCardNavigatorLayout(plugin.settings.defaultLayout);
-                }
-                plugin.triggerRefresh();
-            });
-    });
+    setting.addSlider(slider => slider
+        .setLimits(config.min, config.max, config.step)
+        .setValue(plugin.settings[key])
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+            if ((key === 'bodyLength' && plugin.settings.isBodyLengthUnlimited) ||
+                (key === 'cardsPerView' && !plugin.settings.alignCardHeight)) {
+                return;
+            }
+            await settingsManager.updateNumberSetting(key, value);
+            if (key === 'gridColumns' || key === 'masonryColumns') {
+                plugin.updateCardNavigatorLayout(plugin.settings.defaultLayout);
+            }
+            plugin.triggerRefresh();
+        })
+    );
 
     if (key === 'bodyLength') {
         setting.setDisabled(plugin.settings.isBodyLengthUnlimited);
@@ -355,7 +354,6 @@ function addNumberSetting(
 
     return setting;
 }
-
 
 // Close the current popup.
 function closeCurrentPopup() {

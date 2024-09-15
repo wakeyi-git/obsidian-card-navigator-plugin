@@ -8,11 +8,14 @@
 	"Create, update, or delete presets.": "Create, update, or delete presets.",
 	"Create New": "Create New",
 	"preset Saved": "{{presetName}} preset has been saved.",
-	"Update": "Update",
+	"Update": "Update",	
 	"preset Updated": "{{presetName}} preset has been updated.",
 	"default Preset Cannot Be Modified": "The default preset cannot be modified.",
+	"Modified Settings": "Modified Settings",
+	"Current settings are modified from the original preset.": "Current settings are modified from the original preset.",
+	"Revert to Original": "Revert to Original",
 	"Delete": "Delete",
-	"preset Deleted and Default Applied": "The preset deleted and default applied.",
+	"preset Deleted and Default Applied": "{{presetName}} preset deleted and default applied.",
 	"default Preset Cannot Be Deleted": "The default preset cannot be deleted.",
 	"Revert to Default Settings": "Revert to Default Settings",
 	"This button will revert the current preset's settings to their default values without saving the changes.": "This button will revert the current preset's settings to their default values without saving the changes.",
@@ -128,7 +131,8 @@
 	"Default preset cannot be modified.": "Default preset cannot be modified.",
 	"Default preset cannot be deleted.": "Default preset cannot be deleted.",
 
-	"Preset '{presetName}' Applied.": "{presetName} preset applied.",
-	"Preset '{presetName}' does not exist.": "Preset {presetName} does not exist.",
-	"Reverted to default settings.": "Reverted to default settings."
+	"Preset applied.": "{{presetName: value}} preset applied.",
+	"Preset does not exist.": "Preset {{presetName}} does not exist.",
+	"This button will revert the current preset's settings to their default values without changing the selected preset.": "This button will revert the current preset's settings to their default values without changing the selected preset.",
+	"Current preset settings reverted to default values": "Current preset settings reverted to default values"
 }

@@ -6,6 +6,7 @@ import { ListLayout } from '../layouts/listLayout';
 import { GridLayout } from '../layouts/gridLayout';
 import { MasonryLayout } from '../layouts/masonryLayout';
 import { KeyboardNavigator } from '../../common/keyboardNavigator';
+import { CardNavigatorSettings } from "common/types";
 import { sortFiles, separateFrontmatterAndBody } from 'common/utils';
 import { Card, SortCriterion, SortOrder } from 'common/types';
 import { t } from "i18next";
@@ -67,6 +68,18 @@ export class CardContainer {
         await this.refresh();
     }
 
+	updateSettings(settings: Partial<CardNavigatorSettings>) {
+        if (settings.alignCardHeight !== undefined) {
+            this.plugin.settings.alignCardHeight = settings.alignCardHeight;
+        }
+        if (settings.isBodyLengthUnlimited !== undefined) {
+            this.plugin.settings.isBodyLengthUnlimited = settings.isBodyLengthUnlimited;
+        }
+        if (settings.bodyLength !== undefined) {
+            this.plugin.settings.bodyLength = settings.bodyLength;
+        }
+    }
+
     // Waits for the container element to be fully rendered before continuing.
     private async waitForLeafCreation(): Promise<void> {
         return new Promise((resolve) => {
@@ -92,12 +105,12 @@ export class CardContainer {
 		const availableWidth = containerWidth - paddingLeft - paddingRight;
 	
 		const {
-			alignCardHeight = false,
-			isBodyLengthUnlimited = false,
-			bodyLength = 500,
-			cardWidthThreshold = 250,
-			defaultLayout = 'auto'
-		} = this.plugin.settingsManager.getCurrentSettings(); 
+			alignCardHeight,
+			isBodyLengthUnlimited,
+			bodyLength,
+			cardWidthThreshold,
+			defaultLayout
+		} = this.plugin.settings;
 	
 		if (defaultLayout !== 'auto') {
 			switch (defaultLayout) {
@@ -127,9 +140,16 @@ export class CardContainer {
 	}
 
 	// Handles resizing of the container and applies a new layout strategy if needed.
-	public handleResize() {
-		this.isVertical = this.calculateIsVertical();
-		this.layoutStrategy = this.determineAutoLayout();
+    public handleResize() {
+        const previousIsVertical = this.isVertical;
+        this.isVertical = this.calculateIsVertical();
+        
+        if (this.plugin.settings.defaultLayout === 'auto' || 
+            this.plugin.settings.defaultLayout === 'list' || 
+            previousIsVertical !== this.isVertical) {
+            this.layoutStrategy = this.determineAutoLayout();
+        }
+        
 		this.keyboardNavigator?.updateLayout(this.layoutStrategy);
 		this.refresh();
 	}

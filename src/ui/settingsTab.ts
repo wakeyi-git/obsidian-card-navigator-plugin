@@ -17,10 +17,14 @@ import { SettingsManager } from '../common/settingsManager';
 // Class to manage the settings tab in the plugin settings panel
 export class SettingTab extends PluginSettingTab {
     private settingsManager: SettingsManager;
+    private presetSection: HTMLElement;
+    private modifiedSettingsSection: HTMLElement;
 
     constructor(app: App, private plugin: CardNavigatorPlugin) {
         super(app, plugin);
         this.settingsManager = plugin.settingsManager;
+        this.presetSection = document.createElement('div');
+        this.modifiedSettingsSection = document.createElement('div');
     }
 
     // Main method to render the settings UI
@@ -28,39 +32,77 @@ export class SettingTab extends PluginSettingTab {
         const { containerEl } = this;
         containerEl.empty();
 
-        // Add different sections to the settings tab
-        this.addPresetSection(containerEl);
-		this.addGeneralSettings(containerEl);
+        this.presetSection = containerEl.createDiv('preset-section');
+        this.modifiedSettingsSection = containerEl.createDiv('modified-settings-section');
+
+        this.addPresetSection(this.presetSection);
+        this.addGeneralSettings(containerEl);
         this.addLayoutSettings(containerEl);
         this.addCardDisplaySettings(containerEl);
-		this.addCardStylingSettings(containerEl);
-		this.addAdvancedSettings(containerEl);
+        this.addCardStylingSettings(containerEl);
+        this.addAdvancedSettings(containerEl);
         this.addKeyboardShortcutsInfo(containerEl);
     }
 
+	private refreshPresetSection(): void {
+        this.presetSection.empty();
+        this.addPresetSection(this.presetSection);
+    }
+
+	private refreshModifiedSettingsSection(): void {
+        this.modifiedSettingsSection.empty();
+        if (this.plugin.settingsManager.isCurrentSettingModified()) {
+            new Setting(this.modifiedSettingsSection)
+                .setName(t('Modified Settings'))
+                .setDesc(t('Current settings are modified from the original preset.'))
+                .addButton(button => button
+                    .setButtonText(t('Revert to Original'))
+                    .onClick(async () => {
+                        await this.plugin.settingsManager.revertToOriginalPreset();
+                        this.refreshPresetSection();
+                        this.refreshModifiedSettingsSection();
+                    }));
+        }
+    }
+
     // Section for managing presets (create, update, delete)
-	private addPresetSection(containerEl: HTMLElement): void {
-		const presets = this.settingsManager.getPresets();
+    private addPresetSection(containerEl: HTMLElement): void {
+        const presets = this.settingsManager.getPresets();
 
-        // Dropdown to select existing presets
-		new Setting(containerEl)
-		.setName(t('Select Preset'))
-		.setDesc(t('Select a preset created by the user to load the settings.'))
-		.addDropdown(dropdown => {
-			Object.keys(presets).forEach(presetName => {
-				dropdown.addOption(presetName, presetName);
-			});
-			dropdown.setValue(this.plugin.settings.lastActivePreset)
-				.onChange(async (value) => {
-					await this.settingsManager.applyPreset(value);
-					this.plugin.settings.lastActivePreset = value;
-					await this.plugin.saveSettings();
-					this.display();
-				});
-		});
-
-        // Buttons to manage presets: Create, Update, Delete
         new Setting(containerEl)
+            .setName(t('Select Preset'))
+            .setDesc(t('Select a preset created by the user to load the settings.'))
+            .addDropdown(dropdown => {
+                Object.keys(presets).forEach(presetName => {
+                    dropdown.addOption(presetName, presetName);
+                });
+                dropdown.setValue(this.plugin.settings.lastActivePreset)
+                    .onChange(async (value) => {
+                        if (this.plugin.settingsManager.isCurrentSettingModified()) {
+                            new ConfirmationModal(this.app, 
+                                t('You have unsaved changes. Do you want to update the current preset before switching?'),
+                                async (choice) => {
+                                    if (choice === 'update') {
+                                        await this.settingsManager.updateCurrentPreset(this.plugin.settings.lastActivePreset);
+                                    }
+                                    if (choice !== 'cancel') {
+                                        await this.settingsManager.applyPreset(value);
+                                        new Notice(t('Preset applied.', { presetName: value }));
+                                        this.refreshPresetSection();
+                                        this.refreshModifiedSettingsSection();
+                                    }
+                                }
+                            ).open();
+                        } else {
+                            await this.settingsManager.applyPreset(value);
+                            new Notice(t('Preset applied.', { presetName: value }));
+                            this.refreshPresetSection();
+                            this.refreshModifiedSettingsSection();
+                        }
+                    });
+            });
+
+        const presetManagementSetting = new Setting(containerEl)
             .setName(t('Managing Presets'))
             .setDesc(t('Create, update, or delete presets.'))
             .addButton(button => button
@@ -73,47 +115,68 @@ export class SettingTab extends PluginSettingTab {
                             new Notice(t('preset Saved', { presetName }));
                             this.plugin.settings.lastActivePreset = presetName;
                             await this.plugin.saveSettings();
-                            this.display();
+                            this.refreshPresetSection();
+                            this.refreshModifiedSettingsSection();
                         }
                     }, this.plugin).open();
-                }))
-			.addButton(button => button
-				.setButtonText(t('Update'))
-				.onClick(async () => {
-					const currentPreset = this.plugin.settings.lastActivePreset;
-					if (currentPreset !== 'default') {
-						await this.settingsManager.updateCurrentPresetAs(currentPreset);
-						await this.plugin.saveSettings();
-						new Notice(t('preset Updated', { presetName: currentPreset }));
-						this.display();
-					} else {
-						new Notice(t('default Preset Cannot Be Modified'));
-					}
-				}))
-			.addButton(button => button
-				.setButtonText(t('Delete'))
-				.setWarning()
-				.onClick(async () => {
-					const currentPreset = this.plugin.settings.lastActivePreset;
-					if (currentPreset !== 'default') {
-							await this.settingsManager.deletePreset(currentPreset);
-							new Notice(t('preset Deleted and Default Applied', { presetName: currentPreset }));
-							this.display(); 
-					} else {
-						new Notice(t('default Preset Cannot Be Deleted'));
-					}
-				}))
+                }));
 
-        // Button to revert settings to default values
+        if (this.plugin.settingsManager.isCurrentSettingModified()) {
+            presetManagementSetting.addButton(button => button
+                .setButtonText(t('Update'))
+                .setWarning()
+                .onClick(async () => {
+                    const currentPreset = this.plugin.settings.lastActivePreset;
+                    if (currentPreset !== 'default') {
+                        await this.settingsManager.updateCurrentPreset(currentPreset);
+                        new Notice(t('preset Updated', { presetName: currentPreset }));
+                        this.refreshPresetSection();
+                        this.refreshModifiedSettingsSection();
+                    } else {
+                        new Notice(t('default Preset Cannot Be Modified'));
+                    }
+                }));
+        }
+
+        presetManagementSetting.addButton(button => button
+            .setButtonText(t('Delete'))
+            .setWarning()
+            .onClick(async () => {
+                const currentPreset = this.plugin.settings.lastActivePreset;
+                if (currentPreset !== 'default') {
+                    await this.settingsManager.deletePreset(currentPreset);
+                    this.plugin.settings.lastActivePreset = 'default';
+                    await this.plugin.saveSettings();
+                    new Notice(t('preset Deleted and Default Applied', { presetName: currentPreset }));
+                    this.refreshPresetSection();
+                    this.refreshModifiedSettingsSection();
+                } else {
+                    new Notice(t('default Preset Cannot Be Deleted'));
+                }
+            }));
+	
+		if (this.plugin.settingsManager.isCurrentSettingModified()) {
+			new Setting(containerEl)
+				.setName(t('Modified Settings'))
+				.setDesc(t('Current settings are modified from the original preset.'))
+				.addButton(button => button
+					.setButtonText(t('Revert to Original'))
+					.onClick(async () => {
+						await this.plugin.settingsManager.revertToOriginalPreset();
+						this.display();
+					}));
+		}
+	
+		// Button to revert settings to default values
 		new Setting(containerEl)
 			.setName(t('Revert to Default Settings'))
-			.setDesc(t('This button will revert the current preset\'s settings to their default values without saving the changes.'))
+			.setDesc(t('This button will revert the current preset\'s settings to their default values without changing the selected preset.'))
 			.addButton(button => button
 				.setButtonText(t('Revert'))
 				.onClick(async () => {
 					await this.settingsManager.revertCurrentPresetToDefault();
-					new Notice(t('Current preset settings reverted to default values (not saved)'));
-					this.display(); // Refresh the settings tab to reflect the changes
+					new Notice(t('Current preset settings reverted to default values'));
+					this.display();
 				}));
 	}
 
@@ -129,97 +192,57 @@ export class SettingTab extends PluginSettingTab {
 	}
 
     // Section for layout-related settings
-	private addLayoutSettings(containerEl: HTMLElement): void {
-		new Setting(containerEl)
-			.setName(t('Layout Settings'))
-			.setHeading();
+    private addLayoutSettings(containerEl: HTMLElement): void {
+        new Setting(containerEl)
+            .setName(t('Layout Settings'))
+            .setHeading();
 
-		new Setting(containerEl)
-			.setName(t('Default Layout'))
-			.setDesc(t('Choose the default layout for cards'))
-			.addDropdown((dropdown: DropdownComponent) => {
-				dropdown
-					.addOption('auto', t('Auto'))
-					.addOption('list', t('List'))
-					.addOption('grid', t('Grid'))
-					.addOption('masonry', t('Masonry'))
-					.setValue(this.plugin.settings.defaultLayout)
-					.onChange(async (value: string) => {
-						const layout = value as CardNavigatorSettings['defaultLayout'];
-						await this.plugin.settingsManager.updateSetting('defaultLayout', layout);
-						this.plugin.updateCardNavigatorLayout(layout);
-						this.display(); // Refresh the settings tab to show/hide relevant options
-					});
-			});
+        new Setting(containerEl)
+            .setName(t('Default Layout'))
+            .setDesc(t('Choose the default layout for cards'))
+            .addDropdown((dropdown: DropdownComponent) => {
+                dropdown
+                    .addOption('auto', t('Auto'))
+                    .addOption('list', t('List'))
+                    .addOption('grid', t('Grid'))
+                    .addOption('masonry', t('Masonry'))
+                    .setValue(this.plugin.settings.defaultLayout)
+                    .onChange(async (value: string) => {
+                        const layout = value as CardNavigatorSettings['defaultLayout'];
+                        await this.plugin.settingsManager.updateSetting('defaultLayout', layout);
+                        this.plugin.updateCardNavigatorLayout(layout);
+                        this.display(); // Refresh the settings tab to show/hide relevant options
+                    });
+            });
 
-		const updateLayoutSettings = async (layout: CardNavigatorSettings['defaultLayout']) => {
-				// Remove existing layout-specific settings
-			containerEl.querySelectorAll('.layout-specific-setting').forEach(el => el.remove());
+        if (this.plugin.settings.defaultLayout === 'auto') {
+            this.addNumberSetting('cardWidthThreshold', t('Card Width Threshold'), t('Width threshold for adding/removing columns'), containerEl);
+        }
 
-			if (layout === 'auto') {
-				this.addNumberSetting(
-					'cardWidthThreshold',
-					t('Card Width Threshold'),
-					t('Width threshold for adding/removing columns'),
-					containerEl
-				);
-			}
-			
-			if (layout === 'grid') {
-				this.addNumberSetting(
-					'gridColumns',
-					t('Grid Columns'),
-					t('Number of columns in grid layout'),
-					containerEl
-				);
-			}
-			
-			if (layout === 'masonry') {
-				this.addNumberSetting(
-					'masonryColumns',
-					t('Masonry Columns'),
-					t('Number of columns in masonry layout'),
-					containerEl
-				);
-			}
+        if (this.plugin.settings.defaultLayout === 'grid') {
+            this.addNumberSetting('gridColumns', t('Grid Columns'), t('Number of columns in grid layout'), containerEl);
+        }
 
-			if (layout === 'auto' || layout === 'list') {
-				new Setting(containerEl)
-					.setName(t('Align Card Height'))
-					.setDesc(t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.'))
-					.addToggle(toggle => toggle
-						.setValue(this.plugin.settings.alignCardHeight)
-						.onChange(async (value) => {
-							await this.settingsManager.updateBooleanSetting('alignCardHeight', value);
-							this.display(); // Refresh to show/hide Cards per view setting
-						})
-					)
-					.settingEl.addClass('layout-specific-setting');
+        if (this.plugin.settings.defaultLayout === 'masonry') {
+            this.addNumberSetting('masonryColumns', t('Masonry Columns'), t('Number of columns in masonry layout'), containerEl);
+        }
 
-				if (this.plugin.settings.alignCardHeight) {
-					this.addNumberSetting(
-						'cardsPerView',
-						t('Cards per view'),
-						t('Number of cards to display at once'),
-						containerEl
-					);
-				}
-			}
-		};
+        if (this.plugin.settings.defaultLayout === 'auto' || this.plugin.settings.defaultLayout === 'list') {
+            this.addToggleSetting(
+                'alignCardHeight',
+                t('Align Card Height'),
+                t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.'),
+                containerEl
+            );
 
-		// Initial update of layout settings
-		updateLayoutSettings(this.plugin.settings.defaultLayout);
-
-		(async () => {
-			await updateLayoutSettings(this.plugin.settings.defaultLayout);
-		})();
-
-		// Listen for changes in the layout dropdown
-		containerEl.querySelector('.setting-item-dropdown select')?.addEventListener('change', async (e) => {
-			const layout = (e.target as HTMLSelectElement).value as CardNavigatorSettings['defaultLayout'];
-			await updateLayoutSettings(layout);
-		});
-	}
+            this.addNumberSetting(
+                'cardsPerView',
+                t('Cards per view'),
+                t('Number of cards to display at once'),
+                containerEl
+            );
+        }
+    }
 
 	// Section for card display settings
 	private addCardDisplaySettings(containerEl: HTMLElement): void {
@@ -359,49 +382,50 @@ export class SettingTab extends PluginSettingTab {
 		}
 
     // Add toggle settings (boolean options)
-    private addToggleSetting(key: keyof CardNavigatorSettings, name: string, desc: string, parentEl: HTMLElement): void {
-        const settingEl = new Setting(parentEl)
-            .setName(name)
-            .setDesc(desc)
-            .addToggle(toggle => toggle
-                .setValue(key === 'isBodyLengthUnlimited' ? !this.plugin.settings[key] : this.plugin.settings[key] as boolean)
-                .onChange(async (value) => {
-                    if (key === 'isBodyLengthUnlimited') {
-                        value = !value; // Invert the value for this specific setting
-                    }
-                    await this.settingsManager.updateBooleanSetting(key, value);
-                    
-                    let sliderClass = '';
-                    let invertOpacity = false;
-                    
-                    if (key === 'isBodyLengthUnlimited') {
-                        sliderClass = '.setting-body-length';
-                        invertOpacity = true;
-                    } else if (key === 'alignCardHeight') {
-                        sliderClass = '.setting-card-height';
-                    }
-                    
-                    if (sliderClass) {
-                        const slider = parentEl.querySelector(sliderClass);
-                        if (slider) {
-                            const opacity = invertOpacity ? (value ? '0.5' : '1') : (value ? '1' : '0.5');
-                            (slider as HTMLElement).style.opacity = opacity;
-                            const sliderComponent = (slider as HTMLElement).querySelector('input[type="range"]');
-                            if (sliderComponent) {
-                                (sliderComponent as HTMLInputElement).disabled = invertOpacity ? value : !value;
-                            }
-                        }
-                    }
-                    
-                    this.plugin.triggerRefresh();
-                })
-            ).settingEl;
-
-        settingEl.addClass('setting-toggle');
-    }
+	private addToggleSetting(key: keyof CardNavigatorSettings, name: string, desc: string, parentEl: HTMLElement): void {
+		const settingEl = new Setting(parentEl)
+			.setName(name)
+			.setDesc(desc)
+			.addToggle(toggle => toggle
+				.setValue(key === 'isBodyLengthUnlimited' ? !this.plugin.settings[key] : this.plugin.settings[key] as boolean)
+				.onChange(async (value) => {
+					if (key === 'isBodyLengthUnlimited') {
+						value = !value; // Invert the value for this specific setting
+					}
+					await this.settingsManager.updateBooleanSetting(key, value);
+					
+					let sliderClass = '';
+					let invertOpacity = false;
+					
+					if (key === 'isBodyLengthUnlimited') {
+						sliderClass = '.setting-body-length';
+						invertOpacity = true;
+					} else if (key === 'alignCardHeight') {
+						sliderClass = '.setting-card-height';
+					}
+					
+					if (sliderClass) {
+						const slider = parentEl.querySelector(sliderClass);
+						if (slider) {
+							const opacity = invertOpacity ? (value ? '0.5' : '1') : (value ? '1' : '0.5');
+							(slider as HTMLElement).style.opacity = opacity;
+							const sliderComponent = (slider as HTMLElement).querySelector('input[type="range"]');
+							if (sliderComponent) {
+								(sliderComponent as HTMLInputElement).disabled = invertOpacity ? value : !value;
+							}
+						}
+					}
+					
+					this.refreshPresetSection();
+					this.refreshModifiedSettingsSection();
+				})
+			).settingEl;
+	
+		settingEl.addClass('setting-toggle');
+	}
 
     // Add a number setting with a slider
-	private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): Setting {
+	private addNumberSetting(key: NumberSettingKey, name: string, desc: string, parentEl: HTMLElement): void {
 		const setting = new Setting(parentEl)
 			.setName(name)
 			.setDesc(desc);
@@ -433,12 +457,12 @@ export class SettingTab extends PluginSettingTab {
 					this.plugin.updateCardNavigatorLayout(this.plugin.settings.defaultLayout);
 				}
 				
-				this.plugin.triggerRefresh();
+				this.refreshPresetSection();
+				this.refreshModifiedSettingsSection();
 			})
 		);
 	
 		setting.settingEl.addClass('setting-number');
-		return setting;
 	}
 }
 
@@ -446,6 +470,8 @@ export class SettingTab extends PluginSettingTab {
 class SavePresetModal extends Modal {
     private result = '';
     private existingPresets: string[];
+    private warningEl: HTMLParagraphElement;
+    private inputEl: HTMLInputElement;
 
     constructor(
         app: App,
@@ -454,9 +480,11 @@ class SavePresetModal extends Modal {
     ) {
         super(app);
         this.existingPresets = Object.keys(this.plugin.settingsManager.getPresets());
+        // Initialize with dummy elements
+        this.warningEl = document.createElement('p');
+        this.inputEl = document.createElement('input');
     }
 
-    // Display the modal when it's opened
     onOpen() {
         const { contentEl } = this;
         contentEl.empty();
@@ -464,35 +492,77 @@ class SavePresetModal extends Modal {
 
         new Setting(contentEl)
             .setName(t("Preset Name"))
-            .addText((text) =>
+            .addText((text) => {
+                this.inputEl = text.inputEl;
                 text.onChange((value) => {
                     this.result = value;
-                }));
+                });
+                this.inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.savePreset();
+                    }
+                });
+            });
 
-        const warningEl = contentEl.createEl("p", { cls: "preset-warning", text: "" });
-        warningEl.style.color = "var(--text-error)";
-        warningEl.style.display = "none";
+        this.warningEl = contentEl.createEl("p", { cls: "preset-warning", text: "" });
+        this.warningEl.style.color = "var(--text-error)";
+        this.warningEl.style.display = "none";
 
-        // Save button with validation for duplicate preset names
         new Setting(contentEl)
             .addButton((btn) =>
                 btn
                     .setButtonText(t("Save"))
                     .setCta()
                     .onClick(() => {
-                        if (this.existingPresets.includes(this.result)) {
-                            warningEl.textContent = t("A preset with this name already exists. Please use the Update button to modify existing presets.");
-                            warningEl.style.display = "block";
-                        } else {
-                            this.close();
-                            this.onSubmit(this.result);
-                        }
+                        this.savePreset();
                     }));
     }
 
-    // Clear the modal content when it's closed
+    private savePreset() {
+        if (this.result.trim() === '') {
+            this.warningEl.textContent = t("Preset name cannot be empty.");
+            this.warningEl.style.display = "block";
+        } else if (this.existingPresets.includes(this.result)) {
+            this.warningEl.textContent = t("A preset with this name already exists. Please use the Update button to modify existing presets.");
+            this.warningEl.style.display = "block";
+        } else {
+            this.close();
+            this.onSubmit(this.result);
+        }
+    }
+
     onClose() {
         const { contentEl } = this;
+        contentEl.empty();
+    }
+}
+
+class ConfirmationModal extends Modal {
+    constructor(app: App, private message: string, private onChoose: (choice: 'update' | 'switch' | 'cancel') => void) {
+        super(app);
+    }
+
+    onOpen() {
+        const {contentEl} = this;
+        contentEl.setText(this.message);
+        new Setting(contentEl)
+            .addButton(btn => btn.setButtonText(t('Update and Switch')).onClick(() => {
+                this.close();
+                this.onChoose('update');
+            }))
+            .addButton(btn => btn.setButtonText(t('Switch without Saving')).onClick(() => {
+                this.close();
+                this.onChoose('switch');
+            }))
+            .addButton(btn => btn.setButtonText(t('Cancel')).onClick(() => {
+                this.close();
+                this.onChoose('cancel');
+            }));
+    }
+
+    onClose() {
+        const {contentEl} = this;
         contentEl.empty();
     }
 }

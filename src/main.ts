@@ -17,61 +17,53 @@ export const languageResources = {
 export const translationLanguage = Object.keys(languageResources).includes(moment.locale()) ? moment.locale() : "en";
 
 export default class CardNavigatorPlugin extends Plugin {
-    // Plugin settings and managers
     settings: CardNavigatorSettings = DEFAULT_SETTINGS;
-	settingTab!: SettingTab;
     selectedFolder: string | null = null;
     presetManager!: PresetManager;
     settingsManager!: SettingsManager;
     private refreshDebounced: () => void = () => {};
     public events: Events = new Events();
-	public cardNavigator: CardNavigator | null = null;
 
-    // Called when the plugin is loaded
     async onload() {
         await this.loadSettings();
-        this.initializeManagers(); // Initialize the preset and settings managers
-        await this.initializePlugin(); // Set up the plugin UI and commands
-        this.presetManager.initializeTempPreset(); // Initialize temporary preset on load
+        this.initializeManagers();
+        await this.initializePlugin();
     }
 
-    // Called when the plugin is unloaded
     async onunload() {
         this.events.off('settings-updated', this.refreshDebounced);
-        this.presetManager.saveLastActivePreset(); // Save the last active preset before unloading
 
         const ribbonIconEl = this.addRibbonIcon('layers-3', t('Activate Card Navigator'), () => {
-            this.activateView(); // Activate the Card Navigator view
+            this.activateView();
         });
-        ribbonIconEl.detach(); // Remove the ribbon icon on unload
+        ribbonIconEl.detach();
     }
 
-    // Load saved settings from disk
-    private async loadSettings() {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    async loadSettings() {
+        const loadedData = await this.loadData();
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
     }
 
-    // Initialize managers for preset and settings
+    async saveSettings() {
+        await this.saveData(this.settings);
+        this.events.trigger('settings-updated');
+    }
+
     private initializeManagers() {
-        this.presetManager = new PresetManager(this);
         this.settingsManager = new SettingsManager(this);
+        this.presetManager = new PresetManager(this);
     }
 
     // Initialize the plugin, setting up views, commands, and event handlers
-    private async initializePlugin() {
-        await this.initializeI18n(); // Initialize translation
+	private async initializePlugin() {
+        await this.initializeI18n();
 
-        // Add the plugin's settings tab
-		this.settingTab = new SettingTab(this.app, this);
-        this.addSettingTab(this.settingTab);
+        this.addSettingTab(new SettingTab(this.app, this)); // Add the plugin's settings tab
 
-		this.registerView(
-			VIEW_TYPE_CARD_NAVIGATOR,
-			(leaf) => {
-				this.cardNavigator = new CardNavigator(leaf, this);
-				return this.cardNavigator;
-			}
-		);
+        this.registerView(
+            VIEW_TYPE_CARD_NAVIGATOR,
+            (leaf) => new CardNavigator(leaf, this) // Register the Card Navigator view
+        );
 
         this.addRibbonIcon('layers-3', t('Activate Card Navigator'), () => {
             this.activateView(); // Add a ribbon icon to activate the Card Navigator
@@ -136,11 +128,10 @@ export default class CardNavigatorPlugin extends Plugin {
 		leaves.forEach((leaf) => {
 			if (leaf.view instanceof CardNavigator) {
 				leaf.view.cardContainer.setLayout(layout);
-				leaf.view.cardContainer.handleResize();
-				leaf.view.refresh();
+				leaf.view.refresh(); // Refresh the view to apply the new layout
 			}
 		});
-		this.saveSettings();
+		this.saveSettings(); // Save the new layout setting
 	}
 
 	// Refresh card navigator when layout changes
@@ -149,7 +140,7 @@ export default class CardNavigatorPlugin extends Plugin {
 		leaves.forEach((leaf) => {
 			if (leaf.view instanceof CardNavigator) {
 				leaf.view.cardContainer.handleResize();
-				leaf.view.refresh();
+				leaf.view.refresh(); // Refresh the view after handling resize
 			}
 		});
 	}
@@ -172,13 +163,6 @@ export default class CardNavigatorPlugin extends Plugin {
             en: { translation: en.default },
             ko: { translation: ko.default },
         };
-    }
-
-    // Save the current plugin settings
-    async saveSettings() {
-        await this.saveData(this.settings);
-        this.events.trigger('settings-updated'); // Trigger an event when settings are updated
-        this.refreshDebounced(); // Refresh views after saving settings
     }
 
     // Register event handlers for file and workspace changes
@@ -205,6 +189,7 @@ export default class CardNavigatorPlugin extends Plugin {
     // Manually trigger a refresh of the views
     triggerRefresh() {
         this.refreshDebounced();
+        this.app.workspace.trigger('layout-change');
     }
 
     // Scroll through the cards in the specified direction by a certain number of cards
@@ -267,7 +252,7 @@ export default class CardNavigatorPlugin extends Plugin {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach((leaf) => {
             if (leaf.view instanceof CardNavigator) {
-                leaf.view.refresh(); // Refresh the view to update the display
+                leaf.view.refresh();
             }
         });
     }
@@ -314,13 +299,13 @@ export default class CardNavigatorPlugin extends Plugin {
     }
 
     // Get the active Card Navigator view
-	public getActiveCardNavigator(): CardNavigator | null {
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-		if (leaves.length > 0) {
-			return leaves[0].view as CardNavigator;
-		}
-		return null;
-	}
+    private getActiveCardNavigator(): CardNavigator | null {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        if (leaves.length > 0) {
+            return leaves[0].view as CardNavigator; // Return the active Card Navigator view
+        }
+        return null;
+    }
 
     // Center the active card in the Card Navigator
     private centerActiveCard() {

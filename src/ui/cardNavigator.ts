@@ -96,9 +96,22 @@ export class CardNavigator extends ItemView {
         return this.containerEl.querySelector('.card-navigator-card.card-navigator-focused'); // Get the currently focused card element
     }
 
-    public updateLayoutAndRefresh() {
-        this.cardContainer.setOrientation(this.isVertical); // Set orientation for the card container
-        this.refresh(); // Refresh the view
+    async refresh() {
+        await this.toolbar.refresh();
+        await this.cardContainer.refresh();
+        this.updateLayoutAndRefresh();
+    }
+
+    updateLayoutAndRefresh() {
+        const currentSettings = this.plugin.settings.currentSettings;
+        if (currentSettings.defaultLayout) {
+            this.cardContainer.setLayout(currentSettings.defaultLayout);
+        } else {
+            // 기본값 설정 (예: 'auto')
+            this.cardContainer.setLayout('auto');
+        }
+        this.cardContainer.updateSettings(currentSettings);
+        this.cardContainer.refresh();
     }
 
     async onOpen() {
@@ -135,10 +148,5 @@ export class CardNavigator extends ItemView {
         this.toolbar.onClose(); // Clean up toolbar
         this.cardContainer.onClose(); // Clean up card container
 		this.keyboardNavigator.blurNavigator(); // Remove focus from keyboard navigation
-    }
-
-    async refresh() {
-        await this.toolbar.refresh(); // Refresh the toolbar
-        await this.cardContainer.refresh(); // Refresh the card container
     }
 }
