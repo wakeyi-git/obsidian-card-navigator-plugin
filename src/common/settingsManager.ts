@@ -191,10 +191,16 @@ async revertToDefaultSettings() {
 	}
 
     // Applies a preset
-    async applyPreset(presetName: string) {
-        await this.plugin.presetManager.applyPresetInternal(presetName);
-        await this.forceSaveSettings();
-    }
+	async applyPreset(presetName: string) {
+		await this.plugin.presetManager.applyPresetInternal(presetName);
+		await this.forceSaveSettings();
+		
+		if (this.plugin.settingTab) {
+			this.plugin.settingTab.display();
+		}
+		
+		this.plugin.updateCardNavigatorLayout(this.plugin.settings.defaultLayout);
+	}
 
     // Saves the current settings as a new preset
     async saveAsNewPreset(presetName: string) {
@@ -216,22 +222,19 @@ async revertToDefaultSettings() {
     }
 
     // Deletes a preset
-    async deletePreset(presetName: string) {
-        if (presetName === 'default') {
-            throw new Error(t('Default preset cannot be deleted.'));
-        }
-        this.plugin.presetManager.deletePresetInternal(presetName);
-        
-        if (this.plugin.settings.lastActivePreset === presetName) {
-            await this.applyPreset('default');
-        }
-        
-        await this.forceSaveSettings();
-        
-        if (this.plugin.settingTab) {
-            this.plugin.settingTab.display();
-        }
-    }
+	async deletePreset(presetName: string) {
+		if (presetName === 'default') {
+			throw new Error(t('Default preset cannot be deleted.'));
+		}
+		this.plugin.presetManager.deletePresetInternal(presetName);
+		
+		await this.applyPreset('default');		
+		await this.forceSaveSettings();
+		
+		if (this.plugin.settingTab) {
+			this.plugin.settingTab.display();
+		}
+	}
 
     // Gets all available presets
     getPresets() {

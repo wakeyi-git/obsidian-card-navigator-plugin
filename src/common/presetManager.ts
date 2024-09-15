@@ -35,6 +35,9 @@ export class PresetManager {
 			if (newLayout) {
 				this.plugin.updateCardNavigatorLayout(newLayout);
 			}
+			
+			this.plugin.refreshCardNavigator();
+			
 			new Notice(`${t('Preset \'{presetName}\' Applied.').replace('{presetName}', presetName)}`);
 		} else {
 			new Notice(`${t('Preset \'{presetName}\' does not exist.').replace('{presetName}', presetName)}`);
