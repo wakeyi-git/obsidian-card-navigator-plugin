@@ -25,6 +25,7 @@ export default class CardNavigatorPlugin extends Plugin {
     settingsManager!: SettingsManager;
     private refreshDebounced: () => void = () => {};
     public events: Events = new Events();
+	public cardNavigator: CardNavigator | null = null;
 
     // Called when the plugin is loaded
     async onload() {
@@ -64,10 +65,13 @@ export default class CardNavigatorPlugin extends Plugin {
 		this.settingTab = new SettingTab(this.app, this);
         this.addSettingTab(this.settingTab);
 
-        this.registerView(
-            VIEW_TYPE_CARD_NAVIGATOR,
-            (leaf) => new CardNavigator(leaf, this) // Register the Card Navigator view
-        );
+		this.registerView(
+			VIEW_TYPE_CARD_NAVIGATOR,
+			(leaf) => {
+				this.cardNavigator = new CardNavigator(leaf, this);
+				return this.cardNavigator;
+			}
+		);
 
         this.addRibbonIcon('layers-3', t('Activate Card Navigator'), () => {
             this.activateView(); // Add a ribbon icon to activate the Card Navigator
@@ -132,10 +136,11 @@ export default class CardNavigatorPlugin extends Plugin {
 		leaves.forEach((leaf) => {
 			if (leaf.view instanceof CardNavigator) {
 				leaf.view.cardContainer.setLayout(layout);
-				leaf.view.refresh(); // Refresh the view to apply the new layout
+				leaf.view.cardContainer.handleResize();
+				leaf.view.refresh();
 			}
 		});
-		this.saveSettings(); // Save the new layout setting
+		this.saveSettings();
 	}
 
 	// Refresh card navigator when layout changes
@@ -144,7 +149,7 @@ export default class CardNavigatorPlugin extends Plugin {
 		leaves.forEach((leaf) => {
 			if (leaf.view instanceof CardNavigator) {
 				leaf.view.cardContainer.handleResize();
-				leaf.view.refresh(); // Refresh the view after handling resize
+				leaf.view.refresh();
 			}
 		});
 	}
@@ -309,13 +314,13 @@ export default class CardNavigatorPlugin extends Plugin {
     }
 
     // Get the active Card Navigator view
-    private getActiveCardNavigator(): CardNavigator | null {
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        if (leaves.length > 0) {
-            return leaves[0].view as CardNavigator; // Return the active Card Navigator view
-        }
-        return null;
-    }
+	public getActiveCardNavigator(): CardNavigator | null {
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+		if (leaves.length > 0) {
+			return leaves[0].view as CardNavigator;
+		}
+		return null;
+	}
 
     // Center the active card in the Card Navigator
     private centerActiveCard() {

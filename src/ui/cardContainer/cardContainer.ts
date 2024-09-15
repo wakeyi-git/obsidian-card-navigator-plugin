@@ -97,7 +97,7 @@ export class CardContainer {
 			bodyLength = 500,
 			cardWidthThreshold = 250,
 			defaultLayout = 'auto'
-		} = this.plugin.presetManager.getTempPreset();
+		} = this.plugin.settingsManager.getCurrentSettings(); 
 	
 		if (defaultLayout !== 'auto') {
 			switch (defaultLayout) {
@@ -127,16 +127,9 @@ export class CardContainer {
 	}
 
 	// Handles resizing of the container and applies a new layout strategy if needed.
-    public handleResize() {
-        const previousIsVertical = this.isVertical;
-        this.isVertical = this.calculateIsVertical();
-        
-        if (this.plugin.settings.defaultLayout === 'auto' || 
-            this.plugin.settings.defaultLayout === 'list' || 
-            previousIsVertical !== this.isVertical) {
-            this.layoutStrategy = this.determineAutoLayout();
-        }
-        
+	public handleResize() {
+		this.isVertical = this.calculateIsVertical();
+		this.layoutStrategy = this.determineAutoLayout();
 		this.keyboardNavigator?.updateLayout(this.layoutStrategy);
 		this.refresh();
 	}
