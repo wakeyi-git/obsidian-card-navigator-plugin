@@ -21,91 +21,134 @@ export class SettingsManager {
         await this.plugin.saveSettings();
     }
 
-	// Reverts to default settings
-	async revertToDefault() {
-		this.plugin.settings.currentSettings = { ...DEFAULT_SETTINGS.presets.default.settings };
-		this.plugin.settings.lastActivePreset = 'default';
-		await this.saveSettings();
-		this.plugin.triggerRefresh();
-	}
-
-    getCurrentSettings(): Partial<CardNavigatorSettings> {
-        return this.plugin.settings.currentSettings;
-    }
-
     async updateSetting<K extends keyof CardNavigatorSettings>(
         key: K,
         value: CardNavigatorSettings[K]
     ) {
         this.plugin.settings[key] = value;
-        this.plugin.settings.currentSettings[key] = value;
         await this.saveSettings();
         this.plugin.triggerRefresh();
     }
 
-	// Gets all available presets
-	getPresets() {
-		return this.plugin.settings.presets;
-	}
+    getPresets() {
+        return this.plugin.settings.presets || {};
+    }
 
     async applyPreset(presetName: string) {
-        if (this.plugin.settings.presets[presetName]) {
-            const presetSettings = this.plugin.settings.presets[presetName].settings;
+        const presets = this.getPresets();
+        if (presets[presetName]) {
+            const presetSettings = presets[presetName].settings;
             this.plugin.settings = { ...this.plugin.settings, ...presetSettings };
-            this.plugin.settings.currentSettings = { ...presetSettings };
             this.plugin.settings.lastActivePreset = presetName;
-            
             await this.saveSettings();
             this.plugin.triggerRefresh();
         }
     }
 
-    async saveAsNewPreset(presetName: string) {
-        this.plugin.settings.presets[presetName] = {
-            name: presetName,
-            settings: { ...this.plugin.settings.currentSettings }
-        };
-        this.plugin.settings.lastActivePreset = presetName;
-        await this.saveSettings();
-    }
+	async saveAsNewPreset(presetName: string) {
+		const settingsToSave = Object.fromEntries(
+			Object.entries(this.plugin.settings).filter(
+				([key]) => key !== 'presets' && key !== 'lastActivePreset'
+			)
+		);
+		if (!this.plugin.settings.presets) {
+			this.plugin.settings.presets = {};
+		}
+		this.plugin.settings.presets[presetName] = {
+			name: presetName,
+			settings: settingsToSave
+		};
+		this.plugin.settings.lastActivePreset = presetName;
+		await this.saveSettings();
+	}
 
     async updateCurrentPreset(presetName: string) {
-        if (presetName !== 'default' && this.plugin.settings.presets[presetName]) {
-            this.plugin.settings.presets[presetName].settings = { ...this.plugin.settings.currentSettings };
+        const presets = this.getPresets();
+        if (presetName !== 'default' && presets[presetName]) {
+            presets[presetName].settings = { ...this.plugin.settings };
             await this.saveSettings();
         }
     }
 
+	isCurrentSettingModified(): boolean {
+		const presets = this.getPresets();
+		const lastActivePreset = this.plugin.settings.lastActivePreset || 'default';
+		const activePreset = presets[lastActivePreset];
+	
+		if (!activePreset) return false;
+	
+		const settingsToCompare = Object.fromEntries(
+			Object.entries(this.plugin.settings).filter(
+				([key]) => key !== 'presets' && key !== 'lastActivePreset'
+			)
+		);
+	
+		return !this.areSettingsEqual(settingsToCompare, activePreset.settings);
+	}
+
+    private areSettingsEqual(settings1: Partial<CardNavigatorSettings>, settings2: Partial<CardNavigatorSettings>): boolean {
+        const keys1 = Object.keys(settings1) as (keyof CardNavigatorSettings)[];
+        const keys2 = Object.keys(settings2) as (keyof CardNavigatorSettings)[];
+
+        if (keys1.length !== keys2.length) return false;
+
+        for (const key of keys1) {
+            if (settings1[key] !== settings2[key]) return false;
+        }
+
+        return true;
+    }
+
+    async revertToOriginalPreset() {
+        const presets = this.getPresets();
+        const lastActivePreset = this.plugin.settings.lastActivePreset || 'default';
+        const activePreset = presets[lastActivePreset];
+        if (activePreset) {
+            this.plugin.settings = { ...this.plugin.settings, ...activePreset.settings };
+            await this.saveSettings();
+            this.plugin.triggerRefresh();
+        }
+    }
+
     async deletePreset(presetName: string) {
-        if (presetName !== 'default') {
-            delete this.plugin.settings.presets[presetName];
+        const presets = this.getPresets();
+        if (presetName !== 'default' && presets[presetName]) {
+            delete presets[presetName];
             if (this.plugin.settings.lastActivePreset === presetName) {
                 this.plugin.settings.lastActivePreset = 'default';
-                this.plugin.settings.currentSettings = { ...this.plugin.settings.presets.default.settings };
+                const defaultPreset = presets['default'];
+                if (defaultPreset) {
+                    this.plugin.settings = { ...this.plugin.settings, ...defaultPreset.settings };
+                }
             }
             await this.saveSettings();
         }
     }
 
-    isCurrentSettingModified(): boolean {
-        const activePreset = this.plugin.settings.presets[this.plugin.settings.lastActivePreset];
-        return JSON.stringify(this.plugin.settings.currentSettings) !== JSON.stringify(activePreset.settings);
-    }
-
-    async revertToOriginalPreset() {
-        const activePreset = this.plugin.settings.presets[this.plugin.settings.lastActivePreset];
-        this.plugin.settings.currentSettings = { ...activePreset.settings };
-        await this.saveSettings();
-        this.plugin.triggerRefresh();
-    }
-
     async revertCurrentPresetToDefault() {
-        this.plugin.settings.currentSettings = { ...this.plugin.settings.presets.default.settings };
-        if (this.plugin.settings.lastActivePreset !== 'default') {
-            this.plugin.settings.presets[this.plugin.settings.lastActivePreset].settings = { ...this.plugin.settings.currentSettings };
+        const presets = this.getPresets();
+        const defaultSettings = presets['default']?.settings;
+        if (defaultSettings) {
+            this.plugin.settings = { ...this.plugin.settings, ...defaultSettings };
+            const lastActivePreset = this.plugin.settings.lastActivePreset;
+            if (lastActivePreset && lastActivePreset !== 'default' && presets[lastActivePreset]) {
+                presets[lastActivePreset].settings = { ...defaultSettings };
+            }
+            await this.saveSettings();
+            this.plugin.triggerRefresh();
         }
+    }
+
+	// Reverts to default settings
+    async revertToDefault() {
+        this.plugin.settings = { ...DEFAULT_SETTINGS };
+        this.plugin.settings.lastActivePreset = 'default';
         await this.saveSettings();
         this.plugin.triggerRefresh();
+    }
+
+    getCurrentSettings(): Partial<CardNavigatorSettings> {
+        return this.plugin.settings;
     }
 
 	// Updates the sort settings

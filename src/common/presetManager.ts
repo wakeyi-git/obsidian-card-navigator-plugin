@@ -8,8 +8,9 @@ export class PresetManager {
     constructor(private plugin: CardNavigatorPlugin) {}
 
     applyPreset(presetName: string) {
-        if (this.plugin.settings.presets[presetName]) {
-            this.plugin.settings.currentSettings = { ...this.plugin.settings.presets[presetName].settings };
+        const preset = this.plugin.settings.presets?.[presetName];
+        if (preset) {
+            this.plugin.settings = { ...this.plugin.settings, ...preset.settings };
             this.plugin.settings.lastActivePreset = presetName;
             this.plugin.saveSettings();
         } else {
@@ -22,9 +23,12 @@ export class PresetManager {
             new Notice(t('Default preset cannot be modified.'));
             return;
         }
+        if (!this.plugin.settings.presets) {
+            this.plugin.settings.presets = {};
+        }
         this.plugin.settings.presets[presetName] = {
             name: presetName,
-            settings: { ...this.plugin.settings.currentSettings }
+            settings: { ...this.plugin.settings }
         };
         this.plugin.settings.lastActivePreset = presetName;
         this.plugin.saveSettings();
@@ -35,12 +39,17 @@ export class PresetManager {
             new Notice(t('Default preset cannot be deleted.'));
             return;
         }
-        delete this.plugin.settings.presets[presetName];
-        if (this.plugin.settings.lastActivePreset === presetName) {
-            this.plugin.settings.lastActivePreset = 'default';
-            this.plugin.settings.currentSettings = { ...this.plugin.settings.presets['default'].settings };
+        if (this.plugin.settings.presets) {
+            delete this.plugin.settings.presets[presetName];
+            if (this.plugin.settings.lastActivePreset === presetName) {
+                this.plugin.settings.lastActivePreset = 'default';
+                const defaultPreset = this.plugin.settings.presets['default'];
+                if (defaultPreset) {
+                    this.plugin.settings = { ...this.plugin.settings, ...defaultPreset.settings };
+                }
+            }
+            this.plugin.saveSettings();
+            new Notice(t('Preset deleted.', { presetName }));
         }
-        this.plugin.saveSettings();
-        new Notice(t('Preset deleted.', { presetName }));
     }
 }

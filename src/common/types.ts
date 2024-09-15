@@ -60,9 +60,8 @@ export interface CardNavigatorSettings {
     bodyFontSize: number;
     bodyLength: number;
     isBodyLengthUnlimited: boolean;
-    lastActivePreset: string;
-    currentSettings: Partial<CardNavigatorSettings>;
     presets: Record<string, Preset>;
+    lastActivePreset: string;
 }
 
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {
@@ -88,7 +87,6 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     bodyLength: 500,
     isBodyLengthUnlimited: false,
     lastActivePreset: 'default',
-    currentSettings: {},
     presets: {
         default: {
             name: 'default',
@@ -99,13 +97,17 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
 
 // DEFAULT_SETTINGS 초기화 함수
 export function initializeDefaultSettings(): void {
-    const defaultSettings: Partial<CardNavigatorSettings> = { ...DEFAULT_SETTINGS };
-    delete defaultSettings.currentSettings;
-    delete defaultSettings.presets;
-    delete defaultSettings.lastActivePreset;
+    const defaultSettings = Object.fromEntries(
+        Object.entries(DEFAULT_SETTINGS).filter(
+            ([key]) => key !== 'presets' && key !== 'lastActivePreset'
+        )
+    );
 
-    DEFAULT_SETTINGS.presets.default.settings = defaultSettings;
-    DEFAULT_SETTINGS.currentSettings = { ...defaultSettings };
+    if (DEFAULT_SETTINGS.presets && DEFAULT_SETTINGS.presets.default) {
+        DEFAULT_SETTINGS.presets.default.settings = defaultSettings;
+    } else {
+        console.error('Default preset is not properly initialized');
+    }
 }
 
 // 초기화 함수 호출

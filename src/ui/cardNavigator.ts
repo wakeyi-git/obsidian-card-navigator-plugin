@@ -103,14 +103,13 @@ export class CardNavigator extends ItemView {
     }
 
     updateLayoutAndRefresh() {
-        const currentSettings = this.plugin.settings.currentSettings;
-        if (currentSettings.defaultLayout) {
-            this.cardContainer.setLayout(currentSettings.defaultLayout);
+        const settings = this.plugin.settings;
+        if (settings.defaultLayout) {
+            this.cardContainer.setLayout(settings.defaultLayout);
         } else {
-            // 기본값 설정 (예: 'auto')
             this.cardContainer.setLayout('auto');
         }
-        this.cardContainer.updateSettings(currentSettings);
+        this.cardContainer.updateSettings(settings);
         this.cardContainer.refresh();
     }
 

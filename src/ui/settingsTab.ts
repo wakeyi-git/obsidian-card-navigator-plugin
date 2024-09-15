@@ -49,136 +49,111 @@ export class SettingTab extends PluginSettingTab {
         this.addPresetSection(this.presetSection);
     }
 
-	private refreshModifiedSettingsSection(): void {
-        this.modifiedSettingsSection.empty();
-        if (this.plugin.settingsManager.isCurrentSettingModified()) {
-            new Setting(this.modifiedSettingsSection)
-                .setName(t('Modified Settings'))
-                .setDesc(t('Current settings are modified from the original preset.'))
-                .addButton(button => button
-                    .setButtonText(t('Revert to Original'))
-                    .onClick(async () => {
-                        await this.plugin.settingsManager.revertToOriginalPreset();
-                        this.refreshPresetSection();
-                        this.refreshModifiedSettingsSection();
-                    }));
-        }
-    }
-
     // Section for managing presets (create, update, delete)
-    private addPresetSection(containerEl: HTMLElement): void {
-        const presets = this.settingsManager.getPresets();
-
-        new Setting(containerEl)
-            .setName(t('Select Preset'))
-            .setDesc(t('Select a preset created by the user to load the settings.'))
-            .addDropdown(dropdown => {
-                Object.keys(presets).forEach(presetName => {
-                    dropdown.addOption(presetName, presetName);
-                });
-                dropdown.setValue(this.plugin.settings.lastActivePreset)
-                    .onChange(async (value) => {
-                        if (this.plugin.settingsManager.isCurrentSettingModified()) {
-                            new ConfirmationModal(this.app, 
-                                t('You have unsaved changes. Do you want to update the current preset before switching?'),
-                                async (choice) => {
-                                    if (choice === 'update') {
-                                        await this.settingsManager.updateCurrentPreset(this.plugin.settings.lastActivePreset);
-                                    }
-                                    if (choice !== 'cancel') {
-                                        await this.settingsManager.applyPreset(value);
-                                        new Notice(t('Preset applied.', { presetName: value }));
-                                        this.refreshPresetSection();
-                                        this.refreshModifiedSettingsSection();
-                                    }
-                                }
-                            ).open();
-                        } else {
-                            await this.settingsManager.applyPreset(value);
-                            new Notice(t('Preset applied.', { presetName: value }));
-                            this.refreshPresetSection();
-                            this.refreshModifiedSettingsSection();
-                        }
-                    });
-            });
-
-        const presetManagementSetting = new Setting(containerEl)
-            .setName(t('Managing Presets'))
-            .setDesc(t('Create, update, or delete presets.'))
-            .addButton(button => button
-                .setButtonText(t('Create New'))
-                .setCta()
-                .onClick(() => {
-                    new SavePresetModal(this.plugin.app, async (presetName) => {
-                        if (presetName) {
-                            await this.settingsManager.saveAsNewPreset(presetName);
-                            new Notice(t('preset Saved', { presetName }));
-                            this.plugin.settings.lastActivePreset = presetName;
-                            await this.plugin.saveSettings();
-                            this.refreshPresetSection();
-                            this.refreshModifiedSettingsSection();
-                        }
-                    }, this.plugin).open();
-                }));
-
-        if (this.plugin.settingsManager.isCurrentSettingModified()) {
-            presetManagementSetting.addButton(button => button
-                .setButtonText(t('Update'))
-                .setWarning()
-                .onClick(async () => {
-                    const currentPreset = this.plugin.settings.lastActivePreset;
-                    if (currentPreset !== 'default') {
-                        await this.settingsManager.updateCurrentPreset(currentPreset);
-                        new Notice(t('preset Updated', { presetName: currentPreset }));
-                        this.refreshPresetSection();
-                        this.refreshModifiedSettingsSection();
-                    } else {
-                        new Notice(t('default Preset Cannot Be Modified'));
-                    }
-                }));
-        }
-
-        presetManagementSetting.addButton(button => button
-            .setButtonText(t('Delete'))
-            .setWarning()
-            .onClick(async () => {
-                const currentPreset = this.plugin.settings.lastActivePreset;
-                if (currentPreset !== 'default') {
-                    await this.settingsManager.deletePreset(currentPreset);
-                    this.plugin.settings.lastActivePreset = 'default';
-                    await this.plugin.saveSettings();
-                    new Notice(t('preset Deleted and Default Applied', { presetName: currentPreset }));
-                    this.refreshPresetSection();
-                    this.refreshModifiedSettingsSection();
-                } else {
-                    new Notice(t('default Preset Cannot Be Deleted'));
-                }
-            }));
+	private addPresetSection(containerEl: HTMLElement): void {
+		const presets = this.settingsManager.getPresets();
 	
+		new Setting(containerEl)
+			.setName(t('Select Preset'))
+			.setDesc(t('Select a preset created by the user to load the settings.'))
+			.addDropdown(dropdown => {
+				Object.keys(presets).forEach(presetName => {
+					dropdown.addOption(presetName, presetName);
+				});
+				dropdown.setValue(this.plugin.settings.lastActivePreset)
+					.onChange(async (value) => {
+						if (this.plugin.settingsManager.isCurrentSettingModified()) {
+							new ConfirmationModal(this.app, 
+								t('You have unsaved changes. Do you want to update the current preset before switching?'),
+								async (choice) => {
+									if (choice === 'update') {
+										await this.settingsManager.updateCurrentPreset(this.plugin.settings.lastActivePreset);
+									}
+									if (choice !== 'cancel') {
+										await this.settingsManager.applyPreset(value);
+										new Notice(t('Preset applied.', { presetName: value }));
+										this.display(); // Refresh the entire settings tab
+									}
+								}
+							).open();
+						} else {
+							await this.settingsManager.applyPreset(value);
+							new Notice(t('Preset applied.', { presetName: value }));
+							this.display(); // Refresh the entire settings tab
+						}
+					});
+			});
+
+		const presetManagementSetting = new Setting(containerEl)
+			.setName(t('Managing Presets'))
+			.setDesc(t('Create or delete presets.'))
+			.addButton(button => button
+				.setButtonText(t('Create New'))
+				.setCta()
+				.onClick(() => {
+					new SavePresetModal(this.plugin.app, async (presetName) => {
+						if (presetName) {
+							await this.settingsManager.saveAsNewPreset(presetName);
+							new Notice(t('preset Saved', { presetName }));
+							this.plugin.settings.lastActivePreset = presetName;
+							await this.plugin.saveSettings();
+							this.display(); // Refresh the entire settings tab
+							this.refreshPresetSection();
+						}
+					}, this.plugin).open();
+					this.display(); // Refresh the entire settings tab
+				}));
+
+				presetManagementSetting.addButton(button => button
+					.setButtonText(t('Delete'))
+					.setWarning()
+					.onClick(async () => {
+						const currentPreset = this.plugin.settings.lastActivePreset;
+						if (currentPreset !== 'default') {
+							await this.settingsManager.deletePreset(currentPreset);
+							this.plugin.settings.lastActivePreset = 'default';
+							await this.plugin.saveSettings();
+							new Notice(t('preset Deleted and Default Applied', { presetName: currentPreset }));
+							this.refreshPresetSection();
+						} else {
+							new Notice(t('default Preset Cannot Be Deleted'));
+						}
+						this.display(); // Refresh the entire settings tab
+					}));
+
 		if (this.plugin.settingsManager.isCurrentSettingModified()) {
-			new Setting(containerEl)
-				.setName(t('Modified Settings'))
+			const presetModifiedSetting = new Setting(containerEl)
+				.setName(t('Handling Modified Settings'))
 				.setDesc(t('Current settings are modified from the original preset.'))
-				.addButton(button => button
-					.setButtonText(t('Revert to Original'))
+				presetModifiedSetting.addButton(button => button
+					.setButtonText(t('Update'))
+					.setWarning()
+					.onClick(async () => {
+						const currentPreset = this.plugin.settings.lastActivePreset;
+						if (currentPreset !== 'default') {
+							await this.settingsManager.updateCurrentPreset(currentPreset);
+							new Notice(t('preset Updated', { presetName: currentPreset }));
+							this.refreshPresetSection();
+						} else {
+							new Notice(t('default Preset Cannot Be Modified'));
+						}
+					}));
+				presetModifiedSetting.addButton(button => button
+					.setButtonText(t('To Original'))
 					.onClick(async () => {
 						await this.plugin.settingsManager.revertToOriginalPreset();
-						this.display();
+						new Notice(t('Current preset settings reverted to original values'));
+						this.display(); // Refresh the entire settings tab
+					}));
+				presetModifiedSetting.addButton(button => button
+					.setButtonText(t('To Default'))
+					.onClick(async () => {
+						await this.settingsManager.revertCurrentPresetToDefault();
+						new Notice(t('Current settings reverted to default values'));
+						this.display(); // Refresh the entire settings tab
 					}));
 		}
-	
-		// Button to revert settings to default values
-		new Setting(containerEl)
-			.setName(t('Revert to Default Settings'))
-			.setDesc(t('This button will revert the current preset\'s settings to their default values without changing the selected preset.'))
-			.addButton(button => button
-				.setButtonText(t('Revert'))
-				.onClick(async () => {
-					await this.settingsManager.revertCurrentPresetToDefault();
-					new Notice(t('Current preset settings reverted to default values'));
-					this.display();
-				}));
-	}
+    }
 
 	// Section for general settings
 	private addGeneralSettings(containerEl: HTMLElement): void {
@@ -417,7 +392,6 @@ export class SettingTab extends PluginSettingTab {
 					}
 					
 					this.refreshPresetSection();
-					this.refreshModifiedSettingsSection();
 				})
 			).settingEl;
 	
@@ -458,7 +432,6 @@ export class SettingTab extends PluginSettingTab {
 				}
 				
 				this.refreshPresetSection();
-				this.refreshModifiedSettingsSection();
 			})
 		);
 	
