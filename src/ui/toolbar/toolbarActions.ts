@@ -162,14 +162,14 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
 		if (bodyLengthSetting) {
 			bodyLengthSetting.remove();
 		}
-		if (!plugin.settings.isBodyLengthUnlimited) {
-			addNumberSetting('bodyLength', t('Body Length Limit'), displaySection, plugin, settingsManager)
+		if (plugin.settings.isBodyLengthLimited) {
+			addNumberSetting('bodyLength', t('Body Length'), displaySection, plugin, settingsManager)
 				.settingEl.addClass('setting-body-length');
 		}
 	};
 
 	// Add Body Length Limit toggle with updateBodyLengthSetting callback
-	addToggleSetting('isBodyLengthUnlimited', t('Body Length Unlimited'), displaySection, plugin, settingsManager, () => {
+	addToggleSetting('isBodyLengthLimited', t('Body Length Limit'), displaySection, plugin, settingsManager, () => {
 		updateBodyLengthSetting();
 	});
 
@@ -304,11 +304,8 @@ function addToggleSetting(
     new Setting(container)
         .setName(name)
         .addToggle(toggle => toggle
-            .setValue(key === 'isBodyLengthUnlimited' ? !plugin.settings[key] : plugin.settings[key] as boolean)
+            .setValue(plugin.settings[key] as boolean)
             .onChange(async (value) => {
-                if (key === 'isBodyLengthUnlimited') {
-                    value = !value;
-                }
                 await settingsManager.updateBooleanSetting(key, value);
                 plugin.triggerRefresh();
                 if (onChange) {
@@ -336,7 +333,7 @@ function addNumberSetting(
         .setValue(plugin.settings[key])
         .setDynamicTooltip()
         .onChange(async (value) => {
-            if ((key === 'bodyLength' && plugin.settings.isBodyLengthUnlimited) ||
+            if ((key === 'bodyLength' && !plugin.settings.isBodyLengthLimited) ||
                 (key === 'cardsPerView' && !plugin.settings.alignCardHeight)) {
                 return;
             }
@@ -349,7 +346,7 @@ function addNumberSetting(
     );
 
     if (key === 'bodyLength') {
-        setting.setDisabled(plugin.settings.isBodyLengthUnlimited);
+        setting.setDisabled(!plugin.settings.isBodyLengthLimited);
     }
 
     return setting;

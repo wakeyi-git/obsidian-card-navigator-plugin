@@ -58,8 +58,8 @@ export interface CardNavigatorSettings {
     firstHeaderFontSize: number;
     showBody: boolean;
     bodyFontSize: number;
-    bodyLength: number;
-    isBodyLengthUnlimited: boolean;
+    isBodyLengthLimited: boolean;
+	bodyLength: number;
     presets: Record<string, Preset>;
     lastActivePreset: string;
 }
@@ -84,8 +84,8 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     firstHeaderFontSize: 20,
     showBody: true,
     bodyFontSize: 15,
-    bodyLength: 500,
-    isBodyLengthUnlimited: false,
+    isBodyLengthLimited: true,
+	bodyLength: 500,
     lastActivePreset: 'default',
     presets: {
         default: {

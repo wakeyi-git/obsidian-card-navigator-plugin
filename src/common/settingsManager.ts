@@ -62,13 +62,18 @@ export class SettingsManager {
 		await this.saveSettings();
 	}
 
-    async updateCurrentPreset(presetName: string) {
-        const presets = this.getPresets();
-        if (presetName !== 'default' && presets[presetName]) {
-            presets[presetName].settings = { ...this.plugin.settings };
-            await this.saveSettings();
-        }
-    }
+	async updateCurrentPreset(presetName: string) {
+		const presets = this.getPresets();
+		if (presetName !== 'default' && presets[presetName]) {
+			const settingsToSave = Object.fromEntries(
+				Object.entries(this.plugin.settings).filter(
+					([key]) => key !== 'presets' && key !== 'lastActivePreset'
+				)
+			);
+			presets[presetName].settings = settingsToSave;
+			await this.saveSettings();
+		}
+	}
 
 	isCurrentSettingModified(): boolean {
 		const presets = this.getPresets();
@@ -125,19 +130,15 @@ export class SettingsManager {
         }
     }
 
-    async revertCurrentPresetToDefault() {
-        const presets = this.getPresets();
-        const defaultSettings = presets['default']?.settings;
-        if (defaultSettings) {
-            this.plugin.settings = { ...this.plugin.settings, ...defaultSettings };
-            const lastActivePreset = this.plugin.settings.lastActivePreset;
-            if (lastActivePreset && lastActivePreset !== 'default' && presets[lastActivePreset]) {
-                presets[lastActivePreset].settings = { ...defaultSettings };
-            }
-            await this.saveSettings();
-            this.plugin.triggerRefresh();
-        }
-    }
+	async revertCurrentPresetToDefault() {
+		const presets = this.getPresets();
+		const defaultSettings = presets['default']?.settings;
+		if (defaultSettings) {
+			this.plugin.settings = { ...this.plugin.settings, ...defaultSettings };
+			await this.saveSettings();
+			this.plugin.triggerRefresh();
+		}
+	}
 
 	// Reverts to default settings
     async revertToDefault() {

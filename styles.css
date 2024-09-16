@@ -14,6 +14,11 @@
     flex-direction: column;
 }
 
+.setting-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
 /* Toolbar styles */
 .card-navigator-toolbar {
     position: sticky;
