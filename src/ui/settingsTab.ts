@@ -78,36 +78,42 @@ export class SettingTab extends PluginSettingTab {
         const presets = this.settingsManager.getPresets();
     
         // Preset selection dropdown
-        new Setting(containerEl)
-            .setName(t('Select Preset'))
-            .setDesc(t('Select a preset created by the user to load the settings.'))
-            .addDropdown(dropdown => {
-                Object.keys(presets).forEach(presetName => {
-                    dropdown.addOption(presetName, presetName);
-                });
-                dropdown.setValue(this.plugin.settings.lastActivePreset)
-                    .onChange(async (value) => {
-                        if (this.plugin.settingsManager.isCurrentSettingModified()) {
-                            new ConfirmationModal(this.app, 
-                                t('You have unsaved changes. Do you want to update the current preset before switching?'),
-                                async (choice) => {
-                                    if (choice === 'update') {
-                                        await this.settingsManager.updateCurrentPreset(this.plugin.settings.lastActivePreset);
-                                    }
-                                    if (choice !== 'cancel') {
-                                        await this.settingsManager.applyPreset(value);
-                                        new Notice(t('Preset applied.', { presetName: value }));
-                                        this.display();
-                                    }
-                                }
-                            ).open();
-                        } else {
-                            await this.settingsManager.applyPreset(value);
-                            new Notice(t('Preset applied.', { presetName: value }));
-                            this.display();
-                        }
-                    });
+		new Setting(containerEl)
+        .setName(t('Select Preset'))
+        .setDesc(t('Select a preset created by the user to load the settings.'))
+        .addDropdown(dropdown => {
+            Object.keys(presets).forEach(presetName => {
+                dropdown.addOption(presetName, presetName);
             });
+            dropdown.setValue(this.plugin.settings.lastActivePreset)
+                .onChange(async (newValue) => {
+                    const currentPreset = this.plugin.settings.lastActivePreset;
+                    if (this.plugin.settingsManager.isCurrentSettingModified()) {
+                        new ConfirmationModal(this.app, 
+                            t('You have unsaved changes. Do you want to update the current preset before switching?'),
+                            async (choice) => {
+                                if (choice === 'update') {
+                                    await this.settingsManager.updateCurrentPreset(currentPreset);
+                                    await this.settingsManager.applyPreset(newValue);
+                                    new Notice(t('Preset updated and applied.', { presetName: newValue }));
+                                    this.display();
+                                } else if (choice === 'switch') {
+                                    await this.settingsManager.applyPreset(newValue);
+                                    new Notice(t('Preset applied without saving changes.', { presetName: newValue }));
+                                    this.display();
+                                } else {
+                                    // Cancel: revert the dropdown to the current preset
+                                    dropdown.setValue(currentPreset);
+                                }
+                            }
+                        ).open();
+                    } else {
+                        await this.settingsManager.applyPreset(newValue);
+                        new Notice(t('Preset applied.', { presetName: newValue }));
+                        this.display();
+                    }
+                });
+        });
 
         // Preset management buttons
 		const presetManagementSetting = new Setting(containerEl)
@@ -587,32 +593,35 @@ class SavePresetModal extends Modal {
 
 // Modal for confirming actions when switching presets
 class ConfirmationModal extends Modal {
-	constructor(app: App, private message: string, private onChoose: (choice: 'update' | 'switch' | 'cancel') => void) {
-		super(app);
-	}
+    private result: 'update' | 'switch' | 'cancel' = 'cancel';
+
+    constructor(app: App, private message: string, private onChoose: (choice: 'update' | 'switch' | 'cancel') => void) {
+        super(app);
+    }
 
 	// Open the modal
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText(this.message);
-		new Setting(contentEl)
-			.addButton(btn => btn.setButtonText(t('Update and Switch')).onClick(() => {
-				this.close();
-				this.onChoose('update');
-			}))
-			.addButton(btn => btn.setButtonText(t('Switch without Saving')).onClick(() => {
-				this.close();
-				this.onChoose('switch');
-			}))
-			.addButton(btn => btn.setButtonText(t('Cancel')).onClick(() => {
-				this.close();
-				this.onChoose('cancel');
-			}));
-	}
+    onOpen() {
+        const {contentEl} = this;
+        contentEl.setText(this.message);
+        new Setting(contentEl)
+            .addButton(btn => btn.setButtonText(t('Update and Switch')).onClick(() => {
+                this.result = 'update';
+                this.close();
+            }))
+            .addButton(btn => btn.setButtonText(t('Switch without Saving')).onClick(() => {
+                this.result = 'switch';
+                this.close();
+            }))
+            .addButton(btn => btn.setButtonText(t('Cancel')).onClick(() => {
+                this.result = 'cancel';
+                this.close();
+            }));
+    }
 
 	// Close the modal
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
+    onClose() {
+        const {contentEl} = this;
+        contentEl.empty();
+        this.onChoose(this.result);
+    }
 }

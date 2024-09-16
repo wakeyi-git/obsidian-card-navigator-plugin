@@ -12,6 +12,11 @@
 	"preset Deleted and Default Applied": "{{presetName}} 프리셋이 삭제되고 기본값이 적용되었습니다.",
 	"default Preset Cannot Be Deleted": "기본 프리셋은 삭제할 수 없습니다.",
 
+	"You have unsaved changes. Do you want to update the current preset before switching?": "저장하지 않은 변경 사항이 있습니다. 전환하기 전에 현재 프리셋을 업데이트하시겠습니까?",
+	"Update and Switch": "업데이트 및 전환",
+	"Switch without Saving": "저장하지 않고 전환",
+	"Cancel": "취소",
+
 	"Handling Modified Settings": "수정된 설정값 처리",
 	"Current settings are modified from the original preset.": "현재 설정이 원래 프리셋에서 수정되었습니다.",
 	"Update": "업데이트",

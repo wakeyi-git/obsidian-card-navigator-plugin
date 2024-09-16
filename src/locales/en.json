@@ -12,6 +12,11 @@
 	"preset Deleted and Default Applied": "{{presetName}} preset deleted and default applied.",
 	"default Preset Cannot Be Deleted": "Default preset cannot be deleted.",
 
+	"You have unsaved changes. Do you want to update the current preset before switching?": "You have unsaved changes. Do you want to update the current preset before switching?",
+	"Update and Switch": "Update and Switch",
+	"Switch without Saving": "Switch without Saving",
+	"Cancel": "Cancel",
+
 	"Handling Modified Settings": "Handling Modified Settings",
 	"Current settings are modified from the original preset.": "Current settings are modified from the original preset.",
 	"Update": "Update",	
