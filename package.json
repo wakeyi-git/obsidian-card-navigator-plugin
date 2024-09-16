@@ -1,6 +1,6 @@
 {
 	"name": "card-navigator",
-	"version": "1.0.0",
+	"version": "1.0.3",
 	"description": "Navigate your notes visually with card-based interface in Obsidian",
 	"main": "main.js",
 	"scripts": {
@@ -14,7 +14,7 @@
 		"card",
 		"navigator"
 	],
-	"author": "Your Name",
+	"author": "wakeyi",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
