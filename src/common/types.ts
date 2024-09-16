@@ -40,54 +40,56 @@ export interface Preset {
 
 // Define the structure of CardNavigator settings
 export interface CardNavigatorSettings {
-    defaultLayout: 'auto' | 'list' | 'grid' | 'masonry';
-    cardWidthThreshold: number;
-    gridColumns: number;
-    masonryColumns: number;
-    cardsPerView: number;
-    useSelectedFolder: boolean;
+	useSelectedFolder: boolean;
     selectedFolder: string | null;
     sortCriterion: SortCriterion;
     sortOrder: SortOrder;
-    alignCardHeight: boolean;
-    renderContentAsHtml: boolean;
-    centerActiveCardOnOpen: boolean;
+	renderContentAsHtml: boolean;
     dragDropContent: boolean;
+	centerActiveCardOnOpen: boolean;
+    defaultLayout: 'auto' | 'list' | 'grid' | 'masonry';
+    cardWidthThreshold: number;
+	alignCardHeight: boolean;
+	cardsPerView: number;
+    gridColumns: number;
+	gridCardHeight: number;
+    masonryColumns: number;
     showFileName: boolean;
-    fileNameFontSize: number;
     showFirstHeader: boolean;
-    firstHeaderFontSize: number;
-    showBody: boolean;
-    bodyFontSize: number;
-    isBodyLengthLimited: boolean;
+	showBody: boolean;
+	bodyLengthLimit: boolean;
     bodyLength: number;
+	fileNameFontSize: number;
+    firstHeaderFontSize: number;
+    bodyFontSize: number;
     presets: Record<string, Preset>;
     lastActivePreset: string;
 }
 
 // Define default settings for the CardNavigator
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {
-    defaultLayout: 'auto',
-    cardWidthThreshold: 250,
-    gridColumns: 4,
-    masonryColumns: 4,
-    cardsPerView: 4,
-    useSelectedFolder: false,
+	useSelectedFolder: false,
     selectedFolder: null,
     sortCriterion: 'fileName',
     sortOrder: 'asc',
-    alignCardHeight: true,
-    renderContentAsHtml: false,
-    centerActiveCardOnOpen: true,
+	renderContentAsHtml: false,
     dragDropContent: false,
+	centerActiveCardOnOpen: true,
+    defaultLayout: 'auto',
+    cardWidthThreshold: 250,
+    alignCardHeight: true,
+    cardsPerView: 4,
+    gridColumns: 4,
+	gridCardHeight: 200,
+    masonryColumns: 4,
     showFileName: true,
-    fileNameFontSize: 20,
-    showFirstHeader: true,
-    firstHeaderFontSize: 20,
+	showFirstHeader: true,
     showBody: true,
-    bodyFontSize: 15,
-    isBodyLengthLimited: true,
+	bodyLengthLimit: true,
     bodyLength: 501,
+    fileNameFontSize: 20,
+    firstHeaderFontSize: 20,
+    bodyFontSize: 15,
     lastActivePreset: 'default',
     presets: {
         default: {
@@ -126,6 +128,7 @@ export interface RangeSettingConfig {
 export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> = {
     cardWidthThreshold: { min: 150, max: 600, step: 10 },
     gridColumns: { min: 1, max: 10, step: 1 },
+	gridCardHeight: { min: 100, max: 500, step: 10 },
     masonryColumns: { min: 1, max: 10, step: 1 },
     cardsPerView: { min: 1, max: 10, step: 1 },
     fileNameFontSize: { min: 15, max: 25, step: 1 },

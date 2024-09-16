@@ -1,9 +1,9 @@
 import { LayoutStrategy, CardPosition } from './layoutStrategy';
-import { Card } from '../../common/types';
+import { Card, CardNavigatorSettings } from '../../common/types';
 
 // Class implementing the Grid layout strategy for card arrangement
 export class GridLayout implements LayoutStrategy {
-    constructor(private columns: number, private cardGap: number) {}
+    constructor(private columns: number, private cardGap: number, private settings: CardNavigatorSettings) {}
 
     // Arrange cards in a grid layout
     arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[] {
@@ -12,8 +12,8 @@ export class GridLayout implements LayoutStrategy {
         const totalGapWidth = this.cardGap * (this.columns - 1);
         // Calculate card width based on container width, number of columns, and gaps
         const cardWidth = (containerWidth - totalGapWidth) / this.columns;
-        // Set card height to maintain a 4:3 aspect ratio
-        const cardHeight = cardWidth * 0.75; // Assuming a 4:3 aspect ratio
+        // Set card height
+        const cardHeight = this.settings.gridCardHeight;
 
         cards.forEach((card, index) => {
             // Calculate column and row for each card

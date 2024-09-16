@@ -69,7 +69,6 @@ export class SettingTab extends PluginSettingTab {
         
         this.addCardDisplaySettings(containerEl);
         this.addCardStylingSettings(containerEl);
-        this.addAdvancedSettings(containerEl);
         this.addKeyboardShortcutsInfo(containerEl);
     }
 
@@ -206,6 +205,19 @@ export class SettingTab extends PluginSettingTab {
         this.addFolderSelectionSetting(folderSectionEl);
         
         this.addSortSetting(containerEl);
+		this.addToggleSettingToSetting(
+			new Setting(containerEl)
+				.setName(t('Render Content as HTML'))
+				.setDesc(t('If enabled, card content will be rendered as HTML')),
+			'renderContentAsHtml'
+		);
+
+		this.addToggleSettingToSetting(
+			new Setting(containerEl)
+				.setName(t('Drag and Drop Content'))
+				.setDesc(t('When enabled, dragging a card will insert the note content instead of a link.')),
+			'dragDropContent'
+		);
         this.addToggleSettingToSetting(
             new Setting(containerEl)
                 .setName(t('Center Active Card on Open'))
@@ -239,6 +251,11 @@ export class SettingTab extends PluginSettingTab {
 			.setDesc(t('Number of columns in grid layout'));
 		this.addNumberSettingToSetting(gridColumnsSetting, 'gridColumns');
 	
+		const gridCardHeightSetting = new Setting(containerEl)
+			.setName(t('Grid Card Height'))
+			.setDesc(t('Card height in grid layout'));
+		this.addNumberSettingToSetting(gridCardHeightSetting, 'gridCardHeight');
+
 		const masonryColumnsSetting = new Setting(containerEl)
 			.setName(t('Masonry Columns'))
 			.setDesc(t('Number of columns in masonry layout'));
@@ -257,31 +274,32 @@ export class SettingTab extends PluginSettingTab {
 	
 			updateSettingState(cardWidthThresholdSetting, layout === 'auto');
 			updateSettingState(gridColumnsSetting, layout === 'grid');
+			updateSettingState(gridCardHeightSetting, layout === 'auto' || layout === 'grid');
 			updateSettingState(masonryColumnsSetting, layout === 'masonry');
 			updateSettingState(alignCardHeightSetting, layout === 'auto' || layout === 'list');
 			updateSettingState(cardsPerViewSetting, (layout === 'auto' || layout === 'list') && alignCardHeight);
 		};
 	
 		// Default Layout setting
-        const defaultLayoutSetting = new Setting(containerEl)
-            .setName(t('Default Layout'))
-            .setDesc(t('Choose the default layout for cards'))
-            .addDropdown((dropdown: DropdownComponent) => {
-                dropdown
-                    .addOption('auto', t('Auto'))
-                    .addOption('list', t('List'))
-                    .addOption('grid', t('Grid'))
-                    .addOption('masonry', t('Masonry'))
-                    .setValue(this.plugin.settings.defaultLayout)
-                    .onChange(async (value: string) => {
-                        const layout = value as CardNavigatorSettings['defaultLayout'];
-                        await this.plugin.settingsManager.updateSetting('defaultLayout', layout);
-                        this.plugin.updateCardNavigatorLayout(layout);
-                        updateSettingsState(layout, this.plugin.settings.alignCardHeight);
-                        this.updateLayoutSection();
-						this.updatePresetSection();
-                    });
-            });
+		const defaultLayoutSetting = new Setting(containerEl)
+        .setName(t('Default Layout'))
+        .setDesc(t('Choose the default layout for cards'))
+        .addDropdown((dropdown: DropdownComponent) => {
+            dropdown
+                .addOption('auto', t('Auto'))
+                .addOption('list', t('List'))
+                .addOption('grid', t('Grid'))
+                .addOption('masonry', t('Masonry'))
+                .setValue(this.plugin.settings.defaultLayout)
+                .onChange(async (value: string) => {
+                    const layout = value as CardNavigatorSettings['defaultLayout'];
+                    await this.plugin.settingsManager.updateSetting('defaultLayout', layout);
+                    this.plugin.updateCardNavigatorLayout(layout);
+                    updateSettingsState(layout, this.plugin.settings.alignCardHeight);
+                    this.updateLayoutSection();
+                    this.updatePresetSection();
+                });
+        });
 	
 		// Move Default Layout setting to the top
 		containerEl.insertBefore(defaultLayoutSetting.settingEl, cardWidthThresholdSetting.settingEl);
@@ -292,7 +310,7 @@ export class SettingTab extends PluginSettingTab {
 			.onChange(async (value) => {
 				await this.settingsManager.updateBooleanSetting('alignCardHeight', value);
 				updateSettingsState(this.plugin.settings.defaultLayout, value);
-                this.updatePresetSection();
+				this.updatePresetSection();
 			})
 		);
 	
@@ -338,13 +356,13 @@ export class SettingTab extends PluginSettingTab {
     };
 
     // Set initial state of Body Length setting
-    updateBodyLengthState(this.plugin.settings.isBodyLengthLimited);
+    updateBodyLengthState(this.plugin.settings.bodyLengthLimit);
 
     // Add toggle to Body Length Limit setting
     bodyLengthLimitSetting.addToggle(toggle => toggle
-        .setValue(this.plugin.settings.isBodyLengthLimited)
+        .setValue(this.plugin.settings.bodyLengthLimit)
         .onChange(async (value) => {
-            await this.settingsManager.updateBooleanSetting('isBodyLengthLimited', value);
+            await this.settingsManager.updateBooleanSetting('bodyLengthLimit', value);
             updateBodyLengthState(value);
             this.updatePresetSection();
         })
@@ -367,27 +385,6 @@ export class SettingTab extends PluginSettingTab {
 				);
 			}
 		});
-	}
-
-	// Add advanced settings section
-	private addAdvancedSettings(containerEl: HTMLElement): void {
-		new Setting(containerEl)
-			.setName(t('Advanced Settings'))
-			.setHeading();
-
-		this.addToggleSettingToSetting(
-			new Setting(containerEl)
-				.setName(t('Render Content as HTML'))
-				.setDesc(t('If enabled, card content will be rendered as HTML')),
-			'renderContentAsHtml'
-		);
-
-		this.addToggleSettingToSetting(
-			new Setting(containerEl)
-				.setName(t('Drag and Drop Content'))
-				.setDesc(t('When enabled, dragging a card will insert the note content instead of a link.')),
-			'dragDropContent'
-		);
 	}
 
 	// Add keyboard shortcuts information section
@@ -492,7 +489,7 @@ export class SettingTab extends PluginSettingTab {
 			.setDynamicTooltip()
 			.onChange(async (value) => {
 				// Check if the setting should be updated based on other settings
-				if ((key === 'bodyLength' && !this.plugin.settings.isBodyLengthLimited) ||
+				if ((key === 'bodyLength' && !this.plugin.settings.bodyLengthLimit) ||
 					(key === 'cardsPerView' && !this.plugin.settings.alignCardHeight)) {
 					return;
 				}
@@ -511,7 +508,7 @@ export class SettingTab extends PluginSettingTab {
 	
 		// Disable bodyLength setting if body length is not limited
 		if (key === 'bodyLength') {
-			setting.setDisabled(!this.plugin.settings.isBodyLengthLimited);
+			setting.setDisabled(!this.plugin.settings.bodyLengthLimit);
 		}
 	}
 }

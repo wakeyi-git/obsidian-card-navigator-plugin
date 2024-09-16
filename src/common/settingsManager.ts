@@ -186,7 +186,7 @@ export class SettingsManager {
 	async updateBodyLengthSetting(value: number) {
 		const config = this.getNumberSettingConfig('bodyLength');
 		const clampedValue = Math.max(config.min, Math.min(config.max, value));
-		await this.updateSetting('isBodyLengthLimited', true);
+		await this.updateSetting('bodyLengthLimit', true);
 		await this.updateSetting('bodyLength', clampedValue);
 		this.plugin.triggerRefresh();
 	}

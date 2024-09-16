@@ -101,6 +101,11 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
     // Add Folder Selection setting
     addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
 
+    // Add General Settings section
+    const generalSection = createCollapsibleSection(settingsPopup, t('General Settings'), true);
+    addToggleSetting('renderContentAsHtml', t('Render Content as HTML'), generalSection, plugin, settingsManager);
+    addToggleSetting('dragDropContent', t('Drag and Drop Content'), generalSection, plugin, settingsManager);
+
     // Add Layout Settings section
     const layoutSection = createCollapsibleSection(settingsPopup, t('Layout Settings'), true);
     
@@ -123,9 +128,12 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
         if (layout === 'auto') {
             addNumberSetting('cardWidthThreshold', t('Card Width Threshold'), layoutSection, plugin, settingsManager);
         }
-        if (layout === 'grid') {
-            addNumberSetting('gridColumns', t('Grid Columns'), layoutSection, plugin, settingsManager);
-        }
+		if (layout === 'grid') {
+			addNumberSetting('gridColumns', t('Grid Columns'), layoutSection, plugin, settingsManager);
+		}
+		if (layout === 'auto' || layout === 'grid') {
+			addNumberSetting('gridCardHeight', t('Grid Card Height'), layoutSection, plugin, settingsManager);
+		}
         if (layout === 'masonry') {
             addNumberSetting('masonryColumns', t('Masonry Columns'), layoutSection, plugin, settingsManager);
         }
@@ -164,14 +172,14 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
         if (bodyLengthSetting) {
             bodyLengthSetting.remove();
         }
-        if (plugin.settings.isBodyLengthLimited) {
+        if (plugin.settings.bodyLengthLimit) {
             addNumberSetting('bodyLength', t('Body Length'), displaySection, plugin, settingsManager)
                 .settingEl.addClass('setting-body-length');
         }
     };
 
     // Add Body Length Limit toggle with updateBodyLengthSetting callback
-    addToggleSetting('isBodyLengthLimited', t('Body Length Limit'), displaySection, plugin, settingsManager, () => {
+    addToggleSetting('bodyLengthLimit', t('Body Length Limit'), displaySection, plugin, settingsManager, () => {
         updateBodyLengthSetting();
     });
 
@@ -183,11 +191,6 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
     addNumberSetting('fileNameFontSize', t('File Name Font Size'), stylingSection, plugin, settingsManager);
     addNumberSetting('firstHeaderFontSize', t('First Header Font Size'), stylingSection, plugin, settingsManager);
     addNumberSetting('bodyFontSize', t('Body Font Size'), stylingSection, plugin, settingsManager);
-
-    // Add Advanced Settings section
-    const advancedSection = createCollapsibleSection(settingsPopup, t('Advanced Settings'), true);
-    addToggleSetting('renderContentAsHtml', t('Render Content as HTML'), advancedSection, plugin, settingsManager);
-    addToggleSetting('dragDropContent', t('Drag and Drop Content'), advancedSection, plugin, settingsManager);
 
     // Prevent click events from closing the popup
     settingsPopup.addEventListener('click', (e) => e.stopPropagation());
@@ -336,7 +339,7 @@ function addNumberSetting(
         .setDynamicTooltip()
         .onChange(async (value) => {
             // Check if the setting should be updated based on other settings
-            if ((key === 'bodyLength' && !plugin.settings.isBodyLengthLimited) ||
+            if ((key === 'bodyLength' && !plugin.settings.bodyLengthLimit) ||
                 (key === 'cardsPerView' && !plugin.settings.alignCardHeight)) {
                 return;
             }
@@ -351,7 +354,7 @@ function addNumberSetting(
 
     // Disable bodyLength setting if body length is not limited
     if (key === 'bodyLength') {
-        setting.setDisabled(!plugin.settings.isBodyLengthLimited);
+        setting.setDisabled(!plugin.settings.bodyLengthLimit);
     }
 
     return setting;

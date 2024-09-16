@@ -41,6 +41,8 @@
 	"Width threshold for adding/removing columns": "Width threshold for adding/removing columns",
 	"Grid Columns": "Grid Columns",
 	"Number of columns in grid layout": "Number of columns in grid layout",
+	"Grid Card Height": "Grid Card Height",
+	"Card height in grid layout": "Card height in grid layout",
 	"Masonry Columns": "Masonry Columns",
 	"Number of columns in masonry layout": "Number of columns in masonry layout",
 	"Align Card Height": "Align Card Height",

@@ -74,8 +74,8 @@ export class CardContainer {
         if (settings.alignCardHeight !== undefined) {
             this.plugin.settings.alignCardHeight = settings.alignCardHeight;
         }
-        if (settings.isBodyLengthLimited !== undefined) {
-            this.plugin.settings.isBodyLengthLimited = settings.isBodyLengthLimited;
+        if (settings.bodyLengthLimit !== undefined) {
+            this.plugin.settings.bodyLengthLimit = settings.bodyLengthLimit;
         }
         if (settings.bodyLength !== undefined) {
             this.plugin.settings.bodyLength = settings.bodyLength;
@@ -108,8 +108,6 @@ export class CardContainer {
 	
 		const {
 			alignCardHeight,
-			isBodyLengthLimited,
-			bodyLength,
 			cardWidthThreshold,
 			defaultLayout
 		} = this.plugin.settings;
@@ -119,9 +117,9 @@ export class CardContainer {
 				case 'list':
 					return new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
 				case 'grid':
-					return new GridLayout(this.plugin.settings.gridColumns, this.cardGap);
+					return new GridLayout(this.plugin.settings.gridColumns, this.cardGap, this.plugin.settings);
 				case 'masonry':
-					return new MasonryLayout(this.plugin.settings.masonryColumns, this.cardGap, isBodyLengthLimited, bodyLength);
+					return new MasonryLayout(this.plugin.settings.masonryColumns, this.cardGap, this.plugin.settings);
 			}
 		}
 	
@@ -135,9 +133,9 @@ export class CardContainer {
 		if (columns === 1) {
 			return new ListLayout(this.isVertical, adjustedGap, alignCardHeight);
 		} else if (alignCardHeight) {
-			return new GridLayout(columns, this.cardGap);
+			return new GridLayout(columns, this.cardGap, this.plugin.settings);
 		} else {
-			return new MasonryLayout(columns, this.cardGap, isBodyLengthLimited, bodyLength);
+			return new MasonryLayout(columns, this.cardGap, this.plugin.settings);
 		}
 	}
 
@@ -163,23 +161,27 @@ export class CardContainer {
 
 	// Sets the layout strategy based on the provided layout type
 	setLayout(layout: 'auto' | 'list' | 'grid' | 'masonry') {
-        const { gridColumns, masonryColumns, isBodyLengthLimited, bodyLength, alignCardHeight } = this.plugin.settings;
-        
-        if (layout === 'auto') {
-            this.layoutStrategy = this.determineAutoLayout();
-        } else {
-            switch (layout) {
-                case 'list':
-                    this.layoutStrategy = new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
-                    break;
-                case 'grid':
-                    this.layoutStrategy = new GridLayout(gridColumns, this.cardGap);
-                    break;
-                case 'masonry':
-                    this.layoutStrategy = new MasonryLayout(masonryColumns, this.cardGap, isBodyLengthLimited, bodyLength);
-                    break;
-            }
-        }
+		const { gridColumns, alignCardHeight } = this.plugin.settings;
+		
+		if (layout === 'auto') {
+			this.layoutStrategy = this.determineAutoLayout();
+		} else {
+			switch (layout) {
+				case 'list':
+					this.layoutStrategy = new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
+					break;
+				case 'grid':
+					this.layoutStrategy = new GridLayout(gridColumns, this.cardGap, this.plugin.settings);
+					break;
+				case 'masonry':
+					this.layoutStrategy = new MasonryLayout(
+						this.plugin.settings.masonryColumns,
+						this.cardGap,
+						this.plugin.settings
+					);
+					break;
+			}
+		}
 		this.keyboardNavigator?.updateLayout(this.layoutStrategy);
 		this.refresh();
 	}
@@ -599,7 +601,7 @@ export class CardContainer {
 
 	// Truncates card body if it's longer than the allowed maximum length
 	private truncateBody(body: string): string {
-		if (!this.plugin.settings.isBodyLengthLimited) {
+		if (!this.plugin.settings.bodyLengthLimit) {
 			return body;
 		}
 		const maxLength = this.plugin.settings.bodyLength;
