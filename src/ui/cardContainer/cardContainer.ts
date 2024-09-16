@@ -72,8 +72,8 @@ export class CardContainer {
         if (settings.alignCardHeight !== undefined) {
             this.plugin.settings.alignCardHeight = settings.alignCardHeight;
         }
-        if (settings.isBodyLengthUnlimited !== undefined) {
-            this.plugin.settings.isBodyLengthUnlimited = settings.isBodyLengthUnlimited;
+        if (settings.isBodyLengthLimited !== undefined) {
+            this.plugin.settings.isBodyLengthLimited = settings.isBodyLengthLimited;
         }
         if (settings.bodyLength !== undefined) {
             this.plugin.settings.bodyLength = settings.bodyLength;
@@ -106,7 +106,7 @@ export class CardContainer {
 	
 		const {
 			alignCardHeight,
-			isBodyLengthUnlimited,
+			isBodyLengthLimited,
 			bodyLength,
 			cardWidthThreshold,
 			defaultLayout
@@ -119,7 +119,7 @@ export class CardContainer {
 				case 'grid':
 					return new GridLayout(this.plugin.settings.gridColumns, this.cardGap);
 				case 'masonry':
-					return new MasonryLayout(this.plugin.settings.masonryColumns, this.cardGap, isBodyLengthUnlimited, bodyLength);
+					return new MasonryLayout(this.plugin.settings.masonryColumns, this.cardGap, isBodyLengthLimited, bodyLength);
 			}
 		}
 	
@@ -135,7 +135,7 @@ export class CardContainer {
 		} else if (alignCardHeight) {
 			return new GridLayout(columns, this.cardGap);
 		} else {
-			return new MasonryLayout(columns, this.cardGap, isBodyLengthUnlimited, bodyLength);
+			return new MasonryLayout(columns, this.cardGap, isBodyLengthLimited, bodyLength);
 		}
 	}
 
@@ -160,7 +160,7 @@ export class CardContainer {
 
 	// Sets the layout strategy based on the provided layout type ('auto', 'list', 'grid', or 'masonry').
 	setLayout(layout: 'auto' | 'list' | 'grid' | 'masonry') {
-        const { gridColumns, masonryColumns, isBodyLengthUnlimited, bodyLength, alignCardHeight } = this.plugin.settings;
+        const { gridColumns, masonryColumns, isBodyLengthLimited, bodyLength, alignCardHeight } = this.plugin.settings;
         
         if (layout === 'auto') {
             this.layoutStrategy = this.determineAutoLayout();
@@ -173,7 +173,7 @@ export class CardContainer {
                     this.layoutStrategy = new GridLayout(gridColumns, this.cardGap);
                     break;
                 case 'masonry':
-                    this.layoutStrategy = new MasonryLayout(masonryColumns, this.cardGap, isBodyLengthUnlimited, bodyLength);
+                    this.layoutStrategy = new MasonryLayout(masonryColumns, this.cardGap, isBodyLengthLimited, bodyLength);
                     break;
             }
         }
@@ -458,49 +458,64 @@ export class CardContainer {
         };
     }
 
-    // Scrolls the container up by a specified number of cards.
-    scrollUp(count = 1) {
-        if (!this.containerEl) return;
-        const { height } = this.getCardSize();
-        const scrollAmount = height * count;
-        this.containerEl.scrollBy({
-            top: -scrollAmount,
-            behavior: 'smooth'
-        });
-    }
-
-    // Scrolls the container down by a specified number of cards.
-    scrollDown(count = 1) {
-        if (!this.containerEl) return;
-        const { height } = this.getCardSize();
-        const scrollAmount = height * count;
-        this.containerEl.scrollBy({
-            top: scrollAmount,
-            behavior: 'smooth'
-        });
-    }
-
-    // Scrolls the container to the left by a specified number of cards.
-    scrollLeft(count = 1) {
-        if (!this.containerEl) return;
-        const { width } = this.getCardSize();
-        const scrollAmount = width * count;
-        this.containerEl.scrollBy({
-            left: -scrollAmount,
-            behavior: 'smooth'
-        });
-    }
-
-    // Scrolls the container to the right by a specified number of cards.
-    scrollRight(count = 1) {
-        if (!this.containerEl) return;
-        const { width } = this.getCardSize();
-        const scrollAmount = width * count;
-        this.containerEl.scrollBy({
-            left: scrollAmount,
-            behavior: 'smooth'
-        });
-    }
+	private scrollInDirection(direction: 'up' | 'down' | 'left' | 'right', count = 1) {
+		if (!this.containerEl) return;
+		const { width, height } = this.getCardSize();
+		const cardsPerView = this.plugin.settings.cardsPerView;
+		const totalCards = this.cards.length;
+		const isVertical = this.layoutStrategy.getScrollDirection() === 'vertical';
+		
+		const cardSize = isVertical ? height : width;
+		const currentScroll = isVertical ? this.containerEl.scrollTop : this.containerEl.scrollLeft;
+		const totalSize = totalCards * cardSize;
+		const containerSize = isVertical ? this.containerEl.clientHeight : this.containerEl.clientWidth;
+		
+		let targetScroll;
+		if (count === cardsPerView) { // Page Up/Left or Page Down/Right
+			const currentEdgeCard = Math.floor((currentScroll + (direction === 'down' || direction === 'right' ? containerSize : 0)) / cardSize);
+			if (direction === 'up' || direction === 'left') {
+				if (currentEdgeCard < cardsPerView) {
+					targetScroll = 0; // Scroll to the very start
+				} else {
+					targetScroll = Math.max(0, (currentEdgeCard - cardsPerView) * cardSize);
+				}
+			} else { // down or right
+				if (totalCards - currentEdgeCard < cardsPerView) {
+					targetScroll = totalSize - containerSize; // Scroll to the very end
+				} else {
+					targetScroll = Math.min(totalSize - containerSize, (currentEdgeCard + 1) * cardSize);
+				}
+			}
+		} else {
+			const scrollAmount = cardSize * count;
+			if (direction === 'up' || direction === 'left') {
+				targetScroll = Math.max(0, currentScroll - scrollAmount);
+			} else {
+				targetScroll = Math.min(totalSize - containerSize, currentScroll + scrollAmount);
+			}
+		}
+	
+		this.containerEl.scrollTo({
+			[isVertical ? 'top' : 'left']: targetScroll,
+			behavior: 'smooth'
+		});
+	}
+	
+	scrollUp(count = 1) {
+		this.scrollInDirection('up', count);
+	}
+	
+	scrollDown(count = 1) {
+		this.scrollInDirection('down', count);
+	}
+	
+	scrollLeft(count = 1) {
+		this.scrollInDirection('left', count);
+	}
+	
+	scrollRight(count = 1) {
+		this.scrollInDirection('right', count);
+	}
 
     // Displays the cards based on the filtered files.
     public async displayCards(filteredFiles: TFile[]) {
@@ -575,7 +590,7 @@ export class CardContainer {
 
     // Truncates card body if it's longer than the allowed maximum length.
     private truncateBody(body: string): string {
-        if (this.plugin.settings.isBodyLengthUnlimited) {
+        if (this.plugin.settings.isBodyLengthLimited) {
             return body;
         }
         const maxLength = this.plugin.settings.bodyLength;

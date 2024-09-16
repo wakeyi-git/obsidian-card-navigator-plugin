@@ -172,12 +172,12 @@ export class SettingsManager {
 	// Updates the body length setting, with handling for unlimited body length
 	async updateBodyLengthSetting(value: number) {
 		if (value <= 0) {
-			await this.updateSetting('isBodyLengthUnlimited', true);
+			await this.updateSetting('isBodyLengthLimited', true);
 			await this.updateSetting('bodyLength', -1);
 		} else {
 			const config = this.getNumberSettingConfig('bodyLength');
 			const clampedValue = Math.max(config.min, Math.min(config.max, value));
-			await this.updateSetting('isBodyLengthUnlimited', false);
+			await this.updateSetting('isBodyLengthLimited', false);
 			await this.updateSetting('bodyLength', clampedValue);
 		}
 		this.plugin.triggerRefresh();

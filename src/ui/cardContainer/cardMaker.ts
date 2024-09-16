@@ -61,7 +61,7 @@ export class CardMaker {
 
     // Truncate the body based on plugin settings
 	private truncateBody(body: string): string {
-		if (this.plugin.settings.isBodyLengthUnlimited) {
+		if (this.plugin.settings.isBodyLengthLimited) {
 			return body;
 		}
 		const maxLength = this.plugin.settings.bodyLength;

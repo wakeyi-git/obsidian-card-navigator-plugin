@@ -43,14 +43,14 @@ export class KeyboardNavigator {
                 e.preventDefault();
                 this.moveFocus(1, 0);
                 break;
-            case 'PageUp':
-                e.preventDefault();
-                this.moveFocusPage(-1);
-                break;
-            case 'PageDown':
-                e.preventDefault();
-                this.moveFocusPage(1);
-                break;
+			case 'PageUp':
+				e.preventDefault();
+				this.moveFocusPage(-1);
+				break;
+			case 'PageDown':
+				e.preventDefault();
+				this.moveFocusPage(1);
+				break;
             case 'Home':
                 e.preventDefault();
                 this.moveFocusToStart();
@@ -157,8 +157,30 @@ export class KeyboardNavigator {
 
 
     private moveFocusPage(direction: number) {
-        const pageSize = this.plugin.settings.cardsPerView;
-        this.moveFocus(0, direction * pageSize);
+        if (this.focusedCardIndex === null) return;
+
+        const totalCards = this.containerEl.children.length;
+        const cardsPerView = this.plugin.settings.cardsPerView;
+
+        let newIndex: number;
+
+        if (direction > 0) { // PageDown
+            if (totalCards - this.focusedCardIndex <= cardsPerView) {
+                newIndex = totalCards - 1; // Move to the last card
+            } else {
+                newIndex = Math.min(totalCards - 1, this.focusedCardIndex + cardsPerView);
+            }
+        } else { // PageUp
+            if (this.focusedCardIndex < cardsPerView) {
+                newIndex = 0; // Move to the first card
+            } else {
+                newIndex = Math.max(0, this.focusedCardIndex - cardsPerView);
+            }
+        }
+
+        this.focusedCardIndex = newIndex;
+        this.updateFocusedCard();
+        this.scrollToFocusedCard();
     }
 
     private moveFocusToStart() {
