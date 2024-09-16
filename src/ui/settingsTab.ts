@@ -27,33 +27,53 @@ export class SettingTab extends PluginSettingTab {
         this.modifiedSettingsSection = document.createElement('div');
     }
 
-    // Main method to render the settings UI
+    private updatePresetSection(): void {
+        const presetSectionEl = this.containerEl.querySelector('.preset-section');
+        if (presetSectionEl) {
+            presetSectionEl.empty();
+            this.addPresetSection(presetSectionEl as HTMLElement);
+        }
+    }
+
+	private updateLayoutSection(): void {
+        const layoutSectionEl = this.containerEl.querySelector('.layout-section');
+        if (layoutSectionEl) {
+            layoutSectionEl.empty();
+            this.addLayoutSettings(layoutSectionEl as HTMLElement);
+        }
+    }
+
+    private updateFolderSelectionSection(): void {
+        const folderSectionEl = this.containerEl.querySelector('.folder-selection-section');
+        if (folderSectionEl) {
+            folderSectionEl.empty();
+            this.addFolderSelectionSetting(folderSectionEl as HTMLElement);
+        }
+    }
+
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
 
-        this.presetSection = containerEl.createDiv('preset-section');
-        this.modifiedSettingsSection = containerEl.createDiv('modified-settings-section');
+        const presetSectionEl = containerEl.createDiv('preset-section');
+        this.addPresetSection(presetSectionEl);
 
-        this.addPresetSection(this.presetSection);
         this.addGeneralSettings(containerEl);
-        this.addLayoutSettings(containerEl);
+        
+        const layoutSectionEl = containerEl.createDiv('layout-section');
+        this.addLayoutSettings(layoutSectionEl);
+        
         this.addCardDisplaySettings(containerEl);
         this.addCardStylingSettings(containerEl);
         this.addAdvancedSettings(containerEl);
         this.addKeyboardShortcutsInfo(containerEl);
     }
 
-	private refreshPresetSection(): void {
-        this.presetSection.empty();
-        this.addPresetSection(this.presetSection);
-    }
-
     // Section for managing presets (create, update, delete)
     private addPresetSection(containerEl: HTMLElement): void {
         const presets = this.settingsManager.getPresets();
-	
-		new Setting(containerEl)
+    
+        new Setting(containerEl)
             .setName(t('Select Preset'))
             .setDesc(t('Select a preset created by the user to load the settings.'))
             .addDropdown(dropdown => {
@@ -62,27 +82,27 @@ export class SettingTab extends PluginSettingTab {
                 });
                 dropdown.setValue(this.plugin.settings.lastActivePreset)
                     .onChange(async (value) => {
-						if (this.plugin.settingsManager.isCurrentSettingModified()) {
-							new ConfirmationModal(this.app, 
-								t('You have unsaved changes. Do you want to update the current preset before switching?'),
-								async (choice) => {
-									if (choice === 'update') {
-										await this.settingsManager.updateCurrentPreset(this.plugin.settings.lastActivePreset);
-									}
-									if (choice !== 'cancel') {
-										await this.settingsManager.applyPreset(value);
-										new Notice(t('Preset applied.', { presetName: value }));
-										this.display(); // Refresh the entire settings tab
-									}
-								}
-							).open();
-						} else {
-							await this.settingsManager.applyPreset(value);
-							new Notice(t('Preset applied.', { presetName: value }));
-							this.display(); // Refresh the entire settings tab
-						}
-					});
-			});
+                        if (this.plugin.settingsManager.isCurrentSettingModified()) {
+                            new ConfirmationModal(this.app, 
+                                t('You have unsaved changes. Do you want to update the current preset before switching?'),
+                                async (choice) => {
+                                    if (choice === 'update') {
+                                        await this.settingsManager.updateCurrentPreset(this.plugin.settings.lastActivePreset);
+                                    }
+                                    if (choice !== 'cancel') {
+                                        await this.settingsManager.applyPreset(value);
+                                        new Notice(t('Preset applied.', { presetName: value }));
+                                        this.display(); // 전체 설정 탭 새로고침
+                                    }
+                                }
+                            ).open();
+                        } else {
+                            await this.settingsManager.applyPreset(value);
+                            new Notice(t('Preset applied.', { presetName: value }));
+                            this.display(); // 전체 설정 탭 새로고침
+                        }
+                    });
+            });
 
 		const presetManagementSetting = new Setting(containerEl)
             .setName(t('Managing Presets'))
@@ -98,7 +118,7 @@ export class SettingTab extends PluginSettingTab {
 							this.plugin.settings.lastActivePreset = presetName;
 							await this.plugin.saveSettings();
 							this.display(); // Refresh the entire settings tab
-							this.refreshPresetSection();
+							this.updatePresetSection();
 						}
 					}, this.plugin).open();
 					this.display(); // Refresh the entire settings tab
@@ -115,7 +135,7 @@ export class SettingTab extends PluginSettingTab {
 						this.plugin.settings.lastActivePreset = 'default';
 						await this.plugin.saveSettings();
 						new Notice(t('preset Deleted and Default Applied', { presetName: currentPreset }));
-						this.refreshPresetSection();
+						this.updatePresetSection();
 					} else {
 						new Notice(t('default Preset Cannot Be Deleted'));
 					}
@@ -134,7 +154,7 @@ export class SettingTab extends PluginSettingTab {
 				if (currentPreset !== 'default') {
 					await this.settingsManager.updateCurrentPreset(currentPreset);
 					new Notice(t('preset Updated', { presetName: currentPreset }));
-					this.refreshPresetSection();
+					this.updatePresetSection();
 				} else {
 					new Notice(t('default Preset Cannot Be Modified'));
 				}
@@ -166,7 +186,9 @@ export class SettingTab extends PluginSettingTab {
             .setName(t('General Settings'))
             .setHeading();
 
-        this.addFolderSelectionSetting(containerEl);
+        const folderSectionEl = containerEl.createDiv('folder-selection-section');
+        this.addFolderSelectionSetting(folderSectionEl);
+        
         this.addSortSetting(containerEl);
         this.addToggleSettingToSetting(
             new Setting(containerEl)
@@ -177,7 +199,7 @@ export class SettingTab extends PluginSettingTab {
     }
 
     // Section for layout-related settings
-	private addLayoutSettings(containerEl: HTMLElement): void {
+    private addLayoutSettings(containerEl: HTMLElement): void {
 		new Setting(containerEl)
 			.setName(t('Layout Settings'))
 			.setHeading();
@@ -225,24 +247,25 @@ export class SettingTab extends PluginSettingTab {
 		};
 	
 		// Default Layout 설정을 가장 위로 이동
-		const defaultLayoutSetting = new Setting(containerEl)
-			.setName(t('Default Layout'))
-			.setDesc(t('Choose the default layout for cards'))
-			.addDropdown((dropdown: DropdownComponent) => {
-				dropdown
-					.addOption('auto', t('Auto'))
-					.addOption('list', t('List'))
-					.addOption('grid', t('Grid'))
-					.addOption('masonry', t('Masonry'))
-					.setValue(this.plugin.settings.defaultLayout)
-					.onChange(async (value: string) => {
-						const layout = value as CardNavigatorSettings['defaultLayout'];
-						await this.plugin.settingsManager.updateSetting('defaultLayout', layout);
-						this.plugin.updateCardNavigatorLayout(layout);
-						updateSettingsState(layout, this.plugin.settings.alignCardHeight);
-						this.display(); // Refresh the settings tab to show/hide relevant options
-					});
-			});
+        const defaultLayoutSetting = new Setting(containerEl)
+            .setName(t('Default Layout'))
+            .setDesc(t('Choose the default layout for cards'))
+            .addDropdown((dropdown: DropdownComponent) => {
+                dropdown
+                    .addOption('auto', t('Auto'))
+                    .addOption('list', t('List'))
+                    .addOption('grid', t('Grid'))
+                    .addOption('masonry', t('Masonry'))
+                    .setValue(this.plugin.settings.defaultLayout)
+                    .onChange(async (value: string) => {
+                        const layout = value as CardNavigatorSettings['defaultLayout'];
+                        await this.plugin.settingsManager.updateSetting('defaultLayout', layout);
+                        this.plugin.updateCardNavigatorLayout(layout);
+                        updateSettingsState(layout, this.plugin.settings.alignCardHeight);
+                        this.updateLayoutSection();
+						this.updatePresetSection();
+                    });
+            });
 	
 		// Default Layout 설정을 다른 설정들 앞으로 이동
 		containerEl.insertBefore(defaultLayoutSetting.settingEl, cardWidthThresholdSetting.settingEl);
@@ -253,7 +276,7 @@ export class SettingTab extends PluginSettingTab {
 			.onChange(async (value) => {
 				await this.settingsManager.updateBooleanSetting('alignCardHeight', value);
 				updateSettingsState(this.plugin.settings.defaultLayout, value);
-				this.refreshPresetSection();
+                this.updatePresetSection();
 			})
 		);
 	
@@ -307,7 +330,7 @@ export class SettingTab extends PluginSettingTab {
 			.onChange(async (value) => {
 				await this.settingsManager.updateBooleanSetting('isBodyLengthLimited', value);
 				updateBodyLengthState(value);
-				this.refreshPresetSection();
+                this.updatePresetSection();
 			})
 		);
 	}
@@ -375,42 +398,43 @@ export class SettingTab extends PluginSettingTab {
 	}
 
 	// Section for folder selection settings
-	private addFolderSelectionSetting(parentEl: HTMLElement): void {
-		const folderSettingEl = new Setting(parentEl)
-			.setName(t('Folder Selection'))
-			.setDesc(t('Choose whether to use the active file\'s folder or a selected folder'))
-			.addDropdown(dropdown => dropdown
-				.addOption('active', t('Active Folder'))
-				.addOption('selected', t('Selected Folder'))
-				.setValue(this.plugin.settings.useSelectedFolder ? 'selected' : 'active')
-				.onChange(async (value) => {
-					await this.settingsManager.updateBooleanSetting('useSelectedFolder', value === 'selected');
-					this.display();
-				})).settingEl;
+    private addFolderSelectionSetting(parentEl: HTMLElement): void {
+        const folderSettingEl = new Setting(parentEl)
+            .setName(t('Folder Selection'))
+            .setDesc(t('Choose whether to use the active file\'s folder or a selected folder'))
+            .addDropdown(dropdown => dropdown
+                .addOption('active', t('Active Folder'))
+                .addOption('selected', t('Selected Folder'))
+                .setValue(this.plugin.settings.useSelectedFolder ? 'selected' : 'active')
+                .onChange(async (value) => {
+                    await this.settingsManager.updateBooleanSetting('useSelectedFolder', value === 'selected');
+                    this.updateFolderSelectionSection();
+					this.updatePresetSection();
+                })).settingEl;
 
-		folderSettingEl.addClass('setting-folder-selection');
+        folderSettingEl.addClass('setting-folder-selection');
 
-		// Show folder selection if 'selected folder' is enabled
-		if (this.plugin.settings.useSelectedFolder) {
-			this.addFolderSetting(parentEl);
-		}
-	}
+        if (this.plugin.settings.useSelectedFolder) {
+            this.addFolderSetting(parentEl);
+        }
+    }
 
 	// Add folder selection button when 'Selected Folder' is chosen
-	private addFolderSetting(parentEl: HTMLElement): void {
-		new Setting(parentEl)
-			.setName(t('Select Folder'))
-			.setDesc(t('Choose a folder for Card Navigator'))
-			.setDisabled(!this.plugin.settings.useSelectedFolder)
-			.addButton(button => button
-				.setButtonText(this.plugin.settings.selectedFolder || t('Choose folder'))
-				.onClick(() => {
-					new FolderSuggestModal(this.plugin, async (folder) => {
-						await this.settingsManager.updateSelectedFolder(folder);
-						this.display();
-					}).open();
-				}));
-	}
+    private addFolderSetting(parentEl: HTMLElement): void {
+        new Setting(parentEl)
+            .setName(t('Select Folder'))
+            .setDesc(t('Choose a folder for Card Navigator'))
+            .setDisabled(!this.plugin.settings.useSelectedFolder)
+            .addButton(button => button
+                .setButtonText(this.plugin.settings.selectedFolder || t('Choose folder'))
+                .onClick(() => {
+                    new FolderSuggestModal(this.plugin, async (folder) => {
+                        await this.settingsManager.updateSelectedFolder(folder);
+                        this.updateFolderSelectionSection();
+						this.updatePresetSection();
+                    }).open();
+                }));
+    }
 
 	// Section for sorting settings
 	private addSortSetting(parentEl: HTMLElement): void {
@@ -437,7 +461,7 @@ export class SettingTab extends PluginSettingTab {
 			.setValue(this.plugin.settings[key] as boolean)
 			.onChange(async (value) => {
 				await this.settingsManager.updateBooleanSetting(key, value);
-				this.refreshPresetSection();
+                this.updatePresetSection();
 			})
 		);
 	}
@@ -459,7 +483,7 @@ export class SettingTab extends PluginSettingTab {
 				if (key === 'gridColumns' || key === 'masonryColumns') {
 					this.plugin.updateCardNavigatorLayout(this.plugin.settings.defaultLayout);
 				}
-				this.refreshPresetSection();
+                this.updatePresetSection();
 			})
 		);
 	}
