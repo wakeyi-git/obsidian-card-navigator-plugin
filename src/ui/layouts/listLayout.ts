@@ -1,13 +1,16 @@
 import { LayoutStrategy, CardPosition } from './layoutStrategy';
 import { Card } from '../../common/types';
 
+// Class implementing the List layout strategy for card arrangement
 export class ListLayout implements LayoutStrategy {
     constructor(private isVertical: boolean, private cardGap: number, private alignCardHeight: boolean) {}
 
+    // Arrange cards in a list layout (either vertical or horizontal)
     arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[] {
         const positions: CardPosition[] = [];
         let currentPosition = 0;
 
+        // Calculate card size based on container dimensions and number of cards per view
         const cardSize = this.isVertical
             ? (containerHeight - (cardsPerView - 1) * this.cardGap) / cardsPerView
             : (containerWidth - (cardsPerView - 1) * this.cardGap) / cardsPerView;
@@ -22,20 +25,24 @@ export class ListLayout implements LayoutStrategy {
             };
             positions.push(position);
 
+            // Update position for the next card
             currentPosition += cardSize + this.cardGap;
         });
 
         return positions;
     }
 
+    // Get the number of columns in the layout (always 1 for list layout)
 	getColumnsCount(): number {
 		return 1;
 	}
 
+    // Get the scroll direction based on layout orientation
     getScrollDirection(): 'vertical' | 'horizontal' {
         return this.isVertical ? 'vertical' : 'horizontal';
     }
 
+    // Get the container style for the list layout
     getContainerStyle(): Partial<CSSStyleDeclaration> {
         return {
             display: 'flex',
@@ -49,6 +56,7 @@ export class ListLayout implements LayoutStrategy {
         };
     }
 
+    // Get the card style for the list layout
     getCardStyle(): Partial<CSSStyleDeclaration> {
         return {
             flex: this.alignCardHeight ? '0 0 auto' : '1 0 auto',

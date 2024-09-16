@@ -14,13 +14,16 @@ import {
 } from './types';
 import { TFolder } from 'obsidian';
 
+// SettingsManager class to handle all settings-related operations
 export class SettingsManager {
     constructor(private plugin: CardNavigatorPlugin) {}
 
+    // Save the current settings
     async saveSettings() {
         await this.plugin.saveSettings();
     }
 
+    // Update a specific setting and trigger a refresh
     async updateSetting<K extends keyof CardNavigatorSettings>(
         key: K,
         value: CardNavigatorSettings[K]
@@ -30,10 +33,12 @@ export class SettingsManager {
         this.plugin.triggerRefresh();
     }
 
+    // Get all available presets
     getPresets() {
         return this.plugin.settings.presets || {};
     }
 
+    // Apply a specific preset
     async applyPreset(presetName: string) {
         const presets = this.getPresets();
         if (presets[presetName]) {
@@ -45,52 +50,56 @@ export class SettingsManager {
         }
     }
 
-	async saveAsNewPreset(presetName: string) {
-		const settingsToSave = Object.fromEntries(
-			Object.entries(this.plugin.settings).filter(
-				([key]) => key !== 'presets' && key !== 'lastActivePreset'
-			)
-		);
-		if (!this.plugin.settings.presets) {
-			this.plugin.settings.presets = {};
-		}
-		this.plugin.settings.presets[presetName] = {
-			name: presetName,
-			settings: settingsToSave
-		};
-		this.plugin.settings.lastActivePreset = presetName;
-		await this.saveSettings();
-	}
+    // Save current settings as a new preset
+    async saveAsNewPreset(presetName: string) {
+        const settingsToSave = Object.fromEntries(
+            Object.entries(this.plugin.settings).filter(
+                ([key]) => key !== 'presets' && key !== 'lastActivePreset'
+            )
+        );
+        if (!this.plugin.settings.presets) {
+            this.plugin.settings.presets = {};
+        }
+        this.plugin.settings.presets[presetName] = {
+            name: presetName,
+            settings: settingsToSave
+        };
+        this.plugin.settings.lastActivePreset = presetName;
+        await this.saveSettings();
+    }
 
-	async updateCurrentPreset(presetName: string) {
-		const presets = this.getPresets();
-		if (presetName !== 'default' && presets[presetName]) {
-			const settingsToSave = Object.fromEntries(
-				Object.entries(this.plugin.settings).filter(
-					([key]) => key !== 'presets' && key !== 'lastActivePreset'
-				)
-			);
-			presets[presetName].settings = settingsToSave;
-			await this.saveSettings();
-		}
-	}
+    // Update the current preset with the current settings
+    async updateCurrentPreset(presetName: string) {
+        const presets = this.getPresets();
+        if (presetName !== 'default' && presets[presetName]) {
+            const settingsToSave = Object.fromEntries(
+                Object.entries(this.plugin.settings).filter(
+                    ([key]) => key !== 'presets' && key !== 'lastActivePreset'
+                )
+            );
+            presets[presetName].settings = settingsToSave;
+            await this.saveSettings();
+        }
+    }
 
-	isCurrentSettingModified(): boolean {
-		const presets = this.getPresets();
-		const lastActivePreset = this.plugin.settings.lastActivePreset || 'default';
-		const activePreset = presets[lastActivePreset];
-	
-		if (!activePreset) return false;
-	
-		const settingsToCompare = Object.fromEntries(
-			Object.entries(this.plugin.settings).filter(
-				([key]) => key !== 'presets' && key !== 'lastActivePreset'
-			)
-		);
-	
-		return !this.areSettingsEqual(settingsToCompare, activePreset.settings);
-	}
+    // Check if the current settings are different from the active preset
+    isCurrentSettingModified(): boolean {
+        const presets = this.getPresets();
+        const lastActivePreset = this.plugin.settings.lastActivePreset || 'default';
+        const activePreset = presets[lastActivePreset];
+    
+        if (!activePreset) return false;
+    
+        const settingsToCompare = Object.fromEntries(
+            Object.entries(this.plugin.settings).filter(
+                ([key]) => key !== 'presets' && key !== 'lastActivePreset'
+            )
+        );
+    
+        return !this.areSettingsEqual(settingsToCompare, activePreset.settings);
+    }
 
+    // Helper method to compare two settings objects
     private areSettingsEqual(settings1: Partial<CardNavigatorSettings>, settings2: Partial<CardNavigatorSettings>): boolean {
         const keys1 = Object.keys(settings1) as (keyof CardNavigatorSettings)[];
         const keys2 = Object.keys(settings2) as (keyof CardNavigatorSettings)[];
@@ -104,6 +113,7 @@ export class SettingsManager {
         return true;
     }
 
+    // Revert to the original preset settings
     async revertToOriginalPreset() {
         const presets = this.getPresets();
         const lastActivePreset = this.plugin.settings.lastActivePreset || 'default';
@@ -115,6 +125,7 @@ export class SettingsManager {
         }
     }
 
+    // Delete a specific preset
     async deletePreset(presetName: string) {
         const presets = this.getPresets();
         if (presetName !== 'default' && presets[presetName]) {
@@ -130,17 +141,18 @@ export class SettingsManager {
         }
     }
 
-	async revertCurrentPresetToDefault() {
-		const presets = this.getPresets();
-		const defaultSettings = presets['default']?.settings;
-		if (defaultSettings) {
-			this.plugin.settings = { ...this.plugin.settings, ...defaultSettings };
-			await this.saveSettings();
-			this.plugin.triggerRefresh();
-		}
-	}
+    // Revert the current preset to default settings
+    async revertCurrentPresetToDefault() {
+        const presets = this.getPresets();
+        const defaultSettings = presets['default']?.settings;
+        if (defaultSettings) {
+            this.plugin.settings = { ...this.plugin.settings, ...defaultSettings };
+            await this.saveSettings();
+            this.plugin.triggerRefresh();
+        }
+    }
 
-	// Reverts to default settings
+    // Revert all settings to default
     async revertToDefault() {
         this.plugin.settings = { ...DEFAULT_SETTINGS };
         this.plugin.settings.lastActivePreset = 'default';
@@ -148,17 +160,18 @@ export class SettingsManager {
         this.plugin.triggerRefresh();
     }
 
+    // Get the current settings
     getCurrentSettings(): Partial<CardNavigatorSettings> {
         return this.plugin.settings;
     }
 
-	// Updates the sort settings
+    // Update sort settings
     async updateSortSettings(criterion: SortCriterion, order: SortOrder) {
         await this.updateSetting('sortCriterion', criterion);
         await this.updateSetting('sortOrder', order);
     }
 
-	// Updates a number setting, clamping the value to the allowed range
+    // Update a numeric setting, clamping the value to the allowed range
     async updateNumberSetting(key: NumberSettingKey, value: number) {
         if (key === 'bodyLength') {
             await this.updateBodyLengthSetting(value);
@@ -169,21 +182,16 @@ export class SettingsManager {
         }
     }
 
-	// Updates the body length setting, with handling for unlimited body length
+    // Update the body length setting, with handling for unlimited body length
 	async updateBodyLengthSetting(value: number) {
-		if (value <= 0) {
-			await this.updateSetting('isBodyLengthLimited', true);
-			await this.updateSetting('bodyLength', -1);
-		} else {
-			const config = this.getNumberSettingConfig('bodyLength');
-			const clampedValue = Math.max(config.min, Math.min(config.max, value));
-			await this.updateSetting('isBodyLengthLimited', false);
-			await this.updateSetting('bodyLength', clampedValue);
-		}
+		const config = this.getNumberSettingConfig('bodyLength');
+		const clampedValue = Math.max(config.min, Math.min(config.max, value));
+		await this.updateSetting('isBodyLengthLimited', true);
+		await this.updateSetting('bodyLength', clampedValue);
 		this.plugin.triggerRefresh();
 	}
 
-	// Updates a boolean setting
+    // Update a boolean setting
     async updateBooleanSetting(key: keyof CardNavigatorSettings, value: boolean) {
         if (typeof this.plugin.settings[key] === 'boolean') {
             await this.updateSetting(key, value);
@@ -192,40 +200,41 @@ export class SettingsManager {
         }
     }
 
-	// Updates the selected folder setting
+    // Update the selected folder setting
     async updateSelectedFolder(folder: TFolder | null) {
         await this.updateSetting('selectedFolder', folder ? folder.path : null);
     }
 
-	// Gets the configuration for a number setting
+    // Get the configuration for a numeric setting
     getNumberSettingConfig(key: NumberSettingKey): RangeSettingConfig {
         return rangeSettingConfigs[key];
     }
 
-	// Gets the available sort options
+    // Get the available sort options
     getSortOptions() {
         return sortOptions;
     }
 
-	// Gets the display settings
+    // Get the display settings
     getDisplaySettings() {
         return displaySettings;
     }
 
-	// Gets the font size settings with their configurations
-	getFontSizeSettings() {
-		return fontSizeSettings.map(setting => ({
-			...setting,
-			...this.getNumberSettingConfig(setting.key as NumberSettingKey)
-		}));
-	}
-	
-	isFontSizeSetting(key: keyof CardNavigatorSettings): key is NumberSettingKey {
-		const fontSizeKeys: NumberSettingKey[] = ['fileNameFontSize', 'firstHeaderFontSize', 'bodyFontSize'];
-		return fontSizeKeys.includes(key as NumberSettingKey);
-	}
+    // Get the font size settings with their configurations
+    getFontSizeSettings() {
+        return fontSizeSettings.map(setting => ({
+            ...setting,
+            ...this.getNumberSettingConfig(setting.key as NumberSettingKey)
+        }));
+    }
+    
+    // Check if a setting key is a font size setting
+    isFontSizeSetting(key: keyof CardNavigatorSettings): key is NumberSettingKey {
+        const fontSizeKeys: NumberSettingKey[] = ['fileNameFontSize', 'firstHeaderFontSize', 'bodyFontSize'];
+        return fontSizeKeys.includes(key as NumberSettingKey);
+    }
 
-	// Gets the available keyboard shortcuts
+    // Get the available keyboard shortcuts
     getKeyboardShortcuts() {
         return keyboardShortcuts;
     }

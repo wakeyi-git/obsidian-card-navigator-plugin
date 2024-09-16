@@ -4,6 +4,7 @@ import { Card } from 'common/types';
 import { sortFiles, separateFrontmatterAndBody } from 'common/utils';
 import { t } from 'i18next';
 
+// Class responsible for creating and managing card elements
 export class CardMaker {
 	constructor(
 		private plugin: CardNavigatorPlugin,
@@ -27,24 +28,24 @@ export class CardMaker {
         return Promise.all(sortedFiles.map(file => this.createCard(file)));
     }
 
-    // Create a card from the file content
-    public async createCard(file: TFile): Promise<Card> {
-        try {
-            const content = await this.plugin.app.vault.cachedRead(file);
-            const { cleanBody } = separateFrontmatterAndBody(content); // Remove frontmatter from body
-            const bodyWithoutHeader = this.removeFirstHeader(cleanBody); // Remove first header from body
+    // Create a card object from the file content
+	public async createCard(file: TFile): Promise<Card> {
+		try {
+			const content = await this.plugin.app.vault.cachedRead(file);
+			const { cleanBody } = separateFrontmatterAndBody(content); // Remove frontmatter from body
+			const bodyWithoutHeader = this.removeFirstHeader(cleanBody); // Remove first header from body
     
-            return {
-                file,
-                fileName: this.plugin.settings.showFileName ? file.basename : undefined, // Show file name if enabled
-                firstHeader: this.plugin.settings.showFirstHeader ? this.findFirstHeader(cleanBody) : undefined, // Show first header if enabled
-                body: this.plugin.settings.showBody ? this.truncateBody(bodyWithoutHeader) : undefined, // Show truncated body if enabled
-            };
-        } catch (error) {
-            console.error(`Failed to create card for file ${file.path}:`, error);
-            throw error;
-        }
-    }
+			return {
+				file,
+				fileName: this.plugin.settings.showFileName ? file.basename : undefined,
+				firstHeader: this.plugin.settings.showFirstHeader ? this.findFirstHeader(cleanBody) : undefined,
+				body: this.plugin.settings.showBody ? this.truncateBody(bodyWithoutHeader) : undefined,
+			};
+		} catch (error) {
+			console.error(`Failed to create card for file ${file.path}:`, error);
+			throw error;
+		}
+	}
 
     // Remove the first header found in the body
     private removeFirstHeader(body: string): string {
@@ -61,7 +62,7 @@ export class CardMaker {
 
     // Truncate the body based on plugin settings
 	private truncateBody(body: string): string {
-		if (this.plugin.settings.isBodyLengthLimited) {
+		if (!this.plugin.settings.isBodyLengthLimited) {
 			return body;
 		}
 		const maxLength = this.plugin.settings.bodyLength;
@@ -123,7 +124,7 @@ export class CardMaker {
         cardElement.setAttribute('draggable', 'true');
         cardElement.addEventListener('dragstart', (event: DragEvent) => {
             if (event.dataTransfer) {
-                const dragContent = this.getDragContent(card); // Get the content to be dragged
+                const dragContent = this.getDragContent(card);
                 event.dataTransfer.setData('text/plain', dragContent);
                 event.dataTransfer.setDragImage(cardElement, 0, 0);
             }

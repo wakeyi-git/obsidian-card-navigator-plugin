@@ -2,7 +2,13 @@ import { TFile } from 'obsidian';
 import { SortCriterion, SortOrder } from './types';
 
 /**
+ * This file contains utility functions for file handling, sorting, and numerical operations.
+ * These functions are used throughout the Card Navigator plugin to process and manipulate data.
+ */
+
+/**
  * Separates the frontmatter from the body of a file.
+ * Frontmatter is the metadata at the beginning of a Markdown file, enclosed in '---'.
  * @param body - The full body of a file, including frontmatter.
  * @returns An object containing the frontmatter (if any) and the clean body.
  */
@@ -20,6 +26,7 @@ export function separateFrontmatterAndBody(body: string): { frontmatter: string 
 
 /**
  * Sorts an array of files based on the specified criterion and order.
+ * This function creates a new sorted array and does not modify the original.
  * @param files - The array of files to sort.
  * @param criterion - The criterion to sort by ('fileName', 'lastModified', or 'created').
  * @param order - The sort order ('asc' for ascending, 'desc' for descending).
@@ -30,6 +37,7 @@ export function sortFiles(files: TFile[], criterion: SortCriterion, order: SortO
         let comparison = 0;
         switch (criterion) {
             case 'fileName':
+                // Use localeCompare for natural sort order of file names
                 comparison = a.basename.localeCompare(b.basename, undefined, { numeric: true, sensitivity: 'base' });
                 break;
             case 'lastModified':
@@ -45,6 +53,7 @@ export function sortFiles(files: TFile[], criterion: SortCriterion, order: SortO
 
 /**
  * Safely parses a string into a float number, with a fallback value in case of failure.
+ * This is useful for handling potentially invalid user input or data.
  * @param value - The string to parse.
  * @param fallback - The fallback value to return if parsing fails (default is 0).
  * @returns The parsed float value, or the fallback if parsing fails.
@@ -56,6 +65,7 @@ export function safelyParseFloat(value: string, fallback = 0): number {
 
 /**
  * Clamps a number between a minimum and maximum value.
+ * This is useful for ensuring a value stays within a specific range.
  * @param value - The number to clamp.
  * @param min - The minimum allowable value.
  * @param max - The maximum allowable value.

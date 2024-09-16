@@ -4,32 +4,33 @@ import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSet
 import { SettingsManager } from '../../common/settingsManager';
 import { t } from 'i18next';
 
+// Track the current popup for proper management
 let currentPopup: { element: HTMLElement, type: ToolbarMenu } | null = null;
 
-// Modal for folder selection in the toolbar.
+// Modal for selecting folders in the toolbar
 export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     constructor(private plugin: CardNavigatorPlugin, private onSelect: (folder: TFolder) => void) {
         super(plugin.app);
     }
 
-    // Get all folders in the vault.
+    // Retrieve all folders in the vault
     getItems(): TFolder[] {
         return this.plugin.app.vault.getAllLoadedFiles()
             .filter((file): file is TFolder => file instanceof TFolder);
     }
 
-    // Display the folder path as the item text.
+    // Display the folder path as the item text
     getItemText(folder: TFolder): string {
         return folder.path;
     }
 
-    // Triggered when a folder is selected.
+    // Handle folder selection
     onChooseItem(folder: TFolder): void {
         this.onSelect(folder);
     }
 }
 
-// Create a popup and attach it to the toolbar.
+// Create and attach a popup to the toolbar
 function createPopup(className: string, type: ToolbarMenu): HTMLElement {
     closeCurrentPopup();
     const popup = createDiv(className);
@@ -42,7 +43,7 @@ function createPopup(className: string, type: ToolbarMenu): HTMLElement {
     return popup;
 }
 
-// Toggle the sort options in the toolbar.
+// Toggle the sort options in the toolbar
 export function toggleSort(plugin: CardNavigatorPlugin) {
     const sortPopup = createPopup('card-navigator-sort-popup', 'sort');
     const currentSort = `${plugin.settings.sortCriterion}_${plugin.settings.sortOrder}`;
@@ -56,23 +57,23 @@ export function toggleSort(plugin: CardNavigatorPlugin) {
         { value: 'created_asc', label: t('Created (oldest first)') },
     ];
 
-    // Create a button for each sort option.
+    // Create buttons for each sort option
     sortOptions.forEach(option => {
         const button = createSortOption(option.value, option.label, currentSort, plugin);
         sortPopup.appendChild(button);
     });
 
-    // Prevent click events from closing the popup.
+    // Prevent click events from closing the popup
     sortPopup.addEventListener('click', (e) => e.stopPropagation());
 }
 
-// Create a button for a specific sort option.
+// Create a button for a specific sort option
 function createSortOption(value: string, label: string, currentSort: string, plugin: CardNavigatorPlugin): HTMLButtonElement {
     const option = createEl('button', {
         text: label,
         cls: `sort-option${currentSort === value ? ' active' : ''}`
     });
-    // Update sort settings when a sort option is clicked.
+    // Update sort settings when a sort option is clicked
     option.addEventListener('click', async () => {
         const [criterion, order] = value.split('_') as [SortCriterion, SortOrder];
         await updateSortSettings(plugin, criterion, order);
@@ -81,7 +82,7 @@ function createSortOption(value: string, label: string, currentSort: string, plu
     return option;
 }
 
-// Update the plugin's sort settings and refresh the view.
+// Update the plugin's sort settings and refresh the view
 async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCriterion, order: SortOrder) {
     plugin.settings.sortCriterion = criterion;
     plugin.settings.sortOrder = order;
@@ -89,6 +90,7 @@ async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCr
     plugin.triggerRefresh();
 }
 
+// Toggle the settings popup in the toolbar
 export function toggleSettings(plugin: CardNavigatorPlugin) {
     const settingsPopup = createPopup('card-navigator-settings-popup', 'settings');
     const settingsManager = plugin.settingsManager;
@@ -156,25 +158,25 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
     addToggleSetting('showFirstHeader', t('Show First Header'), displaySection, plugin, settingsManager);
     addToggleSetting('showBody', t('Show Body'), displaySection, plugin, settingsManager);
 
-	// Function to update bodyLength setting visibility
-	const updateBodyLengthSetting = () => {
-		const bodyLengthSetting = displaySection.querySelector('.setting-body-length');
-		if (bodyLengthSetting) {
-			bodyLengthSetting.remove();
-		}
-		if (plugin.settings.isBodyLengthLimited) {
-			addNumberSetting('bodyLength', t('Body Length'), displaySection, plugin, settingsManager)
-				.settingEl.addClass('setting-body-length');
-		}
-	};
+    // Function to update bodyLength setting visibility
+    const updateBodyLengthSetting = () => {
+        const bodyLengthSetting = displaySection.querySelector('.setting-body-length');
+        if (bodyLengthSetting) {
+            bodyLengthSetting.remove();
+        }
+        if (plugin.settings.isBodyLengthLimited) {
+            addNumberSetting('bodyLength', t('Body Length'), displaySection, plugin, settingsManager)
+                .settingEl.addClass('setting-body-length');
+        }
+    };
 
-	// Add Body Length Limit toggle with updateBodyLengthSetting callback
-	addToggleSetting('isBodyLengthLimited', t('Body Length Limit'), displaySection, plugin, settingsManager, () => {
-		updateBodyLengthSetting();
-	});
+    // Add Body Length Limit toggle with updateBodyLengthSetting callback
+    addToggleSetting('isBodyLengthLimited', t('Body Length Limit'), displaySection, plugin, settingsManager, () => {
+        updateBodyLengthSetting();
+    });
 
-	// Initial update of bodyLength setting
-	updateBodyLengthSetting();
+    // Initial update of bodyLength setting
+    updateBodyLengthSetting();
 
     // Add Card Styling Settings section
     const stylingSection = createCollapsibleSection(settingsPopup, t('Card Styling Settings'), true);
@@ -237,7 +239,7 @@ function addDropdownSetting(key: keyof CardNavigatorSettings, name: string, cont
         });
 }
 
-// Add the dropdown to select a preset.
+// Add the dropdown to select a preset
 function addPresetDropdown(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager) {
     new Setting(containerEl)
         .setName(t('Select Preset'))
@@ -257,7 +259,7 @@ function addPresetDropdown(containerEl: HTMLElement, plugin: CardNavigatorPlugin
         });
 }
 
-// Add the folder selection setting to the settings UI.
+// Add the folder selection setting to the settings UI
 function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
     const folderSettingEl = new Setting(parentEl)
         .setName(t('Folder Selection'))
@@ -278,7 +280,7 @@ function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorP
     }
 }
 
-// Add the folder picker when "Selected Folder" is enabled.
+// Add the folder picker when "Selected Folder" is enabled
 function addFolderSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
     new Setting(parentEl)
         .setName(t('Select Folder'))
@@ -292,7 +294,7 @@ function addFolderSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, se
             }));
 }
 
-// Add a toggle switch for a setting.
+// Add a toggle switch for a setting
 function addToggleSetting(
     key: keyof CardNavigatorSettings, 
     name: string, 
@@ -315,7 +317,7 @@ function addToggleSetting(
         );
 }
 
-// Add a number input slider for a setting.
+// Add a number input slider for a setting
 function addNumberSetting(
     key: NumberSettingKey, 
     name: string, 
@@ -333,11 +335,13 @@ function addNumberSetting(
         .setValue(plugin.settings[key])
         .setDynamicTooltip()
         .onChange(async (value) => {
+            // Check if the setting should be updated based on other settings
             if ((key === 'bodyLength' && !plugin.settings.isBodyLengthLimited) ||
                 (key === 'cardsPerView' && !plugin.settings.alignCardHeight)) {
                 return;
             }
             await settingsManager.updateNumberSetting(key, value);
+            // Update layout if necessary
             if (key === 'gridColumns' || key === 'masonryColumns') {
                 plugin.updateCardNavigatorLayout(plugin.settings.defaultLayout);
             }
@@ -345,6 +349,7 @@ function addNumberSetting(
         })
     );
 
+    // Disable bodyLength setting if body length is not limited
     if (key === 'bodyLength') {
         setting.setDisabled(!plugin.settings.isBodyLengthLimited);
     }
@@ -352,21 +357,22 @@ function addNumberSetting(
     return setting;
 }
 
-// Close the current popup.
+// Close the current popup
 function closeCurrentPopup() {
-    if (currentPopup) {
-        currentPopup.element.remove();
-        currentPopup = null;
-        document.removeEventListener('click', onClickOutside);
-    }
+	if (currentPopup) {
+		currentPopup.element.remove();
+		currentPopup = null;
+		document.removeEventListener('click', onClickOutside);
+	}
 }
 
-// Close the popup if clicked outside of it.
+// Handle clicks outside the popup to close it
 function onClickOutside(event: MouseEvent) {
-    const toolbarEl = document.querySelector('.card-navigator-toolbar-container');
-    if (currentPopup && !currentPopup.element.contains(event.target as Node) && !toolbarEl?.contains(event.target as Node)) {
-        if (currentPopup.type === 'sort' || (currentPopup.type === 'settings' && !event.composedPath().some(el => (el as HTMLElement).classList?.contains('card-navigator-settings-popup')))) {
-            closeCurrentPopup();
-        }
-    }
+	const toolbarEl = document.querySelector('.card-navigator-toolbar-container');
+	if (currentPopup && !currentPopup.element.contains(event.target as Node) && !toolbarEl?.contains(event.target as Node)) {
+		// Close sort popup or settings popup if clicked outside
+		if (currentPopup.type === 'sort' || (currentPopup.type === 'settings' && !event.composedPath().some(el => (el as HTMLElement).classList?.contains('card-navigator-settings-popup')))) {
+			closeCurrentPopup();
+		}
+	}
 }

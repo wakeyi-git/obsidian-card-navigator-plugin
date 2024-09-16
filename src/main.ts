@@ -7,13 +7,13 @@ import { SettingsManager } from './common/settingsManager';
 import i18next from 'i18next';
 import { t } from 'i18next';
 
-// Language resource configuration for translation
+// Define language resources for internationalization
 export const languageResources = {
     en: () => import('./locales/en.json'),
     ko: () => import('./locales/ko.json'),
 } as const;
 
-// Determine the translation language based on the user's locale, defaulting to English
+// Set the translation language based on the user's locale, defaulting to English if not available
 export const translationLanguage = Object.keys(languageResources).includes(moment.locale()) ? moment.locale() : "en";
 
 export default class CardNavigatorPlugin extends Plugin {
@@ -24,12 +24,14 @@ export default class CardNavigatorPlugin extends Plugin {
     private refreshDebounced: () => void = () => {};
     public events: Events = new Events();
 
+    // Plugin initialization
     async onload() {
         await this.loadSettings();
         this.initializeManagers();
         await this.initializePlugin();
     }
 
+    // Plugin cleanup
     async onunload() {
         this.events.off('settings-updated', this.refreshDebounced);
 
@@ -39,37 +41,40 @@ export default class CardNavigatorPlugin extends Plugin {
         ribbonIconEl.detach();
     }
 
+    // Load plugin settings
     async loadSettings() {
         const loadedData = await this.loadData();
         this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
     }
 
+    // Save plugin settings
     async saveSettings() {
         await this.saveData(this.settings);
         this.events.trigger('settings-updated');
     }
 
+    // Initialize plugin managers
     private initializeManagers() {
         this.settingsManager = new SettingsManager(this);
         this.presetManager = new PresetManager(this);
     }
 
-    // Initialize the plugin, setting up views, commands, and event handlers
+    // Set up plugin components and functionality
 	private async initializePlugin() {
         await this.initializeI18n();
 
-        this.addSettingTab(new SettingTab(this.app, this)); // Add the plugin's settings tab
+        this.addSettingTab(new SettingTab(this.app, this));
 
         this.registerView(
             VIEW_TYPE_CARD_NAVIGATOR,
-            (leaf) => new CardNavigator(leaf, this) // Register the Card Navigator view
+            (leaf) => new CardNavigator(leaf, this)
         );
 
         this.addRibbonIcon('layers-3', t('Activate Card Navigator'), () => {
-            this.activateView(); // Add a ribbon icon to activate the Card Navigator
+            this.activateView();
         });
 
-        // Register plugin commands (e.g., opening, focusing, and scrolling the Card Navigator)
+        // Register plugin commands
         this.addCommand({
             id: 'open-card-navigator',
             name: t('Open Card Navigator'),
@@ -82,7 +87,7 @@ export default class CardNavigatorPlugin extends Plugin {
             callback: () => {
                 const cardNavigator = this.getActiveCardNavigator();
                 if (cardNavigator) {
-                    cardNavigator.focusNavigator(); // Focus on the active Card Navigator
+                    cardNavigator.focusNavigator();
                 }
             }
         });
@@ -93,59 +98,59 @@ export default class CardNavigatorPlugin extends Plugin {
             callback: () => {
                 const cardNavigator = this.getActiveCardNavigator();
                 if (cardNavigator) {
-                    cardNavigator.openContextMenu(); // Open context menu for the active card
+                    cardNavigator.openContextMenu();
                 }
             }
         });
 
-        this.addScrollCommands(); // Register scroll-related commands
+        this.addScrollCommands();
 
         // Activate Card Navigator view when the layout is ready
         this.app.workspace.onLayoutReady(() => {
             this.activateView();
         });
 
-        this.refreshDebounced = debounce(() => this.refreshViews(), 200); // Debounce the refresh function to avoid excessive calls
+        this.refreshDebounced = debounce(() => this.refreshViews(), 200);
 
-        this.registerCentralizedEvents(); // Register central events for handling file and workspace changes
+        this.registerCentralizedEvents();
 
-		// Refresh card navigator when layout changes
+		// Refresh card navigator on layout changes
 		this.registerEvent(
 			this.app.workspace.on('layout-change', () => {
 				this.refreshCardNavigator();
 			})
 		);
 
-		// Add this new event listener for settings changes
+		// Refresh card navigator on settings updates
 		this.events.on('settings-updated', () => {
 			this.refreshCardNavigator();
 		});
     }
 
-	// Updates the layout of all Card Navigator instances
+	// Update layout for all Card Navigator instances
 	public updateCardNavigatorLayout(layout: CardNavigatorSettings['defaultLayout']) {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
 		leaves.forEach((leaf) => {
 			if (leaf.view instanceof CardNavigator) {
 				leaf.view.cardContainer.setLayout(layout);
-				leaf.view.refresh(); // Refresh the view to apply the new layout
+				leaf.view.refresh();
 			}
 		});
-		this.saveSettings(); // Save the new layout setting
+		this.saveSettings();
 	}
 
-	// Refresh card navigator when layout changes
+	// Refresh Card Navigator instances
 	refreshCardNavigator() {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
 		leaves.forEach((leaf) => {
 			if (leaf.view instanceof CardNavigator) {
 				leaf.view.cardContainer.handleResize();
-				leaf.view.refresh(); // Refresh the view after handling resize
+				leaf.view.refresh();
 			}
 		});
 	}
 
-    // Initialize the translation system (i18n)
+    // Initialize internationalization
     private async initializeI18n() {
         const resources = await this.loadLanguageResources();
         await i18next.init({
@@ -155,7 +160,7 @@ export default class CardNavigatorPlugin extends Plugin {
         });
     }
 
-    // Load language resources for English and Korean
+    // Load language resources
     private async loadLanguageResources() {
         const en = await languageResources.en();
         const ko = await languageResources.ko();
@@ -165,12 +170,12 @@ export default class CardNavigatorPlugin extends Plugin {
         };
     }
 
-    // Register event handlers for file and workspace changes
+    // Set up event listeners for file and workspace changes
     private registerCentralizedEvents() {
         this.registerEvent(
             this.app.vault.on('rename', (file) => {
                 if (file instanceof TFile) {
-                    this.refreshDebounced(); // Refresh views if a file is renamed
+                    this.refreshDebounced();
                 }
             })
         );
@@ -192,7 +197,7 @@ export default class CardNavigatorPlugin extends Plugin {
         this.app.workspace.trigger('layout-change');
     }
 
-    // Scroll through the cards in the specified direction by a certain number of cards
+    // Scroll cards in the specified direction
     private scrollCards(direction: ScrollDirection, count: number) {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach((leaf) => {
@@ -200,7 +205,6 @@ export default class CardNavigatorPlugin extends Plugin {
                 const { cardContainer } = leaf.view;
                 const isVertical = cardContainer.isVertical;
 
-                // Scroll the card container in the specified direction
                 switch (direction) {
                     case 'up':
                         isVertical ? cardContainer.scrollUp(count) : cardContainer.scrollLeft(count);
@@ -219,7 +223,7 @@ export default class CardNavigatorPlugin extends Plugin {
         });
     }
 
-    // Add commands for scrolling and centering cards
+    // Add scroll-related commands
     private addScrollCommands() {
         const scrollCommands = [
             { id: 'scroll-up-one-card', name: t('Scroll Up One Card'), direction: 'up', count: 1 },
@@ -231,16 +235,15 @@ export default class CardNavigatorPlugin extends Plugin {
             { id: 'center-active-card', name: t('Center Active Card'), direction: '', count: 0 },
         ];
 
-        // Register each scroll command
         scrollCommands.forEach(({ id, name, direction, count }) => {
             this.addCommand({
                 id,
                 name,
                 callback: () => {
                     if (id === 'center-active-card') {
-                        this.centerActiveCard(); // Center the active card
+                        this.centerActiveCard();
                     } else {
-                        this.scrollCards(direction as ScrollDirection, count); // Scroll in the specified direction
+                        this.scrollCards(direction as ScrollDirection, count);
                     }
                 },
             });
@@ -261,30 +264,28 @@ export default class CardNavigatorPlugin extends Plugin {
     displayFilteredCards(filteredFiles: TFile[]) {
         const view = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]?.view as CardNavigator;
         if (view) {
-            view.cardContainer.displayCards(filteredFiles); // Display the filtered set of cards
+            view.cardContainer.displayCards(filteredFiles);
         }
     }
 
-    // Sort the cards in the Card Navigator based on the specified criterion and order
+    // Sort cards based on the specified criterion and order
     sortCards(criterion: SortCriterion, order: SortOrder) {
         const view = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]?.view as CardNavigator;
         if (view) {
-            view.cardContainer.sortCards(criterion, order); // Sort the cards
+            view.cardContainer.sortCards(criterion, order);
         }
     }
 
-    // Activate the Card Navigator view in the workspace
+    // Activate or create a Card Navigator view
     async activateView() {
         const { workspace } = this.app;
         let leaf: WorkspaceLeaf | null = null;
 
-        // Check if there's already an active Card Navigator view
         const leaves = workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
 
         if (leaves.length > 0) {
             leaf = leaves[0];
         } else {
-            // Open a new Card Navigator view in the right pane
             leaf = workspace.getRightLeaf(false);
             if (leaf) {
                 await leaf.setViewState({ type: VIEW_TYPE_CARD_NAVIGATOR, active: true });
@@ -292,7 +293,7 @@ export default class CardNavigatorPlugin extends Plugin {
         }
 
         if (leaf) {
-            workspace.revealLeaf(leaf); // Bring the leaf into focus
+            workspace.revealLeaf(leaf);
         } else {
             console.error("Failed to activate Card Navigator view");
         }
@@ -302,17 +303,17 @@ export default class CardNavigatorPlugin extends Plugin {
     private getActiveCardNavigator(): CardNavigator | null {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         if (leaves.length > 0) {
-            return leaves[0].view as CardNavigator; // Return the active Card Navigator view
+            return leaves[0].view as CardNavigator;
         }
         return null;
     }
 
-    // Center the active card in the Card Navigator
+    // Center the active card in all Card Navigator views
     private centerActiveCard() {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach((leaf) => {
             if (leaf.view instanceof CardNavigator) {
-                leaf.view.cardContainer.centerActiveCard(); // Center the active card
+                leaf.view.cardContainer.centerActiveCard();
             }
         });
     }

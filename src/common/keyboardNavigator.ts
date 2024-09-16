@@ -6,6 +6,7 @@ import { LayoutStrategy } from 'ui/layouts/layoutStrategy';
 import { GridLayout } from 'ui/layouts/gridLayout';
 import { MasonryLayout } from 'ui/layouts/masonryLayout';
 
+// KeyboardNavigator class to handle keyboard navigation for the card container
 export class KeyboardNavigator {
     private focusedCardIndex: number | null = null;
     private isFocused = false;
@@ -18,11 +19,13 @@ export class KeyboardNavigator {
         this.setupKeyboardEvents();
     }
 
+    // Set up keyboard event listeners
     private setupKeyboardEvents() {
         this.containerEl.addEventListener('keydown', this.handleKeyDown.bind(this));
         this.containerEl.addEventListener('blur', this.handleBlur.bind(this));
     }
 
+    // Handle keydown events for navigation
     private handleKeyDown(e: KeyboardEvent) {
         if (!this.isFocused) return;
 
@@ -43,14 +46,14 @@ export class KeyboardNavigator {
                 e.preventDefault();
                 this.moveFocus(1, 0);
                 break;
-			case 'PageUp':
-				e.preventDefault();
-				this.moveFocusPage(-1);
-				break;
-			case 'PageDown':
-				e.preventDefault();
-				this.moveFocusPage(1);
-				break;
+            case 'PageUp':
+                e.preventDefault();
+                this.moveFocusPage(-1);
+                break;
+            case 'PageDown':
+                e.preventDefault();
+                this.moveFocusPage(1);
+                break;
             case 'Home':
                 e.preventDefault();
                 this.moveFocusToStart();
@@ -76,11 +79,13 @@ export class KeyboardNavigator {
         }
     }
 
+    // Handle blur event
     private handleBlur() {
         this.isFocused = false;
         this.updateFocusedCard();
     }
 
+    // Focus the navigator
     public focusNavigator() {
         if (!this.containerEl) return;
 
@@ -102,6 +107,7 @@ export class KeyboardNavigator {
         this.updateFocusedCard();
     }
 
+    // Blur the navigator
     public blurNavigator() {
         this.containerEl.blur();
         this.isFocused = false;
@@ -109,6 +115,7 @@ export class KeyboardNavigator {
         this.updateFocusedCard();
     }
 
+    // Move focus based on row and column deltas
     private moveFocus(rowDelta: number, colDelta: number) {
         if (this.focusedCardIndex === null) {
             this.focusedCardIndex = 0;
@@ -126,6 +133,7 @@ export class KeyboardNavigator {
         this.scrollToFocusedCard();
     }
 
+    // Calculate new index for grid layout
     private calculateGridIndex(rowDelta: number, colDelta: number, totalCards: number): number {
         const layoutStrategy = this.cardContainer.getLayoutStrategy();
         if (!(layoutStrategy instanceof GridLayout || layoutStrategy instanceof MasonryLayout)) {
@@ -150,12 +158,13 @@ export class KeyboardNavigator {
         return newIndex >= 0 && newIndex < totalCards ? newIndex : (this.focusedCardIndex ?? 0);
     }
 
+    // Calculate new index for list layout
     private calculateListIndex(rowDelta: number, colDelta: number, totalCards: number): number {
         const newIndex = (this.focusedCardIndex ?? 0) + rowDelta + colDelta;
         return newIndex >= 0 && newIndex < totalCards ? newIndex : (this.focusedCardIndex ?? 0);
     }
 
-
+    // Move focus by a page (multiple cards at once)
     private moveFocusPage(direction: number) {
         if (this.focusedCardIndex === null) return;
 
@@ -183,18 +192,21 @@ export class KeyboardNavigator {
         this.scrollToFocusedCard();
     }
 
+    // Move focus to the first card
     private moveFocusToStart() {
         this.focusedCardIndex = 0;
         this.updateFocusedCard();
         this.scrollToFocusedCard();
     }
 
+    // Move focus to the last card
     private moveFocusToEnd() {
         this.focusedCardIndex = this.containerEl.children.length - 1;
         this.updateFocusedCard();
         this.scrollToFocusedCard();
     }
 
+    // Update the focused card's visual state
     private updateFocusedCard = debounce(() => {
         if (!this.containerEl) return;
     
@@ -207,6 +219,7 @@ export class KeyboardNavigator {
         });
     }, 50);
 
+    // Scroll to ensure the focused card is visible
     private scrollToFocusedCard(immediate = false) {
         if (this.focusedCardIndex === null || !this.containerEl) return;
 
@@ -214,6 +227,7 @@ export class KeyboardNavigator {
         this.cardContainer.centerCard(focusedCard, !immediate);
     }
 
+    // Open the focused card
     private openFocusedCard() {
         if (this.focusedCardIndex === null) return;
         
@@ -224,6 +238,7 @@ export class KeyboardNavigator {
         }
     }
 
+    // Open the context menu for the focused card
     public openContextMenu() {
         if (this.focusedCardIndex === null) return;
         
@@ -256,12 +271,14 @@ export class KeyboardNavigator {
         }
     }
 
+    // Find the index of the active card
     private findActiveCardIndex(): number {
         return Array.from(this.containerEl.children).findIndex(
             child => child.classList.contains('card-navigator-active')
         );
     }
 
+    // Find the index of the first visible card
     private findFirstVisibleCardIndex(): number | null {
         const containerRect = this.containerEl.getBoundingClientRect();
         for (let i = 0; i < this.containerEl.children.length; i++) {
@@ -273,6 +290,7 @@ export class KeyboardNavigator {
         return null;
     }
 
+    // Check if a card is visible within the container
     private isCardVisible(cardRect: DOMRect, containerRect: DOMRect): boolean {
         return (
             cardRect.top >= containerRect.top &&
@@ -282,7 +300,8 @@ export class KeyboardNavigator {
         );
     }
 
+    // Update the layout strategy (currently empty, can be implemented if needed)
     public updateLayout(layoutStrategy: LayoutStrategy) {
-
-	}
+        // Implementation can be added here if needed
+    }
 }

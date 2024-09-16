@@ -5,6 +5,7 @@ import { FolderSuggestModal } from './toolbarActions';
 import { toggleSort, toggleSettings } from './toolbarActions';
 import { t } from 'i18next';
 
+// Class representing the toolbar for the Card Navigator plugin
 export class Toolbar {
     private containerEl: HTMLElement | null = null;
     private isVertical = false;
@@ -47,7 +48,7 @@ export class Toolbar {
             if (view) {
                 await view.cardContainer.searchCards(searchTerm);
             }
-        }, 300));
+        }, 300)); // Debounce for 300ms to reduce frequent updates
 
         return container;
     }
@@ -65,6 +66,7 @@ export class Toolbar {
         // Iterates over icon definitions to create toolbar icons
         icons.forEach(icon => {
             const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
+            // Highlight the sort icon if custom sort is applied
             if (icon.name === 'arrow-up-narrow-wide') {
                 iconElement.classList.toggle('active', 
                     this.plugin.settings.sortCriterion !== 'fileName' || 
