@@ -1,8 +1,8 @@
-import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf } from 'obsidian';
+// main.ts
+import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf, FileView } from 'obsidian';
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settingsTab';
 import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS } from './common/types';
-import { PresetManager } from './common/presetManager';
 import { SettingsManager } from './common/settingsManager';
 import i18next from 'i18next';
 import { t } from 'i18next';
@@ -19,8 +19,8 @@ export const translationLanguage = Object.keys(languageResources).includes(momen
 export default class CardNavigatorPlugin extends Plugin {
     settings: CardNavigatorSettings = DEFAULT_SETTINGS;
     selectedFolder: string | null = null;
-    presetManager!: PresetManager;
     settingsManager!: SettingsManager;
+	settingTab!: SettingTab;
     private refreshDebounced: () => void = () => {};
     public events: Events = new Events();
 
@@ -29,6 +29,10 @@ export default class CardNavigatorPlugin extends Plugin {
         await this.loadSettings();
         this.initializeManagers();
         await this.initializePlugin();
+        this.registerEvent(
+            this.app.workspace.on('active-leaf-change', this.handleActiveLeafChange.bind(this))
+        );
+		await this.initializeFolderPresets();
     }
 
     // Plugin cleanup
@@ -56,15 +60,15 @@ export default class CardNavigatorPlugin extends Plugin {
     // Initialize plugin managers
     private initializeManagers() {
         this.settingsManager = new SettingsManager(this);
-        this.presetManager = new PresetManager(this);
     }
 
     // Set up plugin components and functionality
 	private async initializePlugin() {
         await this.initializeI18n();
 
-        this.addSettingTab(new SettingTab(this.app, this));
-
+		this.settingTab = new SettingTab(this.app, this);
+		this.addSettingTab(this.settingTab);
+	
         this.registerView(
             VIEW_TYPE_CARD_NAVIGATOR,
             (leaf) => new CardNavigator(leaf, this)
@@ -126,6 +130,37 @@ export default class CardNavigatorPlugin extends Plugin {
 			this.refreshCardNavigator();
 		});
     }
+
+	// Initialize folder presets if not already present
+	private async initializeFolderPresets() {
+        if (!this.settings.folderPresets) {
+            this.settings.folderPresets = {};
+            await this.saveSettings();
+        }
+    }
+
+	// Determine if the active leaf is in file view, determine the parent folder of the file, and apply a preset for that folder
+    private async handleActiveLeafChange(leaf: WorkspaceLeaf | null) {
+        if (leaf && leaf.view instanceof FileView) {
+            const file = leaf.view.file;
+            if (file) {
+                const folder = file.parent;
+                if (folder) {
+                    console.log(`Active folder changed to: ${folder.path}`);
+                    await this.settingsManager.applyPresetForFolder(folder);
+                    this.refreshCardNavigator();
+                    this.refreshSettingsTab();
+                }
+            }
+        }
+    }
+
+	// Refreshes the Card Navigator settings tab
+	private refreshSettingsTab() {
+		if (this.settingTab instanceof SettingTab) {
+			this.settingTab.display();
+		}
+	}	
 
 	// Update layout for all Card Navigator instances
 	public updateCardNavigatorLayout(layout: CardNavigatorSettings['defaultLayout']) {
@@ -192,10 +227,10 @@ export default class CardNavigatorPlugin extends Plugin {
     }
 
     // Manually trigger a refresh of the views
-    triggerRefresh() {
-        this.refreshDebounced();
-        this.app.workspace.trigger('layout-change');
-    }
+	triggerRefresh() {
+		this.refreshDebounced();
+		this.app.workspace.trigger('layout-change');
+	}
 
     // Scroll cards in the specified direction
     private scrollCards(direction: ScrollDirection, count: number) {

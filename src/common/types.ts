@@ -1,3 +1,4 @@
+// types.ts
 import { TFile } from 'obsidian';
 import { t } from 'i18next';
 
@@ -9,33 +10,15 @@ export interface Card {
     body?: string;
 }
 
-// Define common types used throughout the application
-export type EventHandler = () => void;
-export type IconName = 'folder' | 'arrow-up-narrow-wide' | 'settings';
-export type ScrollDirection = 'up' | 'down' | 'left' | 'right';
-export type SortCriterion = 'fileName' | 'lastModified' | 'created';
-export type SortOrder = 'asc' | 'desc';
-export type ToolbarMenu = 'sort' | 'settings';
-
-// Define sorting options for the application
-export const sortOptions: Array<{ value: string, label: string }> = [
-    { value: 'fileName_asc', label: 'File name (A to Z)' },
-    { value: 'fileName_desc', label: 'File name (Z to A)' },
-    { value: 'lastModified_desc', label: 'Last modified (newest first)' },
-    { value: 'lastModified_asc', label: 'Last modified (oldest first)' },
-    { value: 'created_desc', label: 'Created (newest first)' },
-    { value: 'created_asc', label: 'Created (oldest first)' },
-];
-
-// Define a type for numeric setting keys
-export type NumberSettingKey = Extract<keyof CardNavigatorSettings, {
-    [K in keyof CardNavigatorSettings]: CardNavigatorSettings[K] extends number ? K : never
-}[keyof CardNavigatorSettings]>;
-
 // Define the structure of a preset
 export interface Preset {
     name: string;
     settings: Partial<CardNavigatorSettings>;
+    isDefault?: boolean;
+}
+
+export interface FolderPresets {
+    [folderPath: string]: string[];
 }
 
 // Define the structure of CardNavigator settings
@@ -63,7 +46,9 @@ export interface CardNavigatorSettings {
     firstHeaderFontSize: number;
     bodyFontSize: number;
     presets: Record<string, Preset>;
-    lastActivePreset: string;
+	folderPresets: FolderPresets;
+	autoApplyPresets: boolean;
+	lastActivePreset: string;
 }
 
 // Define default settings for the CardNavigator
@@ -90,13 +75,16 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     fileNameFontSize: 20,
     firstHeaderFontSize: 20,
     bodyFontSize: 15,
-    lastActivePreset: 'default',
     presets: {
         default: {
             name: 'default',
-            settings: {}
+            settings: {},
+			isDefault: true
         }
-    }
+    },
+	folderPresets: {},
+	autoApplyPresets: true,
+    lastActivePreset: 'default'
 };
 
 // Function to initialize default settings
@@ -117,6 +105,11 @@ export function initializeDefaultSettings(): void {
 // Call the initialization function
 initializeDefaultSettings();
 
+// Define a type for numeric setting keys
+export type NumberSettingKey = Extract<keyof CardNavigatorSettings, {
+    [K in keyof CardNavigatorSettings]: CardNavigatorSettings[K] extends number ? K : never
+}[keyof CardNavigatorSettings]>;
+
 // Define the structure for range setting configurations
 export interface RangeSettingConfig {
     min: number;
@@ -136,6 +129,24 @@ export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> =
     bodyFontSize: { min: 10, max: 20, step: 1 },
     bodyLength: { min: 1, max: 1001, step: 50 },
 };
+
+// Define common types used throughout the application
+export type EventHandler = () => void;
+export type IconName = 'folder' | 'arrow-up-narrow-wide' | 'settings';
+export type ScrollDirection = 'up' | 'down' | 'left' | 'right';
+export type SortCriterion = 'fileName' | 'lastModified' | 'created';
+export type SortOrder = 'asc' | 'desc';
+export type ToolbarMenu = 'sort' | 'settings';
+
+// Define sorting options for the application
+export const sortOptions: Array<{ value: string, label: string }> = [
+    { value: 'fileName_asc', label: 'File name (A to Z)' },
+    { value: 'fileName_desc', label: 'File name (Z to A)' },
+    { value: 'lastModified_desc', label: 'Last modified (newest first)' },
+    { value: 'lastModified_asc', label: 'Last modified (oldest first)' },
+    { value: 'created_desc', label: 'Created (newest first)' },
+    { value: 'created_asc', label: 'Created (oldest first)' },
+];
 
 // Define display settings for the UI
 export const displaySettings: Array<{ name: string, key: keyof CardNavigatorSettings, description: string }> = [
