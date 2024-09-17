@@ -1,3 +1,4 @@
+// toolbarActions.ts
 import { TFolder, FuzzySuggestModal, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey } from '../../common/types';

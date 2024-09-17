@@ -1,3 +1,4 @@
+// cardContainer.ts
 import { WorkspaceLeaf, TFile, TFolder, Notice, debounce } from "obsidian";
 import CardNavigatorPlugin from 'main';
 import { CardMaker } from './cardMaker';

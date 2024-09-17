@@ -1,3 +1,4 @@
+// utils.ts
 import { TFile } from 'obsidian';
 import { SortCriterion, SortOrder } from './types';
 
@@ -12,8 +13,9 @@ import { SortCriterion, SortOrder } from './types';
  * @param body - The full body of a file, including frontmatter.
  * @returns An object containing the frontmatter (if any) and the clean body.
  */
+const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n/;
+
 export function separateFrontmatterAndBody(body: string): { frontmatter: string | null, cleanBody: string } {
-    const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n/;
     const match = body.match(frontmatterRegex);
     if (match) {
         return {

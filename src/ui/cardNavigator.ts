@@ -1,3 +1,4 @@
+// cardNavigator.ts
 import { ItemView, WorkspaceLeaf, Menu } from "obsidian";
 import CardNavigatorPlugin from '../main';
 import { Toolbar } from './toolbar/toolbar';

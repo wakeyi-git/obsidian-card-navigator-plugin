@@ -1,3 +1,4 @@
+// gridLayout.ts
 import { LayoutStrategy, CardPosition } from './layoutStrategy';
 import { Card, CardNavigatorSettings } from '../../common/types';
 
@@ -7,6 +8,13 @@ export class GridLayout implements LayoutStrategy {
 
     // Arrange cards in a grid layout
     arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[] {
+        if (this.columns <= 0) {
+            throw new Error('Number of columns must be greater than 0');
+        }
+        if (containerWidth <= 0) {
+            throw new Error('Container width must be greater than 0');
+        }
+
         const positions: CardPosition[] = [];
         // Calculate total width of gaps between cards
         const totalGapWidth = this.cardGap * (this.columns - 1);
@@ -34,9 +42,9 @@ export class GridLayout implements LayoutStrategy {
     }
 
     // Get the number of columns in the grid
-	getColumnsCount(): number {
-		return this.columns;
-	}
+    getColumnsCount(): number {
+        return this.columns;
+    }
 
     // Get the scroll direction for the grid layout (always vertical)
     getScrollDirection(): 'vertical' | 'horizontal' {

@@ -1,3 +1,4 @@
+// toolbar.ts
 import { setIcon, TFolder, debounce } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { CardNavigator } from '../cardNavigator';

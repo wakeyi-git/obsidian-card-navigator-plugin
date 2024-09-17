@@ -22,6 +22,7 @@ export default class CardNavigatorPlugin extends Plugin {
     settingsManager!: SettingsManager;
 	settingTab!: SettingTab;
     private refreshDebounced: () => void = () => {};
+	private ribbonIconEl: HTMLElement | null = null;
     public events: Events = new Events();
 
     // Plugin initialization
@@ -29,20 +30,22 @@ export default class CardNavigatorPlugin extends Plugin {
         await this.loadSettings();
         this.initializeManagers();
         await this.initializePlugin();
+		this.ribbonIconEl = this.addRibbonIcon('layers-3', t('Activate Card Navigator'), () => {
+			this.activateView();
+		});
         this.registerEvent(
             this.app.workspace.on('active-leaf-change', this.handleActiveLeafChange.bind(this))
         );
 		await this.initializeFolderPresets();
-    }
+	}
 
     // Plugin cleanup
     async onunload() {
         this.events.off('settings-updated', this.refreshDebounced);
 
-        const ribbonIconEl = this.addRibbonIcon('layers-3', t('Activate Card Navigator'), () => {
-            this.activateView();
-        });
-        ribbonIconEl.detach();
+		if (this.ribbonIconEl) {
+			this.ribbonIconEl.detach();
+		}
     }
 
     // Load plugin settings
@@ -73,10 +76,6 @@ export default class CardNavigatorPlugin extends Plugin {
             VIEW_TYPE_CARD_NAVIGATOR,
             (leaf) => new CardNavigator(leaf, this)
         );
-
-        this.addRibbonIcon('layers-3', t('Activate Card Navigator'), () => {
-            this.activateView();
-        });
 
         // Register plugin commands
         this.addCommand({
@@ -146,7 +145,6 @@ export default class CardNavigatorPlugin extends Plugin {
             if (file) {
                 const folder = file.parent;
                 if (folder) {
-                    console.log(`Active folder changed to: ${folder.path}`);
                     await this.settingsManager.applyPresetForFolder(folder);
                     this.refreshCardNavigator();
                     this.refreshSettingsTab();

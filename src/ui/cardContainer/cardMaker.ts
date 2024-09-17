@@ -1,3 +1,4 @@
+// cardMaker.ts
 import { Menu, TFile, MarkdownRenderer } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { Card } from 'common/types';
