@@ -261,6 +261,14 @@ function addPresetDropdown(containerEl: HTMLElement, plugin: CardNavigatorPlugin
                     toggleSettings(plugin);
                 });
         });
+	new Setting(containerEl)
+	.setName(t('Auto Apply Folder\'s Presets'))
+	.addToggle(toggle => toggle
+		.setValue(plugin.settings.autoApplyPresets)
+		.onChange(async (value) => {
+			await settingsManager.toggleAutoApplyPresets(value);
+		})
+	);
 }
 
 // Add the folder selection setting to the settings UI
