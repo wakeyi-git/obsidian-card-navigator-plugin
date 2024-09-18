@@ -152,8 +152,8 @@ export const sortOptions: Array<{ value: string, label: string }> = [
     { value: 'created_asc', label: 'Created (oldest first)' },
 ];
 
-// Define display settings for the UI
-export const displaySettings: Array<{ name: string, key: keyof CardNavigatorSettings, description: string }> = [
+// Define content settings for the UI
+export const contentSettings: Array<{ name: string, key: keyof CardNavigatorSettings, description: string }> = [
     { name: 'Show File Name', key: 'showFileName', description: 'Toggle File Name Display' },
     { name: 'Show First Header', key: 'showFirstHeader', description: 'Toggle First Header Display' },
     { name: 'Show Body', key: 'showBody', description: 'Toggle Body Display' },
@@ -197,7 +197,7 @@ export function getTranslatedSortOptions() {
 
 // Function to translate display settings
 export function getTranslatedDisplaySettings() {
-    return displaySettings.map(setting => ({
+    return contentSettings.map(setting => ({
         ...setting,
         name: t(setting.name)
     }));

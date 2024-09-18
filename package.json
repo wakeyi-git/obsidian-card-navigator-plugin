@@ -29,7 +29,6 @@
 	"dependencies": {
 		"i18next": "^23.14.0",
 		"moment": "^2.30.1",
-		"obsidian-api": "^2.0.0",
 		"purgecss": "^6.0.0"
 	}
 }

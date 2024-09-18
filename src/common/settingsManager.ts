@@ -8,7 +8,7 @@ import {
     RangeSettingConfig,
     rangeSettingConfigs,
     sortOptions,
-    displaySettings,
+    contentSettings,
     fontSizeSettings,
     keyboardShortcuts,
     SortOrder,
@@ -406,7 +406,7 @@ export class SettingsManager {
 
     // Get the display settings
     getDisplaySettings() {
-        return displaySettings;
+        return contentSettings;
     }
 
     // Get the font size settings with their configurations

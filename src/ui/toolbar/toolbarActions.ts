@@ -102,11 +102,6 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
     // Add Folder Selection setting
     addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
 
-    // Add General Settings section
-    const generalSection = createCollapsibleSection(settingsPopup, t('General Settings'), true);
-    addToggleSetting('renderContentAsHtml', t('Render Content as HTML'), generalSection, plugin, settingsManager);
-    addToggleSetting('dragDropContent', t('Drag and Drop Content'), generalSection, plugin, settingsManager);
-
     // Add Layout Settings section
     const layoutSection = createCollapsibleSection(settingsPopup, t('Layout Settings'), true);
     
@@ -162,7 +157,9 @@ export function toggleSettings(plugin: CardNavigatorPlugin) {
     updateLayoutSettings(plugin.settings.defaultLayout);
 
     // Add Card Display Settings section
-    const displaySection = createCollapsibleSection(settingsPopup, t('Card Display Settings'), true);
+    const displaySection = createCollapsibleSection(settingsPopup, t('Card Content Settings'), true);
+	addToggleSetting('renderContentAsHtml', t('Render Content as HTML'), displaySection, plugin, settingsManager);
+	addToggleSetting('dragDropContent', t('Drag and Drop Content'), displaySection, plugin, settingsManager);
     addToggleSetting('showFileName', t('Show File Name'), displaySection, plugin, settingsManager);
     addToggleSetting('showFirstHeader', t('Show First Header'), displaySection, plugin, settingsManager);
     addToggleSetting('showBody', t('Show Body'), displaySection, plugin, settingsManager);

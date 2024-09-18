@@ -101,7 +101,7 @@ export class CardContainer {
 	private determineAutoLayout(): LayoutStrategy {
 		if (!this.containerEl) return new ListLayout(true, this.cardGap, this.plugin.settings.alignCardHeight);
 	
-		const containerStyle = window.getComputedStyle(this.containerEl);
+		const containerStyle = this.containerEl.win.getComputedStyle(this.containerEl);
 		const containerWidth = this.containerEl.offsetWidth;
 		const paddingLeft = parseFloat(containerStyle.paddingLeft);
 		const paddingRight = parseFloat(containerStyle.paddingRight);
@@ -269,23 +269,23 @@ export class CardContainer {
     }
 
     // Renders the card elements inside the container
-    private async renderCards(cardsData: Card[]) {
-        if (!this.containerEl) return;
-
-        const containerEl = this.containerEl;
-        const currentScrollTop = containerEl.scrollTop;
-        const currentScrollLeft = containerEl.scrollLeft;
-
-        const focusedCardIndex = Array.from(containerEl.children).findIndex(
-            child => child.classList.contains('card-navigator-focused')
-        );
-
-        const containerRect = containerEl.getBoundingClientRect();
-        const containerStyle = window.getComputedStyle(containerEl);
-        const paddingLeft = parseFloat(containerStyle.paddingLeft);
-        const paddingRight = parseFloat(containerStyle.paddingRight);
-        const paddingTop = parseFloat(containerStyle.paddingTop);
-        const availableWidth = containerRect.width - paddingLeft - paddingRight;
+	private async renderCards(cardsData: Card[]) {
+		if (!this.containerEl) return;
+	
+		const containerEl = this.containerEl;
+		const currentScrollTop = containerEl.scrollTop;
+		const currentScrollLeft = containerEl.scrollLeft;
+	
+		const focusedCardIndex = Array.from(containerEl.children).findIndex(
+			child => child.classList.contains('card-navigator-focused')
+		);
+	
+		const containerRect = containerEl.getBoundingClientRect();
+		const containerStyle = containerEl.win.getComputedStyle(containerEl);
+		const paddingLeft = parseFloat(containerStyle.paddingLeft);
+		const paddingRight = parseFloat(containerStyle.paddingRight);
+		const paddingTop = parseFloat(containerStyle.paddingTop);
+		const availableWidth = containerRect.width - paddingLeft - paddingRight;
 
         // Apply container styles for List layout
         if (this.layoutStrategy instanceof ListLayout) {

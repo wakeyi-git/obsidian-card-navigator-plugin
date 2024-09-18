@@ -6,7 +6,7 @@ import {
     SortCriterion, 
     CardNavigatorSettings, 
     NumberSettingKey,
-    displaySettings,
+    contentSettings,
     fontSizeSettings,
     keyboardShortcuts,
     sortOptions,
@@ -18,22 +18,22 @@ import { SettingsManager } from '../common/settingsManager';
 // Main class for managing the settings tab in the plugin settings panel
 export class SettingTab extends PluginSettingTab {
     private settingsManager: SettingsManager;
-    private presetSection: HTMLElement;
+    private presetSettingsSection: HTMLElement;
     private modifiedSettingsSection: HTMLElement;
 
     constructor(app: App, private plugin: CardNavigatorPlugin) {
         super(app, plugin);
         this.settingsManager = plugin.settingsManager;
-        this.presetSection = document.createElement('div');
+        this.presetSettingsSection = document.createElement('div');
         this.modifiedSettingsSection = document.createElement('div');
     }
 
     // Update the preset section of the settings tab
-    private updatePresetSection(): void {
+    private updatePresetSettings(): void {
         const presetSectionEl = this.containerEl.querySelector('.preset-section');
         if (presetSectionEl) {
             presetSectionEl.empty();
-            this.addPresetSection(presetSectionEl as HTMLElement);
+            this.addPresetSettings(presetSectionEl as HTMLElement);
         }
     }
 
@@ -61,20 +61,20 @@ export class SettingTab extends PluginSettingTab {
         containerEl.empty();
 
         const presetSectionEl = containerEl.createDiv('preset-section');
-        this.addPresetSection(presetSectionEl);
+        this.addPresetSettings(presetSectionEl);
 
-        this.addGeneralSettings(containerEl);
+		this.addContainerSettings(containerEl);
         
         const layoutSectionEl = containerEl.createDiv('layout-section');
         this.addLayoutSettings(layoutSectionEl);
         
-        this.addCardDisplaySettings(containerEl);
+        this.addCardContentSettings(containerEl);
         this.addCardStylingSettings(containerEl);
         this.addKeyboardShortcutsInfo(containerEl);
     }
 
     // Add preset management section
-    private addPresetSection(containerEl: HTMLElement): void {
+    private addPresetSettings(containerEl: HTMLElement): void {
         const presets = this.settingsManager.getPresets();
     
         // Preset selection dropdown
@@ -130,7 +130,7 @@ export class SettingTab extends PluginSettingTab {
 							this.plugin.settings.lastActivePreset = presetName;
 							await this.plugin.saveSettings();
 							this.display();
-							this.updatePresetSection();
+							this.updatePresetSettings();
 						}
 					}, this.plugin).open();
 					this.display();
@@ -148,7 +148,7 @@ export class SettingTab extends PluginSettingTab {
 					this.plugin.settings.lastActivePreset = 'default';
 					await this.plugin.saveSettings();
 					new Notice(t('preset Deleted and Default Applied', { presetName: currentPreset }));
-					this.updatePresetSection();
+					this.updatePresetSettings();
 				} else {
 					new Notice(t('default Preset Cannot Be Deleted'));
 				}
@@ -168,7 +168,7 @@ export class SettingTab extends PluginSettingTab {
 				if (currentPreset !== 'default') {
 					await this.settingsManager.updateCurrentPreset(currentPreset);
 					new Notice(t('preset Updated', { presetName: currentPreset }));
-					this.updatePresetSection();
+					this.updatePresetSettings();
 				} else {
 					new Notice(t('default Preset Cannot Be Modified'));
 				}
@@ -248,35 +248,22 @@ export class SettingTab extends PluginSettingTab {
     }
 
 	// Add general settings section
-    private addGeneralSettings(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(t('General Settings'))
-            .setHeading();
+	private addContainerSettings(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+		.setName(t('Container Settings'))
+		.setHeading();
 
-        const folderSectionEl = containerEl.createDiv('folder-selection-section');
-        this.addFolderSelectionSetting(folderSectionEl);
-        
-        this.addSortSetting(containerEl);
-		this.addToggleSettingToSetting(
-			new Setting(containerEl)
-				.setName(t('Render Content as HTML'))
-				.setDesc(t('If enabled, card content will be rendered as HTML')),
-			'renderContentAsHtml'
-		);
+		this.addFolderSelectionSetting(containerEl);
+		
+		this.addSortSetting(containerEl);
 
 		this.addToggleSettingToSetting(
 			new Setting(containerEl)
-				.setName(t('Drag and Drop Content'))
-				.setDesc(t('When enabled, dragging a card will insert the note content instead of a link.')),
-			'dragDropContent'
+				.setName(t('Center Active Card on Open'))
+				.setDesc(t('Automatically center the active card when opening the Card Navigator')),
+			'centerActiveCardOnOpen'
 		);
-        this.addToggleSettingToSetting(
-            new Setting(containerEl)
-                .setName(t('Center Active Card on Open'))
-                .setDesc(t('Automatically center the active card when opening the Card Navigator')),
-            'centerActiveCardOnOpen'
-        );
-    }
+	}
 
     // Add layout settings section
     private addLayoutSettings(containerEl: HTMLElement): void {
@@ -349,7 +336,7 @@ export class SettingTab extends PluginSettingTab {
                     this.plugin.updateCardNavigatorLayout(layout);
                     updateSettingsState(layout, this.plugin.settings.alignCardHeight);
                     this.updateLayoutSection();
-                    this.updatePresetSection();
+					this.updatePresetSettings();
                 });
         });
 	
@@ -362,7 +349,7 @@ export class SettingTab extends PluginSettingTab {
 			.onChange(async (value) => {
 				await this.settingsManager.updateBooleanSetting('alignCardHeight', value);
 				updateSettingsState(this.plugin.settings.defaultLayout, value);
-				this.updatePresetSection();
+				this.updatePresetSettings();
 			})
 		);
 	
@@ -371,13 +358,27 @@ export class SettingTab extends PluginSettingTab {
 	}
 
 	// Add card display settings section
-	private addCardDisplaySettings(containerEl: HTMLElement): void {
+	private addCardContentSettings(containerEl: HTMLElement): void {
 		new Setting(containerEl)
-			.setName(t('Card Display Settings'))
+			.setName(t('Card Content Settings'))
 			.setHeading();
+
+		this.addToggleSettingToSetting(
+			new Setting(containerEl)
+				.setName(t('Render Content as HTML'))
+				.setDesc(t('If enabled, card content will be rendered as HTML')),
+			'renderContentAsHtml'
+		);
 	
-		// Card display settings
-		displaySettings.forEach(({ key, name, description }) => {
+		this.addToggleSettingToSetting(
+			new Setting(containerEl)
+				.setName(t('Drag and Drop Content'))
+				.setDesc(t('When enabled, dragging a card will insert the note content instead of a link.')),
+			'dragDropContent'
+		);
+
+		// Card content settings
+		contentSettings.forEach(({ key, name, description }) => {
 			this.addToggleSettingToSetting(
 				new Setting(containerEl)
 					.setName(t(name))
@@ -386,40 +387,40 @@ export class SettingTab extends PluginSettingTab {
 			);
 		});
 	
-    // Body length settings
-    const bodyLengthLimitSetting = new Setting(containerEl)
-        .setName(t('Body Length Limit'))
-        .setDesc(t('Toggle between limited and unlimited body length'));
-    
-    const bodyLengthSetting = new Setting(containerEl)
-        .setName(t('Body Length'))
-        .setDesc(t('Set the maximum body length displayed on each card when body length is limited.'));
-    
-    this.addNumberSettingToSetting(bodyLengthSetting, 'bodyLength');
+		// Body length settings
+		const bodyLengthLimitSetting = new Setting(containerEl)
+			.setName(t('Body Length Limit'))
+			.setDesc(t('Toggle between limited and unlimited body length'));
+		
+		const bodyLengthSetting = new Setting(containerEl)
+			.setName(t('Body Length'))
+			.setDesc(t('Set the maximum body length displayed on each card when body length is limited.'));
+		
+		this.addNumberSettingToSetting(bodyLengthSetting, 'bodyLength');
 
-    // Update Body Length setting state
-    const updateBodyLengthState = (isLimited: boolean) => {
-        bodyLengthSetting.setDisabled(!isLimited);
-        if (isLimited) {
-            bodyLengthSetting.settingEl.removeClass('setting-disabled');
-        } else {
-            bodyLengthSetting.settingEl.addClass('setting-disabled');
-        }
-    };
+		// Update Body Length setting state
+		const updateBodyLengthState = (isLimited: boolean) => {
+			bodyLengthSetting.setDisabled(!isLimited);
+			if (isLimited) {
+				bodyLengthSetting.settingEl.removeClass('setting-disabled');
+			} else {
+				bodyLengthSetting.settingEl.addClass('setting-disabled');
+			}
+		};
 
-    // Set initial state of Body Length setting
-    updateBodyLengthState(this.plugin.settings.bodyLengthLimit);
+		// Set initial state of Body Length setting
+		updateBodyLengthState(this.plugin.settings.bodyLengthLimit);
 
-    // Add toggle to Body Length Limit setting
-    bodyLengthLimitSetting.addToggle(toggle => toggle
-        .setValue(this.plugin.settings.bodyLengthLimit)
-        .onChange(async (value) => {
-            await this.settingsManager.updateBooleanSetting('bodyLengthLimit', value);
-            updateBodyLengthState(value);
-            this.updatePresetSection();
-        })
-    );
-}
+		// Add toggle to Body Length Limit setting
+		bodyLengthLimitSetting.addToggle(toggle => toggle
+			.setValue(this.plugin.settings.bodyLengthLimit)
+			.onChange(async (value) => {
+				await this.settingsManager.updateBooleanSetting('bodyLengthLimit', value);
+				updateBodyLengthState(value);
+				this.updatePresetSettings();
+			})
+		);
+	}
 
 	// Add card styling settings section
 	private addCardStylingSettings(containerEl: HTMLElement): void {
@@ -463,8 +464,8 @@ export class SettingTab extends PluginSettingTab {
 	}
 
 	// Add folder selection settings
-	private addFolderSelectionSetting(parentEl: HTMLElement): void {
-		const folderSettingEl = new Setting(parentEl)
+	private addFolderSelectionSetting(containerEl: HTMLElement): void {
+		new Setting(containerEl)
 			.setName(t('Folder Selection'))
 			.setDesc(t('Choose whether to use the active file\'s folder or a selected folder'))
 			.addDropdown(dropdown => dropdown
@@ -474,19 +475,19 @@ export class SettingTab extends PluginSettingTab {
 				.onChange(async (value) => {
 					await this.settingsManager.updateBooleanSetting('useSelectedFolder', value === 'selected');
 					this.updateFolderSelectionSection();
-					this.updatePresetSection();
+					this.updatePresetSettings();
 				})).settingEl;
 
-		folderSettingEl.addClass('setting-folder-selection');
+		// folderSettingEl.addClass('setting-folder-selection');
 
 		if (this.plugin.settings.useSelectedFolder) {
-			this.addFolderSetting(parentEl);
+			this.addFolderSetting(containerEl);
 		}
 	}
 
 	// Add folder selection button when 'Selected Folder' is chosen
-	private addFolderSetting(parentEl: HTMLElement): void {
-		new Setting(parentEl)
+	private addFolderSetting(containerEl: HTMLElement): void {
+		new Setting(containerEl)
 			.setName(t('Select Folder'))
 			.setDesc(t('Choose a folder for Card Navigator'))
 			.setDisabled(!this.plugin.settings.useSelectedFolder)
@@ -496,14 +497,14 @@ export class SettingTab extends PluginSettingTab {
 					new FolderSuggestModal(this.plugin, async (folder) => {
 						await this.settingsManager.updateSelectedFolder(folder);
 						this.updateFolderSelectionSection();
-						this.updatePresetSection();
+						this.updatePresetSettings();
 					}).open();
 				}));
 	}
 
 	// Add sorting settings
-	private addSortSetting(parentEl: HTMLElement): void {
-		const sortEl = new Setting(parentEl)
+	private addSortSetting(containerEl: HTMLElement): void {
+		new Setting(containerEl)
 			.setName(t('Default sort method'))
 			.setDesc(t('Choose the default sorting method for cards'))
 			.addDropdown(dropdown => {
@@ -517,8 +518,6 @@ export class SettingTab extends PluginSettingTab {
 						await this.settingsManager.updateSortSettings(criterion, order);
 					});
 			}).settingEl;
-
-		sortEl.addClass('setting-sort-method');
 	}
 
 	// Add toggle setting to a Setting object
@@ -527,7 +526,7 @@ export class SettingTab extends PluginSettingTab {
 			.setValue(this.plugin.settings[key] as boolean)
 			.onChange(async (value) => {
 				await this.settingsManager.updateBooleanSetting(key, value);
-				this.updatePresetSection();
+				this.updatePresetSettings();
 			})
 		);
 	}
@@ -554,7 +553,7 @@ export class SettingTab extends PluginSettingTab {
 				}
 				
 				this.plugin.triggerRefresh();
-				this.updatePresetSection();
+				this.updatePresetSettings();
 			})
 		);
 	
