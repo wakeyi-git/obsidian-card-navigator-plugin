@@ -579,8 +579,8 @@ class SavePresetModal extends Modal {
 		super(app);
 		this.existingPresets = Object.keys(this.plugin.settingsManager.getPresets());
 		// Initialize with dummy elements
-		this.warningEl = document.createElement('p');
-		this.inputEl = document.createElement('input');
+		this.warningEl = this.containerEl.win.document.createElement('p');
+		this.inputEl = this.containerEl.win.document.createElement('input');
 	}
 
 	// Open the modal

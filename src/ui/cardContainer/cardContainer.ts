@@ -45,12 +45,13 @@ export class CardContainer {
     }
 
     // Retrieves the value of a CSS variable, or returns a default value if not found
-    private getCSSVariable(variableName: string, defaultValue: number): number {
-        const valueStr = getComputedStyle(document.documentElement)
-            .getPropertyValue(variableName)
-            .trim();
-        return parseInt(valueStr) || defaultValue;
-    }
+	private getCSSVariable(variableName: string, defaultValue: number): number {
+		if (!this.containerEl) return defaultValue;
+		const valueStr = this.containerEl.win.getComputedStyle(this.containerEl.doc.documentElement)
+			.getPropertyValue(variableName)
+			.trim();
+		return parseInt(valueStr) || defaultValue;
+	}
 
 	// Sets up a ResizeObserver to monitor size changes of the container element
 	private setupResizeObserver() {

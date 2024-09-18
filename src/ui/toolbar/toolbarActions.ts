@@ -32,21 +32,49 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
 }
 
 // Create and attach a popup to the toolbar
-function createPopup(className: string, type: ToolbarMenu): HTMLElement {
-    closeCurrentPopup();
-    const popup = createDiv(className);
-    const toolbarEl = document.querySelector('.card-navigator-toolbar-container');
+function createPopup(className: string, type: ToolbarMenu, containerEl: HTMLElement | null): HTMLElement {
+    if (!containerEl) {
+        console.error('Container element is undefined');
+        return document.createElement('div'); // 임시 요소 반환
+    }
+    closeCurrentPopup(containerEl);
+    const popup = containerEl.win.document.createElement('div');
+    popup.className = className;
+    const toolbarEl = containerEl.querySelector('.card-navigator-toolbar-container');
     if (toolbarEl) {
         toolbarEl.insertAdjacentElement('afterend', popup);
         currentPopup = { element: popup, type };
-        document.addEventListener('click', onClickOutside);
+        containerEl.win.document.addEventListener('click', (e) => onClickOutside(e, containerEl));
     }
     return popup;
 }
 
+// Close the current popup
+function closeCurrentPopup(containerEl: HTMLElement) {
+    if (currentPopup) {
+        currentPopup.element.remove();
+        currentPopup = null;
+        containerEl.win.document.removeEventListener('click', (e) => onClickOutside(e, containerEl));
+    }
+}
+
+// Handle clicks outside the popup to close it
+function onClickOutside(event: MouseEvent, containerEl: HTMLElement) {
+    const toolbarEl = containerEl.querySelector('.card-navigator-toolbar-container');
+    if (currentPopup && !currentPopup.element.contains(event.target as Node) && !toolbarEl?.contains(event.target as Node)) {
+        if (currentPopup.type === 'sort' || (currentPopup.type === 'settings' && !event.composedPath().some(el => (el as HTMLElement).classList?.contains('card-navigator-settings-popup')))) {
+            closeCurrentPopup(containerEl);
+        }
+    }
+}
+
 // Toggle the sort options in the toolbar
-export function toggleSort(plugin: CardNavigatorPlugin) {
-    const sortPopup = createPopup('card-navigator-sort-popup', 'sort');
+export function toggleSort(plugin: CardNavigatorPlugin, containerEl: HTMLElement | null) {
+    if (!containerEl) {
+        console.error('Container element is undefined in toggleSort');
+        return;
+    }
+    const sortPopup = createPopup('card-navigator-sort-popup', 'sort', containerEl);
     const currentSort = `${plugin.settings.sortCriterion}_${plugin.settings.sortOrder}`;
 
     const sortOptions: Array<{ value: string, label: string }> = [
@@ -58,42 +86,42 @@ export function toggleSort(plugin: CardNavigatorPlugin) {
         { value: 'created_asc', label: t('Created (oldest first)') },
     ];
 
-    // Create buttons for each sort option
     sortOptions.forEach(option => {
-        const button = createSortOption(option.value, option.label, currentSort, plugin);
+        const button = createSortOption(option.value, option.label, currentSort, plugin, containerEl);
         sortPopup.appendChild(button);
     });
 
-    // Prevent click events from closing the popup
     sortPopup.addEventListener('click', (e) => e.stopPropagation());
 }
-
 // Create a button for a specific sort option
-function createSortOption(value: string, label: string, currentSort: string, plugin: CardNavigatorPlugin): HTMLButtonElement {
+function createSortOption(value: string, label: string, currentSort: string, plugin: CardNavigatorPlugin, containerEl: HTMLElement): HTMLButtonElement {
     const option = createEl('button', {
         text: label,
         cls: `sort-option${currentSort === value ? ' active' : ''}`
     });
-    // Update sort settings when a sort option is clicked
     option.addEventListener('click', async () => {
         const [criterion, order] = value.split('_') as [SortCriterion, SortOrder];
-        await updateSortSettings(plugin, criterion, order);
-        closeCurrentPopup();
+        await updateSortSettings(plugin, criterion, order, containerEl);
     });
     return option;
 }
 
 // Update the plugin's sort settings and refresh the view
-async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCriterion, order: SortOrder) {
+async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCriterion, order: SortOrder, containerEl: HTMLElement) {
     plugin.settings.sortCriterion = criterion;
     plugin.settings.sortOrder = order;
     await plugin.saveSettings();
     plugin.triggerRefresh();
+    closeCurrentPopup(containerEl);
 }
 
 // Toggle the settings popup in the toolbar
-export function toggleSettings(plugin: CardNavigatorPlugin) {
-    const settingsPopup = createPopup('card-navigator-settings-popup', 'settings');
+export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLElement | null) {
+    if (!containerEl) {
+        console.error('Container element is undefined in toggleSettings');
+        return;
+    }
+    const settingsPopup = createPopup('card-navigator-settings-popup', 'settings', containerEl);
     const settingsManager = plugin.settingsManager;
 
     // Add preset selection dropdown
@@ -255,7 +283,7 @@ function addPresetDropdown(containerEl: HTMLElement, plugin: CardNavigatorPlugin
                     await settingsManager.applyPreset(value);
                     plugin.settings.lastActivePreset = value;
                     await plugin.saveSettings();
-                    toggleSettings(plugin);
+                    toggleSettings(plugin, containerEl);
                 });
         });
 	new Setting(containerEl)
@@ -279,7 +307,7 @@ function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorP
             .setValue(plugin.settings.useSelectedFolder ? 'selected' : 'active')
             .onChange(async (value) => {
                 await settingsManager.updateBooleanSetting('useSelectedFolder', value === 'selected');
-                toggleSettings(plugin);
+                toggleSettings(plugin, parentEl);
             })).settingEl;
 
     folderSettingEl.addClass('setting-folder-selection');
@@ -298,7 +326,7 @@ function addFolderSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, se
             .onClick(() => {
                 new FolderSuggestModal(plugin, async (folder) => {
                     await settingsManager.updateSelectedFolder(folder);
-                    toggleSettings(plugin);
+                    toggleSettings(plugin, parentEl);
                 }).open();
             }));
 }
@@ -364,24 +392,4 @@ function addNumberSetting(
     }
 
     return setting;
-}
-
-// Close the current popup
-function closeCurrentPopup() {
-	if (currentPopup) {
-		currentPopup.element.remove();
-		currentPopup = null;
-		document.removeEventListener('click', onClickOutside);
-	}
-}
-
-// Handle clicks outside the popup to close it
-function onClickOutside(event: MouseEvent) {
-	const toolbarEl = document.querySelector('.card-navigator-toolbar-container');
-	if (currentPopup && !currentPopup.element.contains(event.target as Node) && !toolbarEl?.contains(event.target as Node)) {
-		// Close sort popup or settings popup if clicked outside
-		if (currentPopup.type === 'sort' || (currentPopup.type === 'settings' && !event.composedPath().some(el => (el as HTMLElement).classList?.contains('card-navigator-settings-popup')))) {
-			closeCurrentPopup();
-		}
-	}
 }

@@ -55,41 +55,41 @@ export class Toolbar {
     }
 
     // Creates the container for action icons (folder select, sort, settings)
-    private createActionIconsContainer(): HTMLElement {
-        const container = createDiv('card-navigator-action-icons-container');
-
-        const icons = [
-            { name: 'folder', label: t('Select Folder'), action: () => this.openFolderSelector() },
-            { name: 'arrow-up-narrow-wide', label: t('Sort Cards'), action: () => toggleSort(this.plugin) },
-            { name: 'settings', label: t('Settings'), action: () => toggleSettings(this.plugin) },
-        ] as const;
-
-        // Iterates over icon definitions to create toolbar icons
-        icons.forEach(icon => {
-            const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
-            // Highlight the sort icon if custom sort is applied
-            if (icon.name === 'arrow-up-narrow-wide') {
-                iconElement.classList.toggle('active', 
-                    this.plugin.settings.sortCriterion !== 'fileName' || 
-                    this.plugin.settings.sortOrder !== 'asc'
-                );
-            }
-            container.appendChild(iconElement);
-        });
-
-        return container;
-    }
+	private createActionIconsContainer(): HTMLElement {
+		const container = createDiv('card-navigator-action-icons-container');
+	
+		const icons = [
+			{ name: 'folder', label: t('Select Folder'), action: () => this.openFolderSelector() },
+			{ name: 'arrow-up-narrow-wide', label: t('Sort Cards'), action: () => toggleSort(this.plugin, this.containerEl) },
+			{ name: 'settings', label: t('Settings'), action: () => toggleSettings(this.plugin, this.containerEl) },
+		] as const;
+	
+		// Iterates over icon definitions to create toolbar icons
+		icons.forEach(icon => {
+			const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
+			// Highlight the sort icon if custom sort is applied
+			if (icon.name === 'arrow-up-narrow-wide') {
+				iconElement.classList.toggle('active', 
+					this.plugin.settings.sortCriterion !== 'fileName' || 
+					this.plugin.settings.sortOrder !== 'asc'
+				);
+			}
+			container.appendChild(iconElement);
+		});
+	
+		return container;
+	}
 
     // Helper function to create individual toolbar icons
-    private createToolbarIcon(iconName: string, ariaLabel: string, action: (e: MouseEvent) => void): HTMLElement {
-        const icon = createDiv('clickable-icon');
-        icon.ariaLabel = ariaLabel;
-
-        setIcon(icon, iconName);
-        icon.addEventListener('click', action);
-
-        return icon;
-    }
+	private createToolbarIcon(iconName: string, ariaLabel: string, action: () => void): HTMLElement {
+		const icon = createDiv('clickable-icon');
+		icon.ariaLabel = ariaLabel;
+	
+		setIcon(icon, iconName);
+		icon.addEventListener('click', () => action());
+	
+		return icon;
+	}
     
     // Creates a separator element for the toolbar
     private createSeparator(): HTMLElement {

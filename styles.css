@@ -316,7 +316,10 @@
 
 	.card-navigator-sort-popup,
 	.card-navigator-settings-popup {
-		width: 100%; /* Full width popups on smaller screens */
+		top: 100%;
+		right: 0;
+		width: var(--card-navigator-popup-width);
+		max-width: none;
 	}
 
 	.card-navigator-settings-popup {
