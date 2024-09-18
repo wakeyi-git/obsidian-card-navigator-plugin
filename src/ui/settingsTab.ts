@@ -1,4 +1,5 @@
-import { App, PluginSettingTab, Setting, Modal, Notice, DropdownComponent } from 'obsidian';
+// settingsTab.ts
+import { App, PluginSettingTab, Setting, Modal, Notice, DropdownComponent, FuzzySuggestModal } from 'obsidian';
 import CardNavigatorPlugin from '../main';
 import { FolderSuggestModal } from './toolbar/toolbarActions';
 import { 
@@ -77,15 +78,15 @@ export class SettingTab extends PluginSettingTab {
         const presets = this.settingsManager.getPresets();
     
         // Preset selection dropdown
-		new Setting(containerEl)
-        .setName(t('Select Preset'))
-        .setDesc(t('Select a preset created by the user to load the settings.'))
-        .addDropdown(dropdown => {
-            Object.keys(presets).forEach(presetName => {
-                dropdown.addOption(presetName, presetName);
-            });
-            dropdown.setValue(this.plugin.settings.lastActivePreset)
-                .onChange(async (newValue) => {
+        new Setting(containerEl)
+            .setName(t('Select Preset'))
+            .setDesc(t('Select a preset created by the user to load the settings.'))
+            .addDropdown(dropdown => {
+                Object.keys(presets).forEach(presetName => {
+                    dropdown.addOption(presetName, presetName);
+                });
+                dropdown.setValue(this.settingsManager.getCurrentActivePreset())
+                    .onChange(async (newValue) => {
                     const currentPreset = this.plugin.settings.lastActivePreset;
                     if (this.plugin.settingsManager.isCurrentSettingModified()) {
                         new ConfirmationModal(this.app, 
@@ -193,6 +194,67 @@ export class SettingTab extends PluginSettingTab {
 				new Notice(t('Current settings reverted to default values'));
 				this.display();
 			}));
+
+        new Setting(containerEl)
+            .setName(t('Auto Apply Folder\'s Presets'))
+            .setDesc(t('Presets are automatically applied when you change folders. If disabled, the preset currently being applied will be retained even if the active note\'s folder changes.'))
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.autoApplyPresets)
+                .onChange(async (value) => {
+                    await this.settingsManager.toggleAutoApplyPresets(value);
+                })
+            );
+
+        new Setting(containerEl)
+            .setName(t('Add Folder\'s Presets'))
+			.setDesc(t('Select a folder to add a folder preset.'))
+            .addButton(button => button
+                .setButtonText(t('Add Folder\'s Preset'))
+                .onClick(() => {
+                    new FolderSuggestModal(this.plugin, async (folder) => {
+                        const presetNames = Object.keys(this.plugin.settings.presets);
+                        if (presetNames.length > 0) {
+                            new PresetSuggestModal(this.plugin, presetNames, async (presetName) => {
+                                await this.settingsManager.addPresetToFolder(folder.path, presetName);
+                                await this.settingsManager.setDefaultPresetForFolder(folder.path, presetName);
+                                this.plugin.settings.lastActivePreset = presetName;
+                                await this.plugin.saveSettings();
+                                this.display();
+                            }).open();
+                        } else {
+                            new Notice(t('No presets available. Please create a preset first.'));
+                        }
+                    }).open();
+                })
+            );
+
+        const folderPresets = this.settingsManager.getFolderPresets();
+        for (const [folderPath, presets] of Object.entries(folderPresets)) {
+            const folderSetting = new Setting(containerEl)
+				.setName(t('folder_label', { folderPath }))
+				.setDesc(t('presets_label', { presets: presets.join(', ') }));
+
+            folderSetting.addDropdown(dropdown => {
+                presets.forEach(preset => dropdown.addOption(preset, preset));
+                const defaultPreset = this.settingsManager.getDefaultPresetForFolder(folderPath);
+                if (defaultPreset) dropdown.setValue(defaultPreset);
+                dropdown.onChange(async (value) => {
+                    await this.settingsManager.setDefaultPresetForFolder(folderPath, value);
+                });
+            });
+
+            folderSetting.addButton(button => button
+                .setIcon('trash')
+                .setTooltip(t('Remove preset from folder'))
+                .onClick(async () => {
+                    const currentPreset = this.settingsManager.getDefaultPresetForFolder(folderPath);
+                    if (currentPreset) {
+                        await this.settingsManager.removePresetFromFolder(folderPath, currentPreset);
+                        this.display();
+                    }
+                })
+            );
+        }
     }
 
 	// Add general settings section
@@ -620,5 +682,27 @@ class ConfirmationModal extends Modal {
         const {contentEl} = this;
         contentEl.empty();
         this.onChoose(this.result);
+    }
+}
+
+class PresetSuggestModal extends FuzzySuggestModal<string> {
+    constructor(
+        private plugin: CardNavigatorPlugin,
+        private presetNames: string[],
+        private onChoose: (result: string) => void
+    ) {
+        super(plugin.app);
+    }
+
+    getItems(): string[] {
+        return this.presetNames;
+    }
+
+    getItemText(item: string): string {
+        return item;
+    }
+
+    onChooseItem(item: string): void {
+        this.onChoose(item);
     }
 }
