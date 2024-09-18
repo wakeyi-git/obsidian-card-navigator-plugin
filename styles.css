@@ -326,3 +326,13 @@
 		max-width: 100%; /* Ensure popup doesn't exceed screen width */
 	}
 }
+
+/* 예시: 팝아웃 창의 테두리 두께 증가 */
+.popout-window {
+    border: 5px solid transparent; /* 기존 두께보다 늘림 */
+}
+
+.popout-window::resize-handle {
+    width: 10px; /* 드래그 가능한 영역 넓힘 */
+    height: 10px;
+}
