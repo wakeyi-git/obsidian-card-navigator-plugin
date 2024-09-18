@@ -161,7 +161,7 @@ export class SettingTab extends PluginSettingTab {
 			.setDesc(t('Current settings are modified from the original preset.'))
 			.addButton(button => button
 				.setButtonText(t('Update'))
-				.setWarning()
+				.setCta()
 				.setDisabled(!this.plugin.settingsManager.isCurrentSettingModified() || this.plugin.settings.lastActivePreset === 'default')
 				.onClick(async () => {
 				const currentPreset = this.plugin.settings.lastActivePreset;
@@ -185,16 +185,6 @@ export class SettingTab extends PluginSettingTab {
 			this.display();
 		}));
 
-        // Revert to default settings button
-		presetModifiedSetting.addButton(button => button
-			.setButtonText(t('To Default'))
-			.setDisabled(!this.plugin.settingsManager.isCurrentSettingModified())
-			.onClick(async () => {
-				await this.settingsManager.revertCurrentPresetToDefault();
-				new Notice(t('Current settings reverted to default values'));
-				this.display();
-			}));
-
         new Setting(containerEl)
             .setName(t('Auto Apply Folder\'s Presets'))
             .setDesc(t('Presets are automatically applied when you change folders. If disabled, the preset currently being applied will be retained even if the active note\'s folder changes.'))
@@ -205,28 +195,28 @@ export class SettingTab extends PluginSettingTab {
                 })
             );
 
-        new Setting(containerEl)
-            .setName(t('Add Folder\'s Presets'))
+			new Setting(containerEl)
+			.setName(t('Add Folder\'s Presets'))
 			.setDesc(t('Select a folder to add a folder preset.'))
-            .addButton(button => button
-                .setButtonText(t('Add Folder\'s Preset'))
-                .onClick(() => {
-                    new FolderSuggestModal(this.plugin, async (folder) => {
-                        const presetNames = Object.keys(this.plugin.settings.presets);
-                        if (presetNames.length > 0) {
-                            new PresetSuggestModal(this.plugin, presetNames, async (presetName) => {
-                                await this.settingsManager.addPresetToFolder(folder.path, presetName);
-                                await this.settingsManager.setDefaultPresetForFolder(folder.path, presetName);
-                                this.plugin.settings.lastActivePreset = presetName;
-                                await this.plugin.saveSettings();
-                                this.display();
-                            }).open();
-                        } else {
-                            new Notice(t('No presets available. Please create a preset first.'));
-                        }
-                    }).open();
-                })
-            );
+			.addButton(button => button
+				.setButtonText(t('Add Folder\'s Preset'))
+				.onClick(() => {
+					new FolderSuggestModal(this.plugin, async (folder) => {
+						const presetNames = Object.keys(this.plugin.settings.presets);
+						if (presetNames.length > 0) {
+							new PresetSuggestModal(this.plugin, presetNames, async (presetName) => {
+								await this.settingsManager.addPresetToFolder(folder.path, presetName);
+								this.plugin.settings.lastActivePreset = presetName;
+								await this.plugin.saveSettings();
+								this.display();
+								new Notice(t('Preset added to folder. You can set it as default in the folder settings.'));
+							}).open();
+						} else {
+							new Notice(t('No presets available. Please create a preset first.'));
+						}
+					}).open();
+				})
+			);
 
         const folderPresets = this.settingsManager.getFolderPresets();
         for (const [folderPath, presets] of Object.entries(folderPresets)) {

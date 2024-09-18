@@ -13,11 +13,18 @@ import {
     keyboardShortcuts,
     SortOrder,
     DEFAULT_SETTINGS,
+	globalSettingsKeys,
     FolderPresets
 } from './types';
 import { t } from 'i18next';
 
-const globalSettingsKeys = ['presets', 'lastActivePreset', 'autoApplyPresets', 'folderPresets', 'selectedFolder'];
+const filterGlobalSettings = (settings: Partial<CardNavigatorSettings>) => {
+    return Object.fromEntries(
+        Object.entries(settings).filter(
+            ([key]) => !globalSettingsKeys.includes(key as keyof CardNavigatorSettings)
+        )
+    );
+};
 
 // SettingsManager class to handle all settings-related operations
 export class SettingsManager {
@@ -62,7 +69,7 @@ export class SettingsManager {
             const presetSettings = presets[presetName].settings;
             const globalSettings = Object.fromEntries(
                 Object.entries(this.plugin.settings).filter(
-                    ([key]) => globalSettingsKeys.includes(key)
+                    ([key]) => globalSettingsKeys.includes(key as keyof CardNavigatorSettings)
                 )
             );
             this.plugin.settings = {
@@ -85,11 +92,8 @@ export class SettingsManager {
         if (!this.plugin.settings.presets) {
             this.plugin.settings.presets = {};
         }
-        const settingsToSave = Object.fromEntries(
-            Object.entries(this.plugin.settings).filter(
-                ([key]) => !globalSettingsKeys.includes(key)
-            )
-        );
+        const settingsToSave = filterGlobalSettings(this.plugin.settings);
+
         this.plugin.settings.presets[presetName] = {
             name: presetName,
             settings: settingsToSave
@@ -100,11 +104,8 @@ export class SettingsManager {
 
     // Save current settings as a new preset
     async saveAsNewPreset(presetName: string) {
-        const settingsToSave = Object.fromEntries(
-            Object.entries(this.plugin.settings).filter(
-                ([key]) => !globalSettingsKeys.includes(key)
-            )
-        );
+        const settingsToSave = filterGlobalSettings(this.plugin.settings);
+
         if (!this.plugin.settings.presets) {
             this.plugin.settings.presets = {};
         }
@@ -120,11 +121,8 @@ export class SettingsManager {
     async updateCurrentPreset(presetName: string) {
         const presets = this.getPresets();
         if (presetName !== 'default' && presets[presetName]) {
-            const settingsToSave = Object.fromEntries(
-                Object.entries(this.plugin.settings).filter(
-                    ([key]) => !globalSettingsKeys.includes(key)
-                )
-            );
+			const settingsToSave = filterGlobalSettings(this.plugin.settings);
+
             presets[presetName].settings = settingsToSave;
             await this.saveSettings();
         }
@@ -138,17 +136,8 @@ export class SettingsManager {
 
         if (!activePreset) return false;
 
-        const settingsToCompare = Object.fromEntries(
-            Object.entries(this.plugin.settings).filter(
-                ([key]) => !globalSettingsKeys.includes(key)
-            )
-        );
-
-        const presetSettings = Object.fromEntries(
-            Object.entries(activePreset.settings).filter(
-                ([key]) => !globalSettingsKeys.includes(key)
-            )
-        );
+        const settingsToCompare = filterGlobalSettings(this.plugin.settings);
+        const presetSettings = filterGlobalSettings(activePreset.settings);
 
         return !this.areSettingsEqual(settingsToCompare, presetSettings);
     }
@@ -168,27 +157,29 @@ export class SettingsManager {
     }
 
     // Revert to the original preset settings
-    async revertToOriginalPreset() {
-        const presets = this.getPresets();
-        const lastActivePreset = this.plugin.settings.lastActivePreset || 'default';
-        const activePreset = presets[lastActivePreset];
-        if (activePreset) {
-            this.plugin.settings = { ...this.plugin.settings, ...activePreset.settings };
-            await this.saveSettings();
-            this.plugin.triggerRefresh();
-        }
-    }
-
-    // Revert the current preset to default settings
-    async revertCurrentPresetToDefault() {
-        const presets = this.getPresets();
-        const defaultSettings = presets['default']?.settings;
-        if (defaultSettings) {
-            this.plugin.settings = { ...this.plugin.settings, ...defaultSettings };
-            await this.saveSettings();
-            this.plugin.triggerRefresh();
-        }
-    }
+	async revertToOriginalPreset() {
+		const presets = this.getPresets();
+		const lastActivePreset = this.plugin.settings.lastActivePreset || 'default';
+		const activePreset = presets[lastActivePreset];
+	
+		if (activePreset) {
+			// 프리셋의 원래 설정을 가져옵니다.
+			const originalSettings = activePreset.settings;
+	
+			// 전역 설정을 유지하면서 현재 설정을 프리셋의 원래 설정으로 업데이트합니다.
+			this.plugin.settings = {
+				...this.plugin.settings,
+				...originalSettings
+			};
+	
+			await this.saveSettings();
+			this.plugin.triggerRefresh();
+	
+			new Notice(t('Current settings reverted to original preset values'));
+		} else {
+			new Notice(t('Failed to revert settings: preset not found'));
+		}
+	}
 
     // Revert all settings to default
     async revertToDefault() {
@@ -199,18 +190,23 @@ export class SettingsManager {
     }
 
     // Adding presets to a specific folder
-    async addPresetToFolder(folderPath: string, presetName: string) {
-        if (!this.plugin.settings.folderPresets) {
-            this.plugin.settings.folderPresets = {};
-        }
-        if (!this.plugin.settings.folderPresets[folderPath]) {
-            this.plugin.settings.folderPresets[folderPath] = [];
-        }
-        if (!this.plugin.settings.folderPresets[folderPath].includes(presetName)) {
-            this.plugin.settings.folderPresets[folderPath].push(presetName);
-            await this.saveSettings();
-        }
-    }
+	async addPresetToFolder(folderPath: string, presetName: string) {
+		if (!this.plugin.settings.folderPresets) {
+			this.plugin.settings.folderPresets = {};
+		}
+		if (!this.plugin.settings.folderPresets[folderPath]) {
+			this.plugin.settings.folderPresets[folderPath] = [];
+		}
+		if (!this.plugin.settings.folderPresets[folderPath].includes(presetName)) {
+			this.plugin.settings.folderPresets[folderPath].push(presetName);
+			
+			if (this.plugin.settings.folderPresets[folderPath].length === 1) {
+				await this.setDefaultPresetForFolder(folderPath, presetName);
+			}
+			
+			await this.saveSettings();
+		}
+	}
 
     // Set a default preset for a specific folder
     async setDefaultPresetForFolder(folderPath: string, presetName: string) {

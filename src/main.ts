@@ -2,7 +2,7 @@
 import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf, FileView } from 'obsidian';
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settingsTab';
-import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS } from './common/types';
+import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS, globalSettingsKeys } from './common/types';
 import { SettingsManager } from './common/settingsManager';
 import i18next from 'i18next';
 import { t } from 'i18next';
@@ -68,6 +68,21 @@ export default class CardNavigatorPlugin extends Plugin {
     // Set up plugin components and functionality
 	private async initializePlugin() {
         await this.initializeI18n();
+
+		// Initialize default preset
+		if (!this.settings.presets.default || Object.keys(this.settings.presets.default.settings).length === 0) {
+			const defaultSettings = Object.fromEntries(
+				Object.entries(DEFAULT_SETTINGS).filter(
+					([key]) => !globalSettingsKeys.includes(key as keyof CardNavigatorSettings)
+				)
+			);
+			this.settings.presets.default = {
+				name: 'default',
+				settings: defaultSettings,
+				isDefault: true
+			};
+			await this.saveSettings();
+		}
 
 		this.settingTab = new SettingTab(this.app, this);
 		this.addSettingTab(this.settingTab);
