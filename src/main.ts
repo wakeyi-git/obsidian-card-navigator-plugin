@@ -33,6 +33,9 @@ export default class CardNavigatorPlugin extends Plugin {
 		this.ribbonIconEl = this.addRibbonIcon('layers-3', t('Activate Card Navigator'), () => {
 			this.activateView();
 		});
+        this.registerEvent(
+            this.app.workspace.on('active-leaf-change', this.handleActiveLeafChange.bind(this))
+        );
 		await this.initializeFolderPresets();
 	}
 
