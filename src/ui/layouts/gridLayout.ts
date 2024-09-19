@@ -9,26 +9,23 @@ export class GridLayout implements LayoutStrategy {
     // Arrange cards in a grid layout
     arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[] {
         if (this.columns <= 0) {
-            throw new Error('Number of columns must be greater than 0');
+            console.warn('Number of columns must be greater than 0. Defaulting to 1 column.');
+            this.columns = 1;
         }
         if (containerWidth <= 0) {
-            throw new Error('Container width must be greater than 0');
+            console.warn('Container width must be greater than 0. Skipping layout arrangement.');
+            return [];
         }
 
         const positions: CardPosition[] = [];
-        // Calculate total width of gaps between cards
         const totalGapWidth = this.cardGap * (this.columns - 1);
-        // Calculate card width based on container width, number of columns, and gaps
         const cardWidth = (containerWidth - totalGapWidth) / this.columns;
-        // Set card height
         const cardHeight = this.settings.gridCardHeight;
 
         cards.forEach((card, index) => {
-            // Calculate column and row for each card
             const column = index % this.columns;
             const row = Math.floor(index / this.columns);
 
-            // Add card position to the positions array
             positions.push({
                 card,
                 x: column * (cardWidth + this.cardGap),

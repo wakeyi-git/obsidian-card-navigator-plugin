@@ -124,9 +124,9 @@ export default class CardNavigatorPlugin extends Plugin {
         this.addScrollCommands();
 
         // Activate Card Navigator view when the layout is ready
-        this.app.workspace.onLayoutReady(() => {
-            this.activateView();
-        });
+        // this.app.workspace.onLayoutReady(() => {
+        //     this.activateView();
+        // });
 
         this.refreshDebounced = debounce(() => this.refreshViews(), 200);
 
