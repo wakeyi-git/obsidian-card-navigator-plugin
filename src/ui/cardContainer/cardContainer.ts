@@ -14,7 +14,7 @@ import { t } from "i18next";
 
 // Main class for managing the card container and its layout
 export class CardContainer {
-    private containerEl: HTMLElement | null = null;
+    private containerEl: HTMLElement;
     private cardMaker: CardMaker;
     private layoutStrategy: LayoutStrategy;
     public isVertical: boolean;
@@ -23,42 +23,78 @@ export class CardContainer {
     private cards: Card[] = [];
     private resizeObserver: ResizeObserver;
 
-    constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
-        this.cardMaker = new CardMaker(
-            this.plugin,
-            (file: TFile) => this.copyLink(file),
-            (file: TFile) => this.copyCardContent(file)
-        );
-        this.isVertical = this.calculateIsVertical();
-        this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
-        this.layoutStrategy = this.determineAutoLayout();
-        this.resizeObserver = new ResizeObserver(debounce(() => {
-            this.handleResize();
-        }, 100));
-    }
+	constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
+		// leaf의 view를 통해 컨테이너 요소에 접근
+		const leafView = this.leaf.view;
+		if (!leafView || !leafView.containerEl) {
+			throw new Error('Invalid leaf view or container');
+		}
+	
+		// 새로운 div 요소를 생성하고 leaf의 컨테이너에 추가
+		this.containerEl = leafView.containerEl.createDiv('card-navigator-container');
+		
+		if (!this.containerEl) {
+			throw new Error('Failed to create container element');
+		}
+	
+		this.cardMaker = new CardMaker(
+			this.plugin,
+			(file: TFile) => this.copyLink(file),
+			(file: TFile) => this.copyCardContent(file)
+		);
+	
+		this.isVertical = this.calculateIsVertical();
+		this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
+		
+		try {
+			this.layoutStrategy = this.determineAutoLayout();
+		} catch (error) {
+			console.error('Failed to determine layout strategy:', error);
+			// 기본 레이아웃 전략을 설정
+			this.layoutStrategy = new ListLayout(this.isVertical, this.cardGap, this.plugin.settings.alignCardHeight);
+		}
+	
+		this.resizeObserver = new ResizeObserver(debounce(() => {
+			this.handleResize();
+		}, 100));
+	
+		// ResizeObserver 설정
+		this.setupResizeObserver();
+	
+		// 키보드 네비게이터 초기화
+		this.initializeKeyboardNavigator();
+	}
+	
+	// Sets up a ResizeObserver to monitor size changes of the container element
+	private setupResizeObserver() {
+		if (this.containerEl) {
+			this.resizeObserver.observe(this.containerEl);
+		} else {
+			console.warn('Container element not available for ResizeObserver');
+		}
+	}
+	
+	private initializeKeyboardNavigator() {
+		if (this.containerEl) {
+			this.keyboardNavigator = new KeyboardNavigator(this.plugin, this, this.containerEl);
+		} else {
+			console.warn('Container element not available for KeyboardNavigator');
+		}
+	}
 
 	// Determines whether the container should be considered vertical
 	private calculateIsVertical(): boolean {
-        if (!this.containerEl) return true;
-        const { width, height } = this.containerEl.getBoundingClientRect();
-        return height > width;
-    }
+		if (!this.containerEl) return true;
+		const { width, height } = this.containerEl.getBoundingClientRect();
+		return height > width;
+	}
 
     // Retrieves the value of a CSS variable, or returns a default value if not found
 	private getCSSVariable(variableName: string, defaultValue: number): number {
 		if (!this.containerEl) return defaultValue;
-		const valueStr = this.containerEl.win.getComputedStyle(this.containerEl.doc.documentElement)
-			.getPropertyValue(variableName)
-			.trim();
+		const valueStr = getComputedStyle(this.containerEl).getPropertyValue(variableName).trim();
 		return parseInt(valueStr) || defaultValue;
 	}
-
-	// Sets up a ResizeObserver to monitor size changes of the container element
-	private setupResizeObserver() {
-        if (this.containerEl) {
-            this.resizeObserver.observe(this.containerEl);
-        }
-    }
 
     // Initializes the card container with necessary settings and prepares it for use
     async initialize(containerEl: HTMLElement) {
@@ -100,14 +136,18 @@ export class CardContainer {
 
 	// Determines the appropriate layout strategy based on the container size and plugin settings
 	private determineAutoLayout(): LayoutStrategy {
-		if (!this.containerEl) return new ListLayout(true, this.cardGap, this.plugin.settings.alignCardHeight);
+		if (!this.containerEl) {
+			console.error('컨테이너 요소가 존재하지 않습니다.');
+			return new ListLayout(true, this.cardGap, this.plugin.settings.alignCardHeight);
+		}
 	
-		const containerStyle = this.containerEl.win.getComputedStyle(this.containerEl);
+		const containerStyle = window.getComputedStyle(this.containerEl);
 		const containerWidth = this.containerEl.offsetWidth;
-		const paddingLeft = parseFloat(containerStyle.paddingLeft);
-		const paddingRight = parseFloat(containerStyle.paddingRight);
+		// const containerHeight = this.containerEl.offsetHeight;
+		const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
+		const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
 		const availableWidth = containerWidth - paddingLeft - paddingRight;
-	
+		
 		const {
 			alignCardHeight,
 			cardWidthThreshold,
@@ -213,7 +253,7 @@ export class CardContainer {
     }
 
     // Refreshes the card container by fetching the current folder, sorting files, and rendering the cards
-    async refresh() {
+	public async refresh() {
         const folder = await this.getCurrentFolder();
         if (!folder || !this.containerEl) return;
 
@@ -264,15 +304,30 @@ export class CardContainer {
     }
 
     // Creates card data objects for a list of files
-    private async createCardsData(files: TFile[]): Promise<Card[]> {
-        const mdFiles = files.filter(file => file.extension === 'md');
-        return Promise.all(mdFiles.map(file => this.cardMaker.createCard(file)));
-    }
+	private async createCardsData(files: TFile[]): Promise<Card[]> {
+		const mdFiles = files.filter(file => file.extension === 'md');
+		try {
+			return await Promise.all(mdFiles.map(file => this.cardMaker.createCard(file)));
+		} catch (error) {
+			console.error('카드 데이터 생성 중 오류 발생:', error);
+			return [];
+		}
+	}
 
     // Renders the card elements inside the container
 	private async renderCards(cardsData: Card[]) {
 		if (!this.containerEl) return;
 	
+		if (!cardsData || cardsData.length === 0) {
+			console.warn('The card data is empty.');
+			return;
+		}
+
+		if (!this.layoutStrategy) {
+			console.error('The layout strategy has not been set.');
+			return;
+		}
+
 		const containerEl = this.containerEl;
 		const currentScrollTop = containerEl.scrollTop;
 		const currentScrollLeft = containerEl.scrollLeft;
@@ -282,7 +337,7 @@ export class CardContainer {
 		);
 	
 		const containerRect = containerEl.getBoundingClientRect();
-		const containerStyle = containerEl.win.getComputedStyle(containerEl);
+		const containerStyle = window.getComputedStyle(this.containerEl);
 		const paddingLeft = parseFloat(containerStyle.paddingLeft);
 		const paddingRight = parseFloat(containerStyle.paddingRight);
 		const paddingTop = parseFloat(containerStyle.paddingTop);
@@ -302,18 +357,26 @@ export class CardContainer {
             containerEl.style.height = '100%';
         }
 
-        const cardPositions = this.layoutStrategy.arrange(
-            cardsData,
-            availableWidth,
-            containerRect.height,
-            this.plugin.settings.cardsPerView
-        );
-
-        containerEl.empty();
-        this.cards = cardsData;
-
-        cardsData.forEach((card, index) => {
-            const cardEl = this.cardMaker.createCardElement(card);
+		const cardPositions = this.layoutStrategy.arrange(
+			cardsData,
+			availableWidth,
+			containerRect.height,
+			this.plugin.settings.cardsPerView
+		);
+	
+		if (cardPositions.length !== cardsData.length) {
+			console.warn('Card positions and card data length mismatch. Adjusting...');
+			const minLength = Math.min(cardPositions.length, cardsData.length);
+			cardsData = cardsData.slice(0, minLength);
+			cardPositions.length = minLength;
+		}
+	
+		containerEl.empty();
+		this.cards = cardsData;
+	
+		cardPositions.forEach((position, index) => {
+			const card = cardsData[index];
+			const cardEl = this.cardMaker.createCardElement(card);
 
             if (this.layoutStrategy instanceof ListLayout) {
                 const cardStyle = this.layoutStrategy.getCardStyle();
@@ -349,6 +412,19 @@ export class CardContainer {
         this.updateScrollDirection();
         void this.ensureCardSizesAreSet();
     }
+
+	private waitForContainerSize(): Promise<void> {
+		return new Promise((resolve) => {
+			const checkSize = () => {
+				if (this.containerEl && this.containerEl.offsetWidth > 0 && this.containerEl.offsetHeight > 0) {
+					resolve();
+				} else {
+					requestAnimationFrame(checkSize);
+				}
+			};
+			checkSize();
+		});
+	}
 
 	// Updates the scroll direction of the container element based on the layout strategy
 	private updateScrollDirection() {
