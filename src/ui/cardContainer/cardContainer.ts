@@ -17,6 +17,7 @@ export class CardContainer {
     private containerEl: HTMLElement;
     private cardMaker: CardMaker;
     private layoutStrategy: LayoutStrategy;
+	private currentLayout: CardNavigatorSettings['defaultLayout'];
     public isVertical: boolean;
     private cardGap: number;
     private keyboardNavigator: KeyboardNavigator | null = null;
@@ -63,16 +64,26 @@ export class CardContainer {
 	
 		// 키보드 네비게이터 초기화
 		this.initializeKeyboardNavigator();
+
+        this.currentLayout = this.plugin.settings.defaultLayout; // 초기 레이아웃 설정
+		this.setupResizeObserver();
 	}
 	
 	// Sets up a ResizeObserver to monitor size changes of the container element
-	private setupResizeObserver() {
-		if (this.containerEl) {
-			this.resizeObserver.observe(this.containerEl);
-		} else {
-			console.warn('Container element not available for ResizeObserver');
-		}
-	}
+	// private setupResizeObserver() {
+	// 	if (this.containerEl) {
+	// 		this.resizeObserver.observe(this.containerEl);
+	// 	} else {
+	// 		console.warn('Container element not available for ResizeObserver');
+	// 	}
+	// }
+	// Sets up a ResizeObserver to monitor size changes of the container element
+    private setupResizeObserver() {
+        this.resizeObserver = new ResizeObserver(() => {
+            this.plugin.updateCardNavigatorLayout(this.currentLayout);
+        });
+        this.resizeObserver.observe(this.containerEl);
+    }
 	
 	private initializeKeyboardNavigator() {
 		if (this.containerEl) {
@@ -97,15 +108,55 @@ export class CardContainer {
 	}
 
     // Initializes the card container with necessary settings and prepares it for use
-    async initialize(containerEl: HTMLElement) {
-        this.containerEl = containerEl;
-        await this.waitForLeafCreation();
-        this.updateContainerStyle();
-        this.keyboardNavigator = new KeyboardNavigator(this.plugin, this, this.containerEl);
+	async initialize(containerEl: HTMLElement) {
+		this.containerEl = containerEl;
+		await this.waitForContainerSize();
+		this.updateContainerStyle();
+		this.keyboardNavigator = new KeyboardNavigator(this.plugin, this, this.containerEl);
 		this.setupResizeObserver();
-        this.layoutStrategy = this.determineAutoLayout();
-        await this.refresh();
-    }
+		this.layoutStrategy = this.determineAutoLayout();
+		await this.refresh();
+	}
+	
+	private waitForContainerSize(): Promise<void> {
+		return new Promise((resolve) => {
+			const checkSize = () => {
+				if (this.containerEl && this.containerEl.offsetWidth > 0 && this.containerEl.offsetHeight > 0) {
+					resolve();
+				} else {
+					requestAnimationFrame(checkSize);
+				}
+			};
+			checkSize();
+		});
+	}
+
+	// Updates the container's styles based on the current plugin settings
+	private updateContainerStyle() {
+		if (this.containerEl) {
+			this.containerEl.classList.add('card-navigator-container');
+			this.containerEl.classList.toggle('vertical', this.isVertical);
+			this.containerEl.classList.toggle('horizontal', !this.isVertical);
+			this.containerEl.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
+			this.containerEl.classList.toggle('flexible-height', !this.plugin.settings.alignCardHeight);
+
+			this.containerEl.style.setProperty('--cards-per-view', this.plugin.settings.cardsPerView.toString());
+		}
+	}
+	
+	// Refreshes the card container by fetching the current folder, sorting files, and rendering the cards
+	public async refresh() {
+		const folder = await this.getCurrentFolder();
+		if (!folder || !this.containerEl) return;
+
+		this.updateContainerStyle();
+
+		const files = folder.children.filter((file): file is TFile => file instanceof TFile);
+		const sortedFiles = this.sortFiles(files);
+		const cardsData = await this.createCardsData(sortedFiles);
+
+		await this.renderCards(cardsData);
+	}
 
     // Updates the container settings based on the provided partial settings
 	updateSettings(settings: Partial<CardNavigatorSettings>) {
@@ -137,7 +188,7 @@ export class CardContainer {
 	// Determines the appropriate layout strategy based on the container size and plugin settings
 	private determineAutoLayout(): LayoutStrategy {
 		if (!this.containerEl) {
-			console.error('컨테이너 요소가 존재하지 않습니다.');
+			console.error('The container element does not exist.');
 			return new ListLayout(true, this.cardGap, this.plugin.settings.alignCardHeight);
 		}
 	
@@ -202,9 +253,37 @@ export class CardContainer {
 	}
 
 	// Sets the layout strategy based on the provided layout type
-	setLayout(layout: 'auto' | 'list' | 'grid' | 'masonry') {
-		const { gridColumns, alignCardHeight } = this.plugin.settings;
+	// setLayout(layout: 'auto' | 'list' | 'grid' | 'masonry') {
+	// 	const { gridColumns, alignCardHeight } = this.plugin.settings;
 		
+	// 	if (layout === 'auto') {
+	// 		this.layoutStrategy = this.determineAutoLayout();
+	// 	} else {
+	// 		switch (layout) {
+	// 			case 'list':
+	// 				this.layoutStrategy = new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
+	// 				break;
+	// 			case 'grid':
+	// 				this.layoutStrategy = new GridLayout(gridColumns, this.cardGap, this.plugin.settings);
+	// 				break;
+	// 			case 'masonry':
+	// 				this.layoutStrategy = new MasonryLayout(
+	// 					this.plugin.settings.masonryColumns,
+	// 					this.cardGap,
+	// 					this.plugin.settings
+	// 				);
+	// 				break;
+	// 		}
+	// 	}
+	// 	this.keyboardNavigator?.updateLayout(this.layoutStrategy);
+	// 	this.refresh();
+	// }
+	setLayout(layout: CardNavigatorSettings['defaultLayout']) {
+		const { gridColumns, alignCardHeight } = this.plugin.settings;
+	
+		// 현재 레이아웃을 업데이트
+		this.currentLayout = layout;
+	
 		if (layout === 'auto') {
 			this.layoutStrategy = this.determineAutoLayout();
 		} else {
@@ -224,9 +303,14 @@ export class CardContainer {
 					break;
 			}
 		}
+		
+		// 키보드 내비게이터 업데이트
 		this.keyboardNavigator?.updateLayout(this.layoutStrategy);
+		
+		// 카드 새로 고침
 		this.refresh();
 	}
+
 
     // Checks if the current layout is a grid layout
     public isGridLayout(): boolean {
@@ -237,33 +321,6 @@ export class CardContainer {
     setOrientation(isVertical: boolean) {
         this.isVertical = isVertical;
         this.updateContainerStyle();
-    }
-
-    // Updates the container's styles based on the current plugin settings
-    private updateContainerStyle() {
-        if (this.containerEl) {
-            this.containerEl.classList.add('card-navigator-container');
-            this.containerEl.classList.toggle('vertical', this.isVertical);
-            this.containerEl.classList.toggle('horizontal', !this.isVertical);
-            this.containerEl.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
-            this.containerEl.classList.toggle('flexible-height', !this.plugin.settings.alignCardHeight);
-
-            this.containerEl.style.setProperty('--cards-per-view', this.plugin.settings.cardsPerView.toString());
-        }
-    }
-
-    // Refreshes the card container by fetching the current folder, sorting files, and rendering the cards
-	public async refresh() {
-        const folder = await this.getCurrentFolder();
-        if (!folder || !this.containerEl) return;
-
-        this.updateContainerStyle();
-
-        const files = folder.children.filter((file): file is TFile => file instanceof TFile);
-        const sortedFiles = this.sortFiles(files);
-        const cardsData = await this.createCardsData(sortedFiles);
-
-        await this.renderCards(cardsData);
     }
 
     // Retrieves the current folder from which to display cards, either selected or active
@@ -412,19 +469,6 @@ export class CardContainer {
         this.updateScrollDirection();
         void this.ensureCardSizesAreSet();
     }
-
-	private waitForContainerSize(): Promise<void> {
-		return new Promise((resolve) => {
-			const checkSize = () => {
-				if (this.containerEl && this.containerEl.offsetWidth > 0 && this.containerEl.offsetHeight > 0) {
-					resolve();
-				} else {
-					requestAnimationFrame(checkSize);
-				}
-			};
-			checkSize();
-		});
-	}
 
 	// Updates the scroll direction of the container element based on the layout strategy
 	private updateScrollDirection() {

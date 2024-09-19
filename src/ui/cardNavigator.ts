@@ -113,7 +113,7 @@ export class CardNavigator extends ItemView {
     }
 
     // Update layout settings and refresh the view
-    updateLayoutAndRefresh() {
+    public updateLayoutAndRefresh() {
         const settings = this.plugin.settings;
         if (settings.defaultLayout) {
             this.cardContainer.setLayout(settings.defaultLayout);
@@ -144,6 +144,11 @@ export class CardNavigator extends ItemView {
 
         await this.refresh();
         await this.centerActiveCardOnOpen();
+
+		await this.plugin.loadSettings();
+		// DOM이 완전히 렌더링될 때까지 기다립니다
+		await new Promise(resolve => setTimeout(resolve, 0));
+		this.updateLayoutAndRefresh();
     }
 
     // Center the active card when opening the view, if enabled in settings
@@ -151,7 +156,7 @@ export class CardNavigator extends ItemView {
         if (this.plugin.settings.centerActiveCardOnOpen) {
             setTimeout(() => {
                 this.cardContainer.centerActiveCard();
-            }, 200);
+            }, 300);
         }
     }
 

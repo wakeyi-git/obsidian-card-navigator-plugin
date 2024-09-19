@@ -176,6 +176,10 @@
     position: relative;
     box-sizing: border-box;
     padding-top: var(--size-2-1);
+	min-width: 300px;
+	min-height: 300px;
+	width: 100%;
+    height: 100%;
 }
 
 .card-navigator-container.vertical {
