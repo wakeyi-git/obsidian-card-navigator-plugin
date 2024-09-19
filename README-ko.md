@@ -22,6 +22,9 @@ Card Navigator는 노트를 시각화하고 탐색하는 독특한 방법을 제
 - 모바일 경험 개선을 위한 반응형 디자인 (1.0.2)
 - 다양한 레이아웃 옵션: 자동, 리스트, 그리드, 메이슨리 (1.0.3)
 
+![alt text](<src/screenshots/Keyboard Navigating.gif>)
+![alt text](<src/screenshots/Editing Note.gif>)
+
 ## 설치
 
 1. 이 플러그인은 아직 Obsidian의 검토 과정을 통과하지 않았습니다.
