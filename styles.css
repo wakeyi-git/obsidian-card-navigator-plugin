@@ -66,6 +66,10 @@
     color: var(--text-normal);
 }
 
+.card-navigator-icon-active {
+    background-color: var(--background-modifier-border);
+}
+
 /* Popup styles for sort and settings */
 .card-navigator-sort-popup,
 .card-navigator-settings-popup {
@@ -84,15 +88,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-}
-
-.sort-option:hover {
-    background-color: var(--background-primary-alt); /* Hover effect for sort options */
-}
-
-.sort-option.active {
-    font-weight: bold;
-    color: var(--text-accent); /* Highlight active sort option */
 }
 
 /* Settings popup styles */

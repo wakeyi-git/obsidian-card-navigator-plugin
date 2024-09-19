@@ -10,6 +10,11 @@ import { t } from 'i18next';
 export class Toolbar {
     private containerEl: HTMLElement | null = null;
     private isVertical = false;
+    private sortPopupOpen = false;
+    private settingsPopupOpen = false;
+    private sortIcon: HTMLElement | null = null;
+    private settingsIcon: HTMLElement | null = null;
+    private popupObserver: MutationObserver | null = null;
 
     constructor(private plugin: CardNavigatorPlugin) {}
 
@@ -17,6 +22,7 @@ export class Toolbar {
     initialize(containerEl: HTMLElement) {
         this.containerEl = containerEl;
         this.createToolbar();
+        this.setupPopupObserver();
     }
 
     // Creates the toolbar UI elements
@@ -55,41 +61,39 @@ export class Toolbar {
     }
 
     // Creates the container for action icons (folder select, sort, settings)
-	private createActionIconsContainer(): HTMLElement {
-		const container = createDiv('card-navigator-action-icons-container');
-	
-		const icons = [
-			{ name: 'folder', label: t('Select Folder'), action: () => this.openFolderSelector() },
-			{ name: 'arrow-up-narrow-wide', label: t('Sort Cards'), action: () => toggleSort(this.plugin, this.containerEl) },
-			{ name: 'settings', label: t('Settings'), action: () => toggleSettings(this.plugin, this.containerEl) },
-		] as const;
-	
-		// Iterates over icon definitions to create toolbar icons
-		icons.forEach(icon => {
-			const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
-			// Highlight the sort icon if custom sort is applied
-			if (icon.name === 'arrow-up-narrow-wide') {
-				iconElement.classList.toggle('active', 
-					this.plugin.settings.sortCriterion !== 'fileName' || 
-					this.plugin.settings.sortOrder !== 'asc'
-				);
-			}
-			container.appendChild(iconElement);
-		});
-	
-		return container;
-	}
+    private createActionIconsContainer(): HTMLElement {
+        const container = createDiv('card-navigator-action-icons-container');
+    
+        const icons = [
+            { name: 'folder', label: t('Select folder'), action: () => this.openFolderSelector() },
+            { name: 'arrow-up-narrow-wide', label: t('Sort cards'), action: () => this.toggleSortPopup() },
+            { name: 'settings', label: t('Settings'), action: () => this.toggleSettingsPopup() },
+        ] as const;
+    
+        // Iterates over icon definitions to create toolbar icons
+        icons.forEach(icon => {
+            const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
+            if (icon.name === 'arrow-up-narrow-wide') {
+                this.sortIcon = iconElement;
+            } else if (icon.name === 'settings') {
+                this.settingsIcon = iconElement;
+            }
+            container.appendChild(iconElement);
+        });
+    
+        return container;
+    }
 
     // Helper function to create individual toolbar icons
-	private createToolbarIcon(iconName: string, ariaLabel: string, action: () => void): HTMLElement {
-		const icon = createDiv('clickable-icon');
-		icon.ariaLabel = ariaLabel;
-	
-		setIcon(icon, iconName);
-		icon.addEventListener('click', () => action());
-	
-		return icon;
-	}
+    private createToolbarIcon(iconName: string, ariaLabel: string, action: () => void): HTMLElement {
+        const icon = createDiv('clickable-icon');
+        icon.ariaLabel = ariaLabel;
+    
+        setIcon(icon, iconName);
+        icon.addEventListener('click', () => action());
+    
+        return icon;
+    }
     
     // Creates a separator element for the toolbar
     private createSeparator(): HTMLElement {
@@ -98,12 +102,107 @@ export class Toolbar {
 
     // Opens a folder selector modal and displays cards for the selected folder
     public openFolderSelector() {
+        this.closeAllPopups(); // Close any open popups before opening the folder selector
         new FolderSuggestModal(this.plugin, (folder: TFolder) => {
             const view = this.plugin.app.workspace.getActiveViewOfType(CardNavigator);
             if (view) {
                 view.cardContainer.displayCardsForFolder(folder);
             }
         }).open();
+    }
+
+    // Toggles the sort popup
+    private toggleSortPopup() {
+        if (this.sortPopupOpen) {
+            this.closeSortPopup();
+        } else {
+            this.closeAllPopups();
+            this.openSortPopup();
+        }
+        this.updateIconStates();
+    }
+
+    // Opens the sort popup
+    private openSortPopup() {
+        this.sortPopupOpen = true;
+        toggleSort(this.plugin, this.containerEl);
+    }
+
+    // Closes the sort popup
+    private closeSortPopup() {
+        this.sortPopupOpen = false;
+        const sortPopup = this.containerEl?.querySelector('.card-navigator-sort-popup');
+        if (sortPopup) {
+            sortPopup.remove();
+        }
+    }
+
+    // Toggles the settings popup
+    private toggleSettingsPopup() {
+        if (this.settingsPopupOpen) {
+            this.closeSettingsPopup();
+        } else {
+            this.closeAllPopups();
+            this.openSettingsPopup();
+        }
+        this.updateIconStates();
+    }
+
+    // Opens the settings popup
+    private openSettingsPopup() {
+        this.settingsPopupOpen = true;
+        toggleSettings(this.plugin, this.containerEl);
+    }
+
+    // Closes the settings popup
+    private closeSettingsPopup() {
+        this.settingsPopupOpen = false;
+        const settingsPopup = this.containerEl?.querySelector('.card-navigator-settings-popup');
+        if (settingsPopup) {
+            settingsPopup.remove();
+        }
+    }
+
+    // Closes all open popups
+    private closeAllPopups() {
+        this.closeSortPopup();
+        this.closeSettingsPopup();
+        this.updateIconStates();
+    }
+
+    // Updates the visual state of the icons based on popup open states
+    private updateIconStates() {
+        if (this.sortIcon) {
+            this.sortIcon.classList.toggle('card-navigator-icon-active', this.sortPopupOpen);
+        }
+        if (this.settingsIcon) {
+            this.settingsIcon.classList.toggle('card-navigator-icon-active', this.settingsPopupOpen);
+        }
+    }
+
+    // Sets up an observer to watch for popup removals
+    private setupPopupObserver() {
+        if (!this.containerEl) return;
+
+        this.popupObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList') {
+                    mutation.removedNodes.forEach((node) => {
+                        if (node instanceof HTMLElement) {
+                            if (node.classList.contains('card-navigator-sort-popup')) {
+                                this.sortPopupOpen = false;
+                                this.updateIconStates();
+                            } else if (node.classList.contains('card-navigator-settings-popup')) {
+                                this.settingsPopupOpen = false;
+                                this.updateIconStates();
+                            }
+                        }
+                    });
+                }
+            });
+        });
+
+        this.popupObserver.observe(this.containerEl, { childList: true, subtree: true });
     }
 
     // Refreshes the toolbar (to be implemented if needed)
@@ -113,6 +212,8 @@ export class Toolbar {
 
     // Cleans up resources when the toolbar is closed
     onClose() {
-        // Cleanup toolbar-related resources
+        if (this.popupObserver) {
+            this.popupObserver.disconnect();
+        }
     }
 }

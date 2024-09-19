@@ -168,7 +168,7 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
     addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
 
     // Add Layout Settings section
-    const layoutSection = createCollapsibleSection(settingsPopup, t('Layout Settings'), true);
+    const layoutSection = createCollapsibleSection(settingsPopup, t('Layout settings'), true);
     
     // Function to update layout settings visibility
     const updateLayoutSettings = (layout: CardNavigatorSettings['defaultLayout']) => {
@@ -176,7 +176,7 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
         layoutSection.empty();
 
         // Add Default Layout dropdown
-        addDropdownSetting('defaultLayout', t('Default Layout'), layoutSection, plugin, settingsManager, [
+        addDropdownSetting('defaultLayout', t('Default layout'), layoutSection, plugin, settingsManager, [
             { value: 'auto', label: t('Auto') },
             { value: 'list', label: t('List') },
             { value: 'grid', label: t('Grid') },
@@ -187,19 +187,19 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
 
         // Add settings based on selected layout
         if (layout === 'auto') {
-            addNumberSetting('cardWidthThreshold', t('Card Width Threshold'), layoutSection, plugin, settingsManager);
+            addNumberSetting('cardWidthThreshold', t('Card width threshold'), layoutSection, plugin, settingsManager);
         }
         if (layout === 'grid') {
-            addNumberSetting('gridColumns', t('Grid Columns'), layoutSection, plugin, settingsManager);
+            addNumberSetting('gridColumns', t('Grid columns'), layoutSection, plugin, settingsManager);
         }
         if (layout === 'auto' || layout === 'grid') {
-            addNumberSetting('gridCardHeight', t('Grid Card Height'), layoutSection, plugin, settingsManager);
+            addNumberSetting('gridCardHeight', t('Grid card height'), layoutSection, plugin, settingsManager);
         }
         if (layout === 'masonry') {
-            addNumberSetting('masonryColumns', t('Masonry Columns'), layoutSection, plugin, settingsManager);
+            addNumberSetting('masonryColumns', t('Masonry columns'), layoutSection, plugin, settingsManager);
         }
         if (layout === 'auto' || layout === 'list') {
-            addToggleSetting('alignCardHeight', t('Align Card Height'), layoutSection, plugin, settingsManager, () => {
+            addToggleSetting('alignCardHeight', t('Align card height'), layoutSection, plugin, settingsManager, () => {
                 updateCardsPerViewSetting();
             });
             updateCardsPerViewSetting();
@@ -225,12 +225,12 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
     updateLayoutSettings(plugin.settings.defaultLayout);
 
     // Add Card Display Settings section
-    const displaySection = createCollapsibleSection(settingsPopup, t('Card Content Settings'), true);
-    addToggleSetting('renderContentAsHtml', t('Render Content as HTML'), displaySection, plugin, settingsManager);
-    addToggleSetting('dragDropContent', t('Drag and Drop Content'), displaySection, plugin, settingsManager);
-    addToggleSetting('showFileName', t('Show File Name'), displaySection, plugin, settingsManager);
-    addToggleSetting('showFirstHeader', t('Show First Header'), displaySection, plugin, settingsManager);
-    addToggleSetting('showBody', t('Show Body'), displaySection, plugin, settingsManager);
+    const displaySection = createCollapsibleSection(settingsPopup, t('Card content settings'), true);
+    addToggleSetting('renderContentAsHtml', t('Render content as HTML'), displaySection, plugin, settingsManager);
+    addToggleSetting('dragDropContent', t('Drag and drop content'), displaySection, plugin, settingsManager);
+    addToggleSetting('showFileName', t('Show file name'), displaySection, plugin, settingsManager);
+    addToggleSetting('showFirstHeader', t('Show first header'), displaySection, plugin, settingsManager);
+    addToggleSetting('showBody', t('Show body'), displaySection, plugin, settingsManager);
 
     // Function to update bodyLength setting visibility
     const updateBodyLengthSetting = () => {
@@ -239,13 +239,13 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
             bodyLengthSetting.remove();
         }
         if (plugin.settings.bodyLengthLimit) {
-            addNumberSetting('bodyLength', t('Body Length'), displaySection, plugin, settingsManager)
+            addNumberSetting('bodyLength', t('Body length'), displaySection, plugin, settingsManager)
                 .settingEl.addClass('setting-body-length');
         }
     };
 
     // Add Body Length Limit toggle with updateBodyLengthSetting callback
-    addToggleSetting('bodyLengthLimit', t('Body Length Limit'), displaySection, plugin, settingsManager, () => {
+    addToggleSetting('bodyLengthLimit', t('Body length limit'), displaySection, plugin, settingsManager, () => {
         updateBodyLengthSetting();
     });
 
@@ -253,10 +253,10 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
     updateBodyLengthSetting();
 
     // Add Card Styling Settings section
-    const stylingSection = createCollapsibleSection(settingsPopup, t('Card Styling Settings'), true);
-    addNumberSetting('fileNameFontSize', t('File Name Font Size'), stylingSection, plugin, settingsManager);
-    addNumberSetting('firstHeaderFontSize', t('First Header Font Size'), stylingSection, plugin, settingsManager);
-    addNumberSetting('bodyFontSize', t('Body Font Size'), stylingSection, plugin, settingsManager);
+    const stylingSection = createCollapsibleSection(settingsPopup, t('Card styling settings'), true);
+    addNumberSetting('fileNameFontSize', t('File name font size'), stylingSection, plugin, settingsManager);
+    addNumberSetting('firstHeaderFontSize', t('First header font size'), stylingSection, plugin, settingsManager);
+    addNumberSetting('bodyFontSize', t('Body font size'), stylingSection, plugin, settingsManager);
 
     // Prevent click events from closing the popup
     settingsPopup.addEventListener('click', (e) => e.stopPropagation());
@@ -319,7 +319,7 @@ function addDropdownSetting(
 // Add the dropdown to select a preset
 function addPresetDropdown(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager) {
     new Setting(containerEl)
-        .setName(t('Select Preset'))
+        .setName(t('Select preset'))
         .setClass('setting-item-dropdown')
         .addDropdown(dropdown => {
             const presets = settingsManager.getPresets();
@@ -335,7 +335,7 @@ function addPresetDropdown(containerEl: HTMLElement, plugin: CardNavigatorPlugin
                 });
         });
     new Setting(containerEl)
-        .setName(t('Auto Apply Folder\'s Presets'))
+        .setName(t('Auto apply folder\'s presets'))
         .addToggle(toggle => toggle
             .setValue(plugin.settings.autoApplyPresets)
             .onChange(async (value) => {
@@ -347,11 +347,11 @@ function addPresetDropdown(containerEl: HTMLElement, plugin: CardNavigatorPlugin
 // Add the folder selection setting to the settings UI
 function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
     const folderSettingEl = new Setting(parentEl)
-        .setName(t('Folder Selection'))
+        .setName(t('Source folder'))
         .setClass('setting-item-dropdown')
         .addDropdown(dropdown => dropdown
-            .addOption('active', t('Active Folder'))
-            .addOption('selected', t('Selected Folder'))
+            .addOption('active', t('Active folder'))
+            .addOption('selected', t('Selected folder'))
             .setValue(plugin.settings.useSelectedFolder ? 'selected' : 'active')
             .onChange(async (value) => {
                 await settingsManager.updateBooleanSetting('useSelectedFolder', value === 'selected');
@@ -368,7 +368,7 @@ function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorP
 // Add the folder picker when "Selected Folder" is enabled
 function addFolderSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
     new Setting(parentEl)
-        .setName(t('Select Folder'))
+        .setName(t('Select folder'))
         .addButton(button => button
             .setButtonText(plugin.settings.selectedFolder || t('Choose folder'))
             .onClick(() => {

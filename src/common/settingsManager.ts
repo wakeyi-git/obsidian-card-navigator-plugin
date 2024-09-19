@@ -175,7 +175,7 @@ export class SettingsManager {
 			await this.saveSettings();
 			this.plugin.triggerRefresh();
 	
-			new Notice(t('Current settings reverted to original preset values'));
+			new Notice(t('Current preset settings reverted to original values.'));
 		} else {
 			new Notice(t('Failed to revert settings: preset not found'));
 		}
