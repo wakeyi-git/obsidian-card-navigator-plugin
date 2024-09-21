@@ -215,6 +215,7 @@
     cursor: pointer;
     display: flex;
     flex-direction: column;
+	box-sizing: border-box;
 }
 
 .card-navigator-card.align-height {
@@ -240,7 +241,7 @@
 }
 
 .card-navigator-card.card-navigator-focused {
-    border: 2px solid var(--interactive-accent);
+    border: 1px solid var(--interactive-accent);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Focus shadow effect */
 }
 
@@ -328,6 +329,7 @@
     border-radius: 5px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     overflow: hidden;
+	box-sizing: border-box;
 }
 
 .masonry-card .card-navigator-filename {

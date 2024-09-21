@@ -154,29 +154,29 @@ export const sortOptions: Array<{ value: string, label: string }> = [
 
 // Define content settings for the UI
 export const contentSettings: Array<{ name: string, key: keyof CardNavigatorSettings, description: string }> = [
-    { name: 'Show File Name', key: 'showFileName', description: 'Toggle File Name Display' },
-    { name: 'Show First Header', key: 'showFirstHeader', description: 'Toggle First Header Display' },
-    { name: 'Show Body', key: 'showBody', description: 'Toggle Body Display' },
+    { name: 'Show file name', key: 'showFileName', description: 'Toggle file name display' },
+    { name: 'Show first header', key: 'showFirstHeader', description: 'Toggle first header display' },
+    { name: 'Show body', key: 'showBody', description: 'Toggle body display' },
 ];
 
 // Define font size settings for the UI
 export const fontSizeSettings: Array<{ name: string, key: keyof CardNavigatorSettings, description: string }> = [
-    { name: 'File Name Font Size', key: 'fileNameFontSize', description: 'Set Font Size for File Name' },
-    { name: 'First Header Font Size', key: 'firstHeaderFontSize', description: 'Set Font Size for First Header' },
-    { name: 'Body Font Size', key: 'bodyFontSize', description: 'Set Font Size for Body' },
+    { name: 'File name font size', key: 'fileNameFontSize', description: 'Set font size for file name' },
+    { name: 'First header font size', key: 'firstHeaderFontSize', description: 'Set font size for first header' },
+    { name: 'Body font size', key: 'bodyFontSize', description: 'Set font size for body' },
 ];
 
 // Define keyboard shortcuts for the application
 export const keyboardShortcuts: Array<{ name: string, description: string }> = [
-    { name: 'Scroll Up One Card', description: 'Move up by one card' },
-    { name: 'Scroll Down One Card', description: 'Move down by one card' },
-    { name: 'Scroll Left One Card', description: 'Move left by one card' },
-    { name: 'Scroll Right One Card', description: 'Move right by one card' },
-    { name: 'Scroll Up/Left One Page', description: 'Move up/left by one page of cards' },
-    { name: 'Scroll Down/Right One Page', description: 'Move down/right by one page of cards' },
-    { name: 'Center Active Card', description: 'Center the currently active card' },
-    { name: 'Focus Card Navigator', description: 'Set focus to the Card Navigator' },
-    { name: 'Open Card Context Menu', description: 'Open the context menu for the focused card' }
+    { name: 'Scroll up one card', description: 'Move up by one card.' },
+    { name: 'Scroll down one card', description: 'Move down by one card.' },
+    { name: 'Scroll left one card', description: 'Move left by one card.' },
+    { name: 'Scroll right one card', description: 'Move right by one card.' },
+    { name: 'Scroll up/left one page', description: 'Move up/left by one page of cards.' },
+    { name: 'Scroll down/right one page', description: 'Move down/right by one page of cards.' },
+    { name: 'Center active card', description: 'Center the currently active card.' },
+    { name: 'Move focus to Card Navigator', description: 'Set focus to the Card Navigator.' },
+    { name: 'Open card context menu', description: 'Open the context menu for the focused card.' }
 ];
 
 // Function to translate keyboard shortcuts

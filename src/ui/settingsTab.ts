@@ -102,7 +102,6 @@ export class SettingTab extends PluginSettingTab {
                                     new Notice(t('Preset applied without saving changes.', { presetName: newValue }));
                                     this.display();
                                 } else {
-                                    // Cancel: revert the dropdown to the current preset
                                     dropdown.setValue(currentPreset);
                                 }
                             }
@@ -126,7 +125,7 @@ export class SettingTab extends PluginSettingTab {
                     new SavePresetModal(this.plugin.app, async (presetName) => {
                         if (presetName) {
                             await this.settingsManager.saveAsNewPreset(presetName);
-                            new Notice(t('preset saved', { presetName }));
+                            new Notice(t('Preset saved', { presetName }));
                             this.plugin.settings.lastActivePreset = presetName;
                             await this.plugin.saveSettings();
                             this.display();
@@ -147,7 +146,7 @@ export class SettingTab extends PluginSettingTab {
                     await this.settingsManager.deletePreset(currentPreset);
                     this.plugin.settings.lastActivePreset = 'default';
                     await this.plugin.saveSettings();
-                    new Notice(t('preset deleted and default applied', { presetName: currentPreset }));
+                    new Notice(t('Preset deleted and default applied.', { presetName: currentPreset }));
                     this.updatePresetSettings();
                 } else {
                     new Notice(t('default preset cannot be deleted'));
@@ -167,7 +166,7 @@ export class SettingTab extends PluginSettingTab {
                 const currentPreset = this.plugin.settings.lastActivePreset;
                 if (currentPreset !== 'default') {
                     await this.settingsManager.updateCurrentPreset(currentPreset);
-                    new Notice(t('preset updated', { presetName: currentPreset }));
+                    new Notice(t('Preset updated', { presetName: currentPreset }));
                     this.updatePresetSettings();
                 } else {
                     new Notice(t('default preset cannot be modified'));
@@ -177,17 +176,16 @@ export class SettingTab extends PluginSettingTab {
 
         // Revert to original preset button
         presetModifiedSetting.addButton(button => button
-            .setButtonText(t('to original'))
+            .setButtonText(t('To original'))
             .setDisabled(!this.plugin.settingsManager.isCurrentSettingModified())
             .onClick(async () => {
                 await this.plugin.settingsManager.revertToOriginalPreset();
-                new Notice(t('current preset settings reverted to original values'));
                 this.display();
             }));
 
         new Setting(containerEl)
             .setName(t('Auto apply folder\'s presets'))
-            .setDesc(t('Presets are automatically applied when you change folders. If disabled, the preset currently being applied will be retained even if the active note\'s folder changes.'))
+            .setDesc(t('Folder\'s presets are automatically applied when you change folders. If disabled, the preset currently being applied will be retained even if the active note\'s folder changes.'))
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.autoApplyPresets)
                 .onChange(async (value) => {
@@ -196,10 +194,10 @@ export class SettingTab extends PluginSettingTab {
             );
 
             new Setting(containerEl)
-            .setName(t('Add folder\'s preset'))
+            .setName(t('Add folder\'s presets'))
             .setDesc(t('Select a folder to add a folder preset.'))
             .addButton(button => button
-                .setButtonText(t('Add folder\'s preset'))
+                .setButtonText(t('Add'))
                 .onClick(() => {
                     new FolderSuggestModal(this.plugin, async (folder) => {
                         const presetNames = Object.keys(this.plugin.settings.presets);
@@ -218,37 +216,33 @@ export class SettingTab extends PluginSettingTab {
                 })
             );
 
-			const folderPresets = this.settingsManager.getFolderPresets();
-			for (const [folderPath, presets] of Object.entries(folderPresets)) {
+        const folderPresets = this.settingsManager.getFolderPresets();
+        for (const [folderPath, presets] of Object.entries(folderPresets)) {
+            const folderSetting = new Setting(containerEl)
+                .setName(t('folder_label', { folderPath }))
+                .setDesc(t('presets_label', { presets: presets.join(', ') }));
 
-				const decodedFolderPath = decodeURIComponent(folderPath);
-			
-				const folderSetting = new Setting(containerEl)
-					.setName(t('folder_label', { folderPath: decodedFolderPath }))
-					.setDesc(t('presets_label', { presets: presets.join(', ') }));
-			
-				folderSetting.addDropdown(dropdown => {
-					presets.forEach(preset => dropdown.addOption(preset, preset));
-					const defaultPreset = this.settingsManager.getDefaultPresetForFolder(folderPath);
-					if (defaultPreset) dropdown.setValue(defaultPreset);
-					dropdown.onChange(async (value) => {
-						await this.settingsManager.setDefaultPresetForFolder(folderPath, value);
-					});
-				});
-			
-				folderSetting.addButton(button => button
-					.setIcon('trash')
-					.setTooltip(t('Remove preset from folder'))
-					.onClick(async () => {
-						const currentPreset = this.settingsManager.getDefaultPresetForFolder(folderPath);
-						if (currentPreset) {
-							await this.settingsManager.removePresetFromFolder(folderPath, currentPreset);
-							this.display();
-						}
-					})
-				);
-			}
-			
+            folderSetting.addDropdown(dropdown => {
+                presets.forEach(preset => dropdown.addOption(preset, preset));
+                const defaultPreset = this.settingsManager.getDefaultPresetForFolder(folderPath);
+                if (defaultPreset) dropdown.setValue(defaultPreset);
+                dropdown.onChange(async (value) => {
+                    await this.settingsManager.setDefaultPresetForFolder(folderPath, value);
+                });
+            });
+
+            folderSetting.addButton(button => button
+                .setIcon('trash')
+                .setTooltip(t('Remove preset from folder'))
+                .onClick(async () => {
+                    const currentPreset = this.settingsManager.getDefaultPresetForFolder(folderPath);
+                    if (currentPreset) {
+                        await this.settingsManager.removePresetFromFolder(folderPath, currentPreset);
+                        this.display();
+                    }
+                })
+            );
+        }
     }
 
     // Add general settings section
@@ -257,10 +251,10 @@ export class SettingTab extends PluginSettingTab {
             .setName(t('Container settings'))
             .setHeading();
 
-        this.addFolderSelectionSetting(containerEl);
+		const folderSectionEl = containerEl.createDiv('folder-selection-section');
+        this.addFolderSelectionSetting(folderSectionEl);
         
         this.addSortSetting(containerEl);
-
         this.addToggleSettingToSetting(
             new Setting(containerEl)
                 .setName(t('Center active card on open'))
@@ -370,7 +364,7 @@ export class SettingTab extends PluginSettingTab {
         this.addToggleSettingToSetting(
             new Setting(containerEl)
                 .setName(t('Render content as HTML'))
-                .setDesc(t('If enabled, card content will be rendered as HTML')),
+                .setDesc(t('If enabled, card content will be rendered as HTML.')),
             'renderContentAsHtml'
         );
     
@@ -394,7 +388,7 @@ export class SettingTab extends PluginSettingTab {
         // Body length settings
         const bodyLengthLimitSetting = new Setting(containerEl)
             .setName(t('Body length limit'))
-            .setDesc(t('Toggle between limited and unlimited body length'));
+            .setDesc(t('Toggle between limited and unlimited body length.'));
         
         const bodyLengthSetting = new Setting(containerEl)
             .setName(t('Body length'))
@@ -444,11 +438,11 @@ export class SettingTab extends PluginSettingTab {
         });
     }
 
-    // Add keyboard shortcuts information section
-    private addKeyboardShortcutsInfo(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(t('Keyboard shortcuts'))
-            .setHeading();
+	// Add keyboard shortcuts information section
+	private addKeyboardShortcutsInfo(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName(t('Keyboard shortcuts'))
+			.setHeading();
 
         const shortcutDesc = containerEl.createEl('p', { cls: 'keyboard-shortcuts-description' });
         shortcutDesc.setText(t('Card Navigator provides the following features that can be assigned keyboard shortcuts. You can set these up in Obsidian\'s Hotkeys settings:'));
@@ -477,9 +471,9 @@ export class SettingTab extends PluginSettingTab {
 
     // Add folder selection settings
     private addFolderSelectionSetting(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(t('Folder selection'))
-            .setDesc(t('Choose whether to use the active file\'s folder or a selected folder'))
+		const folderSettingEl = new Setting(containerEl)
+            .setName(t('Source folder'))
+            .setDesc(t('Choose whether to use the active file\'s folder or the selected folder in the card navigator.'))
             .addDropdown(dropdown => dropdown
                 .addOption('active', t('Active folder'))
                 .addOption('selected', t('Selected folder'))
@@ -490,6 +484,8 @@ export class SettingTab extends PluginSettingTab {
                     this.updatePresetSettings();
                 })).settingEl;
 
+		folderSettingEl.addClass('setting-folder-selection');
+
         if (this.plugin.settings.useSelectedFolder) {
             this.addFolderSetting(containerEl);
         }
@@ -498,7 +494,7 @@ export class SettingTab extends PluginSettingTab {
     // Add folder selection button when 'Selected Folder' is chosen
     private addFolderSetting(containerEl: HTMLElement): void {
         new Setting(containerEl)
-            .setName(t('select folder'))
+            .setName(t('Select folder'))
             .setDesc(t('Choose a folder for Card Navigator'))
             .setDisabled(!this.plugin.settings.useSelectedFolder)
             .addButton(button => button
@@ -516,7 +512,7 @@ export class SettingTab extends PluginSettingTab {
     private addSortSetting(containerEl: HTMLElement): void {
         new Setting(containerEl)
             .setName(t('Default sort method'))
-            .setDesc(t('Choose the default sorting method for cards'))
+            .setDesc(t('Choose the default sorting method for cards.'))
             .addDropdown(dropdown => {
                 sortOptions.forEach(option => {
                     dropdown.addOption(option.value, t(option.label));
