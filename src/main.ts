@@ -30,7 +30,7 @@ export default class CardNavigatorPlugin extends Plugin {
         await this.loadSettings();
         this.initializeManagers();
         await this.initializePlugin();
-		this.ribbonIconEl = this.addRibbonIcon('layers-3', t('Activate Card Navigator'), () => {
+		this.ribbonIconEl = this.addRibbonIcon('layers-3', t('Open Card Navigator'), () => {
 			this.activateView();
 		});
         this.registerEvent(
@@ -99,16 +99,22 @@ export default class CardNavigatorPlugin extends Plugin {
             callback: () => this.activateView(),
         });
 
-        this.addCommand({
-            id: 'focus-card-navigator',
-            name: t('Move focus to Card Navigator'),
-            callback: () => {
-                const cardNavigator = this.getActiveCardNavigator();
-                if (cardNavigator) {
-                    cardNavigator.focusNavigator();
-                }
-            }
-        });
+		this.addCommand({
+			id: 'focus-card-navigator',
+			name: t('Move focus to Card Navigator'),
+			callback: async () => {
+				const cardNavigator = this.getFirstCardNavigator();
+				if (cardNavigator) {
+					// 플러그인의 리프로 초점을 맞추기
+					const leaf = this.app.workspace.getLeaf();
+					if (leaf) {
+						leaf.view.containerEl.focus();
+						await new Promise(resolve => setTimeout(resolve, 0));
+						cardNavigator.focusNavigator();
+					}
+				}
+			}
+		});
 
         this.addCommand({
             id: 'open-card-context-menu',
@@ -144,6 +150,16 @@ export default class CardNavigatorPlugin extends Plugin {
 			this.refreshCardNavigator();
 		});
     }
+
+	private getFirstCardNavigator(): CardNavigator | null {
+		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+		for (const leaf of leaves) {
+			if (leaf.view instanceof CardNavigator) {
+				return leaf.view;
+			}
+		}
+		return null;
+	}
 
 	// Initialize folder presets if not already present
 	private async initializeFolderPresets() {

@@ -108,16 +108,21 @@ export class KeyboardNavigator {
 		this.containerEl.focus();
 		this.isFocused = true;
 	
-		if (this.focusedCardIndex === null) {
-			const activeCardIndex = this.findActiveCardIndex();
-			if (activeCardIndex !== -1) {
-				this.focusedCardIndex = this.ensureValidIndex(activeCardIndex);
+		// 항상 활성 카드를 찾도록 수정
+		const activeCardIndex = this.findActiveCardIndex();
+		if (activeCardIndex !== -1) {
+			this.focusedCardIndex = this.ensureValidIndex(activeCardIndex);
+		} else {
+			const firstVisibleCardIndex = this.findFirstVisibleCardIndex();
+			if (firstVisibleCardIndex !== null) {
+				this.focusedCardIndex = this.ensureValidIndex(firstVisibleCardIndex);
 			} else {
-				this.focusedCardIndex = this.ensureValidIndex(this.findFirstVisibleCardIndex() ?? 0);
+				this.focusedCardIndex = this.ensureValidIndex(0);
 			}
 		}
 	
 		this.updateFocusedCard();
+		this.scrollToFocusedCard(true); // 포커스된 카드로 스크롤
 	}
 
     // Blur the navigator
