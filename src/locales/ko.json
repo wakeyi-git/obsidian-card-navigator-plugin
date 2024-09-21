@@ -13,7 +13,7 @@
     "Default Preset Cannot Be Deleted": "기본 프리셋은 삭제할 수 없습니다.",
     "You have unsaved changes. Do you want to update the current preset before switching?": "저장하지 않은 변경 사항이 있습니다. 전환하기 전에 현재 프리셋을 업데이트하시겠습니까?",
     "Update and Switch": "업데이트 및 전환",
-    "Switch without Saving": "저장하지 않고 전환",
+    "Switch without saving": "저장하지 않고 전환",
     "Cancel": "취소",
     "Save New Preset": "새 프리셋 저장",
     "Preset Name": "프리셋 이름",
@@ -21,6 +21,7 @@
     "A preset with this name already exists. Please use the Update button to modify existing presets.": "이 이름의 프리셋이 이미 존재합니다. 기존 프리셋을 수정하려면 업데이트 버튼을 사용하세요.",
     "Default preset cannot be modified.": "기본 프리셋은 수정할 수 없습니다.",
     "Default preset cannot be deleted.": "기본 프리셋은 삭제할 수 없습니다.",
+	"Modified settings are not updated and applied to new presets.": "바뀐 설정이 업데이트되지 않고 새로운 프리셋으로 적용되었습니다.",
     "Preset applied.": "{{presetName}} 프리셋이 적용되었습니다.",
     "Preset does not exist.": "{{presetName}} 프리셋이 존재하지 않습니다.",
     "This button will revert the current preset's settings to their default values without changing the selected preset.": "이 버튼을 누르면 선택한 프리셋을 변경하지 않고 현재 프리셋의 설정을 기본값으로 되돌릴 수 있습니다.",
@@ -32,6 +33,12 @@
     "Default Preset Cannot Be Modified": "기본 프리셋은 수정할 수 없습니다.",
     "To Original": "원래대로",
     "Current preset settings reverted to original values": "현재 프리셋 설정이 원래 값으로 복원되었습니다.",
+	"Modified settings are not updated the previous preset and applied to preset.": "이전 프리셋이 업데이트되고 {{presetName}} 프리셋이 적용되었습니다.",
+	"Preset applied without saving changes.": "변경된 설정이 저장되지 않고 새로운 프리셋이 적용되었습니다.",
+	"Preset updated and applied.": "변경된 설정이 저장되고 새로운 프리셋이 적용되었습니다.",
+
+
+
     "Auto Apply Folder's Presets": "폴더 프리셋 자동 적용",
     "Automatically apply presets when changing folders": "폴더 변경 시 프리셋이 자동 적용됩니다.",
     "Presets are automatically applied when you change folders. If disabled, the preset currently being applied will be retained even if the active note's folder changes.": "폴더 변경 시 폴더 프리셋이 자동 적용됩니다. 비활성화하면 활성 노트의 폴더가 바뀌어도 현재 적용 중인 프리셋이 유지됩니다.",

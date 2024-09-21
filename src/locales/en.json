@@ -13,7 +13,7 @@
     "Default Preset Cannot Be Deleted": "Default preset cannot be deleted.",
     "You have unsaved changes. Do you want to update the current preset before switching?": "You have unsaved changes. Do you want to update the current preset before switching?",
     "Update and Switch": "Update and Switch",
-    "Switch without Saving": "Switch without Saving",
+    "Switch without saving": "Switch without Saving",
     "Cancel": "Cancel",
     "Save New Preset": "Save New Preset",
     "Preset Name": "Preset Name",
@@ -32,6 +32,12 @@
     "Preset updated": "{{presetName}} preset has been updated.",
     "Default Preset Cannot Be Modified": "Default preset cannot be modified.",
     "To Original": "To Original",
+	"The previous preset has been updated and the preset has been applied.": "The previous preset has been updated and {{presetName}} has been applied.",
+	"Modified settings are not updated the previous preset and applied to preset.": "Modified settings are not updated the previous preset and applied to {{presetName}} preset.",
+	"Preset applied without saving changes.": "Preset applied without saving changes.",
+	"Preset updated and applied.": "Preset updated and applied.",
+
+
     "Auto Apply Folder's Presets": "Auto Apply Folder's Presets",
     "Presets are automatically applied when you change folders. If disabled, the preset currently being applied will be retained even if the active note's folder changes.": "Presets are automatically applied when you change folders. If disabled, the preset currently being applied will be retained even if the active note's folder changes.",
     "Add Folder's Preset": "Add Folder's Presets",

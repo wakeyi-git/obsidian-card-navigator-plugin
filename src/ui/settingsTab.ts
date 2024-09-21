@@ -96,11 +96,11 @@ export class SettingTab extends PluginSettingTab {
                                 if (choice === 'update') {
                                     await this.settingsManager.updateCurrentPreset(currentPreset);
                                     await this.settingsManager.applyPreset(newValue);
-                                    new Notice(t('Preset updated and applied.', { presetName: newValue }));
+                                    new Notice(t('The previous preset has been updated and the preset has been applied.', { presetName: newValue }));
                                     this.updatePresetSettings(); // 변경된 부분만 업데이트
                                 } else if (choice === 'switch') {
                                     await this.settingsManager.applyPreset(newValue);
-                                    new Notice(t('Preset applied without saving changes.', { presetName: newValue }));
+                                    new Notice(t('Modified settings are not updated the previous preset and applied to preset.', { presetName: newValue }));
                                     this.updatePresetSettings(); // 변경된 부분만 업데이트
                                 } else {
                                     // Cancel: revert the dropdown to the current preset
