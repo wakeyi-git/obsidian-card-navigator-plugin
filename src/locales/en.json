@@ -95,6 +95,8 @@
     "Set font size for body": "Set font size for body",
 
     "Keyboard shortcuts": "Keyboard shortcuts",
+	"Command": "Command",
+	"Description": "Description",
     "Card Navigator provides the following features that can be assigned keyboard shortcuts. You can set these up in Obsidian's Hotkeys settings:": "Card navigator provides the following features that can be assigned keyboard shortcuts. You can set these up in obsidian's hotkeys settings:",
     "To set up shortcuts for these actions, go to Settings → Hotkeys and search for \"Card Navigator\". You can then assign your preferred key combinations for each action.": "To set up shortcuts for these actions, go to Settings → Hotkeys and search for \"Card Navigator\". You can then assign your preferred key combinations for each action.",
     "Note: Some shortcuts like arrow keys for navigation and Enter for opening cards are built-in and cannot be customized.": "Note: Some shortcuts like arrow keys for navigation and Enter for opening cards are built-in and cannot be customized.",

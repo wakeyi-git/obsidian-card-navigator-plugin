@@ -101,7 +101,7 @@ export default class CardNavigatorPlugin extends Plugin {
 
         this.addCommand({
             id: 'focus-card-navigator',
-            name: t('Focus Card Navigator'),
+            name: t('Move focus to Card Navigator'),
             callback: () => {
                 const cardNavigator = this.getActiveCardNavigator();
                 if (cardNavigator) {
@@ -112,7 +112,7 @@ export default class CardNavigatorPlugin extends Plugin {
 
         this.addCommand({
             id: 'open-card-context-menu',
-            name: t('Open Card Context Menu'),
+            name: t('Open card context menu'),
             callback: () => {
                 const cardNavigator = this.getActiveCardNavigator();
                 if (cardNavigator) {
@@ -274,13 +274,13 @@ export default class CardNavigatorPlugin extends Plugin {
     // Add scroll-related commands
     private addScrollCommands() {
         const scrollCommands = [
-            { id: 'scroll-up-one-card', name: t('Scroll Up One Card'), direction: 'up', count: 1 },
-            { id: 'scroll-down-one-card', name: t('Scroll Down One Card'), direction: 'down', count: 1 },
-            { id: 'scroll-left-one-card', name: t('Scroll Left One Card'), direction: 'left', count: 1 },
-            { id: 'scroll-right-one-card', name: t('Scroll Right One Card'), direction: 'right', count: 1 },
-            { id: 'scroll-up-page', name: t('Scroll Up/Left One Page'), direction: 'up', count: this.settings.cardsPerView },
-            { id: 'scroll-down-page', name: t('Scroll Down/Right One Page'), direction: 'down', count: this.settings.cardsPerView },
-            { id: 'center-active-card', name: t('Center Active Card'), direction: '', count: 0 },
+            { id: 'scroll-up-one-card', name: t('Scroll up one card'), direction: 'up', count: 1 },
+            { id: 'scroll-down-one-card', name: t('Scroll down one card'), direction: 'down', count: 1 },
+            { id: 'scroll-left-one-card', name: t('Scroll left one card'), direction: 'left', count: 1 },
+            { id: 'scroll-right-one-card', name: t('Scroll right one card'), direction: 'right', count: 1 },
+            { id: 'scroll-up-page', name: t('Scroll up/left one page'), direction: 'up', count: this.settings.cardsPerView },
+            { id: 'scroll-down-page', name: t('Scroll down/right one page'), direction: 'down', count: this.settings.cardsPerView },
+            { id: 'center-active-card', name: t('Center active card'), direction: '', count: 0 },
         ];
 
         scrollCommands.forEach(({ id, name, direction, count }) => {

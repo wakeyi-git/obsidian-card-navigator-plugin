@@ -292,41 +292,6 @@
     -webkit-box-orient: vertical;
 }
 
-/* Responsive styles */
-@media (max-width: 768px) {
-	.card-navigator-toolbar-container {
-		flex-wrap: nowrap; /* Prevent wrapping */
-		justify-content: space-between; /* Distribute space between search and icons */
-	}
-
-	.card-navigator-search-container {
-		flex-grow: 1;
-		flex-shrink: 1; /* Allow search container to shrink */
-		min-width: 0; /* Allow container to shrink below content size */
-	}
-
-	.card-navigator-search-input {
-		width: 100%;
-		min-width: 0; /* Allow input to shrink */
-	}
-
-	.card-navigator-action-icons-container {
-		flex-shrink: 0; /* Prevent icons from shrinking */
-	}
-
-	.card-navigator-sort-popup,
-	.card-navigator-settings-popup {
-		top: 100%;
-		right: 0;
-		width: var(--card-navigator-popup-width);
-		max-width: none;
-	}
-
-	.card-navigator-settings-popup {
-		max-width: 100%; /* Ensure popup doesn't exceed screen width */
-	}
-}
-
 .popout-window {
     border: 5px solid transparent; /* 기존 두께보다 늘림 */
 }
@@ -390,4 +355,108 @@
 /* 다크 모드 대응 */
 .theme-dark .masonry-card {
     background: var(--background-secondary-alt);
+}
+
+
+/* Keyboard Shortcuts Table Styles */
+.keyboard-shortcuts-description {
+    margin-bottom: 1em;
+    font-style: italic;
+    color: var(--text-muted);
+}
+
+.keyboard-shortcuts-table-container {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 1em;
+}
+
+.keyboard-shortcuts-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.keyboard-shortcuts-table th,
+.keyboard-shortcuts-table td {
+    padding: 12px 15px;
+    text-align: left;
+}
+
+.keyboard-shortcuts-table th {
+    background-color: var(--background-secondary-alt);
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.9em;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid var(--background-modifier-border);
+}
+
+.keyboard-shortcuts-table tr:not(:last-child) td {
+    border-bottom: 1px solid var(--background-modifier-border-hover);
+}
+
+.keyboard-shortcuts-table tr:nth-child(even) {
+    background-color: var(--background-secondary);
+}
+
+.keyboard-shortcut-name {
+    font-weight: bold;
+}
+
+.keyboard-shortcut-description {
+    color: var(--text-muted);
+}
+
+.keyboard-shortcuts-note {
+    font-size: 0.9em;
+    color: var(--text-muted);
+    margin-top: 1em;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+	.card-navigator-toolbar-container {
+		flex-wrap: nowrap; /* Prevent wrapping */
+		justify-content: space-between; /* Distribute space between search and icons */
+	}
+
+	.card-navigator-search-container {
+		flex-grow: 1;
+		flex-shrink: 1; /* Allow search container to shrink */
+		min-width: 0; /* Allow container to shrink below content size */
+	}
+
+	.card-navigator-search-input {
+		width: 100%;
+		min-width: 0; /* Allow input to shrink */
+	}
+
+	.card-navigator-action-icons-container {
+		flex-shrink: 0; /* Prevent icons from shrinking */
+	}
+
+	.card-navigator-sort-popup,
+	.card-navigator-settings-popup {
+		top: 100%;
+		right: 0;
+		width: var(--card-navigator-popup-width);
+		max-width: none;
+	}
+
+	.card-navigator-settings-popup {
+		max-width: 100%; /* Ensure popup doesn't exceed screen width */
+	}
+
+	.keyboard-shortcuts-table th,
+    .keyboard-shortcuts-table td {
+        padding: 8px 10px;
+    }
+
+    .keyboard-shortcuts-table {
+        font-size: 0.9em;
+    }
 }
