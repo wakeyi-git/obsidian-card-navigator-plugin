@@ -38,7 +38,7 @@ export class SettingTab extends PluginSettingTab {
     }
 
     // Update the layout section of the settings tab
-    private updateLayoutSection(): void {
+	private updateLayoutSection(): void {
         const layoutSectionEl = this.containerEl.querySelector('.layout-section');
         if (layoutSectionEl) {
             layoutSectionEl.empty();
@@ -63,7 +63,7 @@ export class SettingTab extends PluginSettingTab {
         const presetSectionEl = containerEl.createDiv('preset-section');
         this.addPresetSettings(presetSectionEl);
 
-        this.addContainerSettings(containerEl);
+		this.addContainerSettings(containerEl);
         
         const layoutSectionEl = containerEl.createDiv('layout-section');
         this.addLayoutSettings(layoutSectionEl);
@@ -103,6 +103,7 @@ export class SettingTab extends PluginSettingTab {
                                     new Notice(t('Preset applied without saving changes.', { presetName: newValue }));
                                     this.updatePresetSettings(); // 변경된 부분만 업데이트
                                 } else {
+                                    // Cancel: revert the dropdown to the current preset
                                     dropdown.setValue(currentPreset);
                                 }
                             } catch (error) {
@@ -291,204 +292,204 @@ export class SettingTab extends PluginSettingTab {
 		}
 	}
 
-    // Add general settings section
-    private addContainerSettings(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(t('Container settings'))
-            .setHeading();
+	// Add general settings section
+	private addContainerSettings(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+		.setName(t('Container Settings'))
+		.setHeading();
 
-		const folderSectionEl = containerEl.createDiv('folder-selection-section');
-        this.addFolderSelectionSetting(folderSectionEl);
-        
-        this.addSortSetting(containerEl);
-        this.addToggleSettingToSetting(
-            new Setting(containerEl)
-                .setName(t('Center active card on open'))
-                .setDesc(t('Automatically center the active card when opening the Card Navigator')),
-            'centerActiveCardOnOpen'
-        );
-    }
+		this.addFolderSelectionSetting(containerEl);
+		
+		this.addSortSetting(containerEl);
+
+		this.addToggleSettingToSetting(
+			new Setting(containerEl)
+				.setName(t('Center Active Card on Open'))
+				.setDesc(t('Automatically center the active card when opening the Card Navigator')),
+			'centerActiveCardOnOpen'
+		);
+	}
 
     // Add layout settings section
     private addLayoutSettings(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(t('Layout settings'))
-            .setHeading();
-    
-        const cardWidthThresholdSetting = new Setting(containerEl)
-            .setName(t('Card width threshold'))
-            .setDesc(t('Width threshold for adding/removing columns'));
-        this.addNumberSettingToSetting(cardWidthThresholdSetting, 'cardWidthThreshold');
-    
-        const alignCardHeightSetting = new Setting(containerEl)
-            .setName(t('Align card height'))
-            .setDesc(t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.'));
-    
-        const cardsPerViewSetting = new Setting(containerEl)
-            .setName(t('Cards per view'))
-            .setDesc(t('Number of cards to display at once'));
-        this.addNumberSettingToSetting(cardsPerViewSetting, 'cardsPerView');
-    
-        const gridColumnsSetting = new Setting(containerEl)
-            .setName(t('Grid columns'))
-            .setDesc(t('Number of columns in grid layout'));
-        this.addNumberSettingToSetting(gridColumnsSetting, 'gridColumns');
-    
-        const gridCardHeightSetting = new Setting(containerEl)
-            .setName(t('Grid card height'))
-            .setDesc(t('Card height in grid layout'));
-        this.addNumberSettingToSetting(gridCardHeightSetting, 'gridCardHeight');
+		new Setting(containerEl)
+			.setName(t('Layout Settings'))
+			.setHeading();
+	
+		const cardWidthThresholdSetting = new Setting(containerEl)
+			.setName(t('Card Width Threshold'))
+			.setDesc(t('Width threshold for adding/removing columns'));
+		this.addNumberSettingToSetting(cardWidthThresholdSetting, 'cardWidthThreshold');
+	
+		const alignCardHeightSetting = new Setting(containerEl)
+			.setName(t('Align Card Height'))
+			.setDesc(t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.'));
+	
+		const cardsPerViewSetting = new Setting(containerEl)
+			.setName(t('Cards per view'))
+			.setDesc(t('Number of cards to display at once'));
+		this.addNumberSettingToSetting(cardsPerViewSetting, 'cardsPerView');
+	
+		const gridColumnsSetting = new Setting(containerEl)
+			.setName(t('Grid Columns'))
+			.setDesc(t('Number of columns in grid layout'));
+		this.addNumberSettingToSetting(gridColumnsSetting, 'gridColumns');
+	
+		const gridCardHeightSetting = new Setting(containerEl)
+			.setName(t('Grid Card Height'))
+			.setDesc(t('Card height in grid layout'));
+		this.addNumberSettingToSetting(gridCardHeightSetting, 'gridCardHeight');
 
-        const masonryColumnsSetting = new Setting(containerEl)
-            .setName(t('Masonry columns'))
-            .setDesc(t('Number of columns in masonry layout'));
-        this.addNumberSettingToSetting(masonryColumnsSetting, 'masonryColumns');
-    
-        // Update settings state based on current layout and alignCardHeight
-        const updateSettingsState = (layout: CardNavigatorSettings['defaultLayout'], alignCardHeight: boolean) => {
-            const updateSettingState = (setting: Setting, isEnabled: boolean) => {
-                setting.setDisabled(!isEnabled);
-                if (isEnabled) {
-                    setting.settingEl.removeClass('setting-disabled');
-                } else {
-                    setting.settingEl.addClass('setting-disabled');
-                }
-            };
-    
-            updateSettingState(cardWidthThresholdSetting, layout === 'auto');
-            updateSettingState(gridColumnsSetting, layout === 'grid');
-            updateSettingState(gridCardHeightSetting, layout === 'auto' || layout === 'grid');
-            updateSettingState(masonryColumnsSetting, layout === 'masonry');
-            updateSettingState(alignCardHeightSetting, layout === 'auto' || layout === 'list');
-            updateSettingState(cardsPerViewSetting, (layout === 'auto' || layout === 'list') && alignCardHeight);
-        };
-    
-        // Default Layout setting
-        const defaultLayoutSetting = new Setting(containerEl)
-            .setName(t('Default layout'))
-            .setDesc(t('Choose the default layout for cards'))
-            .addDropdown((dropdown: DropdownComponent) => {
-                dropdown
-                    .addOption('auto', t('Auto'))
-                    .addOption('list', t('List'))
-                    .addOption('grid', t('Grid'))
-                    .addOption('masonry', t('Masonry'))
-                    .setValue(this.plugin.settings.defaultLayout)
-                    .onChange(async (value: string) => {
-                        const layout = value as CardNavigatorSettings['defaultLayout'];
-                        await this.plugin.settingsManager.updateSetting('defaultLayout', layout);
-                        this.plugin.updateCardNavigatorLayout(layout);
-                        updateSettingsState(layout, this.plugin.settings.alignCardHeight);
-                        this.updateLayoutSection();
-                        this.updatePresetSettings();
-                    });
-            });
-    
-        // Move Default Layout setting to the top
-        containerEl.insertBefore(defaultLayoutSetting.settingEl, cardWidthThresholdSetting.settingEl);
-    
-        // Add toggle to Align Card Height setting
-        alignCardHeightSetting.addToggle(toggle => toggle
-            .setValue(this.plugin.settings.alignCardHeight)
-            .onChange(async (value) => {
-                await this.settingsManager.updateBooleanSetting('alignCardHeight', value);
-                updateSettingsState(this.plugin.settings.defaultLayout, value);
-                this.updatePresetSettings();
-            })
-        );
-    
-        // Set initial state
-        updateSettingsState(this.plugin.settings.defaultLayout, this.plugin.settings.alignCardHeight);
-    }
-
-    // Add card display settings section
-    private addCardContentSettings(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(t('Card content settings'))
-            .setHeading();
-
-        this.addToggleSettingToSetting(
-            new Setting(containerEl)
-                .setName(t('Render content as HTML'))
-                .setDesc(t('If enabled, card content will be rendered as HTML.')),
-            'renderContentAsHtml'
-        );
-    
-        this.addToggleSettingToSetting(
-            new Setting(containerEl)
-                .setName(t('Drag and drop content'))
-                .setDesc(t('When enabled, dragging a card will insert the note content instead of a link.')),
-            'dragDropContent'
-        );
-
-        // Card content settings
-        contentSettings.forEach(({ key, name, description }) => {
-            this.addToggleSettingToSetting(
-                new Setting(containerEl)
-                    .setName(t(name))
-                    .setDesc(t(description)),
-                key
-            );
+		const masonryColumnsSetting = new Setting(containerEl)
+			.setName(t('Masonry Columns'))
+			.setDesc(t('Number of columns in masonry layout'));
+		this.addNumberSettingToSetting(masonryColumnsSetting, 'masonryColumns');
+	
+		// Update settings state based on current layout and alignCardHeight
+		const updateSettingsState = (layout: CardNavigatorSettings['defaultLayout'], alignCardHeight: boolean) => {
+			const updateSettingState = (setting: Setting, isEnabled: boolean) => {
+				setting.setDisabled(!isEnabled);
+				if (isEnabled) {
+					setting.settingEl.removeClass('setting-disabled');
+				} else {
+					setting.settingEl.addClass('setting-disabled');
+				}
+			};
+	
+			updateSettingState(cardWidthThresholdSetting, layout === 'auto');
+			updateSettingState(gridColumnsSetting, layout === 'grid');
+			updateSettingState(gridCardHeightSetting, layout === 'auto' || layout === 'grid');
+			updateSettingState(masonryColumnsSetting, layout === 'masonry');
+			updateSettingState(alignCardHeightSetting, layout === 'auto' || layout === 'list');
+			updateSettingState(cardsPerViewSetting, (layout === 'auto' || layout === 'list') && alignCardHeight);
+		};
+	
+		// Default Layout setting
+		const defaultLayoutSetting = new Setting(containerEl)
+        .setName(t('Default Layout'))
+        .setDesc(t('Choose the default layout for cards'))
+        .addDropdown((dropdown: DropdownComponent) => {
+            dropdown
+                .addOption('auto', t('Auto'))
+                .addOption('list', t('List'))
+                .addOption('grid', t('Grid'))
+                .addOption('masonry', t('Masonry'))
+                .setValue(this.plugin.settings.defaultLayout)
+                .onChange(async (value: string) => {
+                    const layout = value as CardNavigatorSettings['defaultLayout'];
+                    await this.plugin.settingsManager.updateSetting('defaultLayout', layout);
+                    this.plugin.updateCardNavigatorLayout(layout);
+                    updateSettingsState(layout, this.plugin.settings.alignCardHeight);
+                    this.updateLayoutSection();
+					this.updatePresetSettings();
+                });
         });
-    
-        // Body length settings
-        const bodyLengthLimitSetting = new Setting(containerEl)
-            .setName(t('Body length limit'))
-            .setDesc(t('Toggle between limited and unlimited body length.'));
-        
-        const bodyLengthSetting = new Setting(containerEl)
-            .setName(t('Body length'))
-            .setDesc(t('Set the maximum body length displayed on each card when body length is limited.'));
-        
-        this.addNumberSettingToSetting(bodyLengthSetting, 'bodyLength');
+	
+		// Move Default Layout setting to the top
+		containerEl.insertBefore(defaultLayoutSetting.settingEl, cardWidthThresholdSetting.settingEl);
+	
+		// Add toggle to Align Card Height setting
+		alignCardHeightSetting.addToggle(toggle => toggle
+			.setValue(this.plugin.settings.alignCardHeight)
+			.onChange(async (value) => {
+				await this.settingsManager.updateBooleanSetting('alignCardHeight', value);
+				updateSettingsState(this.plugin.settings.defaultLayout, value);
+				this.updatePresetSettings();
+			})
+		);
+	
+		// Set initial state
+		updateSettingsState(this.plugin.settings.defaultLayout, this.plugin.settings.alignCardHeight);
+	}
 
-        // Update Body Length setting state
-        const updateBodyLengthState = (isLimited: boolean) => {
-            bodyLengthSetting.setDisabled(!isLimited);
-            if (isLimited) {
-                bodyLengthSetting.settingEl.removeClass('setting-disabled');
-            } else {
-                bodyLengthSetting.settingEl.addClass('setting-disabled');
-            }
-        };
+	// Add card display settings section
+	private addCardContentSettings(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName(t('Card Content Settings'))
+			.setHeading();
 
-        // Set initial state of Body Length setting
-        updateBodyLengthState(this.plugin.settings.bodyLengthLimit);
+		this.addToggleSettingToSetting(
+			new Setting(containerEl)
+				.setName(t('Render Content as HTML'))
+				.setDesc(t('If enabled, card content will be rendered as HTML')),
+			'renderContentAsHtml'
+		);
+	
+		this.addToggleSettingToSetting(
+			new Setting(containerEl)
+				.setName(t('Drag and Drop Content'))
+				.setDesc(t('When enabled, dragging a card will insert the note content instead of a link.')),
+			'dragDropContent'
+		);
 
-        // Add toggle to Body Length Limit setting
-        bodyLengthLimitSetting.addToggle(toggle => toggle
-            .setValue(this.plugin.settings.bodyLengthLimit)
-            .onChange(async (value) => {
-                await this.settingsManager.updateBooleanSetting('bodyLengthLimit', value);
-                updateBodyLengthState(value);
-                this.updatePresetSettings();
-            })
-        );
-    }
+		// Card content settings
+		contentSettings.forEach(({ key, name, description }) => {
+			this.addToggleSettingToSetting(
+				new Setting(containerEl)
+					.setName(t(name))
+					.setDesc(t(description)),
+				key
+			);
+		});
+	
+		// Body length settings
+		const bodyLengthLimitSetting = new Setting(containerEl)
+			.setName(t('Body Length Limit'))
+			.setDesc(t('Toggle between limited and unlimited body length'));
+		
+		const bodyLengthSetting = new Setting(containerEl)
+			.setName(t('Body Length'))
+			.setDesc(t('Set the maximum body length displayed on each card when body length is limited.'));
+		
+		this.addNumberSettingToSetting(bodyLengthSetting, 'bodyLength');
 
-    // Add card styling settings section
-    private addCardStylingSettings(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(t('Card styling settings'))
-            .setHeading();
-    
-        fontSizeSettings.forEach(({ key, name, description }) => {
-            if (key === 'fileNameFontSize' || key === 'firstHeaderFontSize' || key === 'bodyFontSize') {
-                this.addNumberSettingToSetting(
-                    new Setting(containerEl)
-                        .setName(t(name))
-                        .setDesc(t(description)),
-                    key
-                );
-            }
-        });
-    }
+		// Update Body Length setting state
+		const updateBodyLengthState = (isLimited: boolean) => {
+			bodyLengthSetting.setDisabled(!isLimited);
+			if (isLimited) {
+				bodyLengthSetting.settingEl.removeClass('setting-disabled');
+			} else {
+				bodyLengthSetting.settingEl.addClass('setting-disabled');
+			}
+		};
 
-    // Add keyboard shortcuts information section
-    private addKeyboardShortcutsInfo(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(t('Keyboard shortcuts'))
-            .setHeading();
+		// Set initial state of Body Length setting
+		updateBodyLengthState(this.plugin.settings.bodyLengthLimit);
+
+		// Add toggle to Body Length Limit setting
+		bodyLengthLimitSetting.addToggle(toggle => toggle
+			.setValue(this.plugin.settings.bodyLengthLimit)
+			.onChange(async (value) => {
+				await this.settingsManager.updateBooleanSetting('bodyLengthLimit', value);
+				updateBodyLengthState(value);
+				this.updatePresetSettings();
+			})
+		);
+	}
+
+	// Add card styling settings section
+	private addCardStylingSettings(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName(t('Card Styling Settings'))
+			.setHeading();
+	
+		fontSizeSettings.forEach(({ key, name, description }) => {
+			if (key === 'fileNameFontSize' || key === 'firstHeaderFontSize' || key === 'bodyFontSize') {
+				this.addNumberSettingToSetting(
+					new Setting(containerEl)
+						.setName(t(name))
+						.setDesc(t(description)),
+					key
+				);
+			}
+		});
+	}
+
+	// Add keyboard shortcuts information section
+	private addKeyboardShortcutsInfo(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName(t('Keyboard Shortcuts'))
+			.setHeading();
 
         const shortcutDesc = containerEl.createEl('p', { cls: 'keyboard-shortcuts-description' });
         shortcutDesc.setText(t('Card Navigator provides the following features that can be assigned keyboard shortcuts. You can set these up in Obsidian\'s Hotkeys settings:'));
@@ -516,183 +517,180 @@ export class SettingTab extends PluginSettingTab {
     }
 
 
-    // Add folder selection settings
-    private addFolderSelectionSetting(containerEl: HTMLElement): void {
-		const folderSettingEl = new Setting(containerEl)
-            .setName(t('Source folder'))
-            .setDesc(t('Choose whether to use the active file\'s folder or the selected folder in the card navigator.'))
-            .addDropdown(dropdown => dropdown
-                .addOption('active', t('Active folder'))
-                .addOption('selected', t('Selected folder'))
-                .setValue(this.plugin.settings.useSelectedFolder ? 'selected' : 'active')
-                .onChange(async (value) => {
-                    await this.settingsManager.updateBooleanSetting('useSelectedFolder', value === 'selected');
-                    this.updateFolderSelectionSection();
-                    this.updatePresetSettings();
-                })).settingEl;
+	// Add folder selection settings
+	private addFolderSelectionSetting(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName(t('Folder Selection'))
+			.setDesc(t('Choose whether to use the active file\'s folder or a selected folder'))
+			.addDropdown(dropdown => dropdown
+				.addOption('active', t('Active Folder'))
+				.addOption('selected', t('Selected Folder'))
+				.setValue(this.plugin.settings.useSelectedFolder ? 'selected' : 'active')
+				.onChange(async (value) => {
+					await this.settingsManager.updateBooleanSetting('useSelectedFolder', value === 'selected');
+					this.updateFolderSelectionSection();
+					this.updatePresetSettings();
+				})).settingEl;
 
-		folderSettingEl.addClass('setting-folder-selection');
+		// folderSettingEl.addClass('setting-folder-selection');
 
-        if (this.plugin.settings.useSelectedFolder) {
-            this.addFolderSetting(containerEl);
-        }
-    }
+		if (this.plugin.settings.useSelectedFolder) {
+			this.addFolderSetting(containerEl);
+		}
+	}
 
-    // Add folder selection button when 'Selected Folder' is chosen
-    private addFolderSetting(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(t('Select folder'))
-            .setDesc(t('Choose a folder for Card Navigator'))
-            .setDisabled(!this.plugin.settings.useSelectedFolder)
-            .addButton(button => button
-                .setButtonText(this.plugin.settings.selectedFolder || t('Choose folder'))
-                .onClick(() => {
-                    new FolderSuggestModal(this.plugin, async (folder) => {
-                        await this.settingsManager.updateSelectedFolder(folder);
-                        this.updateFolderSelectionSection();
-                        this.updatePresetSettings();
-                    }).open();
-                }));
-    }
+	// Add folder selection button when 'Selected Folder' is chosen
+	private addFolderSetting(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName(t('Select Folder'))
+			.setDesc(t('Choose a folder for Card Navigator'))
+			.setDisabled(!this.plugin.settings.useSelectedFolder)
+			.addButton(button => button
+				.setButtonText(this.plugin.settings.selectedFolder || t('Choose folder'))
+				.onClick(() => {
+					new FolderSuggestModal(this.plugin, async (folder) => {
+						await this.settingsManager.updateSelectedFolder(folder);
+						this.updateFolderSelectionSection();
+						this.updatePresetSettings();
+					}).open();
+				}));
+	}
 
-    // Add sorting settings
-    private addSortSetting(containerEl: HTMLElement): void {
-        new Setting(containerEl)
-            .setName(t('Default sort method'))
-            .setDesc(t('Choose the default sorting method for cards.'))
-            .addDropdown(dropdown => {
-                sortOptions.forEach(option => {
-                    dropdown.addOption(option.value, t(option.label));
-                });
-                dropdown
-                    .setValue(`${this.plugin.settings.sortCriterion}_${this.plugin.settings.sortOrder}`)
-                    .onChange(async (value) => {
-                        const [criterion, order] = value.split('_') as [SortCriterion, SortOrder];
-                        await this.settingsManager.updateSortSettings(criterion, order);
-                    });
-            }).settingEl;
-    }
+	// Add sorting settings
+	private addSortSetting(containerEl: HTMLElement): void {
+		new Setting(containerEl)
+			.setName(t('Default sort method'))
+			.setDesc(t('Choose the default sorting method for cards'))
+			.addDropdown(dropdown => {
+				sortOptions.forEach(option => {
+					dropdown.addOption(option.value, t(option.label));
+				});
+				dropdown
+					.setValue(`${this.plugin.settings.sortCriterion}_${this.plugin.settings.sortOrder}`)
+					.onChange(async (value) => {
+						const [criterion, order] = value.split('_') as [SortCriterion, SortOrder];
+						await this.settingsManager.updateSortSettings(criterion, order);
+					});
+			}).settingEl;
+	}
 
-    // Add toggle setting to a Setting object
-    private addToggleSettingToSetting(setting: Setting, key: keyof CardNavigatorSettings): void {
-        setting.addToggle(toggle => toggle
-            .setValue(this.plugin.settings[key] as boolean)
-            .onChange(async (value) => {
-                await this.settingsManager.updateBooleanSetting(key, value);
-                this.updatePresetSettings();
-            })
-        );
-    }
+	// Add toggle setting to a Setting object
+	private addToggleSettingToSetting(setting: Setting, key: keyof CardNavigatorSettings): void {
+		setting.addToggle(toggle => toggle
+			.setValue(this.plugin.settings[key] as boolean)
+			.onChange(async (value) => {
+				await this.settingsManager.updateBooleanSetting(key, value);
+				this.updatePresetSettings();
+			})
+		);
+	}
 
-    // Add number setting to a Setting object
-    private addNumberSettingToSetting(setting: Setting, key: NumberSettingKey): void {
-        const config = this.settingsManager.getNumberSettingConfig(key);
-        setting.addSlider(slider => slider
-            .setLimits(config.min, config.max, config.step)
-            .setValue(this.plugin.settings[key])
-            .setDynamicTooltip()
-            .onChange(async (value) => {
-                // Check if the setting should be updated based on other settings
-                if ((key === 'bodyLength' && !this.plugin.settings.bodyLengthLimit) ||
-                    (key === 'cardsPerView' && !this.plugin.settings.alignCardHeight)) {
-                    return;
-                }
-                
-                await this.settingsManager.updateNumberSetting(key, value);
-                
-                // Update layout if necessary
-                if (key === 'gridColumns' || key === 'masonryColumns') {
-                    this.plugin.updateCardNavigatorLayout(this.plugin.settings.defaultLayout);
-                }
-                
-                this.plugin.triggerRefresh();
-                this.updatePresetSettings();
-            })
-        );
-    
-        // Disable bodyLength setting if body length is not limited
-        if (key === 'bodyLength') {
-            setting.setDisabled(!this.plugin.settings.bodyLengthLimit);
-        }
-    }
+	// Add number setting to a Setting object
+	private addNumberSettingToSetting(setting: Setting, key: NumberSettingKey): void {
+		const config = this.settingsManager.getNumberSettingConfig(key);
+		setting.addSlider(slider => slider
+			.setLimits(config.min, config.max, config.step)
+			.setValue(this.plugin.settings[key])
+			.setDynamicTooltip()
+			.onChange(async (value) => {
+				// Check if the setting should be updated based on other settings
+				if ((key === 'bodyLength' && !this.plugin.settings.bodyLengthLimit) ||
+					(key === 'cardsPerView' && !this.plugin.settings.alignCardHeight)) {
+					return;
+				}
+				
+				await this.settingsManager.updateNumberSetting(key, value);
+				
+				// Update layout if necessary
+				if (key === 'gridColumns' || key === 'masonryColumns') {
+					this.plugin.updateCardNavigatorLayout(this.plugin.settings.defaultLayout);
+				}
+				
+				this.plugin.triggerRefresh();
+				this.updatePresetSettings();
+			})
+		);
+	
+		// Disable bodyLength setting if body length is not limited
+		if (key === 'bodyLength') {
+			setting.setDisabled(!this.plugin.settings.bodyLengthLimit);
+		}
+	}
 }
 
 // Modal for saving a new preset
 class SavePresetModal extends Modal {
-    private result = '';
-    private existingPresets: string[];
-    private warningEl: HTMLParagraphElement;
-    private inputEl: HTMLInputElement;
+	private result = '';
+	private existingPresets: string[];
+	private warningEl: HTMLParagraphElement;
+	private inputEl: HTMLInputElement;
 
-    constructor(
-        app: App,
-        private onSubmit: (result: string) => void,
-        private plugin: CardNavigatorPlugin
-    ) {
-        super(app);
-        this.existingPresets = Object.keys(this.plugin.settingsManager.getPresets());
-        // Initialize with dummy elements
-        this.warningEl = this.containerEl.win.document.createElement('p');
-        this.inputEl = this.containerEl.win.document.createElement('input');
-    }
+	constructor(
+		app: App,
+		private onSubmit: (result: string) => void,
+		private plugin: CardNavigatorPlugin
+	) {
+		super(app);
+		this.existingPresets = Object.keys(this.plugin.settingsManager.getPresets());
+		// Initialize with dummy elements
+		this.warningEl = this.containerEl.win.document.createElement('p');
+		this.inputEl = this.containerEl.win.document.createElement('input');
+	}
 
-    // Open the modal
-    onOpen() {
-        const { contentEl } = this;
-        contentEl.empty();
-        // Replaced <h2> with a setting heading
-        new Setting(contentEl)
-            .setName(t("Save new preset"))
-            .setHeading();
+	// Open the modal
+	onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+		contentEl.createEl("h2", { text: t("Save New Preset") });
 
-        new Setting(contentEl)
-            .setName(t("Preset name"))
-            .addText((text) => {
-                this.inputEl = text.inputEl;
-                text.onChange((value) => {
-                    this.result = value;
-                });
-                this.inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        this.savePreset();
-                    }
-                });
-            });
+		new Setting(contentEl)
+			.setName(t("Preset Name"))
+			.addText((text) => {
+				this.inputEl = text.inputEl;
+				text.onChange((value) => {
+					this.result = value;
+				});
+				this.inputEl.addEventListener('keydown', (e: KeyboardEvent) => {
+					if (e.key === 'Enter') {
+						e.preventDefault();
+						this.savePreset();
+					}
+				});
+			});
 
-        this.warningEl = contentEl.createEl("p", { cls: "preset-warning", text: "" });
-        this.warningEl.style.color = "var(--text-error)";
-        this.warningEl.style.display = "none";
+		this.warningEl = contentEl.createEl("p", { cls: "preset-warning", text: "" });
+		this.warningEl.style.color = "var(--text-error)";
+		this.warningEl.style.display = "none";
 
-        new Setting(contentEl)
-            .addButton((btn) =>
-                btn
-                    .setButtonText(t("Save"))
-                    .setCta()
-                    .onClick(() => {
-                        this.savePreset();
-                    }));
-    }
+		new Setting(contentEl)
+			.addButton((btn) =>
+				btn
+					.setButtonText(t("Save"))
+					.setCta()
+					.onClick(() => {
+						this.savePreset();
+					}));
+	}
 
-    // Save the preset
-    private savePreset() {
-        if (this.result.trim() === '') {
-            this.warningEl.textContent = t("Preset name cannot be empty.");
-            this.warningEl.style.display = "block";
-        } else if (this.existingPresets.includes(this.result)) {
-            this.warningEl.textContent = t("A preset with this name already exists. Please use the Update button to modify existing presets.");
-            this.warningEl.style.display = "block";
-        } else {
-            this.close();
-            this.onSubmit(this.result);
-        }
-    }
+	// Save the preset
+	private savePreset() {
+		if (this.result.trim() === '') {
+			this.warningEl.textContent = t("Preset name cannot be empty.");
+			this.warningEl.style.display = "block";
+		} else if (this.existingPresets.includes(this.result)) {
+			this.warningEl.textContent = t("A preset with this name already exists. Please use the Update button to modify existing presets.");
+			this.warningEl.style.display = "block";
+		} else {
+			this.close();
+			this.onSubmit(this.result);
+		}
+	}
 
-    // Close the modal
-    onClose() {
-        const { contentEl } = this;
-        contentEl.empty();
-    }
+	// Close the modal
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
+	}
 }
 
 // Modal for confirming actions when switching presets
@@ -703,21 +701,16 @@ class ConfirmationModal extends Modal {
         super(app);
     }
 
-    // Open the modal
+	// Open the modal
     onOpen() {
         const {contentEl} = this;
-        contentEl.empty();
-        // Replaced text with a setting heading
+        contentEl.setText(this.message);
         new Setting(contentEl)
-            .setName(this.message)
-            .setHeading();
-
-        new Setting(contentEl)
-            .addButton(btn => btn.setButtonText(t('Update and switch')).onClick(() => {
+            .addButton(btn => btn.setButtonText(t('Update and Switch')).onClick(() => {
                 this.result = 'update';
                 this.close();
             }))
-            .addButton(btn => btn.setButtonText(t('Switch without saving')).onClick(() => {
+            .addButton(btn => btn.setButtonText(t('Switch without Saving')).onClick(() => {
                 this.result = 'switch';
                 this.close();
             }))
@@ -727,7 +720,7 @@ class ConfirmationModal extends Modal {
             }));
     }
 
-    // Close the modal
+	// Close the modal
     onClose() {
         const {contentEl} = this;
         contentEl.empty();

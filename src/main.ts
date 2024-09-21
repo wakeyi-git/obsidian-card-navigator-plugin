@@ -30,7 +30,7 @@ export default class CardNavigatorPlugin extends Plugin {
         await this.loadSettings();
         this.initializeManagers();
         await this.initializePlugin();
-		this.ribbonIconEl = this.addRibbonIcon('layers-3', t('Open Card Navigator'), () => {
+		this.ribbonIconEl = this.addRibbonIcon('layers-3', t('Activate Card Navigator'), () => {
 			this.activateView();
 		});
         this.registerEvent(
