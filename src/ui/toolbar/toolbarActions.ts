@@ -6,7 +6,7 @@ import { SettingsManager } from '../../common/settingsManager';
 import { t } from 'i18next';
 
 // Track the current popup for proper management
-const currentPopups: Map<Window, { element: HTMLElement, type: ToolbarMenu }> = new Map();
+let currentPopup: { element: HTMLElement, type: ToolbarMenu } | null = null;
 
 // Modal for selecting folders in the toolbar
 export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
@@ -31,47 +31,39 @@ export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     }
 }
 
-// Define a handler function
-function handleWindowClick(event: MouseEvent, windowObj: Window) {
-    onClickOutside(event, windowObj);
-}
-
 // Create and attach a popup to the toolbar
-function createPopup(className: string, type: ToolbarMenu, windowObj: Window): HTMLElement {
-    closeCurrentPopup(windowObj);
-    const popup = windowObj.document.createElement('div');
+function createPopup(className: string, type: ToolbarMenu, containerEl: HTMLElement | null): HTMLElement {
+    if (!containerEl) {
+        console.error('Container element is undefined');
+        return document.createElement('div'); // 임시 요소 반환
+    }
+    closeCurrentPopup(containerEl);
+    const popup = containerEl.win.document.createElement('div');
     popup.className = className;
-    const toolbarEl = windowObj.document.querySelector('.card-navigator-toolbar-container');
+    const toolbarEl = containerEl.querySelector('.card-navigator-toolbar-container');
     if (toolbarEl) {
         toolbarEl.insertAdjacentElement('afterend', popup);
-        currentPopups.set(windowObj, { element: popup, type });
-        windowObj.addEventListener('click', (e) => handleWindowClick(e, windowObj));
+        currentPopup = { element: popup, type };
+        containerEl.win.document.addEventListener('click', (e) => onClickOutside(e, containerEl));
     }
     return popup;
 }
 
-// Close the current popup for a specific window
-function closeCurrentPopup(windowObj: Window) {
-    const existingPopup = currentPopups.get(windowObj);
-    if (existingPopup) {
-        existingPopup.element.remove();
-        currentPopups.delete(windowObj);
-        windowObj.removeEventListener('click', (e) => handleWindowClick(e, windowObj));
+// Close the current popup
+function closeCurrentPopup(containerEl: HTMLElement) {
+    if (currentPopup) {
+        currentPopup.element.remove();
+        currentPopup = null;
+        containerEl.win.document.removeEventListener('click', (e) => onClickOutside(e, containerEl));
     }
 }
 
 // Handle clicks outside the popup to close it
-function onClickOutside(event: MouseEvent, windowObj: Window) {
-    const target = event.target as Node;
-    const toolbarEl = windowObj.document.querySelector('.card-navigator-toolbar-container');
-    const existingPopup = currentPopups.get(windowObj);
-    if (existingPopup && !existingPopup.element.contains(target) && !toolbarEl?.contains(target)) {
-        if (
-            existingPopup.type === 'sort' ||
-            (existingPopup.type === 'settings' &&
-                !event.composedPath().some(el => (el as HTMLElement).classList?.contains('card-navigator-settings-popup')))
-        ) {
-            closeCurrentPopup(windowObj);
+function onClickOutside(event: MouseEvent, containerEl: HTMLElement) {
+    const toolbarEl = containerEl.querySelector('.card-navigator-toolbar-container');
+    if (currentPopup && !currentPopup.element.contains(event.target as Node) && !toolbarEl?.contains(event.target as Node)) {
+        if (currentPopup.type === 'sort' || (currentPopup.type === 'settings' && !event.composedPath().some(el => (el as HTMLElement).classList?.contains('card-navigator-settings-popup')))) {
+            closeCurrentPopup(containerEl);
         }
     }
 }
@@ -82,12 +74,7 @@ export function toggleSort(plugin: CardNavigatorPlugin, containerEl: HTMLElement
         console.error('Container element is undefined in toggleSort');
         return;
     }
-    const currentWindow = containerEl.ownerDocument.defaultView;
-    if (!currentWindow) {
-        console.error('Cannot determine the window of the container element');
-        return;
-    }
-    const sortPopup = createPopup('card-navigator-sort-popup', 'sort', currentWindow);
+    const sortPopup = createPopup('card-navigator-sort-popup', 'sort', containerEl);
     const currentSort = `${plugin.settings.sortCriterion}_${plugin.settings.sortOrder}`;
 
     const sortOptions: Array<{ value: string, label: string }> = [
@@ -106,45 +93,26 @@ export function toggleSort(plugin: CardNavigatorPlugin, containerEl: HTMLElement
 
     sortPopup.addEventListener('click', (e) => e.stopPropagation());
 }
-
 // Create a button for a specific sort option
-function createSortOption(
-    value: string, 
-    label: string, 
-    currentSort: string, 
-    plugin: CardNavigatorPlugin, 
-    containerEl: HTMLElement
-): HTMLButtonElement {
-    const button = containerEl.ownerDocument.createElement('button');
-    button.textContent = label;
-    button.className = `sort-option${currentSort === value ? ' active' : ''}`;
-    
-    button.addEventListener('click', async () => {
+function createSortOption(value: string, label: string, currentSort: string, plugin: CardNavigatorPlugin, containerEl: HTMLElement): HTMLButtonElement {
+    const option = createEl('button', {
+        text: label,
+        cls: `sort-option${currentSort === value ? ' active' : ''}`
+    });
+    option.addEventListener('click', async () => {
         const [criterion, order] = value.split('_') as [SortCriterion, SortOrder];
         await updateSortSettings(plugin, criterion, order, containerEl);
     });
-    
-    return button;
+    return option;
 }
 
 // Update the plugin's sort settings and refresh the view
-async function updateSortSettings(
-    plugin: CardNavigatorPlugin, 
-    criterion: SortCriterion, 
-    order: SortOrder, 
-    containerEl: HTMLElement
-) {
+async function updateSortSettings(plugin: CardNavigatorPlugin, criterion: SortCriterion, order: SortOrder, containerEl: HTMLElement) {
     plugin.settings.sortCriterion = criterion;
     plugin.settings.sortOrder = order;
     await plugin.saveSettings();
     plugin.triggerRefresh();
-    
-    const currentWindow = containerEl.ownerDocument.defaultView;
-    if (currentWindow) {
-        closeCurrentPopup(currentWindow);
-    } else {
-        console.error('Cannot determine the window of the container element in updateSortSettings');
-    }
+    closeCurrentPopup(containerEl);
 }
 
 // Toggle the settings popup in the toolbar
@@ -153,12 +121,7 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
         console.error('Container element is undefined in toggleSettings');
         return;
     }
-    const currentWindow = containerEl.ownerDocument.defaultView;
-    if (!currentWindow) {
-        console.error('Cannot determine the window of the container element');
-        return;
-    }
-    const settingsPopup = createPopup('card-navigator-settings-popup', 'settings', currentWindow);
+    const settingsPopup = createPopup('card-navigator-settings-popup', 'settings', containerEl);
     const settingsManager = plugin.settingsManager;
 
     // Add preset selection dropdown
@@ -189,12 +152,12 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
         if (layout === 'auto') {
             addNumberSetting('cardWidthThreshold', t('Card Width Threshold'), layoutSection, plugin, settingsManager);
         }
-        if (layout === 'grid') {
-            addNumberSetting('gridColumns', t('Grid Columns'), layoutSection, plugin, settingsManager);
-        }
-        if (layout === 'auto' || layout === 'grid') {
-            addNumberSetting('gridCardHeight', t('Grid Card Height'), layoutSection, plugin, settingsManager);
-        }
+		if (layout === 'grid') {
+			addNumberSetting('gridColumns', t('Grid Columns'), layoutSection, plugin, settingsManager);
+		}
+		if (layout === 'auto' || layout === 'grid') {
+			addNumberSetting('gridCardHeight', t('Grid Card Height'), layoutSection, plugin, settingsManager);
+		}
         if (layout === 'masonry') {
             addNumberSetting('masonryColumns', t('Masonry Columns'), layoutSection, plugin, settingsManager);
         }
@@ -204,9 +167,6 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
             });
             updateCardsPerViewSetting();
         }
-
-        // Prevent click events from closing the popup
-        settingsPopup.addEventListener('click', (e) => e.stopPropagation());
     };
 
     // Function to update cardsPerView setting
@@ -226,8 +186,8 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
 
     // Add Card Display Settings section
     const displaySection = createCollapsibleSection(settingsPopup, t('Card Content Settings'), true);
-    addToggleSetting('renderContentAsHtml', t('Render Content as HTML'), displaySection, plugin, settingsManager);
-    addToggleSetting('dragDropContent', t('Drag and Drop Content'), displaySection, plugin, settingsManager);
+	addToggleSetting('renderContentAsHtml', t('Render Content as HTML'), displaySection, plugin, settingsManager);
+	addToggleSetting('dragDropContent', t('Drag and Drop Content'), displaySection, plugin, settingsManager);
     addToggleSetting('showFileName', t('Show File Name'), displaySection, plugin, settingsManager);
     addToggleSetting('showFirstHeader', t('Show First Header'), displaySection, plugin, settingsManager);
     addToggleSetting('showBody', t('Show Body'), displaySection, plugin, settingsManager);
@@ -289,15 +249,7 @@ function createCollapsibleSection(parentEl: HTMLElement, title: string, collapse
 }
 
 // Add dropdown setting
-function addDropdownSetting(
-    key: keyof CardNavigatorSettings, 
-    name: string, 
-    container: HTMLElement, 
-    plugin: CardNavigatorPlugin, 
-    settingsManager: SettingsManager, 
-    options: { value: string, label: string }[], 
-    onChange?: (value: string) => void
-) {
+function addDropdownSetting(key: keyof CardNavigatorSettings, name: string, container: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, options: {value: string, label: string}[], onChange?: (value: string) => void) {
     new Setting(container)
         .setName(name)
         .setClass('setting-item-dropdown')
@@ -334,14 +286,14 @@ function addPresetDropdown(containerEl: HTMLElement, plugin: CardNavigatorPlugin
                     toggleSettings(plugin, containerEl);
                 });
         });
-    new Setting(containerEl)
-        .setName(t('Auto Apply Folder\'s Presets'))
-        .addToggle(toggle => toggle
-            .setValue(plugin.settings.autoApplyPresets)
-            .onChange(async (value) => {
-                await settingsManager.toggleAutoApplyPresets(value);
-            })
-        );
+	new Setting(containerEl)
+	.setName(t('Auto Apply Folder\'s Presets'))
+	.addToggle(toggle => toggle
+		.setValue(plugin.settings.autoApplyPresets)
+		.onChange(async (value) => {
+			await settingsManager.toggleAutoApplyPresets(value);
+		})
+	);
 }
 
 // Add the folder selection setting to the settings UI
@@ -421,10 +373,8 @@ function addNumberSetting(
         .setDynamicTooltip()
         .onChange(async (value) => {
             // Check if the setting should be updated based on other settings
-            if (
-                (key === 'bodyLength' && !plugin.settings.bodyLengthLimit) ||
-                (key === 'cardsPerView' && !plugin.settings.alignCardHeight)
-            ) {
+            if ((key === 'bodyLength' && !plugin.settings.bodyLengthLimit) ||
+                (key === 'cardsPerView' && !plugin.settings.alignCardHeight)) {
                 return;
             }
             await settingsManager.updateNumberSetting(key, value);

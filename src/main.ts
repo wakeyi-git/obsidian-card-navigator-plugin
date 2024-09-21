@@ -4,7 +4,7 @@ import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settingsTab';
 import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS, globalSettingsKeys } from './common/types';
 import { SettingsManager } from './common/settingsManager';
-import * as i18next from 'i18next';
+import i18next from 'i18next';
 import { t } from 'i18next';
 
 // Define language resources for internationalization
@@ -21,7 +21,7 @@ export default class CardNavigatorPlugin extends Plugin {
     selectedFolder: string | null = null;
     settingsManager!: SettingsManager;
 	settingTab!: SettingTab;
-	private refreshDebounced = debounce(() => this.refreshViews(), 200);
+    private refreshDebounced: () => void = () => {};
 	private ribbonIconEl: HTMLElement | null = null;
     public events: Events = new Events();
 
@@ -61,9 +61,9 @@ export default class CardNavigatorPlugin extends Plugin {
     }
 
     // Initialize plugin managers
-	private initializeManagers() {
-		this.settingsManager = new SettingsManager(this);
-	}
+    private initializeManagers() {
+        this.settingsManager = new SettingsManager(this);
+    }
 
     // Set up plugin components and functionality
 	private async initializePlugin() {
@@ -99,26 +99,20 @@ export default class CardNavigatorPlugin extends Plugin {
             callback: () => this.activateView(),
         });
 
-		this.addCommand({
-			id: 'focus-card-navigator',
-			name: t('Move focus to Card Navigator'),
-			callback: async () => {
-				const cardNavigator = this.getFirstCardNavigator();
-				if (cardNavigator) {
-					// 플러그인의 리프로 초점을 맞추기
-					const leaf = this.app.workspace.getLeaf();
-					if (leaf) {
-						leaf.view.containerEl.focus();
-						await new Promise(resolve => setTimeout(resolve, 0));
-						cardNavigator.focusNavigator();
-					}
-				}
-			}
-		});
+        this.addCommand({
+            id: 'focus-card-navigator',
+            name: t('Focus Card Navigator'),
+            callback: () => {
+                const cardNavigator = this.getActiveCardNavigator();
+                if (cardNavigator) {
+                    cardNavigator.focusNavigator();
+                }
+            }
+        });
 
         this.addCommand({
             id: 'open-card-context-menu',
-            name: t('Open card context menu'),
+            name: t('Open Card Context Menu'),
             callback: () => {
                 const cardNavigator = this.getActiveCardNavigator();
                 if (cardNavigator) {
@@ -130,9 +124,9 @@ export default class CardNavigatorPlugin extends Plugin {
         this.addScrollCommands();
 
         // Activate Card Navigator view when the layout is ready
-        this.app.workspace.onLayoutReady(() => {
-            this.activateView();
-        });
+        // this.app.workspace.onLayoutReady(() => {
+        //     this.activateView();
+        // });
 
         this.refreshDebounced = debounce(() => this.refreshViews(), 200);
 
@@ -151,16 +145,6 @@ export default class CardNavigatorPlugin extends Plugin {
 		});
     }
 
-	private getFirstCardNavigator(): CardNavigator | null {
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-		for (const leaf of leaves) {
-			if (leaf.view instanceof CardNavigator) {
-				return leaf.view;
-			}
-		}
-		return null;
-	}
-
 	// Initialize folder presets if not already present
 	private async initializeFolderPresets() {
         if (!this.settings.folderPresets) {
@@ -170,16 +154,19 @@ export default class CardNavigatorPlugin extends Plugin {
     }
 
 	// Determine if the active leaf is in file view, determine the parent folder of the file, and apply a preset for that folder
-	private async handleActiveLeafChange(leaf: WorkspaceLeaf | null) {
-		if (leaf?.view instanceof FileView) {
-			const file = leaf.view.file;
-			if (file?.parent) {
-				await this.settingsManager.applyPresetForFolder(file.parent);
-				this.refreshCardNavigator();
-				this.refreshSettingsTab();
-			}
-		}
-	}
+    private async handleActiveLeafChange(leaf: WorkspaceLeaf | null) {
+        if (leaf && leaf.view instanceof FileView) {
+            const file = leaf.view.file;
+            if (file) {
+                const folder = file.parent;
+                if (folder) {
+                    await this.settingsManager.applyPresetForFolder(folder);
+                    this.refreshCardNavigator();
+                    this.refreshSettingsTab();
+                }
+            }
+        }
+    }
 
 	// Refreshes the Card Navigator settings tab
 	private refreshSettingsTab() {
@@ -212,47 +199,24 @@ export default class CardNavigatorPlugin extends Plugin {
 	}
 
     // Initialize internationalization
-	private async initializeI18n() {
-		const resources = await this.loadLanguageResources();
-		const escapedResources = this.escapeBackslashes(resources);
-		await i18next.init({
-			lng: translationLanguage,
-			fallbackLng: "en",
-			resources: escapedResources as i18next.Resource,
-			interpolation: {
-				escapeValue: false // 이스케이프 처리 전역적으로 비활성화
-			}
-		});
-	}
-
-	private escapeBackslashes(resources: Record<string, unknown>): Record<string, unknown> {
-        const escapeString = (str: string): string => str.replace(/\\/g, '\\\\');
-        const escapeObject = (obj: unknown): unknown => {
-            if (typeof obj === 'string') {
-                return escapeString(obj);
-            } else if (typeof obj === 'object' && obj !== null) {
-                return Object.fromEntries(
-                    Object.entries(obj as Record<string, unknown>).map(
-                        ([key, value]) => [key, escapeObject(value)]
-                    )
-                );
-            }
-            return obj;
-        };
-        return escapeObject(resources) as Record<string, unknown>;
+    private async initializeI18n() {
+        const resources = await this.loadLanguageResources();
+        await i18next.init({
+            lng: translationLanguage,
+            fallbackLng: "en",
+            resources,
+        });
     }
 
     // Load language resources
-	private async loadLanguageResources() {
-		const [en, ko] = await Promise.all([
-			languageResources.en(),
-			languageResources.ko()
-		]);
-		return {
-			en: { translation: en.default },
-			ko: { translation: ko.default },
-		};
-	}
+    private async loadLanguageResources() {
+        const en = await languageResources.en();
+        const ko = await languageResources.ko();
+        return {
+            en: { translation: en.default },
+            ko: { translation: ko.default },
+        };
+    }
 
     // Set up event listeners for file and workspace changes
     private registerCentralizedEvents() {
@@ -282,41 +246,41 @@ export default class CardNavigatorPlugin extends Plugin {
 	}
 
     // Scroll cards in the specified direction
-	scrollCards(direction: ScrollDirection, count: number) {
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-		leaves.forEach(leaf => {
-			if (leaf.view instanceof CardNavigator) {
-				const { cardContainer } = leaf.view;
-				const isVertical = cardContainer.isVertical;
-	
-				switch (direction) {
-					case 'up':
-						isVertical ? cardContainer.scrollUp(count) : cardContainer.scrollLeft(count);
-						break;
-					case 'down':
-						isVertical ? cardContainer.scrollDown(count) : cardContainer.scrollRight(count);
-						break;
-					case 'left':
-						cardContainer.scrollLeft(count);
-						break;
-					case 'right':
-						cardContainer.scrollRight(count);
-						break;
-				}
-			}
-		});
-	}
+    private scrollCards(direction: ScrollDirection, count: number) {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        leaves.forEach((leaf) => {
+            if (leaf.view instanceof CardNavigator) {
+                const { cardContainer } = leaf.view;
+                const isVertical = cardContainer.isVertical;
+
+                switch (direction) {
+                    case 'up':
+                        isVertical ? cardContainer.scrollUp(count) : cardContainer.scrollLeft(count);
+                        break;
+                    case 'down':
+                        isVertical ? cardContainer.scrollDown(count) : cardContainer.scrollRight(count);
+                        break;
+                    case 'left':
+                        cardContainer.scrollLeft(count);
+                        break;
+                    case 'right':
+                        cardContainer.scrollRight(count);
+                        break;
+                }
+            }
+        });
+    }
 
     // Add scroll-related commands
     private addScrollCommands() {
         const scrollCommands = [
-            { id: 'scroll-up-one-card', name: t('Scroll up one card'), direction: 'up', count: 1 },
-            { id: 'scroll-down-one-card', name: t('Scroll down one card'), direction: 'down', count: 1 },
-            { id: 'scroll-left-one-card', name: t('Scroll left one card'), direction: 'left', count: 1 },
-            { id: 'scroll-right-one-card', name: t('Scroll right one card'), direction: 'right', count: 1 },
-            { id: 'scroll-up-page', name: t('Scroll up/left one page'), direction: 'up', count: this.settings.cardsPerView },
-            { id: 'scroll-down-page', name: t('Scroll down/right one page'), direction: 'down', count: this.settings.cardsPerView },
-            { id: 'center-active-card', name: t('Center active card'), direction: '', count: 0 },
+            { id: 'scroll-up-one-card', name: t('Scroll Up One Card'), direction: 'up', count: 1 },
+            { id: 'scroll-down-one-card', name: t('Scroll Down One Card'), direction: 'down', count: 1 },
+            { id: 'scroll-left-one-card', name: t('Scroll Left One Card'), direction: 'left', count: 1 },
+            { id: 'scroll-right-one-card', name: t('Scroll Right One Card'), direction: 'right', count: 1 },
+            { id: 'scroll-up-page', name: t('Scroll Up/Left One Page'), direction: 'up', count: this.settings.cardsPerView },
+            { id: 'scroll-down-page', name: t('Scroll Down/Right One Page'), direction: 'down', count: this.settings.cardsPerView },
+            { id: 'center-active-card', name: t('Center Active Card'), direction: '', count: 0 },
         ];
 
         scrollCommands.forEach(({ id, name, direction, count }) => {
@@ -335,71 +299,70 @@ export default class CardNavigatorPlugin extends Plugin {
     }
 
     // Refresh all Card Navigator views
-	refreshViews() {
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-		leaves.forEach(leaf => {
-			if (leaf.view instanceof CardNavigator) {
-				leaf.view.refresh();
-			}
-		});
-	}
+    refreshViews() {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        leaves.forEach((leaf) => {
+            if (leaf.view instanceof CardNavigator) {
+                leaf.view.refresh();
+            }
+        });
+    }
 
     // Display filtered cards in the active Card Navigator
-	displayFilteredCards(filteredFiles: TFile[]) {
-		const cardNavigator = this.app.workspace.getActiveViewOfType(CardNavigator);
-		if (cardNavigator) {
-			cardNavigator.cardContainer.displayCards(filteredFiles);
-		}
-	}
+    displayFilteredCards(filteredFiles: TFile[]) {
+        const view = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]?.view as CardNavigator;
+        if (view) {
+            view.cardContainer.displayCards(filteredFiles);
+        }
+    }
 
     // Sort cards based on the specified criterion and order
-	sortCards(criterion: SortCriterion, order: SortOrder) {
-		const cardNavigator = this.app.workspace.getActiveViewOfType(CardNavigator);
-		if (cardNavigator) {
-			cardNavigator.cardContainer.sortCards(criterion, order);
-		}
-	}
+    sortCards(criterion: SortCriterion, order: SortOrder) {
+        const view = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]?.view as CardNavigator;
+        if (view) {
+            view.cardContainer.sortCards(criterion, order);
+        }
+    }
 
     // Activate or create a Card Navigator view
-	async activateView() {
-		const { workspace } = this.app;
-		let leaf: WorkspaceLeaf | null = null;
-	
-		// First, look for an existing Card Navigator view
-		const existingLeaf = workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0];
-		if (existingLeaf) {
-			leaf = existingLeaf;
-		} else {
-			// Create a new leaf in the right sidebar
-			leaf = workspace.getRightLeaf(false);
-			if (leaf) {
-				await leaf.setViewState({ type: VIEW_TYPE_CARD_NAVIGATOR, active: true });
-			}
-		}
-	
-		if (leaf) {
-			// Reveal the leaf and set it as active
-			workspace.revealLeaf(leaf);
-			if (workspace.activeLeaf) {
-				await workspace.activeLeaf.setViewState(leaf.getViewState());
-			}
-		} else {
-			console.error("Failed to activate Card Navigator view");
-		}
-	}
+    async activateView() {
+        const { workspace } = this.app;
+        let leaf: WorkspaceLeaf | null = null;
+
+        const leaves = workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+
+        if (leaves.length > 0) {
+            leaf = leaves[0];
+        } else {
+            leaf = workspace.getRightLeaf(false);
+            if (leaf) {
+                await leaf.setViewState({ type: VIEW_TYPE_CARD_NAVIGATOR, active: true });
+            }
+        }
+
+        if (leaf) {
+            workspace.revealLeaf(leaf);
+        } else {
+            console.error("Failed to activate Card Navigator view");
+        }
+    }
 
     // Get the active Card Navigator view
-	private getActiveCardNavigator(): CardNavigator | null {
-		return this.app.workspace.getActiveViewOfType(CardNavigator);
-	}
+    private getActiveCardNavigator(): CardNavigator | null {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        if (leaves.length > 0) {
+            return leaves[0].view as CardNavigator;
+        }
+        return null;
+    }
 
     // Center the active card in all Card Navigator views
-	centerActiveCard() {
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-		leaves.forEach(leaf => {
-			if (leaf.view instanceof CardNavigator) {
-				leaf.view.cardContainer.centerActiveCard();
-			}
-		});
-	}
+    private centerActiveCard() {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        leaves.forEach((leaf) => {
+            if (leaf.view instanceof CardNavigator) {
+                leaf.view.cardContainer.centerActiveCard();
+            }
+        });
+    }
 }

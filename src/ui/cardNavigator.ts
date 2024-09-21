@@ -126,34 +126,31 @@ export class CardNavigator extends ItemView {
     }
 
     // Set up the view when it's opened
-	async onOpen() {
-		const container = this.containerEl.children[1] as HTMLElement;
-		container.empty();
-	
-		const navigatorEl = container.createDiv('card-navigator');
-		const toolbarEl = navigatorEl.createDiv('card-navigator-toolbar');
-		const cardContainerEl = navigatorEl.createDiv('card-navigator-container');
-	
-		// 기본적인 UI 구조만 먼저 생성
-		this.toolbar.initialize(toolbarEl);
-		this.cardContainer.initialize(cardContainerEl);
-	
-		// 나머지 초기화 작업을 다음 프레임으로 지연
-		requestAnimationFrame(async () => {
-			this.keyboardNavigator = new KeyboardNavigator(this.plugin, this.cardContainer, cardContainerEl);
-			this.isVertical = this.calculateIsVertical();
-			this.updateLayoutAndRefresh();
-			this.resizeObserver.observe(this.leaf.view.containerEl);
-	
-			await this.refresh();
-			await this.centerActiveCardOnOpen();
-	
-			await this.plugin.loadSettings();
-			// DOM이 완전히 렌더링될 때까지 기다립니다
-			await new Promise(resolve => setTimeout(resolve, 0));
-			this.updateLayoutAndRefresh();
-		});
-	}
+    async onOpen() {
+        const container = this.containerEl.children[1] as HTMLElement;
+        container.empty();
+
+        const navigatorEl = container.createDiv('card-navigator');
+    
+        const toolbarEl = navigatorEl.createDiv('card-navigator-toolbar');
+        const cardContainerEl = navigatorEl.createDiv('card-navigator-container');
+
+        this.toolbar.initialize(toolbarEl);
+        this.cardContainer.initialize(cardContainerEl);
+        this.keyboardNavigator = new KeyboardNavigator(this.plugin, this.cardContainer, cardContainerEl);
+
+        this.isVertical = this.calculateIsVertical();
+        this.updateLayoutAndRefresh();
+        this.resizeObserver.observe(this.leaf.view.containerEl);
+
+        await this.refresh();
+        await this.centerActiveCardOnOpen();
+
+		await this.plugin.loadSettings();
+		// DOM이 완전히 렌더링될 때까지 기다립니다
+		await new Promise(resolve => setTimeout(resolve, 0));
+		this.updateLayoutAndRefresh();
+    }
 
     // Center the active card when opening the view, if enabled in settings
     private async centerActiveCardOnOpen() {
