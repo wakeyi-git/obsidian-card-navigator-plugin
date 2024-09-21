@@ -4,7 +4,7 @@ import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settingsTab';
 import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS, globalSettingsKeys } from './common/types';
 import { SettingsManager } from './common/settingsManager';
-import i18next from 'i18next';
+import * as i18next from 'i18next';
 import { t } from 'i18next';
 
 // Define language resources for internationalization
@@ -212,13 +212,34 @@ export default class CardNavigatorPlugin extends Plugin {
 	}
 
     // Initialize internationalization
-    private async initializeI18n() {
-        const resources = await this.loadLanguageResources();
-        await i18next.init({
-            lng: translationLanguage,
-            fallbackLng: "en",
-            resources,
-        });
+	private async initializeI18n() {
+		const resources = await this.loadLanguageResources();
+		const escapedResources = this.escapeBackslashes(resources);
+		await i18next.init({
+			lng: translationLanguage,
+			fallbackLng: "en",
+			resources: escapedResources as i18next.Resource,
+			interpolation: {
+				escapeValue: false // 이스케이프 처리 전역적으로 비활성화
+			}
+		});
+	}
+
+	private escapeBackslashes(resources: Record<string, unknown>): Record<string, unknown> {
+        const escapeString = (str: string): string => str.replace(/\\/g, '\\\\');
+        const escapeObject = (obj: unknown): unknown => {
+            if (typeof obj === 'string') {
+                return escapeString(obj);
+            } else if (typeof obj === 'object' && obj !== null) {
+                return Object.fromEntries(
+                    Object.entries(obj as Record<string, unknown>).map(
+                        ([key, value]) => [key, escapeObject(value)]
+                    )
+                );
+            }
+            return obj;
+        };
+        return escapeObject(resources) as Record<string, unknown>;
     }
 
     // Load language resources

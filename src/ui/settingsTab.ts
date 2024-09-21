@@ -79,7 +79,7 @@ export class SettingTab extends PluginSettingTab {
     
         // Preset selection dropdown
 		new Setting(containerEl)
-        .setName(t('Select preset'))
+        .setName(t('Select Preset'))
         .setDesc(t('Select a preset created by the user to load the settings.'))
         .addDropdown(dropdown => {
             Object.keys(presets).forEach(presetName => {
@@ -127,7 +127,7 @@ export class SettingTab extends PluginSettingTab {
 
         // Preset management buttons
 		const presetManagementSetting = new Setting(containerEl)
-        .setName(t('Managing presets'))
+        .setName(t('Managing Presets'))
         .setDesc(t('Create or delete presets.'))
         .addButton(button => button
             .setButtonText(t('Create new'))
@@ -174,7 +174,7 @@ export class SettingTab extends PluginSettingTab {
 
         // Handling modified settings
 		const presetModifiedSetting = new Setting(containerEl)
-        .setName(t('Handling modified settings'))
+        .setName(t('Handling Modified Settings'))
         .setDesc(t('Current settings are modified from the original preset.'))
         .addButton(button => button
             .setButtonText(t('Update'))
@@ -198,7 +198,7 @@ export class SettingTab extends PluginSettingTab {
 
         // Revert to original preset button
 		presetModifiedSetting.addButton(button => button
-			.setButtonText(t('To original'))
+			.setButtonText(t('To Original'))
 			.setDisabled(!this.plugin.settingsManager.isCurrentSettingModified())
 			.onClick(async () => {
 				try {
@@ -211,8 +211,8 @@ export class SettingTab extends PluginSettingTab {
 			}));
 
 			new Setting(containerEl)
-			.setName(t('Auto apply folder\'s presets'))
-			.setDesc(t('Folder\'s presets are automatically applied when you change folders. If disabled, the preset currently being applied will be retained even if the active note\'s folder changes.'))
+			.setName(t('Auto Apply Folder\'s Presets'))
+			.setDesc(t('Presets are automatically applied when you change folders. If disabled, the preset currently being applied will be retained even if the active note\'s folder changes.'))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.autoApplyPresets)
 				.onChange(async (value) => {
@@ -226,7 +226,7 @@ export class SettingTab extends PluginSettingTab {
 			);
 	
 			new Setting(containerEl)
-			.setName(t('Add folder\'s presets'))
+			.setName(t('Add Folder\'s Preset'))
 			.setDesc(t('Select a folder to add a folder preset.'))
 			.addButton(button => button
 				.setButtonText(t('Add'))
@@ -488,7 +488,7 @@ export class SettingTab extends PluginSettingTab {
 	// Add keyboard shortcuts information section
 	private addKeyboardShortcutsInfo(containerEl: HTMLElement): void {
 		new Setting(containerEl)
-			.setName(t('Keyboard Shortcuts'))
+			.setName(t('Keyboard shortcuts'))
 			.setHeading();
 
         const shortcutDesc = containerEl.createEl('p', { cls: 'keyboard-shortcuts-description' });
