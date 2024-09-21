@@ -78,172 +78,218 @@ export class SettingTab extends PluginSettingTab {
         const presets = this.settingsManager.getPresets();
     
         // Preset selection dropdown
-        new Setting(containerEl)
-            .setName(t('Select preset'))
-            .setDesc(t('Select a preset created by the user to load the settings.'))
-            .addDropdown(dropdown => {
-                Object.keys(presets).forEach(presetName => {
-                    dropdown.addOption(presetName, presetName);
-                });
-                dropdown.setValue(this.settingsManager.getCurrentActivePreset())
-                    .onChange(async (newValue) => {
-                    const currentPreset = this.plugin.settings.lastActivePreset;
-                    if (this.plugin.settingsManager.isCurrentSettingModified()) {
-                        new ConfirmationModal(this.app, 
-                            t('You have unsaved changes. Do you want to update the current preset before switching?'),
-                            async (choice) => {
+		new Setting(containerEl)
+        .setName(t('Select preset'))
+        .setDesc(t('Select a preset created by the user to load the settings.'))
+        .addDropdown(dropdown => {
+            Object.keys(presets).forEach(presetName => {
+                dropdown.addOption(presetName, presetName);
+            });
+            dropdown.setValue(this.settingsManager.getCurrentActivePreset())
+                .onChange(async (newValue) => {
+                const currentPreset = this.plugin.settings.lastActivePreset;
+                if (this.plugin.settingsManager.isCurrentSettingModified()) {
+                    new ConfirmationModal(this.app, 
+                        t('You have unsaved changes. Do you want to update the current preset before switching?'),
+                        async (choice) => {
+                            try {
                                 if (choice === 'update') {
                                     await this.settingsManager.updateCurrentPreset(currentPreset);
                                     await this.settingsManager.applyPreset(newValue);
                                     new Notice(t('Preset updated and applied.', { presetName: newValue }));
-                                    this.display();
+                                    this.updatePresetSettings(); // 변경된 부분만 업데이트
                                 } else if (choice === 'switch') {
                                     await this.settingsManager.applyPreset(newValue);
                                     new Notice(t('Preset applied without saving changes.', { presetName: newValue }));
-                                    this.display();
+                                    this.updatePresetSettings(); // 변경된 부분만 업데이트
                                 } else {
                                     dropdown.setValue(currentPreset);
                                 }
+                            } catch (error) {
+                                console.error("Failed to apply preset:", error);
+                                new Notice(t('Failed to apply preset.'));
                             }
-                        ).open();
-                    } else {
+                        }
+                    ).open();
+                } else {
+                    try {
                         await this.settingsManager.applyPreset(newValue);
                         new Notice(t('Preset applied.', { presetName: newValue }));
-                        this.display();
+                        this.updatePresetSettings(); // 변경된 부분만 업데이트
+                    } catch (error) {
+                        console.error("Failed to apply preset:", error);
+                        new Notice(t('Failed to apply preset.'));
                     }
-                });
+                }
+            });
         });
 
         // Preset management buttons
-        const presetManagementSetting = new Setting(containerEl)
-            .setName(t('Managing presets'))
-            .setDesc(t('Create or delete presets.'))
-            .addButton(button => button
-                .setButtonText(t('Create new'))
-                .setCta()
-                .onClick(() => {
-                    new SavePresetModal(this.plugin.app, async (presetName) => {
-                        if (presetName) {
+		const presetManagementSetting = new Setting(containerEl)
+        .setName(t('Managing presets'))
+        .setDesc(t('Create or delete presets.'))
+        .addButton(button => button
+            .setButtonText(t('Create new'))
+            .setCta()
+            .onClick(() => {
+                new SavePresetModal(this.plugin.app, async (presetName) => {
+                    if (presetName) {
+                        try {
                             await this.settingsManager.saveAsNewPreset(presetName);
                             new Notice(t('Preset saved', { presetName }));
                             this.plugin.settings.lastActivePreset = presetName;
                             await this.plugin.saveSettings();
-                            this.display();
-                            this.updatePresetSettings();
+                            this.updatePresetSettings(); // 변경된 부분만 업데이트
+                        } catch (error) {
+                            console.error("Failed to save preset:", error);
+                            new Notice(t('Failed to save preset.'));
                         }
-                    }, this.plugin).open();
-                    this.display();
-                }));
+                    }
+                }, this.plugin).open();
+            }));
 
         // Delete preset button
-        presetManagementSetting.addButton(button => button
-            .setButtonText(t('Delete'))
-            .setWarning()
-            .setDisabled(this.plugin.settings.lastActivePreset === 'default')
-            .onClick(async () => {
-                const currentPreset = this.plugin.settings.lastActivePreset;
-                if (currentPreset !== 'default') {
-                    await this.settingsManager.deletePreset(currentPreset);
-                    this.plugin.settings.lastActivePreset = 'default';
-                    await this.plugin.saveSettings();
-                    new Notice(t('Preset deleted and default applied.', { presetName: currentPreset }));
-                    this.updatePresetSettings();
-                } else {
-                    new Notice(t('default preset cannot be deleted'));
+		presetManagementSetting.addButton(button => button
+			.setButtonText(t('Delete'))
+			.setWarning()
+			.setDisabled(this.plugin.settings.lastActivePreset === 'default')
+			.onClick(async () => {
+				const currentPreset = this.plugin.settings.lastActivePreset;
+				if (currentPreset !== 'default') {
+					try {
+						await this.settingsManager.deletePreset(currentPreset);
+						this.plugin.settings.lastActivePreset = 'default';
+						await this.plugin.saveSettings();
+						new Notice(t('Preset deleted and default applied.', { presetName: currentPreset }));
+						this.updatePresetSettings(); // 변경된 부분만 업데이트
+					} catch (error) {
+						console.error("Failed to delete preset:", error);
+						new Notice(t('Failed to delete preset.'));
+					}
+				} else {
+					new Notice(t('default preset cannot be deleted'));
                 }
-                this.display();
             }));
 
         // Handling modified settings
-        const presetModifiedSetting = new Setting(containerEl)
-            .setName(t('Handling modified settings'))
-            .setDesc(t('Current settings are modified from the original preset.'))
-            .addButton(button => button
-                .setButtonText(t('Update'))
-                .setCta()
-                .setDisabled(!this.plugin.settingsManager.isCurrentSettingModified() || this.plugin.settings.lastActivePreset === 'default')
-                .onClick(async () => {
-                const currentPreset = this.plugin.settings.lastActivePreset;
-                if (currentPreset !== 'default') {
+		const presetModifiedSetting = new Setting(containerEl)
+        .setName(t('Handling modified settings'))
+        .setDesc(t('Current settings are modified from the original preset.'))
+        .addButton(button => button
+            .setButtonText(t('Update'))
+            .setCta()
+            .setDisabled(!this.plugin.settingsManager.isCurrentSettingModified() || this.plugin.settings.lastActivePreset === 'default')
+            .onClick(async () => {
+            const currentPreset = this.plugin.settings.lastActivePreset;
+            if (currentPreset !== 'default') {
+                try {
                     await this.settingsManager.updateCurrentPreset(currentPreset);
                     new Notice(t('Preset updated', { presetName: currentPreset }));
-                    this.updatePresetSettings();
-                } else {
-                    new Notice(t('default preset cannot be modified'));
+                    this.updatePresetSettings(); // 변경된 부분만 업데이트
+                } catch (error) {
+                    console.error("Failed to update preset:", error);
+                    new Notice(t('Failed to update preset.'));
                 }
-            this.display();
-            }));
+            } else {
+                new Notice(t('default preset cannot be modified'));
+            }
+        }));
 
         // Revert to original preset button
-        presetModifiedSetting.addButton(button => button
-            .setButtonText(t('To original'))
-            .setDisabled(!this.plugin.settingsManager.isCurrentSettingModified())
-            .onClick(async () => {
-                await this.plugin.settingsManager.revertToOriginalPreset();
-                this.display();
-            }));
+		presetModifiedSetting.addButton(button => button
+			.setButtonText(t('To original'))
+			.setDisabled(!this.plugin.settingsManager.isCurrentSettingModified())
+			.onClick(async () => {
+				try {
+					await this.plugin.settingsManager.revertToOriginalPreset();
+					this.updatePresetSettings(); // 변경된 부분만 업데이트
+				} catch (error) {
+					console.error("Failed to revert to original preset:", error);
+					new Notice(t('Failed to revert to original preset.'));
+				}
+			}));
 
-        new Setting(containerEl)
-            .setName(t('Auto apply folder\'s presets'))
-            .setDesc(t('Folder\'s presets are automatically applied when you change folders. If disabled, the preset currently being applied will be retained even if the active note\'s folder changes.'))
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.autoApplyPresets)
-                .onChange(async (value) => {
-                    await this.settingsManager.toggleAutoApplyPresets(value);
-                })
-            );
+			new Setting(containerEl)
+			.setName(t('Auto apply folder\'s presets'))
+			.setDesc(t('Folder\'s presets are automatically applied when you change folders. If disabled, the preset currently being applied will be retained even if the active note\'s folder changes.'))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.autoApplyPresets)
+				.onChange(async (value) => {
+					try {
+						await this.settingsManager.toggleAutoApplyPresets(value);
+					} catch (error) {
+						console.error("Failed to toggle auto apply presets:", error);
+						new Notice(t('Failed to toggle auto apply presets.'));
+					}
+				})
+			);
+	
+			new Setting(containerEl)
+			.setName(t('Add folder\'s presets'))
+			.setDesc(t('Select a folder to add a folder preset.'))
+			.addButton(button => button
+				.setButtonText(t('Add'))
+				.onClick(() => {
+					new FolderSuggestModal(this.plugin, async (folder) => {
+						const presetNames = Object.keys(this.plugin.settings.presets);
+						if (presetNames.length > 0) {
+							new PresetSuggestModal(this.plugin, presetNames, async (presetName) => {
+								try {
+									await this.settingsManager.addPresetToFolder(folder.path, presetName);
+									this.plugin.settings.lastActivePreset = presetName;
+									await this.plugin.saveSettings();
+									this.updatePresetSettings(); // 변경된 부분만 업데이트
+									new Notice(t('Preset added to folder. You can set it as default in the folder settings.'));
+								} catch (error) {
+									console.error("Failed to add preset to folder:", error);
+									new Notice(t('Failed to add preset to folder.'));
+								}
+							}).open();
+						} else {
+							new Notice(t('No presets available. Please create a preset first.'));
+						}
+					}).open();
+				})
+			);
 
-            new Setting(containerEl)
-            .setName(t('Add folder\'s presets'))
-            .setDesc(t('Select a folder to add a folder preset.'))
-            .addButton(button => button
-                .setButtonText(t('Add'))
-                .onClick(() => {
-                    new FolderSuggestModal(this.plugin, async (folder) => {
-                        const presetNames = Object.keys(this.plugin.settings.presets);
-                        if (presetNames.length > 0) {
-                            new PresetSuggestModal(this.plugin, presetNames, async (presetName) => {
-                                await this.settingsManager.addPresetToFolder(folder.path, presetName);
-                                this.plugin.settings.lastActivePreset = presetName;
-                                await this.plugin.saveSettings();
-                                this.display();
-                                new Notice(t('Preset added to folder. You can set it as default in the folder settings.'));
-                            }).open();
-                        } else {
-                            new Notice(t('No presets available. Please create a preset first.'));
-                        }
-                    }).open();
-                })
-            );
-
-        const folderPresets = this.settingsManager.getFolderPresets();
-        for (const [folderPath, presets] of Object.entries(folderPresets)) {
-            const folderSetting = new Setting(containerEl)
-                .setName(t('folder_label', { folderPath }))
-                .setDesc(t('presets_label', { presets: presets.join(', ') }));
-
-            folderSetting.addDropdown(dropdown => {
-                presets.forEach(preset => dropdown.addOption(preset, preset));
-                const defaultPreset = this.settingsManager.getDefaultPresetForFolder(folderPath);
-                if (defaultPreset) dropdown.setValue(defaultPreset);
-                dropdown.onChange(async (value) => {
-                    await this.settingsManager.setDefaultPresetForFolder(folderPath, value);
-                });
-            });
-
-            folderSetting.addButton(button => button
-                .setIcon('trash')
-                .setTooltip(t('Remove preset from folder'))
-                .onClick(async () => {
-                    const currentPreset = this.settingsManager.getDefaultPresetForFolder(folderPath);
-                    if (currentPreset) {
-                        await this.settingsManager.removePresetFromFolder(folderPath, currentPreset);
-                        this.display();
-                    }
-                })
-            );
-        }
-    }
+		const folderPresets = this.settingsManager.getFolderPresets();
+		for (const [folderPath, presets] of Object.entries(folderPresets)) {
+			const folderSetting = new Setting(containerEl)
+				.setName(t('folder_label', { folderPath }))
+				.setDesc(t('presets_label', { presets: presets.join(', ') }));
+	
+			folderSetting.addDropdown(dropdown => {
+				presets.forEach(preset => dropdown.addOption(preset, preset));
+				const defaultPreset = this.settingsManager.getDefaultPresetForFolder(folderPath);
+				if (defaultPreset) dropdown.setValue(defaultPreset);
+				dropdown.onChange(async (value) => {
+					try {
+						await this.settingsManager.setDefaultPresetForFolder(folderPath, value);
+					} catch (error) {
+						console.error("Failed to set default preset for folder:", error);
+						new Notice(t('Failed to set default preset for folder.'));
+					}
+				});
+			});
+	
+			folderSetting.addButton(button => button
+				.setIcon('trash')
+				.setTooltip(t('Remove preset from folder'))
+				.onClick(async () => {
+					const currentPreset = this.settingsManager.getDefaultPresetForFolder(folderPath);
+					if (currentPreset) {
+						try {
+							await this.settingsManager.removePresetFromFolder(folderPath, currentPreset);
+							this.updatePresetSettings(); // 변경된 부분만 업데이트
+						} catch (error) {
+							console.error("Failed to remove preset from folder:", error);
+							new Notice(t('Failed to remove preset from folder.'));
+						}
+					}
+				})
+			);
+		}
+	}
 
     // Add general settings section
     private addContainerSettings(containerEl: HTMLElement): void {

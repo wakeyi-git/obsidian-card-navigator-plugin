@@ -23,7 +23,7 @@
 .card-navigator-toolbar {
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 100;
     width: 100%;
 	margin-bottom: var(--size-4-3); /* Margin below the toolbar */
 }
@@ -174,6 +174,7 @@
     overflow-y: auto;
     gap: var(--card-navigator-gap); /* Gap between cards */
     position: relative;
+	z-index: 1;
     box-sizing: border-box;
     padding-top: var(--size-2-1);
 	min-width: 300px;
@@ -326,7 +327,6 @@
 	}
 }
 
-/* 예시: 팝아웃 창의 테두리 두께 증가 */
 .popout-window {
     border: 5px solid transparent; /* 기존 두께보다 늘림 */
 }
@@ -334,4 +334,60 @@
 .popout-window::resize-handle {
     width: 10px; /* 드래그 가능한 영역 넓힘 */
     height: 10px;
+}
+
+.masonry-layout {
+	position: relative;
+	z-index: 2;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--card-gap);
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.masonry-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--card-gap);
+}
+
+.masonry-card {
+	position: relative;
+	z-index: 3;
+    width: 100%;
+    break-inside: avoid;
+    background: var(--background-secondary);
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.masonry-card .card-navigator-filename {
+    padding: 10px;
+    font-weight: bold;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.masonry-card .card-navigator-first-header {
+    padding: 10px;
+    font-size: 1.1em;
+}
+
+.masonry-card .card-navigator-body {
+    padding: 10px;
+    font-size: 0.9em;
+}
+
+/* 카드 내용이 길 경우 스크롤 처리 */
+.masonry-card .card-navigator-body {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* 다크 모드 대응 */
+.theme-dark .masonry-card {
+    background: var(--background-secondary-alt);
 }

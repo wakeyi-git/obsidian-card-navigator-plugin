@@ -24,7 +24,7 @@ export class CardContainer {
     private cards: Card[] = [];
     private resizeObserver: ResizeObserver;
 
-	constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
+    constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
 		// leaf의 view를 통해 컨테이너 요소에 접근
 		const leafView = this.leaf.view;
 		if (!leafView || !leafView.containerEl) {
@@ -38,22 +38,25 @@ export class CardContainer {
 			throw new Error('Failed to create container element');
 		}
 	
-		this.cardMaker = new CardMaker(
-			this.plugin,
-			(file: TFile) => this.copyLink(file),
-			(file: TFile) => this.copyCardContent(file)
-		);
+        this.cardMaker = new CardMaker(
+            this.plugin,
+            (file: TFile) => this.copyLink(file),
+            (file: TFile) => this.copyCardContent(file)
+        );
 	
 		this.isVertical = this.calculateIsVertical();
 		this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
 		
-		try {
-			this.layoutStrategy = this.determineAutoLayout();
-		} catch (error) {
-			console.error('Failed to determine layout strategy:', error);
-			// 기본 레이아웃 전략을 설정
-			this.layoutStrategy = new ListLayout(this.isVertical, this.cardGap, this.plugin.settings.alignCardHeight);
-		}
+        try {
+            this.layoutStrategy = this.determineAutoLayout();
+        } catch (error) {
+            console.error('Failed to determine layout strategy:', error);
+            this.layoutStrategy = new ListLayout(this.isVertical, this.cardGap, this.plugin.settings.alignCardHeight);
+        }
+
+        if (this.layoutStrategy instanceof MasonryLayout && this.containerEl) {
+            this.layoutStrategy.setContainer(this.containerEl);
+        }
 	
 		this.resizeObserver = new ResizeObserver(debounce(() => {
 			this.handleResize();
@@ -69,15 +72,6 @@ export class CardContainer {
 		this.setupResizeObserver();
 	}
 	
-	// Sets up a ResizeObserver to monitor size changes of the container element
-	// private setupResizeObserver() {
-	// 	if (this.containerEl) {
-	// 		this.resizeObserver.observe(this.containerEl);
-	// 	} else {
-	// 		console.warn('Container element not available for ResizeObserver');
-	// 	}
-	// }
-	// Sets up a ResizeObserver to monitor size changes of the container element
     private setupResizeObserver() {
         this.resizeObserver = new ResizeObserver(() => {
             this.plugin.updateCardNavigatorLayout(this.currentLayout);
@@ -186,51 +180,59 @@ export class CardContainer {
     }
 
 	// Determines the appropriate layout strategy based on the container size and plugin settings
-	private determineAutoLayout(): LayoutStrategy {
-		if (!this.containerEl) {
-			console.error('The container element does not exist.');
-			return new ListLayout(true, this.cardGap, this.plugin.settings.alignCardHeight);
-		}
-	
-		const containerStyle = window.getComputedStyle(this.containerEl);
-		const containerWidth = this.containerEl.offsetWidth;
-		// const containerHeight = this.containerEl.offsetHeight;
-		const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
-		const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
-		const availableWidth = containerWidth - paddingLeft - paddingRight;
-		
-		const {
-			alignCardHeight,
-			cardWidthThreshold,
-			defaultLayout
-		} = this.plugin.settings;
-	
-		if (defaultLayout !== 'auto') {
-			switch (defaultLayout) {
-				case 'list':
-					return new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
-				case 'grid':
-					return new GridLayout(this.plugin.settings.gridColumns, this.cardGap, this.plugin.settings);
-				case 'masonry':
-					return new MasonryLayout(this.plugin.settings.masonryColumns, this.cardGap, this.plugin.settings);
-			}
-		}
-	
-		// Calculate the number of columns
-		let columns = Math.floor((availableWidth + this.cardGap) / (cardWidthThreshold + this.cardGap));
-		columns = Math.max(1, columns); // Ensure at least one column
-	
-		// Adjust gap for single column layout
-		const adjustedGap = columns === 1 ? Math.min(this.cardGap, 10) : this.cardGap;
-	
-		if (columns === 1) {
-			return new ListLayout(this.isVertical, adjustedGap, alignCardHeight);
-		} else if (alignCardHeight) {
-			return new GridLayout(columns, this.cardGap, this.plugin.settings);
-		} else {
-			return new MasonryLayout(columns, this.cardGap, this.plugin.settings);
-		}
-	}
+    private determineAutoLayout(): LayoutStrategy {
+        if (!this.containerEl) {
+            throw new Error('Container element is not initialized');
+        }
+
+        const containerStyle = window.getComputedStyle(this.containerEl);
+        const containerWidth = this.containerEl.offsetWidth;
+        const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
+        const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
+        const availableWidth = containerWidth - paddingLeft - paddingRight;
+        
+        const {
+            alignCardHeight,
+            cardWidthThreshold,
+            defaultLayout
+        } = this.plugin.settings;
+
+        if (defaultLayout !== 'auto') {
+            switch (defaultLayout) {
+                case 'list':
+                    return new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
+                case 'grid':
+                    return new GridLayout(this.plugin.settings.gridColumns, this.cardGap, this.plugin.settings);
+                case 'masonry': {
+                    const masonryLayout = new MasonryLayout(
+                        this.plugin.settings.masonryColumns,
+                        this.cardGap,
+                        this.plugin.settings,
+                        this.cardMaker
+                    );
+                    masonryLayout.setContainer(this.containerEl);
+                    return masonryLayout;
+                }
+            }
+        }
+
+        // Calculate the number of columns
+        let columns = Math.floor((availableWidth + this.cardGap) / (cardWidthThreshold + this.cardGap));
+        columns = Math.max(1, columns); // Ensure at least one column
+
+        // Adjust gap for single column layout
+        const adjustedGap = columns === 1 ? Math.min(this.cardGap, 10) : this.cardGap;
+
+        if (columns === 1) {
+            return new ListLayout(this.isVertical, adjustedGap, alignCardHeight);
+        } else if (alignCardHeight) {
+            return new GridLayout(columns, this.cardGap, this.plugin.settings);
+        } else {
+            const masonryLayout = new MasonryLayout(columns, this.cardGap, this.plugin.settings, this.cardMaker);
+            masonryLayout.setContainer(this.containerEl);
+            return masonryLayout;
+        }
+    }
 
 	// Handles resizing of the container and applies a new layout strategy if needed
     public handleResize() {
@@ -253,53 +255,32 @@ export class CardContainer {
 	}
 
 	// Sets the layout strategy based on the provided layout type
-	// setLayout(layout: 'auto' | 'list' | 'grid' | 'masonry') {
-	// 	const { gridColumns, alignCardHeight } = this.plugin.settings;
-		
-	// 	if (layout === 'auto') {
-	// 		this.layoutStrategy = this.determineAutoLayout();
-	// 	} else {
-	// 		switch (layout) {
-	// 			case 'list':
-	// 				this.layoutStrategy = new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
-	// 				break;
-	// 			case 'grid':
-	// 				this.layoutStrategy = new GridLayout(gridColumns, this.cardGap, this.plugin.settings);
-	// 				break;
-	// 			case 'masonry':
-	// 				this.layoutStrategy = new MasonryLayout(
-	// 					this.plugin.settings.masonryColumns,
-	// 					this.cardGap,
-	// 					this.plugin.settings
-	// 				);
-	// 				break;
-	// 		}
-	// 	}
-	// 	this.keyboardNavigator?.updateLayout(this.layoutStrategy);
-	// 	this.refresh();
-	// }
-	setLayout(layout: CardNavigatorSettings['defaultLayout']) {
-		const { gridColumns, alignCardHeight } = this.plugin.settings;
-	
-		// 현재 레이아웃을 업데이트
-		this.currentLayout = layout;
-	
-		if (layout === 'auto') {
-			this.layoutStrategy = this.determineAutoLayout();
-		} else {
-			switch (layout) {
-				case 'list':
-					this.layoutStrategy = new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
-					break;
-				case 'grid':
-					this.layoutStrategy = new GridLayout(gridColumns, this.cardGap, this.plugin.settings);
-					break;
+    setLayout(layout: CardNavigatorSettings['defaultLayout']) {
+        const { gridColumns, alignCardHeight } = this.plugin.settings;
+
+        // 현재 레이아웃을 업데이트
+        this.currentLayout = layout;
+
+        if (layout === 'auto') {
+            this.layoutStrategy = this.determineAutoLayout();
+        } else {
+            switch (layout) {
+                case 'list':
+                    this.layoutStrategy = new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
+                    break;
+                case 'grid':
+                    this.layoutStrategy = new GridLayout(gridColumns, this.cardGap, this.plugin.settings);
+                    break;
 				case 'masonry':
 					this.layoutStrategy = new MasonryLayout(
 						this.plugin.settings.masonryColumns,
 						this.cardGap,
-						this.plugin.settings
+						this.plugin.settings,
+						this.cardMaker
 					);
+					if (this.containerEl) {
+						(this.layoutStrategy as MasonryLayout).setContainer(this.containerEl);
+					}
 					break;
 			}
 		}

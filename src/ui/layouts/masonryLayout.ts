@@ -1,76 +1,85 @@
-// masonryLayout.ts
 import { LayoutStrategy, CardPosition } from './layoutStrategy';
 import { Card, CardNavigatorSettings } from '../../common/types';
+import { CardMaker } from '../cardContainer/cardMaker';
 
-// Class implementing the Masonry layout strategy for card arrangement
 export class MasonryLayout implements LayoutStrategy {
+    private container: HTMLElement | null = null;
+    private columnElements: HTMLElement[] = [];
+
     constructor(
         private columns: number,
         private cardGap: number,
-        private settings: CardNavigatorSettings
+        private settings: CardNavigatorSettings,
+        private cardMaker: CardMaker
     ) {
         if (columns <= 0) {
             throw new Error('The number of columns must be greater than 0');
         }
     }
 
-    // Arrange cards in a masonry layout
-	arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[] {
-        const positions: CardPosition[] = [];
-        const columnHeights = new Array(this.columns).fill(0);
-        const totalGapWidth = this.cardGap * (this.columns - 1);
-        const cardWidth = Math.max(1, (containerWidth - totalGapWidth) / this.columns);
-
-        cards.forEach((card) => {
-            const shortestColumn = columnHeights.indexOf(Math.min(...columnHeights));
-            const cardHeight = this.calculateCardHeight(card, cardWidth);
-
-            positions.push({
-                card,
-                x: shortestColumn * (cardWidth + this.cardGap),
-                y: columnHeights[shortestColumn],
-                width: cardWidth,
-                height: cardHeight
-            });
-
-            columnHeights[shortestColumn] += cardHeight + this.cardGap;
-        });
-
-        if (positions.length !== cards.length) {
-            console.error('Mismatch between cards and positions array lengths.');
-        }
-
-        return positions;
+    setContainer(container: HTMLElement) {
+        this.container = container;
+        this.setupContainer();
     }
 
-    // Return the number of columns in the layout
+    private setupContainer() {
+        if (!this.container) return;
+
+        this.container.innerHTML = '';
+        this.container.className = 'masonry-layout';
+        this.container.style.setProperty('--column-count', this.columns.toString());
+        this.container.style.setProperty('--card-gap', `${this.cardGap}px`);
+
+        this.columnElements = [];
+        for (let i = 0; i < this.columns; i++) {
+            const column = document.createElement('div');
+            column.className = 'masonry-column';
+            this.container.appendChild(column);
+            this.columnElements.push(column);
+        }
+    }
+
+    arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[] {
+        if (!this.container) {
+            console.warn('Container is not set. Please call setContainer before arrange.');
+            return [];
+        }
+
+        this.setupContainer(); // Ensure container is set up correctly
+
+        const cardPositions: CardPosition[] = [];
+        const containerRect = this.container.getBoundingClientRect();
+
+        cards.forEach((card, index) => {
+            const columnIndex = index % this.columns;
+            const cardElement = this.cardMaker.createCardElement(card);
+            cardElement.classList.add('masonry-card');
+            this.columnElements[columnIndex].appendChild(cardElement);
+
+            const rect = cardElement.getBoundingClientRect();
+            cardPositions.push({
+                card,
+                x: rect.left - containerRect.left,
+                y: rect.top - containerRect.top,
+                width: rect.width,
+                height: rect.height
+            });
+        });
+
+        return cardPositions;
+    }
+
     getColumnsCount(): number {
         return this.columns;
     }
 
-    // Return the scroll direction for this layout
     getScrollDirection(): 'vertical' | 'horizontal' {
         return 'vertical';
     }
 
-    // Calculate the height of a card based on its content
-    private calculateCardHeight(card: Card, width: number): number {
-        if (width <= 0) {
-            return 100;
-        }
-        const baseHeight = 100;
-        const lineHeight = 20;
-
-        let contentLength = 0;
-
-		if (this.settings?.bodyLengthLimit) {
-            contentLength = Math.min(card.body?.length || 0, this.settings?.bodyLength || 0);
-        } else {
-            contentLength = card.body?.length || 0;
-        }
-
-        const estimatedLines = Math.ceil(contentLength / (width / 10));
-
-        return baseHeight + estimatedLines * lineHeight;
+    destroy() {
+        // Clean up if necessary
+        this.container = null;
+        this.columnElements = [];
     }
 }
