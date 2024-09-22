@@ -385,6 +385,41 @@
     z-index: 10;
 }
 
+
+.preset-management-section .preset-toggle {
+    margin-bottom: 10px;
+}
+
+.preset-list.collapsed {
+    display: none;
+}
+
+.preset-list .setting-item-control {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.preset-list .setting-item-control .clickable-icon {
+    margin-left: 5px;
+}
+
+.confirm-modal {
+    max-width: 400px;
+}
+
+.confirm-modal .setting-item {
+    border-top: none;
+    justify-content: flex-end;
+}
+
+.confirm-modal .setting-item-control {
+    padding-top: 1rem;
+}
+
+.confirm-modal .setting-item-control button {
+    margin-left: 0.5rem;
+}
+
 /* Keyboard Shortcuts Table Styles */
 .keyboard-shortcuts-description {
     margin-bottom: 1em;

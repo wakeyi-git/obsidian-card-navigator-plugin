@@ -1,6 +1,7 @@
 import { TFolder, TFile, debounce, Notice } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { CardNavigatorSettings, Preset, NumberSettingKey, RangeSettingConfig, rangeSettingConfigs, FolderPresets, DEFAULT_SETTINGS } from '../../common/types';
+import { ConfirmModal } from './modals/ConfirmModal';
 import { ISettingsManager } from '../../common/ISettingsManager';
 import { IPresetManager } from '../../common/IPresetManager';
 
@@ -71,18 +72,14 @@ export class SettingsManager implements ISettingsManager {
     }
 
 	async confirmDelete(itemName: string): Promise<boolean> {
-        return new Promise((resolve) => {
-            const notice = new Notice(`정말로 ${itemName}을(를) 삭제하시겠습니까?`, 0);
-            notice.noticeEl.createEl('button', { text: '취소' }).onclick = () => {
-                notice.hide();
-                resolve(false);
-            };
-            notice.noticeEl.createEl('button', { text: '삭제' }).onclick = () => {
-                notice.hide();
-                resolve(true);
-            };
-        });
-    }
+		const modal = new ConfirmModal(
+			this.plugin.app,
+			'삭제 확인',
+			`정말로 ${itemName}을(를) 삭제하시겠습니까?`
+		);
+		modal.open();
+		return await modal.waitForClose();
+	}
 
 	applyChanges() {
         this.plugin.triggerRefresh();
