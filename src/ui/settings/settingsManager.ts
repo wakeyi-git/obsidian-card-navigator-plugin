@@ -16,13 +16,14 @@ export class SettingsManager implements ISettingsManager {
 
     constructor(private plugin: CardNavigatorPlugin, private presetManager: IPresetManager) {}
 
-    async saveSettings() {
-        try {
-            await this.plugin.saveSettings();
-        } catch (error) {
-            console.error('Error saving settings:', error);
-        }
-    }
+	async saveSettings() {
+		try {
+			await this.plugin.saveSettings();
+			console.log('Settings saved successfully');
+		} catch (error) {
+			console.error('Error saving settings:', error);
+		}
+	}
 
 	async loadSettings() {
 		const loadedData = await this.plugin.loadData();
@@ -89,25 +90,25 @@ export class SettingsManager implements ISettingsManager {
         return this.plugin.settings;
     }
 
-    async applyPreset(presetName: string): Promise<void> {
-        try {
-            const preset = this.presetManager.getPreset(presetName);
-            if (preset) {
-                // 프리셋의 설정값을 plugin.settings에 적용
-                Object.assign(this.plugin.settings, preset.settings);
-                this.plugin.settings.lastActivePreset = presetName;
-                
-                await this.saveSettings();
-                this.plugin.refreshCardNavigator(); // 플러그인 새로고침
-                new Notice(`프리셋 "${presetName}"이(가) 적용되었습니다.`);
-            } else {
-                throw new Error(`프리셋 "${presetName}"을(를) 찾을 수 없습니다.`);
-            }
-        } catch (error) {
-            console.error('프리셋 적용 실패:', error);
-            new Notice(`프리셋 적용 실패: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    }
+	async applyPreset(presetName: string): Promise<void> {
+		try {
+			const preset = this.presetManager.getPreset(presetName);
+			if (preset) {
+				Object.assign(this.plugin.settings, preset.settings);
+				this.plugin.settings.lastActivePreset = presetName;
+				
+				await this.saveSettings();
+				this.plugin.refreshCardNavigator();
+				this.plugin.refreshSettingsTab();
+				new Notice(`프리셋 "${presetName}"이(가) 적용되었습니다.`);
+			} else {
+				throw new Error(`프리셋 "${presetName}"을(를) 찾을 수 없습니다.`);
+			}
+		} catch (error) {
+			console.error('프리셋 적용 실패:', error);
+			new Notice(`프리셋 적용 실패: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
 
     getActiveFolder(): string | null {
         return this.plugin.settings.selectedFolder;
@@ -125,9 +126,16 @@ export class SettingsManager implements ISettingsManager {
         return rangeSettingConfigs[key];
     }
 
-    async toggleAutoApplyPresets(value: boolean): Promise<void> {
-        await this.updateSetting('autoApplyFolderPresets', value);
-    }
+	async toggleAutoApplyPresets(value: boolean): Promise<void> {
+		await this.updateSetting('autoApplyFolderPresets', value);
+		if (value) {
+			const activeFile = this.plugin.app.workspace.getActiveFile();
+			if (activeFile) {
+				const folderPath = activeFile.parent?.path || '/';
+				await this.plugin.presetManager.applyFolderPreset(folderPath);
+			}
+		}
+	}
 
     async updateBooleanSetting(key: keyof CardNavigatorSettings, value: boolean): Promise<void> {
         await this.updateSetting(key, value);

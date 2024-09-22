@@ -1,4 +1,4 @@
-import { Setting, ButtonComponent, Notice, setIcon } from 'obsidian';
+import { Setting, ButtonComponent, Notice } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SettingsManager } from './settingsManager';
 import { PresetSuggest, FileSuggestMode } from './components/PresetSuggest';
@@ -37,28 +37,36 @@ function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
         .setName('프리셋 적용')
         .setDesc('Card Navigator에 적용할 기본 프리셋을 선택하여 적용합니다.');
 
-    const input = setting.controlEl.createEl("input", {
-        cls: "preset-suggest-input",
-        type: "text",
-        value: plugin.settings.lastActivePreset
-    });
+	const input = setting.controlEl.createEl("input", {
+		cls: "preset-suggest-input",
+		type: "text",
+		value: plugin.settings.lastActivePreset
+	});
 
 	const applyPreset = async (presetName: string) => {
 		await settingsManager.applyPreset(presetName);
+		input.value = presetName; // 입력 필드 업데이트
 	};
 
-    new PresetSuggest(
-        plugin.app,
-        input,
-        plugin,
-        FileSuggestMode.PresetsFiles
-    );
+	new PresetSuggest(
+		plugin.app,
+		input,
+		plugin,
+		FileSuggestMode.PresetsFiles
+	);
 
-    setting.addButton((button: ButtonComponent) =>
-        button
-            .setButtonText('적용')
-            .onClick(() => applyPreset(input.value))
-    );
+	setting.addButton((button: ButtonComponent) =>
+		button
+			.setButtonText('적용')
+			.onClick(() => applyPreset(input.value))
+	);
+
+	// lastActivePreset이 변경될 때마다 입력 필드 업데이트
+	plugin.registerEvent(
+		plugin.app.workspace.on('layout-change', () => {
+			input.value = plugin.settings.lastActivePreset;
+		})
+	);
 }
 
 function addPresetManagementSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, refreshAllSettings: () => void): void {
@@ -88,14 +96,6 @@ function addPresetManagementSectionContent(presetManagementEl: HTMLElement, plug
         );
 
     const presetListEl = presetManagementEl.createDiv('preset-list');
-    const presetToggle = presetManagementEl.createEl('button', {text: '프리셋 목록 펼치기/접기', cls: 'preset-toggle'});
-    setIcon(presetToggle, 'chevron-down');
-    
-    presetToggle.onclick = () => {
-        const isCollapsed = presetListEl.hasClass('collapsed');
-        presetListEl.toggleClass('collapsed', !isCollapsed);
-        setIcon(presetToggle, isCollapsed ? 'chevron-down' : 'chevron-right');
-    };
 
     const presetNames = plugin.presetManager.getPresetNames();
     for (const presetName of presetNames) {
@@ -129,7 +129,7 @@ function addPresetManagementSectionContent(presetManagementEl: HTMLElement, plug
                         if (await settingsManager.confirmDelete(`프리셋 "${presetName}"`)) {
                             await plugin.presetManager.deletePreset(presetName);
                             settingsManager.applyChanges();
-                            refreshAllSettings(); // 여기서 전체 설정을 새로고침합니다.
+                            refreshAllSettings();
                         }
                     })
             )
@@ -144,7 +144,7 @@ function addPresetManagementSectionContent(presetManagementEl: HTMLElement, plug
     }
 }
 
-function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
+export function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
     const folderPresetSectionEl = containerEl.createDiv('folder-preset-section');
     
     new Setting(folderPresetSectionEl)
@@ -162,29 +162,24 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
         "에 설정할 수 있습니다."
     );
 
-    new Setting(folderPresetSectionEl)
-        .setName('프리셋 자동 적용')
-        .setDesc('폴더 변경 시 자동으로 폴더에 지정된 프리셋을 적용합니다.')
-        .addToggle((toggle) => 
-            toggle
-                .setValue(plugin.settings.autoApplyFolderPresets)
-                .onChange(async (value) => {
-                    plugin.settings.autoApplyFolderPresets = value;
-                    await settingsManager.saveSettings();
-                    refreshFolderPresetList(folderPresetSectionEl, plugin, settingsManager);
-                })
-        );
+	new Setting(folderPresetSectionEl)
+		.setName('프리셋 자동 적용')
+		.setDesc('폴더 변경 시 자동으로 폴더에 지정된 프리셋을 적용합니다.')
+		.addToggle((toggle) => 
+			toggle
+				.setValue(plugin.settings.autoApplyFolderPresets)
+				.onChange(async (value) => {
+					await settingsManager.toggleAutoApplyPresets(value);
+					refreshFolderPresetList(folderPresetListEl, plugin, settingsManager);
+				})
+		);
 
     const folderPresetListEl = folderPresetSectionEl.createDiv('folder-preset-list');
     refreshFolderPresetList(folderPresetListEl, plugin, settingsManager);
 }
 
-function refreshFolderPresetList(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
+export function refreshFolderPresetList(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
     containerEl.empty();
-
-    if (!plugin.settings.autoApplyFolderPresets) {
-        return;
-    }
 
     new Setting(containerEl)
         .setName('새 폴더 프리셋 추가')
@@ -197,7 +192,7 @@ function refreshFolderPresetList(containerEl: HTMLElement, plugin: CardNavigator
                 .onClick(() => {
                     const newFolderPath = '';
                     const presetNames = plugin.presetManager.getPresetNames();
-                    const newPresetName = presetNames.length > 0 ? presetNames[0] : 'default';
+                    const newPresetName = presetNames.length > 0 ? presetNames[0] : '';
                     
                     if (!plugin.settings.folderPresets[newFolderPath]) {
                         plugin.settings.folderPresets[newFolderPath] = [newPresetName];
@@ -210,7 +205,7 @@ function refreshFolderPresetList(containerEl: HTMLElement, plugin: CardNavigator
                 })
         );
 
-		for (const [folderPath, presetNames] of Object.entries(plugin.settings.folderPresets)) {
+		for (const [folderPath, presets] of Object.entries(plugin.settings.folderPresets)) {
 			const s = new Setting(containerEl)
 				.addSearch((cb) => {
 					new FolderSuggest(plugin.app, cb.inputEl);
@@ -221,48 +216,64 @@ function refreshFolderPresetList(containerEl: HTMLElement, plugin: CardNavigator
 								new Notice('이 폴더에는 이미 프리셋이 연결되어 있습니다.');
 								return;
 							}
-							const presets = plugin.settings.folderPresets[folderPath];
 							delete plugin.settings.folderPresets[folderPath];
-							plugin.settings.folderPresets[newFolder] = presets;
+							plugin.settings.folderPresets[newFolder] = presets; // 여기서 presets 사용
+							if (plugin.settings.activeFolderPresets[folderPath]) {
+								plugin.settings.activeFolderPresets[newFolder] = plugin.settings.activeFolderPresets[folderPath];
+								delete plugin.settings.activeFolderPresets[folderPath];
+							}
 							settingsManager.saveSettings();
 							refreshFolderPresetList(containerEl, plugin, settingsManager);
 						});
 					cb.inputEl.addClass('card-navigator-search');
-				})
-				.addDropdown((dropdown) => {
-					presetNames.forEach(name => dropdown.addOption(name, name));
-					const activePreset = plugin.settings.activeFolderPresets[folderPath];
-					dropdown.setValue(activePreset || presetNames[0])
-						.onChange(async (value) => {
-							plugin.settings.activeFolderPresets[folderPath] = value;
-							await settingsManager.saveSettings();
-						});
-					dropdown.selectEl.addClass('card-navigator-search');
-				})
-				.addExtraButton((cb) => {
-					cb.setIcon('down-chevron-glyph')
-						.setTooltip('아래로 이동')
-						.onClick(() => {
-							const entries = Object.entries(plugin.settings.folderPresets);
-							const index = entries.findIndex(([path]) => path === folderPath);
-							if (index < entries.length - 1) {
-								[entries[index], entries[index + 1]] = [entries[index + 1], entries[index]];
-								plugin.settings.folderPresets = Object.fromEntries(entries);
-								settingsManager.saveSettings();
-								refreshFolderPresetList(containerEl, plugin, settingsManager);
-							}
-						});
-				})
-				.addExtraButton((cb) => {
-					cb.setIcon('cross')
-						.setTooltip('삭제')
-						.onClick(() => {
-							delete plugin.settings.folderPresets[folderPath];
-							delete plugin.settings.activeFolderPresets[folderPath];
-							settingsManager.saveSettings();
-							refreshFolderPresetList(containerEl, plugin, settingsManager);
-						});
 				});
-			s.infoEl.remove();
+		
+			const presetInput = s.controlEl.createEl("input", {
+				cls: "preset-suggest-input",
+				type: "text",
+				value: plugin.settings.activeFolderPresets[folderPath] || presets[0] || '' // presets 배열의 첫 번째 항목을 기본값으로 사용
+			});
+
+        new PresetSuggest(
+            plugin.app,
+            presetInput,
+            plugin,
+            FileSuggestMode.PresetsFiles
+        );
+
+        presetInput.onblur = async () => {
+            const newValue = presetInput.value;
+            if (newValue !== plugin.settings.activeFolderPresets[folderPath]) {
+                plugin.settings.activeFolderPresets[folderPath] = newValue;
+                plugin.settings.folderPresets[folderPath] = [newValue];
+                await settingsManager.saveSettings();
+            }
+        };
+
+        s.addExtraButton((cb) => {
+            cb.setIcon('down-chevron-glyph')
+                .setTooltip('아래로 이동')
+                .onClick(() => {
+                    const entries = Object.entries(plugin.settings.folderPresets);
+                    const index = entries.findIndex(([path]) => path === folderPath);
+                    if (index < entries.length - 1) {
+                        [entries[index], entries[index + 1]] = [entries[index + 1], entries[index]];
+                        plugin.settings.folderPresets = Object.fromEntries(entries);
+                        settingsManager.saveSettings();
+                        refreshFolderPresetList(containerEl, plugin, settingsManager);
+                    }
+                });
+        })
+        .addExtraButton((cb) => {
+            cb.setIcon('cross')
+                .setTooltip('삭제')
+                .onClick(() => {
+                    delete plugin.settings.folderPresets[folderPath];
+                    delete plugin.settings.activeFolderPresets[folderPath];
+                    settingsManager.saveSettings();
+                    refreshFolderPresetList(containerEl, plugin, settingsManager);
+                });
+        });
+        s.infoEl.remove();
     }
 }

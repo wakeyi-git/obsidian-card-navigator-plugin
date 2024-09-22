@@ -420,6 +420,29 @@
     margin-left: 0.5rem;
 }
 
+.folder-preset-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.folder-preset-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.folder-suggest-input,
+.preset-suggest-input {
+    flex: 1;
+    min-width: 150px;
+}
+
+.button-container {
+    display: flex;
+    gap: 5px;
+}
+
 /* Keyboard Shortcuts Table Styles */
 .keyboard-shortcuts-description {
     margin-bottom: 1em;

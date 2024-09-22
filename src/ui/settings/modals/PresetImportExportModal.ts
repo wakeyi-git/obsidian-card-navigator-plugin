@@ -43,28 +43,28 @@ export class PresetImportExportModal extends Modal {
             this.importText = (e.target as HTMLTextAreaElement).value;
         });
 
-        new Setting(contentEl)
-            .addButton(btn => btn
-                .setButtonText('가져오기')
-                .setCta()
-                .onClick(async () => {
-                    try {
-                        const presetData = JSON.parse(this.importText) as Preset;
-                        if (!presetData.name || !presetData.settings) {
-                            throw new Error('유효하지 않은 프리셋 데이터입니다.');
-                        }
-                        await this.plugin.presetManager.createPreset(presetData.name, presetData.settings);
-                        this.settingsManager.applyChanges();
-                        new Notice(`프리셋 "${presetData.name}"을(를) 성공적으로 가져왔습니다.`);
-                        this.close();
-                    } catch (error: unknown) {
-                        if (error instanceof Error) {
-                            new Notice(`프리셋 가져오기 실패: ${error.message}`);
-                        } else {
-                            new Notice('프리셋 가져오기 중 알 수 없는 오류가 발생했습니다.');
-                        }
-                    }
-                }));
+		new Setting(contentEl)
+        .addButton(btn => btn
+            .setButtonText('가져오기')
+            .setCta()
+            .onClick(async () => {
+				try {
+					const presetData = JSON.parse(this.importText) as Preset;
+					if (!presetData.name || !presetData.settings || typeof presetData.description !== 'string') {
+						throw new Error('유효하지 않은 프리셋 데이터입니다.');
+					}
+					await this.plugin.presetManager.createPreset(presetData.name, presetData.settings, presetData.description);
+					this.settingsManager.applyChanges();
+					new Notice(`프리셋 "${presetData.name}"을(를) 성공적으로 가져왔습니다.`);
+					this.close();
+				} catch (error: unknown) {
+					if (error instanceof Error) {
+						new Notice(`프리셋 가져오기 실패: ${error.message}`);
+					} else {
+						new Notice('프리셋 가져오기 중 알 수 없는 오류가 발생했습니다.');
+					}
+				}
+            }));
     }
 
     private setupExportUI() {

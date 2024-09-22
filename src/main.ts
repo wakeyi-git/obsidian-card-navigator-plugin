@@ -1,5 +1,7 @@
 // main.ts
-import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf, FileView } from 'obsidian';
+// import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf, FileView } from 'obsidian';
+import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf } from 'obsidian';
+
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settings/settingsTab';
 // import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS, globalSettingsKeys } from './common/types';
@@ -20,27 +22,36 @@ export const translationLanguage = Object.keys(languageResources).includes(momen
 
 export default class CardNavigatorPlugin extends Plugin {
     settings: CardNavigatorSettings = DEFAULT_SETTINGS;
-    selectedFolder: string | null = null;
     settingsManager!: SettingsManager;
     presetManager!: PresetManager;
     settingTab!: SettingTab;
     private refreshDebounced = debounce(() => this.refreshViews(), 200);
     private ribbonIconEl: HTMLElement | null = null;
     public events: Events = new Events();
+    private lastOpenedFile: string | null = null;
 
     // Plugin initialization
-	async onload() {
-		await this.loadSettings();
-		await this.initializePlugin();
-	
-		this.ribbonIconEl = this.addRibbonIcon('layers-3', t('Open Card Navigator'), () => {
-			this.activateView();
-		});
-	
-		this.registerEvent(
-			this.app.workspace.on('active-leaf-change', this.handleActiveLeafChange.bind(this))
-		);
-	}
+    async onload() {
+        await this.loadSettings();
+        await this.initializePlugin();
+    
+        this.ribbonIconEl = this.addRibbonIcon('layers-3', t('Open Card Navigator'), () => {
+            this.activateView();
+        });
+    
+        this.registerEvent(
+            this.app.workspace.on('file-open', async (file) => {
+                if (!file || this.lastOpenedFile === file.path) return;
+                console.log(`File opened: ${file.path}`);
+                this.lastOpenedFile = file.path;
+                if (this.settings.autoApplyFolderPresets) {
+                    const folderPath = file.parent?.path || '/';
+                    console.log(`Attempting to apply preset for folder: ${folderPath}`);
+                    await this.presetManager.applyFolderPreset(folderPath);
+                }
+            })
+        );
+    }
 
 	// Plugin cleanup
 	async onunload() {
@@ -51,52 +62,43 @@ export default class CardNavigatorPlugin extends Plugin {
 		}
 	}
 
-	// Load plugin settings
-	async loadSettings() {
-		const loadedData = await this.loadData();
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
-	}
+    // Load plugin settings
+    async loadSettings() {
+        const loadedData = await this.loadData();
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+    }
 
-	// Save plugin settings
-	async saveSettings() {
-		await this.saveData(this.settings);
-		this.events.trigger('settings-updated');
-	}
+    // Save plugin settings
+    async saveSettings() {
+        await this.saveData(this.settings);
+        this.events.trigger('settings-updated');
+    }
 
     // Apply a preset using the PresetManager
     async applyPreset(presetName: string) {
         await this.presetManager.applyPreset(presetName);
     }
 
-			// // Initialize folder presets if not already present
-    // private async initializeFolderPresets() {
-    //     if (!this.settings.folderPresets) {
-    //         this.settings.folderPresets = {};
-    //         this.settings.activeFolderPresets = {};
-    //         await this.saveSettings();
-    //     }
-    // }
-
 	// Initialize plugin components and functionality
-	private async initializePlugin() {
-		this.initializeManagers();
-		await this.initializePresets();
-		await this.initializeI18n();
+    private async initializePlugin() {
+        this.initializeManagers();
+        await this.initializePresets();
+        await this.initializeI18n();
 
-		this.settingTab = new SettingTab(this.app, this);
-		this.addSettingTab(this.settingTab);
-	
-		this.registerView(
-			VIEW_TYPE_CARD_NAVIGATOR,
-			(leaf) => new CardNavigator(leaf, this)
-		);
+        this.settingTab = new SettingTab(this.app, this);
+        this.addSettingTab(this.settingTab);
+    
+        this.registerView(
+            VIEW_TYPE_CARD_NAVIGATOR,
+            (leaf) => new CardNavigator(leaf, this)
+        );
 
-		// Register plugin commands
-		this.addCommand({
-			id: 'open-card-navigator',
-			name: t('Open Card Navigator'),
-			callback: () => this.activateView(),
-		});
+        // Register plugin commands
+        this.addCommand({
+            id: 'open-card-navigator',
+            name: t('Open Card Navigator'),
+            callback: () => this.activateView(),
+        });
 
 		this.addCommand({
 			id: 'focus-card-navigator',
@@ -126,56 +128,32 @@ export default class CardNavigatorPlugin extends Plugin {
             }
         });
 
+
         this.addScrollCommands();
 
-		// Activate Card Navigator view when the layout is ready
-		this.app.workspace.onLayoutReady(() => {
-			this.activateView();
-		});
+        // Activate Card Navigator view when the layout is ready
+        this.app.workspace.onLayoutReady(() => {
+            this.activateView();
+        });
 
-		this.refreshDebounced = debounce(() => this.refreshViews(), 200);
+        this.refreshDebounced = debounce(() => this.refreshViews(), 200);
 
-		this.registerCentralizedEvents();
+        this.registerCentralizedEvents();
+    }
 
-		// // Refresh card navigator on layout changes
-		// this.registerEvent(
-		// 	this.app.workspace.on('layout-change', () => {
-		// 		this.refreshCardNavigator();
-		// 	})
-		// );
-	
-		// // Refresh card navigator on settings updates
-		// this.events.on('settings-updated', () => {
-		// 	this.refreshCardNavigator();
-		// });
-	}
+    // Initialize plugin managers
+// Initialize plugin managers
+private initializeManagers() {
+    this.presetManager = new PresetManager(this.app, this);
+    this.settingsManager = new SettingsManager(this, this.presetManager);
+}
 
-	// Initialize plugin managers
-	private initializeManagers() {
-		this.presetManager = new PresetManager(this.app, this, this.settings);
-		this.settingsManager = new SettingsManager(this, this.presetManager);
-	}
-
-	private async initializePresets() {
-		await this.presetManager.initialize();
-	
-		// // Initialize default preset
-		// if (!this.settings.folderPresets['/'] || this.settings.folderPresets['/'].length === 0) {
-		// 	const defaultSettings = Object.fromEntries(
-		// 		Object.entries(DEFAULT_SETTINGS).filter(
-		// 			([key]) => !globalSettingsKeys.includes(key as keyof CardNavigatorSettings)
-		// 		)
-		// 	);
-		// 	await this.settingsManager.saveAsNewPreset('default', defaultSettings);
-		// 	this.settings.folderPresets['/'] = ['default'];
-		// 	this.settings.activeFolderPresets['/'] = 'default';
-		// 	await this.saveSettings();
-		// }
-	
-		// 기본 프리셋을 적용
-		await this.applyPreset('default');
-	}
-
+    private async initializePresets() {
+        await this.presetManager.initialize();
+    
+        // 기본 프리셋을 적용
+        await this.applyPreset('default');
+    }
 
     // Initialize internationalization
     private async initializeI18n() {
@@ -267,22 +245,6 @@ export default class CardNavigatorPlugin extends Plugin {
 	private getActiveCardNavigator(): CardNavigator | null {
 		return this.app.workspace.getActiveViewOfType(CardNavigator);
 	}
-
-	// Determine if the active leaf is in file view, determine the parent folder of the file, and apply a preset for that folder
-    private async handleActiveLeafChange(leaf: WorkspaceLeaf | null) {
-        if (leaf?.view instanceof FileView) {
-            const file = leaf.view.file;
-            if (file?.parent) {
-                const folderPath = file.parent.path;
-                const activePreset = this.settings.activeFolderPresets[folderPath];
-                if (activePreset) {
-                    await this.applyPreset(activePreset);
-                }
-                this.refreshCardNavigator();
-                this.refreshSettingsTab();
-            }
-        }
-    }
 
 	// Refreshes the Card Navigator settings tab
 	refreshSettingsTab() {
@@ -380,6 +342,19 @@ export default class CardNavigatorPlugin extends Plugin {
 	// Set up event listeners for file and workspace changes
 	private registerCentralizedEvents() {
 
+		this.registerEvent(
+			this.app.workspace.on('file-open', (file) => {
+				if (!file || this.lastOpenedFile === file.path) return;
+				console.log(`File opened: ${file.path}`);
+				this.lastOpenedFile = file.path;
+				if (this.settings.autoApplyFolderPresets) {
+					const folderPath = file.parent?.path || '/';
+					console.log(`Attempting to apply preset for folder: ${folderPath}`);
+					this.presetManager.applyFolderPreset(folderPath);
+				}
+			})
+		);
+
 		// Refresh card navigator on layout changes
 		this.registerEvent(
 			this.app.workspace.on('layout-change', () => {
@@ -408,12 +383,12 @@ export default class CardNavigatorPlugin extends Plugin {
 			this.app.vault.on('modify', this.refreshDebounced)
 		);
 
-		this.events.on('settings-updated', this.refreshDebounced);
-	}
+        this.events.on('settings-updated', this.refreshDebounced);
+    }
 
-	// Manually trigger a refresh of the views
-	triggerRefresh() {
-		this.refreshDebounced();
-		this.app.workspace.trigger('layout-change');
-	}
+    // Manually trigger a refresh of the views
+    triggerRefresh() {
+        this.refreshDebounced();
+        this.app.workspace.trigger('layout-change');
+    }
 }

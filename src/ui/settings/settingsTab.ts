@@ -1,7 +1,7 @@
 import { App, PluginSettingTab } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SettingsManager } from './settingsManager';
-import { addPresetSettings } from './presetSettings';
+import { addPresetSettings, refreshFolderPresetList } from './presetSettings';
 import { addLayoutSettings } from './layoutSettings';
 import { addContainerSettings } from './containerSettings';
 import { addCardStylingSettings } from './cardStyleSettings';
@@ -48,6 +48,13 @@ export class SettingTab extends PluginSettingTab {
         addPresetSettings(this.sections.preset, this.plugin, this.settingsManager);
     }
 
+    updateFolderPresetList(): void {
+        const folderPresetListEl = this.sections.preset.querySelector('.folder-preset-list');
+        if (folderPresetListEl) {
+            refreshFolderPresetList(folderPresetListEl as HTMLElement, this.plugin, this.settingsManager);
+        }
+    }
+
     updateContainerSettings(): void {
         this.sections.container.empty();
         addContainerSettings(this.sections.container, this.plugin, this.settingsManager);
@@ -77,9 +84,12 @@ export class SettingTab extends PluginSettingTab {
         switch (changedSetting) {
             case 'lastActivePreset':
             case 'presets':
+                this.updatePresetSettings();
+                break;
             case 'folderPresets':
             case 'activeFolderPresets':
-                this.updatePresetSettings();
+            case 'autoApplyFolderPresets':
+                this.updateFolderPresetList();
                 break;
             case 'useSelectedFolder':
             case 'selectedFolder':
