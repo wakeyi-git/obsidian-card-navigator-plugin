@@ -92,18 +92,25 @@ export class SettingsManager implements ISettingsManager {
         return this.plugin.settings;
     }
 
-	async applyPreset(presetName: string) {
-		const preset = this.presetManager.getPreset(presetName);
-		if (preset) {
-			this.plugin.settings = {
-				...this.plugin.settings,
-				...preset.settings,
-			};
-			this.plugin.settings.lastActivePreset = presetName;
-			await this.saveSettings();
-			this.plugin.triggerRefresh(); // 플러그인 새로고침
-		}
-	}
+    async applyPreset(presetName: string): Promise<void> {
+        try {
+            const preset = this.presetManager.getPreset(presetName);
+            if (preset) {
+                // 프리셋의 설정값을 plugin.settings에 적용
+                Object.assign(this.plugin.settings, preset.settings);
+                this.plugin.settings.lastActivePreset = presetName;
+                
+                await this.saveSettings();
+                this.plugin.refreshCardNavigator(); // 플러그인 새로고침
+                new Notice(`프리셋 "${presetName}"이(가) 적용되었습니다.`);
+            } else {
+                throw new Error(`프리셋 "${presetName}"을(를) 찾을 수 없습니다.`);
+            }
+        } catch (error) {
+            console.error('프리셋 적용 실패:', error);
+            new Notice(`프리셋 적용 실패: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
 
     getActiveFolder(): string | null {
         return this.plugin.settings.selectedFolder;

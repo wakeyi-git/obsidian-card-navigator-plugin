@@ -38,18 +38,9 @@ function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
         value: plugin.settings.lastActivePreset
     });
 
-    const applyPreset = async (presetName: string) => {
-        try {
-            await plugin.presetManager.applyPreset(presetName);
-            plugin.settings.lastActivePreset = presetName;
-            await settingsManager.saveSettings();
-            plugin.refreshCardNavigator(); // 플러그인 새로고침
-            new Notice(`프리셋 "${presetName}"이(가) 적용되었습니다.`);
-        } catch (error) {
-            console.error('프리셋 적용 실패:', error);
-            new Notice(`프리셋 적용 실패: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    };
+	const applyPreset = async (presetName: string) => {
+		await settingsManager.applyPreset(presetName);
+	};
 
     new PresetSuggest(
         plugin.app,
