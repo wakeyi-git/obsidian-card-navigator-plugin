@@ -1,7 +1,6 @@
 import { TFolder, TFile, debounce, Notice } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { CardNavigatorSettings, Preset, NumberSettingKey, RangeSettingConfig, rangeSettingConfigs, FolderPresets, DEFAULT_SETTINGS } from '../../common/types';
-import { ConfirmModal } from './modals/ConfirmModal';
 import { ISettingsManager } from '../../common/ISettingsManager';
 import { IPresetManager } from '../../common/IPresetManager';
 
@@ -16,52 +15,40 @@ export class SettingsManager implements ISettingsManager {
 
     constructor(private plugin: CardNavigatorPlugin, private presetManager: IPresetManager) {}
 
-	async saveSettings() {
-		try {
-			await this.plugin.saveSettings();
-			console.log('Settings saved successfully');
-		} catch (error) {
-			console.error('Error saving settings:', error);
-		}
-	}
+    async saveSettings() {
+        try {
+            await this.plugin.saveSettings();
+        } catch (error) {
+            console.error('Error saving settings:', error);
+        }
+    }
 
-	async loadSettings() {
-		const loadedData = await this.plugin.loadData();
-		
-		if (loadedData) {
-			this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData) as CardNavigatorSettings;
-		} else {
-			this.plugin.settings = { ...DEFAULT_SETTINGS };
-		}
-	
-		// 누락된 설정을 기본값으로 채움
-		for (const key in DEFAULT_SETTINGS) {
-			if (!(key in this.plugin.settings)) {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				(this.plugin.settings as any)[key] = DEFAULT_SETTINGS[key as keyof CardNavigatorSettings];
-			}
-		}
-	
-		if (!this.plugin.settings.folderPresets) {
-			this.plugin.settings.folderPresets = {};
-		}
-		if (!this.plugin.settings.activeFolderPresets) {
-			this.plugin.settings.activeFolderPresets = {};
-		}
-	
-		await this.saveSettings();
-		await this.saveDefaultPreset(); // 기본 프리셋 저장
-	}
-	
-	private async saveDefaultPreset() {
-		const presetFolderPath = this.plugin.settings.presetFolderPath;
-		const filePath = `${presetFolderPath}/Default.json`;
-		try {
-			await this.plugin.app.vault.adapter.write(filePath, JSON.stringify(DEFAULT_SETTINGS, null, 2));
-		} catch (error) {
-			console.error(`Error saving default preset:`, error);
-		}
-	}
+    async loadSettings() {
+        const loadedData = await this.plugin.loadData();
+        
+        if (loadedData) {
+            this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData) as CardNavigatorSettings;
+        } else {
+            this.plugin.settings = { ...DEFAULT_SETTINGS };
+        }
+    
+        // 누락된 설정을 기본값으로 채움
+        for (const key in DEFAULT_SETTINGS) {
+            if (!(key in this.plugin.settings)) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (this.plugin.settings as any)[key] = DEFAULT_SETTINGS[key as keyof CardNavigatorSettings];
+            }
+        }
+    
+        if (!this.plugin.settings.folderPresets) {
+            this.plugin.settings.folderPresets = {};
+        }
+        if (!this.plugin.settings.activeFolderPresets) {
+            this.plugin.settings.activeFolderPresets = {};
+        }
+    
+        await this.saveSettings();
+    }
 
     async updateSetting<K extends keyof CardNavigatorSettings>(
         key: K,
@@ -73,14 +60,18 @@ export class SettingsManager implements ISettingsManager {
     }
 
 	async confirmDelete(itemName: string): Promise<boolean> {
-		const modal = new ConfirmModal(
-			this.plugin.app,
-			'삭제 확인',
-			`정말로 ${itemName}을(를) 삭제하시겠습니까?`
-		);
-		modal.open();
-		return await modal.waitForClose();
-	}
+        return new Promise((resolve) => {
+            const notice = new Notice(`정말로 ${itemName}을(를) 삭제하시겠습니까?`, 0);
+            notice.noticeEl.createEl('button', { text: '취소' }).onclick = () => {
+                notice.hide();
+                resolve(false);
+            };
+            notice.noticeEl.createEl('button', { text: '삭제' }).onclick = () => {
+                notice.hide();
+                resolve(true);
+            };
+        });
+    }
 
 	applyChanges() {
         this.plugin.triggerRefresh();
@@ -90,23 +81,16 @@ export class SettingsManager implements ISettingsManager {
         return this.plugin.settings;
     }
 
-	async applyPreset(presetName: string): Promise<void> {
-		try {
-			const preset = this.presetManager.getPreset(presetName);
-			if (preset) {
-				Object.assign(this.plugin.settings, preset.settings);
-				this.plugin.settings.lastActivePreset = presetName;
-				
-				await this.saveSettings();
-				this.plugin.refreshCardNavigator();
-				this.plugin.refreshSettingsTab();
-				new Notice(`프리셋 "${presetName}"이(가) 적용되었습니다.`);
-			} else {
-				throw new Error(`프리셋 "${presetName}"을(를) 찾을 수 없습니다.`);
-			}
-		} catch (error) {
-			console.error('프리셋 적용 실패:', error);
-			new Notice(`프리셋 적용 실패: ${error instanceof Error ? error.message : String(error)}`);
+	async applyPreset(presetName: string) {
+		const preset = this.presetManager.getPreset(presetName);
+		if (preset) {
+			this.plugin.settings = {
+				...this.plugin.settings,
+				...preset.settings,
+			};
+			this.plugin.settings.lastActivePreset = presetName;
+			await this.saveSettings();
+			this.plugin.triggerRefresh(); // 플러그인 새로고침
 		}
 	}
 
@@ -126,16 +110,9 @@ export class SettingsManager implements ISettingsManager {
         return rangeSettingConfigs[key];
     }
 
-	async toggleAutoApplyPresets(value: boolean): Promise<void> {
-		await this.updateSetting('autoApplyFolderPresets', value);
-		if (value) {
-			const activeFile = this.plugin.app.workspace.getActiveFile();
-			if (activeFile) {
-				const folderPath = activeFile.parent?.path || '/';
-				await this.plugin.presetManager.applyFolderPreset(folderPath);
-			}
-		}
-	}
+    async toggleAutoApplyPresets(value: boolean): Promise<void> {
+        await this.updateSetting('autoApplyFolderPresets', value);
+    }
 
     async updateBooleanSetting(key: keyof CardNavigatorSettings, value: boolean): Promise<void> {
         await this.updateSetting(key, value);

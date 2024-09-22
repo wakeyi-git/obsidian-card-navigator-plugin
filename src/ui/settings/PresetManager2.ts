@@ -1,5 +1,5 @@
 import { App, Notice } from 'obsidian';
-import { CardNavigatorSettings, Preset, globalSettingsKeys, DEFAULT_SETTINGS } from '../../common/types';
+import { CardNavigatorSettings, Preset, globalSettingsKeys } from '../../common/types';
 import { IPresetManager } from '../../common/IPresetManager';
 import CardNavigatorPlugin from '../../main';
 import * as path from 'path';
@@ -26,39 +26,6 @@ export class PresetManager implements IPresetManager {
         await this.ensurePresetFolder();
         await this.loadPresets();
         await this.loadPresetsFromFiles();
-    }
-
-	async createDefaultPreset(): Promise<void> {
-        const defaultPresetName = 'default';
-        if (this.presets[defaultPresetName]) {
-            return; // 이미 기본 프리셋이 존재하면 아무 것도 하지 않음
-        }
-
-        const defaultSettings = Object.fromEntries(
-            Object.entries(DEFAULT_SETTINGS).filter(
-                ([key]) => !globalSettingsKeys.includes(key as keyof CardNavigatorSettings)
-            )
-        );
-
-        const newPreset: Preset = { 
-            name: defaultPresetName, 
-            settings: defaultSettings, 
-            isDefault: true,
-            description: "Default preset created automatically"
-        };
-
-        await this.savePresetToFile(defaultPresetName, newPreset);
-        this.presets[defaultPresetName] = newPreset;
-        
-        // 기본 프리셋을 루트 폴더에 추가
-        this.addPresetToFolder('/', defaultPresetName);
-        
-        // 기본 프리셋을 활성 프리셋으로 설정
-        if (!this.settings.activeFolderPresets['/']) {
-            this.settings.activeFolderPresets['/'] = defaultPresetName;
-        }
-
-        await this.plugin.saveSettings();
     }
 
     async loadPresetsFromFiles() {
@@ -94,7 +61,7 @@ export class PresetManager implements IPresetManager {
         }
     }
 
-	private addPresetToFolder(folderPath: string, presetName: string): void {
+    private addPresetToFolder(folderPath: string, presetName: string): void {
         if (!this.settings.folderPresets) {
             this.settings.folderPresets = {};
         }
@@ -143,9 +110,11 @@ export class PresetManager implements IPresetManager {
 		return filteredSettings;
 	}
 
-    private async savePresetToFile(name: string, preset: Preset): Promise<void> {
-        const filePath = `${this.presetFolder}/${name}.json`;
+	private async savePresetToFile(name: string, preset: Preset): Promise<void> {
+		const filePath = `${this.presetFolder}/${name}.json`;
+        
         await this.ensureDirectory(this.presetFolder);
+
         await this.app.vault.adapter.write(filePath, JSON.stringify(preset, null, 2));
     }
 
@@ -156,7 +125,7 @@ export class PresetManager implements IPresetManager {
         }
     }
 
-	async deletePreset(name: string): Promise<void> {
+    async deletePreset(name: string): Promise<void> {
         if (!this.presets[name]) {
             throw new Error(`프리셋 "${name}"을(를) 찾을 수 없습니다.`);
         }
@@ -169,7 +138,7 @@ export class PresetManager implements IPresetManager {
         await this.app.vault.adapter.remove(filePath);
     }
 
-    async clonePreset(sourceName: string, newName: string): Promise<void> {
+	async clonePreset(sourceName: string, newName: string): Promise<void> {
         if (!this.presets[sourceName]) {
             throw new Error(`원본 프리셋 "${sourceName}"을(를) 찾을 수 없습니다.`);
         }
@@ -180,6 +149,7 @@ export class PresetManager implements IPresetManager {
         await this.savePresetToFile(newName, clonedPreset);
         this.presets[newName] = clonedPreset;
     }
+
 
     async importPreset(jsonString: string): Promise<void> {
         try {
@@ -201,7 +171,7 @@ export class PresetManager implements IPresetManager {
         return JSON.stringify(this.presets[name], null, 2);
     }
 
-	async loadPresets(): Promise<void> {
+    async loadPresets(): Promise<void> {
 		const presetFiles = await this.app.vault.adapter.list(this.presetFolder);
         for (const file of presetFiles.files) {
             if (file.endsWith('.json')) {
@@ -212,85 +182,20 @@ export class PresetManager implements IPresetManager {
         }
     }
 
-	// async applyPreset(presetName: string): Promise<void> {
-	// 	const preset = this.getPreset(presetName);
-	// 	if (preset) {
-	// 		this.settings = {
-	// 			...this.settings,
-	// 			...preset.settings,
-	// 		};
-	// 		this.settings.lastActivePreset = presetName;
-	// 		// 설정을 저장하고 플러그인을 새로고침합니다.
-	// 		await this.plugin.saveSettings();
-	// 		this.plugin.refreshCardNavigator(); // 플러그인 새로고침
-	// 	} else {
-	// 		throw new Error(`프리셋 "${presetName}"을(를) 찾을 수 없습니다.`);
-	// 	}
-	// }
-
-    // async applyPreset(presetName: string): Promise<void> {
-    //     // 현재 설정을 로드합니다.
-    //     const currentSettings = await this.plugin.loadData();
-    //     const presetSettings = await this.loadPresetFromFile(`${presetName}.json`);
-    //     if (presetSettings) {
-    //         // 전역 설정은 제외하고 프리셋 설정만 적용
-    //         const filteredSettings = Object.fromEntries(
-    //             Object.entries(presetSettings.settings).filter(
-    //                 ([key]) => !globalSettingsKeys.includes(key as keyof CardNavigatorSettings)
-    //             )
-    //         );
-    //         // 현재 설정과 프리셋 설정을 병합합니다.
-    //         const newSettings = Object.assign({}, currentSettings, filteredSettings);
-    //         this.plugin.settings = newSettings;
-    //         // 변경된 설정을 저장합니다.
-    //         await this.plugin.saveData(newSettings);
-    //         this.plugin.refreshCardNavigator();
-    //     } else {
-    //         throw new Error(`프리셋 "${presetName}"을(를) 찾을 수 없습니다.`);
-    //     }
-    // }
-
 	async applyPreset(presetName: string): Promise<void> {
-		// 메모리에서 프리셋을 가져옵니다. 없으면 파일에서 로드를 시도합니다.
-		let preset = this.getPreset(presetName);
-		if (!preset) {
-			const loadedPreset = await this.loadPresetFromFile(`${presetName}.json`);
-			if (!loadedPreset) {
-				throw new Error(`프리셋 "${presetName}"을(를) 찾을 수 없습니다.`);
-			}
-			preset = loadedPreset;
-			// 로드한 프리셋을 메모리에 캐시합니다.
-			this.presets[presetName] = preset;
+		const preset = this.getPreset(presetName);
+		if (preset) {
+			this.settings = {
+				...this.settings,
+				...preset.settings,
+			};
+			this.settings.lastActivePreset = presetName;
+			// 설정을 저장하고 플러그인을 새로고침합니다.
+			await this.plugin.saveSettings();
+			this.plugin.refreshCardNavigator(); // 플러그인 새로고침
+		} else {
+			throw new Error(`프리셋 "${presetName}"을(를) 찾을 수 없습니다.`);
 		}
-	
-		// 현재 설정을 로드합니다.
-		const currentSettings = await this.plugin.loadData();
-	
-		// 전역 설정을 제외한 프리셋 설정만 필터링합니다.
-		const filteredSettings = Object.fromEntries(
-			Object.entries(preset.settings).filter(
-				([key]) => !globalSettingsKeys.includes(key as keyof CardNavigatorSettings)
-			)
-		);
-	
-		// 현재 설정과 필터링된 프리셋 설정을 병합합니다.
-		const newSettings = {
-			...currentSettings,
-			...filteredSettings,
-			lastActivePreset: presetName  // 마지막으로 활성화된 프리셋을 기록합니다.
-		};
-	
-		// 병합된 새 설정을 적용합니다.
-		this.plugin.settings = newSettings;
-	
-		// 변경된 설정을 저장합니다.
-		await this.plugin.saveSettings();
-	
-		// CardNavigator를 새로고침합니다.
-		this.plugin.refreshCardNavigator();
-	
-		// 설정 탭도 새로고침하여 UI를 업데이트합니다.
-		this.plugin.refreshSettingsTab();
 	}
 
     getPresetNames(): string[] {
@@ -301,7 +206,7 @@ export class PresetManager implements IPresetManager {
         return this.presets[name];
     }
 
-	setGlobalPreset(name: string): void {
+    setGlobalPreset(name: string): void {
         if (!this.presets[name]) {
             throw new Error(`프리셋 "${name}"을(를) 찾을 수 없습니다.`);
         }
