@@ -14,7 +14,8 @@ export interface Card {
 export interface Preset {
     name: string;
     settings: Partial<CardNavigatorSettings>;
-    isDefault?: boolean;
+    isDefault: boolean;
+    description?: string;
 }
 
 export interface FolderPresets {
@@ -23,91 +24,77 @@ export interface FolderPresets {
 
 // Define the structure of CardNavigator settings
 export interface CardNavigatorSettings {
-	useSelectedFolder: boolean;
+    useSelectedFolder: boolean;
     selectedFolder: string | null;
     sortCriterion: SortCriterion;
     sortOrder: SortOrder;
-	renderContentAsHtml: boolean;
+    renderContentAsHtml: boolean;
     dragDropContent: boolean;
-	centerActiveCardOnOpen: boolean;
-    defaultLayout: 'auto' | 'list' | 'grid' | 'masonry';
+    centerActiveCardOnOpen: boolean;
+    defaultLayout: defaultLayout;
     cardWidthThreshold: number;
-	alignCardHeight: boolean;
-	cardsPerView: number;
+    alignCardHeight: boolean;
+    cardsPerView: number;
     gridColumns: number;
-	gridCardHeight: number;
+    gridCardHeight: number;
     masonryColumns: number;
     showFileName: boolean;
     showFirstHeader: boolean;
-	showBody: boolean;
-	bodyLengthLimit: boolean;
+    showBody: boolean;
+    bodyLengthLimit: boolean;
     bodyLength: number;
-	fileNameFontSize: number;
+    fileNameFontSize: number;
     firstHeaderFontSize: number;
     bodyFontSize: number;
+	presetFolderPath: string;
     presets: Record<string, Preset>;
-	folderPresets: FolderPresets;
-	autoApplyPresets: boolean;
-	lastActivePreset: string;
+    lastActivePreset: string;
+    autoApplyFolderPresets: boolean;
+    folderPresets: { [folderPath: string]: string[] };
+    activeFolderPresets: { [folderPath: string]: string };
 }
 
 export const globalSettingsKeys: (keyof CardNavigatorSettings)[] = [
-    'presets',
+	'presetFolderPath',
+	'presets',
     'lastActivePreset',
-    'autoApplyPresets',
+    'autoApplyFolderPresets',
     'folderPresets',
+	'activeFolderPresets'
 ] as const;
 
 // Define default settings for the CardNavigator
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {
-	useSelectedFolder: false,
+    useSelectedFolder: false,
     selectedFolder: null,
     sortCriterion: 'fileName',
     sortOrder: 'asc',
-	renderContentAsHtml: false,
+    renderContentAsHtml: false,
     dragDropContent: false,
-	centerActiveCardOnOpen: true,
+    centerActiveCardOnOpen: true,
     defaultLayout: 'auto',
     cardWidthThreshold: 250,
     alignCardHeight: true,
     cardsPerView: 4,
     gridColumns: 4,
-	gridCardHeight: 200,
+    gridCardHeight: 200,
     masonryColumns: 4,
     showFileName: true,
-	showFirstHeader: true,
+    showFirstHeader: true,
     showBody: true,
-	bodyLengthLimit: true,
+    bodyLengthLimit: true,
     bodyLength: 501,
     fileNameFontSize: 20,
     firstHeaderFontSize: 20,
     bodyFontSize: 15,
-    presets: {
-        default: {
-            name: 'default',
-            settings: {},
-			isDefault: true
-        }
-    },
-	folderPresets: {},
-	autoApplyPresets: false,
-    lastActivePreset: 'default'
+	presetFolderPath: 'CardNavigatorPresets',
+    presets: {},
+    lastActivePreset: '',
+    autoApplyFolderPresets: true,
+    folderPresets: {},
+    activeFolderPresets: {}
 };
 
-// Function to initialize default settings
-export function initializeDefaultSettings(): void {
-    const defaultSettings = Object.fromEntries(
-        Object.entries(DEFAULT_SETTINGS).filter(
-            ([key]) => key !== 'presets' && key !== 'lastActivePreset'
-        )
-    );
-
-    if (DEFAULT_SETTINGS.presets && DEFAULT_SETTINGS.presets.default) {
-        DEFAULT_SETTINGS.presets.default.settings = defaultSettings;
-    } else {
-        console.error('Default preset is not properly initialized');
-    }
-}
 
 // Define a type for numeric setting keys
 export type NumberSettingKey = Extract<keyof CardNavigatorSettings, {
@@ -140,6 +127,7 @@ export type IconName = 'folder' | 'arrow-up-narrow-wide' | 'settings';
 export type ScrollDirection = 'up' | 'down' | 'left' | 'right';
 export type SortCriterion = 'fileName' | 'lastModified' | 'created';
 export type SortOrder = 'asc' | 'desc';
+export type defaultLayout = 'auto' | 'list' | 'grid' | 'masonry';
 export type ToolbarMenu = 'sort' | 'settings';
 
 // Define sorting options for the application

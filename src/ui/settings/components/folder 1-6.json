@@ -1,0 +1,29 @@
+{
+  "name": "folder 1-6",
+  "settings": {
+    "useSelectedFolder": true,
+    "selectedFolder": "folder 1",
+    "sortCriterion": "fileName",
+    "sortOrder": "asc",
+    "renderContentAsHtml": true,
+    "dragDropContent": true,
+    "centerActiveCardOnOpen": true,
+    "defaultLayout": "auto",
+    "cardWidthThreshold": 250,
+    "alignCardHeight": true,
+    "cardsPerView": 6,
+    "gridColumns": 4,
+    "gridCardHeight": 200,
+    "masonryColumns": 4,
+    "showFileName": true,
+    "showFirstHeader": true,
+    "showBody": true,
+    "bodyLengthLimit": true,
+    "bodyLength": 501,
+    "fileNameFontSize": 20,
+    "firstHeaderFontSize": 20,
+    "bodyFontSize": 15
+  },
+  "isDefault": false,
+  "description": ""
+}

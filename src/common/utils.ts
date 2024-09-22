@@ -1,6 +1,5 @@
 // utils.ts
-import { TFile } from 'obsidian';
-import { SortCriterion, SortOrder } from './types';
+import { TFile } from "obsidian";import { SortCriterion, SortOrder } from './types';
 
 /**
  * This file contains utility functions for file handling, sorting, and numerical operations.

@@ -321,15 +321,30 @@
 }
 
 .masonry-card {
-	position: relative;
-	z-index: 3;
+    position: relative;
+    z-index: 3;
     width: 100%;
     break-inside: avoid;
     background: var(--background-secondary);
     border-radius: 5px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-	box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+.masonry-card.card-navigator-focused {
+    border: 1px solid var(--interactive-accent);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Focus shadow effect */
+}
+
+.masonry-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Hover shadow effect */
+}
+
+.masonry-card.card-navigator-active .card-navigator-filename,
+.masonry-card.card-navigator-active .card-navigator-first-header,
+.masonry-card.card-navigator-active .card-navigator-body {
+    color: var(--interactive-accent);
 }
 
 .masonry-card .card-navigator-filename {
@@ -359,6 +374,16 @@
     background: var(--background-secondary-alt);
 }
 
+.card-navigator-card.card-navigator-focused,
+.masonry-card.card-navigator-focused {
+    border: 1px solid var(--interactive-accent);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Focus shadow effect */
+}
+
+.card-navigator-card.card-navigator-focused,
+.masonry-card.card-navigator-focused {
+    z-index: 10;
+}
 
 /* Keyboard Shortcuts Table Styles */
 .keyboard-shortcuts-description {

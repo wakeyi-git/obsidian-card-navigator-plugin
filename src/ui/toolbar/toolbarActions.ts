@@ -2,7 +2,7 @@
 import { TFolder, FuzzySuggestModal, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey } from '../../common/types';
-import { SettingsManager } from '../../common/settingsManager';
+import { SettingsManager } from '../settings/settingsManager';
 import { t } from 'i18next';
 
 // Track the current popup for proper management
@@ -337,7 +337,7 @@ function addPresetDropdown(containerEl: HTMLElement, plugin: CardNavigatorPlugin
     new Setting(containerEl)
         .setName(t('Auto apply folder\'s presets'))
         .addToggle(toggle => toggle
-            .setValue(plugin.settings.autoApplyPresets)
+            .setValue(plugin.settings.autoApplyFolderPresets)
             .onChange(async (value) => {
                 await settingsManager.toggleAutoApplyPresets(value);
             })
@@ -427,7 +427,7 @@ function addNumberSetting(
             ) {
                 return;
             }
-            await settingsManager.updateNumberSetting(key, value);
+            await settingsManager.updateSetting(key, value);
             // Update layout if necessary
             if (key === 'gridColumns' || key === 'masonryColumns') {
                 plugin.updateCardNavigatorLayout(plugin.settings.defaultLayout);

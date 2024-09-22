@@ -36,8 +36,8 @@
     "Select a folder to add a folder preset.": "Select a folder to add a folder preset.",
     "Add": "Add",
     "No presets available. Please create a preset first.": "No presets available. please create a preset first.",
-    "folder_label": "folder: {{folderPath}}",
-    "presets_label": "presets: {{presets}}",
+	"folder_label": "Folder: {{folderPath}}",
+	"presets_label": "Presets: {{presets}}",
     "Remove preset from folder": "Remove preset from folder",
 
     "Container settings": "Container settings",

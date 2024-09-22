@@ -50,10 +50,23 @@ export class MasonryLayout implements LayoutStrategy {
         const cardPositions: CardPosition[] = [];
         const containerRect = this.container.getBoundingClientRect();
 
+        // Store focused cards before clearing the container
+        const focusedCards = new Set(Array.from(this.container.querySelectorAll('.card-navigator-focused'))
+            .map(el => (el as HTMLElement).dataset.cardId));
+
+        // Clear existing cards
+        this.columnElements.forEach(column => column.innerHTML = '');
+
         cards.forEach((card, index) => {
             const columnIndex = index % this.columns;
             const cardElement = this.cardMaker.createCardElement(card);
             cardElement.classList.add('masonry-card');
+            
+            // Restore the focused state if it existed
+            if (focusedCards.has(card.file.path)) {
+                cardElement.classList.add('card-navigator-focused');
+            }
+            
             this.columnElements[columnIndex].appendChild(cardElement);
 
             const rect = cardElement.getBoundingClientRect();

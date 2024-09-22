@@ -23,6 +23,7 @@ export class CardContainer {
     private keyboardNavigator: KeyboardNavigator | null = null;
     private cards: Card[] = [];
     private resizeObserver: ResizeObserver;
+	private focusedCardId: string | null = null;
 
     constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
 		// leaf의 view를 통해 컨테이너 요소에 접근
@@ -166,18 +167,18 @@ export class CardContainer {
     }
 
     // Waits for the container element to be fully rendered before continuing
-    private async waitForLeafCreation(): Promise<void> {
-        return new Promise((resolve) => {
-            const checkLeaf = () => {
-                if (this.containerEl && this.containerEl.offsetWidth > 0 && this.containerEl.offsetHeight > 0) {
-                    resolve();
-                } else {
-                    requestAnimationFrame(checkLeaf);
-                }
-            };
-            checkLeaf();
-        });
-    }
+    // private async waitForLeafCreation(): Promise<void> {
+    //     return new Promise((resolve) => {
+    //         const checkLeaf = () => {
+    //             if (this.containerEl && this.containerEl.offsetWidth > 0 && this.containerEl.offsetHeight > 0) {
+    //                 resolve();
+    //             } else {
+    //                 requestAnimationFrame(checkLeaf);
+    //             }
+    //         };
+    //         checkLeaf();
+    //     });
+    // }
 
 	// Determines the appropriate layout strategy based on the container size and plugin settings
     private determineAutoLayout(): LayoutStrategy {
@@ -354,32 +355,33 @@ export class CardContainer {
 
     // Renders the card elements inside the container
 	private async renderCards(cardsData: Card[]) {
-		if (!this.containerEl) return;
-	
-		if (!cardsData || cardsData.length === 0) {
-			console.warn('The card data is empty.');
-			return;
-		}
+        if (!this.containerEl) return;
+    
+        if (!cardsData || cardsData.length === 0) {
+            console.warn('The card data is empty.');
+            return;
+        }
 
-		if (!this.layoutStrategy) {
-			console.error('The layout strategy has not been set.');
-			return;
-		}
+        if (!this.layoutStrategy) {
+            console.error('The layout strategy has not been set.');
+            return;
+        }
 
-		const containerEl = this.containerEl;
-		const currentScrollTop = containerEl.scrollTop;
-		const currentScrollLeft = containerEl.scrollLeft;
-	
-		const focusedCardIndex = Array.from(containerEl.children).findIndex(
-			child => child.classList.contains('card-navigator-focused')
-		);
-	
-		const containerRect = containerEl.getBoundingClientRect();
-		const containerStyle = window.getComputedStyle(this.containerEl);
-		const paddingLeft = parseFloat(containerStyle.paddingLeft);
-		const paddingRight = parseFloat(containerStyle.paddingRight);
-		const paddingTop = parseFloat(containerStyle.paddingTop);
-		const availableWidth = containerRect.width - paddingLeft - paddingRight;
+        const containerEl = this.containerEl;
+        const currentScrollTop = containerEl.scrollTop;
+        const currentScrollLeft = containerEl.scrollLeft;
+    
+        // Store the focused card index before clearing the container
+        const focusedCardIndex = Array.from(containerEl.children).findIndex(
+            child => child.classList.contains('card-navigator-focused')
+        );
+    
+        const containerRect = containerEl.getBoundingClientRect();
+        const containerStyle = window.getComputedStyle(this.containerEl);
+        const paddingLeft = parseFloat(containerStyle.paddingLeft);
+        const paddingRight = parseFloat(containerStyle.paddingRight);
+        const paddingTop = parseFloat(containerStyle.paddingTop);
+        const availableWidth = containerRect.width - paddingLeft - paddingRight;
 
         // Apply container styles for List layout
         if (this.layoutStrategy instanceof ListLayout) {
@@ -395,12 +397,12 @@ export class CardContainer {
             containerEl.style.height = '100%';
         }
 
-		const cardPositions = this.layoutStrategy.arrange(
-			cardsData,
-			availableWidth,
-			containerRect.height,
-			this.plugin.settings.cardsPerView
-		);
+        const cardPositions = this.layoutStrategy.arrange(
+            cardsData,
+            availableWidth,
+            containerRect.height,
+            this.plugin.settings.cardsPerView
+        );
 	
 		if (cardPositions.length !== cardsData.length) {
 			console.warn('Card positions and card data length mismatch. Adjusting...');
@@ -408,13 +410,15 @@ export class CardContainer {
 			cardsData = cardsData.slice(0, minLength);
 			cardPositions.length = minLength;
 		}
+
+		this.focusedCardId = this.getFocusedCardId();
 	
-		containerEl.empty();
-		this.cards = cardsData;
-	
-		cardPositions.forEach((position, index) => {
-			const card = cardsData[index];
-			const cardEl = this.cardMaker.createCardElement(card);
+        containerEl.empty();
+        this.cards = cardsData;
+    
+        cardPositions.forEach((position, index) => {
+            const card = cardsData[index];
+            const cardEl = this.cardMaker.createCardElement(card);
 
             if (this.layoutStrategy instanceof ListLayout) {
                 const cardStyle = this.layoutStrategy.getCardStyle();
@@ -433,7 +437,17 @@ export class CardContainer {
             cardEl.classList.add(this.layoutStrategy.getScrollDirection() === 'vertical' ? 'vertical' : 'horizontal');
             cardEl.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
             cardEl.classList.toggle('card-navigator-active', card.file === this.plugin.app.workspace.getActiveFile());
-            cardEl.classList.toggle('card-navigator-focused', index === focusedCardIndex);
+            
+            // Restore the focused state
+            if (index === focusedCardIndex) {
+                cardEl.classList.add('card-navigator-focused');
+            }
+
+			if (card.file.path === this.focusedCardId) {
+                cardEl.classList.add('card-navigator-focused');
+            }
+
+            containerEl.appendChild(cardEl);
         });
 
         containerEl.scrollTop = currentScrollTop;
@@ -449,6 +463,32 @@ export class CardContainer {
 
         this.updateScrollDirection();
         void this.ensureCardSizesAreSet();
+    }
+
+	private getFocusedCardId(): string | null {
+        if (!this.containerEl) return null;
+        const focusedCard = this.containerEl.querySelector('.card-navigator-focused') as HTMLElement;
+        return focusedCard ? focusedCard.dataset.cardId || null : null;
+    }
+
+    public focusCard(cardId: string) {
+        this.focusedCardId = cardId;
+        this.updateFocusedCard();
+    }
+
+    private updateFocusedCard() {
+        if (!this.containerEl || !this.focusedCardId) return;
+        
+        const cards = this.containerEl.querySelectorAll('.card-navigator-card');
+        cards.forEach(card => {
+            if (card instanceof HTMLElement) {
+                if (card.dataset.cardId === this.focusedCardId) {
+                    card.classList.add('card-navigator-focused');
+                } else {
+                    card.classList.remove('card-navigator-focused');
+                }
+            }
+        });
     }
 
 	// Updates the scroll direction of the container element based on the layout strategy

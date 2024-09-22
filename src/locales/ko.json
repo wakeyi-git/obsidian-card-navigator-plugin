@@ -35,8 +35,8 @@
     "Select a folder to add a folder preset.": "폴더 프리셋을 추가할 폴더를 선택하세요.",
     "Add": "추가",
     "No presets available. Please create a preset first.": "사용 가능한 프리셋이 없습니다. 먼저 프리셋을 생성해 주세요.",
-    "folder_label": "폴더: {{folderPath}}",
-    "presets_label": "프리셋: {{presets}}",
+	"folder_label": "폴더: {{folderPath}}",
+	"presets_label": "프리셋: {{presets}}",
     "Remove preset from folder": "폴더에서 프리셋 제거",
 
     "Container settings": "컨테이너 설정",
