@@ -1,3 +1,4 @@
+// main.ts
 import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf, FileView } from 'obsidian';
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settings/settingsTab';
@@ -64,11 +65,6 @@ export default class CardNavigatorPlugin extends Plugin {
         await this.saveData(this.settings);
         this.events.trigger('settings-updated');
     }
-
-	// Apply a preset using the PresetManager
-	async applyPreset(presetName: string) {
-		await this.presetManager.applyPreset(presetName);
-	}
 
     // Initialize plugin managers
 	private initializeManagers() {
@@ -186,6 +182,15 @@ export default class CardNavigatorPlugin extends Plugin {
 		};
 	}
 
+	// // Initialize folder presets if not already present
+    // private async initializeFolderPresets() {
+    //     if (!this.settings.folderPresets) {
+    //         this.settings.folderPresets = {};
+    //         this.settings.activeFolderPresets = {};
+    //         await this.saveSettings();
+    //     }
+    // }
+
 	// Determine if the active leaf is in file view, determine the parent folder of the file, and apply a preset for that folder
     private async handleActiveLeafChange(leaf: WorkspaceLeaf | null) {
         if (leaf?.view instanceof FileView) {
@@ -201,6 +206,26 @@ export default class CardNavigatorPlugin extends Plugin {
             }
         }
     }
+
+	async applyPreset(presetName: string) {
+		// 현재 설정을 로드합니다.
+		const currentSettings = await this.loadData();
+		const presetSettings = await this.settingsManager.loadPresetFromFile(presetName + '.json');
+		if (presetSettings) {
+			// 전역 설정은 제외하고 프리셋 설정만 적용
+			const filteredSettings = Object.fromEntries(
+				Object.entries(presetSettings).filter(
+					([key]) => !globalSettingsKeys.includes(key as keyof CardNavigatorSettings)
+				)
+			);
+			// 현재 설정과 프리셋 설정을 병합합니다.
+			const newSettings = Object.assign({}, currentSettings, filteredSettings);
+			this.settings = newSettings;
+			// 변경된 설정을 저장합니다.
+			await this.saveData(newSettings);
+			this.refreshCardNavigator();
+		}
+	}
 
 	// Refreshes the Card Navigator settings tab
 	refreshSettingsTab() {
