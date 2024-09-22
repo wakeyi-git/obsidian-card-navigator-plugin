@@ -95,7 +95,6 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     activeFolderPresets: {}
 };
 
-
 // Define a type for numeric setting keys
 export type NumberSettingKey = Extract<keyof CardNavigatorSettings, {
     [K in keyof CardNavigatorSettings]: CardNavigatorSettings[K] extends number ? K : never

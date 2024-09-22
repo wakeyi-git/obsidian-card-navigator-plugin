@@ -19,7 +19,7 @@ function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
         .setDesc('Card Navigator 프리셋을 저장할 폴더를 선택하세요.')
         .addSearch(cb => {
             new FolderSuggest(plugin.app, cb.inputEl);
-            cb.setPlaceholder('예: Card Navigator Presets')
+            cb.setPlaceholder('예: CardNavigatorPresets')
                 .setValue(plugin.settings.presetFolderPath)
                 .onChange(async (newFolder) => {
                     plugin.settings.presetFolderPath = newFolder;

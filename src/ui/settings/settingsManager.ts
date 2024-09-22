@@ -23,32 +23,43 @@ export class SettingsManager implements ISettingsManager {
         }
     }
 
-    async loadSettings() {
-        const loadedData = await this.plugin.loadData();
-        
-        if (loadedData) {
-            this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData) as CardNavigatorSettings;
-        } else {
-            this.plugin.settings = { ...DEFAULT_SETTINGS };
-        }
-    
-        // 누락된 설정을 기본값으로 채움
-        for (const key in DEFAULT_SETTINGS) {
-            if (!(key in this.plugin.settings)) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (this.plugin.settings as any)[key] = DEFAULT_SETTINGS[key as keyof CardNavigatorSettings];
-            }
-        }
-    
-        if (!this.plugin.settings.folderPresets) {
-            this.plugin.settings.folderPresets = {};
-        }
-        if (!this.plugin.settings.activeFolderPresets) {
-            this.plugin.settings.activeFolderPresets = {};
-        }
-    
-        await this.saveSettings();
-    }
+	async loadSettings() {
+		const loadedData = await this.plugin.loadData();
+		
+		if (loadedData) {
+			this.plugin.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData) as CardNavigatorSettings;
+		} else {
+			this.plugin.settings = { ...DEFAULT_SETTINGS };
+		}
+	
+		// 누락된 설정을 기본값으로 채움
+		for (const key in DEFAULT_SETTINGS) {
+			if (!(key in this.plugin.settings)) {
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				(this.plugin.settings as any)[key] = DEFAULT_SETTINGS[key as keyof CardNavigatorSettings];
+			}
+		}
+	
+		if (!this.plugin.settings.folderPresets) {
+			this.plugin.settings.folderPresets = {};
+		}
+		if (!this.plugin.settings.activeFolderPresets) {
+			this.plugin.settings.activeFolderPresets = {};
+		}
+	
+		await this.saveSettings();
+		await this.saveDefaultPreset(); // 기본 프리셋 저장
+	}
+	
+	private async saveDefaultPreset() {
+		const presetFolderPath = this.plugin.settings.presetFolderPath;
+		const filePath = `${presetFolderPath}/Default.json`;
+		try {
+			await this.plugin.app.vault.adapter.write(filePath, JSON.stringify(DEFAULT_SETTINGS, null, 2));
+		} catch (error) {
+			console.error(`Error saving default preset:`, error);
+		}
+	}
 
     async updateSetting<K extends keyof CardNavigatorSettings>(
         key: K,
