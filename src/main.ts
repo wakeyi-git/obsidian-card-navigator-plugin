@@ -1,10 +1,7 @@
 // main.ts
-// import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf, FileView } from 'obsidian';
 import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf } from 'obsidian';
-
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settings/settingsTab';
-// import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS, globalSettingsKeys } from './common/types';
 import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS } from './common/types';
 import { SettingsManager } from './ui/settings/settingsManager';
 import { PresetManager } from './ui/settings/PresetManager';
@@ -63,10 +60,14 @@ export default class CardNavigatorPlugin extends Plugin {
 	}
 
     // Load plugin settings
-    async loadSettings() {
-        const loadedData = await this.loadData();
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
-    }
+	async loadSettings() {
+		const loadedData = await this.loadData();
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+		
+		console.log('Loaded settings:', this.settings);
+		console.log('Folder presets:', this.settings.folderPresets);
+		console.log('Active folder presets:', this.settings.activeFolderPresets);
+	}
 
     // Save plugin settings
     async saveSettings() {
@@ -142,11 +143,10 @@ export default class CardNavigatorPlugin extends Plugin {
     }
 
     // Initialize plugin managers
-// Initialize plugin managers
-private initializeManagers() {
-    this.presetManager = new PresetManager(this.app, this);
-    this.settingsManager = new SettingsManager(this, this.presetManager);
-}
+	private initializeManagers() {
+		this.presetManager = new PresetManager(this.app, this);
+		this.settingsManager = new SettingsManager(this, this.presetManager);
+	}
 
     private async initializePresets() {
         await this.presetManager.initialize();
@@ -343,14 +343,14 @@ private initializeManagers() {
 	private registerCentralizedEvents() {
 
 		this.registerEvent(
-			this.app.workspace.on('file-open', (file) => {
-				if (!file || this.lastOpenedFile === file.path) return;
-				console.log(`File opened: ${file.path}`);
-				this.lastOpenedFile = file.path;
-				if (this.settings.autoApplyFolderPresets) {
+			this.app.workspace.on('file-open', async (file) => {
+				if (file) {
+					console.log('File opened:', file.path);
 					const folderPath = file.parent?.path || '/';
-					console.log(`Attempting to apply preset for folder: ${folderPath}`);
-					this.presetManager.applyFolderPreset(folderPath);
+					console.log('Attempting to apply preset for folder:', folderPath);
+					await this.presetManager.applyFolderPreset(folderPath);
+					// 설정이 변경되었으므로 뷰를 새로고침합니다.
+					this.refreshViews();
 				}
 			})
 		);
