@@ -424,6 +424,18 @@
     z-index: 10;
 }
 
+.settings-section-margin {
+    height: var(--size-4-3);
+}
+
+.preset-suggest-input {
+    width: 50%;
+}
+
+.search-input-container {
+    width: 50%;
+}
+
 /* Keyboard Shortcuts Table Styles */
 .keyboard-shortcuts-description {
     font-style: italic;
