@@ -1,6 +1,6 @@
 import { TFolder, debounce, Notice } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
-import { CardNavigatorSettings, NumberSettingKey, RangeSettingConfig, rangeSettingConfigs, DEFAULT_SETTINGS } from '../../common/types';
+import { CardNavigatorSettings, Preset, NumberSettingKey, RangeSettingConfig, rangeSettingConfigs, FolderPresets, DEFAULT_SETTINGS } from '../../common/types';
 import { ISettingsManager } from '../../common/ISettingsManager';
 
 export class SettingsManager implements ISettingsManager {
@@ -64,27 +64,46 @@ export class SettingsManager implements ISettingsManager {
 	}
 
 	async confirmDelete(itemName: string): Promise<boolean> {
-		return new Promise((resolve) => {
-			const notice = new Notice(`정말로 ${itemName}을(를) 삭제하시겠습니까?`, 0);
-			const buttonsContainer = notice.noticeEl.createDiv('buttons-container');
+        return new Promise((resolve) => {
+            const notice = new Notice(`정말로 ${itemName}을(를) 삭제하시겠습니까?`, 0);
+            notice.noticeEl.createEl('button', { text: '취소' }).onclick = () => {
+                notice.hide();
+                resolve(false);
+            };
+            notice.noticeEl.createEl('button', { text: '삭제' }).onclick = () => {
+                notice.hide();
+                resolve(true);
+            };
+        });
+    }
 
-			const cancelButton = buttonsContainer.createEl('button', { text: '취소' });
-			cancelButton.onclick = () => {
-				notice.hide();
-				resolve(false);
-			};
+	applyChanges() {
+        this.plugin.triggerRefresh();
+    }
 
-			const deleteButton = buttonsContainer.createEl('button', { text: '삭제' });
-			deleteButton.onclick = () => {
-				notice.hide();
-				resolve(true);
-			};
-		});
-	}
+    getCurrentSettings(): Partial<CardNavigatorSettings> {
+        return this.plugin.settings;
+    }
 
-	applyChanges(): void {
-		this.plugin.triggerRefresh();
-	}
+    async applyPreset(presetName: string): Promise<void> {
+        try {
+            const preset = this.presetManager.getPreset(presetName);
+            if (preset) {
+                // 프리셋의 설정값을 plugin.settings에 적용
+                Object.assign(this.plugin.settings, preset.settings);
+                this.plugin.settings.lastActivePreset = presetName;
+                
+                await this.saveSettings();
+                this.plugin.refreshCardNavigator(); // 플러그인 새로고침
+                new Notice(`프리셋 "${presetName}"이(가) 적용되었습니다.`);
+            } else {
+                throw new Error(`프리셋 "${presetName}"을(를) 찾을 수 없습니다.`);
+            }
+        } catch (error) {
+            console.error('프리셋 적용 실패:', error);
+            new Notice(`프리셋 적용 실패: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
 
 	getActiveFolder(): string | null {
 		return this.plugin.settings.selectedFolder;
