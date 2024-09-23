@@ -114,6 +114,41 @@
     overflow: hidden; /* Collapsed children are hidden */
 }
 
+/* 전체 너비 설정 항목을 위한 스타일 */
+.setting-item.setting-full-width {
+	padding-left: 0;
+	padding-right: 0;
+	border-top: none;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* 정보 영역 숨기기 (no-info 클래스가 있을 때) */
+.setting-item.setting-full-width.no-info .setting-item-info {
+	display: none;
+}
+
+/* 컨트롤 영역 전체 너비로 설정 */
+.setting-item.setting-full-width .setting-item-control {
+	padding-left: 0;
+	padding-right: 0;
+	width: 100%;
+}
+
+/* 입력 필드 스타일 조정 */
+.setting-item.setting-full-width .setting-item-control input[type="text"] {
+	width: 100%;
+	margin-left: 0;
+	margin-right: 0;
+	padding-left: 10px;
+	padding-right: 10px;
+}
+
+/* 설정 컨테이너의 패딩 조정 (필요한 경우) */
+.settings-container {
+	padding-left: 15px;
+	padding-right: 15px;
+}
+
 .card-navigator-settings-popup .setting-item {
     border-top: none;
     border-bottom: none;

@@ -1,13 +1,17 @@
-import { Preset, CardNavigatorSettings } from '../common/types';
+import { Preset, FolderPresets } from '../common/types';
 
+// 프리셋 관리 함수들의 타입 정의
 export interface IPresetManager {
-    createPreset(name: string, settings: Partial<CardNavigatorSettings>, description?: string): Promise<void>;
-    updatePreset(name: string, settings: Partial<CardNavigatorSettings>, description?: string): Promise<void>;
-    deletePreset(name: string): Promise<void>;
-    clonePreset(sourceName: string, newName: string): Promise<void>;
-    exportPreset(name: string): Promise<string>;
-    importPreset(jsonString: string): Promise<void>;
-    getPresetNames(): string[];
-    getPreset(name: string): Preset | undefined;
-    loadPresets(): Promise<void>;
+	savePreset: (name: string, description?: string) => Promise<void>;
+	loadPreset: (name: string) => Promise<void>;
+	deletePreset: (name: string) => Promise<void>;
+	renamePreset: (oldName: string, newName: string) => Promise<void>;
+	exportPresets: () => string;
+	importPresets: (presetsJson: string) => Promise<void>;
+	getPresets: () => Record<string, Preset>;
+	getFolderPresets: () => FolderPresets;
+	setFolderPreset: (folderPath: string, presetName: string) => Promise<void>;
+	removeFolderPreset: (folderPath: string, presetName: string) => Promise<void>;
+	toggleAutoApplyFolderPresets: (value: boolean) => Promise<void>;
+	applyFolderPreset: (folderPath: string) => Promise<void>;
 }

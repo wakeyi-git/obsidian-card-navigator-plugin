@@ -1,36 +1,14 @@
 // toolbarActions.ts
-import { TFolder, FuzzySuggestModal, Setting } from 'obsidian';
+import { Setting, TextComponent } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey } from '../../common/types';
 import { SettingsManager } from '../settings/settingsManager';
 import { FolderSuggest } from '../settings/components/FolderSuggest';
+import { getTranslatedSortOptions } from '../../common/types';
 import { t } from 'i18next';
 
 // Track the current popup for proper management
 const currentPopups: Map<Window, { element: HTMLElement, type: ToolbarMenu }> = new Map();
-
-// Modal for selecting folders in the toolbar
-export class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
-    constructor(private plugin: CardNavigatorPlugin, private onSelect: (folder: TFolder) => void) {
-        super(plugin.app);
-    }
-
-    // Retrieve all folders in the vault
-    getItems(): TFolder[] {
-        return this.plugin.app.vault.getAllLoadedFiles()
-            .filter((file): file is TFolder => file instanceof TFolder);
-    }
-
-    // Display the folder path as the item text
-    getItemText(folder: TFolder): string {
-        return folder.path;
-    }
-
-    // Handle folder selection
-    onChooseItem(folder: TFolder): void {
-        this.onSelect(folder);
-    }
-}
 
 // Define a handler function
 function handleWindowClick(event: MouseEvent, windowObj: Window) {
@@ -90,21 +68,11 @@ export function toggleSort(plugin: CardNavigatorPlugin, containerEl: HTMLElement
     }
     const sortPopup = createPopup('card-navigator-sort-popup', 'sort', currentWindow);
     const currentSort = `${plugin.settings.sortCriterion}_${plugin.settings.sortOrder}`;
-
-    const sortOptions: Array<{ value: string, label: string }> = [
-        { value: 'fileName_asc', label: t('File name (A to Z)') },
-        { value: 'fileName_desc', label: t('File name (Z to A)') },
-        { value: 'lastModified_desc', label: t('Last modified (newest first)') },
-        { value: 'lastModified_asc', label: t('Last modified (oldest first)') },
-        { value: 'created_desc', label: t('Created (newest first)') },
-        { value: 'created_asc', label: t('Created (oldest first)') },
-    ];
-
+    const sortOptions = getTranslatedSortOptions();
     sortOptions.forEach(option => {
         const button = createSortOption(option.value, option.label, currentSort, plugin, containerEl);
         sortPopup.appendChild(button);
     });
-
     sortPopup.addEventListener('click', (e) => e.stopPropagation());
 }
 
@@ -162,18 +130,13 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
     const settingsPopup = createPopup('card-navigator-settings-popup', 'settings', currentWindow);
     const settingsManager = plugin.settingsManager;
 
-    // Add Folder Selection setting
     addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
 
-    // Add Layout Settings section
     const layoutSection = createCollapsibleSection(settingsPopup, t('Layout settings'), true);
     
-    // Function to update layout settings visibility
     const updateLayoutSettings = (layout: CardNavigatorSettings['defaultLayout']) => {
-        // Clear existing settings
         layoutSection.empty();
 
-        // Add Default Layout dropdown
         addDropdownSetting('defaultLayout', t('Default layout'), layoutSection, plugin, settingsManager, [
             { value: 'auto', label: t('Auto') },
             { value: 'list', label: t('List') },
@@ -183,18 +146,17 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
             updateLayoutSettings(value as CardNavigatorSettings['defaultLayout']);
         });
 
-        // Add settings based on selected layout
         if (layout === 'auto') {
-            addNumberSetting('cardWidthThreshold', t('Card width threshold'), layoutSection, plugin, settingsManager);
+            addSliderSetting('cardWidthThreshold', t('Card width threshold'), layoutSection, plugin, settingsManager);
         }
         if (layout === 'grid') {
-            addNumberSetting('gridColumns', t('Grid columns'), layoutSection, plugin, settingsManager);
+            addSliderSetting('gridColumns', t('Grid columns'), layoutSection, plugin, settingsManager);
         }
         if (layout === 'auto' || layout === 'grid') {
-            addNumberSetting('gridCardHeight', t('Grid card height'), layoutSection, plugin, settingsManager);
+            addSliderSetting('gridCardHeight', t('Grid card height'), layoutSection, plugin, settingsManager);
         }
         if (layout === 'masonry') {
-            addNumberSetting('masonryColumns', t('Masonry columns'), layoutSection, plugin, settingsManager);
+            addSliderSetting('masonryColumns', t('Masonry columns'), layoutSection, plugin, settingsManager);
         }
         if (layout === 'auto' || layout === 'list') {
             addToggleSetting('alignCardHeight', t('Align card height'), layoutSection, plugin, settingsManager, () => {
@@ -203,7 +165,6 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
             updateCardsPerViewSetting();
         }
 
-        // Prevent click events from closing the popup
         settingsPopup.addEventListener('click', (e) => e.stopPropagation());
     };
 
@@ -214,7 +175,7 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
             cardsPerViewSetting.remove();
         }
         if (plugin.settings.alignCardHeight) {
-            addNumberSetting('cardsPerView', t('Cards per view'), layoutSection, plugin, settingsManager)
+            addSliderSetting('cardsPerView', t('Cards per view'), layoutSection, plugin, settingsManager)
                 .settingEl.addClass('setting-cards-per-view');
         }
     };
@@ -237,7 +198,7 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
             bodyLengthSetting.remove();
         }
         if (plugin.settings.bodyLengthLimit) {
-            addNumberSetting('bodyLength', t('Body length'), displaySection, plugin, settingsManager)
+            addSliderSetting('bodyLength', t('Body length'), displaySection, plugin, settingsManager)
                 .settingEl.addClass('setting-body-length');
         }
     };
@@ -252,9 +213,9 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
 
     // Add Card Styling Settings section
     const stylingSection = createCollapsibleSection(settingsPopup, t('Card styling settings'), true);
-    addNumberSetting('fileNameFontSize', t('File name font size'), stylingSection, plugin, settingsManager);
-    addNumberSetting('firstHeaderFontSize', t('First header font size'), stylingSection, plugin, settingsManager);
-    addNumberSetting('bodyFontSize', t('Body font size'), stylingSection, plugin, settingsManager);
+    addSliderSetting('fileNameFontSize', t('File name font size'), stylingSection, plugin, settingsManager);
+    addSliderSetting('firstHeaderFontSize', t('First header font size'), stylingSection, plugin, settingsManager);
+    addSliderSetting('bodyFontSize', t('Body font size'), stylingSection, plugin, settingsManager);
 
     // Prevent click events from closing the popup
     settingsPopup.addEventListener('click', (e) => e.stopPropagation());
@@ -314,38 +275,46 @@ function addDropdownSetting(
         });
 }
 
-// Add the folder selection setting to the settings UI
-function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
-    // const folderSettingEl = new Setting(parentEl)
-	new Setting(parentEl)
-        .setName(t('Source folder'))
-        .setClass('setting-item-toggle')
-		.addToggle(toggle => toggle
-			.setValue(plugin.settings.useSelectedFolder)
-			.onChange(async (value) => {
-				await settingsManager.updateBooleanSetting('useSelectedFolder', value);
-				toggleSettings(plugin, parentEl);
-			})
-		)
-    if (plugin.settings.useSelectedFolder) {
-        addFolderSetting(parentEl, plugin, settingsManager);
-    }
+export function createFullWidthSetting(containerEl: HTMLElement): Setting {
+	const setting = new Setting(containerEl);
+	setting.settingEl.addClass('setting-full-width');
+	setting.settingEl.addClass('no-info');
+	return setting;
+}
+	
+export function addFullWidthText(setting: Setting, callback: (text: TextComponent) => void): Setting {
+	return setting.addText(text => {
+	text.inputEl.style.width = '100%';
+	callback(text);
+	});
 }
 
-// Add the folder picker when "Source Folder" is enabled
-function addFolderSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
-	new Setting(parentEl)
-		.setClass('setting-item-text')
-		.addText(cb => {
-			new FolderSuggest(plugin.app, cb.inputEl);
-			cb.setPlaceholder(t('Select folder'))
+// Add the folder selection setting to the settings UI
+function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
+    new Setting(parentEl)
+        .setName(t('Source folder'))
+        .setClass('setting-item-toggle')
+        .addToggle(toggle => toggle
+            .setValue(plugin.settings.useSelectedFolder)
+            .onChange(async (value) => {
+                await settingsManager.updateBooleanSetting('useSelectedFolder', value);
+                toggleSettings(plugin, parentEl);
+            })
+        );
+
+    if (plugin.settings.useSelectedFolder) {
+		const setting = createFullWidthSetting(parentEl);
+		addFullWidthText(setting, text => {
+			new FolderSuggest(plugin.app, text.inputEl);
+			text.setPlaceholder(t('Select folder'))
 				.setValue(plugin.settings.selectedFolder || '')
 				.onChange(async (newFolder) => {
-					if (newFolder) {
-						await settingsManager.updateSetting('selectedFolder', newFolder);
-					}
-				});
+				if (newFolder) {
+					await settingsManager.updateSetting('selectedFolder', newFolder);
+				}
+			});
 		});
+    }
 }
 
 // Add a toggle switch for a setting
@@ -372,7 +341,7 @@ function addToggleSetting(
 }
 
 // Add a number input slider for a setting
-function addNumberSetting(
+function addSliderSetting(
     key: NumberSettingKey, 
     name: string, 
     container: HTMLElement, 

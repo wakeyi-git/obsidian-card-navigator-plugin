@@ -12,4 +12,6 @@ export interface ISettingsManager {
     updateSelectedFolder(folder: TFolder | null): Promise<void>;
     getNumberSettingConfig(key: NumberSettingKey): RangeSettingConfig;
     updateBooleanSetting(key: keyof CardNavigatorSettings, value: boolean): Promise<void>;
+    updateLastActivePreset(presetName: string): Promise<void>;
+    updateAutoApplyFolderPresets(value: boolean): Promise<void>;
 }

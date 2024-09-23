@@ -1,8 +1,9 @@
-import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf } from 'obsidian';
+import { Plugin, Events, TFolder, TFile, debounce, moment, WorkspaceLeaf } from 'obsidian';
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settings/settingsTab';
 import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS } from './common/types';
 import { SettingsManager } from './ui/settings/settingsManager';
+import { PresetManager } from './ui/settings/PresetManager';
 import i18next from 'i18next';
 import { t } from 'i18next';
 
@@ -19,6 +20,7 @@ export default class CardNavigatorPlugin extends Plugin {
     settings: CardNavigatorSettings = DEFAULT_SETTINGS;
     selectedFolder: string | null = null;
     settingsManager!: SettingsManager;
+    presetManager!: PresetManager;
     settingTab!: SettingTab;
     private refreshDebounced = debounce(() => this.refreshViews(), 200);
     private ribbonIconEl: HTMLElement | null = null;
@@ -26,11 +28,20 @@ export default class CardNavigatorPlugin extends Plugin {
 
     // Plugin initialization
 	async onload() {
-		await this.loadSettings();
+        await this.loadSettings();
 
-		this.settingsManager = new SettingsManager(this);
+		this.registerView(
+            VIEW_TYPE_CARD_NAVIGATOR,
+            (leaf) => new CardNavigator(leaf, this)
+        );
 
-		await this.initializePlugin();
+        this.settingsManager = new SettingsManager(this);
+        this.presetManager = new PresetManager(this, this.settingsManager);
+
+		this.settingTab = new SettingTab(this.app, this, this.settingsManager);
+		this.addSettingTab(this.settingTab);
+
+        await this.initializePlugin();
 	
 		this.ribbonIconEl = this.addRibbonIcon('layers-3', t('Open Card Navigator'), () => {
 			this.activateView();
@@ -46,33 +57,32 @@ export default class CardNavigatorPlugin extends Plugin {
 		}
     }
 
-    // Load plugin settings
-    async loadSettings() {
-        const loadedData = await this.loadData();
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
-    }
+	async loadSettings() {
+		Object.assign(this.settings, DEFAULT_SETTINGS, await this.loadData());
+	}
 
-    // Save plugin settings
-    async saveSettings() {
-        await this.saveData(this.settings);
-        this.events.trigger('settings-updated');
-    }
-
-
+	async saveSettings() {
+		console.log('Plugin saveSettings called', this.settings);
+		await this.saveData(this.settings);
+		console.log('Settings saved to data.json', this.settings);
+		this.events.trigger('settings-updated');
+	}
 
     // Set up plugin components and functionality
 	private async initializePlugin() {
         await this.initializeI18n();
 
-        this.settingTab = new SettingTab(this.app, this, this.settingsManager);
-        this.addSettingTab(this.settingTab);
-	
-        this.registerView(
-            VIEW_TYPE_CARD_NAVIGATOR,
-            (leaf) => new CardNavigator(leaf, this)
-        );
+		this.registerEvent(
+			this.app.workspace.on('file-open', (file) => {
+				if (this.settings.autoApplyFolderPresets && file) {
+					const folder = file.parent;
+					if (folder) {
+						this.applyFolderPresetIfNeeded(folder);
+					}
+				}
+			})
+		);
 
-        // Register plugin commands
         this.addCommand({
             id: 'open-card-navigator',
             name: t('Open Card Navigator'),
@@ -85,7 +95,6 @@ export default class CardNavigatorPlugin extends Plugin {
 			callback: async () => {
 				const cardNavigator = this.getFirstCardNavigator();
 				if (cardNavigator) {
-					// 플러그인의 리프로 초점을 맞추기
 					const leaf = this.app.workspace.getLeaf();
 					if (leaf) {
 						leaf.view.containerEl.focus();
@@ -109,7 +118,6 @@ export default class CardNavigatorPlugin extends Plugin {
 
         this.addScrollCommands();
 
-        // Activate Card Navigator view when the layout is ready
         this.app.workspace.onLayoutReady(() => {
             this.activateView();
         });
@@ -118,18 +126,28 @@ export default class CardNavigatorPlugin extends Plugin {
 
         this.registerCentralizedEvents();
 
-		// Refresh card navigator on layout changes
 		this.registerEvent(
 			this.app.workspace.on('layout-change', () => {
 				this.refreshCardNavigator();
 			})
 		);
 
-		// Refresh card navigator on settings updates
 		this.events.on('settings-updated', () => {
 			this.refreshCardNavigator();
 		});
     }
+
+	async applyFolderPresetIfNeeded(folder: TFolder) {
+		let currentFolder: TFolder | null = folder;
+		while (currentFolder) {
+			const folderPath = currentFolder.path;
+			if (this.settings.folderPresets[folderPath]) {
+				await this.presetManager.applyFolderPreset(folderPath);
+				break;
+			}
+			currentFolder = currentFolder.parent;
+		}
+	}
 
 	private getFirstCardNavigator(): CardNavigator | null {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);

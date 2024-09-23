@@ -6,6 +6,7 @@ import { addContainerSettings } from './containerSettings';
 import { addCardStylingSettings } from './cardStyleSettings';
 import { addCardContentSettings } from './cardContentSettings';
 import { addKeyboardShortcutsInfo } from './keyboardShortcutsInfo';
+import { addPresetSettings } from './presetSettings';
 import { CardNavigatorSettings, NumberSettingKey, sortOptions, SortCriterion, SortOrder } from '../../common/types';
 import { t } from 'i18next';
 
@@ -15,7 +16,7 @@ export class SettingTab extends PluginSettingTab {
     constructor(
         app: App,
         private plugin: CardNavigatorPlugin,
-        private settingsManager: SettingsManager
+        private settingsManager: SettingsManager,
     ) {
         super(app, plugin);
     }
@@ -37,11 +38,17 @@ export class SettingTab extends PluginSettingTab {
     }
 
     updateAllSections(): void {
+        this.updatePresetSettings();
         this.updateContainerSettings();
         this.updateLayoutSettings();
         this.updateCardContentSettings();
         this.updateCardStylingSettings();
         this.updateKeyboardShortcutsInfo();
+    }
+
+    updatePresetSettings(): void {
+        this.sections.preset.empty();
+        addPresetSettings(this.sections.preset, this.plugin, this.settingsManager, this.plugin.presetManager, this);
     }
 
     updateContainerSettings(): void {
@@ -71,6 +78,11 @@ export class SettingTab extends PluginSettingTab {
 
     refreshSettingsUI(changedSetting: keyof CardNavigatorSettings): void {
         switch (changedSetting) {
+            case 'lastActivePreset':
+            case 'autoApplyFolderPresets':
+            case 'folderPresets':
+                this.updatePresetSettings();
+                break;
             case 'useSelectedFolder':
             case 'selectedFolder':
             case 'sortCriterion':
@@ -117,7 +129,7 @@ export class SettingTab extends PluginSettingTab {
             .setDesc(desc)
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings[key] as boolean)
-                .onChange(async (value) => {
+                .onChange(async (value: boolean) => {
                     await this.settingsManager.updateBooleanSetting(key, value);
                 })
             );
@@ -135,9 +147,9 @@ export class SettingTab extends PluginSettingTab {
             .setDesc(desc)
             .addSlider(slider => slider
                 .setLimits(config.min, config.max, config.step)
-                .setValue(this.plugin.settings[key])
+                .setValue(this.plugin.settings[key] as number)
                 .setDynamicTooltip()
-                .onChange(async (value) => {
+                .onChange(async (value: number) => {
                     await this.settingsManager.updateSetting(key, value);
                 })
             );
@@ -158,7 +170,7 @@ export class SettingTab extends PluginSettingTab {
                 });
                 dropdown
                     .setValue(`${this.plugin.settings.sortCriterion}_${this.plugin.settings.sortOrder}`)
-                    .onChange(async (value) => {
+                    .onChange(async (value: string) => {
                         const [criterion, order] = value.split('_') as [SortCriterion, SortOrder];
                         await this.settingsManager.updateSetting('sortCriterion', criterion);
                         await this.settingsManager.updateSetting('sortOrder', order);

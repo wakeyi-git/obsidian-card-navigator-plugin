@@ -1,15 +1,13 @@
 // toolbar.ts
-import { setIcon, TFolder, debounce } from 'obsidian';
+import { setIcon, TFolder, FuzzySuggestModal, debounce } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { CardNavigator } from '../cardNavigator';
-import { FolderSuggestModal } from './toolbarActions';
 import { toggleSort, toggleSettings } from './toolbarActions';
 import { t } from 'i18next';
 
 // Class representing the toolbar for the Card Navigator plugin
 export class Toolbar {
     private containerEl: HTMLElement | null = null;
-    private isVertical = false;
     private sortPopupOpen = false;
     private settingsPopupOpen = false;
     private sortIcon: HTMLElement | null = null;
@@ -215,5 +213,28 @@ export class Toolbar {
         if (this.popupObserver) {
             this.popupObserver.disconnect();
         }
+    }
+}
+
+// Modal for selecting folders in the toolbar
+class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
+    constructor(private plugin: CardNavigatorPlugin, private onSelect: (folder: TFolder) => void) {
+        super(plugin.app);
+    }
+
+    // Retrieve all folders in the vault
+    getItems(): TFolder[] {
+        return this.plugin.app.vault.getAllLoadedFiles()
+            .filter((file): file is TFolder => file instanceof TFolder);
+    }
+
+    // Display the folder path as the item text
+    getItemText(folder: TFolder): string {
+        return folder.path;
+    }
+
+    // Handle folder selection
+    onChooseItem(folder: TFolder): void {
+        this.onSelect(folder);
     }
 }
