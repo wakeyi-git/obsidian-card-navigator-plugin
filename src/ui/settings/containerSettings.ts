@@ -7,11 +7,11 @@ import { SettingTab } from './settingsTab';
 
 export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, settingTab: SettingTab): void {
     
-	// containerEl.createEl('div', { cls: 'settings-section-margin' });
+	containerEl.createEl('div', { cls: 'settings-section-margin' });
 
-	// new Setting(containerEl)
-    //     .setName(t('Container settings'))
-    //     .setHeading();
+	new Setting(containerEl)
+        .setName(t('Container settings'))
+        .setHeading();
 
 	settingTab.addToggleSetting(
 		containerEl,

@@ -77,8 +77,8 @@ function addPresetManagementSection(containerEl: HTMLElement, plugin: CardNaviga
 function addPresetManagementSectionContent(presetManagementEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, refreshAllSettings: () => void): void {
     new Setting(presetManagementEl)
         .setName('프리셋 관리')
-        .setDesc('프리셋을 관리하고 생성합니다.')
-        .addButton((button: ButtonComponent) => 
+        .setDesc('프리셋을 생성하고 관리합니다.')
+		.addButton((button: ButtonComponent) => 
             button
                 .setTooltip('새 프리셋 생성')
                 .setIcon('plus')
@@ -145,8 +145,9 @@ function addPresetManagementSectionContent(presetManagementEl: HTMLElement, plug
 }
 
 export function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
+    const folderPresetSectionEl = containerEl.createDiv('folder-preset-section');
     
-	new Setting(containerEl)
+	new Setting(folderPresetSectionEl)
 		.setName('프리셋 자동 적용')
 		.setDesc('폴더 변경 시 자동으로 폴더에 지정된 프리셋을 적용합니다.')
 		.addToggle((toggle) => 
@@ -154,9 +155,12 @@ export function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNav
 				.setValue(plugin.settings.autoApplyFolderPresets)
 				.onChange(async (value) => {
 					await settingsManager.toggleAutoApplyPresets(value);
-					refreshFolderPresetList(containerEl, plugin, settingsManager);
+					refreshFolderPresetList(folderPresetListEl, plugin, settingsManager);
 				})
 		);
+
+    const folderPresetListEl = folderPresetSectionEl.createDiv('folder-preset-list');
+    refreshFolderPresetList(folderPresetListEl, plugin, settingsManager);
 }
 
 export function refreshFolderPresetList(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
