@@ -1,17 +1,15 @@
-import { CardNavigatorSettings, FolderPresets } from '../common/types';
 import { TFolder } from 'obsidian';
+import { CardNavigatorSettings, NumberSettingKey, RangeSettingConfig } from './types';
 
 export interface ISettingsManager {
     saveSettings(): Promise<void>;
     loadSettings(): Promise<void>;
     updateSetting<K extends keyof CardNavigatorSettings>(key: K, value: CardNavigatorSettings[K]): Promise<void>;
+    confirmDelete(itemName: string): Promise<boolean>;
+    applyChanges(): void;
     getCurrentSettings(): Partial<CardNavigatorSettings>;
-    applyPreset(presetName: string): Promise<void>;
     getActiveFolder(): string | null;
     updateSelectedFolder(folder: TFolder | null): Promise<void>;
-    getFolderPresets(): FolderPresets;
-    getPresetsForFolder(folderPath: string): string[];
-    addPresetToFolder(folderPath: string, presetName: string): Promise<void>;
-    removePresetFromFolder(folderPath: string, presetName: string): Promise<void>;
-    setDefaultPresetForFolder(folderPath: string, presetName: string): Promise<void>;
+    getNumberSettingConfig(key: NumberSettingKey): RangeSettingConfig;
+    updateBooleanSetting(key: keyof CardNavigatorSettings, value: boolean): Promise<void>;
 }

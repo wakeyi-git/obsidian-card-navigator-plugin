@@ -3,12 +3,15 @@ import { t } from 'i18next';
 import { keyboardShortcuts } from '../../common/types';
 
 export function addKeyboardShortcutsInfo(containerEl: HTMLElement): void {
+
+	containerEl.createEl('div', { cls: 'settings-section-margin' });
+
     new Setting(containerEl)
         .setName(t('Keyboard shortcuts'))
         .setHeading();
 
-    const shortcutDesc = containerEl.createEl('p', { cls: 'keyboard-shortcuts-description' });
-    shortcutDesc.setText(t('Card Navigator provides the following features that can be assigned keyboard shortcuts. You can set these up in Obsidian\'s Hotkeys settings:'));
+	new Setting(containerEl)
+	.setDesc(t('Card Navigator provides the following features that can be assigned keyboard shortcuts. You can set these up in Obsidian\'s Hotkeys settings:'))
 
     const tableContainer = containerEl.createEl('div', { cls: 'keyboard-shortcuts-table-container' });
     const table = tableContainer.createEl('table', { cls: 'keyboard-shortcuts-table' });

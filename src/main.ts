@@ -1,10 +1,8 @@
-// main.ts
-import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf, FileView } from 'obsidian';
+import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf } from 'obsidian';
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settings/settingsTab';
-import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS, globalSettingsKeys } from './common/types';
+import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS } from './common/types';
 import { SettingsManager } from './ui/settings/settingsManager';
-import { PresetManager } from './ui/settings/PresetManager';
 import i18next from 'i18next';
 import { t } from 'i18next';
 
@@ -21,7 +19,6 @@ export default class CardNavigatorPlugin extends Plugin {
     settings: CardNavigatorSettings = DEFAULT_SETTINGS;
     selectedFolder: string | null = null;
     settingsManager!: SettingsManager;
-    presetManager!: PresetManager;
     settingTab!: SettingTab;
     private refreshDebounced = debounce(() => this.refreshViews(), 200);
     private ribbonIconEl: HTMLElement | null = null;
@@ -31,18 +28,13 @@ export default class CardNavigatorPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		this.initializeManagers();
-		await this.initializePresets();
+		this.settingsManager = new SettingsManager(this);
 
 		await this.initializePlugin();
 	
 		this.ribbonIconEl = this.addRibbonIcon('layers-3', t('Open Card Navigator'), () => {
 			this.activateView();
 		});
-	
-		this.registerEvent(
-			this.app.workspace.on('active-leaf-change', this.handleActiveLeafChange.bind(this))
-		);
 	}
 
     // Plugin cleanup
@@ -66,44 +58,14 @@ export default class CardNavigatorPlugin extends Plugin {
         this.events.trigger('settings-updated');
     }
 
-    // Initialize plugin managers
-	private initializeManagers() {
-		this.presetManager = new PresetManager(this.app, this, this.settings);
-		this.settingsManager = new SettingsManager(this, this.presetManager);
-	}
 
-	private async initializePresets() {
-		await this.presetManager.initialize();
-	}
 
     // Set up plugin components and functionality
 	private async initializePlugin() {
         await this.initializeI18n();
 
-		// // Initialize default preset
-        // if (!this.settings.folderPresets['/'] || this.settings.folderPresets['/'].length === 0) {
-        //     const defaultSettings = Object.fromEntries(
-        //         Object.entries(DEFAULT_SETTINGS).filter(
-        //             ([key]) => !globalSettingsKeys.includes(key as keyof CardNavigatorSettings)
-        //         )
-        //     );
-        //     await this.settingsManager.saveAsNewPreset('default', defaultSettings);
-        //     this.settings.folderPresets['/'] = ['default'];
-        //     this.settings.activeFolderPresets['/'] = 'default';
-        //     await this.saveSettings();
-        // }
-
-		// 기본 프리셋 초기화
-		await this.presetManager.createDefaultPreset();
-
-		// 기본 프리셋 적용
-		const defaultPresetName = 'default';
-		if (this.presetManager.getPreset(defaultPresetName)) {
-			await this.applyPreset(defaultPresetName);
-		}
-
-		this.settingTab = new SettingTab(this.app, this);
-		this.addSettingTab(this.settingTab);
+        this.settingTab = new SettingTab(this.app, this, this.settingsManager);
+        this.addSettingTab(this.settingTab);
 	
         this.registerView(
             VIEW_TYPE_CARD_NAVIGATOR,
@@ -189,51 +151,6 @@ export default class CardNavigatorPlugin extends Plugin {
 			en: { translation: en.default },
 			ko: { translation: ko.default },
 		};
-	}
-
-	// // Initialize folder presets if not already present
-    // private async initializeFolderPresets() {
-    //     if (!this.settings.folderPresets) {
-    //         this.settings.folderPresets = {};
-    //         this.settings.activeFolderPresets = {};
-    //         await this.saveSettings();
-    //     }
-    // }
-
-	// Determine if the active leaf is in file view, determine the parent folder of the file, and apply a preset for that folder
-    private async handleActiveLeafChange(leaf: WorkspaceLeaf | null) {
-        if (leaf?.view instanceof FileView) {
-            const file = leaf.view.file;
-            if (file?.parent) {
-                const folderPath = file.parent.path;
-                const activePreset = this.settings.activeFolderPresets[folderPath];
-                if (activePreset) {
-                    await this.applyPreset(activePreset);
-                }
-                this.refreshCardNavigator();
-                this.refreshSettingsTab();
-            }
-        }
-    }
-
-	async applyPreset(presetName: string) {
-		// 현재 설정을 로드합니다.
-		const currentSettings = await this.loadData();
-		const presetSettings = await this.settingsManager.loadPresetFromFile(presetName + '.json');
-		if (presetSettings) {
-			// 전역 설정은 제외하고 프리셋 설정만 적용
-			const filteredSettings = Object.fromEntries(
-				Object.entries(presetSettings).filter(
-					([key]) => !globalSettingsKeys.includes(key as keyof CardNavigatorSettings)
-				)
-			);
-			// 현재 설정과 프리셋 설정을 병합합니다.
-			const newSettings = Object.assign({}, currentSettings, filteredSettings);
-			this.settings = newSettings;
-			// 변경된 설정을 저장합니다.
-			await this.saveData(newSettings);
-			this.refreshCardNavigator();
-		}
 	}
 
 	// Refreshes the Card Navigator settings tab

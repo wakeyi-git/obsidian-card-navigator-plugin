@@ -3,6 +3,7 @@ import { TFolder, FuzzySuggestModal, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey } from '../../common/types';
 import { SettingsManager } from '../settings/settingsManager';
+import { FolderSuggest } from '../settings/components/FolderSuggest';
 import { t } from 'i18next';
 
 // Track the current popup for proper management
@@ -161,9 +162,6 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
     const settingsPopup = createPopup('card-navigator-settings-popup', 'settings', currentWindow);
     const settingsManager = plugin.settingsManager;
 
-    // Add preset selection dropdown
-    addPresetDropdown(settingsPopup, plugin, settingsManager);
-
     // Add Folder Selection setting
     addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
 
@@ -316,67 +314,38 @@ function addDropdownSetting(
         });
 }
 
-// Add the dropdown to select a preset
-function addPresetDropdown(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager) {
-    new Setting(containerEl)
-        .setName(t('Select preset'))
-        .setClass('setting-item-dropdown')
-        .addDropdown(dropdown => {
-            const presets = settingsManager.getPresets();
-            Object.keys(presets).forEach(presetName => {
-                dropdown.addOption(presetName, presetName);
-            });
-            dropdown.setValue(plugin.settings.lastActivePreset)
-                .onChange(async (value) => {
-                    await settingsManager.applyPreset(value);
-                    plugin.settings.lastActivePreset = value;
-                    await plugin.saveSettings();
-                    toggleSettings(plugin, containerEl);
-                });
-        });
-    new Setting(containerEl)
-        .setName(t('Auto apply folder\'s presets'))
-        .addToggle(toggle => toggle
-            .setValue(plugin.settings.autoApplyFolderPresets)
-            .onChange(async (value) => {
-                await settingsManager.toggleAutoApplyPresets(value);
-            })
-        );
-}
-
 // Add the folder selection setting to the settings UI
 function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
-    const folderSettingEl = new Setting(parentEl)
+    // const folderSettingEl = new Setting(parentEl)
+	new Setting(parentEl)
         .setName(t('Source folder'))
-        .setClass('setting-item-dropdown')
-        .addDropdown(dropdown => dropdown
-            .addOption('active', t('Active folder'))
-            .addOption('selected', t('Selected folder'))
-            .setValue(plugin.settings.useSelectedFolder ? 'selected' : 'active')
-            .onChange(async (value) => {
-                await settingsManager.updateBooleanSetting('useSelectedFolder', value === 'selected');
-                toggleSettings(plugin, parentEl);
-            })).settingEl;
-
-    folderSettingEl.addClass('setting-folder-selection');
-
+        .setClass('setting-item-toggle')
+		.addToggle(toggle => toggle
+			.setValue(plugin.settings.useSelectedFolder)
+			.onChange(async (value) => {
+				await settingsManager.updateBooleanSetting('useSelectedFolder', value);
+				toggleSettings(plugin, parentEl);
+			})
+		)
     if (plugin.settings.useSelectedFolder) {
         addFolderSetting(parentEl, plugin, settingsManager);
     }
 }
 
-// Add the folder picker when "Selected Folder" is enabled
+// Add the folder picker when "Source Folder" is enabled
 function addFolderSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
-    new Setting(parentEl)
-        .setName(t('Select folder'))
-        .addButton(button => button
-            .setButtonText(plugin.settings.selectedFolder || t('Choose folder'))
-            .onClick(() => {
-                new FolderSuggestModal(plugin, async (folder) => {
-                    await settingsManager.updateSelectedFolder(folder);
-                    toggleSettings(plugin, parentEl);
-                }).open();
-            }));
+	new Setting(parentEl)
+		.setClass('setting-item-text')
+		.addText(cb => {
+			new FolderSuggest(plugin.app, cb.inputEl);
+			cb.setPlaceholder(t('Select folder'))
+				.setValue(plugin.settings.selectedFolder || '')
+				.onChange(async (newFolder) => {
+					if (newFolder) {
+						await settingsManager.updateSetting('selectedFolder', newFolder);
+					}
+				});
+		});
 }
 
 // Add a toggle switch for a setting

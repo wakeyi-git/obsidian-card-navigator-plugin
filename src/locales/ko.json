@@ -45,7 +45,7 @@
     "Active folder": "활성 폴더",
     "Selected folder": "선택된 폴더",
     "Select folder": "폴더 선택",
-    "Choose a folder for Card Navigator": "카드 네비게이터를 위한 폴더 선택",
+    "Select a folder for Card Navigator": "카드 네비게이터 폴더 선택",
     "Choose folder": "폴더 선택",
     "Default sort method": "기본 정렬 방법",
     "Choose the default sorting method for cards.": "카드의 기본 정렬 방법을 선택하세요.",
@@ -54,7 +54,7 @@
 
     "Layout settings": "레이아웃 설정",
     "Default layout": "기본 레이아웃",
-    "Choose the default layout for cards": "카드의 기본 레이아웃을 선택하세요.",
+    "Choose the default layout for Card Navigator.": "카드의 기본 레이아웃을 선택하세요.",
     "Auto": "자동",
     "List": "목록",
     "Grid": "그리드",

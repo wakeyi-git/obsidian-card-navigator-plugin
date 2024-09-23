@@ -1,21 +1,23 @@
-import { App, PluginSettingTab } from 'obsidian';
+import { App, PluginSettingTab, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SettingsManager } from './settingsManager';
-import { addPresetSettings, refreshFolderPresetList } from './presetSettings';
 import { addLayoutSettings } from './layoutSettings';
 import { addContainerSettings } from './containerSettings';
 import { addCardStylingSettings } from './cardStyleSettings';
 import { addCardContentSettings } from './cardContentSettings';
 import { addKeyboardShortcutsInfo } from './keyboardShortcutsInfo';
-import { CardNavigatorSettings } from '../../common/types';
+import { CardNavigatorSettings, NumberSettingKey, sortOptions, SortCriterion, SortOrder } from '../../common/types';
+import { t } from 'i18next';
 
 export class SettingTab extends PluginSettingTab {
-    private settingsManager: SettingsManager;
     private sections: Record<string, HTMLElement> = {};
 
-    constructor(app: App, private plugin: CardNavigatorPlugin) {
+    constructor(
+        app: App,
+        private plugin: CardNavigatorPlugin,
+        private settingsManager: SettingsManager
+    ) {
         super(app, plugin);
-        this.settingsManager = plugin.settingsManager;
     }
 
     display(): void {
@@ -35,7 +37,6 @@ export class SettingTab extends PluginSettingTab {
     }
 
     updateAllSections(): void {
-        this.updatePresetSettings();
         this.updateContainerSettings();
         this.updateLayoutSettings();
         this.updateCardContentSettings();
@@ -43,36 +44,24 @@ export class SettingTab extends PluginSettingTab {
         this.updateKeyboardShortcutsInfo();
     }
 
-    updatePresetSettings(): void {
-        this.sections.preset.empty();
-        addPresetSettings(this.sections.preset, this.plugin, this.settingsManager);
-    }
-
-    updateFolderPresetList(): void {
-        const folderPresetListEl = this.sections.preset.querySelector('.folder-preset-list');
-        if (folderPresetListEl) {
-            refreshFolderPresetList(folderPresetListEl as HTMLElement, this.plugin, this.settingsManager);
-        }
-    }
-
     updateContainerSettings(): void {
         this.sections.container.empty();
-        addContainerSettings(this.sections.container, this.plugin, this.settingsManager);
+        addContainerSettings(this.sections.container, this.plugin, this.settingsManager, this);
     }
 
     updateLayoutSettings(): void {
         this.sections.layout.empty();
-        addLayoutSettings(this.sections.layout, this.plugin, this.settingsManager);
+        addLayoutSettings(this.sections.layout, this.plugin, this.settingsManager, this);
     }
 
     updateCardContentSettings(): void {
         this.sections.cardContent.empty();
-        addCardContentSettings(this.sections.cardContent, this.plugin, this.settingsManager);
+        addCardContentSettings(this.sections.cardContent, this.plugin, this.settingsManager, this);
     }
 
     updateCardStylingSettings(): void {
         this.sections.cardStyling.empty();
-        addCardStylingSettings(this.sections.cardStyling, this.plugin, this.settingsManager);
+        addCardStylingSettings(this.sections.cardStyling, this.plugin, this.settingsManager, this);
     }
 
     updateKeyboardShortcutsInfo(): void {
@@ -82,15 +71,6 @@ export class SettingTab extends PluginSettingTab {
 
     refreshSettingsUI(changedSetting: keyof CardNavigatorSettings): void {
         switch (changedSetting) {
-            case 'lastActivePreset':
-            case 'presets':
-                this.updatePresetSettings();
-                break;
-            case 'folderPresets':
-            case 'activeFolderPresets':
-            case 'autoApplyFolderPresets':
-                this.updateFolderPresetList();
-                break;
             case 'useSelectedFolder':
             case 'selectedFolder':
             case 'sortCriterion':
@@ -124,5 +104,65 @@ export class SettingTab extends PluginSettingTab {
             default:
                 this.updateAllSections();
         }
+    }
+
+    addToggleSetting(
+        containerEl: HTMLElement,
+        key: keyof CardNavigatorSettings,
+        name: string,
+        desc: string
+    ): Setting {
+        return new Setting(containerEl)
+            .setName(name)
+            .setDesc(desc)
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings[key] as boolean)
+                .onChange(async (value) => {
+                    await this.settingsManager.updateBooleanSetting(key, value);
+                })
+            );
+    }
+
+    addSliderSetting(
+        containerEl: HTMLElement,
+        key: NumberSettingKey,
+        name: string,
+        desc: string
+    ): Setting {
+        const config = this.settingsManager.getNumberSettingConfig(key);
+        return new Setting(containerEl)
+            .setName(name)
+            .setDesc(desc)
+            .addSlider(slider => slider
+                .setLimits(config.min, config.max, config.step)
+                .setValue(this.plugin.settings[key])
+                .setDynamicTooltip()
+                .onChange(async (value) => {
+                    await this.settingsManager.updateSetting(key, value);
+                })
+            );
+    }
+
+    addDropdownSetting(
+        containerEl: HTMLElement,
+        key: 'sortMethod',
+        name: string,
+        desc: string
+    ): Setting {
+        return new Setting(containerEl)
+            .setName(t(name))
+            .setDesc(t(desc))
+            .addDropdown(dropdown => {
+                sortOptions.forEach(option => {
+                    dropdown.addOption(option.value, t(option.label));
+                });
+                dropdown
+                    .setValue(`${this.plugin.settings.sortCriterion}_${this.plugin.settings.sortOrder}`)
+                    .onChange(async (value) => {
+                        const [criterion, order] = value.split('_') as [SortCriterion, SortOrder];
+                        await this.settingsManager.updateSetting('sortCriterion', criterion);
+                        await this.settingsManager.updateSetting('sortOrder', order);
+                    });
+            });
     }
 }
