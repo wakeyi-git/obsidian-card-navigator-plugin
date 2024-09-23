@@ -1,9 +1,10 @@
 import { Setting, ButtonComponent, DropdownComponent, Notice } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SettingsManager } from './settingsManager';
-import { PresetManager } from './PresetManager';
-import { SettingTab } from './settingsTab';
-import { t } from 'i18next';
+import { PresetSuggest, FileSuggestMode } from './components/PresetSuggest';
+import { PresetEditModal } from '../settings/modals/PresetEditModal';
+import { PresetImportExportModal } from '../settings/modals/PresetImportExportModal';
+import { FolderSuggest } from './components/FolderSuggest';
 
 export function addPresetSettings(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
     addGlobalPresetSection(containerEl, plugin, settingsManager);
@@ -14,22 +15,16 @@ export function addPresetSettings(containerEl: HTMLElement, plugin: CardNavigato
 function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
 
     new Setting(containerEl)
-        .setName(t('프리셋 선택'))
-        .setDesc(t('저장된 프리셋을 선택하여 로드합니다.'))
-        .addDropdown(dropdown => {
-            dropdown.addOption('', t('선택 없음'));
-            const presets = presetManager.getPresets();
-            const presetOptions: Record<string, string> = Object.fromEntries(
-                Object.entries(presets).map(([key, preset]) => [key, preset.name])
-            );
-            dropdown.addOptions(presetOptions);
-            dropdown
-                .setValue(plugin.settings.lastActivePreset || '')
-                .onChange(async (value: string) => {
-                    if (value) {
-                        await presetManager.loadPreset(value);
-                        settingTab.display(); // 설정 UI 새로고침
-                    }
+        .setName('프리셋 폴더')
+        .setDesc('Card Navigator 프리셋을 저장할 폴더를 선택하세요.')
+        .addSearch(cb => {
+            new FolderSuggest(plugin.app, cb.inputEl);
+            cb.setPlaceholder('예: CardNavigatorPresets')
+                .setValue(plugin.settings.presetFolderPath)
+                .onChange(async (newFolder) => {
+                    plugin.settings.presetFolderPath = newFolder;
+                    await plugin.saveSettings();
+					plugin.presetManager.updatePresetFolder(newFolder);
                 });
         });
 
@@ -43,9 +38,18 @@ function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
         value: plugin.settings.lastActivePreset
     });
 
-	const applyPreset = async (presetName: string) => {
-		await settingsManager.applyPreset(presetName);
-	};
+    const applyPreset = async (presetName: string) => {
+        try {
+            await plugin.presetManager.applyPreset(presetName);
+            plugin.settings.lastActivePreset = presetName;
+            await settingsManager.saveSettings();
+            plugin.refreshCardNavigator(); // 플러그인 새로고침
+            new Notice(`프리셋 "${presetName}"이(가) 적용되었습니다.`);
+        } catch (error) {
+            console.error('프리셋 적용 실패:', error);
+            new Notice(`프리셋 적용 실패: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    };
 
     new PresetSuggest(
         plugin.app,
