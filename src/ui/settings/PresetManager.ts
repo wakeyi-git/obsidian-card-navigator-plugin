@@ -1,4 +1,4 @@
-import { App, Notice } from 'obsidian';
+import { App, Notice, normalizePath } from 'obsidian';
 import { CardNavigatorSettings, Preset, globalSettingsKeys, DEFAULT_SETTINGS } from '../../common/types';
 import { IPresetManager } from '../../common/IPresetManager';
 import CardNavigatorPlugin from '../../main';
@@ -62,32 +62,44 @@ export class PresetManager implements IPresetManager {
         this.plugin.refreshCardNavigator();
     }
 
+	async copyPresetsToNewFolder(oldFolder: string, newFolder: string): Promise<void> {
+        const oldFolderPath = this.getFolderPath(oldFolder);
+        const newFolderPath = this.getFolderPath(newFolder);
+
+        // 새 폴더가 존재하지 않으면 생성
+        await this.ensureDirectory(newFolderPath);
+
+        // 프리셋 파일 목록 가져오기
+        const presetFiles = await this.getPresetFiles(oldFolderPath);
+        for (const file of presetFiles) {
+            const newFilePath = path.join(newFolderPath, path.basename(file));
+            await this.copyFile(file, newFilePath);
+        }
+    }
+
+    private getFolderPath(folder: string): string {
+        return normalizePath(folder);
+    }
+
+    private async getPresetFiles(folderPath: string): Promise<string[]> {
+        const result = await this.app.vault.adapter.list(folderPath);
+        return result.files.filter(file => file.endsWith('.json'));
+    }
+
+    private async copyFile(src: string, dest: string): Promise<void> {
+        const content = await this.app.vault.adapter.read(src);
+        await this.app.vault.adapter.write(dest, content);
+    }
+
+    private async ensureDirectory(folderPath: string): Promise<void> {
+        const exists = await this.app.vault.adapter.exists(folderPath);
+        if (!exists) {
+            await this.app.vault.adapter.mkdir(folderPath);
+        }
+    }
+
     exportPresets(): string {
         return JSON.stringify(this.presets, null, 2);
-    }
-
-    getFolderPresets(): Record<string, string[]> {
-        return this.settings.folderPresets || {};
-    }
-
-    async setFolderPreset(folderPath: string, presetName: string): Promise<void> {
-        if (!this.settings.folderPresets) {
-            this.settings.folderPresets = {};
-        }
-        this.settings.folderPresets[folderPath] = [presetName];
-        await this.plugin.saveSettings();
-    }
-
-    async toggleAutoApplyFolderPresets(value: boolean): Promise<void> {
-        this.settings.autoApplyFolderPresets = value;
-        await this.plugin.saveSettings();
-    }
-
-    async applyFolderPreset(folderPath: string): Promise<void> {
-        const presetName = this.settings.folderPresets?.[folderPath]?.[0];
-        if (presetName) {
-            await this.applyPreset(presetName);
-        }
     }
 
     async loadPresetsFromFiles() {
@@ -180,13 +192,6 @@ export class PresetManager implements IPresetManager {
         await this.app.vault.adapter.write(filePath, JSON.stringify(preset, null, 2));
     }
 
-    private async ensureDirectory(path: string): Promise<void> {
-        const exists = await this.app.vault.adapter.exists(path);
-        if (!exists) {
-            await this.app.vault.adapter.mkdir(path);
-        }
-    }
-
     async deletePreset(name: string): Promise<void> {
         if (!this.presets[name]) {
             throw new Error(`프리셋 "${name}"을(를) 찾을 수 없습니다.`);
@@ -212,27 +217,65 @@ export class PresetManager implements IPresetManager {
     }
 
 	async applyPreset(presetName: string): Promise<void> {
+		console.log(`프리셋 적용 시작: ${presetName}`);
 		const preset = this.getPreset(presetName);
 		if (preset) {
+			console.log(`프리셋 찾음: ${presetName}`, preset);
+			console.log('적용 전 설정:', JSON.stringify(this.settings));
+			
+			// 기존 folderPresets와 GlobalPreset 정보 보존
+			const { folderPresets, GlobalPreset } = this.settings;
+			
+			// 프리셋 설정 적용
 			this.settings = {
 				...this.settings,
 				...preset.settings,
+				folderPresets,  // 보존된 정보 복원
+				GlobalPreset,  // 보존된 정보 복원
 			};
-			this.settings.lastActivePreset = presetName;
-			// 설정을 저장하고 플러그인을 새로고침합니다.
+
+			// GlobalPreset이 변경되면 lastActivePreset도 업데이트
+			if (this.settings.GlobalPreset !== presetName) {
+				this.settings.GlobalPreset = presetName;
+				this.settings.lastActivePreset = presetName;
+			}
+			
+			console.log('적용 후 설정:', JSON.stringify(this.settings));
 			await this.plugin.saveSettings();
-			this.plugin.refreshCardNavigator(); // 플러그인 새로고침
+			this.plugin.refreshCardNavigator();
 		} else {
-			throw new Error(`프리셋 "${presetName}"을(를) 찾을 수 없습니다.`);
+			console.error(`프리셋 "${presetName}"을(를) 찾을 수 없습니다.`);
+		}
+	}
+
+    async setFolderPreset(folderPath: string, presetName: string): Promise<void> {
+        if (!this.settings.folderPresets) {
+            this.settings.folderPresets = {};
+        }
+        this.settings.folderPresets[folderPath] = [presetName];
+        await this.plugin.saveSettings();
+    }
+
+    async toggleAutoApplyFolderPresets(value: boolean): Promise<void> {
+        this.settings.autoApplyFolderPresets = value;
+        await this.plugin.saveSettings();
+    }
+
+	async applyFolderPreset(folderPath: string): Promise<void> {
+		console.log(`폴더 프리셋 적용 시도: ${folderPath}`);
+		const presetName = this.settings.folderPresets?.[folderPath]?.[0];
+		console.log(`찾은 프리셋 이름: ${presetName}`);
+		if (presetName) {
+			console.log(`프리셋 적용 시작: ${presetName}`);
+			await this.applyPreset(presetName);
+			console.log(`프리셋 적용 완료: ${presetName}`);
+		} else {
+			console.log(`폴더 ${folderPath}에 대한 프리셋을 찾을 수 없음`);
 		}
 	}
 
     getPresetNames(): string[] {
         return Object.keys(this.presets);
-    }
-
-    getPreset(name: string): Preset | undefined {
-        return this.presets[name];
     }
 
     async clonePreset(sourceName: string, newName: string): Promise<void> {
@@ -271,7 +314,7 @@ export class PresetManager implements IPresetManager {
         if (!this.presets[name]) {
             throw new Error(`프리셋 "${name}"을(를) 찾을 수 없습니다.`);
         }
-        this.settings.lastActivePreset = name;
+        this.settings.GlobalPreset = name;
     }
 
 	async setActiveFolderPreset(folderPath: string, presetName: string): Promise<void> {
@@ -347,8 +390,16 @@ export class PresetManager implements IPresetManager {
         }
     }
 
-    getPresets(): Record<string, Preset> {
+    getPresets = (): Record<string, Preset> => {
         return this.presets;
+    }
+
+    getPreset = (presetName: string): Preset | undefined => {
+        return this.presets[presetName];
+    }
+
+    getFolderPresets = (): Record<string, string[]> => {
+        return this.settings.folderPresets || {};
     }
 
     async deleteAllPresets(): Promise<void> {

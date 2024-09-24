@@ -96,6 +96,10 @@ export class SettingsManager implements ISettingsManager {
         await this.updateSetting('lastActivePreset', presetName);
     }
 
+	async updateGlobalPreset(presetName: string): Promise<void> {
+        await this.updateSetting('GlobalPreset', presetName);
+    }
+
     async updateAutoApplyFolderPresets(value: boolean): Promise<void> {
         await this.updateSetting('autoApplyFolderPresets', value);
     }
@@ -113,6 +117,31 @@ export class SettingsManager implements ISettingsManager {
             this.plugin.triggerRefresh();
         }
     }
+
+	async applyFolderPreset(folderPath: string, presetName: string) {
+		const presets = this.presetManager.getPresets();
+		const preset = presets[presetName];
+		if (preset) {
+			// folderPresets와 activeFolderPresets 정보 보존
+			const { folderPresets, activeFolderPresets } = this.plugin.settings;
+			
+			this.plugin.settings = {
+				...this.plugin.settings,
+				...preset.settings,
+				folderPresets,
+				activeFolderPresets,
+				lastActivePreset: presetName
+			};
+			
+			// activeFolderPresets 업데이트
+			this.plugin.settings.activeFolderPresets[folderPath] = presetName;
+			
+			await this.saveSettings();
+			this.plugin.triggerRefresh();
+		} else {
+			console.error(`Preset "${presetName}" not found`);
+		}
+	}
 
     getActiveFolder(): string | null {
         return this.plugin.settings.selectedFolder;

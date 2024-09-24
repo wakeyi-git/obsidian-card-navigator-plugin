@@ -8,8 +8,9 @@ export interface IPresetManager {
 	renamePreset: (oldName: string, newName: string) => Promise<void>;
 	exportPresets: () => string;
 	importPresets: (presetsJson: string) => Promise<void>;
-	getPresets: () => Record<string, Preset>;
-	getFolderPresets: () => FolderPresets;
+    getPresets: () => Record<string, Preset>;
+    getPreset: (presetName: string) => Preset | undefined;
+    getFolderPresets: () => FolderPresets;
 	setFolderPreset: (folderPath: string, presetName: string) => Promise<void>;
 	removeFolderPreset: (folderPath: string, presetName: string) => Promise<void>;
 	toggleAutoApplyFolderPresets: (value: boolean) => Promise<void>;

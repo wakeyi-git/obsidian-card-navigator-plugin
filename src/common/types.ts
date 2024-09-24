@@ -48,6 +48,7 @@ export interface CardNavigatorSettings {
     bodyFontSize: number;
 	presetFolderPath: string;
     presets: Record<string, Preset>;
+	GlobalPreset: string;
     lastActivePreset: string;
     autoApplyFolderPresets: boolean;
     folderPresets: { [folderPath: string]: string[] };
@@ -89,7 +90,8 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     bodyFontSize: 15,
 	presetFolderPath: 'CardNavigatorPresets',
     presets: {},
-    lastActivePreset: '',
+	GlobalPreset: 'default',
+    lastActivePreset: 'default',
     autoApplyFolderPresets: true,
     folderPresets: {},
     activeFolderPresets: {}
