@@ -53,7 +53,7 @@ export class SettingsManager implements ISettingsManager {
 	
 	private async saveDefaultPreset() {
 		const presetFolderPath = this.plugin.settings.presetFolderPath;
-		const filePath = `${presetFolderPath}/Default.json`;
+		const filePath = `${presetFolderPath}/default.json`;
 		try {
 			await this.plugin.app.vault.adapter.write(filePath, JSON.stringify(DEFAULT_SETTINGS, null, 2));
 		} catch (error) {
@@ -104,19 +104,26 @@ export class SettingsManager implements ISettingsManager {
         await this.updateSetting('autoApplyFolderPresets', value);
     }
 
-    async applyPreset(presetName: string) {
-        const presets = this.presetManager.getPresets();
-        const preset = presets[presetName];
-        if (preset) {
-            this.plugin.settings = {
-                ...this.plugin.settings,
-                ...preset.settings,
-            };
-            await this.updateLastActivePreset(presetName);
-            await this.saveSettings();
-            this.plugin.triggerRefresh();
-        }
-    }
+	async applyPreset(presetName: string) {
+		const presets = this.presetManager.getPresets();
+		const preset = presets[presetName];
+		if (preset) {
+			console.log('프리셋 적용 중:', presetName);
+			this.plugin.settings = {
+				...this.plugin.settings,
+				...preset.settings,
+				GlobalPreset: presetName,
+				lastActivePreset: presetName,
+				activeFolderPresets: {
+					...this.plugin.settings.activeFolderPresets,
+					'/': presetName
+				}
+			};
+			console.log('설정 업데이트 완료');
+			await this.saveSettings();
+			this.plugin.triggerRefresh();
+		}
+	}
 
 	async applyFolderPreset(folderPath: string, presetName: string) {
 		const presets = this.presetManager.getPresets();

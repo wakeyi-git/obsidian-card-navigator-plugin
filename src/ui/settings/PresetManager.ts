@@ -216,7 +216,7 @@ export class PresetManager implements IPresetManager {
         }
     }
 
-	async applyPreset(presetName: string): Promise<void> {
+	async applyGlobalPreset(presetName: string): Promise<void> {
 		console.log(`프리셋 적용 시작: ${presetName}`);
 		const preset = this.getPreset(presetName);
 		if (preset) {
@@ -267,7 +267,7 @@ export class PresetManager implements IPresetManager {
 		console.log(`찾은 프리셋 이름: ${presetName}`);
 		if (presetName) {
 			console.log(`프리셋 적용 시작: ${presetName}`);
-			await this.applyPreset(presetName);
+			await this.applyGlobalPreset(presetName);
 			console.log(`프리셋 적용 완료: ${presetName}`);
 		} else {
 			console.log(`폴더 ${folderPath}에 대한 프리셋을 찾을 수 없음`);

@@ -47,10 +47,16 @@ function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
 	});
 	
 	const applyPreset = async (presetName: string) => {
+		console.log('프리셋 적용 시작:', presetName);
 		await settingsManager.applyPreset(presetName);
-		plugin.settings.GlobalPreset = presetName; // GlobalPreset 업데이트
-		await plugin.saveSettings(); // 설정 저장
-		input.value = presetName; // 입력 필드 업데이트
+		console.log('settingsManager.applyPreset 완료');
+		plugin.settings.GlobalPreset = presetName;
+		plugin.settings.activeFolderPresets['/'] = presetName; // 루트 폴더에 대한 활성 프리셋 업데이트
+		console.log('GlobalPreset 및 activeFolderPresets 업데이트:', plugin.settings.GlobalPreset, plugin.settings.activeFolderPresets);
+		await plugin.saveSettings();
+		console.log('설정 저장 완료');
+		input.value = presetName;
+		console.log('입력 필드 업데이트 완료');
 	};
 	
 	new PresetSuggest(

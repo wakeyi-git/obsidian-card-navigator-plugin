@@ -92,7 +92,7 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     presets: {},
 	GlobalPreset: 'default',
     lastActivePreset: 'default',
-    autoApplyFolderPresets: true,
+    autoApplyFolderPresets: false,
     folderPresets: {},
     activeFolderPresets: {}
 };
