@@ -230,14 +230,33 @@ export class PresetManager implements IPresetManager {
     }
 
 	async applyGlobalPreset(presetName?: string): Promise<void> {
-		const globalPresetName = presetName || this.settings.GlobalPreset;
+		const globalPresetName = presetName || this.plugin.settings.GlobalPreset;
+		if (!globalPresetName) {
+			console.error('글로벌 프리셋이 설정되지 않았습니다.');
+			return;
+		}
 		console.log(`글로벌 프리셋 적용 시작: ${globalPresetName}`);
-		await this.applyPreset(globalPresetName);
-		this.settings.GlobalPreset = globalPresetName;
-		this.settings.activeFolderPresets = this.settings.activeFolderPresets || {};
-		this.settings.activeFolderPresets['/'] = globalPresetName;
-		console.log('GlobalPreset 및 activeFolderPresets 업데이트:', this.settings.GlobalPreset, this.settings.activeFolderPresets);
+		
+		const preset = await this.getPreset(globalPresetName);
+		if (!preset) {
+			console.error(`프리셋 "${globalPresetName}"을(를) 찾을 수 없습니다.`);
+			return;
+		}
+	
+		// 프리셋 설정 적용
+		this.plugin.settings = {
+			...this.plugin.settings,
+			...preset.settings,
+			GlobalPreset: globalPresetName,
+			lastActivePreset: globalPresetName
+		};
+	
+		this.plugin.settings.activeFolderPresets = this.plugin.settings.activeFolderPresets || {};
+		this.plugin.settings.activeFolderPresets['/'] = globalPresetName;
+	
+		console.log('GlobalPreset 및 activeFolderPresets 업데이트:', this.plugin.settings.GlobalPreset, this.plugin.settings.activeFolderPresets);
 		await this.plugin.saveSettings();
+		this.plugin.refreshCardNavigator();
 	}
 	
 	async applyFolderPreset(folderPath: string): Promise<void> {
@@ -263,7 +282,12 @@ export class PresetManager implements IPresetManager {
 	
 		if (!presetApplied) {
 			console.log('폴더 프리셋을 찾지 못해 글로벌 프리셋 적용');
-			await this.applyGlobalPreset(); // 이 호출은 이제 유효합니다.
+			const globalPresetName = this.settings.GlobalPreset;
+			if (globalPresetName) {
+				await this.applyGlobalPreset(globalPresetName);
+			} else {
+				console.error('글로벌 프리셋이 설정되지 않았습니다.');
+			}
 		}
 	}
 

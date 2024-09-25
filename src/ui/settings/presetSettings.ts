@@ -1,4 +1,4 @@
-import { Setting, ButtonComponent, Notice } from 'obsidian';
+import { Setting, ButtonComponent, ToggleComponent, Notice } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SettingsManager } from './settingsManager';
 import { PresetSuggest, FileSuggestMode } from './components/PresetSuggest';
@@ -14,6 +14,7 @@ export function addPresetSettings(containerEl: HTMLElement, plugin: CardNavigato
 
     addGlobalPresetSection(containerEl, plugin);
     addPresetManagementSection(containerEl, plugin, _settingsManager, refreshAllSettings);
+    addPresetListSection(containerEl, plugin, _settingsManager, refreshAllSettings);
     addFolderPresetSection(containerEl, plugin, _settingsManager, refreshAllSettings);
 }
 
@@ -35,48 +36,6 @@ function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
                 parentEl.classList.add('wide-input-container');
             }
         });
-
-    const setting = new Setting(containerEl)
-        .setName('전역 프리셋')
-        .setDesc('Card Navigator에 적용할 기본 프리셋을 선택하여 적용합니다.');
-
-	const input = setting.controlEl.createEl("input", {
-		cls: "preset-suggest-input wide-input-container",
-		type: "text",
-		value: plugin.settings.GlobalPreset
-	});
-	
-	const applyPreset = async (presetName: string) => {
-		console.log('프리셋 적용 시작:', presetName);
-		await plugin.presetManager.applyGlobalPreset(presetName);
-		console.log('presetManager.applyGlobalPreset 완료');
-		input.value = plugin.settings.GlobalPreset;
-		console.log('입력 필드 업데이트 완료');
-	};
-	
-	new PresetSuggest(
-		plugin.app,
-		input,
-		plugin,
-		FileSuggestMode.PresetsFiles
-	);
-	
-	setting.addButton((button: ButtonComponent) =>
-		button
-			.setButtonText('적용')
-			.onClick(() => applyPreset(input.value))
-	);
-	
-	// 입력 필드 값 변경 시 GlobalPreset 업데이트
-	input.addEventListener('change', async () => {
-		await applyPreset(input.value);
-	});
-	
-	plugin.registerEvent(
-		plugin.app.workspace.on('layout-change', () => {
-			input.value = plugin.settings.GlobalPreset;
-		})
-	);
 }
 
 function addPresetManagementSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, refreshAllSettings: () => void): void {
@@ -91,27 +50,35 @@ async function addPresetManagementSectionContent(containerEl: HTMLElement, plugi
             button
                 .setTooltip('새 프리셋 생성')
                 .setIcon('plus')
-                .onClick(() => {
-                    new PresetEditModal(plugin.app, plugin, settingsManager, 'create').open();
+                .onClick(async () => {
+                    const modal = new PresetEditModal(plugin.app, plugin, settingsManager, 'create');
+                    await modal.open();
+                    refreshAllSettings();
                 })
         )
         .addButton((button: ButtonComponent) => 
             button
                 .setTooltip('프리셋 가져오기')
                 .setIcon('upload')
-                .onClick(() => {
-                    new PresetImportExportModal(plugin.app, plugin, settingsManager, 'import').open();
+                .onClick(async () => {
+                    const modal = new PresetImportExportModal(plugin.app, plugin, settingsManager, 'import');
+                    await modal.open();
+                    refreshAllSettings();
                 })
         );
+}
 
-	const presetNames = await plugin.presetManager.getPresetNames();
-	for (const presetName of presetNames) {
-		const preset = await plugin.presetManager.getPreset(presetName);
-		if (!preset) continue;
-
-		new Setting(containerEl)
-			.setName(presetName)
-			.setDesc(preset.description || '설명 없음')
+async function addPresetListSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, refreshAllSettings: () => void): Promise<void> {
+    const presetNames = await plugin.presetManager.getPresetNames();
+    const presets = await Promise.all(presetNames.map(name => plugin.presetManager.getPreset(name)));
+    
+    presets.forEach((preset, index) => {
+        if (!preset) return;
+        
+        const presetName = presetNames[index];
+        new Setting(containerEl)
+            .setName(presetName)
+            .setDesc(preset.description || '설명 없음')
             .addButton((button: ButtonComponent) => 
                 button
                     .setTooltip('수정')
@@ -147,8 +114,36 @@ async function addPresetManagementSectionContent(containerEl: HTMLElement, plugi
                     .onClick(() => {
                         new PresetImportExportModal(plugin.app, plugin, settingsManager, 'export', presetName).open();
                     })
-            );
-    }
+            )
+            .addToggle((toggle: ToggleComponent) => {
+                toggle
+                    .setTooltip('전역 프리셋으로 설정')
+                    .setValue(plugin.settings.GlobalPreset === presetName)
+                    .onChange(async (value: boolean) => {
+                        if (value) {
+                            await plugin.presetManager.applyGlobalPreset(presetName);
+                            refreshGlobalPresetToggles(containerEl, plugin);
+                            refreshAllSettings();
+                        } else if (plugin.settings.GlobalPreset === presetName) {
+                            toggle.setValue(true);
+                        }
+                    });
+            })
+    });
+}
+
+function refreshGlobalPresetToggles(containerEl: HTMLElement, plugin: CardNavigatorPlugin): void {
+    containerEl.querySelectorAll('.setting-item').forEach((settingItem: Element) => {
+        if (settingItem instanceof HTMLElement) {
+            const toggleEl = settingItem.querySelector('.checkbox-container input[type="checkbox"]');
+            if (toggleEl instanceof HTMLInputElement) {
+                const presetName = settingItem.querySelector('.setting-item-name')?.textContent;
+                if (presetName) {
+                    toggleEl.checked = plugin.settings.GlobalPreset === presetName;
+                }
+            }
+        }
+    });
 }
 
 function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, refreshAllSettings: () => void): void {

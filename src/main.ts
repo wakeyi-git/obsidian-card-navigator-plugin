@@ -28,13 +28,16 @@ export default class CardNavigatorPlugin extends Plugin {
     public events: Events = new Events();
 
     // Plugin initialization
-	async onload() {
-		await this.loadSettings();
-		await this.initializePlugin();
-	
-		this.ribbonIconEl = this.addRibbonIcon('layers-3', t('Open Card Navigator'), () => {
-			this.activateView();
-		});
+    async onload() {
+        await this.loadSettings();
+        this.presetManager = new PresetManager(this.app, this, this.settings);
+        this.settingsManager = new SettingsManager(this, this.presetManager);
+        await this.presetManager.initialize();
+        await this.initializePlugin();
+
+        this.ribbonIconEl = this.addRibbonIcon('layers-3', t('Open Card Navigator'), () => {
+            this.activateView();
+        });
 
         this.registerEvent(
             this.app.workspace.on('file-open', (file) => {
@@ -43,7 +46,7 @@ export default class CardNavigatorPlugin extends Plugin {
                 }
             })
         );
-	}
+    }
 
 	// Plugin cleanup
 	async onunload() {
@@ -76,22 +79,12 @@ export default class CardNavigatorPlugin extends Plugin {
 		console.log('프리셋 적용 완료:', presetName);
 	}
 
-	// Initialize folder presets if not already present
-    private async initializeFolderPresets() {
-        if (!this.settings.folderPresets) {
-            this.settings.folderPresets = {};
-            this.settings.activeFolderPresets = {};
-            await this.saveSettings();
-        }
-    }
-
 	// Initialize plugin components and functionality
 	private async initializePlugin() {
-		this.initializeManagers();
-		await this.initializePresets();
+		await this.applyPreset(this.settings.GlobalPreset || 'default');
 		await this.initializeFolderPresets();
 		await this.initializeI18n();
-
+	
 		this.settingTab = new SettingTab(this.app, this);
 		this.addSettingTab(this.settingTab);
 	
@@ -99,8 +92,46 @@ export default class CardNavigatorPlugin extends Plugin {
 			VIEW_TYPE_CARD_NAVIGATOR,
 			(leaf) => new CardNavigator(leaf, this)
 		);
+	
+		this.addCommands();
+		this.addScrollCommands();
+	
+		this.refreshDebounced = debounce(() => this.refreshViews(), 200);
+		this.registerCentralizedEvents();
+	}
 
-		// Register plugin commands
+	// Initialize folder presets if not already present
+	private async initializeFolderPresets() {
+		if (!this.settings.folderPresets) {
+			this.settings.folderPresets = {};
+			this.settings.activeFolderPresets = {};
+			await this.saveSettings();
+		}
+	}
+
+	// Initialize internationalization
+	private async initializeI18n() {
+		const resources = await this.loadLanguageResources();
+		await i18next.init({
+			lng: translationLanguage,
+			fallbackLng: "en",
+			resources,
+		});
+	}
+
+	// Load language resources
+	private async loadLanguageResources() {
+		const [en, ko] = await Promise.all([
+			languageResources.en(),
+			languageResources.ko()
+		]);
+		return {
+			en: { translation: en.default },
+			ko: { translation: ko.default },
+		};
+	}	
+
+	private addCommands() {
 		this.addCommand({
 			id: 'open-card-navigator',
 			name: t('Open Card Navigator'),
@@ -113,7 +144,6 @@ export default class CardNavigatorPlugin extends Plugin {
 			callback: async () => {
 				const cardNavigator = this.getFirstCardNavigator();
 				if (cardNavigator) {
-					// 플러그인의 리프로 초점을 맞추기
 					const leaf = this.app.workspace.getLeaf();
 					if (leaf) {
 						leaf.view.containerEl.focus();
@@ -124,60 +154,17 @@ export default class CardNavigatorPlugin extends Plugin {
 			}
 		});
 
-        this.addCommand({
-            id: 'open-card-context-menu',
-            name: t('Open card context menu'),
-            callback: () => {
-                const cardNavigator = this.getActiveCardNavigator();
-                if (cardNavigator) {
-                    cardNavigator.openContextMenu();
-                }
-            }
-        });
-
-        this.addScrollCommands();
-
-		this.refreshDebounced = debounce(() => this.refreshViews(), 200);
-
-		this.registerCentralizedEvents();
+		this.addCommand({
+			id: 'open-card-context-menu',
+			name: t('Open card context menu'),
+			callback: () => {
+				const cardNavigator = this.getActiveCardNavigator();
+				if (cardNavigator) {
+					cardNavigator.openContextMenu();
+				}
+			}
+		});
 	}
-
-	// Initialize plugin managers
-	private initializeManagers() {
-		this.presetManager = new PresetManager(this.app, this, this.settings);
-		this.settingsManager = new SettingsManager(this, this.presetManager);
-	}
-
-	private async initializePresets() {
-		await this.presetManager.initialize();
-	
-		// 기본 프리셋을 적용
-		await this.applyPreset('default');
-	}
-
-
-    // Initialize internationalization
-    private async initializeI18n() {
-        const resources = await this.loadLanguageResources();
-        await i18next.init({
-            lng: translationLanguage,
-            fallbackLng: "en",
-            resources,
-        });
-    }
-
-	// Load language resources
-	private async loadLanguageResources() {
-		const [en, ko] = await Promise.all([
-			languageResources.en(),
-			languageResources.ko()
-		]);
-		return {
-			en: { translation: en.default },
-			ko: { translation: ko.default },
-		};
-	}
-
     // Refresh all Card Navigator views
 	refreshViews() {
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
