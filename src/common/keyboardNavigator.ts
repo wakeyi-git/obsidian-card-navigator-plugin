@@ -328,7 +328,7 @@ export class KeyboardNavigator {
     }
 
     // Update the layout strategy (currently empty, can be implemented if needed)
-    public updateLayout(layoutStrategy: LayoutStrategy) {
-        // Implementation can be added here if needed
-    }
+	public updateLayout(_layoutStrategy: LayoutStrategy) {
+    // TODO: Implement layout update logic
+}
 }

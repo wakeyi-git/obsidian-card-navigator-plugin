@@ -44,16 +44,18 @@ export class PresetImportExportModal extends Modal {
         });
 
 		new Setting(contentEl)
-        .addButton(btn => btn
-            .setButtonText('가져오기')
-            .setCta()
-            .onClick(async () => {
+		.addButton(btn => btn
+			.setButtonText('가져오기')
+			.setCta()
+			.onClick(async () => {
 				try {
 					const presetData = JSON.parse(this.importText) as Preset;
 					if (!presetData.name || !presetData.settings || typeof presetData.description !== 'string') {
 						throw new Error('유효하지 않은 프리셋 데이터입니다.');
 					}
-					await this.plugin.presetManager.createPreset(presetData.name, presetData.settings, presetData.description);
+					await this.plugin.presetManager.savePreset(presetData.name, presetData.description);
+					// 프리셋의 설정을 적용하는 로직이 필요할 수 있습니다.
+					// 예: await this.plugin.presetManager.applyPresetSettings(presetData.name, presetData.settings);
 					this.settingsManager.applyChanges();
 					new Notice(`프리셋 "${presetData.name}"을(를) 성공적으로 가져왔습니다.`);
 					this.close();
@@ -64,7 +66,7 @@ export class PresetImportExportModal extends Modal {
 						new Notice('프리셋 가져오기 중 알 수 없는 오류가 발생했습니다.');
 					}
 				}
-            }));
+			}));
     }
 
     private setupExportUI() {

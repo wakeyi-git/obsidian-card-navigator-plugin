@@ -1,6 +1,6 @@
 import { TFolder, TFile, debounce, Notice } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
-import { CardNavigatorSettings, Preset, NumberSettingKey, RangeSettingConfig, rangeSettingConfigs, FolderPresets, DEFAULT_SETTINGS } from '../../common/types';
+import { CardNavigatorSettings, NumberSettingKey, RangeSettingConfig, rangeSettingConfigs, FolderPresets, DEFAULT_SETTINGS } from '../../common/types';
 import { ISettingsManager } from '../../common/ISettingsManager';
 import { IPresetManager } from '../../common/IPresetManager';
 
@@ -104,51 +104,57 @@ export class SettingsManager implements ISettingsManager {
         await this.updateSetting('autoApplyFolderPresets', value);
     }
 
-	async applyPreset(presetName: string) {
-		const presets = this.presetManager.getPresets();
-		const preset = presets[presetName];
-		if (preset) {
-			console.log('프리셋 적용 중:', presetName);
-			this.plugin.settings = {
-				...this.plugin.settings,
-				...preset.settings,
-				GlobalPreset: presetName,
-				lastActivePreset: presetName,
-				activeFolderPresets: {
-					...this.plugin.settings.activeFolderPresets,
-					'/': presetName
-				}
-			};
-			console.log('설정 업데이트 완료');
-			await this.saveSettings();
-			this.plugin.triggerRefresh();
-		}
-	}
+    // async applyPreset(presetName: string) {
+    //     const presets = this.presetManager.getPresets();
+    //     const preset = presets[presetName];
+    //     if (preset) {
+    //         console.log('프리셋 적용 중:', presetName);
+            
+    //         // 글로벌 설정 보존
+    //         const globalSettings = globalSettingsKeys.reduce((acc, key) => {
+    //             acc[key] = this.plugin.settings[key];
+    //             return acc;
+    //         }, {} as Partial<CardNavigatorSettings>);
+            
+    //         this.plugin.settings = {
+    //             ...this.plugin.settings,
+    //             ...preset.settings,
+    //             ...globalSettings,  // 글로벌 설정 복원
+    //             GlobalPreset: presetName,
+    //             lastActivePreset: presetName
+    //         };
+    //         console.log('설정 업데이트 완료');
+    //         await this.saveSettings();
+    //         this.plugin.triggerRefresh();
+    //     }
+    // }
 
-	async applyFolderPreset(folderPath: string, presetName: string) {
-		const presets = this.presetManager.getPresets();
-		const preset = presets[presetName];
-		if (preset) {
-			// folderPresets와 activeFolderPresets 정보 보존
-			const { folderPresets, activeFolderPresets } = this.plugin.settings;
-			
-			this.plugin.settings = {
-				...this.plugin.settings,
-				...preset.settings,
-				folderPresets,
-				activeFolderPresets,
-				lastActivePreset: presetName
-			};
-			
-			// activeFolderPresets 업데이트
-			this.plugin.settings.activeFolderPresets[folderPath] = presetName;
-			
-			await this.saveSettings();
-			this.plugin.triggerRefresh();
-		} else {
-			console.error(`Preset "${presetName}" not found`);
-		}
-	}
+    // async applyFolderPreset(folderPath: string, presetName: string) {
+    //     const presets = this.presetManager.getPresets();
+    //     const preset = presets[presetName];
+    //     if (preset) {
+    //         // 글로벌 설정 보존
+    //         const globalSettings = globalSettingsKeys.reduce((acc, key) => {
+    //             acc[key] = this.plugin.settings[key];
+    //             return acc;
+    //         }, {} as Partial<CardNavigatorSettings>);
+            
+    //         this.plugin.settings = {
+    //             ...this.plugin.settings,
+    //             ...preset.settings,
+    //             ...globalSettings,  // 글로벌 설정 복원
+    //             lastActivePreset: presetName
+    //         };
+            
+    //         // activeFolderPresets 업데이트
+    //         this.plugin.settings.activeFolderPresets[folderPath] = presetName;
+            
+    //         await this.saveSettings();
+    //         this.plugin.triggerRefresh();
+    //     } else {
+    //         console.error(`Preset "${presetName}" not found`);
+    //     }
+    // }
 
     getActiveFolder(): string | null {
         return this.plugin.settings.selectedFolder;
@@ -156,10 +162,6 @@ export class SettingsManager implements ISettingsManager {
 
     async updateSelectedFolder(folder: TFolder | null) {
         await this.updateSetting('selectedFolder', folder ? folder.path : null);
-    }
-
-	getPresets(): Record<string, Preset> {
-        return this.plugin.settings.presets || {};
     }
 
     getNumberSettingConfig(key: NumberSettingKey): RangeSettingConfig {

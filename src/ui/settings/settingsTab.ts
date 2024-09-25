@@ -77,7 +77,6 @@ export class SettingTab extends PluginSettingTab {
     refreshSettingsUI(changedSetting: keyof CardNavigatorSettings): void {
         switch (changedSetting) {
             case 'lastActivePreset':
-            case 'presets':
             case 'folderPresets':
             case 'activeFolderPresets':
                 this.updatePresetSettings();

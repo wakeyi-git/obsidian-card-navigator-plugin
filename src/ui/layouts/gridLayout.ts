@@ -7,11 +7,11 @@ export class GridLayout implements LayoutStrategy {
     constructor(private columns: number, private cardGap: number, private settings: CardNavigatorSettings) {}
 
     // Arrange cards in a grid layout
-	arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[] {
-        const positions: CardPosition[] = [];
-        const totalGapWidth = this.cardGap * (this.columns - 1);
-        const cardWidth = (containerWidth - totalGapWidth) / this.columns;
-        const cardHeight = this.settings.gridCardHeight;
+	arrange(cards: Card[], containerWidth: number, _containerHeight: number, _cardsPerView: number): CardPosition[] {
+		const positions: CardPosition[] = [];
+		const totalGapWidth = this.cardGap * (this.columns - 1);
+		const cardWidth = (containerWidth - totalGapWidth) / this.columns;
+		const cardHeight = this.settings.gridCardHeight;
 
         cards.forEach((card, index) => {
             const column = index % this.columns;

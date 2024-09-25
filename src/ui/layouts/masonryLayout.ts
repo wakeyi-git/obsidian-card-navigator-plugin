@@ -39,11 +39,11 @@ export class MasonryLayout implements LayoutStrategy {
         }
     }
 
-    arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[] {
-        if (!this.container) {
-            console.warn('Container is not set. Please call setContainer before arrange.');
-            return [];
-        }
+	arrange(cards: Card[], _containerWidth: number, _containerHeight: number, _cardsPerView: number): CardPosition[] {
+		if (!this.container) {
+			console.warn('Container is not set. Please call setContainer before arrange.');
+			return [];
+		}
 
         this.setupContainer(); // Ensure container is set up correctly
 

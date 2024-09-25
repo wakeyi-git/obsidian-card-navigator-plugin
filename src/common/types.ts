@@ -46,22 +46,21 @@ export interface CardNavigatorSettings {
     fileNameFontSize: number;
     firstHeaderFontSize: number;
     bodyFontSize: number;
-	presetFolderPath: string;
-    presets: Record<string, Preset>;
-	GlobalPreset: string;
+    presetFolderPath: string;
+    GlobalPreset: string;
     lastActivePreset: string;
     autoApplyFolderPresets: boolean;
-    folderPresets: { [folderPath: string]: string[] };
-    activeFolderPresets: { [folderPath: string]: string };
+    folderPresets?: Record<string, string[]> | null;
+    activeFolderPresets?: Record<string, string> | null;
 }
 
 export const globalSettingsKeys: (keyof CardNavigatorSettings)[] = [
-	'presetFolderPath',
-	'presets',
+    'presetFolderPath',
+    'GlobalPreset',
     'lastActivePreset',
     'autoApplyFolderPresets',
     'folderPresets',
-	'activeFolderPresets'
+    'activeFolderPresets'
 ] as const;
 
 // Define default settings for the CardNavigator
@@ -88,9 +87,8 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     fileNameFontSize: 20,
     firstHeaderFontSize: 20,
     bodyFontSize: 15,
-	presetFolderPath: 'CardNavigatorPresets',
-    presets: {},
-	GlobalPreset: 'default',
+    presetFolderPath: 'CardNavigatorPresets',
+    GlobalPreset: 'default',
     lastActivePreset: 'default',
     autoApplyFolderPresets: false,
     folderPresets: {},

@@ -36,13 +36,13 @@ export default class CardNavigatorPlugin extends Plugin {
 			this.activateView();
 		});
 
-		this.registerEvent(
-			this.app.workspace.on('file-open', (file) => {
-				if (file instanceof TFile) {
-					this.handleFileOpen(file);
-				}
-			})
-		);
+        this.registerEvent(
+            this.app.workspace.on('file-open', (file) => {
+                if (file instanceof TFile) {
+                    this.selectAndApplyPreset(file);
+                }
+            })
+        );
 	}
 
 	// Plugin cleanup
@@ -72,7 +72,7 @@ export default class CardNavigatorPlugin extends Plugin {
     // Apply a preset using the PresetManager
 	async applyPreset(presetName: string) {
 		console.log('프리셋 적용 시작:', presetName);
-		await this.presetManager.applyGlobalPreset(presetName);
+		await this.presetManager.applyGlobalPreset(this.settings.GlobalPreset);
 		console.log('프리셋 적용 완료:', presetName);
 	}
 
@@ -247,70 +247,13 @@ export default class CardNavigatorPlugin extends Plugin {
 		return this.app.workspace.getActiveViewOfType(CardNavigator);
 	}
 
-	private GlobalPreset: string | null = null;
-
-	// private async handleFileOpen(file: TFile) {
-	// 	console.log('handleFileOpen 호출됨', file);
-	// 	console.log('자동 적용 설정:', this.settings.autoApplyFolderPresets);
-	// 	if (this.settings.autoApplyFolderPresets) {
-	// 		console.log('FileView 확인됨');
-	// 		if (file?.parent) {
-	// 			console.log('파일 부모 폴더 확인됨:', file.parent.path);
-	// 			let folderPath = file.parent.path;
-	// 			let presetApplied = false;
-	// 			while (!presetApplied && folderPath !== '/') {
-	// 				console.log('현재 확인 중인 폴더 경로:', folderPath);
-	// 				const activePreset = this.settings.activeFolderPresets[folderPath];
-	// 				if (activePreset && activePreset !== this.GlobalPreset) {
-	// 					console.log('적용할 프리셋 찾음:', activePreset);
-	// 					await this.settingsManager.applyFolderPreset(folderPath, activePreset);
-	// 					this.GlobalPreset = activePreset;
-	// 					this.settings.lastActivePreset = activePreset; // lastActivePreset 업데이트
-	// 					console.log('프리셋 적용 완료:', activePreset);
-	// 					presetApplied = true;
-	// 				} else {
-	// 					folderPath = folderPath.substring(0, folderPath.lastIndexOf('/')) || '/';
-	// 				}
-	// 			}
-				
-	// 			// 루트 폴더에 도달했거나 프리셋을 찾지 못한 경우 GlobalPreset 적용
-	// 			if (!presetApplied) {
-	// 				console.log('루트 폴더에 도달 또는 프리셋을 찾지 못함, GlobalPreset 적용:', this.settings.GlobalPreset);
-	// 				await this.settingsManager.applyFolderPreset('/', this.settings.GlobalPreset);
-	// 				this.GlobalPreset = this.settings.GlobalPreset;
-	// 				this.settings.lastActivePreset = this.settings.GlobalPreset; // lastActivePreset 업데이트
-	// 				console.log('GlobalPreset 적용 완료:', this.settings.GlobalPreset);
-	// 			}
-	// 		} else {
-	// 			console.log('파일의 부모 폴더를 찾을 수 없음');
-	// 		}
-	// 	} else {
-	// 		console.log('자동 적용 설정이 꺼져 있음');
-	// 	}
-	// }
-
-	private async handleFileOpen(file: TFile) {
-		if (this.settings.autoApplyFolderPresets) {
-			if (file?.parent) {
-				let folderPath = file.parent.path;
-				let presetApplied = false;
-				while (!presetApplied && folderPath !== '/') {
-					const activePreset = this.settings.activeFolderPresets[folderPath];
-					if (activePreset) {
-						await this.settingsManager.applyFolderPreset(folderPath, activePreset);
-						presetApplied = true;
-					} else {
-						folderPath = folderPath.substring(0, folderPath.lastIndexOf('/')) || '/';
-					}
-				}
-				
-				// 루트 폴더에 도달했거나 프리셋을 찾지 못한 경우 GlobalPreset 적용
-				if (!presetApplied) {
-					await this.presetManager.applyGlobalPreset(this.settings.GlobalPreset);
-				}
-			}
+    private async selectAndApplyPreset(file: TFile) {
+		if (this.settings.autoApplyFolderPresets && file.parent) {
+			await this.presetManager.applyFolderPreset(file.parent.path);
+		} else {
+			await this.presetManager.applyGlobalPreset(this.settings.GlobalPreset);
 		}
-	}
+    }
 
 	// Refreshes the Card Navigator settings tab
 	refreshSettingsTab() {

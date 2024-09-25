@@ -16,7 +16,7 @@ export class PresetEditModal extends Modal {
         super(app);
     }
 
-    onOpen() {
+    async onOpen() {
         const { contentEl } = this;
         contentEl.empty();
         contentEl.createEl('h2', { text: this.getModalTitle() });
@@ -30,10 +30,11 @@ export class PresetEditModal extends Modal {
 
         new Setting(contentEl)
             .setName('설명')
-            .addTextArea(text => text
-                .setPlaceholder('프리셋 설명 입력 (선택사항)')
-                .setValue(this.getInitialDescription())
-                .onChange(value => this.description = value));
+            .addTextArea(async (text) => {
+                text.setPlaceholder('프리셋 설명 입력 (선택사항)')
+                    .setValue(await this.getInitialDescription())
+                    .onChange(value => this.description = value);
+            });
 
         new Setting(contentEl)
             .addButton(btn => btn
@@ -58,40 +59,38 @@ export class PresetEditModal extends Modal {
         }
     }
 
-    private getInitialDescription(): string {
+    private async getInitialDescription(): Promise<string> {
         if (this.mode === 'create') return '';
-        const existingPreset = this.plugin.presetManager.getPreset(this.existingPresetName || '');
+        const existingPreset = await this.plugin.presetManager.getPreset(this.existingPresetName || '');
         return existingPreset?.description || '';
     }
-
+    
     private async savePreset() {
         if (!this.presetName) {
             new Notice('프리셋 이름을 입력해주세요.');
             return;
         }
-
-        const currentSettings = this.settingsManager.getCurrentSettings();
-        
+    
         try {
             switch (this.mode) {
                 case 'create':
-                    await this.plugin.presetManager.createPreset(this.presetName, currentSettings, this.description);
+                    await this.plugin.presetManager.savePreset(this.presetName, this.description);
                     break;
                 case 'edit':
                     if (this.existingPresetName) {
                         if (this.existingPresetName !== this.presetName) {
                             // 이름이 변경된 경우, 기존 프리셋 삭제 후 새로 생성
                             await this.plugin.presetManager.deletePreset(this.existingPresetName);
-                            await this.plugin.presetManager.createPreset(this.presetName, currentSettings, this.description);
+                            await this.plugin.presetManager.savePreset(this.presetName, this.description);
                         } else {
-                            await this.plugin.presetManager.updatePreset(this.presetName, currentSettings, this.description);
+                            await this.plugin.presetManager.savePreset(this.presetName, this.description);
                         }
                     }
                     break;
                 case 'clone':
                     if (this.existingPresetName) {
                         await this.plugin.presetManager.clonePreset(this.existingPresetName, this.presetName);
-                        await this.plugin.presetManager.updatePreset(this.presetName, currentSettings, this.description);
+                        await this.plugin.presetManager.savePreset(this.presetName, this.description);
                     }
                     break;
             }
