@@ -44,10 +44,10 @@ export class SettingTab extends PluginSettingTab {
         this.updateKeyboardShortcutsInfo();
     }
 
-    updatePresetSettings(): void {
-        this.sections.preset.empty();
-        addPresetSettings(this.sections.preset, this.plugin, this.settingsManager);
-    }
+	updatePresetSettings(): void {
+		this.sections.preset.empty();
+		addPresetSettings(this.sections.preset, this.plugin, this.settingsManager, this);
+	}
 
     updateContainerSettings(): void {
         this.sections.container.empty();

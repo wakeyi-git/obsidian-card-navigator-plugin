@@ -5,22 +5,22 @@ import { PresetSuggest, FileSuggestMode } from './components/PresetSuggest';
 import { PresetEditModal } from '../settings/modals/PresetEditModal';
 import { PresetImportExportModal } from '../settings/modals/PresetImportExportModal';
 import { FolderSuggest } from './components/FolderSuggest';
+import { SettingTab } from './settingsTab';
 
 let presetListContainer: HTMLElement;
 
-export function addPresetSettings(containerEl: HTMLElement, plugin: CardNavigatorPlugin, _settingsManager: SettingsManager): void {
+export function addPresetSettings(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, settingTab: SettingTab): void {
     const refreshAllSettings = () => {
-        containerEl.empty();
-        addPresetSettings(containerEl, plugin, _settingsManager);
+        settingTab.updateAllSections();
     };
 
     addGlobalPresetSection(containerEl, plugin);
-    addFolderPresetSection(containerEl, plugin, _settingsManager, refreshAllSettings);
-    addPresetManagementSection(containerEl, plugin, _settingsManager, refreshAllSettings);
+    addFolderPresetSection(containerEl, plugin, settingsManager, refreshAllSettings);
+    addPresetManagementSection(containerEl, plugin, settingsManager, refreshAllSettings);
     
     // 프리셋 목록을 위한 컨테이너 생성
     presetListContainer = containerEl.createDiv('preset-list-container');
-    refreshPresetList(plugin, _settingsManager, refreshAllSettings);
+    refreshPresetList(plugin, settingsManager, refreshAllSettings);
 }
 
 async function refreshPresetList(plugin: CardNavigatorPlugin, settingsManager: SettingsManager, refreshAllSettings: () => void): Promise<void> {
@@ -75,8 +75,8 @@ function addPresetManagementSectionContent(containerEl: HTMLElement, plugin: Car
                         settingsManager, 
                         'create', 
                         undefined,
-                        () => refreshPresetList(plugin, settingsManager, refreshAllSettings)
-                    );
+						refreshAllSettings
+					);
                     await modal.open();
                 })
         )
@@ -122,49 +122,47 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
 							settingsManager, 
 							'edit', 
 							presetName,
-							() => refreshPresetList(plugin, settingsManager, refreshAllSettings)
+							refreshAllSettings
 						).open();
+					})
+			);
+
+			setting.addButton((button: ButtonComponent) => 
+				button
+					.setTooltip('복제')
+					.setIcon('copy')
+					.onClick(() => {
+						new PresetEditModal(
+							plugin.app, 
+							plugin, 
+							settingsManager, 
+							'clone', 
+							presetName,
+							refreshAllSettings
+						).open();
+					})
+			);
+
+			setting.addButton((button: ButtonComponent) => 
+				button
+					.setTooltip('삭제')
+					.setIcon('trash')
+					.onClick(async () => {
+						if (await settingsManager.confirmDelete(`프리셋 "${presetName}"`)) {
+							await plugin.presetManager.deletePreset(presetName);
+							
+							if (plugin.settings.GlobalPreset === presetName) {
+								await plugin.presetManager.applyGlobalPreset('default');
+								new Notice("현재 프리셋이 삭제되어 'default' 프리셋으로 변경되었습니다.");
+							}
+							
+							settingsManager.applyChanges();
+							refreshAllSettings();
+						}
 					})
 			);
 		}
 
-		setting.addButton((button: ButtonComponent) => 
-			button
-				.setTooltip('복제')
-				.setIcon('copy')
-				.onClick(async () => {
-					await new PresetEditModal(
-						plugin.app, 
-						plugin, 
-						settingsManager, 
-						'clone', 
-						presetName,
-						() => refreshPresetList(plugin, settingsManager, refreshAllSettings)
-					).open();
-				})
-		);
-		
-        if (presetName !== 'default') {
-            setting.addButton((button: ButtonComponent) => 
-                button
-                    .setTooltip('삭제')
-                    .setIcon('trash')
-                    .onClick(async () => {
-                        if (await settingsManager.confirmDelete(`프리셋 "${presetName}"`)) {
-                            await plugin.presetManager.deletePreset(presetName);
-                            
-                            if (plugin.settings.GlobalPreset === presetName) {
-                                await plugin.presetManager.applyGlobalPreset('default');
-                                new Notice("현재 프리셋이 삭제되어 'default' 프리셋으로 변경되었습니다.");
-                            }
-                            
-                            settingsManager.applyChanges();
-                            refreshPresetList(plugin, settingsManager, refreshAllSettings);
-                        }
-                    })
-            );
-        }
-		
 		setting.addButton((button: ButtonComponent) => 
 			button
 				.setTooltip('내보내기')
@@ -173,34 +171,19 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
 					new PresetImportExportModal(plugin.app, plugin, settingsManager, 'export', presetName).open();
 				})
 		)
-		.addToggle((toggle: ToggleComponent) => {
-			toggle
-				.setTooltip('전역 프리셋으로 설정')
-				.setValue(plugin.settings.GlobalPreset === presetName)
-				.onChange(async (value: boolean) => {
-					if (value) {
-						await plugin.presetManager.applyGlobalPreset(presetName);
-						refreshGlobalPresetToggles(containerEl, plugin);
-						refreshAllSettings();
-					} else if (plugin.settings.GlobalPreset === presetName) {
-						toggle.setValue(true);
-					}
-				});
-		});
-    });
-}
-
-function refreshGlobalPresetToggles(containerEl: HTMLElement, plugin: CardNavigatorPlugin): void {
-    containerEl.querySelectorAll('.setting-item').forEach((settingItem: Element) => {
-        if (settingItem instanceof HTMLElement) {
-            const toggleEl = settingItem.querySelector('.checkbox-container input[type="checkbox"]');
-            if (toggleEl instanceof HTMLInputElement) {
-                const presetName = settingItem.querySelector('.setting-item-name')?.textContent;
-                if (presetName) {
-                    toggleEl.checked = plugin.settings.GlobalPreset === presetName;
-                }
-            }
-        }
+        .addToggle((toggle: ToggleComponent) => {
+            toggle
+                .setTooltip('전역 프리셋으로 설정')
+                .setValue(plugin.settings.GlobalPreset === presetName)
+                .onChange(async (value: boolean) => {
+                    if (value) {
+                        await plugin.presetManager.applyGlobalPreset(presetName);
+                        refreshAllSettings();
+                    } else if (plugin.settings.GlobalPreset === presetName) {
+                        toggle.setValue(true);
+                    }
+                });
+        });
     });
 }
 
@@ -242,7 +225,6 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
                     }
                 })
         );
-
 
 		plugin.settings.folderPresets = plugin.settings.folderPresets || {};
 		plugin.settings.activeFolderPresets = plugin.settings.activeFolderPresets || {};
@@ -298,7 +280,7 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
 				plugin.settings.activeFolderPresets[folderPath] = newValue;
 				plugin.settings.folderPresets[folderPath] = [newValue];
 				await settingsManager.saveSettings();
-				refreshAllSettings(); // 프리셋 변경 후 리프레시
+				refreshAllSettings();
 			}
 		};
 
@@ -312,7 +294,7 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
                         [entries[index], entries[index + 1]] = [entries[index + 1], entries[index]];
                         plugin.settings.folderPresets = Object.fromEntries(entries);
                         settingsManager.saveSettings();
-                        refreshAllSettings(); // 순서 변경 후 리프레시
+                        refreshAllSettings();
                     }
                 });
         })
@@ -327,7 +309,7 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
                         delete plugin.settings.activeFolderPresets[folderPath];
                     }
                     settingsManager.saveSettings();
-                    refreshAllSettings(); // 삭제 후 리프레시
+                    refreshAllSettings();
                 });
         });
         s.infoEl.remove();
