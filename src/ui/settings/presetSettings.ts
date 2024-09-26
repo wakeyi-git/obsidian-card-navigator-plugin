@@ -106,58 +106,64 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
         if (!preset) return;
         
         const presetName = presetNames[index];
-		const setting = new Setting(containerEl)
-			.setName(presetName)
-			.setDesc(preset.description || '설명 없음');
+        const setting = new Setting(containerEl)
+            .setName(presetName)
+            .setDesc(preset.description || '설명 없음');
 		
-			if (presetName !== 'default') {
-				setting.addButton((button: ButtonComponent) => 
-					button
-						.setTooltip('수정')
-						.setIcon('pencil')
-						.onClick(() => {
-							new PresetEditModal(
-								plugin.app, 
-								plugin, 
-								settingsManager, 
-								'edit', 
-								presetName,
-								() => refreshPresetList(plugin, settingsManager, refreshAllSettings)
-							).open();
-						})
-				);
-			}
-	
+		if (presetName !== 'default') {
 			setting.addButton((button: ButtonComponent) => 
 				button
-					.setTooltip('복제')
-					.setIcon('copy')
-					.onClick(async () => {
-						await new PresetEditModal(
+					.setTooltip('수정')
+					.setIcon('pencil')
+					.onClick(() => {
+						new PresetEditModal(
 							plugin.app, 
 							plugin, 
 							settingsManager, 
-							'clone', 
+							'edit', 
 							presetName,
 							() => refreshPresetList(plugin, settingsManager, refreshAllSettings)
 						).open();
 					})
 			);
-		
-		if (presetName !== 'default') {
-			setting.addButton((button: ButtonComponent) => 
-				button
-					.setTooltip('삭제')
-					.setIcon('trash')
-					.onClick(async () => {
-						if (await settingsManager.confirmDelete(`프리셋 "${presetName}"`)) {
-							await plugin.presetManager.deletePreset(presetName);
-							settingsManager.applyChanges();
-							refreshPresetList(plugin, settingsManager, refreshAllSettings);
-						}
-					})
-			);
 		}
+
+		setting.addButton((button: ButtonComponent) => 
+			button
+				.setTooltip('복제')
+				.setIcon('copy')
+				.onClick(async () => {
+					await new PresetEditModal(
+						plugin.app, 
+						plugin, 
+						settingsManager, 
+						'clone', 
+						presetName,
+						() => refreshPresetList(plugin, settingsManager, refreshAllSettings)
+					).open();
+				})
+		);
+		
+        if (presetName !== 'default') {
+            setting.addButton((button: ButtonComponent) => 
+                button
+                    .setTooltip('삭제')
+                    .setIcon('trash')
+                    .onClick(async () => {
+                        if (await settingsManager.confirmDelete(`프리셋 "${presetName}"`)) {
+                            await plugin.presetManager.deletePreset(presetName);
+                            
+                            if (plugin.settings.GlobalPreset === presetName) {
+                                await plugin.presetManager.applyGlobalPreset('default');
+                                new Notice("현재 프리셋이 삭제되어 'default' 프리셋으로 변경되었습니다.");
+                            }
+                            
+                            settingsManager.applyChanges();
+                            refreshPresetList(plugin, settingsManager, refreshAllSettings);
+                        }
+                    })
+            );
+        }
 		
 		setting.addButton((button: ButtonComponent) => 
 			button
