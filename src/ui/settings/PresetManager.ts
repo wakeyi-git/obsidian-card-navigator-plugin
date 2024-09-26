@@ -76,7 +76,7 @@ export class PresetManager implements IPresetManager {
 	}
 	
 	private getCurrentSettings(): Partial<CardNavigatorSettings> {
-		const currentSettings = { ...this.settings };
+		const currentSettings = { ...this.plugin.settings };
 		globalSettingsKeys.forEach(key => delete currentSettings[key]);
 		return currentSettings;
 	}
@@ -287,6 +287,7 @@ export class PresetManager implements IPresetManager {
 			// 글로벌 설정값 보존
 			const globalSettings = globalSettingsKeys.reduce((acc, key) => {
 				if (key in this.plugin.settings && this.plugin.settings[key] !== undefined) {
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
 					acc[key] = this.plugin.settings[key] as any;
 				}
 				return acc;

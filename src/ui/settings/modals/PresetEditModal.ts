@@ -65,41 +65,41 @@ export class PresetEditModal extends Modal {
         return existingPreset?.description || '';
     }
     
-    private async savePreset() {
-        if (!this.presetName) {
-            new Notice('프리셋 이름을 입력해주세요.');
-            return;
-        }
-    
-        try {
-            switch (this.mode) {
-                case 'create':
-                    await this.plugin.presetManager.savePreset(this.presetName, this.description);
-                    break;
-                case 'edit':
-                    if (this.existingPresetName) {
-                        if (this.existingPresetName !== this.presetName) {
-                            // 이름이 변경된 경우, 기존 프리셋 삭제 후 새로 생성
-                            await this.plugin.presetManager.deletePreset(this.existingPresetName);
-                            await this.plugin.presetManager.savePreset(this.presetName, this.description);
-                        } else {
-                            await this.plugin.presetManager.savePreset(this.presetName, this.description);
-                        }
-                    }
-                    break;
-                case 'clone':
-                    if (this.existingPresetName) {
-                        await this.plugin.presetManager.clonePreset(this.existingPresetName, this.presetName);
-                        await this.plugin.presetManager.savePreset(this.presetName, this.description);
-                    }
-                    break;
-            }
-            this.close();
-            this.settingsManager.applyChanges();
-            new Notice(`프리셋 "${this.presetName}"이(가) 저장되었습니다.`);
-        } catch (error) {
-            console.error('Failed to save preset:', error);
-            new Notice(`프리셋 저장 실패: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    }
+	private async savePreset() {
+		if (!this.presetName) {
+			new Notice('프리셋 이름을 입력해주세요.');
+			return;
+		}
+	
+		try {
+			switch (this.mode) {
+				case 'create':
+					// 현재 설정값을 사용하여 새 프리셋 저장
+					await this.plugin.presetManager.savePreset(this.presetName, this.description);
+					break;
+				case 'edit':
+					if (this.existingPresetName) {
+						if (this.existingPresetName !== this.presetName) {
+							await this.plugin.presetManager.deletePreset(this.existingPresetName);
+							await this.plugin.presetManager.savePreset(this.presetName, this.description);
+						} else {
+							await this.plugin.presetManager.savePreset(this.presetName, this.description);
+						}
+					}
+					break;
+				case 'clone':
+					if (this.existingPresetName) {
+						await this.plugin.presetManager.clonePreset(this.existingPresetName, this.presetName);
+						await this.plugin.presetManager.savePreset(this.presetName, this.description);
+					}
+					break;
+			}
+			this.close();
+			this.settingsManager.applyChanges();
+			new Notice(`프리셋 "${this.presetName}"이(가) 저장되었습니다.`);
+		} catch (error) {
+			console.error('Failed to save preset:', error);
+			new Notice(`프리셋 저장 실패: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
 }
