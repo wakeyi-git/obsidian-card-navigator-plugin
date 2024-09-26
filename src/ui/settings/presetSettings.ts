@@ -13,9 +13,9 @@ export function addPresetSettings(containerEl: HTMLElement, plugin: CardNavigato
     };
 
     addGlobalPresetSection(containerEl, plugin);
+	addFolderPresetSection(containerEl, plugin, _settingsManager, refreshAllSettings);
     addPresetManagementSection(containerEl, plugin, _settingsManager, refreshAllSettings);
     addPresetListSection(containerEl, plugin, _settingsManager, refreshAllSettings);
-    addFolderPresetSection(containerEl, plugin, _settingsManager, refreshAllSettings);
 }
 
 function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin): void {

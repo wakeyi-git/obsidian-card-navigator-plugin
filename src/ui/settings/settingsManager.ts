@@ -1,4 +1,4 @@
-import { TFolder, TFile, debounce, Notice } from 'obsidian';
+import { TFolder, TFile, debounce, Modal, App } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { CardNavigatorSettings, NumberSettingKey, RangeSettingConfig, rangeSettingConfigs, FolderPresets, DEFAULT_SETTINGS, globalSettingsKeys } from '../../common/types';
 import { ISettingsManager } from '../../common/ISettingsManager';
@@ -70,17 +70,11 @@ export class SettingsManager implements ISettingsManager {
         this.plugin.triggerRefresh();
     }
 
-	async confirmDelete(itemName: string): Promise<boolean> {
+    async confirmDelete(itemName: string): Promise<boolean> {
         return new Promise((resolve) => {
-            const notice = new Notice(`정말로 ${itemName}을(를) 삭제하시겠습니까?`, 0);
-            notice.noticeEl.createEl('button', { text: '취소' }).onclick = () => {
-                notice.hide();
-                resolve(false);
-            };
-            notice.noticeEl.createEl('button', { text: '삭제' }).onclick = () => {
-                notice.hide();
-                resolve(true);
-            };
+            new ConfirmDeleteModal(this.plugin.app, itemName, (result) => {
+                resolve(result);
+            }).open();
         });
     }
 
@@ -203,5 +197,35 @@ export class SettingsManager implements ISettingsManager {
 
     async updateAutoApplyFolderPresets(value: boolean): Promise<void> {
         await this.updateSetting('autoApplyFolderPresets', value);
+    }
+}
+
+class ConfirmDeleteModal extends Modal {
+    constructor(app: App, private itemName: string, private onChoice: (result: boolean) => void) {
+        super(app);
+    }
+
+    onOpen() {
+        const {contentEl} = this;
+        contentEl.empty();
+        contentEl.createEl('h2', {text: '삭제 확인'});
+        contentEl.createEl('p', {text: `정말로 ${this.itemName}을(를) 삭제하시겠습니까?`});
+
+        const buttonContainer = contentEl.createDiv('button-container');
+        
+        buttonContainer.createEl('button', {text: '취소'}).onclick = () => {
+            this.close();
+            this.onChoice(false);
+        };
+
+        buttonContainer.createEl('button', {text: '삭제'}).onclick = () => {
+            this.close();
+            this.onChoice(true);
+        };
+    }
+
+    onClose() {
+        const {contentEl} = this;
+        contentEl.empty();
     }
 }
