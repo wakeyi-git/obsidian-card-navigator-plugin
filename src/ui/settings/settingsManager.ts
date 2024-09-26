@@ -3,6 +3,7 @@ import CardNavigatorPlugin from '../../main';
 import { CardNavigatorSettings, NumberSettingKey, RangeSettingConfig, rangeSettingConfigs, FolderPresets, DEFAULT_SETTINGS, globalSettingsKeys } from '../../common/types';
 import { ISettingsManager } from '../../common/ISettingsManager';
 import { IPresetManager } from '../../common/IPresetManager';
+import { t } from 'i18next';
 
 export class SettingsManager implements ISettingsManager {
     private saveSettingsDebounced = debounce(async () => {
@@ -208,22 +209,22 @@ class ConfirmDeleteModal extends Modal {
     onOpen() {
         const {contentEl} = this;
         contentEl.empty();
-        contentEl.createEl('h2', {text: '삭제 확인'});
-        contentEl.createEl('p', {text: `정말로 ${this.itemName}을(를) 삭제하시겠습니까?`});
+        contentEl.createEl('h2', {text: t('CONFIRM_DELETE')});
+        contentEl.createEl('p', {text: t('CONFIRM_DELETE_ITEM', {item: this.itemName})});
 
         const buttonContainer = contentEl.createDiv('button-container');
         buttonContainer.style.display = 'flex';
         buttonContainer.style.justifyContent = 'flex-end';
         buttonContainer.style.marginTop = '20px';
 
-        const cancelButton = buttonContainer.createEl('button', {text: '취소'});
+        const cancelButton = buttonContainer.createEl('button', {text: t('CANCEL')});
         cancelButton.style.marginRight = '10px';
         cancelButton.onclick = () => {
             this.close();
             this.onChoice(false);
         };
 
-        const deleteButton = buttonContainer.createEl('button', {text: '삭제'});
+        const deleteButton = buttonContainer.createEl('button', {text: t('DELETE')});
         deleteButton.onclick = () => {
             this.close();
             this.onChoice(true);

@@ -2,6 +2,7 @@ import { App, Modal, Setting, Notice } from 'obsidian';
 import CardNavigatorPlugin from '../../../main';
 import { SettingsManager } from '../settingsManager';
 import { Preset } from '../../../common/types';
+import { t } from 'i18next';
 
 export class PresetImportExportModal extends Modal {
     private importText = '';
@@ -30,12 +31,12 @@ export class PresetImportExportModal extends Modal {
 
     private setupImportUI() {
         const { contentEl } = this;
-        contentEl.createEl('h2', { text: '프리셋 가져오기' });
+        contentEl.createEl('h2', { text: t('IMPORT_PRESET') });
 
         const textAreaContainer = contentEl.createDiv('preset-import-textarea-container');
         const textArea = textAreaContainer.createEl('textarea', {
             attr: {
-                placeholder: '여기에 프리셋 JSON을 붙여넣으세요',
+                placeholder: t('PASTE_PRESET_JSON_HERE'),
             },
         });
         textArea.rows = 20;
@@ -46,18 +47,18 @@ export class PresetImportExportModal extends Modal {
 
         new Setting(contentEl)
         .addButton(btn => btn
-            .setButtonText('가져오기')
+            .setButtonText(t('IMPORT'))
             .setCta()
             .onClick(async () => {
                 try {
                     const presetData = JSON.parse(this.importText) as Preset;
                     if (!presetData.name || !presetData.settings || typeof presetData.description !== 'string') {
-                        throw new Error('유효하지 않은 프리셋 데이터입니다.');
+                        throw new Error(t('INVALID_PRESET_DATA'));
                     }
                     // 프리셋 저장 시 설정 값도 함께 저장
                     await this.plugin.presetManager.savePreset(presetData.name, presetData.description, presetData.settings);
                     this.settingsManager.applyChanges();
-                    new Notice(`프리셋 "${presetData.name}"을(를) 성공적으로 가져왔습니다.`);
+                    new Notice(t('PRESET_IMPORTED_SUCCESSFULLY', {name: presetData.name}));
                     this.close();
                     // 프리셋 목록 새로고침
                     if (this.refreshPresetList) {
@@ -65,9 +66,9 @@ export class PresetImportExportModal extends Modal {
                     }
 				} catch (error: unknown) {
 					if (error instanceof Error) {
-						new Notice(`프리셋 가져오기 실패: ${error.message}`);
+						new Notice(t('PRESET_IMPORT_FAILED', {error: error.message}));
 					} else {
-						new Notice('프리셋 가져오기 중 알 수 없는 오류가 발생했습니다.');
+						new Notice(t('UNKNOWN_ERROR_DURING_IMPORT'));
 					}
 				}
 			}));
@@ -75,7 +76,7 @@ export class PresetImportExportModal extends Modal {
 
     private async setupExportUI() {
         const { contentEl } = this;
-        contentEl.createEl('h2', { text: '프리셋 내보내기' });
+        contentEl.createEl('h2', { text: t('EXPORT_PRESET') });
 
         if (this.presetName) {
             try {
@@ -95,21 +96,21 @@ export class PresetImportExportModal extends Modal {
 
                     new Setting(contentEl)
                         .addButton(btn => btn
-                            .setButtonText('복사')
+                            .setButtonText(t('COPY'))
                             .setCta()
                             .onClick(() => {
                                 navigator.clipboard.writeText(jsonString);
-                                new Notice('프리셋 JSON이 클립보드에 복사되었습니다.');
+                                new Notice(t('PRESET_JSON_COPIED'));
                             }));
                 } else {
-                    contentEl.createEl('p', { text: '프리셋을 찾을 수 없습니다.' });
+                    contentEl.createEl('p', { text: t('PRESET_NOT_FOUND') });
                 }
             } catch (error) {
-                console.error('프리셋 로딩 중 오류 발생:', error);
-                contentEl.createEl('p', { text: '프리셋 로딩 중 오류가 발생했습니다.' });
+                console.error(t('ERROR_LOADING_PRESET'), error);
+                contentEl.createEl('p', { text: t('ERROR_LOADING_PRESET') });
             }
         } else {
-            contentEl.createEl('p', { text: '내보낼 프리셋이 선택되지 않았습니다.' });
+            contentEl.createEl('p', { text: t('NO_PRESET_SELECTED') });
         }
     }
 

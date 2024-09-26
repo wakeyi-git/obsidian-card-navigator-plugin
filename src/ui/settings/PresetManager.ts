@@ -3,6 +3,7 @@ import { CardNavigatorSettings, Preset, globalSettingsKeys, DEFAULT_SETTINGS } f
 import { IPresetManager } from '../../common/IPresetManager';
 import CardNavigatorPlugin from '../../main';
 import * as path from 'path';
+import { t } from 'i18next';
 
 export class PresetManager implements IPresetManager {
     private presetFolder: string;
@@ -52,7 +53,7 @@ export class PresetManager implements IPresetManager {
     async loadPreset(name: string): Promise<void> {
         const preset = await this.getPreset(name);
         if (!preset) {
-            throw new Error(`프리셋 "${name}"을(를) 찾을 수 없습니다.`);
+            throw new Error(t('PRESET_NOT_FOUND', {name: name}));
         }
         this.settings = {
             ...this.settings,
@@ -109,7 +110,7 @@ export class PresetManager implements IPresetManager {
 	async renamePreset(oldName: string, newName: string): Promise<void> {
         const preset = await this.getPreset(oldName);
         if (!preset) {
-            throw new Error(`프리셋 "${oldName}"을(를) 찾을 수 없습니다.`);
+            throw new Error(t('PRESET_NOT_FOUND', {name: oldName}));
         }
         preset.name = newName;
         await this.savePresetToFile(newName, preset);
@@ -160,10 +161,10 @@ export class PresetManager implements IPresetManager {
     async clonePreset(sourceName: string, newName: string): Promise<void> {
         const sourcePreset = await this.getPreset(sourceName);
         if (!sourcePreset) {
-            throw new Error(`원본 프리셋 "${sourceName}"을(를) 찾을 수 없습니다.`);
+            throw new Error(t('SOURCE_PRESET_NOT_FOUND', {name: sourceName}));
         }
         if (await this.presetExists(newName)) {
-            throw new Error(`프리셋 "${newName}"이(가) 이미 존재합니다.`);
+            throw new Error(t('PRESET_ALREADY_EXISTS', {name: newName}));
         }
         const clonedPreset: Preset = { ...sourcePreset, name: newName, isDefault: false };
         await this.savePresetToFile(newName, clonedPreset);
@@ -172,7 +173,7 @@ export class PresetManager implements IPresetManager {
     async exportPreset(name: string): Promise<string> {
         const preset = await this.getPreset(name);
         if (!preset) {
-            throw new Error(`프리셋 "${name}"을(를) 찾을 수 없습니다.`);
+            throw new Error(t('PRESET_NOT_FOUND', {name: name}));
         }
         return JSON.stringify(preset, null, 2);
     }
@@ -181,11 +182,11 @@ export class PresetManager implements IPresetManager {
         try {
             const importedPreset: Preset = JSON.parse(jsonString);
             if (!importedPreset.name || !importedPreset.settings) {
-                throw new Error("유효하지 않은 프리셋 형식입니다.");
+                throw new Error(t('INVALID_PRESET_FORMAT'));
             }
             await this.savePresetToFile(importedPreset.name, importedPreset);
         } catch (error) {
-            throw new Error(`프리셋 가져오기 실패: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(t('PRESET_IMPORT_FAILED', {error: error instanceof Error ? error.message : String(error)}));
         }
     }
 
@@ -237,7 +238,7 @@ export class PresetManager implements IPresetManager {
 	async applyGlobalPreset(presetName?: string): Promise<void> {
 		const globalPresetName = presetName || this.plugin.settings.GlobalPreset;
 		if (!globalPresetName) {
-			console.error('글로벌 프리셋이 설정되지 않았습니다.');
+			console.error(t('GLOBAL_PRESET_NOT_SET'));
 			return;
 		}
 		
@@ -297,7 +298,7 @@ export class PresetManager implements IPresetManager {
 			await this.plugin.saveSettings();
 			this.plugin.refreshCardNavigator();
 		} else {
-			console.error(`프리셋 "${presetName}"을(를) 찾을 수 없습니다.`);
+			console.error(t('PRESET_NOT_FOUND', {name: presetName}));
 		}
 	}
 

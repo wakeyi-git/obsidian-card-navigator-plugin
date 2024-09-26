@@ -1,6 +1,7 @@
 import { App, Modal, Setting, Notice, TextAreaComponent } from 'obsidian';
 import CardNavigatorPlugin from '../../../main';
 import { SettingsManager } from '../settingsManager';
+import { t } from 'i18next';
 
 export class PresetEditModal extends Modal {
     private presetName = '';
@@ -25,10 +26,10 @@ export class PresetEditModal extends Modal {
 		contentEl.createEl('h2', { text: this.getModalTitle() });
 	
 		new Setting(contentEl)
-			.setName('프리셋 이름')
-			.setDesc('프리셋 이름을 입력하세요.')
+			.setName(t('PRESET_NAME'))
+			.setDesc(t('ENTER_PRESET_NAME'))
 			.addTextArea(async text => {
-				text.setPlaceholder('프리셋 이름 입력')
+				text.setPlaceholder(t('ENTER_PRESET_NAME_PLACEHOLDER'))
 				.setValue(this.getInitialPresetName())
 				.onChange(value => this.presetName = value);
 				text.inputEl.rows = 1;
@@ -36,10 +37,10 @@ export class PresetEditModal extends Modal {
 			});
 	
 		new Setting(contentEl)
-			.setName('설명')
-			.setDesc('프리셋에 대한 설명을 입력하세요.')
+			.setName(t('DESCRIPTION'))
+			.setDesc(t('ENTER_PRESET_DESCRIPTION'))
 			.addTextArea(async text => {
-				text.setPlaceholder('프리셋 설명 입력 (선택사항)')
+				text.setPlaceholder(t('ENTER_PRESET_DESCRIPTION_PLACEHOLDER'))
 					.setValue(await this.getInitialDescription())
 					.onChange(value => this.description = value);
 				text.inputEl.rows = 4;
@@ -47,13 +48,13 @@ export class PresetEditModal extends Modal {
 			});
 	
 		new Setting(contentEl)
-		.setName('프리셋 데이터')
-		.setDesc('JSON 형식의 프리셋 데이터를 직접 편집할 수 있습니다.')
+		.setName(t('PRESET_DATA'))
+		.setDesc(t('EDIT_PRESET_DATA_DESC'))
 		.addTextArea(async text => {
 			this.dataTextArea = text;
 			const initialData = await this.getInitialPresetData();
 			this.presetData = initialData;
-			text.setPlaceholder('프리셋 데이터 (JSON)')
+			text.setPlaceholder(t('PRESET_DATA_PLACEHOLDER'))
 				.setValue(initialData)
 				.onChange(value => this.presetData = value);
 			text.inputEl.rows = 10;
@@ -62,21 +63,21 @@ export class PresetEditModal extends Modal {
 	
 		new Setting(contentEl)
 			.addButton(btn => btn
-				.setButtonText('현재 설정으로 업데이트')
+				.setButtonText(t('UPDATE_WITH_CURRENT_SETTINGS'))
 				.onClick(() => this.updatePresetWithCurrentSettings()));
 	
 		new Setting(contentEl)
 			.addButton(btn => btn
-				.setButtonText('저장')
+				.setButtonText(t('SAVE'))
 				.setCta()
 				.onClick(() => this.savePreset()));
 	}
 
     private getModalTitle(): string {
         switch (this.mode) {
-            case 'create': return '새 프리셋 만들기';
-            case 'edit': return '프리셋 수정';
-            case 'clone': return '프리셋 복제';
+            case 'create': return t('CREATE_NEW_PRESET');
+            case 'edit': return t('EDIT_PRESET');
+            case 'clone': return t('CLONE_PRESET');
         }
     }
 
@@ -84,7 +85,7 @@ export class PresetEditModal extends Modal {
         switch (this.mode) {
             case 'create': return '';
             case 'edit': return this.existingPresetName || '';
-            case 'clone': return `${this.existingPresetName || ''} 복사본`;
+            case 'clone': return t('PRESET_COPY', {name: this.existingPresetName || ''});
         }
     }
 
@@ -110,12 +111,12 @@ export class PresetEditModal extends Modal {
 
 	private async savePreset() {
 		if (!this.presetName && this.mode !== 'edit') {
-			new Notice('프리셋 이름을 입력해주세요.');
+			new Notice(t('ENTER_PRESET_NAME_NOTICE'));
 			return;
 		}
 	
 		if (!this.presetData.trim()) {
-			new Notice('프리셋 데이터가 비어있습니다.');
+			new Notice(t('PRESET_DATA_EMPTY'));
 			return;
 		}
 	
@@ -141,14 +142,14 @@ export class PresetEditModal extends Modal {
 	
 			this.close();
 			this.settingsManager.applyChanges();
-			new Notice(`프리셋 "${saveName}"이(가) 저장되었습니다.`);
+			new Notice(t('PRESET_SAVED', {name: saveName}));
 			
 			if (this.refreshPresetList) {
 				this.refreshPresetList();
 			}
 		} catch (error) {
-			console.error('Failed to save preset:', error);
-			new Notice(`프리셋 저장 실패: ${error instanceof Error ? error.message : String(error)}`);
+			console.error(t('FAILED_TO_SAVE_PRESET'), error);
+			new Notice(t('PRESET_SAVE_FAILED', {error: error instanceof Error ? error.message : String(error)}));
 		}
 	}
 }
