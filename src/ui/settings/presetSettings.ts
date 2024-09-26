@@ -60,7 +60,7 @@ function addPresetManagementSection(containerEl: HTMLElement, plugin: CardNaviga
     addPresetManagementSectionContent(containerEl, plugin, settingsManager, refreshAllSettings);
 }
 
-async function addPresetManagementSectionContent(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, refreshAllSettings: () => void): Promise<void> {
+function addPresetManagementSectionContent(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, refreshAllSettings: () => void): void {
     new Setting(containerEl)
         .setName('프리셋 관리 및 전역 프리셋 설정')
         .setDesc('프리셋을 생성하고 관리합니다. 토글 버튼을 활성화하여 전역 프리셋으로 설정합니다.')
@@ -79,9 +79,15 @@ async function addPresetManagementSectionContent(containerEl: HTMLElement, plugi
                 .setTooltip('프리셋 가져오기')
                 .setIcon('upload')
                 .onClick(async () => {
-                    const modal = new PresetImportExportModal(plugin.app, plugin, settingsManager, 'import');
+                    const modal = new PresetImportExportModal(
+                        plugin.app,
+                        plugin,
+                        settingsManager,
+                        'import',
+                        undefined,
+                        () => refreshPresetList(plugin, settingsManager, refreshAllSettings) 
+                    );
                     await modal.open();
-                    refreshPresetList(plugin, settingsManager, refreshAllSettings);
                 })
         );
 }
@@ -94,64 +100,68 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
         if (!preset) return;
         
         const presetName = presetNames[index];
-        const setting = new Setting(containerEl)
-            .setName(presetName)
-            .setDesc(preset.description || '설명 없음')
-            .addButton((button: ButtonComponent) => 
-                button
-                    .setTooltip('수정')
-                    .setIcon('pencil')
-                    .onClick(() => {
-                        new PresetEditModal(plugin.app, plugin, settingsManager, 'edit', presetName).open();
-                    })
-            )
-            .addButton((button: ButtonComponent) => 
-                button
-                    .setTooltip('복제')
-                    .setIcon('copy')
-                    .onClick(async () => {
-                        await new PresetEditModal(plugin.app, plugin, settingsManager, 'clone', presetName).open();
-                        refreshPresetList(plugin, settingsManager, refreshAllSettings);
-                    })
-            );
-
-        if (presetName !== 'default') {
-            setting.addButton((button: ButtonComponent) => 
-                button
-                    .setTooltip('삭제')
-                    .setIcon('trash')
-                    .onClick(async () => {
-                        if (await settingsManager.confirmDelete(`프리셋 "${presetName}"`)) {
-                            await plugin.presetManager.deletePreset(presetName);
-                            settingsManager.applyChanges();
-                            refreshPresetList(plugin, settingsManager, refreshAllSettings);
-                        }
-                    })
-            );
-        }
-
-        setting.addButton((button: ButtonComponent) => 
-            button
-                .setTooltip('내보내기')
-                .setIcon('download')
-                .onClick(() => {
-                    new PresetImportExportModal(plugin.app, plugin, settingsManager, 'export', presetName).open();
-                })
-        )
-        .addToggle((toggle: ToggleComponent) => {
-            toggle
-                .setTooltip('전역 프리셋으로 설정')
-                .setValue(plugin.settings.GlobalPreset === presetName)
-                .onChange(async (value: boolean) => {
-                    if (value) {
-                        await plugin.presetManager.applyGlobalPreset(presetName);
-                        refreshGlobalPresetToggles(containerEl, plugin);
-                        refreshAllSettings();
-                    } else if (plugin.settings.GlobalPreset === presetName) {
-                        toggle.setValue(true);
-                    }
-                });
-        });
+		const setting = new Setting(containerEl)
+			.setName(presetName)
+			.setDesc(preset.description || '설명 없음');
+		
+		if (presetName !== 'default') {
+			setting.addButton((button: ButtonComponent) => 
+				button
+					.setTooltip('수정')
+					.setIcon('pencil')
+					.onClick(() => {
+						new PresetEditModal(plugin.app, plugin, settingsManager, 'edit', presetName).open();
+					})
+			);
+		}
+		
+		setting.addButton((button: ButtonComponent) => 
+			button
+				.setTooltip('복제')
+				.setIcon('copy')
+				.onClick(async () => {
+					await new PresetEditModal(plugin.app, plugin, settingsManager, 'clone', presetName).open();
+					refreshPresetList(plugin, settingsManager, refreshAllSettings);
+				})
+		);
+		
+		if (presetName !== 'default') {
+			setting.addButton((button: ButtonComponent) => 
+				button
+					.setTooltip('삭제')
+					.setIcon('trash')
+					.onClick(async () => {
+						if (await settingsManager.confirmDelete(`프리셋 "${presetName}"`)) {
+							await plugin.presetManager.deletePreset(presetName);
+							settingsManager.applyChanges();
+							refreshPresetList(plugin, settingsManager, refreshAllSettings);
+						}
+					})
+			);
+		}
+		
+		setting.addButton((button: ButtonComponent) => 
+			button
+				.setTooltip('내보내기')
+				.setIcon('download')
+				.onClick(() => {
+					new PresetImportExportModal(plugin.app, plugin, settingsManager, 'export', presetName).open();
+				})
+		)
+		.addToggle((toggle: ToggleComponent) => {
+			toggle
+				.setTooltip('전역 프리셋으로 설정')
+				.setValue(plugin.settings.GlobalPreset === presetName)
+				.onChange(async (value: boolean) => {
+					if (value) {
+						await plugin.presetManager.applyGlobalPreset(presetName);
+						refreshGlobalPresetToggles(containerEl, plugin);
+						refreshAllSettings();
+					} else if (plugin.settings.GlobalPreset === presetName) {
+						toggle.setValue(true);
+					}
+				});
+		});
     });
 }
 

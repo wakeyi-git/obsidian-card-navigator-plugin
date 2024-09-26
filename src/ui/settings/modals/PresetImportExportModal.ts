@@ -11,7 +11,8 @@ export class PresetImportExportModal extends Modal {
         private plugin: CardNavigatorPlugin,
         private settingsManager: SettingsManager,
         private mode: 'import' | 'export',
-        private presetName?: string
+        private presetName?: string,
+        private refreshPresetList?: () => void
     ) {
         super(app);
     }
@@ -43,22 +44,25 @@ export class PresetImportExportModal extends Modal {
             this.importText = (e.target as HTMLTextAreaElement).value;
         });
 
-		new Setting(contentEl)
-		.addButton(btn => btn
-			.setButtonText('가져오기')
-			.setCta()
-			.onClick(async () => {
-				try {
-					const presetData = JSON.parse(this.importText) as Preset;
-					if (!presetData.name || !presetData.settings || typeof presetData.description !== 'string') {
-						throw new Error('유효하지 않은 프리셋 데이터입니다.');
-					}
-					await this.plugin.presetManager.savePreset(presetData.name, presetData.description);
-					// 프리셋의 설정을 적용하는 로직이 필요할 수 있습니다.
-					// 예: await this.plugin.presetManager.applyPresetSettings(presetData.name, presetData.settings);
-					this.settingsManager.applyChanges();
-					new Notice(`프리셋 "${presetData.name}"을(를) 성공적으로 가져왔습니다.`);
-					this.close();
+        new Setting(contentEl)
+        .addButton(btn => btn
+            .setButtonText('가져오기')
+            .setCta()
+            .onClick(async () => {
+                try {
+                    const presetData = JSON.parse(this.importText) as Preset;
+                    if (!presetData.name || !presetData.settings || typeof presetData.description !== 'string') {
+                        throw new Error('유효하지 않은 프리셋 데이터입니다.');
+                    }
+                    // 프리셋 저장 시 설정 값도 함께 저장
+                    await this.plugin.presetManager.savePreset(presetData.name, presetData.description, presetData.settings);
+                    this.settingsManager.applyChanges();
+                    new Notice(`프리셋 "${presetData.name}"을(를) 성공적으로 가져왔습니다.`);
+                    this.close();
+                    // 프리셋 목록 새로고침
+                    if (this.refreshPresetList) {
+                        this.refreshPresetList();
+                    }
 				} catch (error: unknown) {
 					if (error instanceof Error) {
 						new Notice(`프리셋 가져오기 실패: ${error.message}`);
