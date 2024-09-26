@@ -1,6 +1,6 @@
 import { TFolder, TFile, debounce, Notice } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
-import { CardNavigatorSettings, NumberSettingKey, RangeSettingConfig, rangeSettingConfigs, FolderPresets, DEFAULT_SETTINGS } from '../../common/types';
+import { CardNavigatorSettings, NumberSettingKey, RangeSettingConfig, rangeSettingConfigs, FolderPresets, DEFAULT_SETTINGS, globalSettingsKeys } from '../../common/types';
 import { ISettingsManager } from '../../common/ISettingsManager';
 import { IPresetManager } from '../../common/IPresetManager';
 
@@ -88,73 +88,11 @@ export class SettingsManager implements ISettingsManager {
         this.plugin.triggerRefresh();
     }
 
-    getCurrentSettings(): Partial<CardNavigatorSettings> {
-        return this.plugin.settings;
-    }
-
-	async updateLastActivePreset(presetName: string): Promise<void> {
-        await this.updateSetting('lastActivePreset', presetName);
-    }
-
-	async updateGlobalPreset(presetName: string): Promise<void> {
-        await this.updateSetting('GlobalPreset', presetName);
-    }
-
-    async updateAutoApplyFolderPresets(value: boolean): Promise<void> {
-        await this.updateSetting('autoApplyFolderPresets', value);
-    }
-
-    // async applyPreset(presetName: string) {
-    //     const presets = this.presetManager.getPresets();
-    //     const preset = presets[presetName];
-    //     if (preset) {
-    //         console.log('프리셋 적용 중:', presetName);
-            
-    //         // 글로벌 설정 보존
-    //         const globalSettings = globalSettingsKeys.reduce((acc, key) => {
-    //             acc[key] = this.plugin.settings[key];
-    //             return acc;
-    //         }, {} as Partial<CardNavigatorSettings>);
-            
-    //         this.plugin.settings = {
-    //             ...this.plugin.settings,
-    //             ...preset.settings,
-    //             ...globalSettings,  // 글로벌 설정 복원
-    //             GlobalPreset: presetName,
-    //             lastActivePreset: presetName
-    //         };
-    //         console.log('설정 업데이트 완료');
-    //         await this.saveSettings();
-    //         this.plugin.triggerRefresh();
-    //     }
-    // }
-
-    // async applyFolderPreset(folderPath: string, presetName: string) {
-    //     const presets = this.presetManager.getPresets();
-    //     const preset = presets[presetName];
-    //     if (preset) {
-    //         // 글로벌 설정 보존
-    //         const globalSettings = globalSettingsKeys.reduce((acc, key) => {
-    //             acc[key] = this.plugin.settings[key];
-    //             return acc;
-    //         }, {} as Partial<CardNavigatorSettings>);
-            
-    //         this.plugin.settings = {
-    //             ...this.plugin.settings,
-    //             ...preset.settings,
-    //             ...globalSettings,  // 글로벌 설정 복원
-    //             lastActivePreset: presetName
-    //         };
-            
-    //         // activeFolderPresets 업데이트
-    //         this.plugin.settings.activeFolderPresets[folderPath] = presetName;
-            
-    //         await this.saveSettings();
-    //         this.plugin.triggerRefresh();
-    //     } else {
-    //         console.error(`Preset "${presetName}" not found`);
-    //     }
-    // }
+	getCurrentSettings(): Partial<CardNavigatorSettings> {
+		const currentSettings = { ...this.plugin.settings };
+		globalSettingsKeys.forEach(key => delete currentSettings[key]);
+		return currentSettings;
+	}
 
     getActiveFolder(): string | null {
         return this.plugin.settings.selectedFolder;
@@ -166,10 +104,6 @@ export class SettingsManager implements ISettingsManager {
 
     getNumberSettingConfig(key: NumberSettingKey): RangeSettingConfig {
         return rangeSettingConfigs[key];
-    }
-
-    async toggleAutoApplyPresets(value: boolean): Promise<void> {
-        await this.updateSetting('autoApplyFolderPresets', value);
     }
 
     async updateBooleanSetting(key: keyof CardNavigatorSettings, value: boolean): Promise<void> {
@@ -253,5 +187,21 @@ export class SettingsManager implements ISettingsManager {
             ...this.plugin.settings.folderPresets[folderPath].filter(name => name !== presetName)
         ];
         await this.saveSettings();
+    }
+
+	async toggleAutoApplyPresets(value: boolean): Promise<void> {
+		await this.updateSetting('autoApplyFolderPresets', value);
+	}
+
+	async updateLastActivePreset(presetName: string): Promise<void> {
+        await this.updateSetting('lastActivePreset', presetName);
+    }
+
+	async updateGlobalPreset(presetName: string): Promise<void> {
+        await this.updateSetting('GlobalPreset', presetName);
+    }
+
+    async updateAutoApplyFolderPresets(value: boolean): Promise<void> {
+        await this.updateSetting('autoApplyFolderPresets', value);
     }
 }

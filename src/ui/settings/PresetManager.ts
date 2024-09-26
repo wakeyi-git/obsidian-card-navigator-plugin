@@ -29,21 +29,25 @@ export class PresetManager implements IPresetManager {
         }
     }
 
-    async initialize(): Promise<void> {
-        await this.ensurePresetFolder();
-        await this.loadPresetsFromFiles();
-
-        // 기본 프리셋이 없으면 생성
-        if (!await this.presetExists('default')) {
-            const defaultPreset: Preset = {
-                name: 'default',
-                settings: DEFAULT_SETTINGS,
-                isDefault: true,
-                description: 'Default preset'
-            };
-            await this.savePresetToFile('default', defaultPreset);
-        }
-    }
+	async initialize(): Promise<void> {
+		await this.ensurePresetFolder();
+		await this.loadPresetsFromFiles();
+	
+		// 기본 프리셋이 없으면 생성
+		if (!await this.presetExists('default')) {
+			// 기본 프리셋 생성 시 globalSettingsKeys 제외
+			const defaultPresetSettings = Object.fromEntries(
+				Object.entries(DEFAULT_SETTINGS).filter(([key]) => !globalSettingsKeys.includes(key as keyof CardNavigatorSettings))
+			);
+			const defaultPreset: Preset = {
+				name: 'default',
+				settings: defaultPresetSettings,
+				isDefault: true,
+				description: 'Default preset'
+			};
+			await this.savePresetToFile('default', defaultPreset);
+		}
+	}
 
     async loadPreset(name: string): Promise<void> {
         const preset = await this.getPreset(name);
@@ -59,17 +63,23 @@ export class PresetManager implements IPresetManager {
         this.plugin.refreshCardNavigator();
     }
 
-    async savePreset(name: string, description?: string): Promise<void> {
-        const currentSettings = this.getCurrentSettings();
-        const preset: Preset = {
-            name: name,
-            settings: currentSettings,
-            isDefault: false,
-            description: description
-        };
-        await this.savePresetToFile(name, preset);
-        this.presetCache.set(name, preset);
-    }
+	async savePreset(name: string, description?: string): Promise<void> {
+		const currentSettings = this.getCurrentSettings();
+		const preset: Preset = {
+			name: name,
+			settings: currentSettings,
+			isDefault: false,
+			description: description
+		};
+		await this.savePresetToFile(name, preset);
+		this.presetCache.set(name, preset);
+	}
+	
+	private getCurrentSettings(): Partial<CardNavigatorSettings> {
+		const currentSettings = { ...this.settings };
+		globalSettingsKeys.forEach(key => delete currentSettings[key]);
+		return currentSettings;
+	}
 
     private async loadPresetFromFile(name: string): Promise<Preset | null> {
         const filePath = `${this.presetFolder}/${name}.json`;
@@ -89,11 +99,6 @@ export class PresetManager implements IPresetManager {
         await this.app.vault.adapter.write(filePath, JSON.stringify(preset, null, 2));
         this.presetCache.set(name, preset);
     }
-
-	private getCurrentSettings(): Partial<CardNavigatorSettings> {
-		const { lastActivePreset: _, GlobalPreset: __, ...settingsToSave } = this.settings;
-		return settingsToSave;
-	}
 
     async deletePreset(name: string): Promise<void> {
         const filePath = `${this.presetFolder}/${name}.json`;
@@ -237,26 +242,13 @@ export class PresetManager implements IPresetManager {
 		}
 		console.log(`글로벌 프리셋 적용 시작: ${globalPresetName}`);
 		
-		const preset = await this.getPreset(globalPresetName);
-		if (!preset) {
-			console.error(`프리셋 "${globalPresetName}"을(를) 찾을 수 없습니다.`);
-			return;
-		}
-	
-		// 프리셋 설정 적용
-		this.plugin.settings = {
-			...this.plugin.settings,
-			...preset.settings,
-			GlobalPreset: globalPresetName,
-			lastActivePreset: globalPresetName
-		};
-	
-		this.plugin.settings.activeFolderPresets = this.plugin.settings.activeFolderPresets || {};
-		this.plugin.settings.activeFolderPresets['/'] = globalPresetName;
-	
-		console.log('GlobalPreset 및 activeFolderPresets 업데이트:', this.plugin.settings.GlobalPreset, this.plugin.settings.activeFolderPresets);
+		await this.applyPreset(globalPresetName);
+		
+		// GlobalPreset 설정 업데이트
+		this.plugin.settings.GlobalPreset = globalPresetName;
 		await this.plugin.saveSettings();
-		this.plugin.refreshCardNavigator();
+		
+		console.log('GlobalPreset 업데이트:', this.plugin.settings.GlobalPreset);
 	}
 	
 	async applyFolderPreset(folderPath: string): Promise<void> {
@@ -265,10 +257,10 @@ export class PresetManager implements IPresetManager {
 		let presetApplied = false;
 	
 		while (currentPath && !presetApplied) {
-			if (!this.settings.activeFolderPresets) {
-				this.settings.activeFolderPresets = {};
+			if (!this.plugin.settings.activeFolderPresets) {
+				this.plugin.settings.activeFolderPresets = {};
 			}
-			const presetName = this.settings.activeFolderPresets[currentPath];
+			const presetName = this.plugin.settings.activeFolderPresets[currentPath];
 			if (presetName) {
 				console.log(`폴더 프리셋 찾음: ${presetName} (폴더: ${currentPath})`);
 				await this.applyPreset(presetName);
@@ -282,40 +274,33 @@ export class PresetManager implements IPresetManager {
 	
 		if (!presetApplied) {
 			console.log('폴더 프리셋을 찾지 못해 글로벌 프리셋 적용');
-			const globalPresetName = this.settings.GlobalPreset;
-			if (globalPresetName) {
-				await this.applyGlobalPreset(globalPresetName);
-			} else {
-				console.error('글로벌 프리셋이 설정되지 않았습니다.');
-			}
+			await this.applyGlobalPreset();
 		}
 	}
-
-	private async applyPreset(presetName: string): Promise<void> {
+	
+	async applyPreset(presetName: string): Promise<void> {
 		console.log(`프리셋 적용 시작: ${presetName}`);
 		const preset = await this.getPreset(presetName);
 		if (preset) {
 			console.log(`프리셋 찾음: ${presetName}`, preset);
 			
-			// 글로벌 설정 보존
+			// 글로벌 설정값 보존
 			const globalSettings = globalSettingsKeys.reduce((acc, key) => {
-				const value = this.settings[key];
-				if (value !== undefined && value !== null) {
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					(acc as any)[key] = value;
-				}				
+				if (key in this.plugin.settings && this.plugin.settings[key] !== undefined) {
+					acc[key] = this.plugin.settings[key] as any;
+				}
 				return acc;
-			}, {} as Partial<CardNavigatorSettings>);			
+			}, {} as Partial<Pick<CardNavigatorSettings, typeof globalSettingsKeys[number]>>);
 			
 			// 프리셋 설정 적용
-			this.settings = {
-				...this.settings,
-				...preset.settings,
-				...globalSettings,  // 글로벌 설정 복원
+			this.plugin.settings = {
+				...DEFAULT_SETTINGS,  // 기본 설정으로 시작
+				...preset.settings,   // 프리셋 설정 적용
+				...globalSettings,    // 글로벌 설정값 복원
 				lastActivePreset: presetName
 			};
 			
-			console.log('적용 후 설정:', JSON.stringify(this.settings));
+			console.log('적용 후 설정:', this.plugin.settings);
 			await this.plugin.saveSettings();
 			this.plugin.refreshCardNavigator();
 		} else {

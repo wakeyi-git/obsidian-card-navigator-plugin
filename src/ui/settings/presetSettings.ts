@@ -51,7 +51,7 @@ async function addPresetManagementSectionContent(containerEl: HTMLElement, plugi
                 .setTooltip('새 프리셋 생성')
                 .setIcon('plus')
                 .onClick(async () => {
-                    const modal = new PresetEditModal(plugin.app, plugin, settingsManager, 'create');
+                    const modal = new PresetEditModal(plugin.app, plugin, settingsManager, 'create', undefined);
                     await modal.open();
                     refreshAllSettings();
                 })
@@ -115,20 +115,20 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
                         new PresetImportExportModal(plugin.app, plugin, settingsManager, 'export', presetName).open();
                     })
             )
-            .addToggle((toggle: ToggleComponent) => {
-                toggle
-                    .setTooltip('전역 프리셋으로 설정')
-                    .setValue(plugin.settings.GlobalPreset === presetName)
-                    .onChange(async (value: boolean) => {
-                        if (value) {
-                            await plugin.presetManager.applyGlobalPreset(presetName);
-                            refreshGlobalPresetToggles(containerEl, plugin);
-                            refreshAllSettings();
-                        } else if (plugin.settings.GlobalPreset === presetName) {
-                            toggle.setValue(true);
-                        }
-                    });
-            })
+			.addToggle((toggle: ToggleComponent) => {
+				toggle
+					.setTooltip('전역 프리셋으로 설정')
+					.setValue(plugin.settings.GlobalPreset === presetName)
+					.onChange(async (value: boolean) => {
+						if (value) {
+							await plugin.presetManager.applyGlobalPreset(presetName);
+							refreshGlobalPresetToggles(containerEl, plugin);
+							refreshAllSettings();
+						} else if (plugin.settings.GlobalPreset === presetName) {
+							toggle.setValue(true);
+						}
+					});
+			})
     });
 }
 

@@ -39,13 +39,13 @@ export default class CardNavigatorPlugin extends Plugin {
             this.activateView();
         });
 
-        this.registerEvent(
-            this.app.workspace.on('file-open', (file) => {
-                if (file instanceof TFile) {
-                    this.selectAndApplyPreset(file);
-                }
-            })
-        );
+		this.registerEvent(
+			this.app.workspace.on('file-open', (file) => {
+				if (file instanceof TFile) {
+					this.selectAndApplyPreset(file);
+				}
+			})
+		);
     }
 
 	// Plugin cleanup
@@ -234,13 +234,13 @@ export default class CardNavigatorPlugin extends Plugin {
 		return this.app.workspace.getActiveViewOfType(CardNavigator);
 	}
 
-    private async selectAndApplyPreset(file: TFile) {
+	private async selectAndApplyPreset(file: TFile) {
 		if (this.settings.autoApplyFolderPresets && file.parent) {
 			await this.presetManager.applyFolderPreset(file.parent.path);
 		} else {
 			await this.presetManager.applyGlobalPreset(this.settings.GlobalPreset);
 		}
-    }
+	}
 
 	// Refreshes the Card Navigator settings tab
 	refreshSettingsTab() {
