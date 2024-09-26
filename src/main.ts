@@ -65,18 +65,13 @@ export default class CardNavigatorPlugin extends Plugin {
 
 	// Save plugin settings
 	async saveSettings() {
-		console.log('설정 저장 시작');
-		console.log('저장할 설정:', JSON.stringify(this.settings));
 		await this.saveData(this.settings);
-		console.log('설정 저장 완료');
 		this.events.trigger('settings-updated');
 	}
 
     // Apply a preset using the PresetManager
-	async applyPreset(presetName: string) {
-		console.log('프리셋 적용 시작:', presetName);
+	async applyPreset(_presetName: string) {
 		await this.presetManager.applyGlobalPreset(this.settings.GlobalPreset);
-		console.log('프리셋 적용 완료:', presetName);
 	}
 
 	// Initialize plugin components and functionality

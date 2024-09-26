@@ -13,7 +13,8 @@ export class PresetEditModal extends Modal {
         private plugin: CardNavigatorPlugin,
         private settingsManager: SettingsManager,
         private mode: 'create' | 'edit' | 'clone',
-        private existingPresetName?: string
+        private existingPresetName?: string,
+        private refreshPresetList?: () => void
     ) {
         super(app);
     }
@@ -46,16 +47,18 @@ export class PresetEditModal extends Modal {
 			});
 	
 		new Setting(contentEl)
-			.setName('프리셋 데이터')
-			.setDesc('JSON 형식의 프리셋 데이터를 직접 편집할 수 있습니다.')
-			.addTextArea(async text => {
-				this.dataTextArea = text;
-				text.setPlaceholder('프리셋 데이터 (JSON)')
-					.setValue(await this.getInitialPresetData())
-					.onChange(value => this.presetData = value);
-				text.inputEl.rows = 10;
-				text.inputEl.style.width = '350px';
-			});
+		.setName('프리셋 데이터')
+		.setDesc('JSON 형식의 프리셋 데이터를 직접 편집할 수 있습니다.')
+		.addTextArea(async text => {
+			this.dataTextArea = text;
+			const initialData = await this.getInitialPresetData();
+			this.presetData = initialData;
+			text.setPlaceholder('프리셋 데이터 (JSON)')
+				.setValue(initialData)
+				.onChange(value => this.presetData = value);
+			text.inputEl.rows = 10;
+			text.inputEl.style.width = '350px';
+		});
 	
 		new Setting(contentEl)
 			.addButton(btn => btn
@@ -111,13 +114,20 @@ export class PresetEditModal extends Modal {
 			return;
 		}
 	
+		if (!this.presetData.trim()) {
+			new Notice('프리셋 데이터가 비어있습니다.');
+			return;
+		}
+	
 		try {
 			const presetSettings = JSON.parse(this.presetData);
 			const saveName = this.mode === 'edit' ? (this.existingPresetName || this.presetName) : this.presetName;
 	
 			switch (this.mode) {
 				case 'create':
+				case 'clone':
 					await this.plugin.presetManager.savePreset(saveName, this.description, presetSettings);
+					await this.plugin.presetManager.applyGlobalPreset(saveName);
 					break;
 				case 'edit':
 					if (this.existingPresetName) {
@@ -127,14 +137,15 @@ export class PresetEditModal extends Modal {
 						await this.plugin.presetManager.savePreset(saveName, this.description, presetSettings);
 					}
 					break;
-				case 'clone':
-					await this.plugin.presetManager.savePreset(saveName, this.description, presetSettings);
-					break;
 			}
 	
 			this.close();
 			this.settingsManager.applyChanges();
 			new Notice(`프리셋 "${saveName}"이(가) 저장되었습니다.`);
+			
+			if (this.refreshPresetList) {
+				this.refreshPresetList();
+			}
 		} catch (error) {
 			console.error('Failed to save preset:', error);
 			new Notice(`프리셋 저장 실패: ${error instanceof Error ? error.message : String(error)}`);

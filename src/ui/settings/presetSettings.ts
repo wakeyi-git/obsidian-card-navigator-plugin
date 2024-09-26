@@ -69,9 +69,15 @@ function addPresetManagementSectionContent(containerEl: HTMLElement, plugin: Car
                 .setTooltip('새 프리셋 생성')
                 .setIcon('plus')
                 .onClick(async () => {
-                    const modal = new PresetEditModal(plugin.app, plugin, settingsManager, 'create', undefined);
+                    const modal = new PresetEditModal(
+                        plugin.app, 
+                        plugin, 
+                        settingsManager, 
+                        'create', 
+                        undefined,
+                        () => refreshPresetList(plugin, settingsManager, refreshAllSettings)
+                    );
                     await modal.open();
-                    refreshPresetList(plugin, settingsManager, refreshAllSettings);
                 })
         )
         .addButton((button: ButtonComponent) => 
@@ -104,26 +110,39 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
 			.setName(presetName)
 			.setDesc(preset.description || '설명 없음');
 		
-		if (presetName !== 'default') {
+			if (presetName !== 'default') {
+				setting.addButton((button: ButtonComponent) => 
+					button
+						.setTooltip('수정')
+						.setIcon('pencil')
+						.onClick(() => {
+							new PresetEditModal(
+								plugin.app, 
+								plugin, 
+								settingsManager, 
+								'edit', 
+								presetName,
+								() => refreshPresetList(plugin, settingsManager, refreshAllSettings)
+							).open();
+						})
+				);
+			}
+	
 			setting.addButton((button: ButtonComponent) => 
 				button
-					.setTooltip('수정')
-					.setIcon('pencil')
-					.onClick(() => {
-						new PresetEditModal(plugin.app, plugin, settingsManager, 'edit', presetName).open();
+					.setTooltip('복제')
+					.setIcon('copy')
+					.onClick(async () => {
+						await new PresetEditModal(
+							plugin.app, 
+							plugin, 
+							settingsManager, 
+							'clone', 
+							presetName,
+							() => refreshPresetList(plugin, settingsManager, refreshAllSettings)
+						).open();
 					})
 			);
-		}
-		
-		setting.addButton((button: ButtonComponent) => 
-			button
-				.setTooltip('복제')
-				.setIcon('copy')
-				.onClick(async () => {
-					await new PresetEditModal(plugin.app, plugin, settingsManager, 'clone', presetName).open();
-					refreshPresetList(plugin, settingsManager, refreshAllSettings);
-				})
-		);
 		
 		if (presetName !== 'default') {
 			setting.addButton((button: ButtonComponent) => 
