@@ -60,7 +60,9 @@ export const globalSettingsKeys: (keyof CardNavigatorSettings)[] = [
     'lastActivePreset',
     'autoApplyFolderPresets',
     'folderPresets',
-    'activeFolderPresets'
+    'activeFolderPresets',
+	'useSelectedFolder',
+	'selectedFolder'
 ] as const;
 
 // Define default settings for the CardNavigator

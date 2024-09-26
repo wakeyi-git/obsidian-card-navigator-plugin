@@ -130,7 +130,9 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
     const settingsPopup = createPopup('card-navigator-settings-popup', 'settings', currentWindow);
     const settingsManager = plugin.settingsManager;
 
-    addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
+	addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
+
+	addPresetSettingsToPopup(settingsPopup, plugin, settingsManager);
 
     const layoutSection = createCollapsibleSection(settingsPopup, t('Layout settings'), true);
     
@@ -287,6 +289,42 @@ export function addFullWidthText(setting: Setting, callback: (text: TextComponen
 	text.inputEl.style.width = '100%';
 	callback(text);
 	});
+}
+
+// 팝업 상단에 프리셋 설정을 추가하는 함수
+async function addPresetSettingsToPopup(settingsPopup: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager) {
+    const presetSection = createCollapsibleSection(settingsPopup, t('프리셋 설정'), true);
+    presetSection.classList.add('preset-settings-section');
+
+    // 프리셋 자동 적용 토글 버튼 추가
+    new Setting(presetSection)
+        .setName(t('프리셋 자동 적용'))
+        .addToggle((toggle) => 
+            toggle
+                .setValue(plugin.settings.autoApplyFolderPresets)
+                .onChange(async (value) => {
+                    await settingsManager.toggleAutoApplyPresets(value);
+                    const currentFile = plugin.app.workspace.getActiveFile();
+                    if (currentFile) {
+                        await plugin.selectAndApplyPresetForCurrentFile();
+                    }
+                })
+        );
+
+    // 전역 프리셋 드롭다운 추가
+    const presetNames = await plugin.presetManager.getPresetNames();
+    new Setting(presetSection)
+        .setName(t('전역 프리셋'))
+        .addDropdown(async (dropdown) => {
+            presetNames.forEach(name => {
+                dropdown.addOption(name, name);
+            });
+            dropdown.setValue(plugin.settings.GlobalPreset)
+                .onChange(async (value) => {
+                    await plugin.presetManager.applyGlobalPreset(value);
+                    plugin.triggerRefresh();
+                });
+        });
 }
 
 // Add the folder selection setting to the settings UI
