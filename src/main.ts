@@ -237,6 +237,13 @@ export default class CardNavigatorPlugin extends Plugin {
 		}
 	}
 
+	async selectAndApplyPresetForCurrentFile() {
+        const currentFile = this.app.workspace.getActiveFile();
+        if (currentFile) {
+            await this.selectAndApplyPreset(currentFile);
+        }
+    }
+
 	// Refreshes the Card Navigator settings tab
 	refreshSettingsTab() {
 		if (this.settingTab instanceof SettingTab) {

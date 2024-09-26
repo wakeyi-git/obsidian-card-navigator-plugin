@@ -14,7 +14,7 @@ export function addPresetSettings(containerEl: HTMLElement, plugin: CardNavigato
         settingTab.updateAllSections();
     };
 
-    addGlobalPresetSection(containerEl, plugin);
+    addGlobalPresetSection(containerEl, plugin, refreshAllSettings);
     addFolderPresetSection(containerEl, plugin, settingsManager, refreshAllSettings);
     addPresetManagementSection(containerEl, plugin, settingsManager, refreshAllSettings);
     
@@ -30,7 +30,7 @@ async function refreshPresetList(plugin: CardNavigatorPlugin, settingsManager: S
     await addPresetListSection(presetListContainer, plugin, settingsManager, refreshAllSettings);
 }
 
-function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin): void {
+function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, refreshAllSettings: () => void): void {
     new Setting(containerEl)
         .setName('프리셋 폴더')
         .setDesc('Card Navigator 프리셋을 저장할 폴더를 선택하세요.')
@@ -41,7 +41,8 @@ function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
                 .onChange(async (newFolder) => {
                     plugin.settings.presetFolderPath = newFolder;
                     await plugin.saveSettings();
-                    plugin.presetManager.updatePresetFolder(newFolder);
+                    await plugin.presetManager.updatePresetFolder(newFolder);
+                    refreshAllSettings(); // 모든 설정을 새로고침합니다.
                 });
             const parentEl = cb.inputEl.parentElement;
             if (parentEl) {
@@ -196,6 +197,11 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
                 .setValue(plugin.settings.autoApplyFolderPresets)
                 .onChange(async (value) => {
                     await settingsManager.toggleAutoApplyPresets(value);
+                    // 현재 열린 파일에 대해 프리셋 적용
+                    const currentFile = plugin.app.workspace.getActiveFile();
+                    if (currentFile) {
+                        await plugin.selectAndApplyPresetForCurrentFile();
+                    }
                 })
         );
 

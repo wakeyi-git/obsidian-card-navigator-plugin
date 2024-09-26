@@ -38,7 +38,7 @@ export class PresetImportExportModal extends Modal {
                 placeholder: '여기에 프리셋 JSON을 붙여넣으세요',
             },
         });
-        textArea.rows = 10;
+        textArea.rows = 20;
         textArea.style.width = '100%';
         textArea.addEventListener('input', (e) => {
             this.importText = (e.target as HTMLTextAreaElement).value;
@@ -90,7 +90,7 @@ export class PresetImportExportModal extends Modal {
                             readonly: 'true',
                         },
                     });
-                    textArea.rows = 10;
+                    textArea.rows = 20;
                     textArea.style.width = '100%';
 
                     new Setting(contentEl)
