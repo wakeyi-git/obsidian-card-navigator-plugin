@@ -63,8 +63,8 @@ export class PresetManager implements IPresetManager {
         this.plugin.refreshCardNavigator();
     }
 
-	async savePreset(name: string, description?: string): Promise<void> {
-		const currentSettings = this.getCurrentSettings();
+	public async savePreset(name: string, description?: string, settings?: Partial<CardNavigatorSettings>): Promise<void> {
+		const currentSettings = settings || this.getCurrentSettings();
 		const preset: Preset = {
 			name: name,
 			settings: currentSettings,

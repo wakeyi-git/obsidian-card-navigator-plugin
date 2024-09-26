@@ -69,35 +69,40 @@ export class PresetImportExportModal extends Modal {
 			}));
     }
 
-    private setupExportUI() {
+    private async setupExportUI() {
         const { contentEl } = this;
         contentEl.createEl('h2', { text: '프리셋 내보내기' });
 
         if (this.presetName) {
-            const preset = this.plugin.presetManager.getPreset(this.presetName);
-            if (preset) {
-                const jsonString = JSON.stringify(preset, null, 2);
-                
-                const textAreaContainer = contentEl.createDiv('preset-export-textarea-container');
-                const textArea = textAreaContainer.createEl('textarea', {
-                    text: jsonString,
-                    attr: {
-                        readonly: 'true',
-                    },
-                });
-                textArea.rows = 10;
-                textArea.style.width = '100%';
+            try {
+                const preset = await this.plugin.presetManager.getPreset(this.presetName);
+                if (preset) {
+                    const jsonString = JSON.stringify(preset, null, 2);
+                    
+                    const textAreaContainer = contentEl.createDiv('preset-export-textarea-container');
+                    const textArea = textAreaContainer.createEl('textarea', {
+                        text: jsonString,
+                        attr: {
+                            readonly: 'true',
+                        },
+                    });
+                    textArea.rows = 10;
+                    textArea.style.width = '100%';
 
-                new Setting(contentEl)
-                    .addButton(btn => btn
-                        .setButtonText('복사')
-                        .setCta()
-                        .onClick(() => {
-                            navigator.clipboard.writeText(jsonString);
-                            new Notice('프리셋 JSON이 클립보드에 복사되었습니다.');
-                        }));
-            } else {
-                contentEl.createEl('p', { text: '프리셋을 찾을 수 없습니다.' });
+                    new Setting(contentEl)
+                        .addButton(btn => btn
+                            .setButtonText('복사')
+                            .setCta()
+                            .onClick(() => {
+                                navigator.clipboard.writeText(jsonString);
+                                new Notice('프리셋 JSON이 클립보드에 복사되었습니다.');
+                            }));
+                } else {
+                    contentEl.createEl('p', { text: '프리셋을 찾을 수 없습니다.' });
+                }
+            } catch (error) {
+                console.error('프리셋 로딩 중 오류 발생:', error);
+                contentEl.createEl('p', { text: '프리셋 로딩 중 오류가 발생했습니다.' });
             }
         } else {
             contentEl.createEl('p', { text: '내보낼 프리셋이 선택되지 않았습니다.' });

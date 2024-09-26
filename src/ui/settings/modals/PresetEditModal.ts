@@ -1,10 +1,12 @@
-import { App, Modal, Setting, Notice } from 'obsidian';
+import { App, Modal, Setting, Notice, TextAreaComponent } from 'obsidian';
 import CardNavigatorPlugin from '../../../main';
 import { SettingsManager } from '../settingsManager';
 
 export class PresetEditModal extends Modal {
     private presetName = '';
     private description = '';
+    private presetData = '';
+    private dataTextArea: TextAreaComponent | null = null;
 
     constructor(
         app: App,
@@ -16,32 +18,56 @@ export class PresetEditModal extends Modal {
         super(app);
     }
 
-    async onOpen() {
-        const { contentEl } = this;
-        contentEl.empty();
-        contentEl.createEl('h2', { text: this.getModalTitle() });
-
-        new Setting(contentEl)
-            .setName('프리셋 이름')
-            .addText(text => text
-                .setPlaceholder('프리셋 이름 입력')
-                .setValue(this.getInitialPresetName())
-                .onChange(value => this.presetName = value));
-
-        new Setting(contentEl)
-            .setName('설명')
-            .addTextArea(async (text) => {
-                text.setPlaceholder('프리셋 설명 입력 (선택사항)')
-                    .setValue(await this.getInitialDescription())
-                    .onChange(value => this.description = value);
-            });
-
-        new Setting(contentEl)
-            .addButton(btn => btn
-                .setButtonText('저장')
-                .setCta()
-                .onClick(() => this.savePreset()));
-    }
+	async onOpen() {
+		const { contentEl } = this;
+		contentEl.empty();
+		contentEl.createEl('h2', { text: this.getModalTitle() });
+	
+		new Setting(contentEl)
+			.setName('프리셋 이름')
+			.setDesc('프리셋 이름을 입력하세요.')
+			.addTextArea(async text => {
+				text.setPlaceholder('프리셋 이름 입력')
+				.setValue(this.getInitialPresetName())
+				.onChange(value => this.presetName = value);
+				text.inputEl.rows = 1;
+				text.inputEl.style.width = '350px';
+			});
+	
+		new Setting(contentEl)
+			.setName('설명')
+			.setDesc('프리셋에 대한 설명을 입력하세요.')
+			.addTextArea(async text => {
+				text.setPlaceholder('프리셋 설명 입력 (선택사항)')
+					.setValue(await this.getInitialDescription())
+					.onChange(value => this.description = value);
+				text.inputEl.rows = 4;
+				text.inputEl.style.width = '350px';
+			});
+	
+		new Setting(contentEl)
+			.setName('프리셋 데이터')
+			.setDesc('JSON 형식의 프리셋 데이터를 직접 편집할 수 있습니다.')
+			.addTextArea(async text => {
+				this.dataTextArea = text;
+				text.setPlaceholder('프리셋 데이터 (JSON)')
+					.setValue(await this.getInitialPresetData())
+					.onChange(value => this.presetData = value);
+				text.inputEl.rows = 10;
+				text.inputEl.style.width = '350px';
+			});
+	
+		new Setting(contentEl)
+			.addButton(btn => btn
+				.setButtonText('현재 설정으로 업데이트')
+				.onClick(() => this.updatePresetWithCurrentSettings()));
+	
+		new Setting(contentEl)
+			.addButton(btn => btn
+				.setButtonText('저장')
+				.setCta()
+				.onClick(() => this.savePreset()));
+	}
 
     private getModalTitle(): string {
         switch (this.mode) {
@@ -65,38 +91,50 @@ export class PresetEditModal extends Modal {
         return existingPreset?.description || '';
     }
     
+    private async getInitialPresetData(): Promise<string> {
+        if (this.mode === 'create') return JSON.stringify(this.plugin.settingsManager.getCurrentSettings(), null, 2);
+        const existingPreset = await this.plugin.presetManager.getPreset(this.existingPresetName || '');
+        return JSON.stringify(existingPreset?.settings || {}, null, 2);
+    }
+
+    private async updatePresetWithCurrentSettings() {
+        const currentSettings = this.plugin.settingsManager.getCurrentSettings();
+        this.presetData = JSON.stringify(currentSettings, null, 2);
+        if (this.dataTextArea) {
+            this.dataTextArea.setValue(this.presetData);
+        }
+    }
+
 	private async savePreset() {
-		if (!this.presetName) {
+		if (!this.presetName && this.mode !== 'edit') {
 			new Notice('프리셋 이름을 입력해주세요.');
 			return;
 		}
 	
 		try {
+			const presetSettings = JSON.parse(this.presetData);
+			const saveName = this.mode === 'edit' ? (this.existingPresetName || this.presetName) : this.presetName;
+	
 			switch (this.mode) {
 				case 'create':
-					// 현재 설정값을 사용하여 새 프리셋 저장
-					await this.plugin.presetManager.savePreset(this.presetName, this.description);
+					await this.plugin.presetManager.savePreset(saveName, this.description, presetSettings);
 					break;
 				case 'edit':
 					if (this.existingPresetName) {
-						if (this.existingPresetName !== this.presetName) {
+						if (this.existingPresetName !== saveName) {
 							await this.plugin.presetManager.deletePreset(this.existingPresetName);
-							await this.plugin.presetManager.savePreset(this.presetName, this.description);
-						} else {
-							await this.plugin.presetManager.savePreset(this.presetName, this.description);
 						}
+						await this.plugin.presetManager.savePreset(saveName, this.description, presetSettings);
 					}
 					break;
 				case 'clone':
-					if (this.existingPresetName) {
-						await this.plugin.presetManager.clonePreset(this.existingPresetName, this.presetName);
-						await this.plugin.presetManager.savePreset(this.presetName, this.description);
-					}
+					await this.plugin.presetManager.savePreset(saveName, this.description, presetSettings);
 					break;
 			}
+	
 			this.close();
 			this.settingsManager.applyChanges();
-			new Notice(`프리셋 "${this.presetName}"이(가) 저장되었습니다.`);
+			new Notice(`프리셋 "${saveName}"이(가) 저장되었습니다.`);
 		} catch (error) {
 			console.error('Failed to save preset:', error);
 			new Notice(`프리셋 저장 실패: ${error instanceof Error ? error.message : String(error)}`);

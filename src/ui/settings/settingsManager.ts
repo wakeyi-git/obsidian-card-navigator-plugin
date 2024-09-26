@@ -212,13 +212,19 @@ class ConfirmDeleteModal extends Modal {
         contentEl.createEl('p', {text: `정말로 ${this.itemName}을(를) 삭제하시겠습니까?`});
 
         const buttonContainer = contentEl.createDiv('button-container');
-        
-        buttonContainer.createEl('button', {text: '취소'}).onclick = () => {
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.justifyContent = 'flex-end';
+        buttonContainer.style.marginTop = '20px';
+
+        const cancelButton = buttonContainer.createEl('button', {text: '취소'});
+        cancelButton.style.marginRight = '10px';
+        cancelButton.onclick = () => {
             this.close();
             this.onChoice(false);
         };
 
-        buttonContainer.createEl('button', {text: '삭제'}).onclick = () => {
+        const deleteButton = buttonContainer.createEl('button', {text: '삭제'});
+        deleteButton.onclick = () => {
             this.close();
             this.onChoice(true);
         };
