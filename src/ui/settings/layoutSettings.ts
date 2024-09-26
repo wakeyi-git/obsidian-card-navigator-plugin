@@ -42,11 +42,15 @@ export function addLayoutSettings(containerEl: HTMLElement, plugin: CardNavigato
     );
 
     // Align Card Height
-    settings.alignCardHeight = settingTab.addToggleSetting(
-        containerEl,
-        'alignCardHeight',
-        t('Align card height'),
-        t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.')
+	settings.alignCardHeight = new Setting(containerEl)
+    .setName(t('Align card height'))
+    .setDesc(t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.'))
+    .addToggle(toggle => toggle
+        .setValue(plugin.settings.alignCardHeight)
+        .onChange(async (value) => {
+            await settingsManager.updateSetting('alignCardHeight', value);
+            updateSettingsState(plugin.settings.defaultLayout, value);
+        })
     );
 
     // Cards Per View
@@ -81,22 +85,22 @@ export function addLayoutSettings(containerEl: HTMLElement, plugin: CardNavigato
         t('Number of columns in masonry layout')
     );
 
-    function updateSettingsState(layout: CardNavigatorSettings['defaultLayout'], alignCardHeight: boolean) {
-        const updateSettingState = (setting: Setting, isEnabled: boolean) => {
-            setting.setDisabled(!isEnabled);
-            if (isEnabled) {
-                setting.settingEl.removeClass('setting-disabled');
-            } else {
-                setting.settingEl.addClass('setting-disabled');
-            }
-        };
+	function updateSettingsState(layout: CardNavigatorSettings['defaultLayout'], alignCardHeight: boolean) {
+		const updateSettingState = (setting: Setting, isEnabled: boolean) => {
+			setting.setDisabled(!isEnabled);
+			if (isEnabled) {
+				setting.settingEl.removeClass('setting-disabled');
+			} else {
+				setting.settingEl.addClass('setting-disabled');
+			}
+		};
 
         updateSettingState(settings.cardWidthThreshold, layout === 'auto');
         updateSettingState(settings.gridColumns, layout === 'grid');
         updateSettingState(settings.gridCardHeight, layout === 'auto' || layout === 'grid');
         updateSettingState(settings.masonryColumns, layout === 'masonry');
         updateSettingState(settings.alignCardHeight, layout === 'auto' || layout === 'list');
-        updateSettingState(settings.cardsPerView, (layout === 'auto' || layout === 'list') && alignCardHeight);
+		updateSettingState(settings.cardsPerView, (layout === 'auto' || layout === 'list') && alignCardHeight);
     }
 
     // Set initial state

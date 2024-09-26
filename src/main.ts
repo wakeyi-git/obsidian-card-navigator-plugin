@@ -253,7 +253,6 @@ export default class CardNavigatorPlugin extends Plugin {
 
 	// Refresh Card Navigator instances
 	refreshCardNavigator() {
-		console.log('Card Navigator 새로고침 시작');
 		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
 		leaves.forEach((leaf) => {
 			if (leaf.view instanceof CardNavigator) {
@@ -261,7 +260,6 @@ export default class CardNavigatorPlugin extends Plugin {
 				leaf.view.refresh();
 			}
 		});
-		console.log('Card Navigator 새로고침 완료');
 	}
 
 	// Update layout for all Card Navigator instances
