@@ -130,7 +130,7 @@
 
 	"CARD_CONTENT_SETTINGS": "Card content settings",
     "RENDER_CONTENT_AS_HTML": "Render content as HTML",
-    "RENDER_CONTENT_AS_HTML_DESC": "If enabled, card content will be rendered as HTML.",
+    "RENDER_CONTENT_AS_HTML_DESC": "When activated, the card content is rendered in HTML. If the content is not displayed properly or errors occur, adjust the body length limit.",
     "DRAG_AND_DROP_CONTENT": "Drag and drop content",
     "DRAG_AND_DROP_CONTENT_DESC": "When enabled, dragging a card will insert the content of the card selected below instead of a link.",
     "BODY_LENGTH_LIMIT": "Body length limit",
