@@ -229,12 +229,16 @@ export default class CardNavigatorPlugin extends Plugin {
 	}
 
 	private async selectAndApplyPreset(file: TFile) {
-		if (this.settings.autoApplyFolderPresets && file.parent) {
-			await this.presetManager.applyFolderPreset(file.parent.path);
-		} else {
-			await this.presetManager.applyGlobalPreset(this.settings.GlobalPreset);
-		}
-	}
+        if (this.settings.autoApplyPresets) {
+            if (this.settings.autoApplyFolderPresets && file.parent) {
+                await this.presetManager.applyFolderPreset(file.parent.path);
+            } else {
+                await this.presetManager.applyGlobalPreset(this.settings.GlobalPreset);
+            }
+        } else {
+            // 현재 설정(data.json의 설정값)을 유지
+        }
+    }
 
 	async selectAndApplyPresetForCurrentFile() {
         const currentFile = this.app.workspace.getActiveFile();

@@ -48,6 +48,7 @@ export interface CardNavigatorSettings {
     presetFolderPath: string;
     GlobalPreset: string;
     lastActivePreset: string;
+	autoApplyPresets: boolean;
     autoApplyFolderPresets: boolean;
     folderPresets?: Record<string, string[]> | null;
     activeFolderPresets?: Record<string, string> | null;
@@ -57,6 +58,7 @@ export const globalSettingsKeys: (keyof CardNavigatorSettings)[] = [
     'presetFolderPath',
     'GlobalPreset',
     'lastActivePreset',
+	'autoApplyPresets',
     'autoApplyFolderPresets',
     'folderPresets',
     'activeFolderPresets',
@@ -91,6 +93,7 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     presetFolderPath: 'CardNavigatorPresets',
     GlobalPreset: 'default',
     lastActivePreset: 'default',
+	autoApplyPresets: false,
     autoApplyFolderPresets: false,
     folderPresets: {},
     activeFolderPresets: {}
