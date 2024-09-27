@@ -209,6 +209,18 @@ export class PresetManager implements IPresetManager {
         }
     }
 
+	async removePresetFromAllFolders(presetName: string) {
+        if (this.plugin.settings.folderPresets) {
+            for (const folderPath in this.plugin.settings.folderPresets) {
+                this.plugin.settings.folderPresets[folderPath] = this.plugin.settings.folderPresets[folderPath].filter(name => name !== presetName);
+                if (this.plugin.settings.folderPresets[folderPath].length === 0) {
+                    delete this.plugin.settings.folderPresets[folderPath];
+                }
+            }
+			await this.plugin.saveSettings();
+        }
+    }
+
     async resetToDefaultPresets(): Promise<void> {
         await this.deleteAllPresets();
         const defaultPreset: Preset = {

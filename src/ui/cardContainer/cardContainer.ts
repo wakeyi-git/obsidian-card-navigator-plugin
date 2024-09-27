@@ -166,20 +166,6 @@ export class CardContainer {
         }
     }
 
-    // Waits for the container element to be fully rendered before continuing
-    // private async waitForLeafCreation(): Promise<void> {
-    //     return new Promise((resolve) => {
-    //         const checkLeaf = () => {
-    //             if (this.containerEl && this.containerEl.offsetWidth > 0 && this.containerEl.offsetHeight > 0) {
-    //                 resolve();
-    //             } else {
-    //                 requestAnimationFrame(checkLeaf);
-    //             }
-    //         };
-    //         checkLeaf();
-    //     });
-    // }
-
 	// Determines the appropriate layout strategy based on the container size and plugin settings
     private determineAutoLayout(): LayoutStrategy {
         if (!this.containerEl) {

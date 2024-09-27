@@ -292,14 +292,14 @@
 .card-navigator-filename {
     font-size: var(--file-name-font-size, 1.2rem);
     font-weight: var(--font-bold);
-    margin: 0 0 var(--size-4-2) 0;
+    margin: 0 0 var(--size-2-1) 0;
 	color: var(--text-normal);
 }
 
 .card-navigator-first-header {
     font-size: var(--first-header-font-size, 1.1rem);
     font-weight: var(--font-semibold);
-    margin: 0 0 var(--size-4-2) 0;
+    margin: 0 0 var(--size-2-1) 0;
     color: var(--text-normal);
 }
 

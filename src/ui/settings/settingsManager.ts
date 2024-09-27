@@ -210,7 +210,7 @@ class ConfirmDeleteModal extends Modal {
         const {contentEl} = this;
         contentEl.empty();
         contentEl.createEl('h2', {text: t('CONFIRM_DELETE')});
-        contentEl.createEl('p', {text: t('CONFIRM_DELETE_ITEM', {item: this.itemName})});
+        contentEl.createEl('p', {text: t('CONFIRM_DELETE_ITEM')});
 
         const buttonContainer = contentEl.createDiv('button-container');
         buttonContainer.style.display = 'flex';

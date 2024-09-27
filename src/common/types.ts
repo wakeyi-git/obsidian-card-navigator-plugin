@@ -117,8 +117,8 @@ export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> =
 	gridCardHeight: { min: 100, max: 500, step: 10 },
     masonryColumns: { min: 1, max: 10, step: 1 },
     cardsPerView: { min: 1, max: 10, step: 1 },
-    fileNameFontSize: { min: 15, max: 25, step: 1 },
-    firstHeaderFontSize: { min: 15, max: 25, step: 1 },
+    fileNameFontSize: { min: 10, max: 25, step: 1 },
+    firstHeaderFontSize: { min: 10, max: 25, step: 1 },
     bodyFontSize: { min: 10, max: 20, step: 1 },
     bodyLength: { min: 1, max: 1001, step: 50 },
 };

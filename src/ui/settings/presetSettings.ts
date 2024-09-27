@@ -153,6 +153,9 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
 						if (await settingsManager.confirmDelete(t('PRESET_NAME', {name: presetName}))) {
 							await plugin.presetManager.deletePreset(presetName);
 							
+							// 모든 폴더 프리셋 목록에서 삭제된 프리셋 제거
+							await plugin.presetManager.removePresetFromAllFolders(presetName);
+							
 							if (plugin.settings.GlobalPreset === presetName) {
 								await plugin.presetManager.applyGlobalPreset('default');
 								new Notice(t('PRESET_DELETED_NOTICE'));
@@ -263,32 +266,32 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
                 });
             });
 
-        const presetInput = s.controlEl.createEl("input", {
-            cls: "preset-suggest-input",
-            type: "text",
-            value: plugin.settings.activeFolderPresets?.[folderPath] || '',
-            placeholder: folderPath ? '' : t('PRESET')
-        });
-
-        new PresetSuggest(
-            plugin.app,
-            presetInput,
-            plugin,
-            FileSuggestMode.PresetsFiles
-        );
-
-        presetInput.onblur = async () => {
-            const newValue = presetInput.value;
-            plugin.settings.activeFolderPresets = plugin.settings.activeFolderPresets || {};
-            plugin.settings.folderPresets = plugin.settings.folderPresets || {};
-        
-            if (newValue !== plugin.settings.activeFolderPresets[folderPath]) {
-                plugin.settings.activeFolderPresets[folderPath] = newValue;
-                plugin.settings.folderPresets[folderPath] = [newValue];
-                await settingsManager.saveSettings();
-                refreshAllSettings();
-            }
-        };
+		const presetInput = s.controlEl.createEl("input", {
+			cls: "preset-suggest-input",
+			type: "text",
+			value: '',
+			placeholder: t('PRESET')
+		});
+		
+		new PresetSuggest(
+			plugin.app,
+			presetInput,
+			plugin,
+			FileSuggestMode.PresetsFiles
+		);
+		
+		presetInput.onblur = async () => {
+			const newValue = presetInput.value;
+			plugin.settings.activeFolderPresets = plugin.settings.activeFolderPresets || {};
+			plugin.settings.folderPresets = plugin.settings.folderPresets || {};
+		
+			if (newValue !== plugin.settings.activeFolderPresets[folderPath]) {
+				plugin.settings.activeFolderPresets[folderPath] = newValue;
+				plugin.settings.folderPresets[folderPath] = [newValue];
+				await settingsManager.saveSettings();
+				refreshAllSettings();
+			}
+		};
 
         s.addExtraButton((cb) => {
             cb.setIcon('down-chevron-glyph')
