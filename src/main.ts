@@ -1,4 +1,3 @@
-// main.ts
 import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf  } from 'obsidian';
 import { CardNavigator, VIEW_TYPE_CARD_NAVIGATOR } from './ui/cardNavigator';
 import { SettingTab } from './ui/settings/settingsTab';
@@ -35,9 +34,9 @@ export default class CardNavigatorPlugin extends Plugin {
         await this.presetManager.initialize();
         await this.initializePlugin();
 
-        this.ribbonIconEl = this.addRibbonIcon('layers-3', t('Open Card Navigator'), () => {
-            this.activateView();
-        });
+		this.ribbonIconEl = this.addRibbonIcon('layers-3', t('OPEN_CARD_NAVIGATOR'), () => {
+			this.activateView();
+		});
 
 		this.registerEvent(
 			this.app.workspace.on('file-open', (file) => {
@@ -129,13 +128,13 @@ export default class CardNavigatorPlugin extends Plugin {
 	private addCommands() {
 		this.addCommand({
 			id: 'open-card-navigator',
-			name: t('Open Card Navigator'),
+			name: t('OPEN_CARD_NAVIGATOR'),
 			callback: () => this.activateView(),
 		});
 
 		this.addCommand({
 			id: 'focus-card-navigator',
-			name: t('Move focus to Card Navigator'),
+			name: t('MOVE_FOCUS_TO_CARD_NAVIGATOR'),
 			callback: async () => {
 				const cardNavigator = this.getFirstCardNavigator();
 				if (cardNavigator) {
@@ -151,7 +150,7 @@ export default class CardNavigatorPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'open-card-context-menu',
-			name: t('Open card context menu'),
+			name: t('OPEN_CARD_CONTEXT_MENU'),
 			callback: () => {
 				const cardNavigator = this.getActiveCardNavigator();
 				if (cardNavigator) {
@@ -285,16 +284,16 @@ export default class CardNavigatorPlugin extends Plugin {
 	}
 
     // Add scroll-related commands
-    private addScrollCommands() {
-        const scrollCommands = [
-            { id: 'scroll-up-one-card', name: t('Scroll up one card'), direction: 'up', count: 1 },
-            { id: 'scroll-down-one-card', name: t('Scroll down one card'), direction: 'down', count: 1 },
-            { id: 'scroll-left-one-card', name: t('Scroll left one card'), direction: 'left', count: 1 },
-            { id: 'scroll-right-one-card', name: t('Scroll right one card'), direction: 'right', count: 1 },
-            { id: 'scroll-up-page', name: t('Scroll up/left one page'), direction: 'up', count: this.settings.cardsPerView },
-            { id: 'scroll-down-page', name: t('Scroll down/right one page'), direction: 'down', count: this.settings.cardsPerView },
-            { id: 'center-active-card', name: t('Center active card'), direction: '', count: 0 },
-        ];
+	private addScrollCommands() {
+		const scrollCommands = [
+			{ id: 'scroll-up-one-card', name: t('SCROLL_UP_ONE_CARD'), direction: 'up', count: 1 },
+			{ id: 'scroll-down-one-card', name: t('SCROLL_DOWN_ONE_CARD'), direction: 'down', count: 1 },
+			{ id: 'scroll-left-one-card', name: t('SCROLL_LEFT_ONE_CARD'), direction: 'left', count: 1 },
+			{ id: 'scroll-right-one-card', name: t('SCROLL_RIGHT_ONE_CARD'), direction: 'right', count: 1 },
+			{ id: 'scroll-up-page', name: t('SCROLL_UP_LEFT_ONE_PAGE'), direction: 'up', count: this.settings.cardsPerView },
+			{ id: 'scroll-down-page', name: t('SCROLL_DOWN_RIGHT_ONE_PAGE'), direction: 'down', count: this.settings.cardsPerView },
+			{ id: 'center-active-card', name: t('CENTER_ACTIVE_CARD'), direction: '', count: 0 },
+		];
 
         scrollCommands.forEach(({ id, name, direction, count }) => {
             this.addCommand({

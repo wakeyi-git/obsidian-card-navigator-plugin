@@ -1,4 +1,3 @@
-// listLayout.ts
 import { LayoutStrategy, CardPosition } from './layoutStrategy';
 import { Card } from '../../common/types';
 

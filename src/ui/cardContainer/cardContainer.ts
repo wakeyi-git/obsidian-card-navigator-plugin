@@ -1,4 +1,3 @@
-// cardContainer.ts
 import { WorkspaceLeaf, TFile, TFolder, Notice, debounce } from "obsidian";
 import CardNavigatorPlugin from 'main';
 import { CardMaker } from './cardMaker';
@@ -707,10 +706,10 @@ export class CardContainer {
 	public copyLink(file: TFile) {
 		const link = this.plugin.app.fileManager.generateMarkdownLink(file, '');
 		navigator.clipboard.writeText(link).then(() => {
-			new Notice(t('Link copied to clipboard'));
+			new Notice(t('LINK_COPIED_TO_CLIPBOARD'));
 		}).catch(err => {
-			console.error(t('Failed to copy link: '), err);
-			new Notice(t('Failed to copy link'));
+			console.error(t('FAILED_TO_COPY_LINK'), err);
+			new Notice(t('FAILED_TO_COPY_LINK'));
 		});
 	}
 
@@ -721,10 +720,10 @@ export class CardContainer {
 			const { cleanBody } = separateFrontmatterAndBody(content);
 			const truncatedBody = this.truncateBody(cleanBody);
 			await navigator.clipboard.writeText(truncatedBody);
-			new Notice(t('Card content copied to clipboard'));
+			new Notice(t('CARD_CONTENT_COPIED_TO_CLIPBOARD'));
 		} catch (err) {
-			console.error(t('Failed to copy card content: '), err);
-			new Notice(t('Failed to copy card content'));
+			console.error(t('FAILED_TO_COPY_CARD_CONTENT'), err);
+			new Notice(t('FAILED_TO_COPY_CARD_CONTENT'));
 		}
 	}
 

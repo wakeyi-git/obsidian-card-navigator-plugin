@@ -33,22 +33,26 @@ async function refreshPresetList(plugin: CardNavigatorPlugin, settingsManager: S
 
 function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, refreshAllSettings: () => void): void {
     new Setting(containerEl)
-		.setName(t('PRESET_FOLDER'))
-		.setDesc(t('SELECT_PRESET_FOLDER'))
-			.addSearch(cb => {
-				new FolderSuggest(plugin.app, cb.inputEl);
-				cb.setPlaceholder('예: CardNavigatorPresets')
-					.setValue(plugin.settings.presetFolderPath)
-					.onChange(async (newFolder) => {
-						plugin.settings.presetFolderPath = newFolder;
-						await plugin.saveSettings();
-						await plugin.presetManager.updatePresetFolder(newFolder);
-						refreshAllSettings(); // 모든 설정을 새로고침합니다.
-					});
-		const parentEl = cb.inputEl.parentElement;
-		if (parentEl) {
-			parentEl.classList.add('wide-input-container');
-		}
+        .setName(t('PRESET_FOLDER'))
+        .setDesc(t('SELECT_PRESET_FOLDER'))
+        .addSearch(cb => {
+            new FolderSuggest(plugin.app, cb.inputEl, async () => {
+                const newFolder = cb.inputEl.value;
+                if (newFolder !== plugin.settings.presetFolderPath) {
+                    plugin.settings.presetFolderPath = newFolder;
+                    await plugin.saveSettings();
+                    await plugin.presetManager.updatePresetFolder(newFolder);
+                    refreshAllSettings();
+                }
+            });
+            
+            cb.setPlaceholder(t('PRESET_FOLDER_PLACEHOLDER'))
+                .setValue(plugin.settings.presetFolderPath);
+
+            const parentEl = cb.inputEl.parentElement;
+            if (parentEl) {
+                parentEl.classList.add('wide-input-container');
+            }
 		
 		cb.inputEl.removeAttribute('autofocus');
 		
@@ -64,11 +68,11 @@ function addPresetManagementSection(containerEl: HTMLElement, plugin: CardNaviga
 
 function addPresetManagementSectionContent(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, refreshAllSettings: () => void): void {
     new Setting(containerEl)
-		.setName(t('PRESET_MANAGEMENT_AND_GLOBAL_SETTINGS'))
-		.setDesc(t('PRESET_MANAGEMENT_DESC'))
-		.addButton((button: ButtonComponent) => 
-			button
-				.setTooltip(t('CREATE_NEW_PRESET'))
+        .setName(t('PRESET_MANAGEMENT_AND_GLOBAL_SETTINGS'))
+        .setDesc(t('PRESET_MANAGEMENT_DESC'))
+        .addButton((button: ButtonComponent) => 
+            button
+                .setTooltip(t('CREATE_NEW_PRESET'))
                 .setIcon('plus')
                 .onClick(async () => {
                     const modal = new PresetEditModal(
@@ -84,7 +88,7 @@ function addPresetManagementSectionContent(containerEl: HTMLElement, plugin: Car
         )
         .addButton((button: ButtonComponent) => 
             button
-                .setTooltip('IMPORT_PRESET')
+                .setTooltip(t('IMPORT_PRESET'))
                 .setIcon('upload')
                 .onClick(async () => {
                     const modal = new PresetImportExportModal(
@@ -145,12 +149,12 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
 					})
 			);
 
-			setting.addButton((button: ButtonComponent) => 
-				button
-					.setTooltip(t('DELETE'))
-					.setIcon('trash')
-					.onClick(async () => {
-						if (await settingsManager.confirmDelete(t('PRESET_NAME', {name: presetName}))) {
+            setting.addButton((button: ButtonComponent) => 
+                button
+                    .setTooltip(t('DELETE'))
+                    .setIcon('trash')
+                    .onClick(async () => {
+                        if (await settingsManager.confirmDelete(t('PRESET_NAME', {name: presetName}))) {
 							await plugin.presetManager.deletePreset(presetName);
 							
 							// 모든 폴더 프리셋 목록에서 삭제된 프리셋 제거

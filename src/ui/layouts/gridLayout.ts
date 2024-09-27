@@ -1,4 +1,3 @@
-// gridLayout.ts
 import { LayoutStrategy, CardPosition } from './layoutStrategy';
 import { Card, CardNavigatorSettings } from '../../common/types';
 

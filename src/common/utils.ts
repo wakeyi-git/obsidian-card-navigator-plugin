@@ -1,4 +1,3 @@
-// utils.ts
 import { TFile } from "obsidian";import { SortCriterion, SortOrder } from './types';
 
 /**

@@ -1,11 +1,10 @@
-// keyboardNavigator.ts
 import { Menu, MenuItem, debounce } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { CardContainer } from '../ui/cardContainer/cardContainer';
-import { t } from 'i18next';
 import { LayoutStrategy } from 'ui/layouts/layoutStrategy';
 import { GridLayout } from 'ui/layouts/gridLayout';
 import { MasonryLayout } from 'ui/layouts/masonryLayout';
+import { t } from 'i18next';
 
 // KeyboardNavigator class to handle keyboard navigation for the card container
 export class KeyboardNavigator {
@@ -266,37 +265,37 @@ export class KeyboardNavigator {
 	}
 
     // Open the context menu for the focused card
-    public openContextMenu() {
-        if (this.focusedCardIndex === null) return;
-
-        const focusedCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
-        const file = this.cardContainer.getFileFromCard(focusedCard);
-        if (file) {
-            const menu = new Menu();
-            this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
-
-            menu.addItem((item: MenuItem) => {
-                item
-                    .setTitle(t('Copy as Link'))
-                    .setIcon('link')
-                    .onClick(() => {
-                        this.cardContainer.copyLink(file);
-                    });
-            });
-
-            menu.addItem((item: MenuItem) => {
-                item
-                    .setTitle(t('Copy Card Content'))
-                    .setIcon('file-text')
-                    .onClick(() => {
-                        this.cardContainer.copyCardContent(file);
-                    });
-            });
-
-            const rect = focusedCard.getBoundingClientRect();
-            menu.showAtPosition({ x: rect.left, y: rect.bottom });
-        }
-    }
+	public openContextMenu() {
+		if (this.focusedCardIndex === null) return;
+	
+		const focusedCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
+		const file = this.cardContainer.getFileFromCard(focusedCard);
+		if (file) {
+			const menu = new Menu();
+			this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
+	
+			menu.addItem((item: MenuItem) => {
+				item
+					.setTitle(t('COPY_AS_LINK'))
+					.setIcon('link')
+					.onClick(() => {
+						this.cardContainer.copyLink(file);
+					});
+			});
+	
+			menu.addItem((item: MenuItem) => {
+				item
+					.setTitle(t('COPY_CARD_CONTENT'))
+					.setIcon('file-text')
+					.onClick(() => {
+						this.cardContainer.copyCardContent(file);
+					});
+			});
+	
+			const rect = focusedCard.getBoundingClientRect();
+			menu.showAtPosition({ x: rect.left, y: rect.bottom });
+		}
+	}
 
     // Find the index of the active card
     private findActiveCardIndex(): number {

@@ -50,11 +50,11 @@ export class PresetManager implements IPresetManager {
 		}
 	}
 
-    async loadPreset(name: string): Promise<void> {
-        const preset = await this.getPreset(name);
-        if (!preset) {
-            throw new Error(t('PRESET_NOT_FOUND', {name: name}));
-        }
+	async loadPreset(name: string): Promise<void> {
+		const preset = await this.getPreset(name);
+		if (!preset) {
+			throw new Error(t('PRESET_NOT_FOUND', {name: name}));
+		}
         this.settings = {
             ...this.settings,
             ...preset.settings,
@@ -108,10 +108,10 @@ export class PresetManager implements IPresetManager {
     }
 
 	async renamePreset(oldName: string, newName: string): Promise<void> {
-        const preset = await this.getPreset(oldName);
-        if (!preset) {
-            throw new Error(t('PRESET_NOT_FOUND', {name: oldName}));
-        }
+		const preset = await this.getPreset(oldName);
+		if (!preset) {
+			throw new Error(t('PRESET_NOT_FOUND', {name: oldName}));
+		}
         preset.name = newName;
         await this.savePresetToFile(newName, preset);
         await this.deletePreset(oldName);
@@ -158,36 +158,36 @@ export class PresetManager implements IPresetManager {
             .map(file => path.basename(file, '.json'));
     }
 
-    async clonePreset(sourceName: string, newName: string): Promise<void> {
-        const sourcePreset = await this.getPreset(sourceName);
-        if (!sourcePreset) {
-            throw new Error(t('SOURCE_PRESET_NOT_FOUND', {name: sourceName}));
-        }
-        if (await this.presetExists(newName)) {
-            throw new Error(t('PRESET_ALREADY_EXISTS', {name: newName}));
-        }
+	async clonePreset(sourceName: string, newName: string): Promise<void> {
+		const sourcePreset = await this.getPreset(sourceName);
+		if (!sourcePreset) {
+			throw new Error(t('SOURCE_PRESET_NOT_FOUND', {name: sourceName}));
+		}
+		if (await this.presetExists(newName)) {
+			throw new Error(t('PRESET_ALREADY_EXISTS_WITH_NAME', {name: newName}));
+		}
         const clonedPreset: Preset = { ...sourcePreset, name: newName, isDefault: false };
         await this.savePresetToFile(newName, clonedPreset);
     }
 
-    async exportPreset(name: string): Promise<string> {
-        const preset = await this.getPreset(name);
-        if (!preset) {
-            throw new Error(t('PRESET_NOT_FOUND', {name: name}));
-        }
+	async exportPreset(name: string): Promise<string> {
+		const preset = await this.getPreset(name);
+		if (!preset) {
+			throw new Error(t('PRESET_NOT_FOUND', {name: name}));
+		}
         return JSON.stringify(preset, null, 2);
     }
 
-    async importPreset(jsonString: string): Promise<void> {
-        try {
-            const importedPreset: Preset = JSON.parse(jsonString);
-            if (!importedPreset.name || !importedPreset.settings) {
-                throw new Error(t('INVALID_PRESET_FORMAT'));
-            }
+	async importPreset(jsonString: string): Promise<void> {
+		try {
+			const importedPreset: Preset = JSON.parse(jsonString);
+			if (!importedPreset.name || !importedPreset.settings) {
+				throw new Error(t('INVALID_PRESET_FORMAT'));
+			}
             await this.savePresetToFile(importedPreset.name, importedPreset);
-        } catch (error) {
-            throw new Error(t('PRESET_IMPORT_FAILED', {error: error instanceof Error ? error.message : String(error)}));
-        }
+		} catch (error) {
+			throw new Error(t('PRESET_IMPORT_FAILED', {error: error instanceof Error ? error.message : String(error)}));
+		}
     }
 
 	async getPreset(presetName: string): Promise<Preset | undefined> {

@@ -1,4 +1,3 @@
-// cardNavigator.ts
 import { ItemView, WorkspaceLeaf, Menu } from "obsidian";
 import CardNavigatorPlugin from '../main';
 import { Toolbar } from './toolbar/toolbar';
@@ -32,9 +31,9 @@ export class CardNavigator extends ItemView {
     }
 
     // Return the display name for this view
-    getDisplayText(): string {
-        return t("Card Navigator");
-    }
+	getDisplayText(): string {
+		return t("CARD_NAVIGATOR");
+	}
 
     // Return the icon name for this view
     getIcon(): string {
@@ -72,24 +71,24 @@ export class CardNavigator extends ItemView {
 
         menu.addSeparator();
 
-        // Add custom menu items
-        menu.addItem((item) => {
-            item
-                .setTitle(t('Copy as Link'))
-                .setIcon('link')
-                .onClick(() => {
-                    this.cardContainer.copyLink(file);
-                });
-        });
+	// Add custom menu items
+	menu.addItem((item) => {
+		item
+			.setTitle(t('COPY_AS_LINK'))
+			.setIcon('link')
+			.onClick(() => {
+				this.cardContainer.copyLink(file);
+			});
+	});
 
-        menu.addItem((item) => {
-            item
-                .setTitle(t('Copy Card Content'))
-                .setIcon('file-text')
-                .onClick(() => {
-                    this.cardContainer.copyCardContent(file);
-                });
-        });
+	menu.addItem((item) => {
+		item
+			.setTitle(t('COPY_CARD_CONTENT'))
+			.setIcon('file-text')
+			.onClick(() => {
+				this.cardContainer.copyCardContent(file);
+			});
+	});
 
         // Show the menu at the card's position
         const rect = focusedCard.getBoundingClientRect();

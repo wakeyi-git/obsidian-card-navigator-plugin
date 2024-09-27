@@ -16,13 +16,13 @@ export class SettingsManager implements ISettingsManager {
 
     constructor(private plugin: CardNavigatorPlugin, private presetManager: IPresetManager) {}
 
-    async saveSettings() {
-        try {
-            await this.plugin.saveSettings();
-        } catch (error) {
-            console.error('Error saving settings:', error);
-        }
-    }
+	async saveSettings() {
+		try {
+			await this.plugin.saveSettings();
+		} catch (error) {
+			console.error(t('ERROR_SAVING_SETTINGS'), error);
+		}
+	}
 
 	async loadSettings() {
 		const loadedData = await this.plugin.loadData();
@@ -58,7 +58,7 @@ export class SettingsManager implements ISettingsManager {
 		try {
 			await this.plugin.app.vault.adapter.write(filePath, JSON.stringify(DEFAULT_SETTINGS, null, 2));
 		} catch (error) {
-			console.error(`Error saving default preset:`, error);
+			console.error(t('ERROR_SAVING_DEFAULT_PRESET'), error);
 		}
 	}
 
@@ -114,30 +114,30 @@ export class SettingsManager implements ISettingsManager {
         return [];
     }
 
-    async loadPresetFromFile(fileName: string): Promise<Partial<CardNavigatorSettings> | null> {
-        const presetFolderPath = this.plugin.settings.presetFolderPath; // 올바른 프리셋 폴더 경로 사용
-        const filePath = `${presetFolderPath}/${fileName}`;
-        try {
-            const content = await this.plugin.app.vault.adapter.read(filePath);
-            return JSON.parse(content);
-        } catch (error) {
-            console.error(`Error loading preset from file ${fileName}:`, error);
-            return null;
-        }
-    }
-
-    async saveAsNewPreset(presetName: string, settings?: Partial<CardNavigatorSettings>) {
-        const presetFolderPath = this.plugin.settings.presetFolderPath; // 올바른 프리셋 폴더 경로 사용
-        const filePath = `${presetFolderPath}/${presetName}.json`;
-        const presetSettings = settings || this.getCurrentSettings();
-        try {
-            await this.plugin.app.vault.adapter.write(filePath, JSON.stringify(presetSettings, null, 2));
-            return true;
-        } catch (error) {
-            console.error(`Error saving new preset ${presetName}:`, error);
-            return false;
-        }
-    }
+	async loadPresetFromFile(fileName: string): Promise<Partial<CardNavigatorSettings> | null> {
+		const presetFolderPath = this.plugin.settings.presetFolderPath;
+		const filePath = `${presetFolderPath}/${fileName}`;
+		try {
+			const content = await this.plugin.app.vault.adapter.read(filePath);
+			return JSON.parse(content);
+		} catch (error) {
+			console.error(t('ERROR_LOADING_PRESET_FROM_FILE', { fileName }), error);
+			return null;
+		}
+	}
+	
+	async saveAsNewPreset(presetName: string, settings?: Partial<CardNavigatorSettings>) {
+		const presetFolderPath = this.plugin.settings.presetFolderPath;
+		const filePath = `${presetFolderPath}/${presetName}.json`;
+		const presetSettings = settings || this.getCurrentSettings();
+		try {
+			await this.plugin.app.vault.adapter.write(filePath, JSON.stringify(presetSettings, null, 2));
+			return true;
+		} catch (error) {
+			console.error(t('ERROR_SAVING_NEW_PRESET', { presetName }), error);
+			return false;
+		}
+	}
 
     getFolderPresets(): FolderPresets {
         return this.plugin.settings.folderPresets || {};

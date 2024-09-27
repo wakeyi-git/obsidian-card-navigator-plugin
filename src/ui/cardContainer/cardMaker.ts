@@ -95,12 +95,6 @@ export class CardMaker {
 		}
 	}
 
-    // private addElement(parent: HTMLElement, tag: 'div' | 'h3' | 'h4', text: string, className: string, fontSize: number): HTMLElement {
-    //     const element = parent.createEl(tag, { text, cls: className });
-    //     element.style.setProperty(`--${className}-font-size`, `${fontSize}px`);
-    //     return element;
-    // }
-
 	private addElement(parent: HTMLElement, tag: 'div' | 'h3' | 'h4', text: string, className: string, fontSize: number): HTMLElement {
 		const element = parent.createEl(tag, { text, cls: className });
 		element.style.fontSize = `${fontSize}px`;
@@ -141,32 +135,32 @@ export class CardMaker {
         return this.plugin.app.fileManager.generateMarkdownLink(card.file, '');
     }
 
-    private setupContextMenu(cardElement: HTMLElement, file: TFile) {
-        cardElement.addEventListener('contextmenu', (e: MouseEvent) => {
-            e.preventDefault();
-            const menu = new Menu();
-
-            this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
-
-            menu.addSeparator();
-
-            menu.addItem((item) => {
-                item
-                    .setTitle(t('Copy as Link'))
-                    .setIcon('link')
-                    .onClick(() => this.copyLinkCallback(file));
-            });
-
-            menu.addItem((item) => {
-                item
-                    .setTitle(t('Copy Card Content'))
-                    .setIcon('file-text')
-                    .onClick(() => this.copyContentCallback(file));
-            });
-
-            menu.showAtPosition({ x: e.clientX, y: e.clientY });
-        });
-    }
+	private setupContextMenu(cardElement: HTMLElement, file: TFile) {
+		cardElement.addEventListener('contextmenu', (e: MouseEvent) => {
+			e.preventDefault();
+			const menu = new Menu();
+	
+			this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
+	
+			menu.addSeparator();
+	
+			menu.addItem((item) => {
+				item
+					.setTitle(t('COPY_AS_LINK'))
+					.setIcon('link')
+					.onClick(() => this.copyLinkCallback(file));
+			});
+	
+			menu.addItem((item) => {
+				item
+					.setTitle(t('COPY_CARD_CONTENT'))
+					.setIcon('file-text')
+					.onClick(() => this.copyContentCallback(file));
+			});
+	
+			menu.showAtPosition({ x: e.clientX, y: e.clientY });
+		});
+	}
 
     private openFile(file: TFile) {
         this.plugin.app.workspace.getLeaf().openFile(file);

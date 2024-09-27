@@ -109,16 +109,16 @@ export class PresetEditModal extends Modal {
         }
     }
 
-	private async savePreset() {
-		if (!this.presetName && this.mode !== 'edit') {
-			new Notice(t('ENTER_PRESET_NAME_NOTICE'));
-			return;
-		}
-	
-		if (!this.presetData.trim()) {
-			new Notice(t('PRESET_DATA_EMPTY'));
-			return;
-		}
+    private async savePreset() {
+        if (!this.presetName && this.mode !== 'edit') {
+            new Notice(t('ENTER_PRESET_NAME_NOTICE'));
+            return;
+        }
+    
+        if (!this.presetData.trim()) {
+            new Notice(t('PRESET_DATA_EMPTY'));
+            return;
+        }
 	
 		try {
 			const presetSettings = JSON.parse(this.presetData);
@@ -140,16 +140,16 @@ export class PresetEditModal extends Modal {
 					break;
 			}
 	
-			this.close();
-			this.settingsManager.applyChanges();
-			new Notice(t('PRESET_SAVED', {name: saveName}));
-			
-			if (this.refreshPresetList) {
-				this.refreshPresetList();
-			}
-		} catch (error) {
-			console.error(t('FAILED_TO_SAVE_PRESET'), error);
-			new Notice(t('PRESET_SAVE_FAILED', {error: error instanceof Error ? error.message : String(error)}));
-		}
-	}
+            this.close();
+            this.settingsManager.applyChanges();
+            new Notice(t('PRESET_SAVED', {name: saveName}));
+            
+            if (this.refreshPresetList) {
+                this.refreshPresetList();
+            }
+        } catch (error) {
+            console.error(t('FAILED_TO_SAVE_PRESET'), error);
+            new Notice(t('PRESET_SAVE_FAILED', {error: error instanceof Error ? error.message : String(error)}));
+        }
+    }
 }

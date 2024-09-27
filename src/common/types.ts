@@ -1,4 +1,3 @@
-// types.ts
 import { TFile } from 'obsidian';
 import { t } from 'i18next';
 
@@ -134,39 +133,39 @@ export type ToolbarMenu = 'sort' | 'settings';
 
 // Define sorting options for the application
 export const sortOptions: Array<{ value: string, label: string }> = [
-    { value: 'fileName_asc', label: 'File name (A to Z)' },
-    { value: 'fileName_desc', label: 'File name (Z to A)' },
-    { value: 'lastModified_desc', label: 'Last modified (newest first)' },
-    { value: 'lastModified_asc', label: 'Last modified (oldest first)' },
-    { value: 'created_desc', label: 'Created (newest first)' },
-    { value: 'created_asc', label: 'Created (oldest first)' },
+    { value: 'fileName_asc', label: 'SORT_FILE_NAME_ASC' },
+    { value: 'fileName_desc', label: 'SORT_FILE_NAME_DESC' },
+    { value: 'lastModified_desc', label: 'SORT_LAST_MODIFIED_DESC' },
+    { value: 'lastModified_asc', label: 'SORT_LAST_MODIFIED_ASC' },
+    { value: 'created_desc', label: 'SORT_CREATED_DESC' },
+    { value: 'created_asc', label: 'SORT_CREATED_ASC' },
 ];
 
 // Define content settings for the UI
 export const contentSettings: Array<{ name: string, key: keyof CardNavigatorSettings, description: string }> = [
-    { name: 'Show file name', key: 'showFileName', description: 'Toggle file name display' },
-    { name: 'Show first header', key: 'showFirstHeader', description: 'Toggle first header display' },
-    { name: 'Show body', key: 'showBody', description: 'Toggle body display' },
+    { name: 'SHOW_FILE_NAME', key: 'showFileName', description: 'TOGGLE_FILE_NAME_DISPLAY' },
+    { name: 'SHOW_FIRST_HEADER', key: 'showFirstHeader', description: 'TOGGLE_FIRST_HEADER_DISPLAY' },
+    { name: 'SHOW_BODY', key: 'showBody', description: 'TOGGLE_BODY_DISPLAY' },
 ];
 
 // Define font size settings for the UI
 export const fontSizeSettings: Array<{ name: string, key: keyof CardNavigatorSettings, description: string }> = [
-    { name: 'File name font size', key: 'fileNameFontSize', description: 'Set font size for file name' },
-    { name: 'First header font size', key: 'firstHeaderFontSize', description: 'Set font size for first header' },
-    { name: 'Body font size', key: 'bodyFontSize', description: 'Set font size for body' },
+    { name: 'FILE_NAME_FONT_SIZE', key: 'fileNameFontSize', description: 'SET_FILE_NAME_FONT_SIZE' },
+    { name: 'FIRST_HEADER_FONT_SIZE', key: 'firstHeaderFontSize', description: 'SET_FIRST_HEADER_FONT_SIZE' },
+    { name: 'BODY_FONT_SIZE', key: 'bodyFontSize', description: 'SET_BODY_FONT_SIZE' },
 ];
 
 // Define keyboard shortcuts for the application
 export const keyboardShortcuts: Array<{ name: string, description: string }> = [
-    { name: 'Scroll up one card', description: 'Move up by one card.' },
-    { name: 'Scroll down one card', description: 'Move down by one card.' },
-    { name: 'Scroll left one card', description: 'Move left by one card.' },
-    { name: 'Scroll right one card', description: 'Move right by one card.' },
-    { name: 'Scroll up/left one page', description: 'Move up/left by one page of cards.' },
-    { name: 'Scroll down/right one page', description: 'Move down/right by one page of cards.' },
-    { name: 'Center active card', description: 'Center the currently active card.' },
-    { name: 'Move focus to Card Navigator', description: 'Set focus to the Card Navigator.' },
-    { name: 'Open card context menu', description: 'Open the context menu for the focused card.' }
+    { name: 'SCROLL_UP_ONE_CARD', description: 'MOVE_UP_ONE_CARD' },
+    { name: 'SCROLL_DOWN_ONE_CARD', description: 'MOVE_DOWN_ONE_CARD' },
+    { name: 'SCROLL_LEFT_ONE_CARD', description: 'MOVE_LEFT_ONE_CARD' },
+    { name: 'SCROLL_RIGHT_ONE_CARD', description: 'MOVE_RIGHT_ONE_CARD' },
+    { name: 'SCROLL_UP_LEFT_ONE_PAGE', description: 'MOVE_UP_LEFT_ONE_PAGE' },
+    { name: 'SCROLL_DOWN_RIGHT_ONE_PAGE', description: 'MOVE_DOWN_RIGHT_ONE_PAGE' },
+    { name: 'CENTER_ACTIVE_CARD', description: 'CENTER_CURRENTLY_ACTIVE_CARD' },
+    { name: 'MOVE_FOCUS_TO_CARD_NAVIGATOR', description: 'SET_FOCUS_TO_CARD_NAVIGATOR' },
+    { name: 'OPEN_CARD_CONTEXT_MENU', description: 'OPEN_CONTEXT_MENU_FOR_FOCUSED_CARD' }
 ];
 
 // Function to translate keyboard shortcuts

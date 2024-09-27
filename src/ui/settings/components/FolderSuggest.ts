@@ -4,11 +4,26 @@ import { App, TAbstractFile, TFolder } from "obsidian";
 import { TextInputSuggest } from "./suggest";
 
 export class FolderSuggest extends TextInputSuggest<TFolder> {
+    onBlur: () => void;
+    containerEl: HTMLElement;
+
     constructor(
         protected app: App,
-        public inputEl: HTMLInputElement
+        public inputEl: HTMLInputElement,
+        onBlur?: () => void
     ) {
         super(app, inputEl);
+        this.onBlur = onBlur || (() => {});
+        this.containerEl = createDiv('suggestion-container');
+        
+        // 입력 요소에 blur 이벤트 리스너 추가
+        this.inputEl.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (!this.containerEl.contains(document.activeElement)) {
+                    this.onBlur();
+                }
+            }, 100);
+        });
     }
 
     getSuggestions(inputStr: string): TFolder[] {

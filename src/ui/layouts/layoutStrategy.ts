@@ -1,4 +1,3 @@
-// layoutStrategy.ts
 import { Card } from '../../common/types';
 
 // Interface defining the contract for different layout strategies

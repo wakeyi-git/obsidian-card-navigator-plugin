@@ -1,50 +1,50 @@
 import { Setting } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SettingsManager } from './settingsManager';
-import { t } from 'i18next';
 import { CardNavigatorSettings } from '../../common/types';
 import { SettingTab } from './settingsTab';
+import { t } from 'i18next';
 
 export function addLayoutSettings(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, settingTab: SettingTab): void {
 
-	containerEl.createEl('div', { cls: 'settings-section-margin' });
+    containerEl.createEl('div', { cls: 'settings-section-margin' });
 
     new Setting(containerEl)
-        .setName(t('Layout settings'))
+        .setName(t('LAYOUT_SETTINGS'))
         .setHeading();
 
-	const settings: Record<string, Setting> = {};
+    const settings: Record<string, Setting> = {};
 
-	// Default Layout
-	settings.defaultLayout = new Setting(containerEl)
-		.setName(t('Default layout'))
-		.setDesc(t('Choose the default layout for Card Navigator.'))
-		.addDropdown(dropdown => {
-			dropdown
-				.addOption('auto', t('Auto'))
-				.addOption('list', t('List'))
-				.addOption('grid', t('Grid'))
-				.addOption('masonry', t('Masonry'))
-				.setValue(plugin.settings.defaultLayout)
-				.onChange(async (value) => {
-					const layout = value as CardNavigatorSettings['defaultLayout'];
-					await settingsManager.updateSetting('defaultLayout', layout);
-					updateSettingsState(layout, plugin.settings.alignCardHeight);
-				});
-		});
+    // Default Layout
+    settings.defaultLayout = new Setting(containerEl)
+        .setName(t('DEFAULT_LAYOUT'))
+        .setDesc(t('DEFAULT_LAYOUT_DESC'))
+        .addDropdown(dropdown => {
+            dropdown
+                .addOption('auto', t('AUTO'))
+                .addOption('list', t('LIST'))
+                .addOption('grid', t('GRID'))
+                .addOption('masonry', t('MASONRY'))
+                .setValue(plugin.settings.defaultLayout)
+                .onChange(async (value) => {
+                    const layout = value as CardNavigatorSettings['defaultLayout'];
+                    await settingsManager.updateSetting('defaultLayout', layout);
+                    updateSettingsState(layout, plugin.settings.alignCardHeight);
+                });
+        });
 
     // Card Width Threshold
     settings.cardWidthThreshold = settingTab.addSliderSetting(
         containerEl,
         'cardWidthThreshold',
-        t('Card width threshold'),
-        t('Width threshold for adding/removing columns')
+        t('CARD_WIDTH_THRESHOLD'),
+        t('CARD_WIDTH_THRESHOLD_DESC')
     );
 
     // Align Card Height
-	settings.alignCardHeight = new Setting(containerEl)
-    .setName(t('Align card height'))
-    .setDesc(t('If enabled, all cards will have the same height. If disabled, card height will adjust to content.'))
+    settings.alignCardHeight = new Setting(containerEl)
+    .setName(t('ALIGN_CARD_HEIGHT'))
+    .setDesc(t('ALIGN_CARD_HEIGHT_DESC'))
     .addToggle(toggle => toggle
         .setValue(plugin.settings.alignCardHeight)
         .onChange(async (value) => {
@@ -57,32 +57,32 @@ export function addLayoutSettings(containerEl: HTMLElement, plugin: CardNavigato
     settings.cardsPerView = settingTab.addSliderSetting(
         containerEl,
         'cardsPerView',
-        t('Cards per view'),
-        t('Number of cards to display at once')
+        t('CARDS_PER_VIEW'),
+        t('CARDS_PER_VIEW_DESC')
     );
 
     // Grid Columns
     settings.gridColumns = settingTab.addSliderSetting(
         containerEl,
         'gridColumns',
-        t('Grid columns'),
-        t('Number of columns in grid layout')
+        t('GRID_COLUMNS'),
+        t('GRID_COLUMNS_DESC')
     );
 
     // Grid Card Height
     settings.gridCardHeight = settingTab.addSliderSetting(
         containerEl,
         'gridCardHeight',
-        t('Grid card height'),
-        t('Card height in grid layout')
+        t('GRID_CARD_HEIGHT'),
+        t('GRID_CARD_HEIGHT_DESC')
     );
 
     // Masonry Columns
     settings.masonryColumns = settingTab.addSliderSetting(
         containerEl,
         'masonryColumns',
-        t('Masonry columns'),
-        t('Number of columns in masonry layout')
+        t('MASONRY_COLUMNS'),
+        t('MASONRY_COLUMNS_DESC')
     );
 
 	function updateSettingsState(layout: CardNavigatorSettings['defaultLayout'], alignCardHeight: boolean) {

@@ -1,4 +1,3 @@
-// toolbar.ts
 import { setIcon, TFolder, FuzzySuggestModal, debounce } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { CardNavigator } from '../cardNavigator';
@@ -37,14 +36,14 @@ export class Toolbar {
     }
 
     // Creates the search input container
-    private createSearchContainer(): HTMLElement {
-        const container = createDiv('card-navigator-search-container');
-
-        const input = container.createEl('input', {
-            type: 'text',
-            placeholder: t('Search...'),
-            cls: 'card-navigator-search-input'
-        });
+	private createSearchContainer(): HTMLElement {
+		const container = createDiv('card-navigator-search-container');
+	
+		const input = container.createEl('input', {
+			type: 'text',
+			placeholder: t('SEARCH_PLACEHOLDER'),
+			cls: 'card-navigator-search-input'
+		});
 
         // Adds event listener to handle search input with debounce
         input.addEventListener('input', debounce(async (e: Event) => {
@@ -58,29 +57,34 @@ export class Toolbar {
         return container;
     }
 
-    // Creates the container for action icons (folder select, sort, settings)
-    private createActionIconsContainer(): HTMLElement {
-        const container = createDiv('card-navigator-action-icons-container');
-    
-        const icons = [
-            { name: 'folder', label: t('Select folder'), action: () => this.openFolderSelector() },
-            { name: 'arrow-up-narrow-wide', label: t('Sort cards'), action: () => this.toggleSortPopup() },
-            { name: 'settings', label: t('Settings'), action: () => this.toggleSettingsPopup() },
-        ] as const;
-    
-        // Iterates over icon definitions to create toolbar icons
-        icons.forEach(icon => {
-            const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
-            if (icon.name === 'arrow-up-narrow-wide') {
-                this.sortIcon = iconElement;
-            } else if (icon.name === 'settings') {
-                this.settingsIcon = iconElement;
-            }
-            container.appendChild(iconElement);
-        });
-    
-        return container;
-    }
+	// Creates a separator element for the toolbar
+	private createSeparator(): HTMLElement {
+		return createDiv('toolbar-separator');
+	}
+
+	// Creates the container for action icons (folder select, sort, settings)
+	private createActionIconsContainer(): HTMLElement {
+		const container = createDiv('card-navigator-action-icons-container');
+	
+		const icons = [
+			{ name: 'folder', label: t('SELECT_FOLDER'), action: () => this.openFolderSelector() },
+			{ name: 'arrow-up-narrow-wide', label: t('SORT_CARDS'), action: () => this.toggleSortPopup() },
+			{ name: 'settings', label: t('SETTINGS'), action: () => this.toggleSettingsPopup() },
+		] as const;
+	
+		// Iterates over icon definitions to create toolbar icons
+		icons.forEach(icon => {
+			const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
+			if (icon.name === 'arrow-up-narrow-wide') {
+				this.sortIcon = iconElement;
+			} else if (icon.name === 'settings') {
+				this.settingsIcon = iconElement;
+			}
+			container.appendChild(iconElement);
+		});
+	
+		return container;
+	}
 
     // Helper function to create individual toolbar icons
     private createToolbarIcon(iconName: string, ariaLabel: string, action: () => void): HTMLElement {
@@ -91,11 +95,6 @@ export class Toolbar {
         icon.addEventListener('click', () => action());
     
         return icon;
-    }
-    
-    // Creates a separator element for the toolbar
-    private createSeparator(): HTMLElement {
-        return createDiv('toolbar-separator');
     }
 
     // Opens a folder selector modal and displays cards for the selected folder
