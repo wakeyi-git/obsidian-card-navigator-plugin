@@ -42,10 +42,10 @@ export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavig
         t('DEFAULT_SORT_METHOD_DESC')
     );
 
-    settingTab.addToggleSetting(
-        containerEl,
-        'centerActiveCardOnOpen',
-        t('CENTER_ACTIVE_CARD_ON_OPEN'),
-        t('CENTER_ACTIVE_CARD_ON_OPEN_DESC')
-    );
+    // settingTab.addToggleSetting(
+    //     containerEl,
+    //     'centerActiveCardOnOpen',
+    //     t('CENTER_ACTIVE_CARD_ON_OPEN'),
+    //     t('CENTER_ACTIVE_CARD_ON_OPEN_DESC')
+    // );
 }

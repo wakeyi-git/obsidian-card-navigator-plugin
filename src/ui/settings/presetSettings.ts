@@ -82,6 +82,137 @@ function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
 	});
 }
 
+function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, refreshAllSettings: () => void): void {
+	new Setting(containerEl)
+		.setName(t('AUTO_APPLY_FOLDER_PRESET'))
+		.setDesc(t('AUTO_APPLY_FOLDER_PRESET_DESC'))
+		.addToggle((toggle) => 
+			toggle
+				.setValue(plugin.settings.autoApplyFolderPresets)
+				.onChange(async (value) => {
+					await settingsManager.toggleAutoApplyPresets(value);
+					const currentFile = plugin.app.workspace.getActiveFile();
+					if (currentFile) {
+						await plugin.selectAndApplyPresetForCurrentFile();
+					}
+				})
+		);
+
+		new Setting(containerEl)
+        .setName(t('ADD_NEW_FOLDER_PRESET'))
+        .setDesc(t('ADD_NEW_FOLDER_PRESET_DESC'))
+        .addButton((button: ButtonComponent) => 
+            button
+                .setTooltip(t('ADD_NEW_FOLDER_PRESET'))
+                .setIcon('plus')
+                .setCta()
+                .onClick(async () => {
+                    const newFolderPath = '';
+                    
+                    plugin.settings.folderPresets = plugin.settings.folderPresets || {};
+                    plugin.settings.activeFolderPresets = plugin.settings.activeFolderPresets || {};
+                    
+                    if (!plugin.settings.folderPresets[newFolderPath]) {
+                        plugin.settings.folderPresets[newFolderPath] = [];
+                        plugin.settings.activeFolderPresets[newFolderPath] = '';
+                        await settingsManager.saveSettings();
+                        refreshAllSettings();
+                    } else {
+                        new Notice(t('PRESET_ALREADY_EXISTS'));
+                    }
+                })
+        );
+
+	plugin.settings.folderPresets = plugin.settings.folderPresets || {};
+	plugin.settings.activeFolderPresets = plugin.settings.activeFolderPresets || {};
+
+    for (const [folderPath, presets] of Object.entries(plugin.settings.folderPresets)) {
+		const s = new Setting(containerEl)
+			.addSearch((cb) => {
+				new FolderSuggest(plugin.app, cb.inputEl);
+				cb.setPlaceholder(t('FOLDER'))
+					.setValue(folderPath)
+					.onChange((_newFolder) => {
+						// 변경 사항을 처리하는 로직
+					});
+				cb.inputEl.addEventListener('blur', () => {
+					const newFolder = cb.inputEl.value;
+					if (newFolder && plugin.settings.folderPresets?.[newFolder]) {
+						new Notice(t('PRESET_ALREADY_EXISTS_FOR_FOLDER'));
+						return;
+					}
+					if (plugin.settings.folderPresets) {
+						delete plugin.settings.folderPresets[folderPath];
+						plugin.settings.folderPresets[newFolder] = presets;
+					}
+					if (plugin.settings.activeFolderPresets?.[folderPath]) {
+						plugin.settings.activeFolderPresets[newFolder] = plugin.settings.activeFolderPresets[folderPath];
+						delete plugin.settings.activeFolderPresets[folderPath];
+					}
+					settingsManager.saveSettings();
+					refreshAllSettings();
+				});
+			});
+
+		const presetInput = s.controlEl.createEl("input", {
+			cls: "preset-suggest-input",
+			type: "text",
+			value: plugin.settings.activeFolderPresets?.[folderPath] || '',
+			placeholder: t('PRESET')
+		});
+		
+        new PresetSuggest(
+            plugin.app,
+            presetInput,
+            plugin,
+            FileSuggestMode.PresetsFiles
+        );
+		
+		presetInput.onblur = async () => {
+			const newValue = presetInput.value;
+			plugin.settings.activeFolderPresets = plugin.settings.activeFolderPresets || {};
+			plugin.settings.folderPresets = plugin.settings.folderPresets || {};
+		
+			if (newValue !== plugin.settings.activeFolderPresets[folderPath]) {
+				plugin.settings.activeFolderPresets[folderPath] = newValue;
+				plugin.settings.folderPresets[folderPath] = [newValue];
+				await settingsManager.saveSettings();
+				refreshAllSettings();
+			}
+		};
+
+		s.addExtraButton((cb) => {
+			cb.setIcon('down-chevron-glyph')
+				.setTooltip(t('MOVE_DOWN'))
+				.onClick(() => {
+					const entries = Object.entries(plugin.settings.folderPresets || {});
+					const index = entries.findIndex(([path]) => path === folderPath);
+					if (index < entries.length - 1) {
+						[entries[index], entries[index + 1]] = [entries[index + 1], entries[index]];
+						plugin.settings.folderPresets = Object.fromEntries(entries);
+						settingsManager.saveSettings();
+						refreshAllSettings();
+					}
+				});
+		})
+		.addExtraButton((cb) => {
+			cb.setIcon('cross')
+				.setTooltip(t('DELETE'))
+				.onClick(() => {
+					if (plugin.settings.folderPresets) {
+						delete plugin.settings.folderPresets[folderPath];
+					}
+					if (plugin.settings.activeFolderPresets) {
+						delete plugin.settings.activeFolderPresets[folderPath];
+					}
+					settingsManager.saveSettings();
+					refreshAllSettings();
+				});
+		});
+		s.infoEl.remove();
+	}
+}
+
 function addPresetManagementSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, refreshAllSettings: () => void): void {
     addPresetManagementSectionContent(containerEl, plugin, settingsManager, refreshAllSettings);
 }
@@ -94,6 +225,7 @@ function addPresetManagementSectionContent(containerEl: HTMLElement, plugin: Car
             button
                 .setTooltip(t('CREATE_NEW_PRESET'))
                 .setIcon('plus')
+				.setCta()
                 .onClick(async () => {
                     const modal = new PresetEditModal(
                         plugin.app, 
@@ -214,137 +346,4 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
                 });
         });
     });
-}
-
-function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, refreshAllSettings: () => void): void {
-	new Setting(containerEl)
-		.setName(t('AUTO_APPLY_FOLDER_PRESET'))
-		.setDesc(t('AUTO_APPLY_FOLDER_PRESET_DESC'))
-		.addToggle((toggle) => 
-			toggle
-				.setValue(plugin.settings.autoApplyFolderPresets)
-				.onChange(async (value) => {
-					await settingsManager.toggleAutoApplyPresets(value);
-					const currentFile = plugin.app.workspace.getActiveFile();
-					if (currentFile) {
-						await plugin.selectAndApplyPresetForCurrentFile();
-					}
-				})
-		);
-
-	new Setting(containerEl)
-		.setName(t('ADD_NEW_FOLDER_PRESET'))
-		.setDesc(t('ADD_NEW_FOLDER_PRESET_DESC'))
-		.addButton((button: ButtonComponent) => 
-			button
-				.setTooltip(t('ADD_NEW_FOLDER_PRESET'))
-				.setButtonText('+')
-				.setCta()
-				.onClick(async () => {
-					const newFolderPath = '';
-					const presetNames = await plugin.presetManager.getPresetNames();
-					const newPresetName = presetNames.length > 0 ? presetNames[0] : '';
-					
-					plugin.settings.folderPresets = plugin.settings.folderPresets || {};
-					plugin.settings.activeFolderPresets = plugin.settings.activeFolderPresets || {};
-					
-					if (!plugin.settings.folderPresets[newFolderPath]) {
-						plugin.settings.folderPresets[newFolderPath] = [newPresetName];
-						plugin.settings.activeFolderPresets[newFolderPath] = newPresetName;
-						await settingsManager.saveSettings();
-						refreshAllSettings();
-					} else {
-						new Notice(t('PRESET_ALREADY_EXISTS'));
-					}
-				})
-		);
-
-	plugin.settings.folderPresets = plugin.settings.folderPresets || {};
-	plugin.settings.activeFolderPresets = plugin.settings.activeFolderPresets || {};
-
-	for (const [folderPath, presets] of Object.entries(plugin.settings.folderPresets)) {
-		const s = new Setting(containerEl)
-			.addSearch((cb) => {
-				new FolderSuggest(plugin.app, cb.inputEl);
-				cb.setPlaceholder(t('FOLDER'))
-					.setValue(folderPath)
-					.onChange((_newFolder) => {
-						// 변경 사항을 처리하는 로직
-					});
-				cb.inputEl.addEventListener('blur', () => {
-					const newFolder = cb.inputEl.value;
-					if (newFolder && plugin.settings.folderPresets?.[newFolder]) {
-						new Notice(t('PRESET_ALREADY_EXISTS_FOR_FOLDER'));
-						return;
-					}
-					if (plugin.settings.folderPresets) {
-						delete plugin.settings.folderPresets[folderPath];
-						plugin.settings.folderPresets[newFolder] = presets;
-					}
-					if (plugin.settings.activeFolderPresets?.[folderPath]) {
-						plugin.settings.activeFolderPresets[newFolder] = plugin.settings.activeFolderPresets[folderPath];
-						delete plugin.settings.activeFolderPresets[folderPath];
-					}
-					settingsManager.saveSettings();
-					refreshAllSettings();
-				});
-			});
-
-		const presetInput = s.controlEl.createEl("input", {
-			cls: "preset-suggest-input",
-			type: "text",
-			value: '',
-			placeholder: t('PRESET')
-		});
-		
-		new PresetSuggest(
-			plugin.app,
-			presetInput,
-			plugin,
-			FileSuggestMode.PresetsFiles
-		);
-		
-		presetInput.onblur = async () => {
-			const newValue = presetInput.value;
-			plugin.settings.activeFolderPresets = plugin.settings.activeFolderPresets || {};
-			plugin.settings.folderPresets = plugin.settings.folderPresets || {};
-		
-			if (newValue !== plugin.settings.activeFolderPresets[folderPath]) {
-				plugin.settings.activeFolderPresets[folderPath] = newValue;
-				plugin.settings.folderPresets[folderPath] = [newValue];
-				await settingsManager.saveSettings();
-				refreshAllSettings();
-			}
-		};
-
-		s.addExtraButton((cb) => {
-			cb.setIcon('down-chevron-glyph')
-				.setTooltip(t('MOVE_DOWN'))
-				.onClick(() => {
-					const entries = Object.entries(plugin.settings.folderPresets || {});
-					const index = entries.findIndex(([path]) => path === folderPath);
-					if (index < entries.length - 1) {
-						[entries[index], entries[index + 1]] = [entries[index + 1], entries[index]];
-						plugin.settings.folderPresets = Object.fromEntries(entries);
-						settingsManager.saveSettings();
-						refreshAllSettings();
-					}
-				});
-		})
-		.addExtraButton((cb) => {
-			cb.setIcon('cross')
-				.setTooltip(t('DELETE'))
-				.onClick(() => {
-					if (plugin.settings.folderPresets) {
-						delete plugin.settings.folderPresets[folderPath];
-					}
-					if (plugin.settings.activeFolderPresets) {
-						delete plugin.settings.activeFolderPresets[folderPath];
-					}
-					settingsManager.saveSettings();
-					refreshAllSettings();
-				});
-		});
-		s.infoEl.remove();
-	}
 }
