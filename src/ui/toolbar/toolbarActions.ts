@@ -165,8 +165,8 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
 
 	addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
 
-	addPresetSettingsToPopup(settingsPopup, plugin, settingsManager);
-
+	addPresetSettingsToPopup(settingsPopup, plugin);
+	
 	const layoutSection = createCollapsibleSection(settingsPopup, t('LAYOUT_SETTINGS'), true);
     
     const updateLayoutSettings = (layout: CardNavigatorSettings['defaultLayout']) => {
@@ -256,18 +256,19 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
     settingsPopup.addEventListener('click', (e) => e.stopPropagation());
 }
 
-async function addPresetSettingsToPopup(settingsPopup: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager) {
+async function addPresetSettingsToPopup(settingsPopup: HTMLElement, plugin: CardNavigatorPlugin) {
     const presetSection = createCollapsibleSection(settingsPopup, t('PRESET_SETTINGS'), true);
     presetSection.classList.add('preset-settings-section');
 
     // 프리셋 자동 적용 토글 버튼 추가
     new Setting(presetSection)
-        .setName(t('AUTO_APPLY_PRESET'))
+        .setName(t('AUTO_APPLY_PRESETS'))
         .addToggle((toggle) => 
             toggle
-                .setValue(plugin.settings.autoApplyFolderPresets)
+                .setValue(plugin.settings.autoApplyPresets)
                 .onChange(async (value) => {
-                    await settingsManager.toggleAutoApplyPresets(value);
+                    plugin.settings.autoApplyPresets = value;
+                    await plugin.saveSettings();
                     const currentFile = plugin.app.workspace.getActiveFile();
                     if (currentFile) {
                         await plugin.selectAndApplyPresetForCurrentFile();
