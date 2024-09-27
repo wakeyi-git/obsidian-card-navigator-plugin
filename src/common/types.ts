@@ -86,8 +86,8 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     showBody: true,
     bodyLengthLimit: true,
     bodyLength: 501,
-    fileNameFontSize: 20,
-    firstHeaderFontSize: 20,
+    fileNameFontSize: 17,
+    firstHeaderFontSize: 17,
     bodyFontSize: 15,
     presetFolderPath: 'CardNavigatorPresets',
     GlobalPreset: 'default',
@@ -119,7 +119,7 @@ export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> =
     cardsPerView: { min: 1, max: 10, step: 1 },
     fileNameFontSize: { min: 10, max: 25, step: 1 },
     firstHeaderFontSize: { min: 10, max: 25, step: 1 },
-    bodyFontSize: { min: 10, max: 20, step: 1 },
+    bodyFontSize: { min: 10, max: 25, step: 1 },
     bodyLength: { min: 1, max: 1001, step: 50 },
 };
 
