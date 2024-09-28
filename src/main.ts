@@ -27,17 +27,36 @@ export default class CardNavigatorPlugin extends Plugin {
     public events: Events = new Events();
 
     // Plugin initialization
-    async onload() {
-        await this.loadSettings();
-        this.presetManager = new PresetManager(this.app, this, this.settings);
-        this.settingsManager = new SettingsManager(this, this.presetManager);
-        await this.presetManager.initialize();
-        await this.initializePlugin();
+    // async onload() {
+    //     await this.loadSettings();
+    //     this.presetManager = new PresetManager(this.app, this, this.settings);
+    //     this.settingsManager = new SettingsManager(this, this.presetManager);
+    //     await this.presetManager.initialize();
+    //     await this.initializePlugin();
 
-		this.ribbonIconEl = this.addRibbonIcon('layers-3', t('OPEN_CARD_NAVIGATOR'), () => {
+	// 	this.ribbonIconEl = this.addRibbonIcon('layers-3', t('OPEN_CARD_NAVIGATOR'), () => {
+	// 		this.activateView();
+	// 	});
+
+	// 	this.registerEvent(
+	// 		this.app.workspace.on('file-open', (file) => {
+	// 			if (file instanceof TFile) {
+	// 				this.selectAndApplyPreset(file);
+	// 			}
+	// 		})
+	// 	);
+    // }
+	async onload() {
+		await this.loadSettings();
+		this.presetManager = new PresetManager(this.app, this, this.settings);
+		this.settingsManager = new SettingsManager(this, this.presetManager);
+		await this.presetManager.initialize();
+		await this.initializePlugin();
+	
+		this.addRibbonIcon('layers-3', t('OPEN_CARD_NAVIGATOR'), () => {
 			this.activateView();
 		});
-
+	
 		this.registerEvent(
 			this.app.workspace.on('file-open', (file) => {
 				if (file instanceof TFile) {
@@ -45,7 +64,9 @@ export default class CardNavigatorPlugin extends Plugin {
 				}
 			})
 		);
-    }
+	
+		this.refreshViews();
+	}
 
 	// Plugin cleanup
 	async onunload() {
@@ -69,14 +90,14 @@ export default class CardNavigatorPlugin extends Plugin {
 	}
 
     // Apply a preset using the PresetManager
-	async applyPreset(_presetName: string) {
-		await this.presetManager.applyGlobalPreset(this.settings.GlobalPreset);
-	}
+	// async applyPreset(_presetName: string) {
+	// 	await this.presetManager.applyGlobalPreset(this.settings.GlobalPreset);
+	// }
 
 	// Initialize plugin components and functionality
 	private async initializePlugin() {
-		await this.applyPreset(this.settings.GlobalPreset || 'default');
-		await this.initializeFolderPresets();
+		// await this.applyPreset(this.settings.GlobalPreset || 'default');
+		// await this.initializeFolderPresets();
 		await this.initializeI18n();
 	
 		this.settingTab = new SettingTab(this.app, this);
@@ -95,13 +116,13 @@ export default class CardNavigatorPlugin extends Plugin {
 	}
 
 	// Initialize folder presets if not already present
-	private async initializeFolderPresets() {
-		if (!this.settings.folderPresets) {
-			this.settings.folderPresets = {};
-			this.settings.activeFolderPresets = {};
-			await this.saveSettings();
-		}
-	}
+	// private async initializeFolderPresets() {
+	// 	if (!this.settings.folderPresets) {
+	// 		this.settings.folderPresets = {};
+	// 		this.settings.activeFolderPresets = {};
+	// 		await this.saveSettings();
+	// 	}
+	// }
 
 	// Initialize internationalization
 	private async initializeI18n() {
@@ -342,6 +363,7 @@ export default class CardNavigatorPlugin extends Plugin {
 
 	// Set up event listeners for file and workspace changes
 	private registerCentralizedEvents() {
+		const debouncedRefresh = debounce(() => this.refreshViews(), 200);
 
 		// Refresh card navigator on layout changes
 		this.registerEvent(
@@ -350,25 +372,42 @@ export default class CardNavigatorPlugin extends Plugin {
 			})
 		);
 
-		// Refresh card navigator on settings updates
-		this.events.on('settings-updated', () => {
-			this.refreshCardNavigator();
-		});
-
+		this.events.on('settings-updated', debouncedRefresh);
+	
 		this.registerEvent(
 			this.app.vault.on('rename', (file) => {
 				if (file instanceof TFile) {
-					this.refreshDebounced();
+					debouncedRefresh();
 				}
 			})
 		);
-
+	
 		this.registerEvent(
-			this.app.vault.on('modify', this.refreshDebounced)
+			this.app.vault.on('modify', debouncedRefresh)
 		);
-
-		this.events.on('settings-updated', this.refreshDebounced);
 	}
+	
+	// private registerCentralizedEvents() {
+	// 	const debouncedRefresh = debounce(() => this.refreshViews(), 200);
+	
+	// 	this.registerEvent(
+	// 		this.app.workspace.on('layout-change', debouncedRefresh)
+	// 	);
+	
+	// 	this.events.on('settings-updated', debouncedRefresh);
+	
+	// 	this.registerEvent(
+	// 		this.app.vault.on('rename', (file) => {
+	// 			if (file instanceof TFile) {
+	// 				debouncedRefresh();
+	// 			}
+	// 		})
+	// 	);
+	
+	// 	this.registerEvent(
+	// 		this.app.vault.on('modify', debouncedRefresh)
+	// 	);
+	// }
 
 	// Manually trigger a refresh of the views
 	triggerRefresh() {

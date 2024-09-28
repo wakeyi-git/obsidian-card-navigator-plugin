@@ -69,15 +69,15 @@ export class CardContainer {
 		this.initializeKeyboardNavigator();
 
         this.currentLayout = this.plugin.settings.defaultLayout; // 초기 레이아웃 설정
-		this.setupResizeObserver();
 	}
 	
-    private setupResizeObserver() {
-        this.resizeObserver = new ResizeObserver(() => {
-            this.plugin.updateCardNavigatorLayout(this.currentLayout);
-        });
-        this.resizeObserver.observe(this.containerEl);
-    }
+	private setupResizeObserver() {
+		this.resizeObserver = new ResizeObserver(() => {
+			this.updateLayout();
+		});
+		this.resizeObserver.observe(this.containerEl);
+		this.updateLayout(); // 즉시 한 번 실행
+	}
 	
 	private initializeKeyboardNavigator() {
 		if (this.containerEl) {
@@ -220,19 +220,24 @@ export class CardContainer {
         }
     }
 
-	// Handles resizing of the container and applies a new layout strategy if needed
-    public handleResize() {
-        const previousIsVertical = this.isVertical;
-        this.isVertical = this.calculateIsVertical();
-        
-        if (this.plugin.settings.defaultLayout === 'auto' || 
-            this.plugin.settings.defaultLayout === 'list' || 
-            previousIsVertical !== this.isVertical) {
-            this.layoutStrategy = this.determineAutoLayout();
-        }
-        
+	private updateLayout() {
+		if (!this.containerEl) return;
+		const newIsVertical = this.calculateIsVertical();
+		const previousIsVertical = this.isVertical;
+		this.isVertical = newIsVertical;
+	
+		if (this.plugin.settings.defaultLayout === 'auto' || 
+			this.plugin.settings.defaultLayout === 'list' || 
+			previousIsVertical !== this.isVertical) {
+			this.layoutStrategy = this.determineAutoLayout();
+		}
+	
 		this.keyboardNavigator?.updateLayout(this.layoutStrategy);
 		this.refresh();
+	}
+	
+	public handleResize() {
+		this.updateLayout();
 	}
 
     // Returns the current layout strategy
