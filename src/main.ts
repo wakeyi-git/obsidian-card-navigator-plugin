@@ -27,15 +27,11 @@ export default class CardNavigatorPlugin extends Plugin {
     public events: Events = new Events();
 
     async onload() {
-        console.log('CardNavigator: 플러그인 로딩 시작');
         await this.loadSettings();
-        console.log('CardNavigator: 설정 로드 완료');
         this.presetManager = new PresetManager(this.app, this, this.settings);
         this.settingsManager = new SettingsManager(this, this.presetManager);
         await this.presetManager.initialize();
-        console.log('CardNavigator: PresetManager 초기화 완료');
         await this.initializePlugin();
-        console.log('CardNavigator: 플러그인 초기화 완료');
 	
 		this.addRibbonIcon('layers-3', t('OPEN_CARD_NAVIGATOR'), () => {
 			this.activateView();
@@ -50,7 +46,6 @@ export default class CardNavigatorPlugin extends Plugin {
 		);
 	
 		this.refreshViews();
-		console.log('CardNavigator: 플러그인 로딩 완료');
 	}
 
 	// Plugin cleanup
@@ -76,27 +71,21 @@ export default class CardNavigatorPlugin extends Plugin {
 
 	// Initialize plugin components and functionality
     private async initializePlugin() {
-        console.log('CardNavigator: 플러그인 초기화 시작');
         await this.initializeI18n();
-        console.log('CardNavigator: 국제화 초기화 완료');
 
         this.settingTab = new SettingTab(this.app, this);
         this.addSettingTab(this.settingTab);
-        console.log('CardNavigator: 설정 탭 추가 완료');
 
         this.registerView(
             VIEW_TYPE_CARD_NAVIGATOR,
             (leaf) => new CardNavigator(leaf, this)
         );
-        console.log('CardNavigator: 뷰 등록 완료');
 
         this.addCommands();
         this.addScrollCommands();
-        console.log('CardNavigator: 명령어 추가 완료');
 
         this.refreshDebounced = debounce(() => this.refreshViews(), 200);
         this.registerCentralizedEvents();
-        console.log('CardNavigator: 이벤트 등록 완료');
     }
 
 	// Initialize internationalization
@@ -157,15 +146,12 @@ export default class CardNavigatorPlugin extends Plugin {
 	}
     // Refresh all Card Navigator views
     refreshViews() {
-        console.log('CardNavigator: 뷰 리프레시 시작');
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach(leaf => {
             if (leaf.view instanceof CardNavigator) {
                 leaf.view.refresh();
-                console.log('CardNavigator: 개별 뷰 리프레시 완료');
             }
         });
-        console.log('CardNavigator: 모든 뷰 리프레시 완료');
     }
 
     // Activate or create a Card Navigator view
@@ -341,28 +327,23 @@ export default class CardNavigatorPlugin extends Plugin {
 
 	// Set up event listeners for file and workspace changes
     private registerCentralizedEvents() {
-        console.log('CardNavigator: 중앙 이벤트 등록 시작');
         const debouncedRefresh = debounce(() => {
-            console.log('CardNavigator: 디바운스된 리프레시 실행');
             this.refreshViews();
         }, 200);
 
         this.registerEvent(
             this.app.workspace.on('layout-change', () => {
-                console.log('CardNavigator: 레이아웃 변경 감지');
                 this.refreshCardNavigator();
             })
         );
 
         this.events.on('settings-updated', () => {
-            console.log('CardNavigator: 설정 업데이트 감지');
             debouncedRefresh();
         });
 
         this.registerEvent(
             this.app.vault.on('rename', (file) => {
                 if (file instanceof TFile) {
-                    console.log('CardNavigator: 파일 이름 변경 감지');
                     debouncedRefresh();
                 }
             })
@@ -370,11 +351,9 @@ export default class CardNavigatorPlugin extends Plugin {
 
         this.registerEvent(
             this.app.vault.on('modify', () => {
-                console.log('CardNavigator: 파일 수정 감지');
                 debouncedRefresh();
             })
         );
-        console.log('CardNavigator: 중앙 이벤트 등록 완료');
     }
 
 	// Manually trigger a refresh of the views
