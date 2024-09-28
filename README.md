@@ -19,8 +19,9 @@ Card Navigator is an Obsidian plugin that offers a unique way to visualize and n
 - Keyboard navigation support for improved accessibility (1.0.2)
 - Context menu for quick actions on cards (1.0.2)
 - Multi-language support for English and Korean
-- Responsive design for improved mobile experience (1.0.2)
 - Multiple layout options: Auto, List, Grid, and Masonry (1.0.3)
+
+**Note**: From version 1.0.8, Card Navigator has become a desktop-only plugin. It is no longer supported on mobile devices.
 
 ![alt text](<src/screenshots/Keyboard Navigating.gif>)
 ![alt text](<src/screenshots/Editing Note.gif>)
@@ -97,13 +98,45 @@ Card Navigator now supports multiple languages:
 
 The plugin will automatically use the Obsidian interface language when supported. You can contribute translations for other languages by submitting a pull request to the GitHub repository.
 
-## Presets (1.0.1)
+## Presets
 
-You can now create, update, and delete custom presets to quickly switch between different Card Navigator configurations:
+Card Navigator now supports presets, allowing you to save and quickly switch between different configurations. This feature enhances your workflow by providing flexibility in how you view and interact with your notes.
 
-1. Open Card Navigator settings
-2. Use the preset dropdown to select, create, or manage presets
-3. Apply a preset to change multiple settings at once
+### Key Features
+
+1. **Create Custom Presets**: Save your current Card Navigator settings as a named preset for future use.
+
+2. **Global Preset**: Set a default preset that applies across all folders unless overridden.
+
+3. **Folder-Specific Presets**: Assign different presets to specific folders, allowing for customized views based on your folder structure.
+
+4. **Auto-Apply Presets**: Automatically apply the appropriate preset when navigating between folders.
+
+5. **Import/Export Presets**: Share your presets or backup your configurations by importing or exporting preset files.
+
+6. **Preset Management**: Edit, clone, or delete existing presets directly from the settings panel.
+
+### Using Presets
+
+1. **Creating a Preset**:
+   - Go to Card Navigator settings
+   - Configure your desired settings
+   - Click the "+" button in the Preset Management section
+   - Name your preset and optionally add a description
+
+2. **Applying a Preset**:
+   - Global: Toggle the preset you want to use as the global default
+   - Folder-specific: In the Folder Preset section, assign a preset to a specific folder
+
+3. **Auto-Applying Presets**:
+   - Enable "Auto Apply Presets" in settings
+   - Card Navigator will automatically switch to the appropriate preset based on the current folder
+
+4. **Importing/Exporting Presets**:
+   - Use the import/export buttons in the Preset Management section
+   - Exported presets are saved as JSON files for easy sharing or backup
+
+Presets allow you to tailor Card Navigator's behavior to different parts of your vault or different types of notes, enhancing your productivity and note-taking experience.
 
 ### Keyboard Navigation (1.0.2)
 
@@ -123,8 +156,7 @@ Card Navigator now offers comprehensive keyboard navigation support, allowing yo
 
 3. **Interacting with Cards**:
    - Enter: Open the focused card in Obsidian
-   - Context Menu key or Cmd/Ctrl + E: Open the context menu for the focused card
-
+   - Context menu key or custom shortcut: Open the context menu for the focused card
 4. **Context Menu Actions**:
    - When the context menu is open, use arrow keys to navigate menu items
    - Enter: Select the highlighted menu item
