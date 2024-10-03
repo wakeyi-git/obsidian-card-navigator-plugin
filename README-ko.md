@@ -21,8 +21,6 @@ Card Navigator는 노트를 시각화하고 탐색하는 독특한 방법을 제
 - 영어와 한국어 다국어 지원
 - 다양한 레이아웃 옵션: 자동, 리스트, 그리드, 메이슨리 (1.0.3)
 
-**주의**: 버전 1.0.8부터 Card Navigator는 데스크톱 전용 플러그인이 되었습니다. 모바일 기기에서는 더 이상 지원되지 않습니다.
-
 ![alt text](<src/screenshots/Keyboard Navigating.gif>)
 ![alt text](<src/screenshots/Editing Note.gif>)
 

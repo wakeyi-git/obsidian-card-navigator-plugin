@@ -1,4 +1,4 @@
-import { Menu, TFile, MarkdownRenderer } from 'obsidian';
+import { Menu, TFile, MarkdownRenderer, Platform } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { Card } from 'common/types';
 import { sortFiles, separateFrontmatterAndBody } from 'common/utils';
@@ -107,16 +107,56 @@ export class CardMaker {
         this.setupContextMenu(cardElement, card.file);
     }
 
-    private setupDragAndDrop(cardElement: HTMLElement, card: Card) {
-        cardElement.setAttribute('draggable', 'true');
-        cardElement.addEventListener('dragstart', (event: DragEvent) => {
-            if (event.dataTransfer) {
-                const dragContent = this.getDragContent(card);
-                event.dataTransfer.setData('text/plain', dragContent);
-                event.dataTransfer.setDragImage(cardElement, 0, 0);
-            }
-        });
-    }
+    // private setupDragAndDrop(cardElement: HTMLElement, card: Card) {
+    //     cardElement.setAttribute('draggable', 'true');
+    //     cardElement.addEventListener('dragstart', (event: DragEvent) => {
+    //         if (event.dataTransfer) {
+    //             const dragContent = this.getDragContent(card);
+    //             event.dataTransfer.setData('text/plain', dragContent);
+    //             event.dataTransfer.setDragImage(cardElement, 0, 0);
+    //         }
+    //     });
+    // }
+	
+	private setupDragAndDrop(cardElement: HTMLElement, card: Card) {
+		cardElement.setAttribute('draggable', 'true');
+	
+		let isDragging = false;
+		let longPressTimer: NodeJS.Timeout;
+		const longPressDuration = 500; // 0.5초
+	
+		cardElement.addEventListener('touchstart', (e: TouchEvent) => {
+			longPressTimer = setTimeout(() => {
+				// 길게 누르기 동작 (컨텍스트 메뉴 열기 등)
+				if (!isDragging) {
+					this.openContextMenu(e, card.file);
+				}
+			}, longPressDuration);
+		});
+	
+		cardElement.addEventListener('touchmove', () => {
+			clearTimeout(longPressTimer);
+			isDragging = true;
+			
+			// 드래그가 시작되면 사이드바 닫기
+			if (Platform.isMobile) {
+				this.plugin.app.workspace.rightSplit.collapse();
+			}
+		});
+	
+		cardElement.addEventListener('touchend', () => {
+			clearTimeout(longPressTimer);
+			isDragging = false;
+		});
+	
+		cardElement.addEventListener('dragstart', (event: DragEvent) => {
+			if (event.dataTransfer) {
+				const dragContent = this.getDragContent(card);
+				event.dataTransfer.setData('text/plain', dragContent);
+				event.dataTransfer.setDragImage(cardElement, 0, 0);
+			}
+		});
+	}
 
     private getDragContent(card: Card): string {
         if (this.plugin.settings.dragDropContent) {
@@ -135,31 +175,85 @@ export class CardMaker {
         return this.plugin.app.fileManager.generateMarkdownLink(card.file, '');
     }
 
+	// private setupContextMenu(cardElement: HTMLElement, file: TFile) {
+	// 	cardElement.addEventListener('contextmenu', (e: MouseEvent) => {
+	// 		e.preventDefault();
+	// 		const menu = new Menu();
+	
+	// 		this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
+	
+	// 		menu.addSeparator();
+	
+	// 		menu.addItem((item) => {
+	// 			item
+	// 				.setTitle(t('COPY_AS_LINK'))
+	// 				.setIcon('link')
+	// 				.onClick(() => this.copyLinkCallback(file));
+	// 		});
+	
+	// 		menu.addItem((item) => {
+	// 			item
+	// 				.setTitle(t('COPY_CARD_CONTENT'))
+	// 				.setIcon('file-text')
+	// 				.onClick(() => this.copyContentCallback(file));
+	// 		});
+	
+	// 		menu.showAtPosition({ x: e.clientX, y: e.clientY });
+	// 	});
+	// }
+
 	private setupContextMenu(cardElement: HTMLElement, file: TFile) {
-		cardElement.addEventListener('contextmenu', (e: MouseEvent) => {
-			e.preventDefault();
-			const menu = new Menu();
+		// 데스크톱에서는 우클릭 이벤트 사용
+		cardElement.addEventListener('contextmenu', (e) => this.openContextMenu(e, file));
 	
-			this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
+		// 모바일에서는 길게 누르기(long press) 이벤트 사용
+		if (Platform.isMobile) {
+			let longPressTimer: NodeJS.Timeout;
+			const longPressDuration = 500; // 0.5초
 	
-			menu.addSeparator();
-	
-			menu.addItem((item) => {
-				item
-					.setTitle(t('COPY_AS_LINK'))
-					.setIcon('link')
-					.onClick(() => this.copyLinkCallback(file));
+			cardElement.addEventListener('touchstart', (e) => {
+				longPressTimer = setTimeout(() => this.openContextMenu(e, file), longPressDuration);
 			});
 	
-			menu.addItem((item) => {
-				item
-					.setTitle(t('COPY_CARD_CONTENT'))
-					.setIcon('file-text')
-					.onClick(() => this.copyContentCallback(file));
+			cardElement.addEventListener('touchend', () => {
+				clearTimeout(longPressTimer);
 			});
 	
-			menu.showAtPosition({ x: e.clientX, y: e.clientY });
+			cardElement.addEventListener('touchmove', () => {
+				clearTimeout(longPressTimer);
+			});
+		}
+	}
+	
+	private openContextMenu(e: MouseEvent | TouchEvent, file: TFile) {
+		e.preventDefault();
+		const menu = new Menu();
+	
+		this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
+	
+		menu.addSeparator();
+	
+		menu.addItem((item) => {
+			item
+				.setTitle(t('COPY_AS_LINK'))
+				.setIcon('link')
+				.onClick(() => this.copyLinkCallback(file));
 		});
+	
+		menu.addItem((item) => {
+			item
+				.setTitle(t('COPY_CARD_CONTENT'))
+				.setIcon('file-text')
+				.onClick(() => this.copyContentCallback(file));
+		});
+	
+		// 마우스 이벤트와 터치 이벤트를 구분하여 위치 설정
+		if (e instanceof MouseEvent) {
+			menu.showAtPosition({ x: e.pageX, y: e.pageY });
+		} else if (e instanceof TouchEvent) {
+			const touch = e.touches[0] || e.changedTouches[0];
+			menu.showAtPosition({ x: touch.pageX, y: touch.pageY });
+		}
 	}
 
     private openFile(file: TFile) {

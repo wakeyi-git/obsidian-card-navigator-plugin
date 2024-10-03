@@ -21,8 +21,6 @@ Card Navigator is an Obsidian plugin that offers a unique way to visualize and n
 - Multi-language support for English and Korean
 - Multiple layout options: Auto, List, Grid, and Masonry (1.0.3)
 
-**Note**: From version 1.0.8, Card Navigator has become a desktop-only plugin. It is no longer supported on mobile devices.
-
 ![alt text](<src/screenshots/Keyboard Navigating.gif>)
 ![alt text](<src/screenshots/Editing Note.gif>)
 
