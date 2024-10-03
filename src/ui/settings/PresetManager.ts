@@ -2,8 +2,13 @@ import { App } from 'obsidian';
 import { CardNavigatorSettings, Preset, globalSettingsKeys, DEFAULT_SETTINGS } from '../../common/types';
 import { IPresetManager } from '../../common/IPresetManager';
 import CardNavigatorPlugin from '../../main';
-import * as path from 'path';
+// import * as path from 'path';
 import { t } from 'i18next';
+
+function basename(path: string, ext?: string): string {
+    const name = path.split('/').pop() || path;
+    return ext && name.endsWith(ext) ? name.slice(0, -ext.length) : name;
+}
 
 export class PresetManager implements IPresetManager {
     private presetFolder: string;
@@ -151,12 +156,19 @@ export class PresetManager implements IPresetManager {
         }
     }
 
+	// async getPresetNames(): Promise<string[]> {
+    //     const presetFiles = await this.app.vault.adapter.list(this.presetFolder);
+    //     return presetFiles.files
+    //         .filter(file => file.endsWith('.json'))
+    //         .map(file => path.basename(file, '.json'));
+    // }
+
 	async getPresetNames(): Promise<string[]> {
-        const presetFiles = await this.app.vault.adapter.list(this.presetFolder);
-        return presetFiles.files
-            .filter(file => file.endsWith('.json'))
-            .map(file => path.basename(file, '.json'));
-    }
+		const presetFiles = await this.app.vault.adapter.list(this.presetFolder);
+		return presetFiles.files
+			.filter(file => file.endsWith('.json'))
+			.map(file => basename(file, '.json'));
+	}
 
 	async clonePreset(sourceName: string, newName: string): Promise<void> {
 		const sourcePreset = await this.getPreset(sourceName);
@@ -237,15 +249,25 @@ export class PresetManager implements IPresetManager {
         return await this.app.vault.adapter.exists(filePath);
     }
 
-    async loadPresetsFromFiles(): Promise<void> {
-        const presetFiles = await this.app.vault.adapter.list(this.presetFolder);
-        for (const file of presetFiles.files) {
-            if (file.endsWith('.json')) {
-                const presetName = path.basename(file, '.json');
-                await this.loadPresetFromFile(presetName);
-            }
-        }
-    }
+    // async loadPresetsFromFiles(): Promise<void> {
+    //     const presetFiles = await this.app.vault.adapter.list(this.presetFolder);
+    //     for (const file of presetFiles.files) {
+    //         if (file.endsWith('.json')) {
+    //             const presetName = path.basename(file, '.json');
+    //             await this.loadPresetFromFile(presetName);
+    //         }
+    //     }
+    // }
+
+	async loadPresetsFromFiles(): Promise<void> {
+		const presetFiles = await this.app.vault.adapter.list(this.presetFolder);
+		for (const file of presetFiles.files) {
+			if (file.endsWith('.json')) {
+				const presetName = basename(file, '.json');
+				await this.loadPresetFromFile(presetName);
+			}
+		}
+	}
 
 	async applyGlobalPreset(presetName?: string): Promise<void> {
 		const globalPresetName = presetName || this.plugin.settings.GlobalPreset;
