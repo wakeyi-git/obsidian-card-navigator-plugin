@@ -124,23 +124,34 @@ export class CardMaker {
 		let isDragging = false;
 		let longPressTimer: NodeJS.Timeout;
 		const longPressDuration = 500; // 0.5초
+		let touchStartX: number;
+		let touchStartY: number;
 	
 		cardElement.addEventListener('touchstart', (e: TouchEvent) => {
+			const touch = e.touches[0];
+			touchStartX = touch.pageX;
+			touchStartY = touch.pageY;
+	
 			longPressTimer = setTimeout(() => {
-				// 길게 누르기 동작 (컨텍스트 메뉴 열기 등)
 				if (!isDragging) {
 					this.openContextMenu(e, card.file);
 				}
 			}, longPressDuration);
 		});
 	
-		cardElement.addEventListener('touchmove', () => {
-			clearTimeout(longPressTimer);
-			isDragging = true;
-			
-			// 드래그가 시작되면 사이드바 닫기
-			if (Platform.isMobile) {
-				this.plugin.app.workspace.rightSplit.collapse();
+		cardElement.addEventListener('touchmove', (e: TouchEvent) => {
+			const touch = e.touches[0];
+			const deltaX = Math.abs(touch.pageX - touchStartX);
+			const deltaY = Math.abs(touch.pageY - touchStartY);
+	
+			if (deltaX > 10 || deltaY > 10) {
+				clearTimeout(longPressTimer);
+				if (!isDragging) {
+					isDragging = true;
+					if (Platform.isMobile) {
+						this.plugin.app.workspace.rightSplit.collapse();
+					}
+				}
 			}
 		});
 	
@@ -247,13 +258,19 @@ export class CardMaker {
 				.onClick(() => this.copyContentCallback(file));
 		});
 	
-		// 마우스 이벤트와 터치 이벤트를 구분하여 위치 설정
+		let x: number, y: number;
 		if (e instanceof MouseEvent) {
-			menu.showAtPosition({ x: e.pageX, y: e.pageY });
+			x = e.pageX;
+			y = e.pageY;
 		} else if (e instanceof TouchEvent) {
 			const touch = e.touches[0] || e.changedTouches[0];
-			menu.showAtPosition({ x: touch.pageX, y: touch.pageY });
+			x = touch.pageX;
+			y = touch.pageY;
+		} else {
+			return; // 예상치 못한 이벤트 타입
 		}
+	
+		menu.showAtPosition({ x, y });
 	}
 
     private openFile(file: TFile) {
