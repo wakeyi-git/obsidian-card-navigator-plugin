@@ -171,12 +171,21 @@ export default class CardNavigatorPlugin extends Plugin {
 			}
 		}
 	
+		// if (leaf) {
+		// 	// Reveal the leaf and set it as active
+		// 	workspace.revealLeaf(leaf);
+		// 	if (workspace.activeLeaf) {
+		// 		await workspace.activeLeaf.setViewState(leaf.getViewState());
+		// 	}
+		// } else {
+		// 	console.error("Failed to activate Card Navigator view");
+		// }
 		if (leaf) {
-			// Reveal the leaf and set it as active
+			// Reveal the leaf
 			workspace.revealLeaf(leaf);
-			if (workspace.activeLeaf) {
-				await workspace.activeLeaf.setViewState(leaf.getViewState());
-			}
+			
+			// Set the view state of the revealed leaf
+			await leaf.setViewState(leaf.getViewState());
 		} else {
 			console.error("Failed to activate Card Navigator view");
 		}
