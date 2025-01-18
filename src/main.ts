@@ -44,8 +44,6 @@ export default class CardNavigatorPlugin extends Plugin {
 				}
 			})
 		);
-	
-		this.refreshViews();
 	}
 
 	// Plugin cleanup
@@ -83,8 +81,6 @@ export default class CardNavigatorPlugin extends Plugin {
 
         this.addCommands();
         this.addScrollCommands();
-
-        this.refreshDebounced = debounce(() => this.refreshViews(), 200);
         this.registerCentralizedEvents();
     }
 
@@ -149,7 +145,7 @@ export default class CardNavigatorPlugin extends Plugin {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach(leaf => {
             if (leaf.view instanceof CardNavigator) {
-                leaf.view.refresh();
+                leaf.view.cardContainer.refresh();
             }
         });
     }
@@ -171,15 +167,6 @@ export default class CardNavigatorPlugin extends Plugin {
 			}
 		}
 	
-		// if (leaf) {
-		// 	// Reveal the leaf and set it as active
-		// 	workspace.revealLeaf(leaf);
-		// 	if (workspace.activeLeaf) {
-		// 		await workspace.activeLeaf.setViewState(leaf.getViewState());
-		// 	}
-		// } else {
-		// 	console.error("Failed to activate Card Navigator view");
-		// }
 		if (leaf) {
 			// Reveal the leaf
 			workspace.revealLeaf(leaf);
@@ -254,22 +241,21 @@ export default class CardNavigatorPlugin extends Plugin {
 		leaves.forEach((leaf) => {
 			if (leaf.view instanceof CardNavigator) {
 				leaf.view.cardContainer.handleResize();
-				leaf.view.refresh();
 			}
 		});
 	}
 
 	// Update layout for all Card Navigator instances
-	public updateCardNavigatorLayout(layout: CardNavigatorSettings['defaultLayout']) {
-		const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-		leaves.forEach((leaf) => {
-			if (leaf.view instanceof CardNavigator) {
-				leaf.view.cardContainer.setLayout(layout);
-				leaf.view.refresh();
-			}
-		});
-		this.saveSettings();
-	}
+	// public updateCardNavigatorLayout(layout: CardNavigatorSettings['defaultLayout']) {
+	// 	const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+	// 	leaves.forEach((leaf) => {
+	// 		if (leaf.view instanceof CardNavigator) {
+	// 			leaf.view.cardContainer.setLayout(layout);
+	// 			leaf.view.cardContainer.refresh();
+	// 		}
+	// 	});
+	// 	this.saveSettings();
+	// }
 
     // Center the active card in all Card Navigator views
 	centerActiveCard() {
@@ -342,7 +328,12 @@ export default class CardNavigatorPlugin extends Plugin {
 
         this.registerEvent(
             this.app.workspace.on('layout-change', () => {
-                this.refreshCardNavigator();
+                const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+                leaves.forEach((leaf) => {
+                    if (leaf.view instanceof CardNavigator) {
+                        leaf.view.updateLayoutAndRefresh();
+                    }
+                });
             })
         );
 

@@ -318,7 +318,7 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
 								new Notice(t('PRESET_DELETED_NOTICE'));
 							}
 							
-							settingsManager.applyChanges();
+							// settingsManager.applyChanges();
 							debouncedRefreshAllSettings();
 						}
 					})

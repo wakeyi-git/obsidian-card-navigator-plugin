@@ -202,11 +202,6 @@ export class Toolbar {
         this.popupObserver.observe(this.containerEl, { childList: true, subtree: true });
     }
 
-    // Refreshes the toolbar (to be implemented if needed)
-    refresh() {
-        // Implement refresh logic if necessary
-    }
-
     // Cleans up resources when the toolbar is closed
     onClose() {
         if (this.popupObserver) {

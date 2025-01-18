@@ -395,9 +395,10 @@ function addSliderSetting(
             await settingsManager.updateSetting(key, value);
             // Update layout if necessary
             if (key === 'gridColumns' || key === 'masonryColumns') {
-                plugin.updateCardNavigatorLayout(plugin.settings.defaultLayout);
+                plugin.triggerRefresh();
+            } else {
+                plugin.triggerRefresh();
             }
-            plugin.triggerRefresh();
         })
     );
 

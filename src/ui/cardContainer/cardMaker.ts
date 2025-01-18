@@ -295,56 +295,6 @@ export class CardMaker {
         return this.plugin.app.fileManager.generateMarkdownLink(card.file, '');
     }
 
-	// private setupContextMenu(cardElement: HTMLElement, file: TFile) {
-	// 	cardElement.addEventListener('contextmenu', (e: MouseEvent) => {
-	// 		e.preventDefault();
-	// 		const menu = new Menu();
-	
-	// 		this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
-	
-	// 		menu.addSeparator();
-	
-	// 		menu.addItem((item) => {
-	// 			item
-	// 				.setTitle(t('COPY_AS_LINK'))
-	// 				.setIcon('link')
-	// 				.onClick(() => this.copyLinkCallback(file));
-	// 		});
-	
-	// 		menu.addItem((item) => {
-	// 			item
-	// 				.setTitle(t('COPY_CARD_CONTENT'))
-	// 				.setIcon('file-text')
-	// 				.onClick(() => this.copyContentCallback(file));
-	// 		});
-	
-	// 		menu.showAtPosition({ x: e.clientX, y: e.clientY });
-	// 	});
-	// }
-
-	// private setupContextMenu(cardElement: HTMLElement, file: TFile) {
-	// 	// 데스크톱에서는 우클릭 이벤트 사용
-	// 	cardElement.addEventListener('contextmenu', (e) => this.openContextMenu(e, file));
-	
-	// 	// 모바일에서는 길게 누르기(long press) 이벤트 사용
-	// 	if (Platform.isMobile) {
-	// 		let longPressTimer: NodeJS.Timeout;
-	// 		const longPressDuration = 500; // 0.5초
-	
-	// 		cardElement.addEventListener('touchstart', (e) => {
-	// 			longPressTimer = setTimeout(() => this.openContextMenu(e, file), longPressDuration);
-	// 		});
-	
-	// 		cardElement.addEventListener('touchend', () => {
-	// 			clearTimeout(longPressTimer);
-	// 		});
-	
-	// 		cardElement.addEventListener('touchmove', () => {
-	// 			clearTimeout(longPressTimer);
-	// 		});
-	// 	}
-	// }
-
 	private async openFile(file: TFile) {
 		const leaf = this.plugin.app.workspace.getLeaf(false);
 		if (leaf) {

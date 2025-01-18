@@ -79,9 +79,9 @@ export class SettingsManager implements ISettingsManager {
         });
     }
 
-	applyChanges() {
-        this.plugin.triggerRefresh();
-    }
+	// applyChanges() {
+    //     this.plugin.triggerRefresh();
+    // }
 
 	getCurrentSettings(): Partial<CardNavigatorSettings> {
 		const currentSettings = { ...this.plugin.settings };

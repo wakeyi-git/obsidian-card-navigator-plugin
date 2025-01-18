@@ -109,7 +109,6 @@ export class CardContainer {
 		this.keyboardNavigator = new KeyboardNavigator(this.plugin, this, this.containerEl);
 		this.setupResizeObserver();
 		this.layoutStrategy = this.determineAutoLayout();
-		await this.refresh();
 	}
 	
 	private waitForContainerSize(): Promise<void> {
@@ -278,9 +277,6 @@ export class CardContainer {
 		
 		// 키보드 내비게이터 업데이트
 		this.keyboardNavigator?.updateLayout(this.layoutStrategy);
-		
-		// 카드 새로 고침
-		this.refresh();
 	}
 
 
@@ -704,7 +700,6 @@ export class CardContainer {
 		this.plugin.settings.sortCriterion = criterion;
 		this.plugin.settings.sortOrder = order;
 		await this.plugin.saveSettings();
-		await this.refresh();
 	}
 
 	// Copies the link to a file to the clipboard

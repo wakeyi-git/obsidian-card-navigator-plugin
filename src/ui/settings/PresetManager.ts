@@ -249,16 +249,6 @@ export class PresetManager implements IPresetManager {
         return await this.app.vault.adapter.exists(filePath);
     }
 
-    // async loadPresetsFromFiles(): Promise<void> {
-    //     const presetFiles = await this.app.vault.adapter.list(this.presetFolder);
-    //     for (const file of presetFiles.files) {
-    //         if (file.endsWith('.json')) {
-    //             const presetName = path.basename(file, '.json');
-    //             await this.loadPresetFromFile(presetName);
-    //         }
-    //     }
-    // }
-
 	async loadPresetsFromFiles(): Promise<void> {
 		const presetFiles = await this.app.vault.adapter.list(this.presetFolder);
 		for (const file of presetFiles.files) {

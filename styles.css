@@ -292,7 +292,9 @@
 .card-navigator-filename {
     font-size: var(--file-name-font-size, 1.2rem);
     font-weight: var(--font-bold);
-    margin: 0 0 var(--size-2-1) 0;
+    margin: 0 0 var(--size-2-2) 0;
+    padding-bottom: var(--size-2-1);
+    border-bottom: 1px solid var(--background-modifier-border);
 	color: var(--text-normal);
 }
 

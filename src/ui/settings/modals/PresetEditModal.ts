@@ -141,7 +141,7 @@ export class PresetEditModal extends Modal {
 			}
 	
             this.close();
-            this.settingsManager.applyChanges();
+            // this.settingsManager.applyChanges();
             new Notice(t('PRESET_SAVED', {name: saveName}));
             
             if (this.refreshPresetList) {

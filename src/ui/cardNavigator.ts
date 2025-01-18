@@ -105,13 +105,6 @@ export class CardNavigator extends ItemView {
         return this.containerEl.querySelector('.card-navigator-card.card-navigator-focused');
     }
 
-    // Refresh the toolbar and card container
-    async refresh() {
-        await this.toolbar.refresh();
-        await this.cardContainer.refresh();
-        this.updateLayoutAndRefresh();
-    }
-
     // Update layout settings and refresh the view
     public updateLayoutAndRefresh() {
         const settings = this.plugin.settings;
@@ -141,27 +134,11 @@ export class CardNavigator extends ItemView {
 		requestAnimationFrame(async () => {
 			this.keyboardNavigator = new KeyboardNavigator(this.plugin, this.cardContainer, cardContainerEl);
 			this.isVertical = this.calculateIsVertical();
-			this.updateLayoutAndRefresh();
 			this.resizeObserver.observe(this.leaf.view.containerEl);
 	
-			await this.refresh();
-			await this.centerActiveCardOnOpen();
-	
 			await this.plugin.loadSettings();
-			// DOM이 완전히 렌더링될 때까지 기다립니다
-			await new Promise(resolve => setTimeout(resolve, 0));
-			this.updateLayoutAndRefresh();
 		});
 	}
-
-    // Center the active card when opening the view, if enabled in settings
-    private async centerActiveCardOnOpen() {
-        if (this.plugin.settings.centerActiveCardOnOpen) {
-            setTimeout(() => {
-                this.cardContainer.centerActiveCard();
-            }, 300);
-        }
-    }
 
     // Clean up when the view is closed
     async onClose() {

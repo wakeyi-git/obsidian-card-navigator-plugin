@@ -6,7 +6,7 @@ export interface ISettingsManager {
     loadSettings(): Promise<void>;
     updateSetting<K extends keyof CardNavigatorSettings>(key: K, value: CardNavigatorSettings[K]): Promise<void>;
     confirmDelete(itemName: string): Promise<boolean>;
-    applyChanges(): void;
+    // applyChanges(): void;
     getCurrentSettings(): Partial<CardNavigatorSettings>;
     getActiveFolder(): string | null;
     updateSelectedFolder(folder: TFolder | null): Promise<void>;
