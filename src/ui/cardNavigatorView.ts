@@ -20,6 +20,11 @@ export class CardNavigatorView extends ItemView {
     public toolbar: Toolbar;
     public cardContainer: CardContainer;
     private refreshDebounceTimers: Map<RefreshType, NodeJS.Timeout> = new Map();
+    private isRefreshInProgress = false;
+    private pendingRefreshTypes = new Set<RefreshType>();
+    private refreshTimeout: NodeJS.Timeout | null = null;
+    private lastRefreshTime: number = 0;
+    private readonly REFRESH_COOLDOWN = 50; // 50ms 쿨다운
 
     constructor(leaf: WorkspaceLeaf, private plugin: CardNavigatorPlugin) {
         super(leaf);
@@ -97,7 +102,7 @@ export class CardNavigatorView extends ItemView {
             case RefreshType.LAYOUT:
                 return 100; // 레이아웃 변경은 빠르게 처리
             case RefreshType.CONTENT:
-                return 300; // 컨텐츠 변경은 중간 딜레이
+                return 150; // 파일 전환 시 더 빠른 응답을 위해 시간 단축
             case RefreshType.SETTINGS:
                 return 200; // 설정 변경은 적당한 딜레이
         }
@@ -106,44 +111,101 @@ export class CardNavigatorView extends ItemView {
     // 타입별 리프레시 처리
     private async refreshByType(type: RefreshType) {
         try {
+            console.log(`[카드 네비게이터] ${type} 타입의 리프레시 시작`);
             switch (type) {
                 case RefreshType.LAYOUT:
+                    console.log('[카드 네비게이터] 레이아웃 리프레시 실행');
                     this.cardContainer.handleResize();
                     break;
                 case RefreshType.CONTENT:
+                    console.log('[카드 네비게이터] 컨텐츠 리프레시 실행');
                     await this.toolbar.refresh();
                     await this.updateCardContainerContent();
                     break;
                 case RefreshType.SETTINGS:
+                    console.log('[카드 네비게이터] 설정 리프레시 실행');
                     await this.toolbar.refresh();
                     this.updateLayoutAndRefresh();
                     break;
             }
+            console.log(`[카드 네비게이터] ${type} 타입의 리프레시 완료`);
         } catch (error) {
-            console.error(`Failed to refresh ${type}:`, error);
+            console.error(`[카드 네비게이터] ${type} 리프레시 실패:`, error);
         }
     }
 
     // 디바운스된 리프레시 실행
     async refresh(type: RefreshType = RefreshType.CONTENT) {
-        // 이전 타이머가 있다면 클리어
-        const existingTimer = this.refreshDebounceTimers.get(type);
-        if (existingTimer) {
-            clearTimeout(existingTimer);
+        const now = Date.now();
+        
+        // 쿨다운 체크
+        if (now - this.lastRefreshTime < this.REFRESH_COOLDOWN) {
+            if (this.pendingRefreshTypes.has(type)) {
+                console.log(`[카드 네비게이터] ${type} 타입이 이미 대기열에 있음`);
+                return;
+            }
+            console.log(`[카드 네비게이터] 쿨다운 중이므로 ${type} 타입을 대기열에만 추가`);
+            this.pendingRefreshTypes.add(type);
+            return;
         }
 
-        // 새로운 타이머 설정
-        const timer = setTimeout(async () => {
-            try {
-                await this.refreshByType(type);
-            } catch (error) {
-                console.error(`Failed to execute refresh ${type}:`, error);
-            } finally {
-                this.refreshDebounceTimers.delete(type);
-            }
-        }, this.getDebounceTime(type));
+        if (this.isRefreshInProgress) {
+            console.log(`[카드 네비게이터] 이미 리프레시가 진행 중이므로 ${type} 타입을 대기열에 추가`);
+            this.pendingRefreshTypes.add(type);
+            return;
+        }
 
-        this.refreshDebounceTimers.set(type, timer);
+        this.pendingRefreshTypes.add(type);
+        
+        // 이전 타이머가 있고 실행 예정 시간이 얼마 남지 않았다면 취소하지 않음
+        if (this.refreshTimeout) {
+            const remainingTime = this.getDebounceTime(type) - (now - this.lastRefreshTime);
+            if (remainingTime > this.REFRESH_COOLDOWN) {
+                clearTimeout(this.refreshTimeout);
+                console.log(`[카드 네비게이터] 이전 타이머 취소 및 ${type} 타입 추가`);
+            } else {
+                console.log(`[카드 네비게이터] 실행 임박한 타이머 유지 및 ${type} 타입 추가`);
+                return;
+            }
+        } else {
+            console.log(`[카드 네비게이터] ${type} 타입으로 새로운 리프레시 시작`);
+        }
+
+        const minDebounceTime = Math.min(
+            ...Array.from(this.pendingRefreshTypes).map(t => this.getDebounceTime(t))
+        );
+
+        this.refreshTimeout = setTimeout(async () => {
+            try {
+                this.isRefreshInProgress = true;
+                this.lastRefreshTime = Date.now();
+                
+                const refreshTypes = Array.from(this.pendingRefreshTypes);
+                console.log(`[카드 네비게이터] 대기 중인 리프레시 실행: ${refreshTypes.join(', ')}`);
+
+                // layout이 있으면 먼저 처리
+                if (this.pendingRefreshTypes.has(RefreshType.LAYOUT)) {
+                    await this.refreshByType(RefreshType.LAYOUT);
+                }
+
+                // 나머지 타입들 처리 (중복 제거)
+                const remainingTypes = new Set(refreshTypes);
+                remainingTypes.delete(RefreshType.LAYOUT);
+                
+                for (const refreshType of remainingTypes) {
+                    await this.refreshByType(refreshType);
+                }
+            } catch (error) {
+                console.error(`[카드 네비게이터] 리프레시 실행 실패:`, error);
+            } finally {
+                this.pendingRefreshTypes.clear();
+                this.refreshTimeout = null;
+                this.isRefreshInProgress = false;
+                console.log(`[카드 네비게이터] 모든 대기 중인 리프레시 완료`);
+            }
+        }, minDebounceTime);
+
+        console.log(`[카드 네비게이터] 리프레시 타이머 설정됨 (${minDebounceTime}ms)`);
     }
 
     // Update layout settings and refresh the view

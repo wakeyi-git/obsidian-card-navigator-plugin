@@ -11,6 +11,7 @@ export class KeyboardNavigator {
     private focusedCardIndex: number | null = null;
     private previousFocusedCardIndex: number | null = null;
     private isFocused = false;
+    private mutationObserver: MutationObserver | null = null;
 
 	constructor(
 		private plugin: CardNavigatorPlugin,
@@ -32,6 +33,10 @@ export class KeyboardNavigator {
 		this.containerEl.removeEventListener('keydown', this.handleKeyDown);
 		this.containerEl.removeEventListener('blur', this.handleBlur);
 		this.updateFocusedCard.cancel();
+        if (this.mutationObserver) {
+            this.mutationObserver.disconnect();
+            this.mutationObserver = null;
+        }
 	}
 
     // Handle keydown events for navigation
@@ -83,22 +88,17 @@ export class KeyboardNavigator {
         }
     };
 
-    // Handle blur event
-    private handleBlur = () => {
-        if (!this.containerEl) return;
-        this.isFocused = false;
-        this.updateFocusedCard();
-    };
-
     // Focus the navigator
 	public focusNavigator() {
 		if (!this.containerEl) return;
 	
 		this.containerEl.tabIndex = -1;
 		this.containerEl.focus();
+		
+		// 포커스 상태 먼저 설정
 		this.isFocused = true;
 	
-		// 항상 활성 카드를 찾도록 수정
+		// 활성 카드나 첫 번째 보이는 카드의 인덱스 찾기
 		const activeCardIndex = this.findActiveCardIndex();
 		if (activeCardIndex !== -1) {
 			this.focusedCardIndex = this.ensureValidIndex(activeCardIndex);
@@ -110,10 +110,85 @@ export class KeyboardNavigator {
 				this.focusedCardIndex = this.ensureValidIndex(0);
 			}
 		}
-	
-		this.updateFocusedCard();
-		this.scrollToFocusedCard(true); // 포커스된 카드로 스크롤
+
+		// 포커스 상태 즉시 업데이트
+		this.updateFocusedCardImmediate();
+		
+		// 포커스된 카드로 스크롤
+		requestAnimationFrame(() => {
+			this.scrollToFocusedCard(true);
+			// 포커스 상태 다시 한번 확인
+			this.updateFocusedCardImmediate();
+		});
+
+        // MutationObserver 설정
+        this.setupMutationObserver();
 	}
+
+    // 카드 컨테이너의 변경을 감지하는 MutationObserver 설정
+    private setupMutationObserver() {
+        if (this.mutationObserver) {
+            this.mutationObserver.disconnect();
+        }
+
+        this.mutationObserver = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList' && this.isFocused) {
+                    // 카드가 다시 렌더링된 후 포커스 상태 복원
+                    requestAnimationFrame(() => {
+                        this.updateFocusedCardImmediate();
+                    });
+                    break;
+                }
+            }
+        });
+
+        if (this.containerEl) {
+            this.mutationObserver.observe(this.containerEl, {
+                childList: true,
+                subtree: false
+            });
+        }
+    }
+
+    // Update the focused card's visual state immediately
+    private updateFocusedCardImmediate() {
+        if (!this.containerEl) return;
+
+        // 현재 포커스된 카드들의 포커스 해제
+        const focusedCards = this.containerEl.querySelectorAll('.card-navigator-focused');
+        focusedCards.forEach(card => {
+            card.classList.remove('card-navigator-focused');
+            if (card instanceof HTMLElement) {
+                card.removeAttribute('data-focused');
+            }
+        });
+
+        // 새로운 카드에 포커스 설정
+        if (this.isFocused && this.focusedCardIndex !== null) {
+            const currentCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
+            if (currentCard) {
+                currentCard.classList.add('card-navigator-focused');
+                currentCard.setAttribute('data-focused', 'true');
+                // 포커스 상태를 데이터 속성에 저장
+                this.containerEl.setAttribute('data-focused-index', this.focusedCardIndex.toString());
+            }
+        }
+
+        this.previousFocusedCardIndex = this.focusedCardIndex;
+    }
+
+    // Update the focused card's visual state with debounce
+    private updateFocusedCard = debounce(() => {
+        this.updateFocusedCardImmediate();
+    }, 50, true);
+
+    // Handle blur event
+    private handleBlur = () => {
+        if (!this.containerEl) return;
+        this.isFocused = false;
+        this.updateFocusedCardImmediate();
+    };
 
     // Blur the navigator
     public blurNavigator() {
@@ -121,7 +196,7 @@ export class KeyboardNavigator {
         this.containerEl.blur();
         this.isFocused = false;
         this.focusedCardIndex = null;
-        this.updateFocusedCard();
+        this.updateFocusedCardImmediate();
     }
 
     // Calculate new index for grid layout
@@ -175,7 +250,7 @@ export class KeyboardNavigator {
 				this.focusedCardIndex = this.ensureValidIndex(this.calculateListIndex(rowDelta, colDelta, totalCards));
 			}
 		}
-		this.updateFocusedCard();
+		this.updateFocusedCardImmediate();
 		this.scrollToFocusedCard();
 	}
 
@@ -197,46 +272,23 @@ export class KeyboardNavigator {
 		}
 	
 		this.focusedCardIndex = this.ensureValidIndex(newIndex);
-		this.updateFocusedCard();
+		this.updateFocusedCardImmediate();
 		this.scrollToFocusedCard();
 	}
 
     // Move focus to the first card
 	private moveFocusToStart() {
 		this.focusedCardIndex = this.ensureValidIndex(0);
-		this.updateFocusedCard();
+		this.updateFocusedCardImmediate();
 		this.scrollToFocusedCard();
 	}
 
     // Move focus to the last card
 	private moveFocusToEnd() {
 		this.focusedCardIndex = this.ensureValidIndex(this.containerEl.children.length - 1);
-		this.updateFocusedCard();
+		this.updateFocusedCardImmediate();
 		this.scrollToFocusedCard();
 	}
-
-    // Update the focused card's visual state
-    private updateFocusedCard = debounce(() => {
-        if (!this.containerEl) return;
-
-        // Remove focus from previous card
-        if (this.previousFocusedCardIndex !== null) {
-            const prevCard = this.containerEl.children[this.previousFocusedCardIndex] as HTMLElement;
-            if (prevCard) {
-                prevCard.classList?.remove('card-navigator-focused');
-            }
-        }
-
-        // Add focus to current card
-        if (this.isFocused && this.focusedCardIndex !== null) {
-            const currentCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
-            if (currentCard) {
-                currentCard.classList?.add('card-navigator-focused');
-            }
-        }
-
-        this.previousFocusedCardIndex = this.focusedCardIndex;
-    }, 50);
 
     // Scroll to ensure the focused card is visible
     private scrollToFocusedCard(immediate = false) {
