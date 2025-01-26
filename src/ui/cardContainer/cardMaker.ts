@@ -135,6 +135,19 @@ export class CardMaker {
         let isMoved = false;
         let isScrolling = false;
 
+        const updateDragImagePosition = (x: number, y: number) => {
+            if (this.dragImage) {
+                // 화면 경계를 벗어나지 않도록 위치 조정
+                const rect = this.dragImage.getBoundingClientRect();
+                const maxX = window.innerWidth - rect.width;
+                const maxY = window.innerHeight - rect.height;
+                const newX = Math.max(0, Math.min(maxX, x - rect.width / 2));
+                const newY = Math.max(0, Math.min(maxY, y - rect.height / 2));
+                
+                this.dragImage.style.transform = `translate(${newX}px, ${newY}px) scale(0.8)`;
+            }
+        };
+
         cardElement.addEventListener('touchstart', (e: TouchEvent) => {
             const touch = e.touches[0];
             touchStartPos = { x: touch.pageX, y: touch.pageY };
@@ -155,7 +168,6 @@ export class CardMaker {
             const deltaX = Math.abs(touch.pageX - touchStartPos.x);
             const deltaY = Math.abs(touch.pageY - touchStartPos.y);
 
-            // 처음 움직임이 감지될 때 스크롤인지 드래그인지 결정
             if (!isMoved) {
                 isMoved = true;
                 if (deltaY > deltaX) {
@@ -163,16 +175,18 @@ export class CardMaker {
                 }
             }
 
-            // 스크롤 중이면 드래그 시작하지 않음
             if (isScrolling) {
                 return;
             }
 
-            // 드래그 시작 조건: 수평 이동이 충분할 때
             if (!isDragging && deltaX > 30) {
                 isDragging = true;
                 e.preventDefault();
                 this.startDrag(cardElement, card);
+            }
+
+            if (isDragging) {
+                updateDragImagePosition(touch.pageX, touch.pageY);
             }
         }, { passive: true });
 
@@ -278,14 +292,36 @@ export class CardMaker {
     }
 
     private startDrag(cardElement: HTMLElement, card: Card) {
+        // 드래그 이미지 생성
         this.dragImage = cardElement.cloneNode(true) as HTMLElement;
-        Object.assign(this.dragImage.style, {
-            position: 'absolute',
-            opacity: '0.7',
-            pointerEvents: 'none'
-        });
-        document.body.appendChild(this.dragImage);
         
+        // 드래그 이미지 스타일링
+        Object.assign(this.dragImage.style, {
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%) scale(0.8)',
+            opacity: '0.9',
+            pointerEvents: 'none',
+            zIndex: '1000',
+            maxWidth: '200px',
+            maxHeight: '150px',
+            overflow: 'hidden',
+            backgroundColor: 'var(--background-primary)',
+            border: '2px solid var(--interactive-accent)',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            transition: 'transform 0.2s ease'
+        });
+
+        // 드래그 중임을 표시하는 아이콘 추가
+        const dragIndicator = document.createElement('div');
+        dragIndicator.innerHTML = `<svg viewBox="0 0 100 100" width="20" height="20" style="position: absolute; top: 8px; right: 8px; fill: var(--interactive-accent)">
+            <path d="M25,35 L75,35 M25,50 L75,50 M25,65 L75,65"></path>
+        </svg>`;
+        this.dragImage.appendChild(dragIndicator);
+
+        document.body.appendChild(this.dragImage);
         this.currentDraggedCard = card;
         
         if (Platform.isMobile) {
@@ -295,8 +331,13 @@ export class CardMaker {
 
     private endDrag() {
         if (this.dragImage) {
-            this.dragImage.remove();
-            this.dragImage = null;
+            // 드래그 이미지 제거 시 애니메이션 효과
+            this.dragImage.style.opacity = '0';
+            this.dragImage.style.transform = 'translate(-50%, -50%) scale(0.5)';
+            setTimeout(() => {
+                this.dragImage?.remove();
+                this.dragImage = null;
+            }, 200);
         }
 
         const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
