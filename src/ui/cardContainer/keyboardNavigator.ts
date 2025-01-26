@@ -85,6 +85,7 @@ export class KeyboardNavigator {
 
     // Handle blur event
     private handleBlur = () => {
+        if (!this.containerEl) return;
         this.isFocused = false;
         this.updateFocusedCard();
     };
@@ -116,6 +117,7 @@ export class KeyboardNavigator {
 
     // Blur the navigator
     public blurNavigator() {
+        if (!this.containerEl) return;
         this.containerEl.blur();
         this.isFocused = false;
         this.focusedCardIndex = null;
@@ -220,13 +222,17 @@ export class KeyboardNavigator {
         // Remove focus from previous card
         if (this.previousFocusedCardIndex !== null) {
             const prevCard = this.containerEl.children[this.previousFocusedCardIndex] as HTMLElement;
-            prevCard.classList.remove('card-navigator-focused');
+            if (prevCard) {
+                prevCard.classList?.remove('card-navigator-focused');
+            }
         }
 
         // Add focus to current card
         if (this.isFocused && this.focusedCardIndex !== null) {
             const currentCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
-            currentCard.classList.add('card-navigator-focused');
+            if (currentCard) {
+                currentCard.classList?.add('card-navigator-focused');
+            }
         }
 
         this.previousFocusedCardIndex = this.focusedCardIndex;
@@ -243,8 +249,10 @@ export class KeyboardNavigator {
     // Open the focused card
 	private openFocusedCard() {
 		try {
-			if (this.focusedCardIndex === null) return;
+			if (!this.containerEl || this.focusedCardIndex === null) return;
 			const focusedCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
+			if (!focusedCard) return;
+			
 			const file = this.cardContainer.getFileFromCard(focusedCard);
 			if (file) {
 				this.plugin.app.workspace.getLeaf().openFile(file);
@@ -256,18 +264,23 @@ export class KeyboardNavigator {
 
     // Find the index of the active card
     private findActiveCardIndex(): number {
+        if (!this.containerEl) return -1;
         return Array.from(this.containerEl.children).findIndex(
-            child => child.classList.contains('card-navigator-active')
+            child => child instanceof HTMLElement && child.classList?.contains('card-navigator-active')
         );
     }
 
     // Find the index of the first visible card
     private findFirstVisibleCardIndex(): number | null {
+        if (!this.containerEl) return null;
         const containerRect = this.containerEl.getBoundingClientRect();
         for (let i = 0; i < this.containerEl.children.length; i++) {
-            const cardRect = (this.containerEl.children[i] as HTMLElement).getBoundingClientRect();
-            if (this.isCardVisible(cardRect, containerRect)) {
-                return i;
+            const card = this.containerEl.children[i] as HTMLElement;
+            if (card) {
+                const cardRect = card.getBoundingClientRect();
+                if (this.isCardVisible(cardRect, containerRect)) {
+                    return i;
+                }
             }
         }
         return null;

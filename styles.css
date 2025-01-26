@@ -177,7 +177,6 @@
 
 .card-navigator-settings-popup .tree-item-children {
     padding-left: 0;
-    transition: max-height 0.3s ease-out, opacity 0.3s ease-out; /* Smooth expand/collapse */
     max-height: 1000px;
     opacity: 1;
 }
@@ -185,7 +184,7 @@
 .card-navigator-settings-popup .is-collapsed > .tree-item-children {
     max-height: 0;
     opacity: 0;
-    overflow: hidden; /* Collapsed children are hidden */
+    overflow: hidden;
 }
 
 /* 전체 너비 설정 항목을 위한 스타일 */
@@ -273,11 +272,11 @@
 .card-navigator-settings-popup .collapse-icon svg {
     width: 14px;
     height: 14px;
-    transition: transform 100ms ease-in-out;
 }
 
 .card-navigator-settings-popup .is-collapsed .collapse-icon svg {
-    transform: rotate(-90deg); /* Rotate icon when collapsed */
+    width: 14px;
+    height: 14px;
 }
 
 /* Main container styles */
@@ -324,7 +323,6 @@
     border: var(--border-width) solid var(--background-modifier-border);
     border-radius: var(--radius-m);
     background-color: var(--background-primary);
-    transition: transform var(--card-navigator-transition), box-shadow var(--card-navigator-transition); /* Smooth transition on hover/focus */
     cursor: pointer;
     display: flex;
     flex-direction: column;
