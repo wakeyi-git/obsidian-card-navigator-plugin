@@ -1,15 +1,13 @@
 import { setIcon, TFolder, FuzzySuggestModal, debounce } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
-import { CardNavigator } from '../cardNavigator';
-import { toggleSort, toggleSettings } from './toolbarActions';
+import { CardNavigatorView } from '../cardNavigatorView';
+import { toggleSort, toggleSettings, debouncedSearch } from './toolbarActions';
 import { t } from 'i18next';
 
 // Class representing the toolbar for the Card Navigator plugin
 export class Toolbar {
     private containerEl: HTMLElement | null = null;
-    private sortPopupOpen = false;
     private settingsPopupOpen = false;
-    private sortIcon: HTMLElement | null = null;
     private settingsIcon: HTMLElement | null = null;
     private popupObserver: MutationObserver | null = null;
 
@@ -36,23 +34,36 @@ export class Toolbar {
     }
 
     // Creates the search input container
-	private createSearchContainer(): HTMLElement {
-		const container = createDiv('card-navigator-search-container');
-	
-		const input = container.createEl('input', {
-			type: 'text',
-			placeholder: t('SEARCH_PLACEHOLDER'),
-			cls: 'card-navigator-search-input'
-		});
+    private createSearchContainer(): HTMLElement {
+        const container = createDiv('card-navigator-search-container');
+    
+        const input = container.createEl('input', {
+            type: 'text',
+            placeholder: t('SEARCH_PLACEHOLDER'),
+            cls: 'card-navigator-search-input'
+        });
 
-        // Adds event listener to handle search input with debounce
-        input.addEventListener('input', debounce(async (e: Event) => {
+        // 검색 중 로딩 표시를 위한 스피너
+        const spinner = container.createDiv('search-spinner');
+        spinner.hide();
+
+        // 검색 입력 처리
+        input.addEventListener('input', (e: Event) => {
             const searchTerm = (e.target as HTMLInputElement).value;
-            const view = this.plugin.app.workspace.getActiveViewOfType(CardNavigator);
-            if (view) {
-                await view.cardContainer.searchCards(searchTerm);
+            if (this.containerEl) {
+                debouncedSearch(searchTerm, this.plugin, this.containerEl);
             }
-        }, 300)); // Debounce for 300ms to reduce frequent updates
+        });
+
+        // ESC 키로 검색어 초기화
+        input.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                input.value = '';
+                if (this.containerEl) {
+                    debouncedSearch('', this.plugin, this.containerEl);
+                }
+            }
+        });
 
         return container;
     }
@@ -68,16 +79,14 @@ export class Toolbar {
 	
 		const icons = [
 			{ name: 'folder', label: t('SELECT_FOLDER'), action: () => this.openFolderSelector() },
-			{ name: 'arrow-up-narrow-wide', label: t('SORT_CARDS'), action: () => this.toggleSortPopup() },
+			{ name: 'arrow-up-narrow-wide', label: t('SORT_CARDS'), action: () => toggleSort(this.plugin, this.containerEl) },
 			{ name: 'settings', label: t('SETTINGS'), action: () => this.toggleSettingsPopup() },
 		] as const;
 	
 		// Iterates over icon definitions to create toolbar icons
 		icons.forEach(icon => {
 			const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
-			if (icon.name === 'arrow-up-narrow-wide') {
-				this.sortIcon = iconElement;
-			} else if (icon.name === 'settings') {
+			if (icon.name === 'settings') {
 				this.settingsIcon = iconElement;
 			}
 			container.appendChild(iconElement);
@@ -90,6 +99,11 @@ export class Toolbar {
     private createToolbarIcon(iconName: string, ariaLabel: string, action: () => void): HTMLElement {
         const icon = createDiv('clickable-icon');
         icon.ariaLabel = ariaLabel;
+        
+        // 정렬 아이콘인 경우 추가 클래스 부여
+        if (iconName === 'arrow-up-narrow-wide') {
+            icon.addClass('card-navigator-sort-button');
+        }
     
         setIcon(icon, iconName);
         icon.addEventListener('click', () => action());
@@ -99,39 +113,12 @@ export class Toolbar {
 
     // Opens a folder selector modal and displays cards for the selected folder
     public openFolderSelector() {
-        this.closeAllPopups(); // Close any open popups before opening the folder selector
         new FolderSuggestModal(this.plugin, (folder: TFolder) => {
-            const view = this.plugin.app.workspace.getActiveViewOfType(CardNavigator);
+            const view = this.plugin.app.workspace.getActiveViewOfType(CardNavigatorView);
             if (view) {
                 view.cardContainer.displayCardsForFolder(folder);
             }
         }).open();
-    }
-
-    // Toggles the sort popup
-    private toggleSortPopup() {
-        if (this.sortPopupOpen) {
-            this.closeSortPopup();
-        } else {
-            this.closeAllPopups();
-            this.openSortPopup();
-        }
-        this.updateIconStates();
-    }
-
-    // Opens the sort popup
-    private openSortPopup() {
-        this.sortPopupOpen = true;
-        toggleSort(this.plugin, this.containerEl);
-    }
-
-    // Closes the sort popup
-    private closeSortPopup() {
-        this.sortPopupOpen = false;
-        const sortPopup = this.containerEl?.querySelector('.card-navigator-sort-popup');
-        if (sortPopup) {
-            sortPopup.remove();
-        }
     }
 
     // Toggles the settings popup
@@ -139,7 +126,6 @@ export class Toolbar {
         if (this.settingsPopupOpen) {
             this.closeSettingsPopup();
         } else {
-            this.closeAllPopups();
             this.openSettingsPopup();
         }
         this.updateIconStates();
@@ -160,18 +146,8 @@ export class Toolbar {
         }
     }
 
-    // Closes all open popups
-    private closeAllPopups() {
-        this.closeSortPopup();
-        this.closeSettingsPopup();
-        this.updateIconStates();
-    }
-
     // Updates the visual state of the icons based on popup open states
     private updateIconStates() {
-        if (this.sortIcon) {
-            this.sortIcon.classList.toggle('card-navigator-icon-active', this.sortPopupOpen);
-        }
         if (this.settingsIcon) {
             this.settingsIcon.classList.toggle('card-navigator-icon-active', this.settingsPopupOpen);
         }
@@ -186,10 +162,7 @@ export class Toolbar {
                 if (mutation.type === 'childList') {
                     mutation.removedNodes.forEach((node) => {
                         if (node instanceof HTMLElement) {
-                            if (node.classList.contains('card-navigator-sort-popup')) {
-                                this.sortPopupOpen = false;
-                                this.updateIconStates();
-                            } else if (node.classList.contains('card-navigator-settings-popup')) {
+                            if (node.classList.contains('card-navigator-settings-popup')) {
                                 this.settingsPopupOpen = false;
                                 this.updateIconStates();
                             }
@@ -200,6 +173,11 @@ export class Toolbar {
         });
 
         this.popupObserver.observe(this.containerEl, { childList: true, subtree: true });
+    }
+
+    // Refreshes the toolbar (to be implemented if needed)
+    refresh() {
+        // Implement refresh logic if necessary
     }
 
     // Cleans up resources when the toolbar is closed

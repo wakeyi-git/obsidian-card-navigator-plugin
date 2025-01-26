@@ -1,26 +1,27 @@
-import { Menu, TFile, MarkdownRenderer, Platform, MarkdownView } from 'obsidian';
+import { Menu, TFile, MarkdownRenderer, Platform, MarkdownView, WorkspaceLeaf } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { Card } from 'common/types';
 import { sortFiles, separateFrontmatterAndBody } from 'common/utils';
 import { t } from 'i18next';
 
+type CardElementTag = 'div' | 'h3' | 'h4';
+
 export class CardMaker {
+    private dragImage: HTMLElement | null = null;
+    private currentDraggedCard: Card | null = null;
+
     constructor(
-        private plugin: CardNavigatorPlugin,
-        private copyLinkCallback: (file: TFile) => void,
-        private copyContentCallback: (file: TFile) => void
+        private plugin: CardNavigatorPlugin
     ) {}
 
     async getCardsForActiveFile(activeFile: TFile): Promise<Card[]> {
         const folder = activeFile.parent;
         if (!folder) return [];
         
-        const files = folder.children.filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
-        const sortedFiles = sortFiles(
-            files, 
-            this.plugin.settings.sortCriterion, 
-            this.plugin.settings.sortOrder
-        );
+        const files = folder.children
+            .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
+        
+        const sortedFiles = sortFiles(files, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
         return Promise.all(sortedFiles.map(file => this.createCard(file)));
     }
 
@@ -28,13 +29,15 @@ export class CardMaker {
         try {
             const content = await this.plugin.app.vault.cachedRead(file);
             const { cleanBody } = separateFrontmatterAndBody(content);
-            const bodyWithoutHeader = this.removeFirstHeader(cleanBody);
-    
+            const firstHeader = this.plugin.settings.showFirstHeader ? this.findFirstHeader(cleanBody) : undefined;
+            const body = this.plugin.settings.showBody ? 
+                this.truncateBody(this.removeFirstHeader(cleanBody)) : undefined;
+
             return {
                 file,
                 fileName: this.plugin.settings.showFileName ? file.basename : undefined,
-                firstHeader: this.plugin.settings.showFirstHeader ? this.findFirstHeader(cleanBody) : undefined,
-                body: this.plugin.settings.showBody ? this.truncateBody(bodyWithoutHeader) : undefined,
+                firstHeader,
+                body,
             };
         } catch (error) {
             console.error(`Failed to create card for file ${file.path}:`, error);
@@ -42,13 +45,12 @@ export class CardMaker {
         }
     }
 
-    private removeFirstHeader(body: string): string {
-        return body.replace(/^#+\s+(.+)$/m, '').trim();
+    private findFirstHeader(body: string): string | undefined {
+        return body.match(/^#+\s+(.+)$/m)?.[1]?.trim();
     }
 
-    private findFirstHeader(body: string): string | undefined {
-        const match = body.match(/^#+\s+(.+)$/m);
-        return match ? match[1].trim() : undefined;
+    private removeFirstHeader(body: string): string {
+        return body.replace(/^#+\s+(.+)$/m, '').trim();
     }
 
     private truncateBody(body: string): string {
@@ -60,245 +62,215 @@ export class CardMaker {
     createCardElement(card: Card): HTMLElement {
         const cardElement = document.createElement('div');
         cardElement.className = 'card-navigator-card';
-        cardElement.dataset.cardId = card.file.path; // Add unique identifier
+        cardElement.dataset.cardId = card.file.path;
 
         this.addCardContent(cardElement, card);
-        this.addCardInteractions(cardElement, card);
+        this.setupCardInteractions(cardElement, card);
 
         return cardElement;
     }
 
-	private addCardContent(cardElement: HTMLElement, card: Card) {
-		if (this.plugin.settings.showFileName && card.fileName) {
-			this.addElement(cardElement, 'h3', card.fileName, 'card-navigator-filename', this.plugin.settings.fileNameFontSize);
-		}
-	
-		if (this.plugin.settings.showFirstHeader && card.firstHeader) {
-			this.addElement(cardElement, 'h4', card.firstHeader, 'card-navigator-first-header', this.plugin.settings.firstHeaderFontSize);
-		}
-	
-		if (this.plugin.settings.showBody && card.body) {
-			const contentEl = this.addElement(cardElement, 'div', '', 'card-navigator-body', this.plugin.settings.bodyFontSize);
-			
-			if (this.plugin.settings.renderContentAsHtml) {
-				MarkdownRenderer.render(
-					this.plugin.app,
-					card.body,
-					contentEl,
-					card.file.path,
-					this.plugin
-				);
-			} else {
-				contentEl.textContent = card.body;
-				contentEl.addClass('ellipsis');
-			}
-		}
-	}
+    private addCardContent(cardElement: HTMLElement, card: Card) {
+        const { settings } = this.plugin;
+        
+        if (settings.showFileName && card.fileName) {
+            this.createContentElement(cardElement, 'h3', card.fileName, 'filename', settings.fileNameFontSize);
+        }
 
-	private addElement(parent: HTMLElement, tag: 'div' | 'h3' | 'h4', text: string, className: string, fontSize: number): HTMLElement {
-		const element = parent.createEl(tag, { text, cls: className });
-		element.style.fontSize = `${fontSize}px`;
-		return element;
-	}
+        if (settings.showFirstHeader && card.firstHeader) {
+            this.createContentElement(cardElement, 'h4', card.firstHeader, 'first-header', settings.firstHeaderFontSize);
+        }
 
-    private addCardInteractions(cardElement: HTMLElement, card: Card) {
-        cardElement.addEventListener('click', () => this.openFile(card.file));
+        if (settings.showBody && card.body) {
+            const contentEl = this.createContentElement(cardElement, 'div', '', 'body', settings.bodyFontSize);
+            
+            if (settings.renderContentAsHtml) {
+                MarkdownRenderer.render(this.plugin.app, card.body, contentEl, card.file.path, this.plugin);
+            } else {
+                contentEl.textContent = card.body;
+                contentEl.addClass('ellipsis');
+            }
+        }
+    }
+
+    private createContentElement(parent: HTMLElement, tag: CardElementTag, text: string, type: string, fontSize: number): HTMLElement {
+        const element = parent.createEl(tag, { 
+            text, 
+            cls: `card-navigator-${type}`
+        });
+        element.style.fontSize = `${fontSize}px`;
+        return element;
+    }
+
+    private setupCardInteractions(cardElement: HTMLElement, card: Card) {
+        this.setupClickHandler(cardElement, card);
         this.setupDragAndDrop(cardElement, card);
         this.setupContextMenu(cardElement, card.file);
     }
 
-    // private setupDragAndDrop(cardElement: HTMLElement, card: Card) {
-    //     cardElement.setAttribute('draggable', 'true');
-    //     cardElement.addEventListener('dragstart', (event: DragEvent) => {
-    //         if (event.dataTransfer) {
-    //             const dragContent = this.getDragContent(card);
-    //             event.dataTransfer.setData('text/plain', dragContent);
-    //             event.dataTransfer.setDragImage(cardElement, 0, 0);
-    //         }
-    //     });
-    // }
-	
+    private setupClickHandler(cardElement: HTMLElement, card: Card) {
+        cardElement.addEventListener('click', async () => {
+            const leaf = this.plugin.app.workspace.getLeaf(false);
+            if (leaf) await leaf.openFile(card.file);
+        });
+    }
+
     private setupDragAndDrop(cardElement: HTMLElement, card: Card) {
         cardElement.setAttribute('draggable', 'true');
-    
-        let isDragging = false;
-        let longPressTimer: NodeJS.Timeout;
-        const longPressDuration = 500; // 0.5초
-        let touchStartX: number;
-        let touchStartY: number;
-    
-        const touchStartHandler = (e: TouchEvent) => {
-            const touch = e.touches[0];
-            touchStartX = touch.pageX;
-            touchStartY = touch.pageY;
-    
-            longPressTimer = setTimeout(() => {
-                if (!isDragging) {
-                    // 길게 터치하면 컨텍스트 메뉴를 엽니다.
-                    this.openContextMenu(e, card.file);
-                }
-            }, longPressDuration);
-        };
-    
-        const touchMoveHandler = (e: TouchEvent) => {
-            const touch = e.touches[0];
-            const deltaX = Math.abs(touch.pageX - touchStartX);
-            const deltaY = Math.abs(touch.pageY - touchStartY);
-    
-            if (deltaX > 10 || deltaY > 10) {
-                clearTimeout(longPressTimer);
-                if (!isDragging) {
-                    isDragging = true;
-                    this.startDrag(cardElement, card);
-                }
-            }
-    
-            if (isDragging && this.dragImage) {
-                e.preventDefault(); // 스크롤 방지
-                this.dragImage.style.left = `${touch.pageX}px`;
-                this.dragImage.style.top = `${touch.pageY}px`;
-            }
-        };
-    
-        const touchEndHandler = (e: TouchEvent) => {
-            clearTimeout(longPressTimer);
-            if (isDragging) {
-                this.endDrag();
-                isDragging = false;
-            } else if (e.target === cardElement) {
-                this.openFile(card.file);
-            }
-        };
-    
-        cardElement.addEventListener('touchstart', touchStartHandler, { passive: false });
-        cardElement.addEventListener('touchmove', touchMoveHandler, { passive: false });
-        cardElement.addEventListener('touchend', touchEndHandler);
-        cardElement.addEventListener('touchcancel', touchEndHandler); // touchcancel 이벤트도 처리
+        
+        if (Platform.isMobile) {
+            this.setupMobileDragAndDrop(cardElement, card);
+        } else {
+            this.setupDesktopDragAndDrop(cardElement, card);
+        }
+    }
 
-        // 데스크톱 드래그 이벤트 처리
-        cardElement.addEventListener('dragstart', (event: DragEvent) => {
-            if (event.dataTransfer) {
-                const dragContent = this.getDragContent(card);
-                event.dataTransfer.setData('text/plain', dragContent);
-                event.dataTransfer.setDragImage(cardElement, 0, 0);
+    private setupMobileDragAndDrop(cardElement: HTMLElement, card: Card) {
+        let touchStartPos = { x: 0, y: 0 };
+        let longPressTimer: NodeJS.Timeout;
+
+        cardElement.addEventListener('touchstart', (e: TouchEvent) => {
+            const touch = e.touches[0];
+            touchStartPos = { x: touch.pageX, y: touch.pageY };
+
+            longPressTimer = setTimeout(() => {
+                this.setupContextMenu(cardElement, card.file);
+            }, 500);
+        }, { passive: false });
+
+        cardElement.addEventListener('touchmove', (e: TouchEvent) => {
+            clearTimeout(longPressTimer);
+            const touch = e.touches[0];
+            const deltaX = Math.abs(touch.pageX - touchStartPos.x);
+            const deltaY = Math.abs(touch.pageY - touchStartPos.y);
+
+            if (deltaX > 10 || deltaY > 10) {
+                e.preventDefault();
+                this.startDrag(cardElement, card);
+            }
+        }, { passive: false });
+
+        cardElement.addEventListener('touchend', () => {
+            clearTimeout(longPressTimer);
+            this.endDrag();
+        });
+    }
+
+    private setupDesktopDragAndDrop(cardElement: HTMLElement, card: Card) {
+        cardElement.addEventListener('dragstart', (e: DragEvent) => {
+            if (e.dataTransfer) {
+                e.dataTransfer.setData('text/plain', this.getCardContent(card));
+                e.dataTransfer.setDragImage(cardElement, 0, 0);
                 this.currentDraggedCard = card;
             }
         });
     }
-    
+
     private setupContextMenu(cardElement: HTMLElement, file: TFile) {
-        // 데스크톱에서는 우클릭 이벤트 사용
-        if (!Platform.isMobile) {
-            cardElement.addEventListener('contextmenu', (e) => this.openContextMenu(e, file));
-        }
-        // 모바일에서는 길게 누르기로 컨텍스트 메뉴를 열도록 setupDragAndDrop에서 처리합니다.
-    }
-    
-    private openContextMenu(e: MouseEvent | TouchEvent, file: TFile) {
-        e.preventDefault();
-        e.stopPropagation(); // 이벤트 전파 중지
-        
-        const menu = new Menu();
-    
-        this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
-    
-        menu.addSeparator();
-    
-        menu.addItem((item) => {
-            item
+        const handler = (e: MouseEvent | TouchEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const menu = new Menu();
+
+            // 옵시디언의 기본 파일 메뉴 아이템 추가
+            this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
+
+            // 구분선 추가
+            menu.addSeparator();
+
+            // 커스텀 메뉴 아이템 추가
+            menu.addItem(item => item
                 .setTitle(t('COPY_AS_LINK'))
                 .setIcon('link')
-                .onClick(() => this.copyLinkCallback(file));
-        });
-    
-        menu.addItem((item) => {
-            item
+                .onClick(() => this.copyLink(file)));
+
+            menu.addItem(item => item
                 .setTitle(t('COPY_CARD_CONTENT'))
                 .setIcon('file-text')
-                .onClick(() => this.copyContentCallback(file));
-        });
-    
-        let x: number, y: number;
-        if (e instanceof MouseEvent) {
-            x = e.pageX;
-            y = e.pageY;
-        } else if (e instanceof TouchEvent) {
-            const touch = e.touches[0] || e.changedTouches[0];
-            x = touch.pageX;
-            y = touch.pageY;
-        } else {
-            return; // 예상치 못한 이벤트 타입
+                .onClick(async () => {
+                    await this.copyCardContent(file);
+                }));
+
+            const pos = e instanceof MouseEvent ? 
+                { x: e.pageX, y: e.pageY } : 
+                { x: e.touches[0].pageX, y: e.touches[0].pageY };
+
+            menu.showAtPosition(pos);
+        };
+
+        if (!Platform.isMobile) {
+            cardElement.addEventListener('contextmenu', handler);
         }
-    
-        menu.showAtPosition({ x, y });
+    }
+
+    private getLink(file: TFile): string {
+        return this.plugin.app.fileManager.generateMarkdownLink(file, '');
+    }
+
+    private getContent(card: Card): string {
+        const parts = [];
+        if (this.plugin.settings.showFileName && card.fileName) {
+            parts.push(`## ${card.fileName}`);
+        }
+        if (this.plugin.settings.showFirstHeader && card.firstHeader) {
+            parts.push(`# ${card.firstHeader}`);
+        }
+        if (this.plugin.settings.showBody && card.body) {
+            parts.push(card.body);
+        }
+
+        return parts.length ? parts.join('\n\n') : this.getLink(card.file);
+    }
+
+    public getCardContent(card: Card): string {
+        if (!this.plugin.settings.dragDropContent) {
+            return this.getLink(card.file);
+        }
+        return this.getContent(card);
+    }
+
+    public copyLink(file: TFile) {
+        const link = this.getLink(file);
+        navigator.clipboard.writeText(link);
+    }
+
+    public async copyCardContent(file: TFile) {
+        const card = await this.createCard(file);
+        const content = this.getContent(card);
+        navigator.clipboard.writeText(content);
     }
 
     private startDrag(cardElement: HTMLElement, card: Card) {
-        // 드래그 시작 시 카드의 복사본을 생성하여 드래그 이미지로 사용
-        const dragImage = cardElement.cloneNode(true) as HTMLElement;
-        dragImage.style.position = 'absolute';
-        dragImage.style.opacity = '0.7';
-        dragImage.style.pointerEvents = 'none';
-        document.body.appendChild(dragImage);
-    
-        // dragImage를 클래스 속성으로 저장
-        this.dragImage = dragImage;
+        this.dragImage = cardElement.cloneNode(true) as HTMLElement;
+        Object.assign(this.dragImage.style, {
+            position: 'absolute',
+            opacity: '0.7',
+            pointerEvents: 'none'
+        });
+        document.body.appendChild(this.dragImage);
+        
         this.currentDraggedCard = card;
-    
+        
         if (Platform.isMobile) {
             this.plugin.app.workspace.rightSplit.collapse();
         }
     }
-    
+
     private endDrag() {
         if (this.dragImage) {
-            document.body.removeChild(this.dragImage);
+            this.dragImage.remove();
             this.dragImage = null;
         }
-    
+
         const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
         if (activeView && this.currentDraggedCard) {
-            const dragContent = this.getDragContent(this.currentDraggedCard);
-            this.insertTextIntoEditor(dragContent);
+            const editor = activeView.editor;
+            editor.replaceRange(
+                this.getCardContent(this.currentDraggedCard),
+                editor.getCursor()
+            );
         }
         this.currentDraggedCard = null;
     }
-    
-    // 클래스 속성 추가
-    private dragImage: HTMLElement | null = null;
-    private currentDraggedCard: Card | null = null;
-
-    private insertTextIntoEditor(text: string) {
-        const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
-        if (activeView) {
-            const editor = activeView.editor;
-            const cursor = editor.getCursor();
-            editor.replaceRange(text, cursor);
-        }
-    }
-
-
-    private getDragContent(card: Card): string {
-        if (this.plugin.settings.dragDropContent) {
-            let content = '';
-            if (this.plugin.settings.showFileName && card.fileName) {
-                content += `## ${card.fileName}\n\n`;
-            }
-            if (this.plugin.settings.showFirstHeader && card.firstHeader) {
-                content += `# ${card.firstHeader}\n\n`;
-            }
-            if (this.plugin.settings.showBody && card.body) {
-                content += `${card.body}\n\n`;
-            }
-            return content.trim() || this.plugin.app.fileManager.generateMarkdownLink(card.file, '');
-        }
-        return this.plugin.app.fileManager.generateMarkdownLink(card.file, '');
-    }
-
-	private async openFile(file: TFile) {
-		const leaf = this.plugin.app.workspace.getLeaf(false);
-		if (leaf) {
-			await leaf.openFile(file);
-		}
-	}
 }

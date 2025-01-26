@@ -1,4 +1,4 @@
-import { Card } from '../../common/types';
+import { Card } from 'common/types';
 
 // Interface defining the contract for different layout strategies
 export interface LayoutStrategy {
@@ -23,6 +23,12 @@ export interface LayoutStrategy {
      * @returns The number of columns in the layout
      */
 	getColumnsCount(): number;
+
+    /**
+     * Set the width of cards in the layout
+     * @param width - The width to set for the cards
+     */
+    setCardWidth(width: number): void;
 }
 
 // Interface defining the position and size of a card in the layout

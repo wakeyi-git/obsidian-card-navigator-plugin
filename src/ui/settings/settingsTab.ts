@@ -85,7 +85,6 @@ export class SettingTab extends PluginSettingTab {
             case 'selectedFolder':
             case 'sortCriterion':
             case 'sortOrder':
-            case 'centerActiveCardOnOpen':
                 this.updateContainerSettings();
                 break;
             case 'defaultLayout':

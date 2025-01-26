@@ -7,73 +7,81 @@ import { PresetImportExportModal } from '../settings/modals/PresetImportExportMo
 import { FolderSuggest } from './components/FolderSuggest';
 import { SettingTab } from './settingsTab';
 import { t } from 'i18next';
+import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 
 let presetListContainer: HTMLElement;
 
 export function addPresetSettings(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, settingTab: SettingTab): void {
-	const debouncedRefreshAllSettings = debounce(() => refreshAllSettings(), 200);
-    const refreshAllSettings = () => {
-        settingTab.updateAllSections();
-    };
+	const refreshViews = () => {
+		const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+		leaves.forEach(leaf => {
+			if (leaf.view instanceof CardNavigatorView) {
+				leaf.view.refresh(RefreshType.SETTINGS);
+			}
+		});
+		settingTab.updateAllSections();
+	};
 
-    addAutoApplyPresetsSection(containerEl, plugin, settingsManager, debouncedRefreshAllSettings);
+	const debouncedRefreshViews = debounce(() => refreshViews(), 200);
 
-    // autoApplyPresets가 true일 때만 다른 프리셋 관련 섹션들을 표시
-    if (plugin.settings.autoApplyPresets) {
-        addGlobalPresetSection(containerEl, plugin, debouncedRefreshAllSettings);
-        addFolderPresetSection(containerEl, plugin, settingsManager, debouncedRefreshAllSettings);
-        addPresetManagementSection(containerEl, plugin, settingsManager, debouncedRefreshAllSettings);
-    
-        // 프리셋 목록을 위한 컨테이너 생성
-        presetListContainer = containerEl.createDiv('preset-list-container');
-        refreshPresetList(plugin, settingsManager, debouncedRefreshAllSettings);
-    }
+	addAutoApplyPresetsSection(containerEl, plugin, settingsManager, debouncedRefreshViews);
+
+	// autoApplyPresets가 true일 때만 다른 프리셋 관련 섹션들을 표시
+	if (plugin.settings.autoApplyPresets) {
+		addGlobalPresetSection(containerEl, plugin, debouncedRefreshViews);
+		addFolderPresetSection(containerEl, plugin, settingsManager, debouncedRefreshViews);
+		addPresetManagementSection(containerEl, plugin, settingsManager, debouncedRefreshViews);
+	
+		// 프리셋 목록을 위한 컨테이너 생성
+		presetListContainer = containerEl.createDiv('preset-list-container');
+		refreshPresetList(plugin, settingsManager, debouncedRefreshViews);
+	}
 }
 
-function addAutoApplyPresetsSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshAllSettings: () => void): void {
-    new Setting(containerEl)
-        .setName(t('AUTO_APPLY_PRESETS'))
-        .setDesc(t('AUTO_APPLY_PRESETS_DESC'))
-        .addToggle((toggle) => 
-            toggle
-                .setValue(plugin.settings.autoApplyPresets)
-                .onChange(async (value) => {
-                    plugin.settings.autoApplyPresets = value;
-                    await plugin.saveSettings();
-                    debouncedRefreshAllSettings();
-                })
-        );
+function addAutoApplyPresetsSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshViews: () => void): void {
+	new Setting(containerEl)
+		.setName(t('AUTO_APPLY_PRESETS'))
+		.setDesc(t('AUTO_APPLY_PRESETS_DESC'))
+		.addToggle((toggle) => 
+			toggle
+				.setValue(plugin.settings.autoApplyPresets)
+				.onChange(async (value) => {
+					plugin.settings.autoApplyPresets = value;
+					await plugin.saveSettings();
+					debouncedRefreshViews();
+				})
+		);
 }
 
-async function refreshPresetList(plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshAllSettings: () => void): Promise<void> {
-    if (!presetListContainer) return;
+async function refreshPresetList(plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshViews: () => void): Promise<void> {
+	if (!presetListContainer) return;
 
-    presetListContainer.empty();
-    await addPresetListSection(presetListContainer, plugin, settingsManager, debouncedRefreshAllSettings);
+	presetListContainer.empty();
+	await addPresetListSection(presetListContainer, plugin, settingsManager, debouncedRefreshViews);
 }
 
-function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, debouncedRefreshAllSettings: () => void): void {
-    new Setting(containerEl)
-        .setName(t('PRESET_FOLDER'))
-        .setDesc(t('SELECT_PRESET_FOLDER'))
-        .addSearch(cb => {
-            new FolderSuggest(plugin.app, cb.inputEl, async () => {
-                const newFolder = cb.inputEl.value;
-                if (newFolder !== plugin.settings.presetFolderPath) {
-                    plugin.settings.presetFolderPath = newFolder;
-                    await plugin.saveSettings();
-                    await plugin.presetManager.updatePresetFolder(newFolder);
-                    debouncedRefreshAllSettings();
-                }
-            });
-            
-            cb.setPlaceholder(t('PRESET_FOLDER_PLACEHOLDER'))
-                .setValue(plugin.settings.presetFolderPath);
+function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, debouncedRefreshViews: () => void): void {
+	new Setting(containerEl)
+		.setName(t('PRESET_FOLDER'))
+		.setDesc(t('SELECT_PRESET_FOLDER'))
+		.addSearch(cb => {
+			new FolderSuggest(plugin.app, cb.inputEl, async () => {
+				const newFolder = cb.inputEl.value;
+				if (newFolder !== plugin.settings.presetFolderPath) {
+					plugin.settings.presetFolderPath = newFolder;
+					await plugin.saveSettings();
+					await plugin.presetManager.updatePresetFolder(newFolder);
+					debouncedRefreshViews();
+				}
+			});
+			
+			cb.setPlaceholder(t('PRESET_FOLDER_PLACEHOLDER'))
+				.setValue(plugin.settings.presetFolderPath);
 
-            const parentEl = cb.inputEl.parentElement;
-            if (parentEl) {
-                parentEl.classList.add('wide-input-container');
-            }
+			const parentEl = cb.inputEl.parentElement;
+			if (parentEl) {
+				parentEl.classList.add('wide-input-container');
+			}
 		
 		cb.inputEl.removeAttribute('autofocus');
 		
@@ -83,7 +91,7 @@ function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
 	});
 }
 
-function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshAllSettings: () => void): void {
+function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshViews: () => void): void {
 	new Setting(containerEl)
 		.setName(t('AUTO_APPLY_FOLDER_PRESET'))
 		.setDesc(t('AUTO_APPLY_FOLDER_PRESET_DESC'))
@@ -117,7 +125,7 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
                         plugin.settings.folderPresets[newFolderPath] = [];
                         plugin.settings.activeFolderPresets[newFolderPath] = '';
                         await settingsManager.saveSettings();
-                        debouncedRefreshAllSettings();
+                        debouncedRefreshViews();
                     } else {
                         new Notice(t('PRESET_ALREADY_EXISTS'));
                     }
@@ -151,7 +159,7 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
 						delete plugin.settings.activeFolderPresets[folderPath];
 					}
 					settingsManager.saveSettings();
-					debouncedRefreshAllSettings();
+					debouncedRefreshViews();
 				});
 			});
 
@@ -178,7 +186,7 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
 				plugin.settings.activeFolderPresets[folderPath] = newValue;
 				plugin.settings.folderPresets[folderPath] = [newValue];
 				await settingsManager.saveSettings();
-				debouncedRefreshAllSettings();
+				debouncedRefreshViews();
 			}
 		};
 
@@ -192,7 +200,7 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
 						[entries[index], entries[index + 1]] = [entries[index + 1], entries[index]];
 						plugin.settings.folderPresets = Object.fromEntries(entries);
 						settingsManager.saveSettings();
-						debouncedRefreshAllSettings();
+						debouncedRefreshViews();
 					}
 				});
 		})
@@ -207,67 +215,67 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
 						delete plugin.settings.activeFolderPresets[folderPath];
 					}
 					settingsManager.saveSettings();
-					debouncedRefreshAllSettings();
+					debouncedRefreshViews();
 				});
 		});
 		s.infoEl.remove();
 	}
 }
 
-function addPresetManagementSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshAllSettings: () => void): void {
-    addPresetManagementSectionContent(containerEl, plugin, settingsManager, debouncedRefreshAllSettings);
+function addPresetManagementSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshViews: () => void): void {
+	addPresetManagementSectionContent(containerEl, plugin, settingsManager, debouncedRefreshViews);
 }
 
-function addPresetManagementSectionContent(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshAllSettings: () => void): void {
-    new Setting(containerEl)
-        .setName(t('PRESET_MANAGEMENT_AND_GLOBAL_SETTINGS'))
-        .setDesc(t('PRESET_MANAGEMENT_DESC'))
-        .addButton((button: ButtonComponent) => 
-            button
-                .setTooltip(t('CREATE_NEW_PRESET'))
-                .setIcon('plus')
+function addPresetManagementSectionContent(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshViews: () => void): void {
+	new Setting(containerEl)
+		.setName(t('PRESET_MANAGEMENT_AND_GLOBAL_SETTINGS'))
+		.setDesc(t('PRESET_MANAGEMENT_DESC'))
+		.addButton((button: ButtonComponent) => 
+			button
+				.setTooltip(t('CREATE_NEW_PRESET'))
+				.setIcon('plus')
 				.setCta()
-                .onClick(async () => {
-                    const modal = new PresetEditModal(
-                        plugin.app, 
-                        plugin, 
-                        settingsManager, 
-                        'create', 
-                        undefined,
-						debouncedRefreshAllSettings
+				.onClick(async () => {
+					const modal = new PresetEditModal(
+						plugin.app, 
+						plugin, 
+						settingsManager, 
+						'create', 
+						undefined,
+						debouncedRefreshViews
 					);
-                    await modal.open();
-                })
-        )
-        .addButton((button: ButtonComponent) => 
-            button
-                .setTooltip(t('IMPORT_PRESET'))
-                .setIcon('upload')
-                .onClick(async () => {
-                    const modal = new PresetImportExportModal(
-                        plugin.app,
-                        plugin,
-                        settingsManager,
-                        'import',
-                        undefined,
-                        () => refreshPresetList(plugin, settingsManager, debouncedRefreshAllSettings) 
-                    );
-                    await modal.open();
-                })
-        );
+					await modal.open();
+				})
+		)
+		.addButton((button: ButtonComponent) => 
+			button
+				.setTooltip(t('IMPORT_PRESET'))
+				.setIcon('upload')
+				.onClick(async () => {
+					const modal = new PresetImportExportModal(
+						plugin.app,
+						plugin,
+						settingsManager,
+						'import',
+						undefined,
+						() => refreshPresetList(plugin, settingsManager, debouncedRefreshViews) 
+					);
+					await modal.open();
+				})
+		);
 }
 
-async function addPresetListSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshAllSettings: () => void): Promise<void> {
-    const presetNames = await plugin.presetManager.getPresetNames();
-    const presets = await Promise.all(presetNames.map(name => plugin.presetManager.getPreset(name)));
-    
-    presets.forEach((preset, index) => {
-        if (!preset) return;
-        
-        const presetName = presetNames[index];
-        const setting = new Setting(containerEl)
-            .setName(presetName)
-            .setDesc(preset.description || t('NO_DESCRIPTION'));
+async function addPresetListSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshViews: () => void): Promise<void> {
+	const presetNames = await plugin.presetManager.getPresetNames();
+	const presets = await Promise.all(presetNames.map(name => plugin.presetManager.getPreset(name)));
+	
+	presets.forEach((preset, index) => {
+		if (!preset) return;
+		
+		const presetName = presetNames[index];
+		const setting = new Setting(containerEl)
+			.setName(presetName)
+			.setDesc(preset.description || t('NO_DESCRIPTION'));
 		
 		if (presetName !== 'default') {
 			setting.addButton((button: ButtonComponent) => 
@@ -281,7 +289,7 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
 							settingsManager, 
 							'edit', 
 							presetName,
-							debouncedRefreshAllSettings
+							debouncedRefreshViews
 						).open();
 					})
 			);
@@ -297,17 +305,17 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
 							settingsManager, 
 							'clone', 
 							presetName,
-							debouncedRefreshAllSettings
+							debouncedRefreshViews
 						).open();
 					})
 			);
 
-            setting.addButton((button: ButtonComponent) => 
-                button
-                    .setTooltip(t('DELETE'))
-                    .setIcon('trash')
-                    .onClick(async () => {
-                        if (await settingsManager.confirmDelete(t('PRESET_NAME', {name: presetName}))) {
+			setting.addButton((button: ButtonComponent) => 
+				button
+					.setTooltip(t('DELETE'))
+					.setIcon('trash')
+					.onClick(async () => {
+						if (await settingsManager.confirmDelete(t('PRESET_NAME', {name: presetName}))) {
 							await plugin.presetManager.deletePreset(presetName);
 							
 							// 모든 폴더 프리셋 목록에서 삭제된 프리셋 제거
@@ -318,8 +326,8 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
 								new Notice(t('PRESET_DELETED_NOTICE'));
 							}
 							
-							// settingsManager.applyChanges();
-							debouncedRefreshAllSettings();
+							settingsManager.applyChanges();
+							debouncedRefreshViews();
 						}
 					})
 			);
@@ -333,18 +341,18 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
 					new PresetImportExportModal(plugin.app, plugin, settingsManager, 'export', presetName).open();
 				})
 		)
-        .addToggle((toggle: ToggleComponent) => {
-            toggle
-                .setTooltip(t('SET_AS_GLOBAL_PRESET'))
-                .setValue(plugin.settings.GlobalPreset === presetName)
-                .onChange(async (value: boolean) => {
-                    if (value) {
-                        await plugin.presetManager.applyGlobalPreset(presetName);
-                        debouncedRefreshAllSettings();
-                    } else if (plugin.settings.GlobalPreset === presetName) {
-                        toggle.setValue(true);
-                    }
-                });
-        });
-    });
+		.addToggle((toggle: ToggleComponent) => {
+			toggle
+				.setTooltip(t('SET_AS_GLOBAL_PRESET'))
+				.setValue(plugin.settings.GlobalPreset === presetName)
+				.onChange(async (value: boolean) => {
+					if (value) {
+						await plugin.presetManager.applyGlobalPreset(presetName);
+						debouncedRefreshViews();
+					} else if (plugin.settings.GlobalPreset === presetName) {
+						toggle.setValue(true);
+					}
+				});
+		});
+	});
 }

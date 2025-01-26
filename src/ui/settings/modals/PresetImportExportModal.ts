@@ -57,7 +57,7 @@ export class PresetImportExportModal extends Modal {
                     }
                     // 프리셋 저장 시 설정 값도 함께 저장
                     await this.plugin.presetManager.savePreset(presetData.name, presetData.description, presetData.settings);
-                    // this.settingsManager.applyChanges();
+                    this.settingsManager.applyChanges();
                     new Notice(t('PRESET_IMPORTED_SUCCESSFULLY', {name: presetData.name}));
                     this.close();
                     // 프리셋 목록 새로고침

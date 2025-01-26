@@ -4,6 +4,7 @@ import { SettingsManager } from './settingsManager';
 import { t } from 'i18next';
 import { FolderSuggest } from './components/FolderSuggest';
 import { SettingTab } from './settingsTab';
+import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 
 export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, settingTab: SettingTab): void {
     
@@ -41,11 +42,4 @@ export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavig
         t('DEFAULT_SORT_METHOD'),
         t('DEFAULT_SORT_METHOD_DESC')
     );
-
-    // settingTab.addToggleSetting(
-    //     containerEl,
-    //     'centerActiveCardOnOpen',
-    //     t('CENTER_ACTIVE_CARD_ON_OPEN'),
-    //     t('CENTER_ACTIVE_CARD_ON_OPEN_DESC')
-    // );
 }

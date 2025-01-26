@@ -1,10 +1,11 @@
 import { LayoutStrategy, CardPosition } from './layoutStrategy';
-import { Card, CardNavigatorSettings } from '../../common/types';
-import { CardMaker } from '../cardContainer/cardMaker';
+import { Card, CardNavigatorSettings } from 'common/types';
+import { CardMaker } from 'ui/cardContainer/cardMaker';
 
 export class MasonryLayout implements LayoutStrategy {
     private container: HTMLElement | null = null;
     private columnElements: HTMLElement[] = [];
+    private cardWidth: number = 0;
 
     constructor(
         private columns: number,
@@ -15,6 +16,10 @@ export class MasonryLayout implements LayoutStrategy {
         if (columns <= 0) {
             throw new Error('The number of columns must be greater than 0');
         }
+    }
+
+    setCardWidth(width: number): void {
+        this.cardWidth = width;
     }
 
     setContainer(container: HTMLElement) {
@@ -29,6 +34,7 @@ export class MasonryLayout implements LayoutStrategy {
         this.container.className = 'masonry-layout';
         this.container.style.setProperty('--column-count', this.columns.toString());
         this.container.style.setProperty('--card-gap', `${this.cardGap}px`);
+        this.container.style.setProperty('--card-width', `${this.cardWidth}px`);
 
         this.columnElements = [];
         for (let i = 0; i < this.columns; i++) {
@@ -39,16 +45,18 @@ export class MasonryLayout implements LayoutStrategy {
         }
     }
 
-	arrange(cards: Card[], _containerWidth: number, _containerHeight: number, _cardsPerView: number): CardPosition[] {
-		if (!this.container) {
-			console.warn('Container is not set. Please call setContainer before arrange.');
-			return [];
-		}
+    arrange(cards: Card[], containerWidth: number, _containerHeight: number, _cardsPerView: number): CardPosition[] {
+        if (!this.container) {
+            console.warn('Container is not set. Please call setContainer before arrange.');
+            return [];
+        }
 
-        this.setupContainer(); // Ensure container is set up correctly
+        this.setupContainer();
 
         const cardPositions: CardPosition[] = [];
         const containerRect = this.container.getBoundingClientRect();
+        const totalGapWidth = this.cardGap * (this.columns - 1);
+        const calculatedCardWidth = this.cardWidth || (containerWidth - totalGapWidth) / this.columns;
 
         // Store focused cards before clearing the container
         const focusedCards = new Set(Array.from(this.container.querySelectorAll('.card-navigator-focused'))
@@ -61,6 +69,7 @@ export class MasonryLayout implements LayoutStrategy {
             const columnIndex = index % this.columns;
             const cardElement = this.cardMaker.createCardElement(card);
             cardElement.classList.add('masonry-card');
+            cardElement.style.width = `${calculatedCardWidth}px`;
             
             // Restore the focused state if it existed
             if (focusedCards.has(card.file.path)) {
@@ -74,7 +83,7 @@ export class MasonryLayout implements LayoutStrategy {
                 card,
                 x: rect.left - containerRect.left,
                 y: rect.top - containerRect.top,
-                width: rect.width,
+                width: calculatedCardWidth,
                 height: rect.height
             });
         });
@@ -91,7 +100,6 @@ export class MasonryLayout implements LayoutStrategy {
     }
 
     destroy() {
-        // Clean up if necessary
         this.container = null;
         this.columnElements = [];
     }

@@ -29,7 +29,6 @@ export interface CardNavigatorSettings {
     sortOrder: SortOrder;
     renderContentAsHtml: boolean;
     dragDropContent: boolean;
-    centerActiveCardOnOpen: boolean;
     defaultLayout: defaultLayout;
     cardWidthThreshold: number;
     alignCardHeight: boolean;
@@ -74,7 +73,6 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     sortOrder: 'asc',
     renderContentAsHtml: false,
     dragDropContent: false,
-    centerActiveCardOnOpen: true,
     defaultLayout: 'auto',
     cardWidthThreshold: 250,
     alignCardHeight: true,

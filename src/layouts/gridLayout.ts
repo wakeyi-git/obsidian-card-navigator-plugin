@@ -1,16 +1,24 @@
 import { LayoutStrategy, CardPosition } from './layoutStrategy';
-import { Card, CardNavigatorSettings } from '../../common/types';
+import { Card, CardNavigatorSettings } from 'common/types';
 
 // Class implementing the Grid layout strategy for card arrangement
 export class GridLayout implements LayoutStrategy {
+    private cardWidth: number = 0;
+
     constructor(private columns: number, private cardGap: number, private settings: CardNavigatorSettings) {}
 
+    setCardWidth(width: number): void {
+        this.cardWidth = width;
+    }
+
     // Arrange cards in a grid layout
-	arrange(cards: Card[], containerWidth: number, _containerHeight: number, _cardsPerView: number): CardPosition[] {
-		const positions: CardPosition[] = [];
-		const totalGapWidth = this.cardGap * (this.columns - 1);
-		const cardWidth = (containerWidth - totalGapWidth) / this.columns;
-		const cardHeight = this.settings.gridCardHeight;
+    arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[] {
+        const positions: CardPosition[] = [];
+        const totalGapWidth = this.cardGap * (this.columns - 1);
+        const cardWidth = this.cardWidth || (containerWidth - totalGapWidth) / this.columns;
+        
+        // 그리드 모드에서는 항상 gridCardHeight 값을 사용
+        const cardHeight = this.settings.gridCardHeight;
 
         cards.forEach((card, index) => {
             const column = index % this.columns;

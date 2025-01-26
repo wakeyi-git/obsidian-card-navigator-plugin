@@ -54,16 +54,90 @@
 .card-navigator-search-container {
     flex-grow: 1;
     margin-right: 0.5rem;
-	min-width: 0;
+    min-width: 0;
+    position: relative;
 }
 
 .card-navigator-search-input {
     width: 100%;
-    padding: 0.5rem;
+    padding: 0.5rem 2rem 0.5rem 0.5rem; /* 오른쪽 패딩 추가 (스피너 공간) */
     border: var(--border-width);
     border-radius: var(--radius-s);
     background-color: var(--background-primary);
     color: var(--text-normal);
+    transition: border-color 0.15s ease;
+}
+
+.card-navigator-search-input:focus {
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 2px var(--background-modifier-border);
+}
+
+/* 검색 스피너 스타일 */
+.search-spinner {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--background-modifier-border);
+    border-top-color: var(--interactive-accent);
+    border-radius: 50%;
+    display: none;
+    animation: search-spinner 0.6s linear infinite;
+}
+
+/* 검색 중일 때 스피너 표시 */
+.card-navigator-search-container.is-searching .search-spinner {
+    display: block;
+}
+
+/* 검색 중일 때 입력 필드 스타일 */
+.card-navigator-search-container.is-searching .card-navigator-search-input {
+    padding-right: 2rem; /* 스피너 공간 확보 */
+}
+
+/* 스피너 애니메이션 */
+@keyframes search-spinner {
+    to {
+        transform: translateY(-50%) rotate(360deg);
+    }
+}
+
+/* 검색 결과 없음 상태 */
+.card-navigator-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.card-navigator-empty-message {
+    font-size: 1.1em;
+    margin-bottom: 1rem;
+}
+
+/* 반응형 검색 스타일 */
+@media (max-width: 768px) {
+    .card-navigator-search-container {
+        min-width: 150px;
+    }
+
+    .card-navigator-search-input {
+        font-size: 0.9em;
+        padding: 0.4rem 1.8rem 0.4rem 0.4rem;
+    }
+
+    .search-spinner {
+        width: 14px;
+        height: 14px;
+        right: 0.4rem;
+    }
 }
 
 .card-navigator-icon-active {
@@ -292,9 +366,7 @@
 .card-navigator-filename {
     font-size: var(--file-name-font-size, 1.2rem);
     font-weight: var(--font-bold);
-    margin: 0 0 var(--size-2-2) 0;
-    padding-bottom: var(--size-2-1);
-    border-bottom: 1px solid var(--background-modifier-border);
+    margin: 0 0 var(--size-2-1) 0;
 	color: var(--text-normal);
 }
 

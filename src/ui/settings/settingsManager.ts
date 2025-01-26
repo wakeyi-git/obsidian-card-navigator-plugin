@@ -1,9 +1,9 @@
 import { TFolder, TFile, debounce, Modal, App } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { CardNavigatorSettings, NumberSettingKey, RangeSettingConfig, rangeSettingConfigs, FolderPresets, DEFAULT_SETTINGS, globalSettingsKeys } from '../../common/types';
-import { ISettingsManager } from '../../common/ISettingsManager';
-import { IPresetManager } from '../../common/IPresetManager';
+import { ISettingsManager, IPresetManager } from '../../common/interface';
 import { t } from 'i18next';
+import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 
 export class SettingsManager implements ISettingsManager {
     private saveSettingsDebounced = debounce(async () => {
@@ -68,7 +68,13 @@ export class SettingsManager implements ISettingsManager {
     ) {
         this.plugin.settings[key] = value;
         this.saveSettingsDebounced();
-        this.plugin.triggerRefresh();
+        // 모든 카드 네비게이터 뷰 리프레시
+        const leaves = this.plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        leaves.forEach(leaf => {
+            if (leaf.view instanceof CardNavigatorView) {
+                leaf.view.refresh(RefreshType.SETTINGS);
+            }
+        });
     }
 
     async confirmDelete(itemName: string): Promise<boolean> {
@@ -79,9 +85,15 @@ export class SettingsManager implements ISettingsManager {
         });
     }
 
-	// applyChanges() {
-    //     this.plugin.triggerRefresh();
-    // }
+	applyChanges() {
+        // 모든 카드 네비게이터 뷰 리프레시
+        const leaves = this.plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        leaves.forEach(leaf => {
+            if (leaf.view instanceof CardNavigatorView) {
+                leaf.view.refresh(RefreshType.SETTINGS);
+            }
+        });
+    }
 
 	getCurrentSettings(): Partial<CardNavigatorSettings> {
 		const currentSettings = { ...this.plugin.settings };

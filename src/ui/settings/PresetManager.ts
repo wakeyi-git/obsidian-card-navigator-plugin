@@ -1,9 +1,64 @@
 import { App } from 'obsidian';
 import { CardNavigatorSettings, Preset, globalSettingsKeys, DEFAULT_SETTINGS } from '../../common/types';
-import { IPresetManager } from '../../common/IPresetManager';
+import { IPresetManager } from '../../common/interface';
 import CardNavigatorPlugin from '../../main';
-// import * as path from 'path';
 import { t } from 'i18next';
+import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
+
+// LRU 캐시 구현
+class LRUCache<K, V> {
+    private cache: Map<K, V>;
+    private maxSize: number;
+    private timestamps: Map<K, number>;
+
+    constructor(maxSize: number) {
+        this.cache = new Map();
+        this.timestamps = new Map();
+        this.maxSize = maxSize;
+    }
+
+    get(key: K): V | undefined {
+        const value = this.cache.get(key);
+        if (value !== undefined) {
+            this.timestamps.set(key, Date.now());
+        }
+        return value;
+    }
+
+    set(key: K, value: V): void {
+        if (this.cache.size >= this.maxSize) {
+            this.evictOldest();
+        }
+        this.cache.set(key, value);
+        this.timestamps.set(key, Date.now());
+    }
+
+    delete(key: K): void {
+        this.cache.delete(key);
+        this.timestamps.delete(key);
+    }
+
+    clear(): void {
+        this.cache.clear();
+        this.timestamps.clear();
+    }
+
+    private evictOldest(): void {
+        let oldestKey: K | null = null;
+        let oldestTime = Infinity;
+
+        for (const [key, time] of this.timestamps.entries()) {
+            if (time < oldestTime) {
+                oldestTime = time;
+                oldestKey = key;
+            }
+        }
+
+        if (oldestKey) {
+            this.delete(oldestKey);
+        }
+    }
+}
 
 function basename(path: string, ext?: string): string {
     const name = path.split('/').pop() || path;
@@ -12,10 +67,12 @@ function basename(path: string, ext?: string): string {
 
 export class PresetManager implements IPresetManager {
     private presetFolder: string;
-    private presetCache: Map<string, Preset> = new Map();
+    private presetCache: LRUCache<string, Preset>;
+    private static readonly CACHE_MAX_SIZE = 50; // 최대 50개의 프리셋을 캐시
 
     constructor(private app: App, private plugin: CardNavigatorPlugin, private settings: CardNavigatorSettings) {
         this.presetFolder = this.settings.presetFolderPath || 'CardNavigatorPresets';
+        this.presetCache = new LRUCache<string, Preset>(PresetManager.CACHE_MAX_SIZE);
         if (!this.settings.folderPresets) {
             this.settings.folderPresets = {};
         }
@@ -66,7 +123,14 @@ export class PresetManager implements IPresetManager {
         };
         this.settings.lastActivePreset = name;
         await this.plugin.saveSettings();
-        this.plugin.refreshCardNavigator();
+        
+        // 모든 카드 네비게이터 뷰 리프레시
+        const leaves = this.plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        leaves.forEach(leaf => {
+            if (leaf.view instanceof CardNavigatorView) {
+                leaf.view.refresh(RefreshType.SETTINGS);
+            }
+        });
     }
 
 	public async savePreset(name: string, description?: string, settings?: Partial<CardNavigatorSettings>): Promise<void> {
@@ -156,13 +220,6 @@ export class PresetManager implements IPresetManager {
         }
     }
 
-	// async getPresetNames(): Promise<string[]> {
-    //     const presetFiles = await this.app.vault.adapter.list(this.presetFolder);
-    //     return presetFiles.files
-    //         .filter(file => file.endsWith('.json'))
-    //         .map(file => path.basename(file, '.json'));
-    // }
-
 	async getPresetNames(): Promise<string[]> {
 		const presetFiles = await this.app.vault.adapter.list(this.presetFolder);
 		return presetFiles.files
@@ -203,12 +260,16 @@ export class PresetManager implements IPresetManager {
     }
 
 	async getPreset(presetName: string): Promise<Preset | undefined> {
-		if (this.presetCache.has(presetName)) {
-			return this.presetCache.get(presetName);
-		}
-		const preset = await this.loadPresetFromFile(presetName);
-		return preset || undefined;
-	}
+        const cachedPreset = this.presetCache.get(presetName);
+        if (cachedPreset) {
+            return cachedPreset;
+        }
+        const preset = await this.loadPresetFromFile(presetName);
+        if (preset) {
+            this.presetCache.set(presetName, preset);
+        }
+        return preset || undefined;
+    }
 
     getFolderPresets(): Record<string, string[]> {
         return this.settings.folderPresets || {};
@@ -301,7 +362,6 @@ export class PresetManager implements IPresetManager {
 	async applyPreset(presetName: string): Promise<void> {
 		const preset = await this.getPreset(presetName);
 		if (preset) {
-			
 			// 글로벌 설정값 보존
 			const globalSettings = globalSettingsKeys.reduce((acc, key) => {
 				if (key in this.plugin.settings && this.plugin.settings[key] !== undefined) {
@@ -320,7 +380,14 @@ export class PresetManager implements IPresetManager {
 			};
 			
 			await this.plugin.saveSettings();
-			this.plugin.refreshCardNavigator();
+			
+			// 모든 카드 네비게이터 뷰 리프레시
+			const leaves = this.plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+			leaves.forEach(leaf => {
+				if (leaf.view instanceof CardNavigatorView) {
+					leaf.view.refresh(RefreshType.SETTINGS);
+				}
+			});
 		} else {
 			console.error(t('PRESET_NOT_FOUND', {name: presetName}));
 		}

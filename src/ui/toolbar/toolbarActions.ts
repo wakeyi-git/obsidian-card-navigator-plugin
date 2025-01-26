@@ -1,13 +1,156 @@
-import { Setting, TextComponent } from 'obsidian';
-import CardNavigatorPlugin from '../../main';
-import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey } from '../../common/types';
-import { SettingsManager } from '../settings/settingsManager';
-import { FolderSuggest } from '../settings/components/FolderSuggest';
-import { getTranslatedSortOptions } from '../../common/types';
+import { Setting, TextComponent, Menu, debounce } from 'obsidian';
+import CardNavigatorPlugin from 'main';
+import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey } from 'common/types';
+import { SettingsManager } from 'ui/settings/settingsManager';
+import { FolderSuggest } from 'ui/settings/components/FolderSuggest';
+import { getTranslatedSortOptions } from 'common/types';
 import { t } from 'i18next';
+import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 
 // 전역 변수 및 상수
 const currentPopups: Map<Window, { element: HTMLElement, type: ToolbarMenu }> = new Map();
+
+// 검색 관련 상수
+const SEARCH_DEBOUNCE_DELAY = 300; // 300ms
+const MIN_SEARCH_TERM_LENGTH = 2;
+const MAX_SEARCH_HISTORY = 10;
+
+// 검색 히스토리 관리
+class SearchHistory {
+    private history: string[] = [];
+    private maxSize: number;
+
+    constructor(maxSize: number = MAX_SEARCH_HISTORY) {
+        this.maxSize = maxSize;
+    }
+
+    add(term: string) {
+        // 중복 제거
+        this.history = this.history.filter(item => item !== term);
+        // 최신 검색어를 앞에 추가
+        this.history.unshift(term);
+        // 최대 크기 유지
+        if (this.history.length > this.maxSize) {
+            this.history.pop();
+        }
+    }
+
+    get recent(): string[] {
+        return [...this.history];
+    }
+
+    clear() {
+        this.history = [];
+    }
+}
+
+// 검색 상태 관리
+interface SearchState {
+    isSearching: boolean;
+    lastSearchTerm: string;
+    searchHistory: SearchHistory;
+}
+
+const searchState: SearchState = {
+    isSearching: false,
+    lastSearchTerm: '',
+    searchHistory: new SearchHistory()
+};
+
+// 검색어 전처리
+function preprocessSearchTerm(term: string): string {
+    return term.trim().toLowerCase();
+}
+
+// 검색어 유효성 검사
+function isValidSearchTerm(term: string): boolean {
+    const processed = preprocessSearchTerm(term);
+    return processed.length >= MIN_SEARCH_TERM_LENGTH;
+}
+
+// 검색 상태 업데이트
+function updateSearchState(searching: boolean, term: string = '') {
+    searchState.isSearching = searching;
+    if (term) {
+        searchState.lastSearchTerm = term;
+        searchState.searchHistory.add(term);
+    }
+}
+
+// 로딩 상태 표시
+function updateLoadingState(containerEl: HTMLElement | null, isLoading: boolean) {
+    if (!containerEl) return;
+
+    const searchContainer = containerEl.querySelector('.card-navigator-search-container');
+    if (!searchContainer) return;
+
+    searchContainer.toggleClass('is-searching', isLoading);
+}
+
+// 검색 실행
+export async function executeSearch(
+    plugin: CardNavigatorPlugin,
+    containerEl: HTMLElement | null,
+    searchTerm: string
+) {
+    if (!containerEl) return;
+
+    const processed = preprocessSearchTerm(searchTerm);
+    
+    // 빈 검색어인 경우 전체 표시
+    if (!processed) {
+        const view = plugin.app.workspace.getActiveViewOfType(CardNavigatorView);
+        if (view) {
+            updateSearchState(false);
+            updateLoadingState(containerEl, false);
+            await view.refresh(RefreshType.CONTENT);
+        }
+        return;
+    }
+
+    // 검색어 유효성 검사
+    if (!isValidSearchTerm(processed)) {
+        return;
+    }
+
+    // 이전 검색과 동일한 경우 스킵
+    if (processed === searchState.lastSearchTerm) {
+        return;
+    }
+
+    try {
+        updateSearchState(true, processed);
+        updateLoadingState(containerEl, true);
+
+        const view = plugin.app.workspace.getActiveViewOfType(CardNavigatorView);
+        if (view) {
+            await view.cardContainer.searchCards(processed);
+        }
+    } catch (error) {
+        console.error('Search failed:', error);
+    } finally {
+        updateSearchState(false);
+        updateLoadingState(containerEl, false);
+    }
+}
+
+// 디바운스된 검색 함수
+export const debouncedSearch = debounce(
+    (searchTerm: string, plugin: CardNavigatorPlugin, containerEl: HTMLElement) => {
+        executeSearch(plugin, containerEl, searchTerm);
+    },
+    SEARCH_DEBOUNCE_DELAY
+);
+
+// 검색 히스토리 가져오기
+export function getSearchHistory(): string[] {
+    return searchState.searchHistory.recent;
+}
+
+// 검색 히스토리 지우기
+export function clearSearchHistory() {
+    searchState.searchHistory.clear();
+}
 
 // 유틸리티 함수
 function handleWindowClick(event: MouseEvent, windowObj: Window) {
@@ -96,38 +239,79 @@ export function toggleSort(plugin: CardNavigatorPlugin, containerEl: HTMLElement
         console.error('Container element is undefined in toggleSort');
         return;
     }
-    const currentWindow = containerEl.ownerDocument.defaultView;
-    if (!currentWindow) {
-        console.error('Cannot determine the window of the container element');
-        return;
-    }
-    const sortPopup = createPopup('card-navigator-sort-popup', 'sort', currentWindow);
+
+    const menu = new Menu();
     const currentSort = `${plugin.settings.sortCriterion}_${plugin.settings.sortOrder}`;
     const sortOptions = getTranslatedSortOptions();
-    sortOptions.forEach(option => {
-        const button = createSortOption(option.value, option.label, currentSort, plugin, containerEl);
-        sortPopup.appendChild(button);
+
+    // 이름 관련 정렬 옵션
+    const nameOptions = sortOptions.filter(option => option.value.includes('fileName'));
+    nameOptions.forEach(option => {
+        menu.addItem(item => 
+            item
+                .setTitle(option.label)
+                .setChecked(currentSort === option.value)
+                .onClick(async () => {
+                    const [criterion, order] = option.value.split('_') as [SortCriterion, SortOrder];
+                    await updateSortSettings(plugin, criterion, order, containerEl);
+                })
+        );
     });
-    sortPopup.addEventListener('click', (e) => e.stopPropagation());
+
+    // 구분선 추가
+    if (nameOptions.length > 0) {
+        menu.addSeparator();
+    }
+
+    // 수정일 관련 정렬 옵션
+    const modifiedOptions = sortOptions.filter(option => option.value.includes('lastModified'));
+    modifiedOptions.forEach(option => {
+        menu.addItem(item => 
+            item
+                .setTitle(option.label)
+                .setChecked(currentSort === option.value)
+                .onClick(async () => {
+                    const [criterion, order] = option.value.split('_') as [SortCriterion, SortOrder];
+                    await updateSortSettings(plugin, criterion, order, containerEl);
+                })
+        );
+    });
+
+    // 구분선 추가
+    if (modifiedOptions.length > 0) {
+        menu.addSeparator();
+    }
+
+    // 생성일 관련 정렬 옵션
+    const createdOptions = sortOptions.filter(option => option.value.includes('created'));
+    createdOptions.forEach(option => {
+        menu.addItem(item => 
+            item
+                .setTitle(option.label)
+                .setChecked(currentSort === option.value)
+                .onClick(async () => {
+                    const [criterion, order] = option.value.split('_') as [SortCriterion, SortOrder];
+                    await updateSortSettings(plugin, criterion, order, containerEl);
+                })
+        );
+    });
+
+    // 마우스 이벤트 위치에 메뉴 표시
+    const buttonEl = containerEl.querySelector('.card-navigator-sort-button');
+    if (buttonEl instanceof HTMLElement) {
+        const rect = buttonEl.getBoundingClientRect();
+        menu.showAtPosition({ x: rect.left, y: rect.bottom });
+    }
 }
 
-function createSortOption(
-    value: string, 
-    label: string, 
-    currentSort: string, 
-    plugin: CardNavigatorPlugin, 
-    containerEl: HTMLElement
-): HTMLButtonElement {
-    const button = containerEl.ownerDocument.createElement('button');
-    button.textContent = label;
-    button.className = `sort-option${currentSort === value ? ' active' : ''}`;
-    
-    button.addEventListener('click', async () => {
-        const [criterion, order] = value.split('_') as [SortCriterion, SortOrder];
-        await updateSortSettings(plugin, criterion, order, containerEl);
+// 리프레시 유틸리티 함수
+function refreshAllCardNavigatorViews(plugin: CardNavigatorPlugin, type: RefreshType) {
+    const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+    leaves.forEach(leaf => {
+        if (leaf.view instanceof CardNavigatorView) {
+            leaf.view.refresh(type);
+        }
     });
-    
-    return button;
 }
 
 async function updateSortSettings(
@@ -139,14 +323,9 @@ async function updateSortSettings(
     plugin.settings.sortCriterion = criterion;
     plugin.settings.sortOrder = order;
     await plugin.saveSettings();
-    plugin.triggerRefresh();
     
-    const currentWindow = containerEl.ownerDocument.defaultView;
-    if (currentWindow) {
-        closeCurrentPopup(currentWindow);
-    } else {
-        console.error('Cannot determine the window of the container element in updateSortSettings');
-    }
+    // 정렬 변경은 컨텐츠 리프레시
+    refreshAllCardNavigatorViews(plugin, RefreshType.CONTENT);
 }
 
 // 설정 관련 함수
@@ -287,7 +466,8 @@ async function addPresetSettingsToPopup(settingsPopup: HTMLElement, plugin: Card
             dropdown.setValue(plugin.settings.GlobalPreset)
                 .onChange(async (value) => {
                     await plugin.presetManager.applyGlobalPreset(value);
-                    plugin.triggerRefresh();
+                    // 프리셋 변경은 설정 리프레시
+                    refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
                 });
         });
 }
@@ -338,7 +518,8 @@ function addDropdownSetting(
             dropdown.setValue(plugin.settings[key] as string)
                 .onChange(async (value) => {
                     await settingsManager.updateSetting(key, value);
-                    plugin.triggerRefresh();
+                    // 설정 변경은 설정 리프레시
+                    refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
                     if (onChange) {
                         onChange(value);
                     }
@@ -360,7 +541,8 @@ function addToggleSetting(
             .setValue(plugin.settings[key] as boolean)
             .onChange(async (value) => {
                 await settingsManager.updateBooleanSetting(key, value);
-                plugin.triggerRefresh();
+                // 설정 변경은 설정 리프레시
+                refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
                 if (onChange) {
                     onChange();
                 }
@@ -385,7 +567,6 @@ function addSliderSetting(
         .setValue(plugin.settings[key])
         .setDynamicTooltip()
         .onChange(async (value) => {
-            // Check if the setting should be updated based on other settings
             if (
                 (key === 'bodyLength' && !plugin.settings.bodyLengthLimit) ||
                 (key === 'cardsPerView' && !plugin.settings.alignCardHeight)
@@ -395,17 +576,27 @@ function addSliderSetting(
             await settingsManager.updateSetting(key, value);
             // Update layout if necessary
             if (key === 'gridColumns' || key === 'masonryColumns') {
-                plugin.triggerRefresh();
+                plugin.updateLayout(plugin.settings.defaultLayout);
             } else {
-                plugin.triggerRefresh();
+                // 일반 설정 변경은 설정 리프레시
+                refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
             }
         })
     );
 
-    // Disable bodyLength setting if body length is not limited
     if (key === 'bodyLength') {
         setting.setDisabled(!plugin.settings.bodyLengthLimit);
     }
 
     return setting;
+}
+
+// 레이아웃 변경 처리
+export async function handleLayoutChange(
+    plugin: CardNavigatorPlugin, 
+    layout: CardNavigatorSettings['defaultLayout']
+): Promise<void> {
+    plugin.settings.defaultLayout = layout;
+    await plugin.saveSettings();
+    plugin.updateLayout(layout);
 }
