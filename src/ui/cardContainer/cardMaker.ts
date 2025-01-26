@@ -1,4 +1,4 @@
-import { Menu, TFile, MarkdownRenderer, Platform, MarkdownView, WorkspaceLeaf } from 'obsidian';
+import { Menu, TFile, MarkdownRenderer, Platform, MarkdownView, WorkspaceLeaf, Editor } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { Card } from 'common/types';
 import { sortFiles, separateFrontmatterAndBody } from 'common/utils';
@@ -9,6 +9,7 @@ type CardElementTag = 'div' | 'h3' | 'h4';
 export class CardMaker {
     private dragImage: HTMLElement | null = null;
     private currentDraggedCard: Card | null = null;
+    private lastCursorUpdate: number | null = null;
 
     constructor(
         private plugin: CardNavigatorPlugin
@@ -133,62 +134,140 @@ export class CardMaker {
         let longPressTimer: NodeJS.Timeout;
         let isDragging = false;
         let isMoved = false;
-        let isScrolling = false;
+        let activeEditor: Editor | null = null;
+        let dragStarted = false;
 
-        const updateDragImagePosition = (x: number, y: number) => {
+        const resetDragState = () => {
+            isDragging = false;
+            isMoved = false;
+            dragStarted = false;
+            if (activeEditor) {
+                activeEditor.blur();
+                activeEditor = null;
+            }
+            this.lastCursorUpdate = null;
+        };
+
+        const updateDragImagePosition = (touch: Touch) => {
             if (this.dragImage) {
-                // 화면 경계를 벗어나지 않도록 위치 조정
-                const rect = this.dragImage.getBoundingClientRect();
-                const maxX = window.innerWidth - rect.width;
-                const maxY = window.innerHeight - rect.height;
-                const newX = Math.max(0, Math.min(maxX, x - rect.width / 2));
-                const newY = Math.max(0, Math.min(maxY, y - rect.height / 2));
+                const offset = 30;
+                this.dragImage.style.left = `${touch.clientX}px`;
+                this.dragImage.style.top = `${touch.clientY - offset}px`;
+                this.dragImage.style.transform = `translate(-50%, -100%) scale(${this.calculateDragImageScale()})`;
+            }
+
+            const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+            if (!activeView?.editor) return;
+
+            const editorEl = activeView.contentEl.querySelector('.cm-content');
+            if (!editorEl) return;
+
+            if (!activeEditor) {
+                activeEditor = activeView.editor;
+                setTimeout(() => {
+                    activeEditor?.focus();
+                }, 10);
+            }
+
+            const editorRect = editorEl.getBoundingClientRect();
+            
+            if (touch.clientX >= editorRect.left && touch.clientX <= editorRect.right &&
+                touch.clientY >= editorRect.top && touch.clientY <= editorRect.bottom) {
                 
-                this.dragImage.style.transform = `translate(${newX}px, ${newY}px) scale(0.8)`;
+                const cursorOffsetX = 20;
+                const x = touch.clientX - cursorOffsetX - editorRect.left;
+                const y = touch.clientY - editorRect.top;
+
+                const lines = editorEl.querySelectorAll('.cm-line');
+                let targetLine = 0;
+                let found = false;
+
+                const scrollTop = editorEl.scrollTop;
+                const relativeY = y + scrollTop;
+
+                for (let i = 0; i < lines.length; i++) {
+                    const lineEl = lines[i] as HTMLElement;
+                    const lineRect = lineEl.getBoundingClientRect();
+                    const lineTop = lineEl.offsetTop;
+                    const lineBottom = lineTop + lineRect.height;
+
+                    if (relativeY >= lineTop && relativeY <= lineBottom) {
+                        targetLine = i;
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    targetLine = Math.min(
+                        Math.max(0, Math.floor(relativeY / 24)),
+                        activeEditor.lastLine()
+                    );
+                }
+
+                const lineText = activeEditor.getLine(targetLine);
+                if (!lineText) return;
+
+                const relativeX = Math.max(0, Math.min(1, x / editorRect.width));
+                const ch = Math.floor(relativeX * lineText.length);
+
+                activeEditor.setCursor({
+                    line: targetLine,
+                    ch: ch
+                });
             }
         };
 
         cardElement.addEventListener('touchstart', (e: TouchEvent) => {
+            if (dragStarted || this.dragImage) return;
+
             const touch = e.touches[0];
-            touchStartPos = { x: touch.pageX, y: touch.pageY };
+            touchStartPos = { x: touch.clientX, y: touch.clientY };
             touchStartTime = Date.now();
             isMoved = false;
-            isScrolling = false;
+            activeEditor = null;
 
             longPressTimer = setTimeout(() => {
-                if (!isMoved) {
-                    this.setupContextMenu(cardElement, card.file);
+                if (!isMoved && !dragStarted) {
+                    isDragging = true;
+                    dragStarted = true;
+                    this.startDrag(cardElement, card, touch);
+                    updateDragImagePosition(touch);
+                    
+                    this.plugin.app.workspace.leftSplit.collapse();
+                    this.plugin.app.workspace.rightSplit.collapse();
                 }
             }, 500);
         });
 
         cardElement.addEventListener('touchmove', (e: TouchEvent) => {
-            clearTimeout(longPressTimer);
             const touch = e.touches[0];
-            const deltaX = Math.abs(touch.pageX - touchStartPos.x);
-            const deltaY = Math.abs(touch.pageY - touchStartPos.y);
+            const deltaX = Math.abs(touch.clientX - touchStartPos.x);
+            const deltaY = Math.abs(touch.clientY - touchStartPos.y);
 
-            if (!isMoved) {
+            if (deltaX > 5 || deltaY > 5) {
                 isMoved = true;
-                if (deltaY > deltaX) {
-                    isScrolling = true;
-                }
-            }
-
-            if (isScrolling) {
-                return;
-            }
-
-            if (!isDragging && deltaX > 30) {
-                isDragging = true;
-                e.preventDefault();
-                this.startDrag(cardElement, card);
+                clearTimeout(longPressTimer);
             }
 
             if (isDragging) {
-                updateDragImagePosition(touch.pageX, touch.pageY);
+                e.preventDefault();
+                if (!this.lastCursorUpdate || Date.now() - this.lastCursorUpdate > 100) {
+                    requestAnimationFrame(() => {
+                        updateDragImagePosition(touch);
+                        this.lastCursorUpdate = Date.now();
+                    });
+                } else {
+                    requestAnimationFrame(() => {
+                        if (this.dragImage) {
+                            const offset = 30;
+                            this.dragImage.style.left = `${touch.clientX}px`;
+                            this.dragImage.style.top = `${touch.clientY - offset}px`;
+                        }
+                    });
+                }
             }
-        }, { passive: true });
+        }, { passive: false });
 
         cardElement.addEventListener('touchend', async (e: TouchEvent) => {
             clearTimeout(longPressTimer);
@@ -196,13 +275,24 @@ export class CardMaker {
             const touchDuration = touchEndTime - touchStartTime;
 
             if (isDragging) {
+                const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+                if (activeView?.editor && this.currentDraggedCard) {
+                    const content = this.getCardContent(this.currentDraggedCard);
+                    const cursorPos = activeView.editor.getCursor();
+                    activeView.editor.replaceRange(content, cursorPos);
+                }
                 this.endDrag();
-                isDragging = false;
+                resetDragState();
             } else if (!isMoved && touchDuration < 200) {
-                // 짧은 탭 동작일 경우에만 파일 열기
                 const leaf = this.plugin.app.workspace.getLeaf(false);
                 if (leaf) await leaf.openFile(card.file);
             }
+        });
+
+        cardElement.addEventListener('touchcancel', () => {
+            clearTimeout(longPressTimer);
+            this.endDrag();
+            resetDragState();
         });
     }
 
@@ -223,13 +313,10 @@ export class CardMaker {
             
             const menu = new Menu();
 
-            // 옵시디언의 기본 파일 메뉴 아이템 추가
             this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
 
-            // 구분선 추가
             menu.addSeparator();
 
-            // 커스텀 메뉴 아이템 추가
             menu.addItem(item => item
                 .setTitle(t('COPY_AS_LINK'))
                 .setIcon('link')
@@ -291,47 +378,80 @@ export class CardMaker {
         navigator.clipboard.writeText(content);
     }
 
-    private startDrag(cardElement: HTMLElement, card: Card) {
-        // 드래그 이미지 생성
+    private startDrag(cardElement: HTMLElement, card: Card, touch: Touch) {
+        if (this.dragImage) return;
+
         this.dragImage = cardElement.cloneNode(true) as HTMLElement;
         
-        // 드래그 이미지 스타일링
+        const { width: maxWidth, height: maxHeight } = this.calculateDragImageMaxSize();
+        
         Object.assign(this.dragImage.style, {
             position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%) scale(0.8)',
+            transform: `translate(-50%, -100%) scale(${this.calculateDragImageScale()})`,
             opacity: '0.9',
             pointerEvents: 'none',
             zIndex: '1000',
-            maxWidth: '200px',
-            maxHeight: '150px',
+            maxWidth: `${maxWidth}px`,
+            maxHeight: `${maxHeight}px`,
             overflow: 'hidden',
             backgroundColor: 'var(--background-primary)',
             border: '2px solid var(--interactive-accent)',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-            transition: 'transform 0.2s ease'
+            borderRadius: '6px',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+            transition: 'opacity 0.2s ease'
         });
 
-        // 드래그 중임을 표시하는 아이콘 추가
-        const dragIndicator = document.createElement('div');
-        dragIndicator.innerHTML = `<svg viewBox="0 0 100 100" width="20" height="20" style="position: absolute; top: 8px; right: 8px; fill: var(--interactive-accent)">
-            <path d="M25,35 L75,35 M25,50 L75,50 M25,65 L75,65"></path>
-        </svg>`;
-        this.dragImage.appendChild(dragIndicator);
+        if (window.navigator.vibrate) {
+            window.navigator.vibrate(50);
+        }
 
         document.body.appendChild(this.dragImage);
         this.currentDraggedCard = card;
-        
-        if (Platform.isMobile) {
-            this.plugin.app.workspace.rightSplit.collapse();
+
+        const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+        if (activeView?.editor) {
+            const editorEl = activeView.contentEl.querySelector('.cm-content');
+            if (!editorEl) return;
+
+            const editorRect = editorEl.getBoundingClientRect();
+            if (touch.clientX >= editorRect.left && touch.clientX <= editorRect.right &&
+                touch.clientY >= editorRect.top && touch.clientY <= editorRect.bottom) {
+                
+                const lines = editorEl.querySelectorAll('.cm-line');
+                const y = touch.clientY - editorRect.top + editorEl.scrollTop;
+                let targetLine = 0;
+                let found = false;
+
+                for (let i = 0; i < lines.length; i++) {
+                    const lineEl = lines[i] as HTMLElement;
+                    const lineTop = lineEl.offsetTop;
+                    const lineHeight = lineEl.offsetHeight;
+                    const lineBottom = lineTop + lineHeight;
+
+                    if (y >= lineTop && y <= lineBottom) {
+                        targetLine = i;
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    const lastLine = lines[lines.length - 1] as HTMLElement;
+                    const lineHeight = lastLine ? lastLine.offsetHeight : 24;
+                    targetLine = Math.min(
+                        Math.max(0, Math.floor(y / lineHeight)),
+                        activeView.editor.lastLine()
+                    );
+                }
+
+                activeView.editor.focus();
+                activeView.editor.setCursor({ line: targetLine, ch: 0 });
+            }
         }
     }
 
     private endDrag() {
         if (this.dragImage) {
-            // 드래그 이미지 제거 시 애니메이션 효과
             this.dragImage.style.opacity = '0';
             this.dragImage.style.transform = 'translate(-50%, -50%) scale(0.5)';
             setTimeout(() => {
@@ -340,14 +460,18 @@ export class CardMaker {
             }, 200);
         }
 
-        const activeView = this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
-        if (activeView && this.currentDraggedCard) {
-            const editor = activeView.editor;
-            editor.replaceRange(
-                this.getCardContent(this.currentDraggedCard),
-                editor.getCursor()
-            );
-        }
         this.currentDraggedCard = null;
+    }
+
+    private calculateDragImageScale(): number {
+        const screenWidth = window.innerWidth;
+        return screenWidth < 768 ? 0.5 : 0.6;
+    }
+
+    private calculateDragImageMaxSize(): { width: number, height: number } {
+        const screenWidth = window.innerWidth;
+        const baseWidth = screenWidth < 768 ? 150 : 200;
+        const baseHeight = screenWidth < 768 ? 100 : 150;
+        return { width: baseWidth, height: baseHeight };
     }
 }

@@ -157,4 +157,12 @@ export class CardRenderer {
         }
         return null;
     }
+
+    // Cleanup resources
+    public cleanup(): void {
+        // 필요한 정리 작업 수행
+        if (this.containerEl) {
+            this.containerEl.empty();
+        }
+    }
 } 
