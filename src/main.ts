@@ -199,6 +199,30 @@ export default class CardNavigatorPlugin extends Plugin {
             })
         );
 
+        this.registerEvent(
+            this.app.workspace.on('active-leaf-change', () => {
+                const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+                leaves.forEach(leaf => {
+                    if (leaf.view instanceof CardNavigatorView) {
+                        leaf.view.refresh(RefreshType.CONTENT);
+                    }
+                });
+            })
+        );
+
+        this.registerEvent(
+            this.app.workspace.on('file-open', (file) => {
+                if (!this.settings.useSelectedFolder) {  // 선택된 폴더 사용이 비활성화된 경우에만
+                    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+                    leaves.forEach(leaf => {
+                        if (leaf.view instanceof CardNavigatorView) {
+                            leaf.view.refresh(RefreshType.CONTENT);
+                        }
+                    });
+                }
+            })
+        );
+
         this.events.on('settings-updated', () => {
             const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
             leaves.forEach(leaf => {
