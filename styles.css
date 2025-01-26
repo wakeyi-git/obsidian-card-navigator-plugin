@@ -1,0 +1,549 @@
+/* Root variables */
+:root {
+    --card-navigator-container-padding: 10px;
+    --card-navigator-gap: 10px;
+    --card-navigator-transition: 0.2s ease;
+    --card-navigator-icon-size: 20px;
+    --card-navigator-popup-width: 250px;
+}
+
+.card-navigator {
+    position: relative;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.setting-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Toolbar styles */
+.card-navigator-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    width: 100%;
+	margin-bottom: var(--size-4-3); /* Margin below the toolbar */
+}
+
+.card-navigator-toolbar-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between; /* Space between toolbar items */
+    align-items: center;
+    gap: var(--card-navigator-gap); /* Gap between toolbar elements */
+    height: 100%;
+}
+
+.card-navigator-action-icons-container {
+    display: flex;
+    justify-content: center; /* Center align icons */
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 100%;
+	background-color: var(--background-modifier-border); /* Separator styling */
+}
+
+/* Search container styles */
+.card-navigator-search-container {
+    flex-grow: 1;
+    margin-right: 0.5rem;
+	min-width: 0;
+}
+
+.card-navigator-search-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: var(--border-width);
+    border-radius: var(--radius-s);
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+}
+
+.card-navigator-icon-active {
+    background-color: var(--background-modifier-border);
+}
+
+/* Popup styles for sort and settings */
+.card-navigator-sort-popup,
+.card-navigator-settings-popup {
+    position: absolute;
+    right: 0;
+    width: var(--card-navigator-popup-width);
+    background-color: var(--background-primary);
+    border: var(--border-width) solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+    padding: 15px;
+    z-index: 1000; /* Ensures popups appear above other content */
+    min-width: 100px;
+}
+
+.card-navigator-sort-popup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Settings popup styles */
+.card-navigator-settings-popup .tree-item-self {
+    cursor: pointer; /* Indicates clickable elements */
+    display: flex;
+    align-items: center;
+}
+
+.card-navigator-settings-popup .tree-item-inner {
+    flex: 1;
+}
+
+.card-navigator-settings-popup .tree-item-children {
+    padding-left: 0;
+    transition: max-height 0.3s ease-out, opacity 0.3s ease-out; /* Smooth expand/collapse */
+    max-height: 1000px;
+    opacity: 1;
+}
+
+.card-navigator-settings-popup .is-collapsed > .tree-item-children {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden; /* Collapsed children are hidden */
+}
+
+/* 전체 너비 설정 항목을 위한 스타일 */
+.setting-item.setting-full-width {
+	padding-left: 0;
+	padding-right: 0;
+	border-top: none;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* 정보 영역 숨기기 (no-info 클래스가 있을 때) */
+.setting-item.setting-full-width.no-info .setting-item-info {
+	display: none;
+}
+
+/* 컨트롤 영역 전체 너비로 설정 */
+.setting-item.setting-full-width .setting-item-control {
+	padding-left: 0;
+	padding-right: 0;
+	width: 100%;
+}
+
+/* 입력 필드 스타일 조정 */
+.setting-item.setting-full-width .setting-item-control input[type="text"] {
+	width: 100%;
+	margin-left: 0;
+	margin-right: 0;
+	padding-left: 10px;
+	padding-right: 10px;
+}
+
+/* 설정 컨테이너의 패딩 조정 (필요한 경우) */
+.settings-container {
+	padding-left: 15px;
+	padding-right: 15px;
+}
+
+.card-navigator-settings-popup .setting-item {
+    border-top: none;
+    border-bottom: none;
+    padding-top: var(--size-4-2);
+    padding-bottom: var(--size-4-2);
+    padding-right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-navigator-settings-popup .setting-item-info {
+    flex-grow: 1; /* Setting name grows to fill available space */
+}
+
+.card-navigator-settings-popup .setting-item-control {
+    flex-shrink: 0; /* Prevent control elements from shrinking */
+}
+
+.card-navigator-settings-popup .setting-item-name {
+    font-size: var(--font-ui-small);
+    color: var(--text-normal);
+}
+
+.card-navigator-toolbar-folder-search {
+	width: 100%; /* 또는 원하는 너비 */
+}
+
+.card-navigator-settings-popup .dropdown {
+    width: 100%;
+}
+
+.card-navigator-settings-popup .setting-item.setting-item-slider {
+    flex-direction: column;
+    align-items: flex-start; /* Align slider controls vertically */
+}
+
+.card-navigator-settings-popup .setting-item.setting-item-slider .setting-item-control {
+    width: 100%;
+    margin-top: var(--size-4-2);
+}
+
+.card-navigator-settings-popup input[type="range"] {
+    width: 100%;
+}
+
+/* Collapse icon styling for settings */
+.card-navigator-settings-popup .collapse-icon svg {
+    width: 14px;
+    height: 14px;
+    transition: transform 100ms ease-in-out;
+}
+
+.card-navigator-settings-popup .is-collapsed .collapse-icon svg {
+    transform: rotate(-90deg); /* Rotate icon when collapsed */
+}
+
+/* Main container styles */
+.card-navigator-container {
+    display: flex;
+	flex-grow: 1;
+    overflow-y: auto;
+    gap: var(--card-navigator-gap); /* Gap between cards */
+    position: relative;
+	z-index: 1;
+    box-sizing: border-box;
+    padding-top: var(--size-2-1);
+	min-width: 300px;
+	min-height: 300px;
+	width: 100%;
+    height: 100%;
+}
+
+.card-navigator-container.vertical {
+    width: calc(100% + var(--size-4-3));
+    height: 100%;
+    margin-right: -(var(--size-4-3));
+    padding-right: var(--size-4-3);
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.card-navigator-container.horizontal {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.card-navigator-container.horizontal.align-height {
+    height: 100%;
+}
+
+/* Card styling */
+.card-navigator-card {
+    flex: 0 0 auto;
+    padding: var(--size-4-4);
+    border: var(--border-width) solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+    background-color: var(--background-primary);
+    transition: transform var(--card-navigator-transition), box-shadow var(--card-navigator-transition); /* Smooth transition on hover/focus */
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+	box-sizing: border-box;
+}
+
+.card-navigator-card.align-height {
+    overflow: hidden; /* Prevents overflow for equal height alignment */
+}
+
+.card-navigator-card.vertical {
+    width: 100%;
+}
+
+.card-navigator-card.vertical.align-height {
+    height: calc((100% - (var(--cards-per-view) - 1) * var(--card-navigator-gap)) / var(--cards-per-view)); /* Calculate height for vertical layout */
+}
+
+.card-navigator-card.horizontal {
+    width: calc((100% - (var(--cards-per-view) - 1) * var(--card-navigator-gap)) / var(--cards-per-view)); /* Calculate width for horizontal layout */
+}
+
+.card-navigator-card.card-navigator-active .card-navigator-filename,
+.card-navigator-card.card-navigator-active .card-navigator-first-header,
+.card-navigator-card.card-navigator-active .card-navigator-body {
+    color: var(--interactive-accent); /* Highlight active card */
+}
+
+.card-navigator-card.card-navigator-focused {
+    border: 1px solid var(--interactive-accent);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Focus shadow effect */
+}
+
+.card-navigator-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Hover shadow effect */
+}
+
+/* Card text and content styling */
+.card-navigator-filename {
+    font-size: var(--file-name-font-size, 1.2rem);
+    font-weight: var(--font-bold);
+    margin: 0 0 var(--size-2-2) 0;
+    padding-bottom: var(--size-2-1);
+    border-bottom: 1px solid var(--background-modifier-border);
+	color: var(--text-normal);
+}
+
+.card-navigator-first-header {
+    font-size: var(--first-header-font-size, 1.1rem);
+    font-weight: var(--font-semibold);
+    margin: 0 0 var(--size-2-1) 0;
+    color: var(--text-normal);
+}
+
+.card-navigator-body {
+    font-size: var(--body-font-size, 1rem);
+    color: var(--text-muted);
+    line-height: var(--line-height-normal);
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow-y: auto;
+}
+
+.card-navigator-body img {
+    max-width: 100%;
+    height: auto;
+    object-fit: contain; /* Ensure images maintain aspect ratio */
+}
+
+.card-navigator-body * {
+    max-width: 100%; /* Limit body width */
+}
+
+.card-navigator-body.ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+}
+
+.popout-window {
+    border: 5px solid transparent; /* 기존 두께보다 늘림 */
+}
+
+.popout-window::resize-handle {
+    width: 10px; /* 드래그 가능한 영역 넓힘 */
+    height: 10px;
+}
+
+.masonry-layout {
+	position: relative;
+	z-index: 2;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--card-gap);
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.masonry-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--card-gap);
+}
+
+.masonry-card {
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    break-inside: avoid;
+    background: var(--background-secondary);
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.masonry-card.card-navigator-focused {
+    border: 1px solid var(--interactive-accent);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Focus shadow effect */
+}
+
+.masonry-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Hover shadow effect */
+}
+
+.masonry-card.card-navigator-active .card-navigator-filename,
+.masonry-card.card-navigator-active .card-navigator-first-header,
+.masonry-card.card-navigator-active .card-navigator-body {
+    color: var(--interactive-accent);
+}
+
+.masonry-card .card-navigator-filename {
+    padding: 10px;
+    font-weight: bold;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.masonry-card .card-navigator-first-header {
+    padding: 10px;
+    font-size: 1.1em;
+}
+
+.masonry-card .card-navigator-body {
+    padding: 10px;
+    font-size: 0.9em;
+}
+
+/* 카드 내용이 길 경우 스크롤 처리 */
+.masonry-card .card-navigator-body {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* 다크 모드 대응 */
+.theme-dark .masonry-card {
+    background: var(--background-secondary-alt);
+}
+
+.card-navigator-card.card-navigator-focused,
+.masonry-card.card-navigator-focused {
+    border: 1px solid var(--interactive-accent);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Focus shadow effect */
+}
+
+.card-navigator-card.card-navigator-focused,
+.masonry-card.card-navigator-focused {
+    z-index: 10;
+}
+
+.settings-section-margin {
+    height: var(--size-4-3);
+}
+
+.search-input-container {
+    width: 50%;
+}
+
+.preset-suggest-input {
+    width: 50%;
+}
+
+.search-input-container.wide-input-container {
+    width: 300px;
+}
+
+.preset-suggest-input.wide-input-container {
+    width: 200px;
+}
+
+/* Keyboard Shortcuts Table Styles */
+.keyboard-shortcuts-description {
+    font-style: italic;
+    color: var(--text-muted);
+}
+
+.keyboard-shortcuts-table-container {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 1em;
+}
+
+.keyboard-shortcuts-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.keyboard-shortcuts-table th,
+.keyboard-shortcuts-table td {
+    padding: 12px 15px;
+    text-align: left;
+}
+
+.keyboard-shortcuts-table th {
+    background-color: var(--background-secondary-alt);
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.9em;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid var(--background-modifier-border);
+}
+
+.keyboard-shortcuts-table tr:not(:last-child) td {
+    border-bottom: 1px solid var(--background-modifier-border-hover);
+}
+
+.keyboard-shortcuts-table tr:nth-child(even) {
+    background-color: var(--background-secondary);
+}
+
+.keyboard-shortcut-name {
+    font-weight: bold;
+}
+
+.keyboard-shortcut-description {
+    color: var(--text-muted);
+}
+
+.keyboard-shortcuts-note {
+    font-size: 0.9em;
+    color: var(--text-muted);
+    margin-top: 1em;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+	.card-navigator-toolbar-container {
+		flex-wrap: nowrap; /* Prevent wrapping */
+		justify-content: space-between; /* Distribute space between search and icons */
+	}
+
+	.card-navigator-search-container {
+		flex-grow: 1;
+		flex-shrink: 1; /* Allow search container to shrink */
+		min-width: 0; /* Allow container to shrink below content size */
+	}
+
+	.card-navigator-search-input {
+		width: 100%;
+		min-width: 0; /* Allow input to shrink */
+	}
+
+	.card-navigator-action-icons-container {
+		flex-shrink: 0; /* Prevent icons from shrinking */
+	}
+
+	.card-navigator-sort-popup,
+	.card-navigator-settings-popup {
+		top: 100%;
+		right: 0;
+		width: var(--card-navigator-popup-width);
+		max-width: none;
+	}
+
+	.card-navigator-settings-popup {
+		max-width: 100%; /* Ensure popup doesn't exceed screen width */
+	}
+
+	.keyboard-shortcuts-table th,
+    .keyboard-shortcuts-table td {
+        padding: 8px 10px;
+    }
+
+    .keyboard-shortcuts-table {
+        font-size: 0.9em;
+    }
+}
