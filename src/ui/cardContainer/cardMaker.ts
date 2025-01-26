@@ -109,10 +109,12 @@ export class CardMaker {
     }
 
     private setupClickHandler(cardElement: HTMLElement, card: Card) {
-        cardElement.addEventListener('click', async () => {
-            const leaf = this.plugin.app.workspace.getLeaf(false);
-            if (leaf) await leaf.openFile(card.file);
-        });
+        if (!Platform.isMobile) {
+            cardElement.addEventListener('click', async () => {
+                const leaf = this.plugin.app.workspace.getLeaf(false);
+                if (leaf) await leaf.openFile(card.file);
+            });
+        }
     }
 
     private setupDragAndDrop(cardElement: HTMLElement, card: Card) {
@@ -127,15 +129,21 @@ export class CardMaker {
 
     private setupMobileDragAndDrop(cardElement: HTMLElement, card: Card) {
         let touchStartPos = { x: 0, y: 0 };
+        let touchStartTime = 0;
         let longPressTimer: NodeJS.Timeout;
         let isDragging = false;
+        let isMoved = false;
 
         cardElement.addEventListener('touchstart', (e: TouchEvent) => {
             const touch = e.touches[0];
             touchStartPos = { x: touch.pageX, y: touch.pageY };
+            touchStartTime = Date.now();
+            isMoved = false;
 
             longPressTimer = setTimeout(() => {
-                this.setupContextMenu(cardElement, card.file);
+                if (!isMoved) {
+                    this.setupContextMenu(cardElement, card.file);
+                }
             }, 500);
         });
 
@@ -145,23 +153,30 @@ export class CardMaker {
             const deltaX = Math.abs(touch.pageX - touchStartPos.x);
             const deltaY = Math.abs(touch.pageY - touchStartPos.y);
 
+            if (deltaX > 5 || deltaY > 5) {
+                isMoved = true;
+            }
+
             // 드래그 시작 조건: 수평 이동이 수직 이동보다 크고, 이동 거리가 충분할 때
             if (!isDragging && deltaX > deltaY && deltaX > 30) {
                 isDragging = true;
                 e.preventDefault();
                 this.startDrag(cardElement, card);
             }
-            // 스크롤 허용: 수직 이동이 수평 이동보다 크거나 드래그 중이 아닐 때
-            else if (!isDragging && deltaY > deltaX) {
-                return; // 기본 스크롤 동작 허용
-            }
         }, { passive: true });
 
-        cardElement.addEventListener('touchend', () => {
+        cardElement.addEventListener('touchend', async (e: TouchEvent) => {
             clearTimeout(longPressTimer);
+            const touchEndTime = Date.now();
+            const touchDuration = touchEndTime - touchStartTime;
+
             if (isDragging) {
                 this.endDrag();
                 isDragging = false;
+            } else if (!isMoved && touchDuration < 200) {
+                // 짧은 탭 동작일 경우에만 파일 열기
+                const leaf = this.plugin.app.workspace.getLeaf(false);
+                if (leaf) await leaf.openFile(card.file);
             }
         });
     }
