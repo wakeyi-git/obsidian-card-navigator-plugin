@@ -133,12 +133,14 @@ export class CardMaker {
         let longPressTimer: NodeJS.Timeout;
         let isDragging = false;
         let isMoved = false;
+        let isScrolling = false;
 
         cardElement.addEventListener('touchstart', (e: TouchEvent) => {
             const touch = e.touches[0];
             touchStartPos = { x: touch.pageX, y: touch.pageY };
             touchStartTime = Date.now();
             isMoved = false;
+            isScrolling = false;
 
             longPressTimer = setTimeout(() => {
                 if (!isMoved) {
@@ -153,12 +155,21 @@ export class CardMaker {
             const deltaX = Math.abs(touch.pageX - touchStartPos.x);
             const deltaY = Math.abs(touch.pageY - touchStartPos.y);
 
-            if (deltaX > 5 || deltaY > 5) {
+            // 처음 움직임이 감지될 때 스크롤인지 드래그인지 결정
+            if (!isMoved) {
                 isMoved = true;
+                if (deltaY > deltaX) {
+                    isScrolling = true;
+                }
             }
 
-            // 드래그 시작 조건: 수평 이동이 수직 이동보다 크고, 이동 거리가 충분할 때
-            if (!isDragging && deltaX > deltaY && deltaX > 30) {
+            // 스크롤 중이면 드래그 시작하지 않음
+            if (isScrolling) {
+                return;
+            }
+
+            // 드래그 시작 조건: 수평 이동이 충분할 때
+            if (!isDragging && deltaX > 30) {
                 isDragging = true;
                 e.preventDefault();
                 this.startDrag(cardElement, card);
