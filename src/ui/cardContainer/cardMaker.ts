@@ -128,6 +128,7 @@ export class CardMaker {
     private setupMobileDragAndDrop(cardElement: HTMLElement, card: Card) {
         let touchStartPos = { x: 0, y: 0 };
         let longPressTimer: NodeJS.Timeout;
+        let isDragging = false;
 
         cardElement.addEventListener('touchstart', (e: TouchEvent) => {
             const touch = e.touches[0];
@@ -136,7 +137,7 @@ export class CardMaker {
             longPressTimer = setTimeout(() => {
                 this.setupContextMenu(cardElement, card.file);
             }, 500);
-        }, { passive: false });
+        });
 
         cardElement.addEventListener('touchmove', (e: TouchEvent) => {
             clearTimeout(longPressTimer);
@@ -144,15 +145,24 @@ export class CardMaker {
             const deltaX = Math.abs(touch.pageX - touchStartPos.x);
             const deltaY = Math.abs(touch.pageY - touchStartPos.y);
 
-            if (deltaX > 10 || deltaY > 10) {
+            // 드래그 시작 조건: 수평 이동이 수직 이동보다 크고, 이동 거리가 충분할 때
+            if (!isDragging && deltaX > deltaY && deltaX > 30) {
+                isDragging = true;
                 e.preventDefault();
                 this.startDrag(cardElement, card);
             }
-        }, { passive: false });
+            // 스크롤 허용: 수직 이동이 수평 이동보다 크거나 드래그 중이 아닐 때
+            else if (!isDragging && deltaY > deltaX) {
+                return; // 기본 스크롤 동작 허용
+            }
+        }, { passive: true });
 
         cardElement.addEventListener('touchend', () => {
             clearTimeout(longPressTimer);
-            this.endDrag();
+            if (isDragging) {
+                this.endDrag();
+                isDragging = false;
+            }
         });
     }
 
