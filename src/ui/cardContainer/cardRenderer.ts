@@ -20,6 +20,9 @@ export class CardRenderer {
     public async renderCards(cardsData: Card[], focusedCardId: string | null = null, activeFile: TFile | null = null) {
         if (!this.containerEl) return;
     
+        // 컨테이너의 visible 클래스 제거
+        this.containerEl.classList.remove('visible');
+        
         if (!cardsData || cardsData.length === 0) {
             console.warn('The card data is empty.');
             return;
@@ -105,6 +108,11 @@ export class CardRenderer {
 
         this.updateScrollDirection();
         await this.ensureCardSizesAreSet();
+        
+        // 모든 카드가 준비된 후 visible 클래스 추가
+        requestAnimationFrame(() => {
+            this.containerEl?.classList.add('visible');
+        });
     }
 
     private updateScrollDirection() {
