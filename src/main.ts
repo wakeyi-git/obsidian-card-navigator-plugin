@@ -188,60 +188,93 @@ export default class CardNavigatorPlugin extends Plugin {
 
     //#region Event Handlers
     private registerCentralizedEvents() {
+        // 레이아웃 변경 이벤트
         this.registerEvent(
             this.app.workspace.on('layout-change', () => {
-                const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-                leaves.forEach(leaf => {
-                    if (leaf.view instanceof CardNavigatorView) {
-                        leaf.view.refresh(RefreshType.LAYOUT);
-                    }
-                });
+                this.refreshAllViews(RefreshType.LAYOUT);
             })
         );
 
+        // 활성 리프 변경 이벤트
         this.registerEvent(
             this.app.workspace.on('active-leaf-change', () => {
-                const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-                leaves.forEach(leaf => {
-                    if (leaf.view instanceof CardNavigatorView) {
-                        leaf.view.refresh(RefreshType.CONTENT);
-                    }
-                });
+                this.handleFileChange(this.app.workspace.getActiveFile());
             })
         );
 
+        // 파일 열기 이벤트
         this.registerEvent(
             this.app.workspace.on('file-open', (file) => {
-                if (!this.settings.useSelectedFolder) {  // 선택된 폴더 사용이 비활성화된 경우에만
-                    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-                    leaves.forEach(leaf => {
-                        if (leaf.view instanceof CardNavigatorView) {
-                            leaf.view.refresh(RefreshType.CONTENT);
-                        }
-                    });
-                }
+                this.handleFileChange(file);
             })
         );
 
+        // 설정 업데이트 이벤트
         this.events.on('settings-updated', () => {
-            const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-            leaves.forEach(leaf => {
-                if (leaf.view instanceof CardNavigatorView) {
-                    leaf.view.refresh(RefreshType.SETTINGS);
-                }
-            });
+            this.refreshAllViews(RefreshType.SETTINGS);
         });
 
+        // 파일 수정 이벤트
         this.registerEvent(
             this.app.vault.on('modify', () => {
-                const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-                leaves.forEach(leaf => {
-                    if (leaf.view instanceof CardNavigatorView) {
-                        leaf.view.refresh(RefreshType.CONTENT);
-                    }
-                });
+                this.refreshAllViews(RefreshType.CONTENT);
             })
         );
+    }
+
+    // 모든 카드 네비게이터 뷰 리프레시
+    private refreshAllViews(type: RefreshType) {
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        leaves.forEach(leaf => {
+            if (leaf.view instanceof CardNavigatorView) {
+                // 레이아웃 변경 시에는 레이아웃만 리프레시
+                if (type === RefreshType.LAYOUT) {
+                    leaf.view.refresh(RefreshType.LAYOUT);
+                }
+                // 설정 변경 시에는 설정과 컨텐츠를 함께 리프레시
+                else if (type === RefreshType.SETTINGS) {
+                    leaf.view.refreshBatch([RefreshType.SETTINGS, RefreshType.CONTENT]);
+                }
+                // 컨텐츠 변경 시에는 컨텐츠만 리프레시
+                else {
+                    leaf.view.refresh(RefreshType.CONTENT);
+                }
+            }
+        });
+    }
+
+    // 파일 변경 처리
+    private async handleFileChange(file: TFile | null) {
+        // 선택된 폴더 사용 중이면 무시
+        if (this.settings.useSelectedFolder) return;
+        
+        // 파일이 없거나 마크다운이 아니면 무시
+        if (!file || !(file instanceof TFile) || file.extension !== 'md') return;
+
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        for (const leaf of leaves) {
+            if (!(leaf.view instanceof CardNavigatorView)) continue;
+
+            try {
+                await this.updateViewForFile(leaf.view, file);
+            } catch (error) {
+                console.error('[카드 네비게이터] 뷰 업데이트 실패:', error);
+            }
+        }
+    }
+
+    // 파일에 따른 뷰 업데이트
+    private async updateViewForFile(view: CardNavigatorView, file: TFile) {
+        const currentFolderPath = await view.getCurrentFolderPath();
+        if (!currentFolderPath || !file.parent) return;
+
+        if (currentFolderPath === file.parent.path) {
+            // 같은 폴더면 컨텐츠만 리프레시
+            view.refresh(RefreshType.CONTENT);
+        } else {
+            // 다른 폴더로 이동할 때만 전체 리프레시
+            view.refreshBatch([RefreshType.LAYOUT, RefreshType.SETTINGS, RefreshType.CONTENT]);
+        }
     }
     //#endregion
 
@@ -252,7 +285,8 @@ export default class CardNavigatorPlugin extends Plugin {
             if (leaf.view instanceof CardNavigatorView) {
                 leaf.view.cardContainer.setLayout(layout);
                 this.saveSettings();
-                leaf.view.refresh(RefreshType.SETTINGS);
+                // 레이아웃과 설정을 함께 리프레시
+                leaf.view.refreshBatch([RefreshType.LAYOUT, RefreshType.SETTINGS]);
             }
         });
     }
