@@ -237,23 +237,6 @@ export class CardContainer {
         this.keyboardNavigator?.updateLayout(this.layoutStrategy);
     }
 
-    // 레이아웃 업데이트 메서드
-    private updateLayout() {
-        if (!this.containerEl) return;
-        const newIsVertical = this.calculateIsVertical();
-        const previousIsVertical = this.isVertical;
-        this.isVertical = newIsVertical;
-    
-        if (this.plugin.settings.defaultLayout === 'auto' || 
-            this.plugin.settings.defaultLayout === 'list' || 
-            previousIsVertical !== this.isVertical) {
-            this.layoutStrategy = this.determineAutoLayout();
-            this.cardRenderer?.setLayoutStrategy(this.layoutStrategy);
-        }
-    
-        this.keyboardNavigator?.updateLayout(this.layoutStrategy);
-    }
-
     // 현재 레이아웃 전략 반환 메서드
     public getLayoutStrategy(): LayoutStrategy {
         return this.layoutStrategy;

@@ -39,14 +39,6 @@ export default class CardNavigatorPlugin extends Plugin {
         this.addRibbonIcon('layers-3', t('OPEN_CARD_NAVIGATOR'), () => {
             this.activateView();
         });
-    
-        this.registerEvent(
-            this.app.workspace.on('file-open', (file) => {
-                if (file instanceof TFile) {
-                    this.selectAndApplyPreset(file);
-                }
-            })
-        );
     }
 
     // 플러그인 언로드 시 실행되는 메서드
@@ -226,6 +218,12 @@ export default class CardNavigatorPlugin extends Plugin {
 
     // 파일 변경 처리 메서드
     private async handleFileChange(file: TFile | null) {
+        // 프리셋 적용
+        if (file instanceof TFile) {
+            await this.selectAndApplyPreset(file);
+        }
+
+        // 폴더 기반 카드 표시 처리
         if (this.settings.useSelectedFolder) return;
         
         if (!file || !(file instanceof TFile) || file.extension !== 'md') return;
