@@ -112,21 +112,19 @@ export default class CardNavigatorPlugin extends Plugin {
         const { workspace } = this.app;
         let leaf: WorkspaceLeaf | null = null;
     
+        // 1. 기존 뷰 찾기
         const existingLeaf = workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0];
+        
         if (existingLeaf) {
             leaf = existingLeaf;
+            workspace.revealLeaf(leaf);
         } else {
+            // 2. 새 뷰 생성 시에만 setViewState 호출
             leaf = workspace.getRightLeaf(false);
             if (leaf) {
                 await leaf.setViewState({ type: VIEW_TYPE_CARD_NAVIGATOR, active: true });
+                workspace.revealLeaf(leaf);
             }
-        }
-    
-        if (leaf) {
-            workspace.revealLeaf(leaf);
-            await leaf.setViewState(leaf.getViewState());
-        } else {
-            console.error("Failed to activate Card Navigator view");
         }
     }
 

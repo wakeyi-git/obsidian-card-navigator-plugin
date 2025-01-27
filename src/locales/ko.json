@@ -177,16 +177,7 @@
     "COPY": "복사",
     "PRESET_JSON_COPIED": "프리셋 JSON이 클립보드에 복사되었습니다",
     "ERROR_LOADING_PRESET": "프리셋 로딩 중 오류 발생",
-    "NO_PRESET_SELECTED": "선택된 프리셋 없음"
-
-
-
-
-
-
-
-
-
-
-
+    "NO_PRESET_SELECTED": "선택된 프리셋 없음",
+    "ENABLE_SCROLL_ANIMATION": "스크롤 애니메이션",
+    "ENABLE_SCROLL_ANIMATION_DESC": "카드 스크롤 시 부드러운 애니메이션 효과를 활성화합니다."
 }

@@ -428,7 +428,7 @@ export class CardContainer {
 
         const newScrollPosition = this.containerEl[scrollProperty] + offset;
 
-        if (animate) {
+        if (animate && this.plugin.settings.enableScrollAnimation) {
             this.smoothScroll(scrollProperty, newScrollPosition);
         } else {
             this.containerEl[scrollProperty] = newScrollPosition;
@@ -462,11 +462,6 @@ export class CardContainer {
         requestAnimationFrame(animation);
     }
 
-    // Retrieves the size of the card elements, including the gap between them
-    private getCardSize(): { width: number, height: number } {
-        return this.cardRenderer?.getCardSize() || { width: 0, height: 0 };
-    }
-
     // Scrolls the container in the specified direction by a given number of cards
     private scrollInDirection(direction: 'up' | 'down' | 'left' | 'right', count = 1) {
         if (!this.containerEl) return;
@@ -493,7 +488,7 @@ export class CardContainer {
                 if (totalCards - currentEdgeCard < cardsPerView) {
                     targetScroll = totalSize - containerSize; // Scroll to the very end
                 } else {
-                    targetScroll = Math.min(totalSize - containerSize, (currentEdgeCard + 1) * cardSize);
+                    targetScroll = currentEdgeCard * cardSize;
                 }
             }
         } else {
@@ -505,10 +500,14 @@ export class CardContainer {
             }
         }
 
-        this.containerEl.scrollTo({
-            [isVertical ? 'top' : 'left']: targetScroll,
-            behavior: 'smooth'
-        });
+        if (this.plugin.settings.enableScrollAnimation) {
+            this.containerEl.scrollTo({
+                [isVertical ? 'top' : 'left']: targetScroll,
+                behavior: 'smooth'
+            });
+        } else {
+            this.containerEl[isVertical ? 'scrollTop' : 'scrollLeft'] = targetScroll;
+        }
     }
 
     // Scrolls the container upwards by a specified number of cards
@@ -679,6 +678,11 @@ export class CardContainer {
             }
             return masonryLayout;
         }
+    }
+
+    // Retrieves the size of the card elements, including the gap between them
+    private getCardSize(): { width: number, height: number } {
+        return this.cardRenderer?.getCardSize() || { width: 0, height: 0 };
     }
 }
 

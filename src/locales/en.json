@@ -177,14 +177,7 @@
     "COPY": "Copy",
     "PRESET_JSON_COPIED": "Preset JSON copied to clipboard",
     "ERROR_LOADING_PRESET": "Error loading preset",
-    "NO_PRESET_SELECTED": "No preset selected"
-
-
-
-
-
-
-
-
-
+    "NO_PRESET_SELECTED": "No preset selected",
+    "ENABLE_SCROLL_ANIMATION": "Scroll Animation",
+    "ENABLE_SCROLL_ANIMATION_DESC": "Enable smooth animation effects when scrolling cards."
 }

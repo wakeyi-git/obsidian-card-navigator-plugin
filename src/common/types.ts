@@ -51,6 +51,7 @@ export interface CardNavigatorSettings {
     autoApplyFolderPresets: boolean;
     folderPresets?: Record<string, string[]> | null;
     activeFolderPresets?: Record<string, string> | null;
+    enableScrollAnimation: boolean;
 }
 
 export const globalSettingsKeys: (keyof CardNavigatorSettings)[] = [
@@ -94,7 +95,8 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
 	autoApplyPresets: false,
     autoApplyFolderPresets: false,
     folderPresets: {},
-    activeFolderPresets: {}
+    activeFolderPresets: {},
+    enableScrollAnimation: true
 };
 
 

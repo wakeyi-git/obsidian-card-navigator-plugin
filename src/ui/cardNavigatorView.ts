@@ -242,25 +242,25 @@ export class CardNavigatorView extends ItemView {
 
     // Set up the view when it's opened
     async onOpen() {
-        const container = this.containerEl.children[1] as HTMLElement;
-        container.empty();
-    
-        const navigatorEl = container.createDiv('card-navigator');
-        const toolbarEl = navigatorEl.createDiv('card-navigator-toolbar');
-        const cardContainerEl = navigatorEl.createDiv('card-navigator-container');
-    
-        // UI 구조 초기화
-        this.toolbar.initialize(toolbarEl);
-        this.cardContainer.initialize(cardContainerEl);
-    
-        // 초기화 작업 수행
-        try {
-            await this.plugin.loadSettings();
-            // 초기화 시에는 레이아웃과 컨텐츠만 리프레시
-            await this.refreshBatch([RefreshType.LAYOUT, RefreshType.CONTENT]);
-        } catch (error) {
-            throw error;
-        }
+            const container = this.containerEl.children[1] as HTMLElement;
+            container.empty();
+
+            const navigatorEl = container.createDiv('card-navigator');
+            const toolbarEl = navigatorEl.createDiv('card-navigator-toolbar');
+            const cardContainerEl = navigatorEl.createDiv('card-navigator-container');
+
+            // 툴바 초기화
+            this.toolbar.initialize(toolbarEl);
+
+            // 카드 컨테이너 초기화
+            this.cardContainer.initialize(cardContainerEl);
+
+            // 레이아웃 업데이트 이벤트 등록
+            this.registerEvent(
+                this.app.workspace.on('resize', () => {
+                    this.cardContainer?.handleResize();
+                })
+            );
     }
 
     // Clean up when the view is closed

@@ -42,4 +42,11 @@ export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavig
         t('DEFAULT_SORT_METHOD'),
         t('DEFAULT_SORT_METHOD_DESC')
     );
+
+    settingTab.addToggleSetting(
+        containerEl,
+        'enableScrollAnimation',
+        t('ENABLE_SCROLL_ANIMATION'),
+        t('ENABLE_SCROLL_ANIMATION_DESC')
+    );
 }
