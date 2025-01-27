@@ -5,6 +5,8 @@ import { LayoutStrategy } from 'layouts/layoutStrategy';
 import { ListLayout } from 'layouts/listLayout';
 
 export class CardRenderer {
+    //#region 초기화 및 기본 설정
+    // 생성자: 카드 렌더러 초기화
     constructor(
         private containerEl: HTMLElement,
         private cardMaker: CardMaker,
@@ -13,14 +15,24 @@ export class CardRenderer {
         private cardsPerView: number
     ) {}
 
+    // 레이아웃 전략 설정 메서드
     public setLayoutStrategy(layoutStrategy: LayoutStrategy) {
         this.layoutStrategy = layoutStrategy;
     }
 
+    // 리소스 정리 메서드
+    public cleanup(): void {
+        if (this.containerEl) {
+            this.containerEl.empty();
+        }
+    }
+    //#endregion
+
+    //#region 카드 렌더링
+    // 카드 렌더링 메서드
     public async renderCards(cardsData: Card[], focusedCardId: string | null = null, activeFile: TFile | null = null) {
         if (!this.containerEl) return;
     
-        // 컨테이너의 visible 클래스 제거
         this.containerEl.classList.remove('visible');
         
         if (!cardsData || cardsData.length === 0) {
@@ -44,12 +56,12 @@ export class CardRenderer {
         const paddingTop = parseFloat(containerStyle.paddingTop) || 0;
         const availableWidth = containerRect.width - paddingLeft - paddingRight;
 
-        // Apply container styles for List layout
+        // 리스트 레이아웃 스타일 적용
         if (this.layoutStrategy instanceof ListLayout) {
             const listContainerStyle = this.layoutStrategy.getContainerStyle();
             Object.assign(containerEl.style, listContainerStyle);
         } else {
-            // Reset styles for other layouts
+            // 다른 레이아웃의 경우 스타일 초기화
             containerEl.style.display = '';
             containerEl.style.flexDirection = '';
             containerEl.style.gap = '';
@@ -109,12 +121,12 @@ export class CardRenderer {
         this.updateScrollDirection();
         await this.ensureCardSizesAreSet();
         
-        // 모든 카드가 준비된 후 visible 클래스 추가
         requestAnimationFrame(() => {
             this.containerEl?.classList.add('visible');
         });
     }
 
+    // 스크롤 방향 업데이트 메서드
     private updateScrollDirection() {
         if (!this.containerEl) return;
         const scrollDirection = this.layoutStrategy.getScrollDirection();
@@ -122,6 +134,7 @@ export class CardRenderer {
         this.containerEl.style.overflowX = scrollDirection === 'horizontal' ? 'auto' : 'hidden';
     }
 
+    // 카드 크기 설정 확인 메서드
     private async ensureCardSizesAreSet(): Promise<void> {
         return new Promise((resolve) => {
             const checkSizes = () => {
@@ -135,7 +148,10 @@ export class CardRenderer {
             checkSizes();
         });
     }
+    //#endregion
 
+    //#region 카드 상태 및 정보 관리
+    // 카드 크기 가져오기 메서드
     public getCardSize(): { width: number, height: number } {
         if (!this.containerEl) return { width: 0, height: 0 };
         const firstCard = this.containerEl.querySelector('.card-navigator-card') as HTMLElement;
@@ -150,6 +166,7 @@ export class CardRenderer {
         };
     }
 
+    // 포커스된 카드 초기화 메서드
     public clearFocusedCards() {
         if (!this.containerEl) return;
         Array.from(this.containerEl.children).forEach((card) => {
@@ -157,6 +174,7 @@ export class CardRenderer {
         });
     }
 
+    // 카드 요소에서 파일 가져오기 메서드
     public getFileFromCard(cardElement: HTMLElement, cards: Card[]): TFile | null {
         if (!this.containerEl) return null;
         const cardIndex = Array.from(this.containerEl.children).indexOf(cardElement);
@@ -165,12 +183,5 @@ export class CardRenderer {
         }
         return null;
     }
-
-    // Cleanup resources
-    public cleanup(): void {
-        // 필요한 정리 작업 수행
-        if (this.containerEl) {
-            this.containerEl.empty();
-        }
-    }
+    //#endregion
 } 

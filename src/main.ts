@@ -7,17 +7,17 @@ import { PresetManager } from './ui/settings/PresetManager';
 import i18next from 'i18next';
 import { t } from 'i18next';
 
-// Define language resources for internationalization
+// 다국어 지원을 위한 언어 리소스 정의
 export const languageResources = {
     en: () => import('./locales/en.json'),
     ko: () => import('./locales/ko.json'),
 } as const;
 
-// Set the translation language based on the user's locale, defaulting to English if not available
+// 사용자 로케일에 기반한 번역 언어 설정 (기본값: 영어)
 export const translationLanguage = Object.keys(languageResources).includes(moment.locale()) ? moment.locale() : "en";
 
 export default class CardNavigatorPlugin extends Plugin {
-    //#region Class Properties
+    //#region 클래스 속성
     settings: CardNavigatorSettings = DEFAULT_SETTINGS;
     selectedFolder: string | null = null;
     settingsManager!: SettingsManager;
@@ -27,7 +27,8 @@ export default class CardNavigatorPlugin extends Plugin {
     public events: Events = new Events();
     //#endregion
 
-    //#region Lifecycle Methods
+    //#region 초기화 및 설정 관리
+    // 플러그인 로드 시 실행되는 메서드
     async onload() {
         await this.loadSettings();
         this.presetManager = new PresetManager(this.app, this, this.settings);
@@ -48,27 +49,14 @@ export default class CardNavigatorPlugin extends Plugin {
         );
     }
 
+    // 플러그인 언로드 시 실행되는 메서드
     async onunload() {
-        // 이벤트 핸들러는 Plugin 클래스에서 자동으로 정리됨
         if (this.ribbonIconEl) {
             this.ribbonIconEl.detach();
         }
     }
-    //#endregion
 
-    //#region Settings Management
-    async loadSettings() {
-        const loadedData = await this.loadData();
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
-    }
-
-    async saveSettings() {
-        await this.saveData(this.settings);
-        this.events.trigger('settings-updated');
-    }
-    //#endregion
-
-    //#region Plugin Initialization
+    // 플러그인 초기화 메서드
     private async initializePlugin() {
         await this.initializeI18n();
 
@@ -86,6 +74,7 @@ export default class CardNavigatorPlugin extends Plugin {
         this.registerCentralizedEvents();
     }
 
+    // i18n 초기화 메서드
     private async initializeI18n() {
         const resources = await this.loadLanguageResources();
         await i18next.init({
@@ -95,6 +84,7 @@ export default class CardNavigatorPlugin extends Plugin {
         });
     }
 
+    // 언어 리소스 로드 메서드
     private async loadLanguageResources() {
         const [en, ko] = await Promise.all([
             languageResources.en(),
@@ -105,21 +95,32 @@ export default class CardNavigatorPlugin extends Plugin {
             ko: { translation: ko.default },
         };
     }
+
+    // 설정 로드 메서드
+    async loadSettings() {
+        const loadedData = await this.loadData();
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+    }
+
+    // 설정 저장 메서드
+    async saveSettings() {
+        await this.saveData(this.settings);
+        this.events.trigger('settings-updated');
+    }
     //#endregion
 
-    //#region View Management
+    //#region 뷰 관리
+    // 카드 네비게이터 뷰 활성화 메서드
     async activateView() {
         const { workspace } = this.app;
         let leaf: WorkspaceLeaf | null = null;
     
-        // 1. 기존 뷰 찾기
         const existingLeaf = workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0];
         
         if (existingLeaf) {
             leaf = existingLeaf;
             workspace.revealLeaf(leaf);
         } else {
-            // 2. 새 뷰 생성 시에만 setViewState 호출
             leaf = workspace.getRightLeaf(false);
             if (leaf) {
                 await leaf.setViewState({ type: VIEW_TYPE_CARD_NAVIGATOR, active: true });
@@ -128,6 +129,7 @@ export default class CardNavigatorPlugin extends Plugin {
         }
     }
 
+    // 첫 번째 카드 네비게이터 뷰 반환 메서드
     private getFirstCardNavigator(): CardNavigatorView | null {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         for (const leaf of leaves) {
@@ -138,10 +140,12 @@ export default class CardNavigatorPlugin extends Plugin {
         return null;
     }
 
+    // 활성화된 카드 네비게이터 뷰 반환 메서드
     private getActiveCardNavigator(): CardNavigatorView | null {
         return this.app.workspace.getActiveViewOfType(CardNavigatorView);
     }
 
+    // 필터링된 카드 표시 메서드
     displayFilteredCards(filteredFiles: TFile[]) {
         const cardNavigator = this.app.workspace.getActiveViewOfType(CardNavigatorView);
         if (cardNavigator) {
@@ -150,7 +154,8 @@ export default class CardNavigatorPlugin extends Plugin {
     }
     //#endregion
 
-    //#region Card Operations
+    //#region 카드 조작
+    // 카드 정렬 메서드
     sortCards(criterion: SortCriterion, order: SortOrder) {
         const cardNavigator = this.app.workspace.getActiveViewOfType(CardNavigatorView);
         if (cardNavigator) {
@@ -158,6 +163,7 @@ export default class CardNavigatorPlugin extends Plugin {
         }
     }
 
+    // 카드 스크롤 메서드
     scrollCards(direction: ScrollDirection, count: number) {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach(leaf => {
@@ -184,35 +190,31 @@ export default class CardNavigatorPlugin extends Plugin {
     }
     //#endregion
 
-    //#region Event Handlers
+    //#region 이벤트 처리
+    // 중앙 이벤트 등록 메서드
     private registerCentralizedEvents() {
-        // 레이아웃 변경 이벤트
         this.registerEvent(
             this.app.workspace.on('layout-change', () => {
                 this.refreshAllViews(RefreshType.LAYOUT);
             })
         );
 
-        // 활성 리프 변경 이벤트
         this.registerEvent(
             this.app.workspace.on('active-leaf-change', () => {
                 this.handleFileChange(this.app.workspace.getActiveFile());
             })
         );
 
-        // 파일 열기 이벤트
         this.registerEvent(
             this.app.workspace.on('file-open', (file) => {
                 this.handleFileChange(file);
             })
         );
 
-        // 설정 업데이트 이벤트
         this.events.on('settings-updated', () => {
             this.refreshAllViews(RefreshType.SETTINGS);
         });
 
-        // 파일 수정 이벤트
         this.registerEvent(
             this.app.vault.on('modify', () => {
                 this.refreshAllViews(RefreshType.CONTENT);
@@ -220,20 +222,17 @@ export default class CardNavigatorPlugin extends Plugin {
         );
     }
 
-    // 모든 카드 네비게이터 뷰 리프레시
+    // 모든 뷰 새로고침 메서드
     private refreshAllViews(type: RefreshType) {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach(leaf => {
             if (leaf.view instanceof CardNavigatorView) {
-                // 레이아웃 변경 시에는 레이아웃만 리프레시
                 if (type === RefreshType.LAYOUT) {
                     leaf.view.refresh(RefreshType.LAYOUT);
                 }
-                // 설정 변경 시에는 설정과 컨텐츠를 함께 리프레시
                 else if (type === RefreshType.SETTINGS) {
                     leaf.view.refreshBatch([RefreshType.SETTINGS, RefreshType.CONTENT]);
                 }
-                // 컨텐츠 변경 시에는 컨텐츠만 리프레시
                 else {
                     leaf.view.refresh(RefreshType.CONTENT);
                 }
@@ -241,12 +240,10 @@ export default class CardNavigatorPlugin extends Plugin {
         });
     }
 
-    // 파일 변경 처리
+    // 파일 변경 처리 메서드
     private async handleFileChange(file: TFile | null) {
-        // 선택된 폴더 사용 중이면 무시
         if (this.settings.useSelectedFolder) return;
         
-        // 파일이 없거나 마크다운이 아니면 무시
         if (!file || !(file instanceof TFile) || file.extension !== 'md') return;
 
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
@@ -261,34 +258,33 @@ export default class CardNavigatorPlugin extends Plugin {
         }
     }
 
-    // 파일에 따른 뷰 업데이트
+    // 파일에 따른 뷰 업데이트 메서드
     private async updateViewForFile(view: CardNavigatorView, file: TFile) {
         const currentFolderPath = await view.getCurrentFolderPath();
         if (!currentFolderPath || !file.parent) return;
 
         if (currentFolderPath === file.parent.path) {
-            // 같은 폴더면 컨텐츠만 리프레시
             view.refresh(RefreshType.CONTENT);
         } else {
-            // 다른 폴더로 이동할 때만 전체 리프레시
             view.refreshBatch([RefreshType.LAYOUT, RefreshType.SETTINGS, RefreshType.CONTENT]);
         }
     }
     //#endregion
 
-    //#region Layout Management
+    //#region 레이아웃 관리
+    // 레이아웃 업데이트 메서드
     public updateLayout(layout: CardNavigatorSettings['defaultLayout']) {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach(leaf => {
             if (leaf.view instanceof CardNavigatorView) {
                 leaf.view.cardContainer.setLayout(layout);
                 this.saveSettings();
-                // 레이아웃과 설정을 함께 리프레시
                 leaf.view.refreshBatch([RefreshType.LAYOUT, RefreshType.SETTINGS]);
             }
         });
     }
 
+    // 설정 탭 새로고침 메서드
     refreshSettingsTab() {
         if (this.settingTab instanceof SettingTab) {
             this.settingTab.display();
@@ -296,7 +292,8 @@ export default class CardNavigatorPlugin extends Plugin {
     }
     //#endregion
 
-    //#region Commands
+    //#region 명령어 관리
+    // 기본 명령어 추가 메서드
     private addCommands() {
         this.addCommand({
             id: 'open-card-navigator',
@@ -332,6 +329,7 @@ export default class CardNavigatorPlugin extends Plugin {
         });
     }
 
+    // 스크롤 명령어 추가 메서드
     private addScrollCommands() {
         const scrollCommands = [
             { id: 'scroll-up-one-card', name: t('SCROLL_UP_ONE_CARD'), direction: 'up', count: 1 },
@@ -354,7 +352,8 @@ export default class CardNavigatorPlugin extends Plugin {
     }
     //#endregion
 
-    //#region Preset Management
+    //#region 프리셋 관리
+    // 프리셋 선택 및 적용 메서드
     private async selectAndApplyPreset(file: TFile) {
         if (this.settings.autoApplyPresets) {
             if (this.settings.autoApplyFolderPresets && file.parent) {
@@ -365,6 +364,7 @@ export default class CardNavigatorPlugin extends Plugin {
         }
     }
 
+    // 현재 파일에 대한 프리셋 선택 및 적용 메서드
     async selectAndApplyPresetForCurrentFile() {
         const currentFile = this.app.workspace.getActiveFile();
         if (currentFile) {

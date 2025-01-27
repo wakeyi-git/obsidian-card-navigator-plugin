@@ -4,23 +4,36 @@ import { CardNavigatorView } from '../cardNavigatorView';
 import { toggleSort, toggleSettings, debouncedSearch } from './toolbarActions';
 import { t } from 'i18next';
 
-// Class representing the toolbar for the Card Navigator plugin
+// Card Navigator 플러그인의 툴바를 나타내는 클래스
 export class Toolbar {
+    //#region 클래스 속성
     private containerEl: HTMLElement | null = null;
     private settingsPopupOpen = false;
     private settingsIcon: HTMLElement | null = null;
     private popupObserver: MutationObserver | null = null;
+    //#endregion
 
+    //#region 초기화 및 정리
+    // 생성자: 툴바 초기화
     constructor(private plugin: CardNavigatorPlugin) {}
 
-    // Initializes the toolbar with the given container element
+    // 툴바 초기화 및 컨테이너 설정
     initialize(containerEl: HTMLElement) {
         this.containerEl = containerEl;
         this.createToolbar();
         this.setupPopupObserver();
     }
 
-    // Creates the toolbar UI elements
+    // 리소스 정리
+    onClose() {
+        if (this.popupObserver) {
+            this.popupObserver.disconnect();
+        }
+    }
+    //#endregion
+
+    //#region 툴바 UI 생성
+    // 툴바 UI 요소 생성
     private createToolbar() {
         if (!this.containerEl) return;
 
@@ -33,7 +46,7 @@ export class Toolbar {
         toolbarContainer.appendChild(this.createActionIconsContainer());
     }
 
-    // Creates the search input container
+    // 검색 컨테이너 생성
     private createSearchContainer(): HTMLElement {
         const container = createDiv('card-navigator-search-container');
     
@@ -68,12 +81,12 @@ export class Toolbar {
         return container;
     }
 
-	// Creates a separator element for the toolbar
+	// 툴바에 대한 구분 요소를 생성
 	private createSeparator(): HTMLElement {
 		return createDiv('toolbar-separator');
 	}
 
-	// Creates the container for action icons (folder select, sort, settings)
+	// 작업 아이콘(폴더 선택, 정렬, 설정)을 위한 컨테이너를 생성
 	private createActionIconsContainer(): HTMLElement {
 		const container = createDiv('card-navigator-action-icons-container');
 	
@@ -83,7 +96,7 @@ export class Toolbar {
 			{ name: 'settings', label: t('SETTINGS'), action: () => this.toggleSettingsPopup() },
 		] as const;
 	
-		// Iterates over icon definitions to create toolbar icons
+		// 툴바 아이콘을 생성하기 위해 아이콘 정의를 반복
 		icons.forEach(icon => {
 			const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
 			if (icon.name === 'settings') {
@@ -95,7 +108,7 @@ export class Toolbar {
 		return container;
 	}
 
-    // Helper function to create individual toolbar icons
+    // 개별 툴바 아이콘을 생성하는 도우미 함수
     private createToolbarIcon(iconName: string, ariaLabel: string, action: () => void): HTMLElement {
         const icon = createDiv('clickable-icon');
         icon.ariaLabel = ariaLabel;
@@ -111,7 +124,7 @@ export class Toolbar {
         return icon;
     }
 
-    // Opens a folder selector modal and displays cards for the selected folder
+    // 폴더 선택 모달을 열고 선택한 폴더의 카드를 표시
     public openFolderSelector() {
         new FolderSuggestModal(this.plugin, (folder: TFolder) => {
             const view = this.plugin.app.workspace.getActiveViewOfType(CardNavigatorView);
@@ -121,7 +134,7 @@ export class Toolbar {
         }).open();
     }
 
-    // Toggles the settings popup
+    // 설정 팝업을 토글
     private toggleSettingsPopup() {
         if (this.settingsPopupOpen) {
             this.closeSettingsPopup();
@@ -131,13 +144,13 @@ export class Toolbar {
         this.updateIconStates();
     }
 
-    // Opens the settings popup
+    // 설정 팝업 열기
     private openSettingsPopup() {
         this.settingsPopupOpen = true;
         toggleSettings(this.plugin, this.containerEl);
     }
 
-    // Closes the settings popup
+    // 설정 팝업 닫기
     private closeSettingsPopup() {
         this.settingsPopupOpen = false;
         const settingsPopup = this.containerEl?.querySelector('.card-navigator-settings-popup');
@@ -146,14 +159,14 @@ export class Toolbar {
         }
     }
 
-    // Updates the visual state of the icons based on popup open states
+    // 팝업 오픈 상태에 따라 아이콘의 시각적 상태를 업데이트
     private updateIconStates() {
         if (this.settingsIcon) {
             this.settingsIcon.classList.toggle('card-navigator-icon-active', this.settingsPopupOpen);
         }
     }
 
-    // Sets up an observer to watch for popup removals
+    // 팝업 제거를 감시하기 위한 관찰자를 설정
     private setupPopupObserver() {
         if (!this.containerEl) return;
 
@@ -175,37 +188,31 @@ export class Toolbar {
         this.popupObserver.observe(this.containerEl, { childList: true, subtree: true });
     }
 
-    // Refreshes the toolbar (to be implemented if needed)
+    // 툴바를 새로 고침
     refresh() {
-        // Implement refresh logic if necessary
+        // 필요한 경우 새로 고침 논리를 구현
     }
-
-    // Cleans up resources when the toolbar is closed
-    onClose() {
-        if (this.popupObserver) {
-            this.popupObserver.disconnect();
-        }
-    }
+    //#endregion
 }
 
-// Modal for selecting folders in the toolbar
+// 툴바에서 폴더를 선택하기 위한 모달
 class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     constructor(private plugin: CardNavigatorPlugin, private onSelect: (folder: TFolder) => void) {
         super(plugin.app);
     }
 
-    // Retrieve all folders in the vault
+    // 보관소에 있는 모든 폴더를 검색
     getItems(): TFolder[] {
         return this.plugin.app.vault.getAllLoadedFiles()
             .filter((file): file is TFolder => file instanceof TFolder);
     }
 
-    // Display the folder path as the item text
+    // 폴더 경로를 항목 텍스트로 표시
     getItemText(folder: TFolder): string {
         return folder.path;
     }
 
-    // Handle folder selection
+    // 폴더 선택 처리
     onChooseItem(folder: TFolder): void {
         this.onSelect(folder);
     }

@@ -1,18 +1,21 @@
-import { TFile } from "obsidian";import { SortCriterion, SortOrder } from './types';
+import { TFile } from "obsidian";
+import { SortCriterion, SortOrder } from './types';
 
 /**
- * This file contains utility functions for file handling, sorting, and numerical operations.
- * These functions are used throughout the Card Navigator plugin to process and manipulate data.
+ * 이 파일은 파일 처리, 정렬, 수치 연산을 위한 유틸리티 함수들을 포함합니다.
+ * Card Navigator 플러그인 전반에서 데이터 처리와 조작에 사용됩니다.
  */
 
-/**
- * Separates the frontmatter from the body of a file.
- * Frontmatter is the metadata at the beginning of a Markdown file, enclosed in '---'.
- * @param body - The full body of a file, including frontmatter.
- * @returns An object containing the frontmatter (if any) and the clean body.
- */
+//#region 파일 내용 처리
+// 프론트매터 정규식 패턴
 const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n/;
 
+/**
+ * 파일의 프론트매터와 본문을 분리합니다.
+ * 프론트매터는 마크다운 파일 시작 부분의 '---'로 둘러싸인 메타데이터입니다.
+ * @param body - 프론트매터를 포함한 파일의 전체 내용
+ * @returns 프론트매터(있는 경우)와 정리된 본문을 포함하는 객체
+ */
 export function separateFrontmatterAndBody(body: string): { frontmatter: string | null, cleanBody: string } {
     const match = body.match(frontmatterRegex);
     if (match) {
@@ -23,21 +26,23 @@ export function separateFrontmatterAndBody(body: string): { frontmatter: string 
     }
     return { frontmatter: null, cleanBody: body.trim() };
 }
+//#endregion
 
+//#region 파일 정렬
 /**
- * Sorts an array of files based on the specified criterion and order.
- * This function creates a new sorted array and does not modify the original.
- * @param files - The array of files to sort.
- * @param criterion - The criterion to sort by ('fileName', 'lastModified', or 'created').
- * @param order - The sort order ('asc' for ascending, 'desc' for descending).
- * @returns The sorted array of files.
+ * 지정된 기준과 순서에 따라 파일 배열을 정렬합니다.
+ * 원본 배열을 수정하지 않고 새로운 정렬된 배열을 생성합니다.
+ * @param files - 정렬할 파일 배열
+ * @param criterion - 정렬 기준 ('fileName', 'lastModified', 'created')
+ * @param order - 정렬 순서 ('asc': 오름차순, 'desc': 내림차순)
+ * @returns 정렬된 파일 배열
  */
 export function sortFiles(files: TFile[], criterion: SortCriterion, order: SortOrder): TFile[] {
     return [...files].sort((a, b) => {
         let comparison = 0;
         switch (criterion) {
             case 'fileName':
-                // Use localeCompare for natural sort order of file names
+                // 파일 이름의 자연스러운 정렬을 위해 localeCompare 사용
                 comparison = a.basename.localeCompare(b.basename, undefined, { numeric: true, sensitivity: 'base' });
                 break;
             case 'lastModified':
@@ -50,13 +55,15 @@ export function sortFiles(files: TFile[], criterion: SortCriterion, order: SortO
         return order === 'asc' ? comparison : -comparison;
     });
 }
+//#endregion
 
+//#region 수치 처리
 /**
- * Safely parses a string into a float number, with a fallback value in case of failure.
- * This is useful for handling potentially invalid user input or data.
- * @param value - The string to parse.
- * @param fallback - The fallback value to return if parsing fails (default is 0).
- * @returns The parsed float value, or the fallback if parsing fails.
+ * 문자열을 안전하게 실수로 변환합니다.
+ * 잘못된 사용자 입력이나 데이터 처리 시 유용합니다.
+ * @param value - 변환할 문자열
+ * @param fallback - 변환 실패 시 반환할 기본값 (기본값: 0)
+ * @returns 변환된 실수값 또는 실패 시 기본값
  */
 export function safelyParseFloat(value: string, fallback = 0): number {
     const parsed = parseFloat(value);
@@ -64,13 +71,14 @@ export function safelyParseFloat(value: string, fallback = 0): number {
 }
 
 /**
- * Clamps a number between a minimum and maximum value.
- * This is useful for ensuring a value stays within a specific range.
- * @param value - The number to clamp.
- * @param min - The minimum allowable value.
- * @param max - The maximum allowable value.
- * @returns The clamped number.
+ * 숫자를 최소값과 최대값 사이로 제한합니다.
+ * 값이 특정 범위 내에 있도록 보장할 때 유용합니다.
+ * @param value - 제한할 숫자
+ * @param min - 최소 허용값
+ * @param max - 최대 허용값
+ * @returns 제한된 숫자
  */
 export function clamp(value: number, min: number, max: number): number {
     return Math.min(Math.max(value, min), max);
 }
+//#endregion

@@ -1,46 +1,55 @@
 import { Card } from 'common/types';
 
-// Interface defining the contract for different layout strategies
+/**
+ * 레이아웃 전략을 정의하는 인터페이스
+ * 다양한 카드 배치 방식을 구현하기 위한 기본 계약을 정의합니다.
+ */
 export interface LayoutStrategy {
+    //#region 카드 배치 및 관리
     /**
-     * Arrange cards according to the specific layout strategy
-     * @param cards - Array of cards to be arranged
-     * @param containerWidth - Width of the container
-     * @param containerHeight - Height of the container
-     * @param cardsPerView - Number of cards to be displayed per view
-     * @returns An array of CardPosition objects representing the position and size of each card
+     * 특정 레이아웃 전략에 따라 카드를 배치합니다.
+     * @param cards - 배치할 카드 배열
+     * @param containerWidth - 컨테이너의 너비
+     * @param containerHeight - 컨테이너의 높이
+     * @param cardsPerView - 뷰당 표시할 카드 수
+     * @returns 각 카드의 위치와 크기를 나타내는 CardPosition 객체 배열
      */
     arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[];
 
     /**
-     * Get the scroll direction for the layout
-     * @returns 'vertical' for vertical scrolling layouts, 'horizontal' for horizontal scrolling layouts
+     * 카드의 너비를 설정합니다.
+     * @param width - 설정할 카드의 너비
+     */
+    setCardWidth(width: number): void;
+    //#endregion
+
+    //#region 레이아웃 속성
+    /**
+     * 레이아웃의 스크롤 방향을 반환합니다.
+     * @returns 수직 스크롤의 경우 'vertical', 수평 스크롤의 경우 'horizontal'
      */
     getScrollDirection(): 'vertical' | 'horizontal';
 
     /**
-     * Get the number of columns in the layout
-     * @returns The number of columns in the layout
+     * 레이아웃의 열 수를 반환합니다.
+     * @returns 레이아웃의 열 수
      */
-	getColumnsCount(): number;
-
-    /**
-     * Set the width of cards in the layout
-     * @param width - The width to set for the cards
-     */
-    setCardWidth(width: number): void;
+    getColumnsCount(): number;
+    //#endregion
 }
 
-// Interface defining the position and size of a card in the layout
+/**
+ * 레이아웃에서 카드의 위치와 크기를 정의하는 인터페이스
+ */
 export interface CardPosition {
-    // The card object
+    // 카드 객체
     card: Card;
-    // X-coordinate of the card's position
+    // 카드의 X 좌표 위치
     x: number;
-    // Y-coordinate of the card's position
+    // 카드의 Y 좌표 위치
     y: number;
-    // Width of the card (can be a number or 'auto')
+    // 카드의 너비 (숫자 또는 'auto')
     width: number | 'auto';
-    // Height of the card (can be a number or 'auto')
+    // 카드의 높이 (숫자 또는 'auto')
     height: number | 'auto';
 }

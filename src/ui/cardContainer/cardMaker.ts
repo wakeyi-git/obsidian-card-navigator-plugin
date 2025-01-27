@@ -7,14 +7,16 @@ import { t } from 'i18next';
 type CardElementTag = 'div' | 'h3' | 'h4';
 
 export class CardMaker {
+    //#region 클래스 속성
     private dragImage: HTMLElement | null = null;
     private currentDraggedCard: Card | null = null;
     private lastCursorUpdate: number | null = null;
+    //#endregion
 
-    constructor(
-        private plugin: CardNavigatorPlugin
-    ) {}
+    constructor(private plugin: CardNavigatorPlugin) {}
 
+    //#region 카드 생성 및 내용 관리
+    // 활성 파일의 카드 목록 가져오기 메서드
     async getCardsForActiveFile(activeFile: TFile): Promise<Card[]> {
         const folder = activeFile.parent;
         if (!folder) return [];
@@ -26,6 +28,7 @@ export class CardMaker {
         return Promise.all(sortedFiles.map(file => this.createCard(file)));
     }
 
+    // 카드 생성 메서드
     public async createCard(file: TFile): Promise<Card> {
         try {
             const content = await this.plugin.app.vault.cachedRead(file);
@@ -46,20 +49,26 @@ export class CardMaker {
         }
     }
 
+    // 첫 번째 헤더 찾기 메서드
     private findFirstHeader(body: string): string | undefined {
         return body.match(/^#+\s+(.+)$/m)?.[1]?.trim();
     }
 
+    // 첫 번째 헤더 제거 메서드
     private removeFirstHeader(body: string): string {
         return body.replace(/^#+\s+(.+)$/m, '').trim();
     }
 
+    // 본문 길이 제한 메서드
     private truncateBody(body: string): string {
         if (!this.plugin.settings.bodyLengthLimit) return body;
         const maxLength = this.plugin.settings.bodyLength;
         return body.length <= maxLength ? body : `${body.slice(0, maxLength)}...`;
     }
+    //#endregion
 
+    //#region 카드 요소 생성 및 상호작용
+    // 카드 요소 생성 메서드
     createCardElement(card: Card): HTMLElement {
         const cardElement = document.createElement('div');
         cardElement.className = 'card-navigator-card';
@@ -71,6 +80,7 @@ export class CardMaker {
         return cardElement;
     }
 
+    // 카드 내용 추가 메서드
     private addCardContent(cardElement: HTMLElement, card: Card) {
         const { settings } = this.plugin;
         
@@ -94,6 +104,7 @@ export class CardMaker {
         }
     }
 
+    // 컨텐츠 요소 생성 메서드
     private createContentElement(parent: HTMLElement, tag: CardElementTag, text: string, type: string, fontSize: number): HTMLElement {
         const element = parent.createEl(tag, { 
             text, 
@@ -102,13 +113,17 @@ export class CardMaker {
         element.style.fontSize = `${fontSize}px`;
         return element;
     }
+    //#endregion
 
+    //#region 카드 상호작용 설정
+    // 카드 상호작용 설정 메서드
     private setupCardInteractions(cardElement: HTMLElement, card: Card) {
         this.setupClickHandler(cardElement, card);
         this.setupDragAndDrop(cardElement, card);
         this.setupContextMenu(cardElement, card.file);
     }
 
+    // 클릭 핸들러 설정 메서드
     private setupClickHandler(cardElement: HTMLElement, card: Card) {
         if (!Platform.isMobile) {
             cardElement.addEventListener('click', async () => {
@@ -118,6 +133,7 @@ export class CardMaker {
         }
     }
 
+    // 드래그 앤 드롭 설정 메서드
     private setupDragAndDrop(cardElement: HTMLElement, card: Card) {
         cardElement.setAttribute('draggable', 'true');
         
@@ -128,6 +144,7 @@ export class CardMaker {
         }
     }
 
+    // 모바일 드래그 앤 드롭 설정 메서드
     private setupMobileDragAndDrop(cardElement: HTMLElement, card: Card) {
         let touchStartPos = { x: 0, y: 0 };
         let touchStartTime = 0;
@@ -296,6 +313,7 @@ export class CardMaker {
         });
     }
 
+    // 데스크톱 드래그 앤 드롭 설정 메서드
     private setupDesktopDragAndDrop(cardElement: HTMLElement, card: Card) {
         cardElement.addEventListener('dragstart', (e: DragEvent) => {
             if (e.dataTransfer) {
@@ -306,6 +324,7 @@ export class CardMaker {
         });
     }
 
+    // 컨텍스트 메뉴 설정 메서드
     private setupContextMenu(cardElement: HTMLElement, file: TFile) {
         const handler = (e: MouseEvent | TouchEvent) => {
             e.preventDefault();
@@ -340,44 +359,10 @@ export class CardMaker {
             cardElement.addEventListener('contextmenu', handler);
         }
     }
+    //#endregion
 
-    private getLink(file: TFile): string {
-        return this.plugin.app.fileManager.generateMarkdownLink(file, '');
-    }
-
-    private getContent(card: Card): string {
-        const parts = [];
-        if (this.plugin.settings.showFileName && card.fileName) {
-            parts.push(`## ${card.fileName}`);
-        }
-        if (this.plugin.settings.showFirstHeader && card.firstHeader) {
-            parts.push(`# ${card.firstHeader}`);
-        }
-        if (this.plugin.settings.showBody && card.body) {
-            parts.push(card.body);
-        }
-
-        return parts.length ? parts.join('\n\n') : this.getLink(card.file);
-    }
-
-    public getCardContent(card: Card): string {
-        if (!this.plugin.settings.dragDropContent) {
-            return this.getLink(card.file);
-        }
-        return this.getContent(card);
-    }
-
-    public copyLink(file: TFile) {
-        const link = this.getLink(file);
-        navigator.clipboard.writeText(link);
-    }
-
-    public async copyCardContent(file: TFile) {
-        const card = await this.createCard(file);
-        const content = this.getContent(card);
-        navigator.clipboard.writeText(content);
-    }
-
+    //#region 드래그 앤 드롭 유틸리티
+    // 드래그 시작 메서드
     private startDrag(cardElement: HTMLElement, card: Card, touch: Touch) {
         if (this.dragImage) return;
 
@@ -450,6 +435,7 @@ export class CardMaker {
         }
     }
 
+    // 드래그 종료 메서드
     private endDrag() {
         if (this.dragImage) {
             this.dragImage.style.opacity = '0';
@@ -463,15 +449,62 @@ export class CardMaker {
         this.currentDraggedCard = null;
     }
 
+    // 드래그 이미지 크기 계산 메서드
     private calculateDragImageScale(): number {
         const screenWidth = window.innerWidth;
         return screenWidth < 768 ? 0.5 : 0.6;
     }
 
+    // 드래그 이미지 최대 크기 계산 메서드
     private calculateDragImageMaxSize(): { width: number, height: number } {
         const screenWidth = window.innerWidth;
         const baseWidth = screenWidth < 768 ? 150 : 200;
         const baseHeight = screenWidth < 768 ? 100 : 150;
         return { width: baseWidth, height: baseHeight };
     }
+    //#endregion
+
+    //#region 카드 내용 및 링크 관리
+    // 링크 생성 메서드
+    private getLink(file: TFile): string {
+        return this.plugin.app.fileManager.generateMarkdownLink(file, '');
+    }
+
+    // 카드 내용 가져오기 메서드
+    private getContent(card: Card): string {
+        const parts = [];
+        if (this.plugin.settings.showFileName && card.fileName) {
+            parts.push(`## ${card.fileName}`);
+        }
+        if (this.plugin.settings.showFirstHeader && card.firstHeader) {
+            parts.push(`# ${card.firstHeader}`);
+        }
+        if (this.plugin.settings.showBody && card.body) {
+            parts.push(card.body);
+        }
+
+        return parts.length ? parts.join('\n\n') : this.getLink(card.file);
+    }
+
+    // 드래그 앤 드롭용 카드 내용 가져오기 메서드
+    public getCardContent(card: Card): string {
+        if (!this.plugin.settings.dragDropContent) {
+            return this.getLink(card.file);
+        }
+        return this.getContent(card);
+    }
+
+    // 링크 복사 메서드
+    public copyLink(file: TFile) {
+        const link = this.getLink(file);
+        navigator.clipboard.writeText(link);
+    }
+
+    // 카드 내용 복사 메서드
+    public async copyCardContent(file: TFile) {
+        const card = await this.createCard(file);
+        const content = this.getContent(card);
+        navigator.clipboard.writeText(content);
+    }
+    //#endregion
 }

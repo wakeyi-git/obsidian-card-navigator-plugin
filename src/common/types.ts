@@ -1,7 +1,8 @@
 import { TFile } from 'obsidian';
 import { t } from 'i18next';
 
-// Define the structure of a Card object
+//#region 기본 인터페이스
+// 카드 객체 구조 정의
 export interface Card {
     file: TFile;
     fileName?: string;
@@ -9,7 +10,7 @@ export interface Card {
     body?: string;
 }
 
-// Define the structure of a preset
+// 프리셋 구조 정의
 export interface Preset {
     name: string;
     settings: Partial<CardNavigatorSettings>;
@@ -17,56 +18,75 @@ export interface Preset {
     description?: string;
 }
 
+// 폴더별 프리셋 구조 정의
 export interface FolderPresets {
     [folderPath: string]: string[];
 }
+//#endregion
 
-// Define the structure of CardNavigator settings
+//#region 설정 관련 타입
+// 카드 네비게이터 설정 구조 정의
 export interface CardNavigatorSettings {
+    // 폴더 관련 설정
     useSelectedFolder: boolean;
     selectedFolder: string | null;
+    
+    // 정렬 관련 설정
     sortCriterion: SortCriterion;
     sortOrder: SortOrder;
+    
+    // 렌더링 관련 설정
     renderContentAsHtml: boolean;
     dragDropContent: boolean;
     defaultLayout: defaultLayout;
+    
+    // 카드 레이아웃 설정
     cardWidthThreshold: number;
     alignCardHeight: boolean;
     cardsPerView: number;
     gridColumns: number;
     gridCardHeight: number;
     masonryColumns: number;
+    
+    // 카드 내용 표시 설정
     showFileName: boolean;
     showFirstHeader: boolean;
     showBody: boolean;
     bodyLengthLimit: boolean;
     bodyLength: number;
+    
+    // 폰트 크기 설정
     fileNameFontSize: number;
     firstHeaderFontSize: number;
     bodyFontSize: number;
+    
+    // 프리셋 관련 설정
     presetFolderPath: string;
     GlobalPreset: string;
     lastActivePreset: string;
-	autoApplyPresets: boolean;
+    autoApplyPresets: boolean;
     autoApplyFolderPresets: boolean;
     folderPresets?: Record<string, string[]> | null;
     activeFolderPresets?: Record<string, string> | null;
+    
+    // 기타 설정
     enableScrollAnimation: boolean;
 }
 
+// 전역 설정 키 정의
 export const globalSettingsKeys: (keyof CardNavigatorSettings)[] = [
     'presetFolderPath',
     'GlobalPreset',
     'lastActivePreset',
-	'autoApplyPresets',
+    'autoApplyPresets',
     'autoApplyFolderPresets',
     'folderPresets',
     'activeFolderPresets',
-	'useSelectedFolder',
-	'selectedFolder'
+    'useSelectedFolder',
+    'selectedFolder'
 ] as const;
 
-// Define default settings for the CardNavigator
+// 기본 설정값 정의
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     useSelectedFolder: false,
     selectedFolder: null,
@@ -92,31 +112,32 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     presetFolderPath: 'CardNavigatorPresets',
     GlobalPreset: 'default',
     lastActivePreset: 'default',
-	autoApplyPresets: false,
+    autoApplyPresets: false,
     autoApplyFolderPresets: false,
     folderPresets: {},
     activeFolderPresets: {},
     enableScrollAnimation: true
 };
+//#endregion
 
-
-// Define a type for numeric setting keys
+//#region 숫자 설정 관련 타입
+// 숫자 설정 키 타입 정의
 export type NumberSettingKey = Extract<keyof CardNavigatorSettings, {
     [K in keyof CardNavigatorSettings]: CardNavigatorSettings[K] extends number ? K : never
 }[keyof CardNavigatorSettings]>;
 
-// Define the structure for range setting configurations
+// 범위 설정 구성 인터페이스
 export interface RangeSettingConfig {
     min: number;
     max: number;
     step: number;
 }
 
-// Define range setting configurations for numeric settings
+// 숫자 설정의 범위 구성 정의
 export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> = {
     cardWidthThreshold: { min: 150, max: 600, step: 10 },
     gridColumns: { min: 1, max: 10, step: 1 },
-	gridCardHeight: { min: 100, max: 500, step: 10 },
+    gridCardHeight: { min: 100, max: 500, step: 10 },
     masonryColumns: { min: 1, max: 10, step: 1 },
     cardsPerView: { min: 1, max: 10, step: 1 },
     fileNameFontSize: { min: 10, max: 25, step: 1 },
@@ -124,17 +145,27 @@ export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> =
     bodyFontSize: { min: 10, max: 25, step: 1 },
     bodyLength: { min: 1, max: 1001, step: 50 },
 };
+//#endregion
 
-// Define common types used throughout the application
+//#region 공통 타입 정의
+// 이벤트 핸들러 타입
 export type EventHandler = () => void;
+// 아이콘 이름 타입
 export type IconName = 'folder' | 'arrow-up-narrow-wide' | 'settings';
+// 스크롤 방향 타입
 export type ScrollDirection = 'up' | 'down' | 'left' | 'right';
+// 정렬 기준 타입
 export type SortCriterion = 'fileName' | 'lastModified' | 'created';
+// 정렬 순서 타입
 export type SortOrder = 'asc' | 'desc';
+// 기본 레이아웃 타입
 export type defaultLayout = 'auto' | 'list' | 'grid' | 'masonry';
+// 툴바 메뉴 타입
 export type ToolbarMenu = 'sort' | 'settings';
+//#endregion
 
-// Define sorting options for the application
+//#region UI 설정 옵션
+// 정렬 옵션 정의
 export const sortOptions: Array<{ value: string, label: string }> = [
     { value: 'fileName_asc', label: 'SORT_FILE_NAME_ASC' },
     { value: 'fileName_desc', label: 'SORT_FILE_NAME_DESC' },
@@ -144,21 +175,21 @@ export const sortOptions: Array<{ value: string, label: string }> = [
     { value: 'created_asc', label: 'SORT_CREATED_ASC' },
 ];
 
-// Define content settings for the UI
+// 내용 표시 설정 정의
 export const contentSettings: Array<{ name: string, key: keyof CardNavigatorSettings, description: string }> = [
     { name: 'SHOW_FILE_NAME', key: 'showFileName', description: 'TOGGLE_FILE_NAME_DISPLAY' },
     { name: 'SHOW_FIRST_HEADER', key: 'showFirstHeader', description: 'TOGGLE_FIRST_HEADER_DISPLAY' },
     { name: 'SHOW_BODY', key: 'showBody', description: 'TOGGLE_BODY_DISPLAY' },
 ];
 
-// Define font size settings for the UI
+// 폰트 크기 설정 정의
 export const fontSizeSettings: Array<{ name: string, key: keyof CardNavigatorSettings, description: string }> = [
     { name: 'FILE_NAME_FONT_SIZE', key: 'fileNameFontSize', description: 'SET_FILE_NAME_FONT_SIZE' },
     { name: 'FIRST_HEADER_FONT_SIZE', key: 'firstHeaderFontSize', description: 'SET_FIRST_HEADER_FONT_SIZE' },
     { name: 'BODY_FONT_SIZE', key: 'bodyFontSize', description: 'SET_BODY_FONT_SIZE' },
 ];
 
-// Define keyboard shortcuts for the application
+// 키보드 단축키 정의
 export const keyboardShortcuts: Array<{ name: string, description: string }> = [
     { name: 'SCROLL_UP_ONE_CARD', description: 'MOVE_UP_ONE_CARD' },
     { name: 'SCROLL_DOWN_ONE_CARD', description: 'MOVE_DOWN_ONE_CARD' },
@@ -170,8 +201,10 @@ export const keyboardShortcuts: Array<{ name: string, description: string }> = [
     { name: 'MOVE_FOCUS_TO_CARD_NAVIGATOR', description: 'SET_FOCUS_TO_CARD_NAVIGATOR' },
     { name: 'OPEN_CARD_CONTEXT_MENU', description: 'OPEN_CONTEXT_MENU_FOR_FOCUSED_CARD' }
 ];
+//#endregion
 
-// Function to translate keyboard shortcuts
+//#region 번역 유틸리티 함수
+// 키보드 단축키 번역
 export function getTranslatedKeyboardShortcuts() {
     return keyboardShortcuts.map(shortcut => ({
         name: t(shortcut.name),
@@ -179,7 +212,7 @@ export function getTranslatedKeyboardShortcuts() {
     }));
 }
 
-// Function to translate sort options
+// 정렬 옵션 번역
 export function getTranslatedSortOptions() {
     return sortOptions.map(option => ({
         ...option,
@@ -187,7 +220,7 @@ export function getTranslatedSortOptions() {
     }));
 }
 
-// Function to translate display settings
+// 표시 설정 번역
 export function getTranslatedDisplaySettings() {
     return contentSettings.map(setting => ({
         ...setting,
@@ -195,10 +228,11 @@ export function getTranslatedDisplaySettings() {
     }));
 }
 
-// Function to translate font size settings
+// 폰트 크기 설정 번역
 export function getTranslatedFontSizeSettings() {
     return fontSizeSettings.map(setting => ({
         ...setting,
         name: t(setting.name)
     }));
 }
+//#endregion

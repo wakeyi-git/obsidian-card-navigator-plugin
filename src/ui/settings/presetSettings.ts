@@ -9,9 +9,18 @@ import { SettingTab } from './settingsTab';
 import { t } from 'i18next';
 import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 
+//#region 전역 변수
+// 프리셋 목록을 표시할 컨테이너
 let presetListContainer: HTMLElement;
+//#endregion
 
+//#region 메인 설정 추가
+/**
+ * 프리셋 설정을 추가하는 메인 함수입니다.
+ * 모든 프리셋 관련 설정을 초기화하고 표시합니다.
+ */
 export function addPresetSettings(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, settingTab: SettingTab): void {
+	// 뷰 새로고침 함수 정의
 	const refreshViews = () => {
 		const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
 		leaves.forEach(leaf => {
@@ -24,20 +33,31 @@ export function addPresetSettings(containerEl: HTMLElement, plugin: CardNavigato
 
 	const debouncedRefreshViews = debounce(() => refreshViews(), 200);
 
+	// 자동 적용 설정 섹션 추가
 	addAutoApplyPresetsSection(containerEl, plugin, settingsManager, debouncedRefreshViews);
 
 	// autoApplyPresets가 true일 때만 다른 프리셋 관련 섹션들을 표시
 	if (plugin.settings.autoApplyPresets) {
+		// 프리셋 폴더 설정
 		addGlobalPresetSection(containerEl, plugin, debouncedRefreshViews);
-		addFolderPresetSection(containerEl, plugin, settingsManager, debouncedRefreshViews);
+		
+		// 프리셋 관리 섹션
 		addPresetManagementSection(containerEl, plugin, settingsManager, debouncedRefreshViews);
-	
+		
 		// 프리셋 목록을 위한 컨테이너 생성
 		presetListContainer = containerEl.createDiv('preset-list-container');
 		refreshPresetList(plugin, settingsManager, debouncedRefreshViews);
+		
+		// 폴더별 프리셋 설정
+		addFolderPresetSection(containerEl, plugin, settingsManager, debouncedRefreshViews);
 	}
 }
+//#endregion
 
+//#region 자동 적용 설정
+/**
+ * 프리셋 자동 적용 설정을 추가합니다.
+ */
 function addAutoApplyPresetsSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshViews: () => void): void {
 	new Setting(containerEl)
 		.setName(t('AUTO_APPLY_PRESETS'))
@@ -52,14 +72,12 @@ function addAutoApplyPresetsSection(containerEl: HTMLElement, plugin: CardNaviga
 				})
 		);
 }
+//#endregion
 
-async function refreshPresetList(plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshViews: () => void): Promise<void> {
-	if (!presetListContainer) return;
-
-	presetListContainer.empty();
-	await addPresetListSection(presetListContainer, plugin, settingsManager, debouncedRefreshViews);
-}
-
+//#region 전역 프리셋 설정
+/**
+ * 전역 프리셋 폴더 설정을 추가합니다.
+ */
 function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, debouncedRefreshViews: () => void): void {
 	new Setting(containerEl)
 		.setName(t('PRESET_FOLDER'))
@@ -90,8 +108,14 @@ function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
 		}, 0);
 	});
 }
+//#endregion
 
+//#region 폴더별 프리셋 설정
+/**
+ * 폴더별 프리셋 설정을 추가합니다.
+ */
 function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshViews: () => void): void {
+	// 폴더별 프리셋 자동 적용 설정
 	new Setting(containerEl)
 		.setName(t('AUTO_APPLY_FOLDER_PRESET'))
 		.setDesc(t('AUTO_APPLY_FOLDER_PRESET_DESC'))
@@ -107,7 +131,8 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
 				})
 		);
 
-		new Setting(containerEl)
+	// 새 폴더 프리셋 추가 버튼
+	new Setting(containerEl)
         .setName(t('ADD_NEW_FOLDER_PRESET'))
         .setDesc(t('ADD_NEW_FOLDER_PRESET_DESC'))
         .addButton((button: ButtonComponent) => 
@@ -132,6 +157,7 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
                 })
         );
 
+	// 기존 폴더 프리셋 목록 표시
 	plugin.settings.folderPresets = plugin.settings.folderPresets || {};
 	plugin.settings.activeFolderPresets = plugin.settings.activeFolderPresets || {};
 
@@ -190,6 +216,7 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
 			}
 		};
 
+		// 이동 및 삭제 버튼 추가
 		s.addExtraButton((cb) => {
 			cb.setIcon('down-chevron-glyph')
 				.setTooltip(t('MOVE_DOWN'))
@@ -221,11 +248,19 @@ function addFolderPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
 		s.infoEl.remove();
 	}
 }
+//#endregion
 
+//#region 프리셋 관리
+/**
+ * 프리셋 관리 섹션을 추가합니다.
+ */
 function addPresetManagementSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshViews: () => void): void {
 	addPresetManagementSectionContent(containerEl, plugin, settingsManager, debouncedRefreshViews);
 }
 
+/**
+ * 프리셋 관리 섹션의 내용을 추가합니다.
+ */
 function addPresetManagementSectionContent(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshViews: () => void): void {
 	new Setting(containerEl)
 		.setName(t('PRESET_MANAGEMENT_AND_GLOBAL_SETTINGS'))
@@ -265,6 +300,19 @@ function addPresetManagementSectionContent(containerEl: HTMLElement, plugin: Car
 		);
 }
 
+/**
+ * 프리셋 목록을 새로고침합니다.
+ */
+async function refreshPresetList(plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshViews: () => void): Promise<void> {
+	if (!presetListContainer) return;
+
+	presetListContainer.empty();
+	await addPresetListSection(presetListContainer, plugin, settingsManager, debouncedRefreshViews);
+}
+
+/**
+ * 프리셋 목록 섹션을 추가합니다.
+ */
 async function addPresetListSection(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, debouncedRefreshViews: () => void): Promise<void> {
 	const presetNames = await plugin.presetManager.getPresetNames();
 	const presets = await Promise.all(presetNames.map(name => plugin.presetManager.getPreset(name)));
@@ -356,3 +404,4 @@ async function addPresetListSection(containerEl: HTMLElement, plugin: CardNaviga
 		});
 	});
 }
+//#endregion

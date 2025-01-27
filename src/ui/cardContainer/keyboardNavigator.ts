@@ -8,38 +8,114 @@ import { t } from 'i18next';
 
 // KeyboardNavigator class to handle keyboard navigation for the card container
 export class KeyboardNavigator {
+    //#region 클래스 속성
     private focusedCardIndex: number | null = null;
     private previousFocusedCardIndex: number | null = null;
     private isFocused = false;
     private mutationObserver: MutationObserver | null = null;
+    //#endregion
 
-	constructor(
-		private plugin: CardNavigatorPlugin,
-		private cardContainer: CardContainer,
-		private containerEl: HTMLElement
-	) {
-		this.containerEl = containerEl;
-		this.setupKeyboardEvents();
-	}
+    //#region 초기화 및 정리
+    // 생성자: 키보드 네비게이터 초기화
+    constructor(
+        private plugin: CardNavigatorPlugin,
+        private cardContainer: CardContainer,
+        private containerEl: HTMLElement
+    ) {
+        this.containerEl = containerEl;
+        this.setupKeyboardEvents();
+    }
 
-    // Set up keyboard event listeners
+    // 키보드 이벤트 리스너 설정
     private setupKeyboardEvents() {
         this.containerEl.addEventListener('keydown', this.handleKeyDown);
         this.containerEl.addEventListener('blur', this.handleBlur);
     }
 
-    // Remove keyboard event listeners
-	public cleanup() {
-		this.containerEl.removeEventListener('keydown', this.handleKeyDown);
-		this.containerEl.removeEventListener('blur', this.handleBlur);
-		this.updateFocusedCard.cancel();
+    // 리소스 정리
+    public cleanup() {
+        this.containerEl.removeEventListener('keydown', this.handleKeyDown);
+        this.containerEl.removeEventListener('blur', this.handleBlur);
+        this.updateFocusedCard.cancel();
         if (this.mutationObserver) {
             this.mutationObserver.disconnect();
             this.mutationObserver = null;
         }
-	}
+    }
+    //#endregion
 
-    // Handle keydown events for navigation
+    //#region 포커스 관리
+    // 네비게이터 포커스 설정
+    public focusNavigator() {
+        if (!this.containerEl) return;
+    
+        this.containerEl.tabIndex = -1;
+        this.containerEl.focus();
+        this.isFocused = true;
+    
+        const activeCardIndex = this.findActiveCardIndex();
+        if (activeCardIndex !== -1) {
+            this.focusedCardIndex = this.ensureValidIndex(activeCardIndex);
+        } else {
+            const firstVisibleCardIndex = this.findFirstVisibleCardIndex();
+            if (firstVisibleCardIndex !== null) {
+                this.focusedCardIndex = this.ensureValidIndex(firstVisibleCardIndex);
+            } else {
+                this.focusedCardIndex = this.ensureValidIndex(0);
+            }
+        }
+
+        this.updateFocusedCardImmediate();
+        
+        requestAnimationFrame(() => {
+            this.scrollToFocusedCard(true);
+            this.updateFocusedCardImmediate();
+        });
+
+        this.setupMutationObserver();
+    }
+
+    // 네비게이터 포커스 해제
+    public blurNavigator() {
+        if (!this.containerEl) return;
+        this.containerEl.blur();
+        this.isFocused = false;
+        this.focusedCardIndex = null;
+        this.updateFocusedCardImmediate();
+    }
+
+    // 포커스된 카드 상태 즉시 업데이트
+    private updateFocusedCardImmediate() {
+        if (!this.containerEl) return;
+
+        const focusedCards = this.containerEl.querySelectorAll('.card-navigator-focused');
+        focusedCards.forEach(card => {
+            card.classList.remove('card-navigator-focused');
+            if (card instanceof HTMLElement) {
+                card.removeAttribute('data-focused');
+            }
+        });
+
+        if (this.isFocused && this.focusedCardIndex !== null) {
+            const currentCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
+            if (currentCard) {
+                currentCard.classList.add('card-navigator-focused');
+                currentCard.setAttribute('data-focused', 'true');
+                this.containerEl.setAttribute('data-focused-index', this.focusedCardIndex.toString());
+            }
+        }
+
+        this.previousFocusedCardIndex = this.focusedCardIndex;
+    }
+
+    // 포커스된 카드 상태 디바운스 업데이트
+    private updateFocusedCard = debounce(() => {
+        this.updateFocusedCardImmediate();
+    }, 50, true);
+    //#endregion
+
+    //#region 이벤트 핸들링
+    // 키보드 이벤트 처리
     private handleKeyDown = (e: KeyboardEvent) => {
         if (!this.isFocused) return;
 
@@ -88,124 +164,76 @@ export class KeyboardNavigator {
         }
     };
 
-    // Focus the navigator
-	public focusNavigator() {
-		if (!this.containerEl) return;
-	
-		this.containerEl.tabIndex = -1;
-		this.containerEl.focus();
-		
-		// 포커스 상태 먼저 설정
-		this.isFocused = true;
-	
-		// 활성 카드나 첫 번째 보이는 카드의 인덱스 찾기
-		const activeCardIndex = this.findActiveCardIndex();
-		if (activeCardIndex !== -1) {
-			this.focusedCardIndex = this.ensureValidIndex(activeCardIndex);
-		} else {
-			const firstVisibleCardIndex = this.findFirstVisibleCardIndex();
-			if (firstVisibleCardIndex !== null) {
-				this.focusedCardIndex = this.ensureValidIndex(firstVisibleCardIndex);
-			} else {
-				this.focusedCardIndex = this.ensureValidIndex(0);
-			}
-		}
-
-		// 포커스 상태 즉시 업데이트
-		this.updateFocusedCardImmediate();
-		
-		// 포커스된 카드로 스크롤
-		requestAnimationFrame(() => {
-			this.scrollToFocusedCard(true);
-			// 포커스 상태 다시 한번 확인
-			this.updateFocusedCardImmediate();
-		});
-
-        // MutationObserver 설정
-        this.setupMutationObserver();
-	}
-
-    // 카드 컨테이너의 변경을 감지하는 MutationObserver 설정
-    private setupMutationObserver() {
-        if (this.mutationObserver) {
-            this.mutationObserver.disconnect();
-        }
-
-        this.mutationObserver = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                if (mutation.type === 'childList' && this.isFocused) {
-                    // 카드가 다시 렌더링된 후 포커스 상태 복원
-                    requestAnimationFrame(() => {
-                        this.updateFocusedCardImmediate();
-                    });
-                    break;
-                }
-            }
-        });
-
-        if (this.containerEl) {
-            this.mutationObserver.observe(this.containerEl, {
-                childList: true,
-                subtree: false
-            });
-        }
-    }
-
-    // Update the focused card's visual state immediately
-    private updateFocusedCardImmediate() {
-        if (!this.containerEl) return;
-
-        // 현재 포커스된 카드들의 포커스 해제
-        const focusedCards = this.containerEl.querySelectorAll('.card-navigator-focused');
-        focusedCards.forEach(card => {
-            card.classList.remove('card-navigator-focused');
-            if (card instanceof HTMLElement) {
-                card.removeAttribute('data-focused');
-            }
-        });
-
-        // 새로운 카드에 포커스 설정
-        if (this.isFocused && this.focusedCardIndex !== null) {
-            const currentCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
-            if (currentCard) {
-                currentCard.classList.add('card-navigator-focused');
-                currentCard.setAttribute('data-focused', 'true');
-                // 포커스 상태를 데이터 속성에 저장
-                this.containerEl.setAttribute('data-focused-index', this.focusedCardIndex.toString());
-            }
-        }
-
-        this.previousFocusedCardIndex = this.focusedCardIndex;
-    }
-
-    // Update the focused card's visual state with debounce
-    private updateFocusedCard = debounce(() => {
-        this.updateFocusedCardImmediate();
-    }, 50, true);
-
-    // Handle blur event
+    // 블러 이벤트 처리
     private handleBlur = () => {
         if (!this.containerEl) return;
         this.isFocused = false;
         this.updateFocusedCardImmediate();
     };
+    //#endregion
 
-    // Blur the navigator
-    public blurNavigator() {
-        if (!this.containerEl) return;
-        this.containerEl.blur();
-        this.isFocused = false;
-        this.focusedCardIndex = null;
+    //#region 포커스 이동
+    // 포커스 이동
+    private moveFocus(rowDelta: number, colDelta: number) {
+        if (this.focusedCardIndex === null) {
+            this.focusedCardIndex = 0;
+        } else {
+            const totalCards = this.containerEl.children.length;
+            const layoutStrategy = this.cardContainer.getLayoutStrategy();
+    
+            if (layoutStrategy instanceof GridLayout || layoutStrategy instanceof MasonryLayout) {
+                this.focusedCardIndex = this.ensureValidIndex(this.calculateGridIndex(rowDelta, colDelta, totalCards));
+            } else {
+                this.focusedCardIndex = this.ensureValidIndex(this.calculateListIndex(rowDelta, colDelta, totalCards));
+            }
+        }
         this.updateFocusedCardImmediate();
+        this.scrollToFocusedCard();
     }
 
-    // Calculate new index for grid layout
-	private calculateGridIndex(rowDelta: number, colDelta: number, totalCards: number): number {
-		const layoutStrategy = this.cardContainer.getLayoutStrategy();
-		if (!(layoutStrategy instanceof GridLayout || layoutStrategy instanceof MasonryLayout)) {
-			console.warn('The layout strategy is unexpected.');
-			return this.focusedCardIndex ?? 0;
-		}
+    // 페이지 단위 포커스 이동
+    private moveFocusPage(direction: number) {
+        if (this.focusedCardIndex === null) return;
+    
+        const totalCards = this.containerEl.children.length;
+        const cardsPerView = this.plugin.settings.cardsPerView;
+    
+        let newIndex: number;
+    
+        if (direction > 0) {
+            newIndex = Math.min(totalCards - 1, this.focusedCardIndex + cardsPerView);
+        } else {
+            newIndex = Math.max(0, this.focusedCardIndex - cardsPerView);
+        }
+    
+        this.focusedCardIndex = this.ensureValidIndex(newIndex);
+        this.updateFocusedCardImmediate();
+        this.scrollToFocusedCard();
+    }
+
+    // 첫 번째 카드로 포커스 이동
+    private moveFocusToStart() {
+        this.focusedCardIndex = this.ensureValidIndex(0);
+        this.updateFocusedCardImmediate();
+        this.scrollToFocusedCard();
+    }
+
+    // 마지막 카드로 포커스 이동
+    private moveFocusToEnd() {
+        this.focusedCardIndex = this.ensureValidIndex(this.containerEl.children.length - 1);
+        this.updateFocusedCardImmediate();
+        this.scrollToFocusedCard();
+    }
+    //#endregion
+
+    //#region 유틸리티 메서드
+    // 그리드 레이아웃의 인덱스 계산
+    private calculateGridIndex(rowDelta: number, colDelta: number, totalCards: number): number {
+        const layoutStrategy = this.cardContainer.getLayoutStrategy();
+        if (!(layoutStrategy instanceof GridLayout || layoutStrategy instanceof MasonryLayout)) {
+            console.warn('The layout strategy is unexpected.');
+            return this.focusedCardIndex ?? 0;
+        }
         const columns = layoutStrategy.getColumnsCount();
         const currentRow = Math.floor((this.focusedCardIndex ?? 0) / columns);
         const currentCol = (this.focusedCardIndex ?? 0) % columns;
@@ -225,72 +253,19 @@ export class KeyboardNavigator {
         return newIndex >= 0 && newIndex < totalCards ? newIndex : this.focusedCardIndex ?? 0;
     }
 
-    // Calculate new index for list layout
+    // 리스트 레이아웃의 인덱스 계산
     private calculateListIndex(rowDelta: number, colDelta: number, totalCards: number): number {
         const newIndex = (this.focusedCardIndex ?? 0) + rowDelta + colDelta;
         return newIndex >= 0 && newIndex < totalCards ? newIndex : this.focusedCardIndex ?? 0;
     }
 
-	private ensureValidIndex(index: number): number {
-		const totalCards = this.containerEl.children.length;
-		return Math.max(0, Math.min(index, totalCards - 1));
-	}
+    // 유효한 인덱스 범위 확인
+    private ensureValidIndex(index: number): number {
+        const totalCards = this.containerEl.children.length;
+        return Math.max(0, Math.min(index, totalCards - 1));
+    }
 
-	// Move focus based on row and column deltas
-	private moveFocus(rowDelta: number, colDelta: number) {
-		if (this.focusedCardIndex === null) {
-			this.focusedCardIndex = 0;
-		} else {
-			const totalCards = this.containerEl.children.length;
-			const layoutStrategy = this.cardContainer.getLayoutStrategy();
-	
-			if (layoutStrategy instanceof GridLayout || layoutStrategy instanceof MasonryLayout) {
-				this.focusedCardIndex = this.ensureValidIndex(this.calculateGridIndex(rowDelta, colDelta, totalCards));
-			} else {
-				this.focusedCardIndex = this.ensureValidIndex(this.calculateListIndex(rowDelta, colDelta, totalCards));
-			}
-		}
-		this.updateFocusedCardImmediate();
-		this.scrollToFocusedCard();
-	}
-
-    // Move focus by a page (multiple cards at once)
-	private moveFocusPage(direction: number) {
-		if (this.focusedCardIndex === null) return;
-	
-		const totalCards = this.containerEl.children.length;
-		const cardsPerView = this.plugin.settings.cardsPerView;
-	
-		let newIndex: number;
-	
-		if (direction > 0) {
-			// PageDown
-			newIndex = Math.min(totalCards - 1, this.focusedCardIndex + cardsPerView);
-		} else {
-			// PageUp
-			newIndex = Math.max(0, this.focusedCardIndex - cardsPerView);
-		}
-	
-		this.focusedCardIndex = this.ensureValidIndex(newIndex);
-		this.updateFocusedCardImmediate();
-		this.scrollToFocusedCard();
-	}
-
-    // Move focus to the first card
-	private moveFocusToStart() {
-		this.focusedCardIndex = this.ensureValidIndex(0);
-		this.updateFocusedCardImmediate();
-		this.scrollToFocusedCard();
-	}
-
-    // Move focus to the last card
-	private moveFocusToEnd() {
-		this.focusedCardIndex = this.ensureValidIndex(this.containerEl.children.length - 1);
-		this.updateFocusedCardImmediate();
-		this.scrollToFocusedCard();
-	}
-
-    // Scroll to ensure the focused card is visible
+    // 포커스된 카드로 스크롤
     private scrollToFocusedCard(immediate = false) {
         if (this.focusedCardIndex === null || !this.containerEl) return;
 
@@ -298,23 +273,23 @@ export class KeyboardNavigator {
         this.cardContainer.centerCard(focusedCard, !immediate);
     }
 
-    // Open the focused card
-	private openFocusedCard() {
-		try {
-			if (!this.containerEl || this.focusedCardIndex === null) return;
-			const focusedCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
-			if (!focusedCard) return;
-			
-			const file = this.cardContainer.getFileFromCard(focusedCard);
-			if (file) {
-				this.plugin.app.workspace.getLeaf().openFile(file);
-			}
-		} catch (error) {
-			console.error('An error occurred while opening the card:', error);
-		}
-	}
+    // 포커스된 카드 열기
+    private openFocusedCard() {
+        try {
+            if (!this.containerEl || this.focusedCardIndex === null) return;
+            const focusedCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
+            if (!focusedCard) return;
+            
+            const file = this.cardContainer.getFileFromCard(focusedCard);
+            if (file) {
+                this.plugin.app.workspace.getLeaf().openFile(file);
+            }
+        } catch (error) {
+            console.error('An error occurred while opening the card:', error);
+        }
+    }
 
-    // Find the index of the active card
+    // 활성 카드의 인덱스 찾기
     private findActiveCardIndex(): number {
         if (!this.containerEl) return -1;
         return Array.from(this.containerEl.children).findIndex(
@@ -322,7 +297,7 @@ export class KeyboardNavigator {
         );
     }
 
-    // Find the index of the first visible card
+    // 첫 번째 보이는 카드의 인덱스 찾기
     private findFirstVisibleCardIndex(): number | null {
         if (!this.containerEl) return null;
         const containerRect = this.containerEl.getBoundingClientRect();
@@ -338,7 +313,7 @@ export class KeyboardNavigator {
         return null;
     }
 
-    // Check if a card is visible within the container
+    // 카드가 컨테이너 내에서 보이는지 확인
     private isCardVisible(cardRect: DOMRect, containerRect: DOMRect): boolean {
         return (
             cardRect.top >= containerRect.top &&
@@ -348,8 +323,34 @@ export class KeyboardNavigator {
         );
     }
 
-    // Update the layout strategy (currently empty, can be implemented if needed)
-	public updateLayout(_layoutStrategy: LayoutStrategy) {
-    // TODO: Implement layout update logic
-}
+    // DOM 변경 감지를 위한 MutationObserver 설정
+    private setupMutationObserver() {
+        if (this.mutationObserver) {
+            this.mutationObserver.disconnect();
+        }
+
+        this.mutationObserver = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList' && this.isFocused) {
+                    requestAnimationFrame(() => {
+                        this.updateFocusedCardImmediate();
+                    });
+                    break;
+                }
+            }
+        });
+
+        if (this.containerEl) {
+            this.mutationObserver.observe(this.containerEl, {
+                childList: true,
+                subtree: false
+            });
+        }
+    }
+
+    // 레이아웃 업데이트
+    public updateLayout(_layoutStrategy: LayoutStrategy) {
+        // TODO: Implement layout update logic
+    }
+    //#endregion
 }

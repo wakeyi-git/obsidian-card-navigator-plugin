@@ -14,6 +14,7 @@ import { CardNavigatorView, RefreshType } from 'ui/cardNavigatorView';
 
 // Main class for managing the card container and its layout
 export class CardContainer {
+    //#region 클래스 속성
     private containerEl!: HTMLElement; // 느낌표로 초기화 보장
     public cardMaker: CardMaker;
     private cardRenderer: CardRenderer | null = null;
@@ -25,7 +26,10 @@ export class CardContainer {
     private cards: Card[] = [];
     private resizeObserver: ResizeObserver;
     private focusedCardId: string | null = null;
+    //#endregion
 
+    //#region 초기화 및 정리
+    // 생성자: 기본 컴포넌트 초기화
     constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
         // 기본 컴포넌트만 초기화
         this.cardMaker = new CardMaker(this.plugin);
@@ -42,6 +46,7 @@ export class CardContainer {
         this.layoutStrategy = new ListLayout(this.isVertical, this.cardGap, this.plugin.settings.alignCardHeight);
     }
 
+    // 컨테이너 초기화 메서드
     async initialize(containerEl: HTMLElement) {
         // 이전 리소스 정리
         this.cleanup();
@@ -81,6 +86,7 @@ export class CardContainer {
         }
     }
 
+    // 리소스 정리 메서드
     private cleanup() {
         // 리사이즈 옵저버 정리
         if (this.resizeObserver) {
@@ -105,16 +111,19 @@ export class CardContainer {
         }
     }
 
+    // 컨테이너 닫기 메서드
     onClose() {
         this.cleanup();
     }
 
+    // 리사이즈 옵저버 설정 메서드
     private setupResizeObserver() {
         if (this.containerEl) {
             this.resizeObserver.observe(this.containerEl);
         }
     }
     
+    // 키보드 네비게이터 초기화 메서드
     private initializeKeyboardNavigator() {
         if (this.containerEl) {
             this.keyboardNavigator = new KeyboardNavigator(this.plugin, this, this.containerEl);
@@ -122,21 +131,24 @@ export class CardContainer {
             console.warn('Container element not available for KeyboardNavigator');
         }
     }
+    //#endregion
 
-    // Determines whether the container should be considered vertical
+    //#region 컨테이너 스타일 및 레이아웃 관리
+    // 컨테이너 방향 계산 메서드
     private calculateIsVertical(): boolean {
         if (!this.containerEl) return true;
         const { width, height } = this.containerEl.getBoundingClientRect();
         return height > width;
     }
 
-    // Retrieves the value of a CSS variable, or returns a default value if not found
+    // CSS 변수 값 가져오기 메서드
     private getCSSVariable(variableName: string, defaultValue: number): number {
         if (!this.containerEl) return defaultValue;
         const valueStr = getComputedStyle(this.containerEl).getPropertyValue(variableName).trim();
         return parseInt(valueStr) || defaultValue;
     }
 
+    // 컨테이너 크기 대기 메서드
     private waitForContainerSize(): Promise<void> {
         return new Promise((resolve) => {
             if (this.containerEl && 
@@ -163,7 +175,7 @@ export class CardContainer {
         });
     }
 
-    // Updates the container's styles based on the current plugin settings
+    // 컨테이너 스타일 업데이트 메서드
     private updateContainerStyle() {
         if (this.containerEl) {
             this.containerEl.classList.add('card-navigator-container');
@@ -176,7 +188,7 @@ export class CardContainer {
         }
     }
     
-    // Updates the container settings based on the provided partial settings
+    // 설정 업데이트 메서드
     updateSettings(settings: Partial<CardNavigatorSettings>) {
         if (settings.alignCardHeight !== undefined) {
             this.plugin.settings.alignCardHeight = settings.alignCardHeight;
@@ -189,7 +201,7 @@ export class CardContainer {
         }
     }
 
-    // Handle resize event
+    // 리사이즈 처리 메서드
     public handleResize() {
         if (!this.containerEl) return;
         
@@ -219,7 +231,7 @@ export class CardContainer {
         this.keyboardNavigator?.updateLayout(this.layoutStrategy);
     }
 
-    // Update layout when needed
+    // 레이아웃 업데이트 메서드
     private updateLayout() {
         if (!this.containerEl) return;
         const newIsVertical = this.calculateIsVertical();
@@ -236,12 +248,12 @@ export class CardContainer {
         this.keyboardNavigator?.updateLayout(this.layoutStrategy);
     }
 
-    // Returns the current layout strategy
+    // 현재 레이아웃 전략 반환 메서드
     public getLayoutStrategy(): LayoutStrategy {
         return this.layoutStrategy;
     }
 
-    // Sets the layout strategy based on the provided layout type
+    // 레이아웃 설정 메서드
     setLayout(layout: CardNavigatorSettings['defaultLayout']) {
         // 현재 레이아웃을 업데이트
         this.currentLayout = layout;
@@ -297,8 +309,10 @@ export class CardContainer {
         // const files = this.cards.map(card => card.file);
         // this.displayCards(files);
     }
+    //#endregion
 
-    // Displays the cards based on the filtered files
+    //#region 카드 표시 및 렌더링
+    // 카드 표시 메서드
     public async displayCards(files: TFile[]) {
         if (!this.containerEl) return;
         
@@ -330,7 +344,7 @@ export class CardContainer {
         await this.renderCards(cardsData);
     }
 
-    // Creates card data objects for a list of files
+    // 카드 데이터 생성 메서드
     private async createCardsData(files: TFile[]): Promise<Card[]> {
         if (!files || files.length === 0) {
             console.debug('No files provided to create cards');
@@ -352,7 +366,7 @@ export class CardContainer {
         }
     }
 
-    // Renders the card elements inside the container
+    // 카드 렌더링 메서드
     private async renderCards(cardsData: Card[]) {
         if (!cardsData || cardsData.length === 0) {
             console.debug('The card data is empty.');
@@ -371,12 +385,16 @@ export class CardContainer {
             this.scrollToActiveCard(false);
         }
     }
+    //#endregion
 
+    //#region 카드 포커스 관리
+    // 카드 포커스 설정 메서드
     public focusCard(cardId: string) {
         this.focusedCardId = cardId;
         this.updateFocusedCard();
     }
 
+    // 포커스된 카드 업데이트 메서드
     private updateFocusedCard() {
         if (!this.containerEl || !this.focusedCardId) return;
         
@@ -392,12 +410,14 @@ export class CardContainer {
         });
     }
 
-    // Clears the 'focused' status from all card elements
+    // 포커스된 카드 초기화 메서드
     public clearFocusedCards() {
         this.cardRenderer?.clearFocusedCards();
     }
+    //#endregion
 
-    // Scrolls to the currently active card, centering it within the container
+    //#region 스크롤 관리
+    // 활성 카드로 스크롤 메서드
     private scrollToActiveCard(animate = true) {
         if (!this.containerEl) return;
         const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement | null;
@@ -406,7 +426,7 @@ export class CardContainer {
         this.centerCard(activeCard, animate);
     }
 
-    // Centers a specific card within the container, either horizontally or vertically
+    // 카드 중앙 정렬 메서드
     public centerCard(card: HTMLElement, animate = true) {
         if (!this.containerEl) return;
 
@@ -435,7 +455,7 @@ export class CardContainer {
         }
     }
 
-    // Smoothly scrolls to a target position in the container
+    // 부드러운 스크롤 메서드
     private smoothScroll(scrollProperty: 'scrollTop' | 'scrollLeft', targetPosition: number) {
         if (!this.containerEl) return;
 
@@ -462,7 +482,7 @@ export class CardContainer {
         requestAnimationFrame(animation);
     }
 
-    // Scrolls the container in the specified direction by a given number of cards
+    // 방향별 스크롤 메서드
     private scrollInDirection(direction: 'up' | 'down' | 'left' | 'right', count = 1) {
         if (!this.containerEl) return;
         const { width, height } = this.getCardSize();
@@ -510,27 +530,29 @@ export class CardContainer {
         }
     }
 
-    // Scrolls the container upwards by a specified number of cards
+    // 위로 스크롤 메서드
     scrollUp(count = 1) {
         this.scrollInDirection('up', count);
     }
 
-    // Scrolls the container downwards by a specified number of cards
+    // 아래로 스크롤 메서드
     scrollDown(count = 1) {
         this.scrollInDirection('down', count);
     }
 
-    // Scrolls the container to the left by a specified number of cards
+    // 왼쪽으로 스크롤 메서드
     scrollLeft(count = 1) {
         this.scrollInDirection('left', count);
     }
 
-    // Scrolls the container to the right by a specified number of cards
+    // 오른쪽으로 스크롤 메서드
     scrollRight(count = 1) {
         this.scrollInDirection('right', count);
     }
+    //#endregion
 
-    // Searches for cards by file body or file name and displays them
+    //#region 카드 검색 및 정렬
+    // 카드 검색 메서드
     public async searchCards(searchTerm: string) {
         const folder = await this.getCurrentFolder();
         if (!folder) return;
@@ -541,7 +563,7 @@ export class CardContainer {
         await this.displayCards(filteredFiles);
     }
 
-    // Filters files based on their body or name
+    // 파일 내용 기반 필터링 메서드
     private async filterFilesByContent(files: TFile[], searchTerm: string): Promise<TFile[]> {
         const lowercaseSearchTerm = searchTerm.toLowerCase();
         const filteredFiles = [];
@@ -555,13 +577,13 @@ export class CardContainer {
         return filteredFiles;
     }
 
-    // Displays cards for a specific folder
+    // 폴더별 카드 표시 메서드
     public async displayCardsForFolder(folder: TFolder) {
         const files = folder.children.filter((file): file is TFile => file instanceof TFile);
         await this.displayCards(files);
     }
 
-    // Sorts the cards based on a given criterion and order
+    // 카드 정렬 메서드
     public async sortCards(criterion: SortCriterion, order: SortOrder) {
         this.plugin.settings.sortCriterion = criterion;
         this.plugin.settings.sortOrder = order;
@@ -572,8 +594,10 @@ export class CardContainer {
             view.refresh(RefreshType.CONTENT);
         }
     }
+    //#endregion
 
-    // Retrieves the current folder from which to display cards, either selected or active
+    //#region 유틸리티 메서드
+    // 현재 폴더 가져오기 메서드
     private async getCurrentFolder(): Promise<TFolder | null> {
         if (this.plugin.settings.useSelectedFolder && this.plugin.settings.selectedFolder) {
             const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.selectedFolder);
@@ -584,22 +608,22 @@ export class CardContainer {
         }
     }
 
-    // Retrieves the file associated with a given card element
+    // 카드에서 파일 가져오기 메서드
     public getFileFromCard(cardElement: HTMLElement): TFile | null {
         return this.cardRenderer?.getFileFromCard(cardElement, this.cards) || null;
     }
 
-    // Focuses on the keyboard navigator to allow keyboard-based navigation
+    // 키보드 네비게이터 포커스 메서드
     public focusNavigator() {
         this.keyboardNavigator?.focusNavigator();
     }
     
-    // Removes focus from the keyboard navigator
+    // 키보드 네비게이터 블러 메서드
     public blurNavigator() {
         this.keyboardNavigator?.blurNavigator();
     }
 
-    // Determines the appropriate layout strategy based on the container size and plugin settings
+    // 자동 레이아웃 결정 메서드
     private determineAutoLayout(): LayoutStrategy {
         if (!this.containerEl) {
             throw new Error('Container element is not initialized');
@@ -680,9 +704,10 @@ export class CardContainer {
         }
     }
 
-    // Retrieves the size of the card elements, including the gap between them
+    // 카드 크기 가져오기 메서드
     private getCardSize(): { width: number, height: number } {
         return this.cardRenderer?.getCardSize() || { width: 0, height: 0 };
     }
+    //#endregion
 }
 

@@ -7,15 +7,16 @@ import { getTranslatedSortOptions } from 'common/types';
 import { t } from 'i18next';
 import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 
-// 전역 변수 및 상수
+//#region 전역 상수 및 타입
+// 팝업 관리를 위한 맵
 const currentPopups: Map<Window, { element: HTMLElement, type: ToolbarMenu }> = new Map();
 
 // 검색 관련 상수
-const SEARCH_DEBOUNCE_DELAY = 300; // 300ms
+const SEARCH_DEBOUNCE_DELAY = 300;
 const MIN_SEARCH_TERM_LENGTH = 2;
 const MAX_SEARCH_HISTORY = 10;
 
-// 검색 히스토리 관리
+// 검색 히스토리 관리 클래스
 class SearchHistory {
     private history: string[] = [];
     private maxSize: number;
@@ -24,39 +25,42 @@ class SearchHistory {
         this.maxSize = maxSize;
     }
 
+    // 검색어 추가
     add(term: string) {
-        // 중복 제거
         this.history = this.history.filter(item => item !== term);
-        // 최신 검색어를 앞에 추가
         this.history.unshift(term);
-        // 최대 크기 유지
         if (this.history.length > this.maxSize) {
             this.history.pop();
         }
     }
 
+    // 최근 검색어 목록 반환
     get recent(): string[] {
         return [...this.history];
     }
 
+    // 검색 히스토리 초기화
     clear() {
         this.history = [];
     }
 }
 
-// 검색 상태 관리
+// 검색 상태 인터페이스
 interface SearchState {
     isSearching: boolean;
     lastSearchTerm: string;
     searchHistory: SearchHistory;
 }
 
+// 초기 검색 상태
 const searchState: SearchState = {
     isSearching: false,
     lastSearchTerm: '',
     searchHistory: new SearchHistory()
 };
+//#endregion
 
+//#region 검색 기능
 // 검색어 전처리
 function preprocessSearchTerm(term: string): string {
     return term.trim().toLowerCase();
@@ -80,10 +84,8 @@ function updateSearchState(searching: boolean, term: string = '') {
 // 로딩 상태 표시
 function updateLoadingState(containerEl: HTMLElement | null, isLoading: boolean) {
     if (!containerEl) return;
-
     const searchContainer = containerEl.querySelector('.card-navigator-search-container');
     if (!searchContainer) return;
-
     searchContainer.toggleClass('is-searching', isLoading);
 }
 
@@ -97,7 +99,6 @@ export async function executeSearch(
 
     const processed = preprocessSearchTerm(searchTerm);
     
-    // 빈 검색어인 경우 전체 표시
     if (!processed) {
         const view = plugin.app.workspace.getActiveViewOfType(CardNavigatorView);
         if (view) {
@@ -108,12 +109,10 @@ export async function executeSearch(
         return;
     }
 
-    // 검색어 유효성 검사
     if (!isValidSearchTerm(processed)) {
         return;
     }
 
-    // 이전 검색과 동일한 경우 스킵
     if (processed === searchState.lastSearchTerm) {
         return;
     }
@@ -151,8 +150,347 @@ export function getSearchHistory(): string[] {
 export function clearSearchHistory() {
     searchState.searchHistory.clear();
 }
+//#endregion
 
-// 유틸리티 함수
+//#region 정렬 기능
+// 정렬 메뉴 토글
+export function toggleSort(plugin: CardNavigatorPlugin, containerEl: HTMLElement | null) {
+    if (!containerEl) {
+        console.error('Container element is undefined in toggleSort');
+        return;
+    }
+
+    const menu = new Menu();
+    const currentSort = `${plugin.settings.sortCriterion}_${plugin.settings.sortOrder}`;
+    const sortOptions = getTranslatedSortOptions();
+
+    // 이름 정렬 옵션 추가
+    const nameOptions = sortOptions.filter(option => option.value.includes('fileName'));
+    nameOptions.forEach(option => {
+        menu.addItem(item => 
+            item
+                .setTitle(option.label)
+                .setChecked(currentSort === option.value)
+                .onClick(async () => {
+                    const [criterion, order] = option.value.split('_') as [SortCriterion, SortOrder];
+                    await updateSortSettings(plugin, criterion, order, containerEl);
+                })
+        );
+    });
+
+    if (nameOptions.length > 0) {
+        menu.addSeparator();
+    }
+
+    // 수정일 정렬 옵션 추가
+    const modifiedOptions = sortOptions.filter(option => option.value.includes('lastModified'));
+    modifiedOptions.forEach(option => {
+        menu.addItem(item => 
+            item
+                .setTitle(option.label)
+                .setChecked(currentSort === option.value)
+                .onClick(async () => {
+                    const [criterion, order] = option.value.split('_') as [SortCriterion, SortOrder];
+                    await updateSortSettings(plugin, criterion, order, containerEl);
+                })
+        );
+    });
+
+    if (modifiedOptions.length > 0) {
+        menu.addSeparator();
+    }
+
+    // 생성일 정렬 옵션 추가
+    const createdOptions = sortOptions.filter(option => option.value.includes('created'));
+    createdOptions.forEach(option => {
+        menu.addItem(item => 
+            item
+                .setTitle(option.label)
+                .setChecked(currentSort === option.value)
+                .onClick(async () => {
+                    const [criterion, order] = option.value.split('_') as [SortCriterion, SortOrder];
+                    await updateSortSettings(plugin, criterion, order, containerEl);
+                })
+        );
+    });
+
+    const buttonEl = containerEl.querySelector('.card-navigator-sort-button');
+    if (buttonEl instanceof HTMLElement) {
+        const rect = buttonEl.getBoundingClientRect();
+        menu.showAtPosition({ x: rect.left, y: rect.bottom });
+    }
+}
+
+// 정렬 설정 업데이트
+async function updateSortSettings(
+    plugin: CardNavigatorPlugin, 
+    criterion: SortCriterion, 
+    order: SortOrder, 
+    containerEl: HTMLElement
+) {
+    plugin.settings.sortCriterion = criterion;
+    plugin.settings.sortOrder = order;
+    await plugin.saveSettings();
+    refreshAllCardNavigatorViews(plugin, RefreshType.CONTENT);
+}
+//#endregion
+
+//#region 설정 기능
+// 설정 메뉴 토글
+export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLElement | null) {
+    if (!containerEl) {
+        console.error('Container element is undefined in toggleSettings');
+        return;
+    }
+    const currentWindow = containerEl.ownerDocument.defaultView;
+    if (!currentWindow) {
+        console.error('Cannot determine the window of the container element');
+        return;
+    }
+    const settingsPopup = createPopup('card-navigator-settings-popup', 'settings', currentWindow);
+    const settingsManager = plugin.settingsManager;
+
+    addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
+    addPresetSettingsToPopup(settingsPopup, plugin);
+    
+    const layoutSection = createCollapsibleSection(settingsPopup, t('LAYOUT_SETTINGS'), true);
+    
+    const updateLayoutSettings = (layout: CardNavigatorSettings['defaultLayout']) => {
+        layoutSection.empty();
+
+        addDropdownSetting('defaultLayout', t('DEFAULT_LAYOUT'), layoutSection, plugin, settingsManager, [
+            { value: 'auto', label: t('AUTO') },
+            { value: 'list', label: t('LIST') },
+            { value: 'grid', label: t('GRID') },
+            { value: 'masonry', label: t('MASONRY') }
+        ], (value) => {
+            updateLayoutSettings(value as CardNavigatorSettings['defaultLayout']);
+        });
+        
+        if (layout === 'auto') {
+            addSliderSetting('cardWidthThreshold', t('CARD_WIDTH_THRESHOLD'), layoutSection, plugin, settingsManager);
+        }
+        if (layout === 'grid') {
+            addSliderSetting('gridColumns', t('GRID_COLUMNS'), layoutSection, plugin, settingsManager);
+        }
+        if (layout === 'auto' || layout === 'grid') {
+            addSliderSetting('gridCardHeight', t('GRID_CARD_HEIGHT'), layoutSection, plugin, settingsManager);
+        }
+        if (layout === 'masonry') {
+            addSliderSetting('masonryColumns', t('MASONRY_COLUMNS'), layoutSection, plugin, settingsManager);
+        }
+        if (layout === 'auto' || layout === 'list') {
+            addToggleSetting('alignCardHeight', t('ALIGN_CARD_HEIGHT'), layoutSection, plugin, settingsManager, () => {
+                updateCardsPerViewSetting();
+            });
+            updateCardsPerViewSetting();
+        }
+
+        settingsPopup.addEventListener('click', (e) => e.stopPropagation());
+    };
+
+    const updateCardsPerViewSetting = () => {
+        const cardsPerViewSetting = layoutSection.querySelector('.setting-cards-per-view');
+        if (cardsPerViewSetting) {
+            cardsPerViewSetting.remove();
+        }
+        if (plugin.settings.alignCardHeight) {
+            addSliderSetting('cardsPerView', t('CARDS_PER_VIEW'), layoutSection, plugin, settingsManager)
+                .settingEl.addClass('setting-cards-per-view');
+        }
+    };
+
+    updateLayoutSettings(plugin.settings.defaultLayout);
+
+    const displaySection = createCollapsibleSection(settingsPopup, t('CARD_CONTENT_SETTINGS'), true);
+    addToggleSetting('renderContentAsHtml', t('RENDER_CONTENT_AS_HTML'), displaySection, plugin, settingsManager);
+    addToggleSetting('dragDropContent', t('DRAG_AND_DROP_CONTENT'), displaySection, plugin, settingsManager);
+    addToggleSetting('showFileName', t('SHOW_FILE_NAME'), displaySection, plugin, settingsManager);
+    addToggleSetting('showFirstHeader', t('SHOW_FIRST_HEADER'), displaySection, plugin, settingsManager);
+    addToggleSetting('showBody', t('SHOW_BODY'), displaySection, plugin, settingsManager);
+
+    const updateBodyLengthSetting = () => {
+        const bodyLengthSetting = displaySection.querySelector('.setting-body-length');
+        if (bodyLengthSetting) {
+            bodyLengthSetting.remove();
+        }
+        if (plugin.settings.bodyLengthLimit) {
+            addSliderSetting('bodyLength', t('BODY_LENGTH'), displaySection, plugin, settingsManager)
+            .settingEl.addClass('setting-body-length');
+        }
+    };
+
+    addToggleSetting('bodyLengthLimit', t('BODY_LENGTH_LIMIT'), displaySection, plugin, settingsManager, () => {
+        updateBodyLengthSetting();
+    });
+
+    updateBodyLengthSetting();
+
+    const stylingSection = createCollapsibleSection(settingsPopup, t('CARD_STYLING_SETTINGS'), true);
+    addSliderSetting('fileNameFontSize', t('FILE_NAME_FONT_SIZE'), stylingSection, plugin, settingsManager);
+    addSliderSetting('firstHeaderFontSize', t('FIRST_HEADER_FONT_SIZE'), stylingSection, plugin, settingsManager);
+    addSliderSetting('bodyFontSize', t('BODY_FONT_SIZE'), stylingSection, plugin, settingsManager);
+
+    settingsPopup.addEventListener('click', (e) => e.stopPropagation());
+}
+
+// 프리셋 설정 추가
+async function addPresetSettingsToPopup(settingsPopup: HTMLElement, plugin: CardNavigatorPlugin) {
+    const presetSection = createCollapsibleSection(settingsPopup, t('PRESET_SETTINGS'), true);
+    presetSection.classList.add('preset-settings-section');
+
+    new Setting(presetSection)
+        .setName(t('AUTO_APPLY_PRESETS'))
+        .addToggle((toggle) => 
+            toggle
+                .setValue(plugin.settings.autoApplyPresets)
+                .onChange(async (value) => {
+                    plugin.settings.autoApplyPresets = value;
+                    await plugin.saveSettings();
+                    const currentFile = plugin.app.workspace.getActiveFile();
+                    if (currentFile) {
+                        await plugin.selectAndApplyPresetForCurrentFile();
+                    }
+                })
+        );
+
+    const presetNames = await plugin.presetManager.getPresetNames();
+    new Setting(presetSection)
+        .setName(t('GLOBAL_PRESET'))
+        .addDropdown(async (dropdown) => {
+            presetNames.forEach(name => {
+                dropdown.addOption(name, name);
+            });
+            dropdown.setValue(plugin.settings.GlobalPreset)
+                .onChange(async (value) => {
+                    await plugin.presetManager.applyGlobalPreset(value);
+                    refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
+                });
+        });
+}
+
+// 폴더 선택 설정 추가
+function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
+    new Setting(parentEl)
+        .setName(t('SOURCE_FOLDER'))
+        .setClass('setting-item-toggle')
+        .addToggle(toggle => toggle
+            .setValue(plugin.settings.useSelectedFolder)
+            .onChange(async (value) => {
+                await settingsManager.updateBooleanSetting('useSelectedFolder', value);
+                toggleSettings(plugin, parentEl);
+            })
+        );
+
+    if (plugin.settings.useSelectedFolder) {
+        const setting = createFullWidthSetting(parentEl);
+        addFullWidthText(setting, text => {
+            new FolderSuggest(plugin.app, text.inputEl);
+            text.setPlaceholder(t('SELECT_FOLDER'))
+                .setValue(plugin.settings.selectedFolder || '')
+                .onChange(async (newFolder) => {
+                if (newFolder) {
+                    await settingsManager.updateSetting('selectedFolder', newFolder);
+                }
+            });
+        });
+    }
+}
+
+// 드롭다운 설정 추가
+function addDropdownSetting(
+    key: keyof CardNavigatorSettings, 
+    name: string, 
+    container: HTMLElement, 
+    plugin: CardNavigatorPlugin, 
+    settingsManager: SettingsManager, 
+    options: { value: string, label: string }[], 
+    onChange?: (value: string) => void
+) {
+    new Setting(container)
+        .setName(name)
+        .setClass('setting-item-dropdown')
+        .addDropdown(dropdown => {
+            options.forEach(option => {
+                dropdown.addOption(option.value, option.label);
+            });
+            dropdown.setValue(plugin.settings[key] as string)
+                .onChange(async (value) => {
+                    await settingsManager.updateSetting(key, value);
+                    refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
+                    if (onChange) {
+                        onChange(value);
+                    }
+                });
+        });
+}
+
+// 토글 설정 추가
+function addToggleSetting(
+    key: keyof CardNavigatorSettings, 
+    name: string, 
+    container: HTMLElement, 
+    plugin: CardNavigatorPlugin, 
+    settingsManager: SettingsManager, 
+    onChange?: () => void
+) {
+    new Setting(container)
+        .setName(name)
+        .addToggle(toggle => toggle
+            .setValue(plugin.settings[key] as boolean)
+            .onChange(async (value) => {
+                await settingsManager.updateBooleanSetting(key, value);
+                refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
+                if (onChange) {
+                    onChange();
+                }
+            })
+        );
+}
+
+// 슬라이더 설정 추가
+function addSliderSetting(
+    key: NumberSettingKey, 
+    name: string, 
+    container: HTMLElement, 
+    plugin: CardNavigatorPlugin, 
+    settingsManager: SettingsManager
+): Setting {
+    const config = settingsManager.getNumberSettingConfig(key);
+    const setting = new Setting(container)
+        .setName(name)
+        .setClass('setting-item-slider');
+
+    setting.addSlider(slider => slider
+        .setLimits(config.min, config.max, config.step)
+        .setValue(plugin.settings[key])
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+            if (
+                (key === 'bodyLength' && !plugin.settings.bodyLengthLimit) ||
+                (key === 'cardsPerView' && !plugin.settings.alignCardHeight)
+            ) {
+                return;
+            }
+            await settingsManager.updateSetting(key, value);
+            if (key === 'gridColumns' || key === 'masonryColumns') {
+                plugin.updateLayout(plugin.settings.defaultLayout);
+            } else {
+                refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
+            }
+        })
+    );
+
+    if (key === 'bodyLength') {
+        setting.setDisabled(!plugin.settings.bodyLengthLimit);
+    }
+
+    return setting;
+}
+//#endregion
+
+//#region 유틸리티 함수
+// 팝업 관련 유틸리티
 function handleWindowClick(event: MouseEvent, windowObj: Window) {
     onClickOutside(event, windowObj);
 }
@@ -194,6 +532,7 @@ function closeCurrentPopup(windowObj: Window) {
     }
 }
 
+// UI 유틸리티
 function createCollapsibleSection(parentEl: HTMLElement, title: string, collapsed = true): HTMLElement {
     const sectionEl = parentEl.createDiv('tree-item graph-control-section');
     const selfEl = sectionEl.createDiv('tree-item-self');
@@ -220,91 +559,20 @@ function createCollapsibleSection(parentEl: HTMLElement, title: string, collapse
 }
 
 export function createFullWidthSetting(containerEl: HTMLElement): Setting {
-	const setting = new Setting(containerEl);
-	setting.settingEl.addClass('setting-full-width');
-	setting.settingEl.addClass('no-info');
-	return setting;
+    const setting = new Setting(containerEl);
+    setting.settingEl.addClass('setting-full-width');
+    setting.settingEl.addClass('no-info');
+    return setting;
 }
 
 export function addFullWidthText(setting: Setting, callback: (text: TextComponent) => void): Setting {
-	return setting.addText(text => {
-	text.inputEl.style.width = '100%';
-	callback(text);
-	});
+    return setting.addText(text => {
+    text.inputEl.style.width = '100%';
+    callback(text);
+    });
 }
 
-// 정렬 관련 함수
-export function toggleSort(plugin: CardNavigatorPlugin, containerEl: HTMLElement | null) {
-    if (!containerEl) {
-        console.error('Container element is undefined in toggleSort');
-        return;
-    }
-
-    const menu = new Menu();
-    const currentSort = `${plugin.settings.sortCriterion}_${plugin.settings.sortOrder}`;
-    const sortOptions = getTranslatedSortOptions();
-
-    // 이름 관련 정렬 옵션
-    const nameOptions = sortOptions.filter(option => option.value.includes('fileName'));
-    nameOptions.forEach(option => {
-        menu.addItem(item => 
-            item
-                .setTitle(option.label)
-                .setChecked(currentSort === option.value)
-                .onClick(async () => {
-                    const [criterion, order] = option.value.split('_') as [SortCriterion, SortOrder];
-                    await updateSortSettings(plugin, criterion, order, containerEl);
-                })
-        );
-    });
-
-    // 구분선 추가
-    if (nameOptions.length > 0) {
-        menu.addSeparator();
-    }
-
-    // 수정일 관련 정렬 옵션
-    const modifiedOptions = sortOptions.filter(option => option.value.includes('lastModified'));
-    modifiedOptions.forEach(option => {
-        menu.addItem(item => 
-            item
-                .setTitle(option.label)
-                .setChecked(currentSort === option.value)
-                .onClick(async () => {
-                    const [criterion, order] = option.value.split('_') as [SortCriterion, SortOrder];
-                    await updateSortSettings(plugin, criterion, order, containerEl);
-                })
-        );
-    });
-
-    // 구분선 추가
-    if (modifiedOptions.length > 0) {
-        menu.addSeparator();
-    }
-
-    // 생성일 관련 정렬 옵션
-    const createdOptions = sortOptions.filter(option => option.value.includes('created'));
-    createdOptions.forEach(option => {
-        menu.addItem(item => 
-            item
-                .setTitle(option.label)
-                .setChecked(currentSort === option.value)
-                .onClick(async () => {
-                    const [criterion, order] = option.value.split('_') as [SortCriterion, SortOrder];
-                    await updateSortSettings(plugin, criterion, order, containerEl);
-                })
-        );
-    });
-
-    // 마우스 이벤트 위치에 메뉴 표시
-    const buttonEl = containerEl.querySelector('.card-navigator-sort-button');
-    if (buttonEl instanceof HTMLElement) {
-        const rect = buttonEl.getBoundingClientRect();
-        menu.showAtPosition({ x: rect.left, y: rect.bottom });
-    }
-}
-
-// 리프레시 유틸리티 함수
+// 뷰 리프레시
 function refreshAllCardNavigatorViews(plugin: CardNavigatorPlugin, type: RefreshType) {
     const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
     leaves.forEach(leaf => {
@@ -314,284 +582,7 @@ function refreshAllCardNavigatorViews(plugin: CardNavigatorPlugin, type: Refresh
     });
 }
 
-async function updateSortSettings(
-    plugin: CardNavigatorPlugin, 
-    criterion: SortCriterion, 
-    order: SortOrder, 
-    containerEl: HTMLElement
-) {
-    plugin.settings.sortCriterion = criterion;
-    plugin.settings.sortOrder = order;
-    await plugin.saveSettings();
-    
-    // 정렬 변경은 컨텐츠 리프레시
-    refreshAllCardNavigatorViews(plugin, RefreshType.CONTENT);
-}
-
-// 설정 관련 함수
-export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLElement | null) {
-    if (!containerEl) {
-        console.error('Container element is undefined in toggleSettings');
-        return;
-    }
-    const currentWindow = containerEl.ownerDocument.defaultView;
-    if (!currentWindow) {
-        console.error('Cannot determine the window of the container element');
-        return;
-    }
-    const settingsPopup = createPopup('card-navigator-settings-popup', 'settings', currentWindow);
-    const settingsManager = plugin.settingsManager;
-
-	addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
-
-	addPresetSettingsToPopup(settingsPopup, plugin);
-	
-	const layoutSection = createCollapsibleSection(settingsPopup, t('LAYOUT_SETTINGS'), true);
-    
-    const updateLayoutSettings = (layout: CardNavigatorSettings['defaultLayout']) => {
-        layoutSection.empty();
-
-		addDropdownSetting('defaultLayout', t('DEFAULT_LAYOUT'), layoutSection, plugin, settingsManager, [
-			{ value: 'auto', label: t('AUTO') },
-			{ value: 'list', label: t('LIST') },
-			{ value: 'grid', label: t('GRID') },
-			{ value: 'masonry', label: t('MASONRY') }
-		], (value) => {
-			updateLayoutSettings(value as CardNavigatorSettings['defaultLayout']);
-		});
-		
-		if (layout === 'auto') {
-			addSliderSetting('cardWidthThreshold', t('CARD_WIDTH_THRESHOLD'), layoutSection, plugin, settingsManager);
-		}
-		if (layout === 'grid') {
-			addSliderSetting('gridColumns', t('GRID_COLUMNS'), layoutSection, plugin, settingsManager);
-		}
-		if (layout === 'auto' || layout === 'grid') {
-			addSliderSetting('gridCardHeight', t('GRID_CARD_HEIGHT'), layoutSection, plugin, settingsManager);
-		}
-		if (layout === 'masonry') {
-			addSliderSetting('masonryColumns', t('MASONRY_COLUMNS'), layoutSection, plugin, settingsManager);
-		}
-		if (layout === 'auto' || layout === 'list') {
-			addToggleSetting('alignCardHeight', t('ALIGN_CARD_HEIGHT'), layoutSection, plugin, settingsManager, () => {
-				updateCardsPerViewSetting();
-			});
-			updateCardsPerViewSetting();
-		}
-
-        settingsPopup.addEventListener('click', (e) => e.stopPropagation());
-    };
-
-    // Function to update cardsPerView setting
-    const updateCardsPerViewSetting = () => {
-        const cardsPerViewSetting = layoutSection.querySelector('.setting-cards-per-view');
-        if (cardsPerViewSetting) {
-            cardsPerViewSetting.remove();
-        }
-        if (plugin.settings.alignCardHeight) {
-            addSliderSetting('cardsPerView', t('CARDS_PER_VIEW'), layoutSection, plugin, settingsManager)
-                .settingEl.addClass('setting-cards-per-view');
-        }
-    };
-
-    // Initial update of layout settings
-    updateLayoutSettings(plugin.settings.defaultLayout);
-
-    // Add Card Display Settings section
-	const displaySection = createCollapsibleSection(settingsPopup, t('CARD_CONTENT_SETTINGS'), true);
-	addToggleSetting('renderContentAsHtml', t('RENDER_CONTENT_AS_HTML'), displaySection, plugin, settingsManager);
-	addToggleSetting('dragDropContent', t('DRAG_AND_DROP_CONTENT'), displaySection, plugin, settingsManager);
-	addToggleSetting('showFileName', t('SHOW_FILE_NAME'), displaySection, plugin, settingsManager);
-	addToggleSetting('showFirstHeader', t('SHOW_FIRST_HEADER'), displaySection, plugin, settingsManager);
-	addToggleSetting('showBody', t('SHOW_BODY'), displaySection, plugin, settingsManager);
-
-    // Function to update bodyLength setting visibility
-    const updateBodyLengthSetting = () => {
-        const bodyLengthSetting = displaySection.querySelector('.setting-body-length');
-        if (bodyLengthSetting) {
-            bodyLengthSetting.remove();
-        }
-        if (plugin.settings.bodyLengthLimit) {
-			addSliderSetting('bodyLength', t('BODY_LENGTH'), displaySection, plugin, settingsManager)
-			.settingEl.addClass('setting-body-length');
-        }
-    };
-
-    // Add Body Length Limit toggle with updateBodyLengthSetting callback
-	addToggleSetting('bodyLengthLimit', t('BODY_LENGTH_LIMIT'), displaySection, plugin, settingsManager, () => {
-		updateBodyLengthSetting();
-	});
-
-    // Initial update of bodyLength setting
-    updateBodyLengthSetting();
-
-    // Add Card Styling Settings section
-	const stylingSection = createCollapsibleSection(settingsPopup, t('CARD_STYLING_SETTINGS'), true);
-	addSliderSetting('fileNameFontSize', t('FILE_NAME_FONT_SIZE'), stylingSection, plugin, settingsManager);
-	addSliderSetting('firstHeaderFontSize', t('FIRST_HEADER_FONT_SIZE'), stylingSection, plugin, settingsManager);
-	addSliderSetting('bodyFontSize', t('BODY_FONT_SIZE'), stylingSection, plugin, settingsManager);
-
-    // Prevent click events from closing the popup
-    settingsPopup.addEventListener('click', (e) => e.stopPropagation());
-}
-
-async function addPresetSettingsToPopup(settingsPopup: HTMLElement, plugin: CardNavigatorPlugin) {
-    const presetSection = createCollapsibleSection(settingsPopup, t('PRESET_SETTINGS'), true);
-    presetSection.classList.add('preset-settings-section');
-
-    // 프리셋 자동 적용 토글 버튼 추가
-    new Setting(presetSection)
-        .setName(t('AUTO_APPLY_PRESETS'))
-        .addToggle((toggle) => 
-            toggle
-                .setValue(plugin.settings.autoApplyPresets)
-                .onChange(async (value) => {
-                    plugin.settings.autoApplyPresets = value;
-                    await plugin.saveSettings();
-                    const currentFile = plugin.app.workspace.getActiveFile();
-                    if (currentFile) {
-                        await plugin.selectAndApplyPresetForCurrentFile();
-                    }
-                })
-        );
-
-    // 전역 프리셋 드롭다운 추가
-    const presetNames = await plugin.presetManager.getPresetNames();
-    new Setting(presetSection)
-        .setName(t('GLOBAL_PRESET'))
-        .addDropdown(async (dropdown) => {
-            presetNames.forEach(name => {
-                dropdown.addOption(name, name);
-            });
-            dropdown.setValue(plugin.settings.GlobalPreset)
-                .onChange(async (value) => {
-                    await plugin.presetManager.applyGlobalPreset(value);
-                    // 프리셋 변경은 설정 리프레시
-                    refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
-                });
-        });
-}
-
-function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
-    new Setting(parentEl)
-        .setName(t('SOURCE_FOLDER'))
-        .setClass('setting-item-toggle')
-        .addToggle(toggle => toggle
-            .setValue(plugin.settings.useSelectedFolder)
-            .onChange(async (value) => {
-                await settingsManager.updateBooleanSetting('useSelectedFolder', value);
-                toggleSettings(plugin, parentEl);
-            })
-        );
-
-    if (plugin.settings.useSelectedFolder) {
-        const setting = createFullWidthSetting(parentEl);
-        addFullWidthText(setting, text => {
-            new FolderSuggest(plugin.app, text.inputEl);
-            text.setPlaceholder(t('SELECT_FOLDER'))
-                .setValue(plugin.settings.selectedFolder || '')
-                .onChange(async (newFolder) => {
-                if (newFolder) {
-                    await settingsManager.updateSetting('selectedFolder', newFolder);
-                }
-            });
-        });
-    }
-}
-
-function addDropdownSetting(
-    key: keyof CardNavigatorSettings, 
-    name: string, 
-    container: HTMLElement, 
-    plugin: CardNavigatorPlugin, 
-    settingsManager: SettingsManager, 
-    options: { value: string, label: string }[], 
-    onChange?: (value: string) => void
-) {
-    new Setting(container)
-        .setName(name)
-        .setClass('setting-item-dropdown')
-        .addDropdown(dropdown => {
-            options.forEach(option => {
-                dropdown.addOption(option.value, option.label);
-            });
-            dropdown.setValue(plugin.settings[key] as string)
-                .onChange(async (value) => {
-                    await settingsManager.updateSetting(key, value);
-                    // 설정 변경은 설정 리프레시
-                    refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
-                    if (onChange) {
-                        onChange(value);
-                    }
-                });
-        });
-}
-
-function addToggleSetting(
-    key: keyof CardNavigatorSettings, 
-    name: string, 
-    container: HTMLElement, 
-    plugin: CardNavigatorPlugin, 
-    settingsManager: SettingsManager, 
-    onChange?: () => void
-) {
-    new Setting(container)
-        .setName(name)
-        .addToggle(toggle => toggle
-            .setValue(plugin.settings[key] as boolean)
-            .onChange(async (value) => {
-                await settingsManager.updateBooleanSetting(key, value);
-                // 설정 변경은 설정 리프레시
-                refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
-                if (onChange) {
-                    onChange();
-                }
-            })
-        );
-}
-
-function addSliderSetting(
-    key: NumberSettingKey, 
-    name: string, 
-    container: HTMLElement, 
-    plugin: CardNavigatorPlugin, 
-    settingsManager: SettingsManager
-): Setting {
-    const config = settingsManager.getNumberSettingConfig(key);
-    const setting = new Setting(container)
-        .setName(name)
-        .setClass('setting-item-slider');
-
-    setting.addSlider(slider => slider
-        .setLimits(config.min, config.max, config.step)
-        .setValue(plugin.settings[key])
-        .setDynamicTooltip()
-        .onChange(async (value) => {
-            if (
-                (key === 'bodyLength' && !plugin.settings.bodyLengthLimit) ||
-                (key === 'cardsPerView' && !plugin.settings.alignCardHeight)
-            ) {
-                return;
-            }
-            await settingsManager.updateSetting(key, value);
-            // Update layout if necessary
-            if (key === 'gridColumns' || key === 'masonryColumns') {
-                plugin.updateLayout(plugin.settings.defaultLayout);
-            } else {
-                // 일반 설정 변경은 설정 리프레시
-                refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
-            }
-        })
-    );
-
-    if (key === 'bodyLength') {
-        setting.setDisabled(!plugin.settings.bodyLengthLimit);
-    }
-
-    return setting;
-}
-
-// 레이아웃 변경 처리
+// 레이아웃 변경
 export async function handleLayoutChange(
     plugin: CardNavigatorPlugin, 
     layout: CardNavigatorSettings['defaultLayout']
@@ -600,3 +591,4 @@ export async function handleLayoutChange(
     await plugin.saveSettings();
     plugin.updateLayout(layout);
 }
+//#endregion
