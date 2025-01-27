@@ -281,18 +281,13 @@
 
 /* Main container styles */
 .card-navigator-container {
-    display: flex;
-    flex-grow: 1;
-    gap: var(--card-navigator-gap);
     position: relative;
-    z-index: 1;
-    box-sizing: border-box;
-    padding-top: var(--size-2-1);
-    min-width: 300px;
-    min-height: 300px;
     width: 100%;
     height: 100%;
-    scrollbar-gutter: stable;  /* 스크롤바 공간 확보 */
+    overflow: auto;
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
 }
 
 .card-navigator-container.visible {
@@ -300,20 +295,13 @@
 }
 
 .card-navigator-container.vertical {
-    width: 100%;
-    height: 100%;
-    flex-direction: column;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-right: var(--size-4-1);
 }
 
 .card-navigator-container.horizontal {
-    width: 100%;
-    flex-direction: row;
     overflow-x: auto;
     overflow-y: hidden;
-    padding-bottom: var(--size-4-1);
 }
 
 .card-navigator-container.horizontal.align-height {

@@ -61,12 +61,6 @@ export class CardNavigatorView extends ItemView {
 
         this.toolbar.initialize(toolbarEl);
         this.cardContainer.initialize(cardContainerEl);
-
-        this.registerEvent(
-            this.app.workspace.on('resize', () => {
-                this.cardContainer?.handleResize();
-            })
-        );
     }
 
     // 뷰 닫기 메서드

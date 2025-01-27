@@ -144,25 +144,9 @@ export default class CardNavigatorPlugin extends Plugin {
     private getActiveCardNavigator(): CardNavigatorView | null {
         return this.app.workspace.getActiveViewOfType(CardNavigatorView);
     }
-
-    // 필터링된 카드 표시 메서드
-    displayFilteredCards(filteredFiles: TFile[]) {
-        const cardNavigator = this.app.workspace.getActiveViewOfType(CardNavigatorView);
-        if (cardNavigator) {
-            cardNavigator.cardContainer.displayCards(filteredFiles);
-        }
-    }
     //#endregion
 
     //#region 카드 조작
-    // 카드 정렬 메서드
-    sortCards(criterion: SortCriterion, order: SortOrder) {
-        const cardNavigator = this.app.workspace.getActiveViewOfType(CardNavigatorView);
-        if (cardNavigator) {
-            cardNavigator.cardContainer.sortCards(criterion, order);
-        }
-    }
-
     // 카드 스크롤 메서드
     scrollCards(direction: ScrollDirection, count: number) {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);

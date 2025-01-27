@@ -1,4 +1,4 @@
-import { WorkspaceLeaf, TFile, TFolder, debounce } from 'obsidian';
+import { WorkspaceLeaf, TFile, TFolder, debounce, App} from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { CardMaker } from './cardMaker';
 import { CardRenderer } from './cardRenderer';
@@ -15,6 +15,7 @@ import { CardNavigatorView, RefreshType } from 'ui/cardNavigatorView';
 // Main class for managing the card container and its layout
 export class CardContainer {
     //#region 클래스 속성
+    private app: App;
     private containerEl!: HTMLElement; // 느낌표로 초기화 보장
     public cardMaker: CardMaker;
     private cardRenderer: CardRenderer | null = null;
@@ -32,6 +33,7 @@ export class CardContainer {
     // 생성자: 기본 컴포넌트 초기화
     constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
         // 기본 컴포넌트만 초기화
+        this.app = this.plugin.app;
         this.cardMaker = new CardMaker(this.plugin);
         this.isVertical = true; // 기본값
         this.cardGap = 10; // 기본값
@@ -53,18 +55,25 @@ export class CardContainer {
         
         // 컨테이너 초기화
         this.containerEl = containerEl;
-        this.isVertical = this.calculateIsVertical();
-        this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
-        
-        // UI 관련 초기화
-        this.updateContainerStyle();
-        await this.waitForContainerSize();
         
         try {
+            // 기본 설정
+            this.isVertical = this.calculateIsVertical();
+            this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
+            
             // 레이아웃 전략 초기화
             this.layoutStrategy = this.determineAutoLayout();
+            if (!this.layoutStrategy) {
+                throw new Error('레이아웃 전략 초기화 실패');
+            }
+
+            // UI 관련 초기화
+            this.updateContainerStyle();
             
-            // 카드 렌더러 초기화
+            // 컨테이너 크기가 설정될 때까지 대기
+            await this.waitForContainerSize();
+            
+            // 카드 렌더러 초기화 (레이아웃 전략이 완전히 초기화된 후)
             this.cardRenderer = new CardRenderer(
                 this.containerEl,
                 this.cardMaker,
@@ -150,20 +159,17 @@ export class CardContainer {
 
     // 컨테이너 크기 대기 메서드
     private waitForContainerSize(): Promise<void> {
-        return new Promise((resolve) => {
-            if (this.containerEl && 
-                this.containerEl.offsetWidth > 0 && 
-                this.containerEl.offsetHeight > 0 &&
-                getComputedStyle(this.containerEl).getPropertyValue('--cards-per-view')) {
-                resolve();
-                return;
-            }
+        if (this.containerEl && 
+            this.containerEl.offsetWidth > 0 && 
+            this.containerEl.offsetHeight > 0) {
+            return Promise.resolve();
+        }
 
+        return new Promise((resolve) => {
             const observer = new ResizeObserver(() => {
                 if (this.containerEl && 
                     this.containerEl.offsetWidth > 0 && 
-                    this.containerEl.offsetHeight > 0 &&
-                    getComputedStyle(this.containerEl).getPropertyValue('--cards-per-view')) {
+                    this.containerEl.offsetHeight > 0) {
                     observer.disconnect();
                     resolve();
                 }
@@ -581,18 +587,6 @@ export class CardContainer {
     public async displayCardsForFolder(folder: TFolder) {
         const files = folder.children.filter((file): file is TFile => file instanceof TFile);
         await this.displayCards(files);
-    }
-
-    // 카드 정렬 메서드
-    public async sortCards(criterion: SortCriterion, order: SortOrder) {
-        this.plugin.settings.sortCriterion = criterion;
-        this.plugin.settings.sortOrder = order;
-        await this.plugin.saveSettings();
-        // refresh 대신 CardNavigatorView의 리프레시 시스템 사용
-        const view = this.leaf.view;
-        if (view instanceof CardNavigatorView) {
-            view.refresh(RefreshType.CONTENT);
-        }
     }
     //#endregion
 

@@ -33,8 +33,6 @@ export class CardRenderer {
     public async renderCards(cardsData: Card[], focusedCardId: string | null = null, activeFile: TFile | null = null) {
         if (!this.containerEl) return;
     
-        this.containerEl.classList.remove('visible');
-        
         if (!cardsData || cardsData.length === 0) {
             console.warn('The card data is empty.');
             return;
@@ -46,22 +44,20 @@ export class CardRenderer {
         }
 
         const containerEl = this.containerEl;
-        const currentScrollTop = containerEl.scrollTop;
-        const currentScrollLeft = containerEl.scrollLeft;
-    
+        
+        // 컨테이너 크기 및 스타일 계산
         const containerRect = containerEl.getBoundingClientRect();
-        const containerStyle = window.getComputedStyle(this.containerEl);
+        const containerStyle = window.getComputedStyle(containerEl);
         const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
         const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
         const paddingTop = parseFloat(containerStyle.paddingTop) || 0;
         const availableWidth = containerRect.width - paddingLeft - paddingRight;
 
-        // 리스트 레이아웃 스타일 적용
+        // 레이아웃 스타일 적용
         if (this.layoutStrategy instanceof ListLayout) {
             const listContainerStyle = this.layoutStrategy.getContainerStyle();
             Object.assign(containerEl.style, listContainerStyle);
         } else {
-            // 다른 레이아웃의 경우 스타일 초기화
             containerEl.style.display = '';
             containerEl.style.flexDirection = '';
             containerEl.style.gap = '';
@@ -70,22 +66,32 @@ export class CardRenderer {
             containerEl.style.height = '100%';
         }
 
+        // 스크롤 방향 설정
+        this.updateScrollDirection();
+
+        // 카드 위치 계산
         const cardPositions = this.layoutStrategy.arrange(
             cardsData,
             availableWidth,
             containerRect.height,
             this.cardsPerView
         );
-	
+    
         if (cardPositions.length !== cardsData.length) {
             console.warn('Card positions and card data length mismatch. Adjusting...');
             const minLength = Math.min(cardPositions.length, cardsData.length);
             cardsData = cardsData.slice(0, minLength);
             cardPositions.length = minLength;
         }
-	
-        containerEl.empty();
+
+        // 현재 스크롤 위치 저장
+        const currentScrollTop = containerEl.scrollTop;
+        const currentScrollLeft = containerEl.scrollLeft;
     
+        // DocumentFragment를 사용하여 DOM 업데이트 최적화
+        const fragment = document.createDocumentFragment();
+    
+        // 카드 생성 및 스타일 적용
         cardPositions.forEach((position, index) => {
             const card = cardsData[index];
             const cardEl = this.cardMaker.createCardElement(card);
@@ -112,18 +118,19 @@ export class CardRenderer {
                 cardEl.classList.add('card-navigator-active');
             }
 
-            containerEl.appendChild(cardEl);
+            fragment.appendChild(cardEl);
         });
 
+        // 기존 카드 제거 및 새 카드 추가
+        containerEl.empty();
+        containerEl.appendChild(fragment);
+
+        // 스크롤 위치 복원
         containerEl.scrollTop = currentScrollTop;
         containerEl.scrollLeft = currentScrollLeft;
 
-        this.updateScrollDirection();
+        // 카드 크기가 올바르게 설정될 때까지 대기
         await this.ensureCardSizesAreSet();
-        
-        requestAnimationFrame(() => {
-            this.containerEl?.classList.add('visible');
-        });
     }
 
     // 스크롤 방향 업데이트 메서드
