@@ -11,6 +11,8 @@ import { CardNavigatorSettings } from "common/types";
 import { Card, SortCriterion, SortOrder } from 'common/types';
 import { t } from "i18next";
 import { CardNavigatorView, RefreshType } from 'ui/cardNavigatorView';
+import { LayoutManager } from 'layouts/layoutManager';
+import { Scroller } from './scroller';
 
 // Main class for managing the card container and its layout
 export class CardContainer {
@@ -19,11 +21,12 @@ export class CardContainer {
     private containerEl!: HTMLElement; // 느낌표로 초기화 보장
     public cardMaker: CardMaker;
     private cardRenderer: CardRenderer | null = null;
-    private layoutStrategy!: LayoutStrategy; // 느낌표로 초기화 보장
+    private layoutManager!: LayoutManager;
     private currentLayout: CardNavigatorSettings['defaultLayout'];
     public isVertical: boolean;
     private cardGap: number;
     private keyboardNavigator: KeyboardNavigator | null = null;
+    private scroller!: Scroller;
     private cards: Card[] = [];
     private resizeObserver: ResizeObserver;
     private focusedCardId: string | null = null;
@@ -43,54 +46,41 @@ export class CardContainer {
         this.resizeObserver = new ResizeObserver(debounce(() => {
             this.handleResize();
         }, 100));
-
-        // 기본 레이아웃 전략 설정
-        this.layoutStrategy = new ListLayout(this.isVertical, this.cardGap, this.plugin.settings.alignCardHeight);
     }
 
     // 컨테이너 초기화 메서드
     async initialize(containerEl: HTMLElement) {
-        // 이전 리소스 정리
         this.cleanup();
         
-        // 컨테이너 초기화
         this.containerEl = containerEl;
         
         try {
-            // 기본 설정
-            this.isVertical = this.calculateIsVertical();
-            this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
+            this.layoutManager = new LayoutManager(this.plugin, containerEl, this.cardMaker);
             
-            // 레이아웃 전략 초기화
-            this.layoutStrategy = this.determineAutoLayout();
-            if (!this.layoutStrategy) {
-                throw new Error('레이아웃 전략 초기화 실패');
-            }
-
-            // UI 관련 초기화
+            this.scroller = new Scroller(
+                containerEl,
+                this.plugin,
+                () => this.layoutManager.getLayoutStrategy(),
+                () => this.getCardSize()
+            );
+            
             this.updateContainerStyle();
             
-            // 컨테이너 크기가 설정될 때까지 대기
             await this.waitForContainerSize();
             
-            // 카드 렌더러 초기화 (레이아웃 전략이 완전히 초기화된 후)
             this.cardRenderer = new CardRenderer(
                 this.containerEl,
                 this.cardMaker,
-                this.layoutStrategy,
+                this.layoutManager,
                 this.plugin.settings.alignCardHeight,
                 this.plugin.settings.cardsPerView
             );
 
-            // 키보드 네비게이터 초기화
             this.initializeKeyboardNavigator();
             
-            // 리사이즈 옵저버 설정
             this.setupResizeObserver();
         } catch (error) {
             console.error('카드 컨테이너 초기화 중 오류 발생:', error);
-            // 기본 레이아웃으로 폴백
-            this.layoutStrategy = new ListLayout(this.isVertical, this.cardGap, this.plugin.settings.alignCardHeight);
             throw error;
         }
     }
@@ -185,8 +175,9 @@ export class CardContainer {
     private updateContainerStyle() {
         if (this.containerEl) {
             this.containerEl.classList.add('card-navigator-container');
-            this.containerEl.classList.toggle('vertical', this.isVertical);
-            this.containerEl.classList.toggle('horizontal', !this.isVertical);
+            const isVertical = this.layoutManager.getLayoutStrategy().getScrollDirection() === 'vertical';
+            this.containerEl.classList.toggle('vertical', isVertical);
+            this.containerEl.classList.toggle('horizontal', !isVertical);
             this.containerEl.classList.toggle('align-height', this.plugin.settings.alignCardHeight);
             this.containerEl.classList.toggle('flexible-height', !this.plugin.settings.alignCardHeight);
 
@@ -211,92 +202,25 @@ export class CardContainer {
     public handleResize() {
         if (!this.containerEl) return;
         
-        const newIsVertical = this.calculateIsVertical();
-        const previousIsVertical = this.isVertical;
-        this.isVertical = newIsVertical;
+        this.layoutManager.updateLayout();
+        this.cardRenderer?.setLayoutStrategy(this.layoutManager.getLayoutStrategy());
+        
+        const files = this.cards.map(card => card.file);
+        this.displayCards(files);
 
-        // 레이아웃 업데이트가 필요한 경우:
-        // 1. 오토 레이아웃일 때
-        // 2. 방향이 변경되었을 때
-        // 3. 그리드나 메이슨리 레이아웃일 때 (카드 크기 조정 필요)
-        // 4. 리스트 레이아웃일 때 (카드 높이 정렬이 활성화된 경우)
-        if (this.currentLayout === 'auto' || 
-            previousIsVertical !== this.isVertical ||
-            this.currentLayout === 'grid' ||
-            this.currentLayout === 'masonry' ||
-            (this.currentLayout === 'list' && this.plugin.settings.alignCardHeight)) {
-            
-            this.layoutStrategy = this.determineAutoLayout();
-            this.cardRenderer?.setLayoutStrategy(this.layoutStrategy);
-            
-            // Card[]를 TFile[]로 변환하여 카드 다시 표시
-            const files = this.cards.map(card => card.file);
-            this.displayCards(files);
-        }
-
-        this.keyboardNavigator?.updateLayout(this.layoutStrategy);
+        this.keyboardNavigator?.updateLayout(this.layoutManager.getLayoutStrategy());
     }
 
     // 현재 레이아웃 전략 반환 메서드
     public getLayoutStrategy(): LayoutStrategy {
-        return this.layoutStrategy;
+        return this.layoutManager.getLayoutStrategy();
     }
 
     // 레이아웃 설정 메서드
     setLayout(layout: CardNavigatorSettings['defaultLayout']) {
-        // 현재 레이아웃을 업데이트
-        this.currentLayout = layout;
-
-        const containerStyle = window.getComputedStyle(this.containerEl);
-        const containerWidth = this.containerEl.offsetWidth;
-        const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
-        const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
-        const availableWidth = containerWidth - paddingLeft - paddingRight;
-
-        if (layout === 'auto') {
-            this.layoutStrategy = this.determineAutoLayout();
-        } else {
-            switch (layout) {
-                case 'list': {
-                    const listLayout = new ListLayout(this.isVertical, this.cardGap, this.plugin.settings.alignCardHeight);
-                    listLayout.setCardWidth(availableWidth);
-                    this.layoutStrategy = listLayout;
-                    break;
-                }
-                case 'grid': {
-                    const gridLayout = new GridLayout(this.plugin.settings.gridColumns, this.cardGap, this.plugin.settings);
-                    const cardWidth = Math.floor((availableWidth - (this.plugin.settings.gridColumns - 1) * this.cardGap) / this.plugin.settings.gridColumns);
-                    gridLayout.setCardWidth(cardWidth);
-                    this.layoutStrategy = gridLayout;
-                    break;
-                }
-                case 'masonry': {
-                    const masonryLayout = new MasonryLayout(
-                        this.plugin.settings.masonryColumns,
-                        this.cardGap,
-                        this.plugin.settings,
-                        this.cardMaker
-                    );
-                    if (this.containerEl) {
-                        masonryLayout.setContainer(this.containerEl);
-                        const cardWidth = Math.floor((availableWidth - (this.plugin.settings.masonryColumns - 1) * this.cardGap) / this.plugin.settings.masonryColumns);
-                        masonryLayout.setCardWidth(cardWidth);
-                    }
-                    this.layoutStrategy = masonryLayout;
-                    break;
-                }
-            }
-        }
-        
-        // 레이아웃 전략 업데이트
-        this.cardRenderer?.setLayoutStrategy(this.layoutStrategy);
-        
-        // 키보드 내비게이터 업데이트
-        this.keyboardNavigator?.updateLayout(this.layoutStrategy);
-        
-        // 현재 카드 다시 표시
-        // const files = this.cards.map(card => card.file);
-        // this.displayCards(files);
+        this.layoutManager.setLayout(layout);
+        this.cardRenderer?.setLayoutStrategy(this.layoutManager.getLayoutStrategy());
+        this.keyboardNavigator?.updateLayout(this.layoutManager.getLayoutStrategy());
     }
     //#endregion
 
@@ -406,137 +330,29 @@ export class CardContainer {
     //#endregion
 
     //#region 스크롤 관리
-    // 활성 카드로 스크롤 메서드
-    private scrollToActiveCard(animate = true) {
-        if (!this.containerEl) return;
-        const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement | null;
-        if (!activeCard) return;
-
-        this.centerCard(activeCard, animate);
+    // 스크롤 관련 메서드들을 Scroller로 위임
+    public scrollUp(count = 1) {
+        this.scroller.scrollUp(count, this.cards.length);
     }
 
-    // 카드 중앙 정렬 메서드
+    public scrollDown(count = 1) {
+        this.scroller.scrollDown(count, this.cards.length);
+    }
+
+    public scrollLeft(count = 1) {
+        this.scroller.scrollLeft(count, this.cards.length);
+    }
+
+    public scrollRight(count = 1) {
+        this.scroller.scrollRight(count, this.cards.length);
+    }
+
+    public scrollToActiveCard(animate = true) {
+        this.scroller.scrollToActiveCard(animate);
+    }
+
     public centerCard(card: HTMLElement, animate = true) {
-        if (!this.containerEl) return;
-
-        const containerRect = this.containerEl.getBoundingClientRect();
-        const cardRect = card.getBoundingClientRect();
-
-        let offset = 0;
-        let scrollProperty: 'scrollTop' | 'scrollLeft';
-
-        if (this.isVertical) {
-            const containerVisibleHeight = containerRect.height;
-            offset = cardRect.top - containerRect.top - (containerVisibleHeight - cardRect.height) / 2;
-            scrollProperty = 'scrollTop';
-        } else {
-            const containerVisibleWidth = containerRect.width;
-            offset = cardRect.left - containerRect.left - (containerVisibleWidth - cardRect.width) / 2;
-            scrollProperty = 'scrollLeft';
-        }
-
-        const newScrollPosition = this.containerEl[scrollProperty] + offset;
-
-        if (animate && this.plugin.settings.enableScrollAnimation) {
-            this.smoothScroll(scrollProperty, newScrollPosition);
-        } else {
-            this.containerEl[scrollProperty] = newScrollPosition;
-        }
-    }
-
-    // 부드러운 스크롤 메서드
-    private smoothScroll(scrollProperty: 'scrollTop' | 'scrollLeft', targetPosition: number) {
-        if (!this.containerEl) return;
-
-        const startPosition = this.containerEl[scrollProperty];
-        const distance = targetPosition - startPosition;
-        const duration = 300; // ms
-        let startTime: number | null = null;
-
-        const animation = (currentTime: number) => {
-            if (startTime === null) startTime = currentTime;
-            const timeElapsed = currentTime - startTime;
-            const progress = Math.min(timeElapsed / duration, 1);
-            const easeProgress = 0.5 - Math.cos(progress * Math.PI) / 2;
-
-            if (this.containerEl) {
-                this.containerEl[scrollProperty] = startPosition + distance * easeProgress;
-            }
-
-            if (timeElapsed < duration && this.containerEl) {
-                requestAnimationFrame(animation);
-            }
-        };
-
-        requestAnimationFrame(animation);
-    }
-
-    // 방향별 스크롤 메서드
-    private scrollInDirection(direction: 'up' | 'down' | 'left' | 'right', count = 1) {
-        if (!this.containerEl) return;
-        const { width, height } = this.getCardSize();
-        const cardsPerView = this.plugin.settings.cardsPerView;
-        const totalCards = this.cards.length;
-        const isVertical = this.layoutStrategy.getScrollDirection() === 'vertical';
-        
-        const cardSize = isVertical ? height : width;
-        const currentScroll = isVertical ? this.containerEl.scrollTop : this.containerEl.scrollLeft;
-        const totalSize = totalCards * cardSize;
-        const containerSize = isVertical ? this.containerEl.clientHeight : this.containerEl.clientWidth;
-        
-        let targetScroll;
-        if (count === cardsPerView) { // Page Up/Left or Page Down/Right
-            const currentEdgeCard = Math.floor((currentScroll + (direction === 'down' || direction === 'right' ? containerSize : 0)) / cardSize);
-            if (direction === 'up' || direction === 'left') {
-                if (currentEdgeCard < cardsPerView) {
-                    targetScroll = 0; // Scroll to the very start
-                } else {
-                    targetScroll = Math.max(0, (currentEdgeCard - cardsPerView) * cardSize);
-                }
-            } else { // down or right
-                if (totalCards - currentEdgeCard < cardsPerView) {
-                    targetScroll = totalSize - containerSize; // Scroll to the very end
-                } else {
-                    targetScroll = currentEdgeCard * cardSize;
-                }
-            }
-        } else {
-            const scrollAmount = cardSize * count;
-            if (direction === 'up' || direction === 'left') {
-                targetScroll = Math.max(0, currentScroll - scrollAmount);
-            } else {
-                targetScroll = Math.min(totalSize - containerSize, currentScroll + scrollAmount);
-            }
-        }
-
-        if (this.plugin.settings.enableScrollAnimation) {
-            this.containerEl.scrollTo({
-                [isVertical ? 'top' : 'left']: targetScroll,
-                behavior: 'smooth'
-            });
-        } else {
-            this.containerEl[isVertical ? 'scrollTop' : 'scrollLeft'] = targetScroll;
-        }
-    }
-
-    // 위로 스크롤 메서드
-    scrollUp(count = 1) {
-        this.scrollInDirection('up', count);
-    }
-
-    // 아래로 스크롤 메서드
-    scrollDown(count = 1) {
-        this.scrollInDirection('down', count);
-    }
-
-    // 왼쪽으로 스크롤 메서드
-    scrollLeft(count = 1) {
-        this.scrollInDirection('left', count);
-    }
-
-    // 오른쪽으로 스크롤 메서드
-    scrollRight(count = 1) {
-        this.scrollInDirection('right', count);
+        this.scroller.centerCard(card, animate);
     }
     //#endregion
 
@@ -598,87 +414,6 @@ export class CardContainer {
     // 키보드 네비게이터 블러 메서드
     public blurNavigator() {
         this.keyboardNavigator?.blurNavigator();
-    }
-
-    // 자동 레이아웃 결정 메서드
-    private determineAutoLayout(): LayoutStrategy {
-        if (!this.containerEl) {
-            throw new Error('Container element is not initialized');
-        }
-
-        const containerStyle = window.getComputedStyle(this.containerEl);
-        const containerWidth = this.containerEl.offsetWidth;
-        const containerHeight = this.containerEl.offsetHeight;
-        const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
-        const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
-        const availableWidth = containerWidth - paddingLeft - paddingRight;
-        
-        const {
-            alignCardHeight,
-            cardWidthThreshold,
-            defaultLayout,
-            gridColumns,
-            masonryColumns,
-            cardsPerView
-        } = this.plugin.settings;
-
-        // 자동이 아닌 레이아웃의 경우 해당 레이아웃 전략 반환
-        if (defaultLayout !== 'auto') {
-            switch (defaultLayout) {
-                case 'list': {
-                    // 리스트 레이아웃에서는 컨테이너 너비에 맞춰 카드 너비 조정
-                    const listLayout = new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
-                    listLayout.setCardWidth(availableWidth);
-                    return listLayout;
-                }
-                case 'grid': {
-                    // 그리드 레이아웃에서는 컨테이너 너비에 맞춰 카드 너비 조정
-                    const gridLayout = new GridLayout(gridColumns, this.cardGap, this.plugin.settings);
-                    const cardWidth = Math.floor((availableWidth - (gridColumns - 1) * this.cardGap) / gridColumns);
-                    gridLayout.setCardWidth(cardWidth);
-                    return gridLayout;
-                }
-                case 'masonry': {
-                    // 메이슨리 레이아웃에서는 컨테이너 너비에 맞춰 카드 너비 조정
-                    const masonryLayout = new MasonryLayout(
-                        masonryColumns,
-                        this.cardGap,
-                        this.plugin.settings,
-                        this.cardMaker
-                    );
-                    if (this.containerEl) {
-                        masonryLayout.setContainer(this.containerEl);
-                        const cardWidth = Math.floor((availableWidth - (masonryColumns - 1) * this.cardGap) / masonryColumns);
-                        masonryLayout.setCardWidth(cardWidth);
-                    }
-                    return masonryLayout;
-                }
-            }
-        }
-
-        // 오토 레이아웃의 경우 컨테이너 너비에 따라 동적으로 결정
-        const columns = Math.max(1, Math.floor((availableWidth + this.cardGap) / (cardWidthThreshold + this.cardGap)));
-        const cardWidth = Math.floor((availableWidth - (columns - 1) * this.cardGap) / columns);
-
-        if (columns === 1) {
-            // 리스트 레이아웃으로 결정된 경우
-            const listLayout = new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
-            listLayout.setCardWidth(cardWidth);
-            return listLayout;
-        } else if (alignCardHeight) {
-            // 그리드 레이아웃으로 결정된 경우
-            const gridLayout = new GridLayout(columns, this.cardGap, this.plugin.settings);
-            gridLayout.setCardWidth(cardWidth);
-            return gridLayout;
-        } else {
-            // 메이슨리 레이아웃으로 결정된 경우
-            const masonryLayout = new MasonryLayout(columns, this.cardGap, this.plugin.settings, this.cardMaker);
-            if (this.containerEl) {
-                masonryLayout.setContainer(this.containerEl);
-                masonryLayout.setCardWidth(cardWidth);
-            }
-            return masonryLayout;
-        }
     }
 
     // 카드 크기 가져오기 메서드
