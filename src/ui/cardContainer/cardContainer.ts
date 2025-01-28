@@ -3,14 +3,10 @@ import CardNavigatorPlugin from 'main';
 import { CardMaker } from './cardMaker';
 import { CardRenderer } from './cardRenderer';
 import { LayoutStrategy } from 'layouts/layoutStrategy';
-import { ListLayout } from 'layouts/listLayout';
-import { GridLayout } from 'layouts/gridLayout';
-import { MasonryLayout } from 'layouts/masonryLayout';
 import { KeyboardNavigator } from './keyboardNavigator';
 import { CardNavigatorSettings } from "common/types";
 import { Card, SortCriterion, SortOrder } from 'common/types';
 import { t } from "i18next";
-import { CardNavigatorView, RefreshType } from 'ui/cardNavigatorView';
 import { LayoutManager } from 'layouts/layoutManager';
 import { Scroller } from './scroller';
 
@@ -133,20 +129,6 @@ export class CardContainer {
     //#endregion
 
     //#region 컨테이너 스타일 및 레이아웃 관리
-    // 컨테이너 방향 계산 메서드
-    private calculateIsVertical(): boolean {
-        if (!this.containerEl) return true;
-        const { width, height } = this.containerEl.getBoundingClientRect();
-        return height > width;
-    }
-
-    // CSS 변수 값 가져오기 메서드
-    private getCSSVariable(variableName: string, defaultValue: number): number {
-        if (!this.containerEl) return defaultValue;
-        const valueStr = getComputedStyle(this.containerEl).getPropertyValue(variableName).trim();
-        return parseInt(valueStr) || defaultValue;
-    }
-
     // 컨테이너 크기 대기 메서드
     private waitForContainerSize(): Promise<void> {
         if (this.containerEl && 
