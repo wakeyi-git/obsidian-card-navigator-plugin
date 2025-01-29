@@ -91,12 +91,30 @@ export async function executeSearch(
 }
 
 // 디바운스된 검색 함수
-export const debouncedSearch = debounce(
-    (searchTerm: string, plugin: CardNavigatorPlugin, containerEl: HTMLElement) => {
-        executeSearch(plugin, containerEl, searchTerm);
-    },
-    SEARCH_DEBOUNCE_DELAY
-);
+export const debouncedSearch = debounce(async (searchTerm: string, plugin: CardNavigatorPlugin, containerEl: HTMLElement) => {
+    const view = plugin.app.workspace.getActiveViewOfType(CardNavigatorView);
+    if (!view) return;
+
+    const searchService = getSearchService(plugin);
+    
+    if (!searchTerm.trim()) {
+        view.cardContainer.setSearchResults(null);
+        await view.cardContainer.displayCards([]);
+        return;
+    }
+
+    try {
+        // 현재 폴더나 설정에 따른 파일 목록 가져오기
+        const filesToSearch = await view.cardContainer.getFilteredFiles();
+        
+        // 파일 목록에서 검색 수행
+        const searchResults = await searchService.searchFiles(filesToSearch, searchTerm);
+        view.cardContainer.setSearchResults(searchResults);
+        await view.cardContainer.displayCards([]);
+    } catch (error) {
+        console.error('검색 중 오류 발생:', error);
+    }
+}, 200);
 
 // 검색 히스토리 가져오기
 export function getSearchHistory(): string[] {

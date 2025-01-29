@@ -27,6 +27,7 @@ export class CardContainer {
     private cards: Card[] = [];
     private resizeObserver: ResizeObserver;
     private focusedCardId: string | null = null;
+    private searchResults: TFile[] | null = null;
     //#endregion
 
     //#region 초기화 및 정리
@@ -243,18 +244,19 @@ export class CardContainer {
             return;
         }
 
-        // files가 비어있거나 전달되지 않은 경우, 또는 vault 모드인 경우
-        if (!files || files.length === 0 || this.plugin.settings.cardSetType === 'vault') {
+        // 검색 결과가 있으면 그것을 우선 사용
+        if (this.searchResults) {
+            displayFiles = this.searchResults;
+        }
+        // 검색 결과가 없는 경우에만 기존 로직 사용
+        else if (!files || files.length === 0 || this.plugin.settings.cardSetType === 'vault') {
             if (this.plugin.settings.cardSetType === 'vault') {
-                // 전체 볼트 모드에서는 모든 하위 폴더의 파일들을 가져옴
                 displayFiles = this.getAllMarkdownFiles(folder);
             } else {
-                // 활성 폴더나 선택된 폴더 모드에서는 해당 폴더의 파일들을 가져옴
                 displayFiles = folder.children
                     .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
             }
         } else {
-            // 전달받은 파일 목록 사용 (검색 결과 등)
             displayFiles = files;
         }
         
@@ -484,6 +486,18 @@ export class CardContainer {
     // 카드 크기 가져오기 메서드
     private getCardSize(): { width: number, height: number } {
         return this.cardRenderer?.getCardSize() || { width: 0, height: 0 };
+    }
+    //#endregion
+
+    //#region 검색 결과 관리
+    // 검색 결과 설정 메서드
+    public setSearchResults(files: TFile[] | null) {
+        this.searchResults = files;
+    }
+
+    // 검색 결과 가져오기 메서드
+    public getSearchResults(): TFile[] | null {
+        return this.searchResults;
     }
     //#endregion
 }
