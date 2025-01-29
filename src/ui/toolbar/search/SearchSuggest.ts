@@ -44,12 +44,13 @@ export class SearchSuggest {
         });
 
         // 검색어와 일치하는 경로 필터링
-        const searchValue = searchTerm.split(':')[1]?.trim().toLowerCase() || '';
+        const searchValueWithoutQuotes = searchTerm.replace(/^"(.*)"$/, '$1').toLowerCase();
+        
         const suggestions = Array.from(paths)
-            .filter(path => path.toLowerCase().includes(searchValue))
+            .filter(path => path.toLowerCase().includes(searchValueWithoutQuotes))
             .sort((a, b) => a.localeCompare(b))
             .map(path => ({
-                value: path,
+                value: `"${path}"`,  // 경로를 따옴표로 묶어서 반환
                 type: 'path' as const,
                 display: path || '/'
             }));

@@ -32,8 +32,15 @@ export class SearchService {
         for (const {prefix, value} of terms) {
             switch (prefix) {
                 case 'path':
-                    filteredFiles = filteredFiles.filter(file => 
-                        this.createSearchPattern(value).test(file.path));
+                    // 따옴표로 묶인 경로를 처리
+                    const pathValue = value.match(/^"([^"]*)"$/)?.[1] || value;
+                    filteredFiles = filteredFiles.filter(file => {
+                        const filePath = file.path;
+                        const parentPath = file.parent?.path || '';
+                        return filePath.startsWith(pathValue) || 
+                               parentPath === pathValue || 
+                               parentPath.startsWith(pathValue + '/');
+                    });
                     break;
                 case 'file':
                     filteredFiles = filteredFiles.filter(file => 
