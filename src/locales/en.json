@@ -10,7 +10,7 @@
     "CARD_CONTENT_COPIED_TO_CLIPBOARD": "Card content copied to clipboard",
     "FAILED_TO_COPY_CARD_CONTENT": "Failed to copy card content",
 
-	"SEARCH_PLACEHOLDER": "Search...",
+	"SEARCH_PLACEHOLDER": "Search cards...",
     "SORT_CARDS": "Sort cards",
     "SETTINGS": "Settings",
 
@@ -185,5 +185,12 @@
     "ACTIVE_FOLDER": "Active Folder",
     "SELECTED_FOLDER": "Selected Folder",
     "ENTIRE_VAULT": "Entire Vault",
-    "CHANGE_CARD_SET": "Change Card Set"
+    "CHANGE_CARD_SET": "Change Card Set",
+
+    "PATH_SEARCH": "Search by path",
+    "FILE_SEARCH": "Search by file name",
+    "TAG_SEARCH": "Search by tag",
+    "LINE_SEARCH": "Search by line",
+    "SECTION_SEARCH": "Search by section",
+    "PROPERTY_SEARCH": "Search by property"
 }

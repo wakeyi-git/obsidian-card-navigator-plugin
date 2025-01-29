@@ -125,7 +125,7 @@ export class SettingTab extends PluginSettingTab {
             case 'activeFolderPresets':
                 this.updatePresetSettings();
                 break;
-            case 'useSelectedFolder':
+            case 'cardSetType':
             case 'selectedFolder':
             case 'sortCriterion':
             case 'sortOrder':

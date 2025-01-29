@@ -238,3 +238,72 @@ export function getTranslatedFontSizeSettings() {
     }));
 }
 //#endregion
+
+//#region 검색 관련 타입
+// 검색 관련 상수
+export const SEARCH_DEBOUNCE_DELAY = 300;
+export const MIN_SEARCH_TERM_LENGTH = 2;
+export const MAX_SEARCH_HISTORY = 10;
+export const BATCH_SIZE = 20;
+
+// 검색 옵션 인터페이스
+export interface SearchOptions {
+    searchInTitle?: boolean;      // 제목 검색
+    searchInHeaders?: boolean;    // 헤더 검색
+    searchInTags?: boolean;       // 태그 검색
+    searchInContent?: boolean;    // 내용 검색
+    searchInFrontmatter?: boolean; // 프론트매터 검색
+    caseSensitive?: boolean;      // 대소문자 구분
+    useRegex?: boolean;           // 정규식 사용
+}
+
+// 기본 검색 옵션
+export const DEFAULT_SEARCH_OPTIONS: SearchOptions = {
+    searchInTitle: true,
+    searchInHeaders: true,
+    searchInTags: true,
+    searchInContent: true,
+    searchInFrontmatter: true,
+    caseSensitive: false,
+    useRegex: false,
+};
+
+// 검색 결과 인터페이스
+export interface SearchResult {
+    file: TFile;
+    matches: {
+        type: 'title' | 'header' | 'tag' | 'content' | 'frontmatter';
+        text: string;
+        position?: number;
+    }[];
+}
+
+// 검색어 추천을 위한 인터페이스
+export interface SearchSuggestion {
+    value: string;
+    type: 'path' | 'file' | 'tag' | 'property' | 'section';
+    display: string;
+}
+
+// 검색 상태 인터페이스
+export interface SearchState {
+    isSearching: boolean;
+    lastSearchTerm: string;
+    searchHistory: SearchHistory;
+    searchService: SearchService;
+}
+
+// 검색 서비스 인터페이스
+export interface SearchService {
+    setOptions(options: Partial<SearchOptions>): void;
+    getOption<K extends keyof SearchOptions>(key: K): SearchOptions[K];
+    searchFiles(files: TFile[], searchTerm: string): Promise<TFile[]>;
+}
+
+// 검색 히스토리 인터페이스
+export interface SearchHistory {
+    add(term: string): void;
+    recent: string[];
+    clear(): void;
+}
+//#endregion

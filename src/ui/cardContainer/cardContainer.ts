@@ -9,7 +9,7 @@ import { Card, SortCriterion, SortOrder } from 'common/types';
 import { t } from "i18next";
 import { LayoutManager } from 'layouts/layoutManager';
 import { Scroller } from './scroller';
-import { getSearchService } from 'ui/toolbar/search';
+import { getSearchService } from 'ui/toolbar/search/';
 
 // Main class for managing the card container and its layout
 export class CardContainer {
@@ -386,6 +386,25 @@ export class CardContainer {
     //#endregion
 
     //#region 카드 검색 및 정렬
+    // 현재 필터링된 파일 목록 가져오기
+    public async getFilteredFiles(): Promise<TFile[]> {
+        const folder = await this.getCurrentFolder();
+        if (!folder) return [];
+
+        // 현재 표시된 카드가 있다면 해당 파일들 반환
+        if (this.cards.length > 0) {
+            return this.cards.map(card => card.file);
+        }
+
+        // 카드가 없는 경우 현재 설정에 따라 파일 목록 반환
+        if (this.plugin.settings.cardSetType === 'vault') {
+            return this.getAllMarkdownFiles(folder);
+        } else {
+            return folder.children
+                .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
+        }
+    }
+
     // 카드 검색 메서드
     public async searchCards(searchTerm: string) {
         const folder = await this.getCurrentFolder();

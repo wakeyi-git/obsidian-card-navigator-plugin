@@ -10,7 +10,7 @@
     "CARD_CONTENT_COPIED_TO_CLIPBOARD": "카드 내용이 클립보드에 복사되었습니다",
     "FAILED_TO_COPY_CARD_CONTENT": "카드 내용 복사 실패",
 
-    "SEARCH_PLACEHOLDER": "검색...",
+    "SEARCH_PLACEHOLDER": "카드 검색...",
     "SORT_CARDS": "카드 정렬",
     "SETTINGS": "설정",
 
@@ -185,5 +185,12 @@
     "ACTIVE_FOLDER": "활성 폴더",
     "SELECTED_FOLDER": "선택한 폴더",
     "ENTIRE_VAULT": "전체 볼트",
-    "CHANGE_CARD_SET": "카드 세트 변경"
+    "CHANGE_CARD_SET": "카드 세트 변경",
+
+    "PATH_SEARCH": "경로로 검색",
+    "FILE_SEARCH": "파일명으로 검색",
+    "TAG_SEARCH": "태그로 검색",
+    "LINE_SEARCH": "라인으로 검색",
+    "SECTION_SEARCH": "섹션으로 검색",
+    "PROPERTY_SEARCH": "속성으로 검색"
 }

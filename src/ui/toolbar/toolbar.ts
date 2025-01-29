@@ -1,7 +1,7 @@
-import { setIcon, TFolder, FuzzySuggestModal, Menu, MenuItem } from 'obsidian';
+import { setIcon, TFolder, FuzzySuggestModal, Menu, MenuItem, debounce } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { CardNavigatorView } from '../cardNavigatorView';
-import { SearchOptions, debouncedSearch } from './search';
+import { SearchInput } from './search/SearchInput';
 import { toggleSort } from './sort';
 import { toggleSettings } from './settings';
 import { t } from 'i18next';
@@ -13,11 +13,14 @@ export class Toolbar {
     private settingsPopupOpen = false;
     private settingsIcon: HTMLElement | null = null;
     private popupObserver: MutationObserver | null = null;
+    private searchInput: SearchInput;
     //#endregion
 
     //#region 초기화 및 정리
     // 생성자: 툴바 초기화
-    constructor(private plugin: CardNavigatorPlugin) {}
+    constructor(private plugin: CardNavigatorPlugin) {
+        this.searchInput = new SearchInput(plugin);
+    }
 
     // 툴바 초기화 및 컨테이너 설정
     initialize(containerEl: HTMLElement) {
@@ -43,130 +46,9 @@ export class Toolbar {
 
         const toolbarContainer = this.containerEl.createDiv('card-navigator-toolbar-container');
 
-        toolbarContainer.appendChild(this.createSearchContainer());
+        toolbarContainer.appendChild(this.searchInput.createSearchInput());
         toolbarContainer.appendChild(this.createSeparator());
         toolbarContainer.appendChild(this.createActionIconsContainer());
-    }
-
-    // 검색 컨테이너 생성
-    private createSearchContainer(): HTMLElement {
-        const container = createDiv('card-navigator-search-container');
-
-        // 검색 입력 필드
-        const input = container.createEl('input', {
-            type: 'text',
-            placeholder: t('SEARCH_PLACEHOLDER'),
-            cls: 'card-navigator-search-input'
-        });
-
-        // 검색 옵션 컨테이너 (기본적으로 숨김)
-        const searchOptionsContainer = container.createDiv('search-options-container');
-        searchOptionsContainer.hide();
-        
-        // 검색 옵션 버튼들
-        const optionButtons = [
-            { key: 'path', label: t('PATH_SEARCH'), icon: 'folder' },
-            { key: 'file', label: t('FILE_SEARCH'), icon: 'file' },
-            { key: 'tag', label: t('TAG_SEARCH'), icon: 'tag' },
-            { key: 'line', label: t('LINE_SEARCH'), icon: 'lines-of-text' },
-            { key: 'section', label: t('SECTION_SEARCH'), icon: 'heading' },
-            { key: 'property', label: t('PROPERTY_SEARCH'), icon: 'list-plus' }
-        ];
-
-        optionButtons.forEach(({ key, label, icon }) => {
-            const button = searchOptionsContainer.createEl('button', {
-                cls: 'search-option-button',
-                attr: { 
-                    'aria-label': label,
-                    'data-search-key': key
-                }
-            });
-            setIcon(button, icon);
-            button.createSpan({ text: key });
-        });
-
-        // 검색 입력 필드 포커스/블러 이벤트
-        input.addEventListener('focus', () => {
-            searchOptionsContainer.show();
-            container.addClass('focused');
-        });
-
-        // 컨테이너 외부 클릭 시 옵션 숨기기
-        document.addEventListener('click', (e: MouseEvent) => {
-            if (!container.contains(e.target as Node)) {
-                searchOptionsContainer.hide();
-                container.removeClass('focused');
-            }
-        });
-
-        // 검색 이벤트
-        input.addEventListener('input', (e: Event) => {
-            const searchTerm = (e.target as HTMLInputElement).value;
-            if (this.containerEl) {
-                debouncedSearch(searchTerm, this.plugin, this.containerEl);
-            }
-        });
-
-        input.addEventListener('keydown', (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                input.value = '';
-                searchOptionsContainer.hide();
-                container.removeClass('focused');
-                if (this.containerEl) {
-                    debouncedSearch('', this.plugin, this.containerEl);
-                }
-            }
-        });
-
-        // 검색 옵션 버튼 클릭 이벤트
-        searchOptionsContainer.addEventListener('click', (e: MouseEvent) => {
-            const target = e.target as HTMLElement;
-            const button = target.closest('.search-option-button');
-            if (button) {
-                const currentText = input.value;
-                const cursorPosition = input.selectionStart || 0;
-                const prefix = button.getAttribute('data-search-key');
-                
-                if (prefix) {
-                    // 현재 커서 위치 이전의 텍스트와 이후의 텍스트를 분리
-                    const beforeCursor = currentText.substring(0, cursorPosition);
-                    const afterCursor = currentText.substring(cursorPosition);
-                    
-                    // 커서 위치 이전에 공백이 없고, 텍스트가 있다면 공백 추가
-                    const needsSpaceBefore = beforeCursor.length > 0 && !beforeCursor.endsWith(' ');
-                    const spaceBefore = needsSpaceBefore ? ' ' : '';
-                    
-                    // 새로운 입력값 생성 (콜론 뒤에 공백 없이)
-                    const newValue = beforeCursor + spaceBefore + prefix + ':' + afterCursor;
-                    
-                    // 입력값 업데이트
-                    input.value = newValue;
-                    
-                    // 커서를 prefix: 뒤로 이동
-                    const newCursorPosition = cursorPosition + spaceBefore.length + prefix.length + 1;
-                    input.setSelectionRange(newCursorPosition, newCursorPosition);
-                    
-                    input.focus();
-                    if (this.containerEl) {
-                        debouncedSearch(newValue, this.plugin, this.containerEl);
-                    }
-                }
-            }
-        });
-
-        return container;
-    }
-
-    // 검색 옵션 토글
-    private toggleSearchOption(key: keyof SearchOptions) {
-        const currentValue = this.plugin.searchService.getOption(key);
-        this.plugin.searchService.setOptions({ [key]: !currentValue });
-        
-        // 현재 검색어로 다시 검색 실행
-        const searchInput = this.containerEl?.querySelector('.card-navigator-search-input') as HTMLInputElement;
-        if (searchInput && searchInput.value && this.containerEl) {
-            debouncedSearch(searchInput.value, this.plugin, this.containerEl);
-        }
     }
 
     // 툴바에 대한 구분 요소를 생성

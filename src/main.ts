@@ -6,7 +6,7 @@ import { SettingsManager } from './ui/settings/settingsManager';
 import { PresetManager } from './ui/settings/PresetManager';
 import i18next from 'i18next';
 import { t } from 'i18next';
-import { SearchService } from 'ui/toolbar/search';
+import { SearchService } from 'ui/toolbar/search/';
 
 // 다국어 지원을 위한 언어 리소스 정의
 export const languageResources = {
