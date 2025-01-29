@@ -412,13 +412,16 @@ export class CardContainer {
         const folder = await this.getCurrentFolder();
         if (!folder) return;
 
-        // 검색어가 없으면 현재 표시된 카드를 기준으로 검색
+        const searchService = getSearchService(this.plugin);
+        
+        // 검색어가 없으면 캐시와 검색 결과를 초기화
         if (!searchTerm) {
+            searchService.clearCache();
+            this.setSearchResults(null);
             await this.displayCards([]);
             return;
         }
 
-        const searchService = getSearchService(this.plugin);
         let filesToSearch: TFile[];
 
         // 이미 로드된 카드가 있다면 해당 카드들을 대상으로 검색
@@ -440,6 +443,11 @@ export class CardContainer {
 
     // 폴더별 카드 표시 메서드
     public async displayCardsForFolder(folder: TFolder) {
+        // 폴더 변경 시 검색 캐시 초기화
+        const searchService = getSearchService(this.plugin);
+        searchService.clearCache();
+        this.setSearchResults(null);
+        
         const files = folder.children.filter((file): file is TFile => file instanceof TFile);
         await this.displayCards(files);
     }

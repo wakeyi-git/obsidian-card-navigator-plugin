@@ -3,6 +3,7 @@ import CardNavigatorPlugin from 'main';
 import { SortCriterion, SortOrder } from 'common/types';
 import { getTranslatedSortOptions } from 'common/types';
 import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
+import { getSearchService } from 'ui/toolbar/search';
 
 // 정렬 메뉴 토글
 export function toggleSort(plugin: CardNavigatorPlugin, containerEl: HTMLElement | null) {
@@ -82,7 +83,25 @@ async function updateSortSettings(
     plugin.settings.sortCriterion = criterion;
     plugin.settings.sortOrder = order;
     await plugin.saveSettings();
-    refreshAllCardNavigatorViews(plugin, RefreshType.CONTENT);
+
+    // 현재 활성화된 Card Navigator 뷰의 검색 결과 재정렬
+    const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+    leaves.forEach(leaf => {
+        if (leaf.view instanceof CardNavigatorView) {
+            const view = leaf.view;
+            const searchService = getSearchService(plugin);
+            const resortedResults = searchService.resortLastResults();
+            if (resortedResults) {
+                // 재정렬된 결과를 검색 결과로 설정하고 카드 업데이트
+                view.cardContainer.setSearchResults(resortedResults);
+                view.cardContainer.displayCards(resortedResults);
+            } else {
+                // 검색 결과가 없다면 일반 새로고침
+                view.cardContainer.setSearchResults(null);
+                view.refresh(RefreshType.CONTENT);
+            }
+        }
+    });
 }
 
 // 모든 Card Navigator 뷰 새로고침

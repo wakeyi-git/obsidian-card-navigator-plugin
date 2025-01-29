@@ -223,7 +223,8 @@ export class SettingTab extends PluginSettingTab {
         containerEl: HTMLElement,
         key: 'sortMethod',
         name: string,
-        desc: string
+        desc: string,
+        onChange?: () => Promise<void>
     ): Setting {
         return new Setting(containerEl)
             .setName(t(name))
@@ -238,6 +239,9 @@ export class SettingTab extends PluginSettingTab {
                         const [criterion, order] = value.split('_') as [SortCriterion, SortOrder];
                         await this.settingsManager.updateSetting('sortCriterion', criterion);
                         await this.settingsManager.updateSetting('sortOrder', order);
+                        if (onChange) {
+                            await onChange();
+                        }
                     });
             });
     }

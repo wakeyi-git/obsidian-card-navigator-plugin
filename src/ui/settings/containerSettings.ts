@@ -6,6 +6,7 @@ import { FolderSuggest } from './components/FolderSuggest';
 import { SettingTab } from './settingsTab';
 import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 import { CardSetType } from 'common/types';
+import { getSearchService } from 'ui/toolbar/search';
 
 export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, settingTab: SettingTab): void {
     
@@ -25,7 +26,19 @@ export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavig
                 .addOption('vault', t('ENTIRE_VAULT'))
                 .setValue(plugin.settings.cardSetType)
                 .onChange(async (value) => {
+                    const searchService = getSearchService(plugin);
+                    searchService.clearCache();
+                    
                     await settingsManager.updateSetting('cardSetType', value as CardSetType);
+                    
+                    const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+                    leaves.forEach(leaf => {
+                        if (leaf.view instanceof CardNavigatorView) {
+                            leaf.view.cardContainer.setSearchResults(null);
+                            leaf.view.refresh(RefreshType.CONTENT);
+                        }
+                    });
+
                     const folderSetting = containerEl.querySelector('.folder-select-setting');
                     if (folderSetting instanceof HTMLElement) {
                         folderSetting.style.display = value === 'selectedFolder' ? '' : 'none';
@@ -55,7 +68,26 @@ export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavig
         containerEl,
         'sortMethod',
         t('DEFAULT_SORT_METHOD'),
-        t('DEFAULT_SORT_METHOD_DESC')
+        t('DEFAULT_SORT_METHOD_DESC'),
+        async () => {
+            // 모든 Card Navigator 뷰 업데이트
+            const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+            leaves.forEach(leaf => {
+                if (leaf.view instanceof CardNavigatorView) {
+                    const view = leaf.view;
+                    const searchService = getSearchService(plugin);
+                    const resortedResults = searchService.resortLastResults();
+                    if (resortedResults) {
+                        // 재정렬된 결과를 검색 결과로 설정하고 카드 업데이트
+                        view.cardContainer.setSearchResults(resortedResults);
+                        view.cardContainer.displayCards(resortedResults);
+                    } else {
+                        // 검색 결과가 없다면 일반 새로고침
+                        view.refresh(RefreshType.CONTENT);
+                    }
+                }
+            });
+        }
     );
 
     settingTab.addToggleSetting(

@@ -6,6 +6,7 @@ export class SearchService {
     private app: App;
     private options: SearchOptions;
     private searchPrefix: string = '';
+    private lastSearchResults: TFile[] | null = null;  // 마지막 검색 결과를 저장할 캐시
 
     constructor(private plugin: CardNavigatorPlugin) {
         this.app = this.plugin.app;
@@ -22,9 +23,23 @@ export class SearchService {
         return this.options[key];
     }
 
+    // 검색 결과 재정렬 메서드
+    resortLastResults(): TFile[] | null {
+        if (!this.lastSearchResults) return null;
+        return this.sortFiles([...this.lastSearchResults]);
+    }
+
+    // 캐시 정리 메서드
+    clearCache() {
+        this.lastSearchResults = null;
+    }
+
     // 파일 검색 메서드
     async searchFiles(files: TFile[], searchTerm: string): Promise<TFile[]> {
-        if (!searchTerm) return files;
+        if (!searchTerm) {
+            this.clearCache();
+            return this.sortFiles(files);
+        }
 
         let filteredFiles = files;
         const terms = this.parseSearchTerms(searchTerm);
@@ -62,7 +77,11 @@ export class SearchService {
             if (filteredFiles.length === 0) break;
         }
 
-        return filteredFiles;
+        // 검색 결과를 캐시에 저장
+        this.lastSearchResults = filteredFiles;
+        
+        // 플러그인의 정렬 설정에 따라 결과 정렬
+        return this.sortFiles(filteredFiles);
     }
 
     // 검색어 파싱
@@ -291,5 +310,28 @@ export class SearchService {
         });
         
         return files;
+    }
+
+    // 파일 정렬 메서드
+    private sortFiles(files: TFile[]): TFile[] {
+        const { sortCriterion, sortOrder } = this.plugin.settings;
+        
+        return files.sort((a, b) => {
+            let comparison = 0;
+            
+            switch (sortCriterion) {
+                case 'fileName':
+                    comparison = a.basename.localeCompare(b.basename);
+                    break;
+                case 'lastModified':
+                    comparison = a.stat.mtime - b.stat.mtime;
+                    break;
+                case 'created':
+                    comparison = a.stat.ctime - b.stat.ctime;
+                    break;
+            }
+            
+            return sortOrder === 'asc' ? comparison : -comparison;
+        });
     }
 } 
