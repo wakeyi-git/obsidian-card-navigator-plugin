@@ -79,9 +79,11 @@ export class CardNavigatorView extends ItemView {
 
     // 현재 폴더 반환 메서드
     private async getCurrentFolder(): Promise<TFolder | null> {
-        if (this.plugin.settings.useSelectedFolder && this.plugin.settings.selectedFolder) {
+        if (this.plugin.settings.cardSetType === 'selectedFolder' && this.plugin.settings.selectedFolder) {
             const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.selectedFolder);
             return abstractFile instanceof TFolder ? abstractFile : null;
+        } else if (this.plugin.settings.cardSetType === 'vault') {
+            return this.plugin.app.vault.getRoot();
         } else {
             const activeFile = this.plugin.app.workspace.getActiveFile();
             return activeFile?.parent || null;

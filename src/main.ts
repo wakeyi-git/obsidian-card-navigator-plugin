@@ -224,7 +224,7 @@ export default class CardNavigatorPlugin extends Plugin {
         }
 
         // 폴더 기반 카드 표시 처리
-        if (this.settings.useSelectedFolder) return;
+        if (this.settings.cardSetType !== 'activeFolder') return;
         
         if (!file || !(file instanceof TFile) || file.extension !== 'md') return;
 

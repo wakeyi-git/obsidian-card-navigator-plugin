@@ -24,7 +24,7 @@ export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLEle
     const settingsPopup = createPopup('card-navigator-settings-popup', 'settings', currentWindow);
     const settingsManager = plugin.settingsManager;
 
-    addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
+    // addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
     addPresetSettingsToPopup(settingsPopup, plugin);
     
     const layoutSection = createCollapsibleSection(settingsPopup, t('LAYOUT_SETTINGS'), true);
@@ -144,32 +144,32 @@ async function addPresetSettingsToPopup(settingsPopup: HTMLElement, plugin: Card
 }
 
 // 폴더 선택 설정 추가
-function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
-    new Setting(parentEl)
-        .setName(t('SOURCE_FOLDER'))
-        .setClass('setting-item-toggle')
-        .addToggle(toggle => toggle
-            .setValue(plugin.settings.useSelectedFolder)
-            .onChange(async (value) => {
-                await settingsManager.updateBooleanSetting('useSelectedFolder', value);
-                toggleSettings(plugin, parentEl);
-            })
-        );
+// function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
+//     new Setting(parentEl)
+//         .setName(t('SOURCE_FOLDER'))
+//         .setClass('setting-item-toggle')
+//         .addToggle(toggle => toggle
+//             .setValue(plugin.settings.useSelectedFolder)
+//             .onChange(async (value) => {
+//                 await settingsManager.updateBooleanSetting('useSelectedFolder', value);
+//                 toggleSettings(plugin, parentEl);
+//             })
+//         );
 
-    if (plugin.settings.useSelectedFolder) {
-        const setting = createFullWidthSetting(parentEl);
-        addFullWidthText(setting, text => {
-            new FolderSuggest(plugin.app, text.inputEl);
-            text.setPlaceholder(t('SELECT_FOLDER'))
-                .setValue(plugin.settings.selectedFolder || '')
-                .onChange(async (newFolder) => {
-                if (newFolder) {
-                    await settingsManager.updateSetting('selectedFolder', newFolder);
-                }
-            });
-        });
-    }
-}
+//     if (plugin.settings.useSelectedFolder) {
+//         const setting = createFullWidthSetting(parentEl);
+//         addFullWidthText(setting, text => {
+//             new FolderSuggest(plugin.app, text.inputEl);
+//             text.setPlaceholder(t('SELECT_FOLDER'))
+//                 .setValue(plugin.settings.selectedFolder || '')
+//                 .onChange(async (newFolder) => {
+//                 if (newFolder) {
+//                     await settingsManager.updateSetting('selectedFolder', newFolder);
+//                 }
+//             });
+//         });
+//     }
+// }
 
 // 드롭다운 설정 추가
 function addDropdownSetting(

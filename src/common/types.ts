@@ -28,7 +28,7 @@ export interface FolderPresets {
 // 카드 네비게이터 설정 구조 정의
 export interface CardNavigatorSettings {
     // 폴더 관련 설정
-    useSelectedFolder: boolean;
+    cardSetType: CardSetType;
     selectedFolder: string | null;
     
     // 정렬 관련 설정
@@ -82,13 +82,13 @@ export const globalSettingsKeys: (keyof CardNavigatorSettings)[] = [
     'autoApplyFolderPresets',
     'folderPresets',
     'activeFolderPresets',
-    'useSelectedFolder',
+    // 'cardSetType',
     'selectedFolder'
 ] as const;
 
 // 기본 설정값 정의
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {
-    useSelectedFolder: false,
+    cardSetType: 'activeFolder',
     selectedFolder: null,
     sortCriterion: 'fileName',
     sortOrder: 'asc',
@@ -162,6 +162,8 @@ export type SortOrder = 'asc' | 'desc';
 export type defaultLayout = 'auto' | 'list' | 'grid' | 'masonry';
 // 툴바 메뉴 타입
 export type ToolbarMenu = 'sort' | 'settings';
+// 카드 세트 타입
+export type CardSetType = 'activeFolder' | 'selectedFolder' | 'vault';
 //#endregion
 
 //#region UI 설정 옵션

@@ -5,6 +5,7 @@ import { createSearchContainer } from './search';
 import { toggleSort } from './sort';
 import { toggleSettings } from './settings';
 import { t } from 'i18next';
+import { Menu } from 'obsidian';
 
 // Card Navigator 플러그인의 툴바를 나타내는 클래스
 export class Toolbar {
@@ -63,7 +64,7 @@ export class Toolbar {
         const container = createDiv('card-navigator-action-icons-container');
     
         const icons = [
-            { name: 'folder', label: t('SELECT_FOLDER'), action: () => this.openFolderSelector() },
+            { name: 'folder-cog', label: t('CHANGE_CARD_SET'), action: () => this.openCardSetMenu() },
             { name: 'arrow-up-narrow-wide', label: t('SORT_CARDS'), action: () => toggleSort(this.plugin, this.containerEl) },
             { name: 'settings', label: t('SETTINGS'), action: () => this.toggleSettingsPopup() },
         ] as const;
@@ -96,14 +97,72 @@ export class Toolbar {
         return icon;
     }
 
-    // 폴더 선택 모달을 열고 선택한 폴더의 카드를 표시
-    public openFolderSelector() {
-        new FolderSuggestModal(this.plugin, (folder: TFolder) => {
-            const view = this.plugin.app.workspace.getActiveViewOfType(CardNavigatorView);
-            if (view) {
-                view.cardContainer.displayCardsForFolder(folder);
-            }
-        }).open();
+    private openCardSetMenu() {
+        const menu = new Menu();
+        
+        menu.addItem(item => 
+            item.setTitle(t('ACTIVE_FOLDER'))
+                .setIcon('folder')
+                .setChecked(this.plugin.settings.cardSetType === 'activeFolder')
+                .onClick(async () => {
+                    await this.plugin.settingsManager.updateSetting('cardSetType', 'activeFolder');
+                })
+        );
+
+        menu.addItem(item => 
+            item.setTitle(t('SELECTED_FOLDER'))
+                .setIcon('folder')
+                .setChecked(this.plugin.settings.cardSetType === 'selectedFolder')
+                .onClick(async () => {
+                    // 이미 선택된 폴더가 있다면 cardSetType만 변경
+                    if (this.plugin.settings.cardSetType !== 'selectedFolder') {
+                        await this.plugin.settingsManager.updateSetting('cardSetType', 'selectedFolder');
+                    }
+                    
+                    // 현재 선택된 폴더 경로 가져오기
+                    const currentPath = this.plugin.settings.selectedFolder;
+                    let initialFolder: TFolder | null = null;
+                    
+                    if (currentPath) {
+                        const abstractFile = this.plugin.app.vault.getAbstractFileByPath(currentPath);
+                        if (abstractFile instanceof TFolder) {
+                            initialFolder = abstractFile;
+                        }
+                    }
+
+                    // FolderSuggestModal 표시
+                    const modal = new FolderSuggestModal(
+                        this.plugin,
+                        async (folder) => {
+                            // 새 폴더가 선택된 경우에만 selectedFolder 업데이트
+                            if (folder.path !== currentPath) {
+                                await this.plugin.settingsManager.updateSetting('selectedFolder', folder.path);
+                            }
+                        }
+                    );
+
+                    // 초기 선택 폴더 설정
+                    if (initialFolder) {
+                        modal.setInitialFolder(initialFolder);
+                    }
+
+                    modal.open();
+                })
+        );
+
+        menu.addItem(item => 
+            item.setTitle(t('ENTIRE_VAULT'))
+                .setIcon('vault')
+                .setChecked(this.plugin.settings.cardSetType === 'vault')
+                .onClick(async () => {
+                    await this.plugin.settingsManager.updateSetting('cardSetType', 'vault');
+                })
+        );
+
+        const rect = this.containerEl?.querySelector('.clickable-icon[aria-label="' + t('CHANGE_CARD_SET') + '"]')?.getBoundingClientRect();
+        if (rect) {
+            menu.showAtPosition({ x: rect.left, y: rect.bottom });
+        }
     }
 
     // 설정 팝업을 토글
@@ -169,8 +228,15 @@ export class Toolbar {
 
 // 툴바에서 폴더를 선택하기 위한 모달
 class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
+    private initialFolder: TFolder | null = null;
+
     constructor(private plugin: CardNavigatorPlugin, private onSelect: (folder: TFolder) => void) {
         super(plugin.app);
+    }
+
+    // 초기 선택 폴더 설정 메서드
+    setInitialFolder(folder: TFolder) {
+        this.initialFolder = folder;
     }
 
     // 보관소에 있는 모든 폴더를 검색
@@ -187,5 +253,23 @@ class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
     // 폴더 선택 처리
     onChooseItem(folder: TFolder): void {
         this.onSelect(folder);
+    }
+
+    // 모달이 열릴 때 초기 선택 폴더로 스크롤
+    onOpen() {
+        super.onOpen();
+        if (this.initialFolder) {
+            const items = this.getItems();
+            const index = items.findIndex(folder => folder.path === this.initialFolder?.path);
+            if (index !== -1) {
+                // 다음 프레임에서 선택 항목으로 스크롤
+                requestAnimationFrame(() => {
+                    const element = this.resultContainerEl.children[index];
+                    if (element) {
+                        element.scrollIntoView({ block: 'center' });
+                    }
+                });
+            }
+        }
     }
 }

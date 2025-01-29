@@ -179,5 +179,11 @@
     "ERROR_LOADING_PRESET": "프리셋 로딩 중 오류 발생",
     "NO_PRESET_SELECTED": "선택된 프리셋 없음",
     "ENABLE_SCROLL_ANIMATION": "스크롤 애니메이션",
-    "ENABLE_SCROLL_ANIMATION_DESC": "카드 스크롤 시 부드러운 애니메이션 효과를 활성화합니다."
+    "ENABLE_SCROLL_ANIMATION_DESC": "카드 스크롤 시 부드러운 애니메이션 효과를 활성화합니다.",
+    "CARD_SET_TYPE": "카드 세트 유형",
+    "CARD_SET_TYPE_DESC": "카드로 표시할 파일의 범위를 선택합니다",
+    "ACTIVE_FOLDER": "활성 폴더",
+    "SELECTED_FOLDER": "선택한 폴더",
+    "ENTIRE_VAULT": "전체 볼트",
+    "CHANGE_CARD_SET": "카드 세트 변경"
 }

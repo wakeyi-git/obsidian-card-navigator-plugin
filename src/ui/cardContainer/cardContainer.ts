@@ -207,12 +207,32 @@ export class CardContainer {
     //#endregion
 
     //#region 카드 표시 및 렌더링
+    // 폴더의 모든 마크다운 파일을 재귀적으로 가져오는 메서드
+    private getAllMarkdownFiles(folder: TFolder): TFile[] {
+        let files: TFile[] = [];
+        
+        // 현재 폴더의 파일들을 처리
+        folder.children.forEach(child => {
+            if (child instanceof TFile && child.extension === 'md') {
+                files.push(child);
+            } else if (child instanceof TFolder) {
+                // 하위 폴더의 파일들을 재귀적으로 가져와서 배열에 추가
+                files = files.concat(this.getAllMarkdownFiles(child));
+            }
+        });
+        
+        return files;
+    }
+
     // 카드 표시 메서드
     public async displayCards(files: TFile[]) {
         if (!this.containerEl) return;
+
+        let displayFiles: TFile[] = [];
+        const folder = await this.getCurrentFolder();
         
-        if (!files || files.length === 0) {
-            // 빈 상태 UI 표시
+        if (!folder) {
+            // 폴더를 찾을 수 없는 경우 UI 표시
             this.containerEl.innerHTML = `
                 <div class="card-navigator-empty-state">
                     <div class="card-navigator-empty-message">
@@ -221,16 +241,42 @@ export class CardContainer {
                 </div>`;
             return;
         }
+
+        // files가 비어있거나 전달되지 않은 경우, 또는 vault 모드인 경우
+        if (!files || files.length === 0 || this.plugin.settings.cardSetType === 'vault') {
+            if (this.plugin.settings.cardSetType === 'vault') {
+                // 전체 볼트 모드에서는 모든 하위 폴더의 파일들을 가져옴
+                displayFiles = this.getAllMarkdownFiles(folder);
+            } else {
+                // 활성 폴더나 선택된 폴더 모드에서는 해당 폴더의 파일들을 가져옴
+                displayFiles = folder.children
+                    .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
+            }
+        } else {
+            // 전달받은 파일 목록 사용 (검색 결과 등)
+            displayFiles = files;
+        }
         
-        this.updateContainerStyle();
-        const cardsData = await this.createCardsData(files);
-        
-        if (cardsData.length === 0) {
-            // 마크다운 파일이 없는 경우 UI 표시
+        if (displayFiles.length === 0) {
+            // 빈 상태 UI 표시
             this.containerEl.innerHTML = `
                 <div class="card-navigator-empty-state">
                     <div class="card-navigator-empty-message">
                         ${t('No markdown files found')}
+                    </div>
+                </div>`;
+            return;
+        }
+        
+        this.updateContainerStyle();
+        const cardsData = await this.createCardsData(displayFiles);
+        
+        if (cardsData.length === 0) {
+            // 카드 데이터를 생성할 수 없는 경우 UI 표시
+            this.containerEl.innerHTML = `
+                <div class="card-navigator-empty-state">
+                    <div class="card-navigator-empty-message">
+                        ${t('Failed to create cards')}
                     </div>
                 </div>`;
             return;
@@ -344,23 +390,39 @@ export class CardContainer {
         const folder = await this.getCurrentFolder();
         if (!folder) return;
 
-        const files = folder.children.filter((file): file is TFile => file instanceof TFile);
-        const filteredFiles = await this.filterFilesByContent(files, searchTerm);
+        let files: TFile[];
+        if (this.plugin.settings.cardSetType === 'vault') {
+            // 전체 볼트 모드에서는 모든 하위 폴더의 파일들을 가져옴
+            files = this.getAllMarkdownFiles(folder);
+        } else {
+            // 활성 폴더나 선택된 폴더 모드에서는 해당 폴더의 파일들만 가져옴
+            files = folder.children
+                .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
+        }
 
+        const filteredFiles = await this.filterFilesByContent(files, searchTerm);
         await this.displayCards(filteredFiles);
     }
 
     // 파일 내용 기반 필터링 메서드
     private async filterFilesByContent(files: TFile[], searchTerm: string): Promise<TFile[]> {
+        if (!searchTerm) return files;  // 검색어가 없으면 모든 파일 반환
+        
         const lowercaseSearchTerm = searchTerm.toLowerCase();
         const filteredFiles = [];
+        
         for (const file of files) {
-            const content = await this.plugin.app.vault.cachedRead(file);
-            if (file.basename.toLowerCase().includes(lowercaseSearchTerm) ||
-                content.toLowerCase().includes(lowercaseSearchTerm)) {
-                filteredFiles.push(file);
+            try {
+                const content = await this.plugin.app.vault.cachedRead(file);
+                if (file.basename.toLowerCase().includes(lowercaseSearchTerm) ||
+                    content.toLowerCase().includes(lowercaseSearchTerm)) {
+                    filteredFiles.push(file);
+                }
+            } catch (error) {
+                console.error(`파일 읽기 실패: ${file.path}`, error);
             }
         }
+        
         return filteredFiles;
     }
 
@@ -374,12 +436,23 @@ export class CardContainer {
     //#region 유틸리티 메서드
     // 현재 폴더 가져오기 메서드
     private async getCurrentFolder(): Promise<TFolder | null> {
-        if (this.plugin.settings.useSelectedFolder && this.plugin.settings.selectedFolder) {
-            const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.selectedFolder);
-            return abstractFile instanceof TFolder ? abstractFile : null;
-        } else {
-            const activeFile = this.plugin.app.workspace.getActiveFile();
-            return activeFile?.parent || null;
+        switch (this.plugin.settings.cardSetType) {
+            case 'activeFolder':
+                const activeFile = this.plugin.app.workspace.getActiveFile();
+                return activeFile?.parent || null;
+                
+            case 'selectedFolder':
+                if (this.plugin.settings.selectedFolder) {
+                    const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.selectedFolder);
+                    return abstractFile instanceof TFolder ? abstractFile : null;
+                }
+                return null;
+                
+            case 'vault':
+                return this.plugin.app.vault.getRoot();
+                
+            default:
+                return null;
         }
     }
 
