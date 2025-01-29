@@ -1,239 +1,13 @@
-import { Setting, TextComponent, Menu, debounce } from 'obsidian';
+import { Setting, TextComponent } from 'obsidian';
 import CardNavigatorPlugin from 'main';
-import { SortCriterion, SortOrder, ToolbarMenu, CardNavigatorSettings, NumberSettingKey } from 'common/types';
+import { ToolbarMenu, CardNavigatorSettings, NumberSettingKey } from 'common/types';
 import { SettingsManager } from 'ui/settings/settingsManager';
 import { FolderSuggest } from 'ui/settings/components/FolderSuggest';
-import { getTranslatedSortOptions } from 'common/types';
 import { t } from 'i18next';
 import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 
-//#region 전역 상수 및 타입
 // 팝업 관리를 위한 맵
 const currentPopups: Map<Window, { element: HTMLElement, type: ToolbarMenu }> = new Map();
-
-// 검색 관련 상수
-const SEARCH_DEBOUNCE_DELAY = 300;
-const MIN_SEARCH_TERM_LENGTH = 2;
-const MAX_SEARCH_HISTORY = 10;
-
-// 검색 히스토리 관리 클래스
-class SearchHistory {
-    private history: string[] = [];
-    private maxSize: number;
-
-    constructor(maxSize: number = MAX_SEARCH_HISTORY) {
-        this.maxSize = maxSize;
-    }
-
-    // 검색어 추가
-    add(term: string) {
-        this.history = this.history.filter(item => item !== term);
-        this.history.unshift(term);
-        if (this.history.length > this.maxSize) {
-            this.history.pop();
-        }
-    }
-
-    // 최근 검색어 목록 반환
-    get recent(): string[] {
-        return [...this.history];
-    }
-
-    // 검색 히스토리 초기화
-    clear() {
-        this.history = [];
-    }
-}
-
-// 검색 상태 인터페이스
-interface SearchState {
-    isSearching: boolean;
-    lastSearchTerm: string;
-    searchHistory: SearchHistory;
-}
-
-// 초기 검색 상태
-const searchState: SearchState = {
-    isSearching: false,
-    lastSearchTerm: '',
-    searchHistory: new SearchHistory()
-};
-//#endregion
-
-//#region 검색 기능
-// 검색어 전처리
-function preprocessSearchTerm(term: string): string {
-    return term.trim().toLowerCase();
-}
-
-// 검색어 유효성 검사
-function isValidSearchTerm(term: string): boolean {
-    const processed = preprocessSearchTerm(term);
-    return processed.length >= MIN_SEARCH_TERM_LENGTH;
-}
-
-// 검색 상태 업데이트
-function updateSearchState(searching: boolean, term: string = '') {
-    searchState.isSearching = searching;
-    if (term) {
-        searchState.lastSearchTerm = term;
-        searchState.searchHistory.add(term);
-    }
-}
-
-// 로딩 상태 표시
-function updateLoadingState(containerEl: HTMLElement | null, isLoading: boolean) {
-    if (!containerEl) return;
-    const searchContainer = containerEl.querySelector('.card-navigator-search-container');
-    if (!searchContainer) return;
-    searchContainer.toggleClass('is-searching', isLoading);
-}
-
-// 검색 실행
-export async function executeSearch(
-    plugin: CardNavigatorPlugin,
-    containerEl: HTMLElement | null,
-    searchTerm: string
-) {
-    if (!containerEl) return;
-
-    const processed = preprocessSearchTerm(searchTerm);
-    
-    if (!processed) {
-        const view = plugin.app.workspace.getActiveViewOfType(CardNavigatorView);
-        if (view) {
-            updateSearchState(false);
-            updateLoadingState(containerEl, false);
-            await view.refresh(RefreshType.CONTENT);
-        }
-        return;
-    }
-
-    if (!isValidSearchTerm(processed)) {
-        return;
-    }
-
-    if (processed === searchState.lastSearchTerm) {
-        return;
-    }
-
-    try {
-        updateSearchState(true, processed);
-        updateLoadingState(containerEl, true);
-
-        const view = plugin.app.workspace.getActiveViewOfType(CardNavigatorView);
-        if (view) {
-            await view.cardContainer.searchCards(processed);
-        }
-    } catch (error) {
-        console.error('Search failed:', error);
-    } finally {
-        updateSearchState(false);
-        updateLoadingState(containerEl, false);
-    }
-}
-
-// 디바운스된 검색 함수
-export const debouncedSearch = debounce(
-    (searchTerm: string, plugin: CardNavigatorPlugin, containerEl: HTMLElement) => {
-        executeSearch(plugin, containerEl, searchTerm);
-    },
-    SEARCH_DEBOUNCE_DELAY
-);
-
-// 검색 히스토리 가져오기
-export function getSearchHistory(): string[] {
-    return searchState.searchHistory.recent;
-}
-
-// 검색 히스토리 지우기
-export function clearSearchHistory() {
-    searchState.searchHistory.clear();
-}
-//#endregion
-
-//#region 정렬 기능
-// 정렬 메뉴 토글
-export function toggleSort(plugin: CardNavigatorPlugin, containerEl: HTMLElement | null) {
-    if (!containerEl) {
-        console.error('Container element is undefined in toggleSort');
-        return;
-    }
-
-    const menu = new Menu();
-    const currentSort = `${plugin.settings.sortCriterion}_${plugin.settings.sortOrder}`;
-    const sortOptions = getTranslatedSortOptions();
-
-    // 이름 정렬 옵션 추가
-    const nameOptions = sortOptions.filter(option => option.value.includes('fileName'));
-    nameOptions.forEach(option => {
-        menu.addItem(item => 
-            item
-                .setTitle(option.label)
-                .setChecked(currentSort === option.value)
-                .onClick(async () => {
-                    const [criterion, order] = option.value.split('_') as [SortCriterion, SortOrder];
-                    await updateSortSettings(plugin, criterion, order, containerEl);
-                })
-        );
-    });
-
-    if (nameOptions.length > 0) {
-        menu.addSeparator();
-    }
-
-    // 수정일 정렬 옵션 추가
-    const modifiedOptions = sortOptions.filter(option => option.value.includes('lastModified'));
-    modifiedOptions.forEach(option => {
-        menu.addItem(item => 
-            item
-                .setTitle(option.label)
-                .setChecked(currentSort === option.value)
-                .onClick(async () => {
-                    const [criterion, order] = option.value.split('_') as [SortCriterion, SortOrder];
-                    await updateSortSettings(plugin, criterion, order, containerEl);
-                })
-        );
-    });
-
-    if (modifiedOptions.length > 0) {
-        menu.addSeparator();
-    }
-
-    // 생성일 정렬 옵션 추가
-    const createdOptions = sortOptions.filter(option => option.value.includes('created'));
-    createdOptions.forEach(option => {
-        menu.addItem(item => 
-            item
-                .setTitle(option.label)
-                .setChecked(currentSort === option.value)
-                .onClick(async () => {
-                    const [criterion, order] = option.value.split('_') as [SortCriterion, SortOrder];
-                    await updateSortSettings(plugin, criterion, order, containerEl);
-                })
-        );
-    });
-
-    const buttonEl = containerEl.querySelector('.card-navigator-sort-button');
-    if (buttonEl instanceof HTMLElement) {
-        const rect = buttonEl.getBoundingClientRect();
-        menu.showAtPosition({ x: rect.left, y: rect.bottom });
-    }
-}
-
-// 정렬 설정 업데이트
-async function updateSortSettings(
-    plugin: CardNavigatorPlugin, 
-    criterion: SortCriterion, 
-    order: SortOrder, 
-    containerEl: HTMLElement
-) {
-    plugin.settings.sortCriterion = criterion;
-    plugin.settings.sortOrder = order;
-    await plugin.saveSettings();
-    refreshAllCardNavigatorViews(plugin, RefreshType.CONTENT);
-}
-//#endregion
 
 //#region 설정 기능
 // 설정 메뉴 토글
@@ -487,7 +261,6 @@ function addSliderSetting(
 
     return setting;
 }
-//#endregion
 
 //#region 유틸리티 함수
 // 팝업 관련 유틸리티
@@ -572,7 +345,7 @@ export function addFullWidthText(setting: Setting, callback: (text: TextComponen
     });
 }
 
-// 뷰 리프레시
+// 모든 Card Navigator 뷰 새로고침
 function refreshAllCardNavigatorViews(plugin: CardNavigatorPlugin, type: RefreshType) {
     const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
     leaves.forEach(leaf => {
@@ -591,4 +364,4 @@ export async function handleLayoutChange(
     await plugin.saveSettings();
     plugin.updateLayout(layout);
 }
-//#endregion
+

@@ -1,7 +1,9 @@
-import { setIcon, TFolder, FuzzySuggestModal, debounce } from 'obsidian';
+import { setIcon, TFolder, FuzzySuggestModal } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { CardNavigatorView } from '../cardNavigatorView';
-import { toggleSort, toggleSettings, debouncedSearch } from './toolbarActions';
+import { createSearchContainer } from './search';
+import { toggleSort } from './sort';
+import { toggleSettings } from './settings';
 import { t } from 'i18next';
 
 // Card Navigator 플러그인의 툴바를 나타내는 클래스
@@ -48,65 +50,35 @@ export class Toolbar {
 
     // 검색 컨테이너 생성
     private createSearchContainer(): HTMLElement {
-        const container = createDiv('card-navigator-search-container');
-    
-        const input = container.createEl('input', {
-            type: 'text',
-            placeholder: t('SEARCH_PLACEHOLDER'),
-            cls: 'card-navigator-search-input'
-        });
-
-        // 검색 중 로딩 표시를 위한 스피너
-        const spinner = container.createDiv('search-spinner');
-        spinner.hide();
-
-        // 검색 입력 처리
-        input.addEventListener('input', (e: Event) => {
-            const searchTerm = (e.target as HTMLInputElement).value;
-            if (this.containerEl) {
-                debouncedSearch(searchTerm, this.plugin, this.containerEl);
-            }
-        });
-
-        // ESC 키로 검색어 초기화
-        input.addEventListener('keydown', (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                input.value = '';
-                if (this.containerEl) {
-                    debouncedSearch('', this.plugin, this.containerEl);
-                }
-            }
-        });
-
-        return container;
+        return createSearchContainer(this.plugin, this.containerEl);
     }
 
-	// 툴바에 대한 구분 요소를 생성
-	private createSeparator(): HTMLElement {
-		return createDiv('toolbar-separator');
-	}
+    // 툴바에 대한 구분 요소를 생성
+    private createSeparator(): HTMLElement {
+        return createDiv('toolbar-separator');
+    }
 
-	// 작업 아이콘(폴더 선택, 정렬, 설정)을 위한 컨테이너를 생성
-	private createActionIconsContainer(): HTMLElement {
-		const container = createDiv('card-navigator-action-icons-container');
-	
-		const icons = [
-			{ name: 'folder', label: t('SELECT_FOLDER'), action: () => this.openFolderSelector() },
-			{ name: 'arrow-up-narrow-wide', label: t('SORT_CARDS'), action: () => toggleSort(this.plugin, this.containerEl) },
-			{ name: 'settings', label: t('SETTINGS'), action: () => this.toggleSettingsPopup() },
-		] as const;
-	
-		// 툴바 아이콘을 생성하기 위해 아이콘 정의를 반복
-		icons.forEach(icon => {
-			const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
-			if (icon.name === 'settings') {
-				this.settingsIcon = iconElement;
-			}
-			container.appendChild(iconElement);
-		});
-	
-		return container;
-	}
+    // 작업 아이콘(폴더 선택, 정렬, 설정)을 위한 컨테이너를 생성
+    private createActionIconsContainer(): HTMLElement {
+        const container = createDiv('card-navigator-action-icons-container');
+    
+        const icons = [
+            { name: 'folder', label: t('SELECT_FOLDER'), action: () => this.openFolderSelector() },
+            { name: 'arrow-up-narrow-wide', label: t('SORT_CARDS'), action: () => toggleSort(this.plugin, this.containerEl) },
+            { name: 'settings', label: t('SETTINGS'), action: () => this.toggleSettingsPopup() },
+        ] as const;
+    
+        // 툴바 아이콘을 생성하기 위해 아이콘 정의를 반복
+        icons.forEach(icon => {
+            const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
+            if (icon.name === 'settings') {
+                this.settingsIcon = iconElement;
+            }
+            container.appendChild(iconElement);
+        });
+    
+        return container;
+    }
 
     // 개별 툴바 아이콘을 생성하는 도우미 함수
     private createToolbarIcon(iconName: string, ariaLabel: string, action: () => void): HTMLElement {
