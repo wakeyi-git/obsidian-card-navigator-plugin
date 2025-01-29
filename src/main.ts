@@ -6,6 +6,7 @@ import { SettingsManager } from './ui/settings/settingsManager';
 import { PresetManager } from './ui/settings/PresetManager';
 import i18next from 'i18next';
 import { t } from 'i18next';
+import { SearchService } from 'ui/toolbar/search';
 
 // 다국어 지원을 위한 언어 리소스 정의
 export const languageResources = {
@@ -18,9 +19,10 @@ export const translationLanguage = Object.keys(languageResources).includes(momen
 
 export default class CardNavigatorPlugin extends Plugin {
     //#region 클래스 속성
-    settings: CardNavigatorSettings = DEFAULT_SETTINGS;
+    public settings: CardNavigatorSettings = DEFAULT_SETTINGS;
+    public settingsManager!: SettingsManager;
+    public searchService!: SearchService;
     selectedFolder: string | null = null;
-    settingsManager!: SettingsManager;
     presetManager!: PresetManager;
     settingTab!: SettingTab;
     private ribbonIconEl: HTMLElement | null = null;
@@ -33,6 +35,7 @@ export default class CardNavigatorPlugin extends Plugin {
         await this.loadSettings();
         this.presetManager = new PresetManager(this.app, this, this.settings);
         this.settingsManager = new SettingsManager(this, this.presetManager);
+        this.searchService = new SearchService(this);
         await this.presetManager.initialize();
         await this.initializePlugin();
     

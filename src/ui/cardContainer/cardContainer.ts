@@ -9,6 +9,7 @@ import { Card, SortCriterion, SortOrder } from 'common/types';
 import { t } from "i18next";
 import { LayoutManager } from 'layouts/layoutManager';
 import { Scroller } from './scroller';
+import { getSearchService } from 'ui/toolbar/search';
 
 // Main class for managing the card container and its layout
 export class CardContainer {
@@ -390,40 +391,30 @@ export class CardContainer {
         const folder = await this.getCurrentFolder();
         if (!folder) return;
 
-        let files: TFile[];
-        if (this.plugin.settings.cardSetType === 'vault') {
-            // 전체 볼트 모드에서는 모든 하위 폴더의 파일들을 가져옴
-            files = this.getAllMarkdownFiles(folder);
-        } else {
-            // 활성 폴더나 선택된 폴더 모드에서는 해당 폴더의 파일들만 가져옴
-            files = folder.children
-                .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
+        // 검색어가 없으면 현재 표시된 카드를 기준으로 검색
+        if (!searchTerm) {
+            await this.displayCards([]);
+            return;
         }
 
-        const filteredFiles = await this.filterFilesByContent(files, searchTerm);
-        await this.displayCards(filteredFiles);
-    }
+        const searchService = getSearchService(this.plugin);
+        let filesToSearch: TFile[];
 
-    // 파일 내용 기반 필터링 메서드
-    private async filterFilesByContent(files: TFile[], searchTerm: string): Promise<TFile[]> {
-        if (!searchTerm) return files;  // 검색어가 없으면 모든 파일 반환
-        
-        const lowercaseSearchTerm = searchTerm.toLowerCase();
-        const filteredFiles = [];
-        
-        for (const file of files) {
-            try {
-                const content = await this.plugin.app.vault.cachedRead(file);
-                if (file.basename.toLowerCase().includes(lowercaseSearchTerm) ||
-                    content.toLowerCase().includes(lowercaseSearchTerm)) {
-                    filteredFiles.push(file);
-                }
-            } catch (error) {
-                console.error(`파일 읽기 실패: ${file.path}`, error);
+        // 이미 로드된 카드가 있다면 해당 카드들을 대상으로 검색
+        if (this.cards.length > 0) {
+            filesToSearch = this.cards.map(card => card.file);
+        } else {
+            // 카드가 없는 경우에만 새로 파일을 가져옴
+            if (this.plugin.settings.cardSetType === 'vault') {
+                filesToSearch = searchService.getAllMarkdownFiles(folder);
+            } else {
+                filesToSearch = folder.children
+                    .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
             }
         }
-        
-        return filteredFiles;
+
+        const filteredFiles = await searchService.searchFiles(filesToSearch, searchTerm);
+        await this.displayCards(filteredFiles);
     }
 
     // 폴더별 카드 표시 메서드

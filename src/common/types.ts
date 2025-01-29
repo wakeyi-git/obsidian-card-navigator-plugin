@@ -82,7 +82,7 @@ export const globalSettingsKeys: (keyof CardNavigatorSettings)[] = [
     'autoApplyFolderPresets',
     'folderPresets',
     'activeFolderPresets',
-    // 'cardSetType',
+    'cardSetType',
     'selectedFolder'
 ] as const;
 
