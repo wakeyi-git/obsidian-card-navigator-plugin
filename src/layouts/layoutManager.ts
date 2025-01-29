@@ -4,6 +4,7 @@ import { GridLayout } from "./gridLayout";
 import { ListLayout } from "./listLayout";
 import { MasonryLayout } from "./masonryLayout";
 import { LayoutStrategy } from "./layoutStrategy";
+import { LayoutConfig } from './layoutConfig';
 
 export class LayoutManager {
     private currentLayout: CardNavigatorSettings['defaultLayout'];
@@ -11,6 +12,7 @@ export class LayoutManager {
     private isVertical: boolean;
     private cardGap: number;
     private containerEl: HTMLElement;
+    private layoutConfig: LayoutConfig;
 
     constructor(
         private plugin: any,
@@ -18,9 +20,10 @@ export class LayoutManager {
         private cardMaker: CardMaker
     ) {
         this.containerEl = containerEl;
+        this.layoutConfig = new LayoutConfig(plugin.app, containerEl, plugin.settings);
         this.currentLayout = plugin.settings.defaultLayout;
-        this.isVertical = this.calculateIsVertical();
-        this.cardGap = this.getCSSVariable('--card-navigator-gap', 10);
+        this.isVertical = this.layoutConfig.isVerticalContainer();
+        this.cardGap = this.layoutConfig.getCardGap();
         this.layoutStrategy = this.createLayoutStrategy();
     }
 
@@ -38,8 +41,12 @@ export class LayoutManager {
     }
 
     public updateLayout() {
-        this.isVertical = this.calculateIsVertical();
+        this.isVertical = this.layoutConfig.isVerticalContainer();
         this.layoutStrategy = this.createLayoutStrategy();
+    }
+
+    public getLayoutConfig(): LayoutConfig {
+        return this.layoutConfig;
     }
 
     private createLayoutStrategy(): LayoutStrategy {
@@ -67,15 +74,15 @@ export class LayoutManager {
         }
 
         // 오토 레이아웃의 경우 컨테이너 너비에 따라 동적으로 결정
-        const columns = Math.max(1, Math.floor((availableWidth + this.cardGap) / (cardWidthThreshold + this.cardGap)));
+        const columns = this.layoutConfig.calculateAutoColumns();
         const cardWidth = Math.floor((availableWidth - (columns - 1) * this.cardGap) / columns);
 
         if (columns === 1) {
-            const listLayout = new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
+            const listLayout = new ListLayout(this.isVertical, this.cardGap, alignCardHeight, this.layoutConfig);
             listLayout.setCardWidth(cardWidth);
             return listLayout;
         } else if (alignCardHeight) {
-            const gridLayout = new GridLayout(columns, this.cardGap, this.plugin.settings);
+            const gridLayout = new GridLayout(columns, this.cardGap, this.plugin.settings, this.layoutConfig);
             gridLayout.setCardWidth(cardWidth);
             return gridLayout;
         } else {
@@ -83,7 +90,8 @@ export class LayoutManager {
                 columns,
                 this.cardGap,
                 this.plugin.settings,
-                this.cardMaker
+                this.cardMaker,
+                this.layoutConfig
             );
             masonryLayout.setContainer(this.containerEl);
             masonryLayout.setCardWidth(cardWidth);
@@ -100,12 +108,17 @@ export class LayoutManager {
 
         switch (layout) {
             case 'list': {
-                const listLayout = new ListLayout(this.isVertical, this.cardGap, alignCardHeight);
+                const listLayout = new ListLayout(
+                    this.isVertical, 
+                    this.cardGap, 
+                    this.plugin.settings.alignCardHeight,
+                    this.layoutConfig
+                );
                 listLayout.setCardWidth(availableWidth);
                 return listLayout;
             }
             case 'grid': {
-                const gridLayout = new GridLayout(gridColumns, this.cardGap, this.plugin.settings);
+                const gridLayout = new GridLayout(gridColumns, this.cardGap, this.plugin.settings, this.layoutConfig);
                 const cardWidth = Math.floor((availableWidth - (gridColumns - 1) * this.cardGap) / gridColumns);
                 gridLayout.setCardWidth(cardWidth);
                 return gridLayout;
@@ -115,7 +128,8 @@ export class LayoutManager {
                     masonryColumns,
                     this.cardGap,
                     this.plugin.settings,
-                    this.cardMaker
+                    this.cardMaker,
+                    this.layoutConfig
                 );
                 masonryLayout.setContainer(this.containerEl);
                 const cardWidth = Math.floor((availableWidth - (masonryColumns - 1) * this.cardGap) / masonryColumns);
@@ -125,17 +139,5 @@ export class LayoutManager {
             default:
                 throw new Error(`Unsupported layout type: ${layout}`);
         }
-    }
-
-    private calculateIsVertical(): boolean {
-        if (!this.containerEl) return true;
-        const { width, height } = this.containerEl.getBoundingClientRect();
-        return height > width;
-    }
-
-    private getCSSVariable(variableName: string, defaultValue: number): number {
-        if (!this.containerEl) return defaultValue;
-        const valueStr = getComputedStyle(this.containerEl).getPropertyValue(variableName).trim();
-        return parseInt(valueStr) || defaultValue;
     }
 } 

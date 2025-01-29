@@ -1,6 +1,7 @@
 import { LayoutStrategy, CardPosition } from './layoutStrategy';
 import { Card, CardNavigatorSettings } from 'common/types';
 import { CardMaker } from 'ui/cardContainer/cardMaker';
+import { LayoutConfig } from './layoutConfig';
 
 /**
  * 메이슨리 레이아웃 전략을 구현하는 클래스
@@ -11,6 +12,7 @@ export class MasonryLayout implements LayoutStrategy {
     private container: HTMLElement | null = null;
     private columnElements: HTMLElement[] = [];
     private cardWidth: number = 0;
+    private layoutConfig: LayoutConfig;
     //#endregion
 
     //#region 초기화 및 설정
@@ -19,16 +21,18 @@ export class MasonryLayout implements LayoutStrategy {
         private columns: number,
         private cardGap: number,
         private settings: CardNavigatorSettings,
-        private cardMaker: CardMaker
+        private cardMaker: CardMaker,
+        layoutConfig: LayoutConfig
     ) {
         if (columns <= 0) {
             throw new Error('The number of columns must be greater than 0');
         }
+        this.layoutConfig = layoutConfig;
     }
 
     // 카드 너비 설정
     setCardWidth(width: number): void {
-        this.cardWidth = width;
+        this.cardWidth = width || this.layoutConfig.calculateCardWidth(this.columns);
     }
 
     // 컨테이너 설정
@@ -44,7 +48,7 @@ export class MasonryLayout implements LayoutStrategy {
         this.container.innerHTML = '';
         this.container.className = 'masonry-layout';
         this.container.style.setProperty('--column-count', this.columns.toString());
-        this.container.style.setProperty('--card-gap', `${this.cardGap}px`);
+        this.container.style.setProperty('--card-gap', `${this.layoutConfig.getCardGap()}px`);
         this.container.style.setProperty('--card-width', `${this.cardWidth}px`);
 
         this.columnElements = [];
@@ -69,8 +73,7 @@ export class MasonryLayout implements LayoutStrategy {
 
         const cardPositions: CardPosition[] = [];
         const containerRect = this.container.getBoundingClientRect();
-        const totalGapWidth = this.cardGap * (this.columns - 1);
-        const calculatedCardWidth = this.cardWidth || (containerWidth - totalGapWidth) / this.columns;
+        const cardWidth = this.cardWidth || this.layoutConfig.calculateCardWidth(this.columns);
 
         // 포커스된 카드 상태 저장
         const focusedCards = new Set(Array.from(this.container.querySelectorAll('.card-navigator-focused'))
@@ -84,7 +87,7 @@ export class MasonryLayout implements LayoutStrategy {
             const columnIndex = index % this.columns;
             const cardElement = this.cardMaker.createCardElement(card);
             cardElement.classList.add('masonry-card');
-            cardElement.style.width = `${calculatedCardWidth}px`;
+            cardElement.style.width = `${cardWidth}px`;
             
             // 포커스 상태 복원
             if (focusedCards.has(card.file.path)) {
@@ -98,7 +101,7 @@ export class MasonryLayout implements LayoutStrategy {
                 card,
                 x: rect.left - containerRect.left,
                 y: rect.top - containerRect.top,
-                width: calculatedCardWidth,
+                width: cardWidth,
                 height: rect.height
             });
         });

@@ -4,9 +4,11 @@ import { CardMaker } from './cardMaker';
 import { LayoutStrategy } from 'layouts/layoutStrategy';
 import { ListLayout } from 'layouts/listLayout';
 import { LayoutManager } from 'layouts/layoutManager';
+import { LayoutConfig } from 'layouts/layoutConfig';
 
 export class CardRenderer {
     private layoutStrategy: LayoutStrategy;
+    private layoutConfig: LayoutConfig;
 
     //#region 초기화 및 기본 설정
     // 생성자: 카드 렌더러 초기화
@@ -18,6 +20,7 @@ export class CardRenderer {
         private cardsPerView: number
     ) {
         this.layoutStrategy = layoutManager.getLayoutStrategy();
+        this.layoutConfig = layoutManager.getLayoutConfig();
     }
 
     // 레이아웃 전략 설정 메서드
@@ -127,7 +130,10 @@ export class CardRenderer {
 
     private applyCardStyle(cardEl: HTMLElement, position: any, paddingLeft: number, paddingTop: number) {
         if (this.layoutStrategy instanceof ListLayout) {
-            const cardStyle = this.layoutStrategy.getCardStyle();
+            const cardStyle = this.layoutConfig.getCardStyle(
+                this.layoutStrategy.getScrollDirection() === 'vertical',
+                this.alignCardHeight
+            );
             Object.assign(cardEl.style, cardStyle);
         } else {
             cardEl.style.position = 'absolute';

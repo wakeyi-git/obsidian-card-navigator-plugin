@@ -10,6 +10,7 @@ import { t } from "i18next";
 import { LayoutManager } from 'layouts/layoutManager';
 import { Scroller } from './scroller';
 import { getSearchService } from 'ui/toolbar/search/';
+import { LayoutConfig } from 'layouts/layoutConfig';
 
 // Main class for managing the card container and its layout
 export class CardContainer {
@@ -21,7 +22,7 @@ export class CardContainer {
     private layoutManager!: LayoutManager;
     private currentLayout: CardNavigatorSettings['defaultLayout'];
     public isVertical: boolean;
-    private cardGap: number;
+    private layoutConfig!: LayoutConfig;
     private keyboardNavigator: KeyboardNavigator | null = null;
     private scroller!: Scroller;
     private cards: Card[] = [];
@@ -37,7 +38,6 @@ export class CardContainer {
         this.app = this.plugin.app;
         this.cardMaker = new CardMaker(this.plugin);
         this.isVertical = true; // 기본값
-        this.cardGap = 10; // 기본값
         this.currentLayout = this.plugin.settings.defaultLayout;
         
         // 리소스 관리용 옵저버 초기화
@@ -53,6 +53,8 @@ export class CardContainer {
         this.containerEl = containerEl;
         
         try {
+            this.layoutConfig = new LayoutConfig(this.app, containerEl, this.plugin.settings);
+            
             this.layoutManager = new LayoutManager(this.plugin, containerEl, this.cardMaker);
             
             this.scroller = new Scroller(
@@ -166,6 +168,8 @@ export class CardContainer {
             this.containerEl.classList.toggle('flexible-height', !this.plugin.settings.alignCardHeight);
 
             this.containerEl.style.setProperty('--cards-per-view', this.plugin.settings.cardsPerView.toString());
+            this.containerEl.style.setProperty('--card-navigator-gap', `${this.layoutConfig.getCardGap()}px`);
+            this.containerEl.style.setProperty('--card-navigator-container-padding', `${this.layoutConfig.getContainerPadding()}px`);
         }
     }
     

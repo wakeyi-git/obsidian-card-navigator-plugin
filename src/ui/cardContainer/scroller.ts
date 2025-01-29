@@ -1,14 +1,19 @@
 import { Card } from 'common/types';
 import { LayoutStrategy } from 'layouts/layoutStrategy';
 import CardNavigatorPlugin from 'main';
+import { LayoutConfig } from 'layouts/layoutConfig';
 
 export class Scroller {
+    private layoutConfig: LayoutConfig;
+
     constructor(
         private containerEl: HTMLElement,
         private plugin: CardNavigatorPlugin,
         private getLayoutStrategy: () => LayoutStrategy,
         private getCardSize: () => { width: number, height: number }
-    ) {}
+    ) {
+        this.layoutConfig = new LayoutConfig(plugin.app, containerEl, plugin.settings);
+    }
 
     // 활성 카드로 스크롤 메서드
     public scrollToActiveCard(animate = true) {
@@ -82,8 +87,9 @@ export class Scroller {
         const { width, height } = this.getCardSize();
         const cardsPerView = this.plugin.settings.cardsPerView;
         const isVertical = this.getLayoutStrategy().getScrollDirection() === 'vertical';
+        const cardGap = this.layoutConfig.getCardGap();
         
-        const cardSize = isVertical ? height : width;
+        const cardSize = (isVertical ? height : width) + cardGap;
         const currentScroll = isVertical ? this.containerEl.scrollTop : this.containerEl.scrollLeft;
         const totalSize = totalCards * cardSize;
         const containerSize = isVertical ? this.containerEl.clientHeight : this.containerEl.clientWidth;

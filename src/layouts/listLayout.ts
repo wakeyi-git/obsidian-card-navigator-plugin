@@ -1,5 +1,6 @@
 import { LayoutStrategy, CardPosition } from './layoutStrategy';
 import { Card } from 'common/types';
+import { LayoutConfig } from './layoutConfig';
 
 /**
  * 리스트 레이아웃 전략을 구현하는 클래스
@@ -8,6 +9,7 @@ import { Card } from 'common/types';
 export class ListLayout implements LayoutStrategy {
     //#region 클래스 속성
     private cardWidth: number = 0;
+    private layoutConfig: LayoutConfig;
     //#endregion
 
     //#region 초기화
@@ -15,12 +17,15 @@ export class ListLayout implements LayoutStrategy {
     constructor(
         private isVertical: boolean,
         private cardGap: number,
-        private alignCardHeight: boolean
-    ) {}
+        private alignCardHeight: boolean,
+        layoutConfig: LayoutConfig
+    ) {
+        this.layoutConfig = layoutConfig;
+    }
 
     // 카드 너비 설정
     setCardWidth(width: number): void {
-        this.cardWidth = width;
+        this.cardWidth = width || this.layoutConfig.calculateCardWidth(1);
     }
     //#endregion
 
@@ -35,11 +40,11 @@ export class ListLayout implements LayoutStrategy {
             ? {
                 width: containerWidth,
                 height: this.alignCardHeight 
-                    ? (containerHeight - (this.cardGap * (cardsPerView - 1))) / cardsPerView 
+                    ? this.layoutConfig.calculateCardHeight(containerHeight, cardsPerView)
                     : 'auto'
             }
             : {
-                width: (containerWidth - (this.cardGap * (cardsPerView - 1))) / cardsPerView,
+                width: this.layoutConfig.calculateCardWidth(cardsPerView),
                 height: containerHeight
             };
 
@@ -57,7 +62,7 @@ export class ListLayout implements LayoutStrategy {
             const positionDelta = this.isVertical
                 ? (cardSize.height === 'auto' ? containerHeight / cardsPerView : cardSize.height)
                 : cardSize.width;
-            currentPosition += positionDelta + this.cardGap;
+            currentPosition += positionDelta + this.layoutConfig.getCardGap();
         });
 
         return positions;
@@ -65,36 +70,12 @@ export class ListLayout implements LayoutStrategy {
 
     // 컨테이너 스타일 가져오기
     getContainerStyle(): Partial<CSSStyleDeclaration> {
-        return {
-            display: 'flex',
-            flexDirection: this.isVertical ? 'column' : 'row',
-            gap: `${this.cardGap}px`,
-            alignItems: 'stretch',
-            overflowY: this.isVertical ? 'auto' : 'hidden',
-            overflowX: this.isVertical ? 'hidden' : 'auto',
-            height: '100%',
-            width: 'calc(100% + var(--size-4-3))',
-            paddingRight: 'var(--size-4-3)'
-        };
+        return this.layoutConfig.getContainerStyle(this.isVertical);
     }
 
     // 카드 스타일 가져오기
     getCardStyle(): Partial<CSSStyleDeclaration> {
-        const style: Partial<CSSStyleDeclaration> = {
-            flexShrink: '0'
-        };
-
-        if (this.isVertical) {
-            style.width = '100%';
-            style.height = this.alignCardHeight
-                ? `calc((100% - var(--card-navigator-gap) * (var(--cards-per-view) - 1)) / var(--cards-per-view))`
-                : 'auto';
-        } else {
-            style.width = `calc((100% - var(--card-navigator-gap) * (var(--cards-per-view) - 1)) / var(--cards-per-view))`;
-            style.height = '100%';
-        }
-
-        return style;
+        return this.layoutConfig.getCardStyle(this.isVertical, this.alignCardHeight);
     }
     //#endregion
 
