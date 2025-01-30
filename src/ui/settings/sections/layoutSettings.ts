@@ -1,10 +1,10 @@
 import { Setting } from 'obsidian';
-import CardNavigatorPlugin from '../../main';
-import { SettingsManager } from './settingsManager';
-import { CardNavigatorSettings } from '../../common/types';
-import { SettingTab } from './settingsTab';
+import CardNavigatorPlugin from '../../../main';
+import { SettingsManager } from '../settingsManager';
+import { CardNavigatorSettings } from '../../../common/types';
+import { SettingTab } from '../settingsTab';
 import { t } from 'i18next';
-import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
+import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from '../../../ui/cardNavigatorView';
 
 export function addLayoutSettings(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, settingTab: SettingTab): void {
     containerEl.createEl('div', { cls: 'settings-section-margin' });

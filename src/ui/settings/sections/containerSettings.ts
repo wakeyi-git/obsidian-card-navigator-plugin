@@ -1,9 +1,9 @@
 import { Setting } from 'obsidian';
-import CardNavigatorPlugin from '../../main';
-import { SettingsManager } from './settingsManager';
+import CardNavigatorPlugin from '../../../main';
+import { SettingsManager } from '../settingsManager';
 import { t } from 'i18next';
-import { FolderSuggest } from './components/FolderSuggest';
-import { SettingTab } from './settingsTab';
+import { FolderSuggest } from '../components/FolderSuggest';
+import { SettingTab } from '../settingsTab';
 import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 import { CardSetType } from 'common/types';
 import { getSearchService } from 'ui/toolbar/search';

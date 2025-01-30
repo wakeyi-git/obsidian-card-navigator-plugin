@@ -1,5 +1,5 @@
 import { Setting } from 'obsidian';
-import { keyboardShortcuts } from '../../common/types';
+import { keyboardShortcuts } from '../../../common/types';
 import { t } from 'i18next';
 
 export function addKeyboardShortcutsInfo(containerEl: HTMLElement): void {

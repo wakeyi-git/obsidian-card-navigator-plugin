@@ -1,8 +1,8 @@
 import { Setting } from 'obsidian';
-import CardNavigatorPlugin from '../../main';
-import { SettingsManager } from './settingsManager';
-import { fontSizeSettings } from '../../common/types';
-import { SettingTab } from './settingsTab';
+import CardNavigatorPlugin from '../../../main';
+import { SettingsManager } from '../settingsManager';
+import { fontSizeSettings } from '../../../common/types';
+import { SettingTab } from '../settingsTab';
 import { t } from 'i18next';
 
 export function addCardStylingSettings(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, settingTab: SettingTab): void {

@@ -316,7 +316,7 @@
 /* 리스트 레이아웃 스타일은 그대로 유지 */
 .card-navigator-container.list-layout {
     width: calc(100% + var(--size-4-3));
-    padding-right: 1px;
+    padding-right: var(--size-2-1);
 }
 
 .card-navigator-container.visible {

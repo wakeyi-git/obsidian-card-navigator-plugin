@@ -1,11 +1,11 @@
 import { Setting, ButtonComponent, ToggleComponent, Notice, debounce } from 'obsidian';
-import CardNavigatorPlugin from '../../main';
-import { SettingsManager } from './settingsManager';
-import { PresetSuggest, FileSuggestMode } from './components/PresetSuggest';
-import { PresetEditModal } from '../settings/modals/PresetEditModal';
-import { PresetImportExportModal } from '../settings/modals/PresetImportExportModal';
-import { FolderSuggest } from './components/FolderSuggest';
-import { SettingTab } from './settingsTab';
+import CardNavigatorPlugin from '../../../main';
+import { SettingsManager } from '../settingsManager';
+import { PresetSuggest, FileSuggestMode } from '../components/PresetSuggest';
+import { PresetEditModal } from '../modals/PresetEditModal';
+import { PresetImportExportModal } from '../modals/PresetImportExportModal';
+import { FolderSuggest } from '../components/FolderSuggest';
+import { SettingTab } from '../settingsTab';
 import { t } from 'i18next';
 import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 

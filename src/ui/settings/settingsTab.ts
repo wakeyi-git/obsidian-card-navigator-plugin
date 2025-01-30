@@ -1,12 +1,12 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { SettingsManager } from './settingsManager';
-import { addPresetSettings } from './presetSettings';
-import { addLayoutSettings } from './layoutSettings';
-import { addContainerSettings } from './containerSettings';
-import { addCardStylingSettings } from './cardStyleSettings';
-import { addCardContentSettings } from './cardContentSettings';
-import { addKeyboardShortcutsInfo } from './keyboardShortcutsInfo';
+import { addPresetSettings } from './sections/presetSettings';
+import { addLayoutSettings } from './sections/layoutSettings';
+import { addContainerSettings } from './sections/containerSettings';
+import { addCardStylingSettings } from './sections/cardStyleSettings';
+import { addCardContentSettings } from './sections/cardContentSettings';
+import { addKeyboardShortcutsInfo } from './sections/keyboardShortcutsInfo';
 import { CardNavigatorSettings, NumberSettingKey, SortCriterion, SortOrder, sortOptions } from '../../common/types';
 import { t } from 'i18next';
 

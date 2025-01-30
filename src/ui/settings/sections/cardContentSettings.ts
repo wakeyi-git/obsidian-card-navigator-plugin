@@ -1,8 +1,8 @@
 import { Setting } from 'obsidian';
-import CardNavigatorPlugin from '../../main';
-import { SettingsManager } from './settingsManager';
-import { contentSettings } from '../../common/types';
-import { SettingTab } from './settingsTab';
+import CardNavigatorPlugin from '../../../main';
+import { SettingsManager } from '../settingsManager';
+import { contentSettings } from '../../../common/types';
+import { SettingTab } from '../settingsTab';
 import { t } from 'i18next';
 import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 
