@@ -73,9 +73,21 @@ export class LayoutConfig {
     /**
      * 카드 높이를 계산합니다.
      */
-    public calculateCardHeight(containerHeight: number, cardsPerView: number): number {
+    public calculateCardHeight(layout: CardNavigatorSettings['defaultLayout']): number | 'auto' {
+        if (!this.settings.alignCardHeight) {
+            return 'auto';
+        }
+
+        if (layout === 'grid') {
+            return this.settings.gridCardHeight;
+        }
+
+        const containerHeight = this.containerEl?.offsetHeight || 0;
         const cardGap = this.getCardGap();
-        return Math.floor((containerHeight - (cardGap * (cardsPerView - 1))) / cardsPerView);
+        const containerPadding = this.getContainerPadding() * 2;
+        const availableHeight = containerHeight - containerPadding;
+        
+        return Math.floor((availableHeight - (cardGap * (this.settings.cardsPerView - 1))) / this.settings.cardsPerView);
     }
 
     /**
@@ -164,13 +176,22 @@ export class LayoutConfig {
             flexShrink: '0'
         };
 
+        // 항상 최신 설정값 사용
         if (isVertical) {
             style.width = '100%';
-            style.height = alignCardHeight
-                ? `calc((100% - var(--card-navigator-gap) * (var(--cards-per-view) - 1)) / var(--cards-per-view))`
-                : 'auto';
+            if (this.settings.alignCardHeight) {
+                const containerHeight = this.containerEl?.offsetHeight || 0;
+                const cardGap = this.getCardGap();
+                const containerPadding = this.getContainerPadding() * 2;
+                const availableHeight = containerHeight - containerPadding;
+                const cardHeight = Math.floor((availableHeight - (cardGap * (this.settings.cardsPerView - 1))) / this.settings.cardsPerView);
+                style.height = `${cardHeight}px`;
+            } else {
+                style.height = 'auto';
+            }
         } else {
-            style.width = `calc((100% - var(--card-navigator-gap) * (var(--cards-per-view) - 1)) / var(--cards-per-view))`;
+            const cardWidth = this.calculateCardWidth(this.settings.cardsPerView);
+            style.width = `${cardWidth}px`;
             style.height = '100%';
         }
 
@@ -183,4 +204,11 @@ export class LayoutConfig {
         this.previousColumns = columns;
     }
     //#endregion
+
+    /**
+     * 설정을 업데이트합니다.
+     */
+    public updateSettings(settings: CardNavigatorSettings) {
+        this.settings = settings;
+    }
 } 

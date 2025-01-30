@@ -73,8 +73,7 @@ export class CardRenderer {
         const cardPositions = this.layoutStrategy.arrange(
             cardsData,
             availableWidth,
-            containerRect.height,
-            this.cardsPerView
+            containerRect.height
         );
     
         if (cardPositions.length !== cardsData.length) {
@@ -136,7 +135,14 @@ export class CardRenderer {
             cardEl.style.left = `${position.x + paddingLeft}px`;
             cardEl.style.top = `${position.y + paddingTop}px`;
             cardEl.style.width = `${position.width}px`;
-            cardEl.style.height = typeof position.height === 'number' ? `${position.height}px` : position.height;
+            
+            // height가 'auto'인 경우 min-height 설정
+            if (position.height === 'auto') {
+                cardEl.style.height = 'auto';
+                cardEl.style.minHeight = '100px'; // 최소 높이 설정
+            } else {
+                cardEl.style.height = `${position.height}px`;
+            }
         }
     }
 

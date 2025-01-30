@@ -434,87 +434,61 @@
     height: 10px;
 }
 
+/* 메이슨리 레이아웃 스타일 */
 .masonry-layout {
-	position: relative;
-	z-index: 2;
-    display: flex;
-    flex-wrap: nowrap;
-    gap: var(--card-gap);
+    position: relative;
     width: 100%;
     height: 100%;
     overflow-y: auto;
-}
-
-.masonry-column {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: var(--card-gap);
+    overflow-x: hidden;
+    display: block; /* flex 대신 block 사용 */
 }
 
 .masonry-card {
-    position: relative;
-    z-index: 3;
-    width: 100%;
-    break-inside: avoid;
-    background: var(--background-secondary);
-    border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
+    position: absolute; /* 절대 위치로 변경 */
+    padding: var(--size-4-4);
+    background: var(--background-primary);
+    border: var(--border-width) solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
     box-sizing: border-box;
-}
-
-.masonry-card.card-navigator-focused {
-    border: 1px solid var(--interactive-accent);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Focus shadow effect */
+    transition: transform 0.2s ease-in-out;
+    cursor: pointer;
+    width: var(--card-width); /* CSS 변수로 너비 설정 */
 }
 
 .masonry-card:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Hover shadow effect */
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-.masonry-card.card-navigator-active .card-navigator-filename,
-.masonry-card.card-navigator-active .card-navigator-first-header,
-.masonry-card.card-navigator-active .card-navigator-body {
-    color: var(--interactive-accent);
+.masonry-card.card-navigator-focused {
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 2px var(--interactive-accent-hover);
+    z-index: 10;
 }
 
 .masonry-card .card-navigator-filename {
-    padding: 10px;
-    font-weight: bold;
-    border-bottom: 1px solid var(--background-modifier-border);
+    font-size: var(--file-name-font-size, 1.2rem);
+    font-weight: var(--font-bold);
+    margin-bottom: var(--size-4-2);
+    color: var(--text-normal);
 }
 
 .masonry-card .card-navigator-first-header {
-    padding: 10px;
-    font-size: 1.1em;
+    font-size: var(--first-header-font-size, 1.1rem);
+    margin-bottom: var(--size-4-2);
+    color: var(--text-normal);
 }
 
 .masonry-card .card-navigator-body {
-    padding: 10px;
-    font-size: 0.9em;
-}
-
-/* 카드 내용이 길 경우 스크롤 처리 */
-.masonry-card .card-navigator-body {
-    max-height: 300px;
-    overflow-y: auto;
+    font-size: var(--body-font-size, 1rem);
+    color: var(--text-muted);
+    overflow-y: visible; /* 내용이 잘리지 않도록 설정 */
 }
 
 /* 다크 모드 대응 */
 .theme-dark .masonry-card {
     background: var(--background-secondary-alt);
-}
-
-.card-navigator-card.card-navigator-focused,
-.masonry-card.card-navigator-focused {
-    border: 1px solid var(--interactive-accent);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Focus shadow effect */
-}
-
-.card-navigator-card.card-navigator-focused,
-.masonry-card.card-navigator-focused {
-    z-index: 10;
 }
 
 .settings-section-margin {
@@ -638,3 +612,4 @@
         font-size: 0.9em;
     }
 }
+

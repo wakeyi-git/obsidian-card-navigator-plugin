@@ -10,6 +10,7 @@ export class GridLayout implements LayoutStrategy {
     //#region 클래스 속성
     private cardWidth: number = 0;
     private layoutConfig: LayoutConfig;
+    private settings: CardNavigatorSettings;
     //#endregion
 
     //#region 초기화
@@ -17,10 +18,11 @@ export class GridLayout implements LayoutStrategy {
     constructor(
         private columns: number,
         private cardGap: number,
-        private settings: CardNavigatorSettings,
+        settings: CardNavigatorSettings,
         layoutConfig: LayoutConfig
     ) {
         this.layoutConfig = layoutConfig;
+        this.settings = settings;
         if (columns <= 0) {
             throw new Error('The number of columns must be greater than 0');
         }
@@ -34,11 +36,11 @@ export class GridLayout implements LayoutStrategy {
     }
 
     // 카드를 그리드 형태로 배치
-    arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[] {
+    arrange(cards: Card[], containerWidth: number, containerHeight: number): CardPosition[] {
         const positions: CardPosition[] = [];
-        const isVertical = this.getScrollDirection() === 'vertical';
-        const cardWidth = this.cardWidth;
         const cardGap = this.layoutConfig.getCardGap();
+        const cardWidth = this.cardWidth;
+        const cardHeight = this.layoutConfig.calculateCardHeight('grid');
 
         cards.forEach((card, index) => {
             const row = Math.floor(index / this.columns);
@@ -47,11 +49,9 @@ export class GridLayout implements LayoutStrategy {
             const position: CardPosition = {
                 card,
                 x: col * (cardWidth + cardGap),
-                y: row * (containerHeight / cardsPerView + cardGap),
+                y: row * (typeof cardHeight === 'number' ? cardHeight + cardGap : containerHeight / this.settings.cardsPerView),
                 width: cardWidth,
-                height: this.settings.alignCardHeight 
-                    ? this.layoutConfig.calculateCardHeight(containerHeight, cardsPerView)
-                    : 'auto'
+                height: cardHeight
             };
             positions.push(position);
         });
@@ -68,6 +68,15 @@ export class GridLayout implements LayoutStrategy {
             this.getScrollDirection() === 'vertical',
             this.settings.alignCardHeight
         );
+    }
+
+    /**
+     * 설정을 업데이트합니다.
+     */
+    public updateSettings(settings: CardNavigatorSettings) {
+        this.settings = settings;
+        // 카드 너비 재계산
+        this.setCardWidth(this.cardWidth);
     }
     //#endregion
 

@@ -81,7 +81,13 @@ export class LayoutManager {
         this.layoutConfig.updatePreviousColumns(columns);
 
         if (columns === 1) {
-            const listLayout = new ListLayout(this.isVertical, this.cardGap, alignCardHeight, this.layoutConfig);
+            const listLayout = new ListLayout(
+                this.isVertical, 
+                this.cardGap, 
+                alignCardHeight,
+                this.plugin.settings,
+                this.layoutConfig
+            );
             listLayout.setCardWidth(cardWidth);
             return listLayout;
         } else if (alignCardHeight) {
@@ -115,6 +121,7 @@ export class LayoutManager {
                     this.isVertical, 
                     this.cardGap, 
                     this.plugin.settings.alignCardHeight,
+                    this.plugin.settings,
                     this.layoutConfig
                 );
                 listLayout.setCardWidth(availableWidth);
@@ -142,5 +149,37 @@ export class LayoutManager {
             default:
                 throw new Error(`Unsupported layout type: ${layout}`);
         }
+    }
+
+    /**
+     * 설정이 변경되었을 때 호출되는 메서드
+     */
+    public updateSettings(settings: CardNavigatorSettings) {
+        this.plugin.settings = settings;
+        this.layoutConfig.updateSettings(settings);
+        
+        // 모든 레이아웃 전략의 설정 업데이트
+        if (this.layoutStrategy instanceof ListLayout) {
+            this.layoutStrategy.updateSettings(settings);
+        } else if (this.layoutStrategy instanceof GridLayout) {
+            this.layoutStrategy.updateSettings(settings);
+        }
+        
+        // 레이아웃 전략 재생성
+        this.layoutStrategy = this.createLayoutStrategy();
+    }
+
+    /**
+     * 레이아웃을 다시 렌더링합니다.
+     */
+    public rerender() {
+        if (!this.containerEl) return;
+        
+        // 현재 레이아웃 전략 재생성
+        this.layoutStrategy = this.createLayoutStrategy();
+        
+        // 컨테이너 스타일 업데이트
+        const containerStyle = this.layoutStrategy.getContainerStyle();
+        Object.assign(this.containerEl.style, containerStyle);
     }
 } 

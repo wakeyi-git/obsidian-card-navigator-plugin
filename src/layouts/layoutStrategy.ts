@@ -11,10 +11,9 @@ export interface LayoutStrategy {
      * @param cards - 배치할 카드 배열
      * @param containerWidth - 컨테이너의 너비
      * @param containerHeight - 컨테이너의 높이
-     * @param cardsPerView - 뷰당 표시할 카드 수
      * @returns 각 카드의 위치와 크기를 나타내는 CardPosition 객체 배열
      */
-    arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[];
+    arrange(cards: Card[], containerWidth: number, containerHeight: number): CardPosition[];
 
     /**
      * 카드의 너비를 설정합니다.
@@ -36,6 +35,16 @@ export interface LayoutStrategy {
      */
     getColumnsCount(): number;
     //#endregion
+
+    /**
+     * 컨테이너 스타일을 가져옵니다.
+     */
+    getContainerStyle(): Partial<CSSStyleDeclaration>;
+
+    /**
+     * 카드 스타일을 가져옵니다.
+     */
+    getCardStyle(): Partial<CSSStyleDeclaration>;
 }
 
 /**
@@ -49,7 +58,7 @@ export interface CardPosition {
     // 카드의 Y 좌표 위치
     y: number;
     // 카드의 너비 (숫자 또는 'auto')
-    width: number | 'auto';
+    width: number;
     // 카드의 높이 (숫자 또는 'auto')
     height: number | 'auto';
 }

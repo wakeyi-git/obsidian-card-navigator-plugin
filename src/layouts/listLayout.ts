@@ -1,5 +1,5 @@
 import { LayoutStrategy, CardPosition } from './layoutStrategy';
-import { Card } from 'common/types';
+import { Card, CardNavigatorSettings } from 'common/types';
 import { LayoutConfig } from './layoutConfig';
 
 /**
@@ -10,6 +10,8 @@ export class ListLayout implements LayoutStrategy {
     //#region 클래스 속성
     private cardWidth: number = 0;
     private layoutConfig: LayoutConfig;
+    private settings: CardNavigatorSettings;
+    private alignCardHeight: boolean;
     //#endregion
 
     //#region 초기화
@@ -17,52 +19,55 @@ export class ListLayout implements LayoutStrategy {
     constructor(
         private isVertical: boolean,
         private cardGap: number,
-        private alignCardHeight: boolean,
+        alignCardHeight: boolean,
+        settings: CardNavigatorSettings,
         layoutConfig: LayoutConfig
     ) {
         this.layoutConfig = layoutConfig;
+        this.settings = settings;
+        this.alignCardHeight = alignCardHeight;
     }
 
     // 카드 너비 설정
     setCardWidth(width: number): void {
         this.cardWidth = width || this.layoutConfig.calculateCardWidth(1);
     }
+
+    /**
+     * 설정을 업데이트합니다.
+     */
+    public updateSettings(settings: CardNavigatorSettings) {
+        this.settings = settings;
+        this.alignCardHeight = settings.alignCardHeight;
+    }
     //#endregion
 
     //#region 카드 배치 및 레이아웃 관리
     // 카드를 리스트 형태로 배치 (세로 또는 가로)
-    arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[] {
+    arrange(cards: Card[], containerWidth: number, containerHeight: number): CardPosition[] {
         const positions: CardPosition[] = [];
+        const cardGap = this.layoutConfig.getCardGap();
         let currentPosition = 0;
 
-        // 카드 크기 계산
-        const cardSize: { width: number, height: number | 'auto' } = this.isVertical
-            ? {
-                width: containerWidth,
-                height: this.alignCardHeight 
-                    ? this.layoutConfig.calculateCardHeight(containerHeight, cardsPerView)
-                    : 'auto'
-            }
-            : {
-                width: this.layoutConfig.calculateCardWidth(cardsPerView),
-                height: containerHeight
-            };
+        // 최신 설정값으로 카드 높이 계산
+        const cardHeight = this.layoutConfig.calculateCardHeight('list');
+        const cardWidth = this.isVertical ? containerWidth : this.cardWidth;
 
         cards.forEach((card) => {
             const position: CardPosition = {
                 card,
                 x: this.isVertical ? 0 : currentPosition,
                 y: this.isVertical ? currentPosition : 0,
-                width: cardSize.width,
-                height: cardSize.height
+                width: cardWidth,
+                height: cardHeight
             };
             positions.push(position);
 
-            // 다음 카드의 위치 업데이트
-            const positionDelta = this.isVertical
-                ? (cardSize.height === 'auto' ? containerHeight / cardsPerView : cardSize.height)
-                : cardSize.width;
-            currentPosition += positionDelta + this.layoutConfig.getCardGap();
+            // 최신 설정값으로 위치 계산
+            const positionDelta = this.isVertical ? 
+                (typeof cardHeight === 'number' ? cardHeight : containerHeight / this.settings.cardsPerView) : 
+                cardWidth;
+            currentPosition += positionDelta + cardGap;
         });
 
         return positions;

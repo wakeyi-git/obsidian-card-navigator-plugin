@@ -10,9 +10,9 @@ import { LayoutConfig } from './layoutConfig';
 export class MasonryLayout implements LayoutStrategy {
     //#region 클래스 속성
     private container: HTMLElement | null = null;
-    private columnElements: HTMLElement[] = [];
     private cardWidth: number = 0;
     private layoutConfig: LayoutConfig;
+    private columnHeights: number[] = [];
     //#endregion
 
     //#region 초기화 및 설정
@@ -28,20 +28,23 @@ export class MasonryLayout implements LayoutStrategy {
             throw new Error('The number of columns must be greater than 0');
         }
         this.layoutConfig = layoutConfig;
+        this.columnHeights = new Array(columns).fill(0);
     }
 
     // 카드 너비 설정
     setCardWidth(width: number): void {
-        this.cardWidth = width || this.layoutConfig.calculateCardWidth(this.columns);
+        this.cardWidth = width;
+        if (this.container) {
+            this.container.style.setProperty('--card-width', `${this.cardWidth}px`);
+        }
     }
 
     // 컨테이너 설정
     setContainer(container: HTMLElement) {
         this.container = container;
-        // 컨테이너 클래스 설정만 여기서 수행
-        if (this.container) {
-            this.container.className = 'masonry-layout';
-        }
+        this.container.classList.add('masonry-layout');
+        this.container.style.setProperty('--card-width', `${this.cardWidth}px`);
+        this.container.style.setProperty('--card-gap', `${this.cardGap}px`);
     }
 
     // 컨테이너 초기 설정
@@ -54,66 +57,61 @@ export class MasonryLayout implements LayoutStrategy {
         this.container.style.setProperty('--card-gap', `${this.layoutConfig.getCardGap()}px`);
         this.container.style.setProperty('--card-width', `${this.cardWidth}px`);
 
-        this.columnElements = [];
+        this.columnHeights = new Array(this.columns).fill(0);
         for (let i = 0; i < this.columns; i++) {
             const column = document.createElement('div');
             column.className = 'masonry-column';
             this.container.appendChild(column);
-            this.columnElements.push(column);
         }
     }
     //#endregion
 
     //#region 카드 배치 및 레이아웃 관리
     // 카드를 메이슨리 형태로 배치
-    arrange(cards: Card[], containerWidth: number): CardPosition[] {
+    arrange(cards: Card[], containerWidth: number, containerHeight: number): CardPosition[] {
         if (!this.container) return [];
 
-        const container = this.container; // null이 아닌 컨테이너 참조 저장
+        // 컬럼 높이 초기화
+        this.columnHeights = new Array(this.columns).fill(0);
+        const positions: CardPosition[] = [];
+        const containerPadding = this.layoutConfig.getContainerPadding();
 
-        // 컨테이너 초기화 및 CSS 변수 설정
-        container.empty();
-        container.style.setProperty('--column-count', this.columns.toString());
-        container.style.setProperty('--card-gap', `${this.layoutConfig.getCardGap()}px`);
-        container.style.setProperty('--card-width', `${this.cardWidth}px`);
-
-        // 컬럼 생성
-        this.columnElements = Array.from({ length: this.columns }, () => 
-            container.createDiv({ cls: 'masonry-column' })
-        );
-
-        const cardPositions: CardPosition[] = [];
-        const containerRect = container.getBoundingClientRect();
-        const cardWidth = this.cardWidth || this.layoutConfig.calculateCardWidth(this.columns);
-
-        // 포커스된 카드 상태 저장
-        const focusedCards = new Set(
-            Array.from(container.querySelectorAll('.card-navigator-focused'))
-                .map(el => (el as HTMLElement).dataset.path)
-        );
-
-        cards.forEach((card, index) => {
-            const columnIndex = index % this.columns;
-            const cardElement = this.cardMaker.createCardElement(card);
-
-            // 포커스 상태 복원
-            if (focusedCards.has(card.file.path)) {
-                cardElement.classList.add('card-navigator-focused');
-            }
+        cards.forEach((card) => {
+            // 임시 카드 생성하여 높이 측정
+            const tempCard = this.cardMaker.createCardElement(card);
+            tempCard.style.position = 'absolute';
+            tempCard.style.visibility = 'hidden';
+            tempCard.style.width = `${this.cardWidth}px`;
+            this.container!.appendChild(tempCard);
             
-            this.columnElements[columnIndex].appendChild(cardElement);
+            const cardHeight = tempCard.offsetHeight;
+            this.container!.removeChild(tempCard);
 
-            const rect = cardElement.getBoundingClientRect();
-            cardPositions.push({
+            // 가장 낮은 컬럼 찾기
+            const minHeightIndex = this.columnHeights.indexOf(Math.min(...this.columnHeights));
+            
+            // 카드 위치 계산
+            const x = minHeightIndex * (this.cardWidth + this.cardGap);
+            const y = this.columnHeights[minHeightIndex];
+
+            // 위치 정보 저장
+            positions.push({
                 card,
-                x: rect.left - containerRect.left,
-                y: rect.top - containerRect.top,
-                width: cardWidth,
-                height: rect.height
+                x,
+                y,
+                width: this.cardWidth,
+                height: cardHeight
             });
+
+            // 컬럼 높이 업데이트
+            this.columnHeights[minHeightIndex] += cardHeight + this.cardGap;
         });
 
-        return cardPositions;
+        // 컨테이너 높이 설정
+        const maxHeight = Math.max(...this.columnHeights) + containerPadding * 2;
+        this.container.style.height = `${maxHeight}px`;
+
+        return positions;
     }
     //#endregion
 
@@ -129,14 +127,20 @@ export class MasonryLayout implements LayoutStrategy {
     }
 
     getContainerStyle(): Partial<CSSStyleDeclaration> {
-        return this.layoutConfig.getContainerStyle(this.getScrollDirection() === 'vertical');
+        return {
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+            overflowY: 'auto',
+            overflowX: 'hidden'
+        };
     }
 
     getCardStyle(): Partial<CSSStyleDeclaration> {
-        return this.layoutConfig.getCardStyle(
-            this.getScrollDirection() === 'vertical',
-            this.settings.alignCardHeight
-        );
+        return {
+            position: 'absolute',
+            width: `${this.cardWidth}px`
+        };
     }
     //#endregion
 
@@ -144,7 +148,11 @@ export class MasonryLayout implements LayoutStrategy {
     // 레이아웃 정리
     destroy() {
         this.container = null;
-        this.columnElements = [];
+        this.columnHeights = [];
+    }
+
+    updateSettings(settings: CardNavigatorSettings) {
+        this.settings = settings;
     }
     //#endregion
 }
