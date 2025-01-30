@@ -60,10 +60,37 @@ export class Toolbar {
     private createActionIconsContainer(): HTMLElement {
         const container = createDiv('card-navigator-action-icons-container');
     
+        // 현재 CardSetType에 따라 적절한 아이콘 선택
+        const getCardSetIcon = () => {
+            switch (this.plugin.settings.cardSetType) {
+                case 'activeFolder':
+                    return 'folder-open';
+                case 'selectedFolder':
+                    return 'folder-tree';
+                case 'vault':
+                    return 'vault';
+                default:
+                    return 'folder-open';
+            }
+        };
+    
         const icons = [
-            { name: 'folder-cog', label: t('CHANGE_CARD_SET'), action: () => this.openCardSetMenu() },
-            { name: 'arrow-up-narrow-wide', label: t('SORT_CARDS'), action: () => toggleSort(this.plugin, this.containerEl) },
-            { name: 'settings', label: t('SETTINGS'), action: () => this.toggleSettingsPopup() },
+            { 
+                name: getCardSetIcon(), 
+                label: t('CHANGE_CARD_SET'), 
+                action: () => this.openCardSetMenu() 
+            },
+            { 
+                name: 'arrow-up-narrow-wide', 
+                label: t('SORT_CARDS'), 
+                action: () => toggleSort(this.plugin, this.containerEl) 
+            },
+            { 
+                name: 'settings', 
+                label: t('SETTINGS'), 
+                action: () => this.toggleSettingsPopup(),
+                className: this.plugin.settings.autoApplyPresets ? 'card-navigator-settings-active' : ''
+            },
         ] as const;
     
         // 툴바 아이콘을 생성하기 위해 아이콘 정의를 반복
@@ -71,6 +98,10 @@ export class Toolbar {
             const iconElement = this.createToolbarIcon(icon.name, icon.label, icon.action);
             if (icon.name === 'settings') {
                 this.settingsIcon = iconElement;
+                // autoApplyPresets가 true일 때 강조 클래스 추가
+                if (this.plugin.settings.autoApplyPresets) {
+                    iconElement.addClass('card-navigator-settings-active');
+                }
             }
             container.appendChild(iconElement);
         });
@@ -191,6 +222,8 @@ export class Toolbar {
     private updateIconStates() {
         if (this.settingsIcon) {
             this.settingsIcon.classList.toggle('card-navigator-icon-active', this.settingsPopupOpen);
+            // autoApplyPresets 상태에 따라 강조 클래스 토글
+            this.settingsIcon.classList.toggle('card-navigator-settings-active', this.plugin.settings.autoApplyPresets);
         }
     }
 
@@ -218,7 +251,30 @@ export class Toolbar {
 
     // 툴바를 새로 고침
     refresh() {
-        // 필요한 경우 새로 고침 논리를 구현
+        if (this.containerEl) {
+            const cardSetIcon = this.containerEl.querySelector(`[aria-label="${t('CHANGE_CARD_SET')}"]`) as HTMLElement;
+            if (cardSetIcon) {
+                cardSetIcon.empty();
+                const newIconName = (() => {
+                    switch (this.plugin.settings.cardSetType) {
+                        case 'activeFolder':
+                            return 'folder-open';
+                        case 'selectedFolder':
+                            return 'folder-tree';
+                        case 'vault':
+                            return 'vault';
+                        default:
+                            return 'folder-open';
+                    }
+                })();
+                setIcon(cardSetIcon, newIconName);
+            }
+
+            // settings 아이콘 상태 업데이트
+            if (this.settingsIcon) {
+                this.settingsIcon.classList.toggle('card-navigator-settings-active', this.plugin.settings.autoApplyPresets);
+            }
+        }
     }
     //#endregion
 }

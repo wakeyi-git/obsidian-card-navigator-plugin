@@ -613,3 +613,7 @@
     }
 }
 
+.card-navigator-settings-active {
+    color: var(--interactive-accent);
+}
+
