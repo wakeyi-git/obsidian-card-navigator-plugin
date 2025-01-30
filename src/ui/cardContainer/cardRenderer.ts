@@ -5,6 +5,8 @@ import { LayoutStrategy } from 'layouts/layoutStrategy';
 import { ListLayout } from 'layouts/listLayout';
 import { LayoutManager } from 'layouts/layoutManager';
 import { LayoutConfig } from 'layouts/layoutConfig';
+import { GridLayout } from 'layouts/gridLayout';
+import { MasonryLayout } from 'layouts/masonryLayout';
 
 export class CardRenderer {
     private layoutStrategy: LayoutStrategy;
@@ -26,7 +28,7 @@ export class CardRenderer {
     // 레이아웃 전략 설정 메서드
     public setLayoutStrategy(layoutStrategy: LayoutStrategy) {
         this.layoutStrategy = layoutStrategy;
-        this.updateScrollDirection();
+        this.updateContainerStyle();
     }
 
     // 리소스 정리 메서드
@@ -47,10 +49,7 @@ export class CardRenderer {
             return;
         }
 
-        if (!this.layoutStrategy) {
-            console.error('The layout strategy has not been set.');
-            return;
-        }
+        this.updateContainerStyle();
 
         const containerEl = this.containerEl;
         
@@ -69,9 +68,6 @@ export class CardRenderer {
         } else {
             this.resetContainerStyle();
         }
-
-        // 스크롤 방향 설정
-        this.updateScrollDirection();
 
         // 카드 위치 계산
         const cardPositions = this.layoutStrategy.arrange(
@@ -157,14 +153,6 @@ export class CardRenderer {
         }
     }
 
-    // 스크롤 방향 업데이트 메서드
-    private updateScrollDirection() {
-        if (!this.containerEl) return;
-        const scrollDirection = this.layoutStrategy.getScrollDirection();
-        this.containerEl.style.overflowY = scrollDirection === 'vertical' ? 'auto' : 'hidden';
-        this.containerEl.style.overflowX = scrollDirection === 'horizontal' ? 'auto' : 'hidden';
-    }
-
     // 카드 크기 설정 확인 메서드
     private async ensureCardSizesAreSet(): Promise<void> {
         return new Promise((resolve) => {
@@ -215,4 +203,44 @@ export class CardRenderer {
         return null;
     }
     //#endregion
+
+    private updateContainerStyle() {
+        if (!this.containerEl) return;
+        
+        // 레이아웃 타입에 따른 클래스 추가
+        this.containerEl.classList.remove('list-layout', 'grid-layout', 'masonry-layout');
+        if (this.layoutStrategy instanceof ListLayout) {
+            this.containerEl.classList.add('list-layout');
+        } else if (this.layoutStrategy instanceof GridLayout) {
+            this.containerEl.classList.add('grid-layout');
+        } else if (this.layoutStrategy instanceof MasonryLayout) {
+            this.containerEl.classList.add('masonry-layout');
+        }
+
+        // 스크롤 방향에 따른 클래스 추가
+        const isVertical = this.layoutStrategy.getScrollDirection() === 'vertical';
+        this.containerEl.classList.toggle('vertical', isVertical);
+        this.containerEl.classList.toggle('horizontal', !isVertical);
+
+        // 카드 높이 정렬 클래스 추가
+        this.containerEl.classList.toggle('align-height', this.alignCardHeight);
+        this.containerEl.classList.toggle('flexible-height', !this.alignCardHeight);
+
+        // CSS 변수 설정
+        this.containerEl.style.setProperty('--cards-per-view', this.cardsPerView.toString());
+        this.containerEl.style.setProperty('--card-navigator-gap', `${this.layoutConfig.getCardGap()}px`);
+        this.containerEl.style.setProperty('--card-navigator-container-padding', `${this.layoutConfig.getContainerPadding()}px`);
+
+        // 스크롤 방향 설정
+        this.containerEl.style.overflowY = isVertical ? 'auto' : 'hidden';
+        this.containerEl.style.overflowX = isVertical ? 'hidden' : 'auto';
+
+        // 리스트 레이아웃인 경우 특별한 스타일 적용
+        if (this.layoutStrategy instanceof ListLayout) {
+            const listContainerStyle = this.layoutStrategy.getContainerStyle();
+            Object.assign(this.containerEl.style, listContainerStyle);
+        } else {
+            this.resetContainerStyle();
+        }
+    }
 } 

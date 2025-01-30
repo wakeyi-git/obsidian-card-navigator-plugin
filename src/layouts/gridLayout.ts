@@ -21,6 +21,9 @@ export class GridLayout implements LayoutStrategy {
         layoutConfig: LayoutConfig
     ) {
         this.layoutConfig = layoutConfig;
+        if (columns <= 0) {
+            throw new Error('The number of columns must be greater than 0');
+        }
     }
     //#endregion
 
@@ -33,25 +36,38 @@ export class GridLayout implements LayoutStrategy {
     // 카드를 그리드 형태로 배치
     arrange(cards: Card[], containerWidth: number, containerHeight: number, cardsPerView: number): CardPosition[] {
         const positions: CardPosition[] = [];
-        const cardWidth = this.cardWidth || this.layoutConfig.calculateCardWidth(this.columns);
-        const cardHeight = this.settings.alignCardHeight 
-            ? this.layoutConfig.calculateCardHeight(containerHeight, cardsPerView)
-            : this.settings.gridCardHeight;
+        const isVertical = this.getScrollDirection() === 'vertical';
+        const cardWidth = this.cardWidth;
+        const cardGap = this.layoutConfig.getCardGap();
 
         cards.forEach((card, index) => {
-            const column = index % this.columns;
             const row = Math.floor(index / this.columns);
+            const col = index % this.columns;
 
-            positions.push({
+            const position: CardPosition = {
                 card,
-                x: column * (cardWidth + this.layoutConfig.getCardGap()),
-                y: row * (cardHeight + this.layoutConfig.getCardGap()),
+                x: col * (cardWidth + cardGap),
+                y: row * (containerHeight / cardsPerView + cardGap),
                 width: cardWidth,
-                height: cardHeight
-            });
+                height: this.settings.alignCardHeight 
+                    ? this.layoutConfig.calculateCardHeight(containerHeight, cardsPerView)
+                    : 'auto'
+            };
+            positions.push(position);
         });
 
         return positions;
+    }
+
+    getContainerStyle(): Partial<CSSStyleDeclaration> {
+        return this.layoutConfig.getContainerStyle(this.getScrollDirection() === 'vertical');
+    }
+
+    getCardStyle(): Partial<CSSStyleDeclaration> {
+        return this.layoutConfig.getCardStyle(
+            this.getScrollDirection() === 'vertical',
+            this.settings.alignCardHeight
+        );
     }
     //#endregion
 

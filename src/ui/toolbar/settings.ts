@@ -143,34 +143,6 @@ async function addPresetSettingsToPopup(settingsPopup: HTMLElement, plugin: Card
         });
 }
 
-// 폴더 선택 설정 추가
-// function addFolderSelectionSetting(parentEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager): void {
-//     new Setting(parentEl)
-//         .setName(t('SOURCE_FOLDER'))
-//         .setClass('setting-item-toggle')
-//         .addToggle(toggle => toggle
-//             .setValue(plugin.settings.useSelectedFolder)
-//             .onChange(async (value) => {
-//                 await settingsManager.updateBooleanSetting('useSelectedFolder', value);
-//                 toggleSettings(plugin, parentEl);
-//             })
-//         );
-
-//     if (plugin.settings.useSelectedFolder) {
-//         const setting = createFullWidthSetting(parentEl);
-//         addFullWidthText(setting, text => {
-//             new FolderSuggest(plugin.app, text.inputEl);
-//             text.setPlaceholder(t('SELECT_FOLDER'))
-//                 .setValue(plugin.settings.selectedFolder || '')
-//                 .onChange(async (newFolder) => {
-//                 if (newFolder) {
-//                     await settingsManager.updateSetting('selectedFolder', newFolder);
-//                 }
-//             });
-//         });
-//     }
-// }
-
 // 드롭다운 설정 추가
 function addDropdownSetting(
     key: keyof CardNavigatorSettings, 

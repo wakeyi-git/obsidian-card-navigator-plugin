@@ -10,6 +10,7 @@ export class LayoutConfig {
     private containerEl: HTMLElement;
     private settings: CardNavigatorSettings;
     private app: App;
+    private previousColumns: number = 0;
     //#endregion
 
     constructor(app: App, containerEl: HTMLElement, settings: CardNavigatorSettings) {
@@ -76,6 +77,52 @@ export class LayoutConfig {
         const cardGap = this.getCardGap();
         return Math.floor((containerHeight - (cardGap * (cardsPerView - 1))) / cardsPerView);
     }
+
+    /**
+     * 자동 레이아웃의 열 수를 계산합니다.
+     */
+    public calculateAutoColumns(): number {
+        const availableWidth = this.getAvailableWidth();
+        const cardGap = this.getCardGap();
+        const threshold = this.settings.cardWidthThreshold;
+        
+        // 히스테리시스 버퍼 추가 (전환 지점에 안정성 추가)
+        const upperBuffer = 40; // 더 큰 버퍼로 조정
+        const lowerBuffer = 20; // 더 작은 버퍼 유지
+        
+        // 현재 열 수 계산
+        const columns = Math.max(1, Math.floor((availableWidth + cardGap) / (threshold + cardGap)));
+        
+        // 실제 카드 너비 계산
+        const actualCardWidth = (availableWidth - (columns - 1) * cardGap) / columns;
+        
+        // 히스테리시스 적용
+        if (columns > 1) {
+            // 현재 너비가 threshold + upperBuffer보다 작으면 열 수를 줄임
+            if (actualCardWidth < threshold - lowerBuffer) {
+                return columns - 1;
+            }
+            // 현재 너비가 threshold - lowerBuffer보다 크면 현재 열 수 유지
+            else if (actualCardWidth > threshold + upperBuffer) {
+                return columns;
+            }
+            // 그 사이 값이면 이전 상태 유지 (히스테리시스)
+            else {
+                return this.previousColumns || columns;
+            }
+        }
+        
+        return columns;
+    }
+
+    /**
+     * 컨테이너가 수직인지 확인합니다.
+     */
+    public isVerticalContainer(): boolean {
+        if (!this.containerEl) return true;
+        const { width, height } = this.containerEl.getBoundingClientRect();
+        return height > width;
+    }
     //#endregion
 
     //#region 레이아웃 속성
@@ -92,26 +139,6 @@ export class LayoutConfig {
     public getMasonryColumns(): number {
         return this.settings.masonryColumns;
     }
-
-    /**
-     * 자동 레이아웃의 열 수를 계산합니다.
-     */
-    public calculateAutoColumns(): number {
-        const availableWidth = this.getAvailableWidth();
-        const cardGap = this.getCardGap();
-        const threshold = this.settings.cardWidthThreshold;
-        
-        return Math.max(1, Math.floor((availableWidth + cardGap) / (threshold + cardGap)));
-    }
-
-    /**
-     * 컨테이너가 수직인지 확인합니다.
-     */
-    public isVerticalContainer(): boolean {
-        if (!this.containerEl) return true;
-        const { width, height } = this.containerEl.getBoundingClientRect();
-        return height > width;
-    }
     //#endregion
 
     //#region 스타일 설정
@@ -126,9 +153,6 @@ export class LayoutConfig {
             alignItems: 'stretch',
             overflowY: isVertical ? 'auto' : 'hidden',
             overflowX: isVertical ? 'hidden' : 'auto',
-            height: '100%',
-            width: 'calc(100% + var(--size-4-3))',
-            paddingRight: 'var(--size-4-3)'
         };
     }
 
@@ -151,6 +175,12 @@ export class LayoutConfig {
         }
 
         return style;
+    }
+    //#endregion
+
+    //#region 이전 열 수 업데이트
+    public updatePreviousColumns(columns: number) {
+        this.previousColumns = columns;
     }
     //#endregion
 } 

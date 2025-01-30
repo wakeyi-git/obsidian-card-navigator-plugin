@@ -38,7 +38,10 @@ export class MasonryLayout implements LayoutStrategy {
     // 컨테이너 설정
     setContainer(container: HTMLElement) {
         this.container = container;
-        this.setupContainer();
+        // 컨테이너 클래스 설정만 여기서 수행
+        if (this.container) {
+            this.container.className = 'masonry-layout';
+        }
     }
 
     // 컨테이너 초기 설정
@@ -63,32 +66,36 @@ export class MasonryLayout implements LayoutStrategy {
 
     //#region 카드 배치 및 레이아웃 관리
     // 카드를 메이슨리 형태로 배치
-    arrange(cards: Card[], containerWidth: number, _containerHeight: number, _cardsPerView: number): CardPosition[] {
-        if (!this.container) {
-            console.warn('Container is not set. Please call setContainer before arrange.');
-            return [];
-        }
+    arrange(cards: Card[], containerWidth: number): CardPosition[] {
+        if (!this.container) return [];
 
-        this.setupContainer();
+        const container = this.container; // null이 아닌 컨테이너 참조 저장
+
+        // 컨테이너 초기화 및 CSS 변수 설정
+        container.empty();
+        container.style.setProperty('--column-count', this.columns.toString());
+        container.style.setProperty('--card-gap', `${this.layoutConfig.getCardGap()}px`);
+        container.style.setProperty('--card-width', `${this.cardWidth}px`);
+
+        // 컬럼 생성
+        this.columnElements = Array.from({ length: this.columns }, () => 
+            container.createDiv({ cls: 'masonry-column' })
+        );
 
         const cardPositions: CardPosition[] = [];
-        const containerRect = this.container.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
         const cardWidth = this.cardWidth || this.layoutConfig.calculateCardWidth(this.columns);
 
         // 포커스된 카드 상태 저장
-        const focusedCards = new Set(Array.from(this.container.querySelectorAll('.card-navigator-focused'))
-            .map(el => (el as HTMLElement).dataset.cardId));
+        const focusedCards = new Set(
+            Array.from(container.querySelectorAll('.card-navigator-focused'))
+                .map(el => (el as HTMLElement).dataset.path)
+        );
 
-        // 기존 카드 제거
-        this.columnElements.forEach(column => column.innerHTML = '');
-
-        // 카드 배치
         cards.forEach((card, index) => {
             const columnIndex = index % this.columns;
             const cardElement = this.cardMaker.createCardElement(card);
-            cardElement.classList.add('masonry-card');
-            cardElement.style.width = `${cardWidth}px`;
-            
+
             // 포커스 상태 복원
             if (focusedCards.has(card.file.path)) {
                 cardElement.classList.add('card-navigator-focused');
@@ -119,6 +126,17 @@ export class MasonryLayout implements LayoutStrategy {
     // 스크롤 방향 반환 (항상 수직)
     getScrollDirection(): 'vertical' | 'horizontal' {
         return 'vertical';
+    }
+
+    getContainerStyle(): Partial<CSSStyleDeclaration> {
+        return this.layoutConfig.getContainerStyle(this.getScrollDirection() === 'vertical');
+    }
+
+    getCardStyle(): Partial<CSSStyleDeclaration> {
+        return this.layoutConfig.getCardStyle(
+            this.getScrollDirection() === 'vertical',
+            this.settings.alignCardHeight
+        );
     }
     //#endregion
 

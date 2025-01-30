@@ -76,6 +76,9 @@ export class LayoutManager {
         // 오토 레이아웃의 경우 컨테이너 너비에 따라 동적으로 결정
         const columns = this.layoutConfig.calculateAutoColumns();
         const cardWidth = Math.floor((availableWidth - (columns - 1) * this.cardGap) / columns);
+        
+        // 현재 열 수 저장
+        this.layoutConfig.updatePreviousColumns(columns);
 
         if (columns === 1) {
             const listLayout = new ListLayout(this.isVertical, this.cardGap, alignCardHeight, this.layoutConfig);
