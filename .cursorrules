@@ -126,16 +126,26 @@ Card Navigator는 다양한 사용자 지정 옵션을 제공합니다:
 Card Navigator/
 ├── src/
 │   ├── common/
-│   │   ├── IPresetManager.ts
-│   │   │   └── 프리셋 관리 인터페이스를 정의하는 파일입니다.
-│   │   ├── ISettingsManager.ts
-│   │   │   └── 설정 관리 인터페이스를 정의하는 파일입니다.
-│   │   ├── keyboardNavigator.ts
-│   │   │   └── 키보드 내비게이션을 처리하는 클래스가 포함된 파일입니다.
+│   │   ├── interface.ts
+│   │   │   └── 공통 인터페이스를 정의하는 파일입니다.
 │   │   ├── types.ts
 │   │   │   └── 공통 타입 정의가 포함된 파일입니다.
 │   │   └── utils.ts
 │   │       └── 유틸리티 함수들이 포함된 파일입니다.
+│   │
+│   ├── layout/
+│   │   ├── gridLayout.ts
+│   │   │   └── 그리드 레이아웃 전략을 구현한 파일입니다.
+│   │   ├── layoutConfig.ts
+│   │   │   └── 레이아웃 설정을 관리하는 파일입니다.
+│   │   ├── layoutManager.ts
+│   │   │   └── 레이아웃 관리 로직이 포함된 파일입니다.
+│   │   ├── layoutStrategy.ts
+│   │   │   └── 레이아웃 전략 인터페이스를 정의한 파일입니다.
+│   │   ├── listLayout.ts
+│   │   │   └── 리스트 레이아웃 전략을 구현한 파일입니다.
+│   │   └── MasonryLayout.ts
+│   │       └── 메이슨리 레이아웃 전략을 구현한 파일입니다.
 │   │
 │   ├── locales/
 │   │   ├── en.json
@@ -143,51 +153,84 @@ Card Navigator/
 │   │   └── ko.json
 │   │       └── 한국어 번역 리소스가 포함된 파일입니다.
 │   │
-│   ├── main.ts
-│   │   └── 플러그인의 메인 엔트리 포인트 파일입니다.
-│   │
 │   ├── ui/
 │   │   ├── cardContainer/
 │   │   │   ├── cardContainer.ts
 │   │   │   │   └── 카드 컨테이너를 관리하는 클래스가 포함된 파일입니다.
-│   │   │   └── cardMaker.ts
-│   │   │       └── 카드 생성 로직이 포함된 파일입니다.
+│   │   │   ├── cardInteractionManager.ts
+│   │   │   │   └── 카드 상호 작용을 관리하는 클래스가 포함된 파일입니다.
+│   │   │   ├── cardMaker.ts
+│   │   │   │   └── 카드 생성 로직이 포함된 파일입니다.
+│   │   │   ├── cardRenderer.ts
+│   │   │   │   └── 카드 렌더링 로직이 포함된 파일입니다.
+│   │   │   ├── keyboardNavigator.ts
+│   │   │   │   └── 키보드 내비게이션을 처리하는 클래스가 포함된 파일입니다.
+│   │   │   └── scroller.ts
+│   │   │       └── 스크롤 로직이 포함된 파일입니다.
 │   │   │
-│   │   ├── cardNavigator.ts
-│   │   │   └── 카드 네비게이터 뷰를 정의하는 파일입니다.
+│   │   ├── settings/
+│   │   │   ├── components/
+│   │   │   │   ├── Error.ts
+│   │   │   │   │   └── 오류 처리 로직이 포함된 파일입니다.
+│   │   │   │   ├── FolderSuggest.ts
+│   │   │   │   │   └── 폴더 제안 기능을 구현한 파일입니다.
+│   │   │   │   ├── Log.ts
+│   │   │   │   │   └── 로그 관련 기능이 포함된 파일입니다.
+│   │   │   │   ├── PresetSuggest.ts
+│   │   │   │   │   └── 프리셋 제안 기능을 구현한 파일입니다.
+│   │   │   │   ├── Utils.ts
+│   │   │   │   │   └── 설정 관련 유틸리티 함수들이 포함된 파일입니다.
+│   │   │   │   └── suggest.ts
+│   │   │   │       └── 제안 기능을 구현한 파일입니다.
+│   │   │   ├── modals/
+│   │   │   │   ├── PresetEditModal.ts
+│   │   │   │   │   └── 프리셋 수정 모달을 구현한 파일입니다.
+│   │   │   │   └── PresetImportExportModal.ts
+│   │   │   │       └── 프리셋 가져오기/내보내기 모달을 구현한 파일입니다.
+│   │   │   ├── sections/
+│   │   │   │   ├── cardContentSettings.ts
+│   │   │   │   │   └── 카드 내용 설정을 추가하는 함수가 포함된 파일입니다.
+│   │   │   │   ├── cardStyleSettings.ts
+│   │   │   │   │   └── 카드 스타일 설정을 추가하는 함수가 포함된 파일입니다.
+│   │   │   │   ├── containerSettings.ts
+│   │   │   │   │   └── 컨테이너 설정을 추가하는 함수가 포함된 파일입니다.
+│   │   │   │   ├── keyboardShortcutsInfo.ts
+│   │   │   │   │   └── 키보드 단축키 정보를 제공하는 파일입니다.
+│   │   │   │   ├── layoutSettings.ts
+│   │   │   │   │   └── 레이아웃 설정을 추가하는 함수가 포함된 파일입니다.
+│   │   │   │   └── PresetSettings.ts
+│   │   │   │       └── 프리셋 설정을 추가하는 함수가 포함된 파일입니다.
+│   │   │   ├── PresetManager.ts
+│   │   │   │   └── 프리셋 관리 로직이 포함된 파일입니다.
+│   │   │   ├── settingsManager.ts
+│   │   │   │   └── 설정 관리 로직이 포함된 파일입니다.
+│   │   │   └── settingsTab.ts
+│   │   │       └── 설정 탭을 정의하는 파일입니다.
 │   │   │
-│   │   ├── layouts/
-│   │   │   ├── gridLayout.ts
-│   │   │   │   └── 그리드 레이아웃 전략을 구현한 파일입니다.
-│   │   │   ├── layoutStrategy.ts
-│   │   │   │   └── 레이아웃 전략 인터페이스를 정의한 파일입니다.
-│   │   │   └── listLayout.ts
-│   │   │       └── 리스트 레이아웃 전략을 구현한 파일입니다.
+│   │   ├── toolbar/
+│   │   │   ├── search/
+│   │   │   │   ├── indexs.ts
+│   │   │   │   │   └── 검색 바를 구현한 파일입니다.
+│   │   │   │   ├── searchHistory.ts
+│   │   │   │   │   └── 검색 기록을 관리하는 파일입니다.
+│   │   │   │   ├── searchInput.ts
+│   │   │   │   │   └── 검색 입력을 관리하는 파일입니다.
+│   │   │   │   ├── SerchService.ts
+│   │   │   │   │   └── 검색 서비스를 제공하는 파일입니다.
+│   │   │   │   └── SearchSuggest.ts
+│   │   │   │       └── 검색 제안을 관리하는 파일입니다.
+│   │   │   ├── settings.ts
+│   │   │   │   └── 설정을 관리하는 파일입니다.
+│   │   │   ├── sort.ts
+│   │   │   │   └── 정렬 로직이 포함된 파일입니다.
+│   │   │   └── toolbar.ts
+│   │   │       └── 툴바를 정의하는 파일입니다.
 │   │   │
-│   │   └── settings/
-│   │       ├── PresetManager.ts
-│   │       │   └── 프리셋 관리 로직이 포함된 파일입니다.
-│   │       ├── cardContentSettings.ts
-│   │       │   └── 카드 내용 설정을 추가하는 함수가 포함된 파일입니다.
-│   │       ├── cardStyleSettings.ts
-│   │       │   └── 카드 스타일 설정을 추가하는 함수가 포함된 파일입니다.
-│   │       ├── components/
-│   │       │   ├── Error.ts
-│   │       │   │   └── 오류 처리 로직이 포함된 파일입니다.
-│   │       │   ├── FolderSuggest.ts
-│   │       │   │   └── 폴더 제안 기능을 구현한 파일입니다.
-│   │       │   ├── Log.ts
-│   │       │   │   └── 로그 관련 기능이 포함된 파일입니다.
-│   │       │   ├── PresetSuggest.ts
-│   │       │   │   └── 프리셋 제안 기능을 구현한 파일입니다.
-│   │       │   ├── Utils.ts
-│   │       │   │   └── 설정 관련 유틸리티 함수들이 포함된 파일입니다.
-│   │       │   └── suggest.ts
-│   │       │       └── 제안 기능을 구현한 파일입니다.
-│   │       ├── containerSettings.ts
-│   │       │   └── 컨테이너 설정을 추가하는 함수가 포함된 파일입니다.
-│   │       └── settingsTab.ts
-│   │           └── 설정 탭을 정의하는 파일입니다.
+│   │   └── cardNavigatorView.ts
+│   │       └── 카드 네비게이터 뷰를 정의하는 파일입니다.
+│   │
+│   └── main.ts
+│       └── 플러그인의 메인 엔트리 포인트 파일입니다.
 │
 └── styles.css
     └── Card Navigator의 스타일을 정의하는 CSS 파일입니다.

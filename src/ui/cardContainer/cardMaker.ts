@@ -10,20 +10,17 @@ export class CardMaker {
     private interactionManager: CardInteractionManager;
 
     constructor(private plugin: CardNavigatorPlugin) {
-        this.interactionManager = new CardInteractionManager(
-            plugin,
-            this.getCardContent.bind(this),
-            this.getLink.bind(this)
-        );
+        this.interactionManager = new CardInteractionManager(plugin);
     }
 
     // 복사 기능을 위한 public 메서드
-    public copyLink(file: TFile) {
-        this.interactionManager.copyLink(file);
+    public async copyLink(file: TFile) {
+        await this.interactionManager.copyLink(file);
     }
 
     public async copyCardContent(file: TFile) {
-        await this.interactionManager.copyCardContent(file);
+        const card = await this.createCard(file);
+        await this.interactionManager.copyCardContent(card);
     }
 
     //#region 카드 생성 및 내용 관리
@@ -123,37 +120,6 @@ export class CardMaker {
         });
         element.style.fontSize = `${fontSize}px`;
         return element;
-    }
-    //#endregion
-
-    //#region 카드 내용 및 링크 관리
-    // 링크 생성 메서드
-    private getLink(file: TFile): string {
-        return this.plugin.app.fileManager.generateMarkdownLink(file, '');
-    }
-
-    // 카드 내용 가져오기 메서드
-    private getContent(card: Card): string {
-        const parts = [];
-        if (this.plugin.settings.showFileName && card.fileName) {
-            parts.push(`## ${card.fileName}`);
-        }
-        if (this.plugin.settings.showFirstHeader && card.firstHeader) {
-            parts.push(`# ${card.firstHeader}`);
-        }
-        if (this.plugin.settings.showBody && card.body) {
-            parts.push(card.body);
-        }
-
-        return parts.length ? parts.join('\n\n') : this.getLink(card.file);
-    }
-
-    // 드래그 앤 드롭용 카드 내용 가져오기 메서드
-    private getCardContent(card: Card): string {
-        if (!this.plugin.settings.dragDropContent) {
-            return this.getLink(card.file);
-        }
-        return this.getContent(card);
     }
     //#endregion
 }
