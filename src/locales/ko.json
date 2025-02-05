@@ -5,10 +5,9 @@
     "COPY_AS_LINK": "링크로 복사",
     "COPY_CARD_CONTENT": "카드 내용 복사",
 
-	"LINK_COPIED_TO_CLIPBOARD": "링크가 클립보드에 복사되었습니다",
-    "FAILED_TO_COPY_LINK": "링크 복사 실패",
-    "CARD_CONTENT_COPIED_TO_CLIPBOARD": "카드 내용이 클립보드에 복사되었습니다",
-    "FAILED_TO_COPY_CARD_CONTENT": "카드 내용 복사 실패",
+    "LINK_COPIED": "링크가 클립보드에 복사되었습니다",
+    "CONTENT_COPIED": "내용이 클립보드에 복사되었습니다",
+    "COPY_FAILED": "복사에 실패했습니다",
 
     "SEARCH_PLACEHOLDER": "카드 검색...",
     "SORT_CARDS": "카드 정렬",
