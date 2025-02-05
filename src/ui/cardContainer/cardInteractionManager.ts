@@ -30,7 +30,6 @@ export class CardInteractionManager {
         let isLongPress = false;
 
         const handleTouchStart = (e: TouchEvent) => {
-            e.preventDefault();
             const touch = e.touches[0];
             touchStartTime = Date.now();
             isMoved = false;
@@ -40,6 +39,7 @@ export class CardInteractionManager {
             this.touchTimeout = setTimeout(() => {
                 if (!isMoved) {
                     isLongPress = true;
+                    e.preventDefault();
                     this.showContextMenu(e, card.file);
                 }
             }, 500);
@@ -62,7 +62,6 @@ export class CardInteractionManager {
         };
 
         const handleTouchEnd = async (e: TouchEvent) => {
-            e.preventDefault();
             if (this.touchTimeout) {
                 clearTimeout(this.touchTimeout);
                 this.touchTimeout = null;
@@ -71,13 +70,14 @@ export class CardInteractionManager {
             const touchDuration = Date.now() - touchStartTime;
 
             if (!isMoved && !isLongPress && touchDuration < 200) {
+                e.preventDefault();
                 await this.openFile(card.file);
             }
 
             this.initialTouchPos = null;
         };
 
-        cardElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+        cardElement.addEventListener('touchstart', handleTouchStart, { passive: true });
         cardElement.addEventListener('touchmove', handleTouchMove, { passive: true });
         cardElement.addEventListener('touchend', handleTouchEnd, { passive: false });
     }
