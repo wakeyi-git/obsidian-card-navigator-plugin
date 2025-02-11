@@ -98,7 +98,7 @@ function addGlobalPresetSection(containerEl: HTMLElement, plugin: CardNavigatorP
 
 			const parentEl = cb.inputEl.parentElement;
 			if (parentEl) {
-				parentEl.classList.add('wide-input-container');
+				parentEl.classList.add('card-navigator-wide-input-container');
 			}
 		
 		cb.inputEl.removeAttribute('autofocus');

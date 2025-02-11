@@ -495,20 +495,16 @@
     height: var(--size-4-3);
 }
 
-.search-input-container {
+/* .search-input-container {
     width: 50%;
-}
+} */
 
 .preset-suggest-input {
     width: 50%;
 }
 
-.search-input-container.wide-input-container {
+.search-input-container.card-navigator-wide-input-container {
     width: 300px;
-}
-
-.preset-suggest-input.wide-input-container {
-    width: 200px;
 }
 
 /* Keyboard Shortcuts Table Styles */
