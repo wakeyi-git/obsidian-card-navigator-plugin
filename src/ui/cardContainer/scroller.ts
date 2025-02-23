@@ -28,29 +28,74 @@ export class Scroller {
     public centerCard(card: HTMLElement, animate = true) {
         if (!this.containerEl) return;
 
-        const containerRect = this.containerEl.getBoundingClientRect();
-        const cardRect = card.getBoundingClientRect();
+        // 스크롤 조정 함수
+        const adjustScroll = () => {
+            const containerRect = this.containerEl.getBoundingClientRect();
+            const cardRect = card.getBoundingClientRect();
 
-        let offset = 0;
-        let scrollProperty: 'scrollTop' | 'scrollLeft';
-        const isVertical = this.getLayoutStrategy().getScrollDirection() === 'vertical';
+            let offset = 0;
+            let scrollProperty: 'scrollTop' | 'scrollLeft';
+            const isVertical = this.getLayoutStrategy().getScrollDirection() === 'vertical';
 
-        if (isVertical) {
-            const containerVisibleHeight = containerRect.height;
-            offset = cardRect.top - containerRect.top - (containerVisibleHeight - cardRect.height) / 2;
-            scrollProperty = 'scrollTop';
-        } else {
-            const containerVisibleWidth = containerRect.width;
-            offset = cardRect.left - containerRect.left - (containerVisibleWidth - cardRect.width) / 2;
-            scrollProperty = 'scrollLeft';
-        }
+            if (isVertical) {
+                const containerVisibleHeight = containerRect.height;
+                offset = cardRect.top - containerRect.top - (containerVisibleHeight - cardRect.height) / 2;
+                scrollProperty = 'scrollTop';
+            } else {
+                const containerVisibleWidth = containerRect.width;
+                offset = cardRect.left - containerRect.left - (containerVisibleWidth - cardRect.width) / 2;
+                scrollProperty = 'scrollLeft';
+            }
 
-        const newScrollPosition = this.containerEl[scrollProperty] + offset;
+            const newScrollPosition = this.containerEl[scrollProperty] + offset;
 
-        if (animate && this.plugin.settings.enableScrollAnimation) {
-            this.smoothScroll(scrollProperty, newScrollPosition);
-        } else {
-            this.containerEl[scrollProperty] = newScrollPosition;
+            if (animate && this.plugin.settings.enableScrollAnimation) {
+                this.smoothScroll(scrollProperty, newScrollPosition);
+            } else {
+                this.containerEl[scrollProperty] = newScrollPosition;
+            }
+        };
+
+        // 초기 스크롤 조정
+        adjustScroll();
+
+        // HTML 렌더링이 활성화되고 높이가 가변적인 경우에만 추가 보정
+        if (this.plugin.settings.renderContentAsHtml && !this.plugin.settings.alignCardHeight) {
+            let lastOffset = 0;
+            let stabilityCount = 0;
+            const MAX_STABILITY_COUNT = 3;  // 3프레임 동안 안정적이면 완료로 간주
+            const MAX_ADJUSTMENT_TIME = 2000;  // 최대 2초 동안만 조정
+            const startTime = Date.now();
+
+            const recheckPosition = () => {
+                const currentTime = Date.now();
+                if (currentTime - startTime > MAX_ADJUSTMENT_TIME) {
+                    return; // 최대 시간 초과
+                }
+
+                const containerRect = this.containerEl.getBoundingClientRect();
+                const cardRect = card.getBoundingClientRect();
+                const currentOffset = this.getLayoutStrategy().getScrollDirection() === 'vertical'
+                    ? cardRect.top - containerRect.top
+                    : cardRect.left - containerRect.left;
+
+                // 오차 범위 내에서 위치가 안정적인지 확인
+                if (Math.abs(currentOffset - lastOffset) < 1) {
+                    stabilityCount++;
+                    if (stabilityCount >= MAX_STABILITY_COUNT) {
+                        return; // 안정화 완료
+                    }
+                } else {
+                    stabilityCount = 0;
+                }
+
+                lastOffset = currentOffset;
+                adjustScroll();
+                requestAnimationFrame(recheckPosition);
+            };
+
+            // 다음 프레임에서 위치 재확인 시작
+            requestAnimationFrame(recheckPosition);
         }
     }
 

@@ -2,7 +2,6 @@
 :root {
     --card-navigator-container-padding: 10px;
     --card-navigator-gap: 10px;
-    --card-navigator-transition: 0.2s ease;
     --card-navigator-icon-size: 20px;
     --card-navigator-popup-width: 250px;
 }
@@ -335,7 +334,6 @@
     border-radius: var(--radius-m);
     padding: var(--size-4-4);
     background-color: var(--background-primary);
-    transition: all 0.2s ease;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -537,7 +535,6 @@
     border: var(--border-width) solid var(--background-modifier-border);
     border-radius: var(--radius-m);
     box-sizing: border-box;
-    transition: transform 0.2s ease-in-out;
     cursor: pointer;
     width: var(--card-width); /* CSS 변수로 너비 설정 */
 }
