@@ -305,18 +305,9 @@
 .card-navigator-container {
     position: relative;
     height: 100%;
-}
-
-/* 그리드와 메이슨리 레이아웃에 스크롤바 여백 추가 */
-.card-navigator-container:not(.list-layout) {
     width: calc(100% + var(--size-4-3));
-    padding-right: var(--size-4-4);
-}
-
-/* 리스트 레이아웃 스타일은 그대로 유지 */
-.card-navigator-container.list-layout {
-    width: calc(100% + var(--size-4-3));
-    padding-right: var(--size-2-1);
+    padding-right: var(--size-4-3);
+    box-sizing: border-box;
 }
 
 .card-navigator-container.visible {
@@ -339,19 +330,20 @@
 
 /* Card styling */
 .card-navigator-card {
-    flex: 0 0 auto;
-    padding: var(--size-4-4);
+    position: relative;
     border: var(--border-width) solid var(--background-modifier-border);
     border-radius: var(--radius-m);
+    padding: var(--size-4-4);
     background-color: var(--background-primary);
-    cursor: pointer;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .card-navigator-card.align-height {
-    overflow: hidden; /* Prevents overflow for equal height alignment */
+    height: calc((100% - (var(--cards-per-view) - 1) * var(--card-navigator-gap)) / var(--cards-per-view));
 }
 
 .card-navigator-card.vertical {
@@ -397,32 +389,126 @@
 }
 
 .card-navigator-body {
-    font-size: var(--body-font-size, 1rem);
-    color: var(--text-muted);
-    line-height: var(--line-height-normal);
+    position: relative;
     margin: 0;
+    padding: 0;
+    width: 100%;
+    box-sizing: border-box;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.card-navigator-body.html-content {
+    overflow: hidden;
+}
+
+.card-navigator-body.plain-text {
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-box-orient: vertical;
+}
+
+.card-navigator-body .markdown-rendered {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    flex: 1;
     overflow-y: auto;
+    padding-right: 4px;
+}
+
+/* 블릿 리스트 여백 조정 */
+.card-navigator-body .markdown-rendered ul {
+    padding-left: 0;
+    margin: 0;
+}
+
+.card-navigator-body .markdown-rendered .HyperMD-list-line {
+    text-indent: -23px;
+    padding-inline-start: 23px;
+}
+
+/* 활성 카드 스타일 */
+.card-navigator-card.card-navigator-active .markdown-rendered {
+    color: var(--interactive-accent);
+}
+
+.card-navigator-card.card-navigator-active .markdown-rendered .cm-header {
+    color: var(--interactive-accent);
+}
+
+.card-navigator-card.card-navigator-active .markdown-rendered .list-bullet {
+    color: var(--interactive-accent);
+}
+
+.card-navigator-card.card-navigator-active .card-navigator-filename {
+    color: var(--interactive-accent);
+}
+
+/* 이미지 컨테이너 스타일 */
+.card-navigator-body .image-container {
+    width: 100%;
+    text-align: center;
+    margin: 0.5em 0;
+}
+
+.card-navigator-body .image-container:first-child {
+    margin-top: 0;
+}
+
+.card-navigator-body .image-container:last-child {
+    margin-bottom: var(--size-4-4);
 }
 
 .card-navigator-body img {
     max-width: 100%;
     height: auto;
-    object-fit: contain; /* Ensure images maintain aspect ratio */
+    object-fit: contain;
+    display: inline-block;
+    vertical-align: middle;
 }
 
-.card-navigator-body * {
-    max-width: 100%; /* Limit body width */
+.card-navigator-body pre {
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 0.5em;
+    background-color: var(--background-secondary);
+    border-radius: var(--radius-s);
 }
 
-.card-navigator-body.ellipsis {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
+.card-navigator-body code {
+    word-break: break-all;
+    white-space: pre-wrap;
+}
+
+.card-navigator-body blockquote {
+    margin: 0.5em 0;
+    padding: 0 1em;
+    border-left: 2px solid var(--background-modifier-border);
+}
+
+.card-navigator-body ul,
+.card-navigator-body ol {
+    padding-left: 1.5em;
+    margin: 0.5em 0;
+}
+
+.card-navigator-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.5em 0;
+    font-size: 0.9em;
+}
+
+.card-navigator-body th,
+.card-navigator-body td {
+    padding: 0.3em;
+    border: 1px solid var(--background-modifier-border);
+    word-break: break-word;
 }
 
 .popout-window {
@@ -613,3 +699,15 @@
     color: var(--interactive-accent);
 }
 
+/* 활성 카드 스타일 */
+.card-navigator-card.card-navigator-active .markdown-rendered {
+color: var(--interactive-accent);
+}
+
+.card-navigator-card.card-navigator-active .markdown-rendered .cm-header {
+    color: var(--interactive-accent);
+}
+
+.card-navigator-card.card-navigator-active .markdown-rendered .list-bullet {
+    color: var(--interactive-accent);
+}
