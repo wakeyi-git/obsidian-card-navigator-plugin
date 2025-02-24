@@ -54,18 +54,11 @@ export class LayoutManager {
             throw new Error('Container element is not initialized');
         }
 
-        const containerStyle = window.getComputedStyle(this.containerEl);
-        const containerWidth = this.containerEl.offsetWidth;
-        const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
-        const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
-        const availableWidth = containerWidth - paddingLeft - paddingRight;
+        const availableWidth = this.layoutConfig.getAvailableWidth();
         
         const {
             alignCardHeight,
-            cardWidthThreshold,
             defaultLayout,
-            gridColumns,
-            masonryColumns,
         } = this.plugin.settings;
 
         // 자동이 아닌 레이아웃의 경우 해당 레이아웃 전략 반환
@@ -75,37 +68,46 @@ export class LayoutManager {
 
         // 오토 레이아웃의 경우 컨테이너 너비에 따라 동적으로 결정
         const columns = this.layoutConfig.calculateAutoColumns();
-        const cardWidth = Math.floor((availableWidth - (columns - 1) * this.cardGap) / columns);
+        const cardWidth = this.layoutConfig.calculateCardWidth(columns);
         
         // 현재 열 수 저장
         this.layoutConfig.updatePreviousColumns(columns);
 
+        let layoutStrategy: LayoutStrategy;
+
         if (columns === 1) {
-            const listLayout = new ListLayout(
+            layoutStrategy = new ListLayout(
                 this.isVertical, 
                 this.cardGap, 
                 alignCardHeight,
                 this.plugin.settings,
                 this.layoutConfig
             );
-            listLayout.setCardWidth(cardWidth);
-            return listLayout;
-        } else if (alignCardHeight) {
-            const gridLayout = new GridLayout(columns, this.cardGap, this.plugin.settings, this.layoutConfig);
-            gridLayout.setCardWidth(cardWidth);
-            return gridLayout;
         } else {
-            const masonryLayout = new MasonryLayout(
-                columns,
-                this.cardGap,
-                this.plugin.settings,
-                this.cardMaker,
-                this.layoutConfig
-            );
-            masonryLayout.setContainer(this.containerEl);
-            masonryLayout.setCardWidth(cardWidth);
-            return masonryLayout;
+            // 카드 높이 정렬이 필요한 경우 그리드 레이아웃 사용
+            if (alignCardHeight) {
+                layoutStrategy = new GridLayout(
+                    columns, 
+                    this.cardGap, 
+                    this.plugin.settings, 
+                    this.layoutConfig
+                );
+            } else {
+                layoutStrategy = new MasonryLayout(
+                    this.plugin.settings,
+                    this.cardMaker,
+                    this.layoutConfig
+                );
+            }
         }
+
+        // 공통 설정 적용
+        if (layoutStrategy instanceof MasonryLayout) {
+            layoutStrategy.setContainer(this.containerEl);
+        }
+        layoutStrategy.setCardWidth(cardWidth);
+
+        return layoutStrategy;
     }
 
     private createSpecificLayout(layout: CardNavigatorSettings['defaultLayout'], availableWidth: number): LayoutStrategy {
@@ -115,40 +117,50 @@ export class LayoutManager {
             masonryColumns,
         } = this.plugin.settings;
 
+        let layoutStrategy: LayoutStrategy;
+
         switch (layout) {
             case 'list': {
-                const listLayout = new ListLayout(
+                layoutStrategy = new ListLayout(
                     this.isVertical, 
                     this.cardGap, 
-                    this.plugin.settings.alignCardHeight,
+                    alignCardHeight,
                     this.plugin.settings,
                     this.layoutConfig
                 );
-                listLayout.setCardWidth(availableWidth);
-                return listLayout;
+                break;
             }
             case 'grid': {
-                const gridLayout = new GridLayout(gridColumns, this.cardGap, this.plugin.settings, this.layoutConfig);
-                const cardWidth = Math.floor((availableWidth - (gridColumns - 1) * this.cardGap) / gridColumns);
-                gridLayout.setCardWidth(cardWidth);
-                return gridLayout;
+                layoutStrategy = new GridLayout(
+                    gridColumns, 
+                    this.cardGap, 
+                    this.plugin.settings, 
+                    this.layoutConfig
+                );
+                break;
             }
             case 'masonry': {
-                const masonryLayout = new MasonryLayout(
-                    masonryColumns,
-                    this.cardGap,
+                layoutStrategy = new MasonryLayout(
                     this.plugin.settings,
                     this.cardMaker,
                     this.layoutConfig
                 );
-                masonryLayout.setContainer(this.containerEl);
-                const cardWidth = Math.floor((availableWidth - (masonryColumns - 1) * this.cardGap) / masonryColumns);
-                masonryLayout.setCardWidth(cardWidth);
-                return masonryLayout;
+                break;
             }
             default:
-                throw new Error(`Unsupported layout type: ${layout}`);
+                throw new Error(`지원하지 않는 레이아웃 타입: ${layout}`);
         }
+
+        // 공통 설정 적용
+        if (layoutStrategy instanceof MasonryLayout) {
+            layoutStrategy.setContainer(this.containerEl);
+        }
+        const cardWidth = this.layoutConfig.calculateCardWidth(
+            layout === 'list' ? 1 : (layout === 'grid' ? gridColumns : masonryColumns)
+        );
+        layoutStrategy.setCardWidth(cardWidth);
+
+        return layoutStrategy;
     }
 
     /**
@@ -162,6 +174,8 @@ export class LayoutManager {
         if (this.layoutStrategy instanceof ListLayout) {
             this.layoutStrategy.updateSettings(settings);
         } else if (this.layoutStrategy instanceof GridLayout) {
+            this.layoutStrategy.updateSettings(settings);
+        } else if (this.layoutStrategy instanceof MasonryLayout) {
             this.layoutStrategy.updateSettings(settings);
         }
         

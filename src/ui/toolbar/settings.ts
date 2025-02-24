@@ -149,7 +149,6 @@ async function addPresetSettingsToPopup(settingsPopup: HTMLElement, plugin: Card
                         await plugin.presetManager.applyGlobalPreset(value);
                         // 설정 팝업 UI 새로고침
                         refreshSettingsPopup(settingsPopup, plugin);
-                        refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
                     }
                 });
         });
@@ -267,7 +266,6 @@ function addDropdownSetting(
             dropdown.setValue(plugin.settings[key] as string)
                 .onChange(async (value) => {
                     await settingsManager.updateSetting(key, value);
-                    refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
                     if (onChange) {
                         onChange(value);
                     }
@@ -290,7 +288,6 @@ function addToggleSetting(
             .setValue(plugin.settings[key] as boolean)
             .onChange(async (value) => {
                 await settingsManager.updateBooleanSetting(key, value);
-                refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
                 if (onChange) {
                     onChange();
                 }
@@ -320,7 +317,6 @@ function addSliderSetting(
 
     // 현재 값을 표시할 span 요소 생성
     const valueDisplay = createSpan({
-        // cls: 'slider-value',
         text: String(plugin.settings[key])
     });
     // 이름 요소 찾기
@@ -345,11 +341,6 @@ function addSliderSetting(
             // 값 표시 업데이트
             valueDisplay.textContent = String(value);
             await settingsManager.updateSetting(key, value);
-            if (key === 'gridColumns' || key === 'masonryColumns') {
-                plugin.updateLayout(plugin.settings.defaultLayout);
-            } else {
-                refreshAllCardNavigatorViews(plugin, RefreshType.SETTINGS);
-            }
         })
     );
 

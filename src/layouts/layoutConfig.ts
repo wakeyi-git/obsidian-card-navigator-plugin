@@ -60,71 +60,93 @@ export class LayoutConfig {
     }
 
     /**
+     * 자동 레이아웃의 열 수를 계산합니다.
+     */
+        public calculateAutoColumns(): number {
+            const availableWidth = this.getAvailableWidth();
+            const cardGap = this.getCardGap();
+            const threshold = this.settings.cardWidthThreshold;
+            
+            // 히스테리시스 버퍼
+            const upperBuffer = 40;
+            const lowerBuffer = 20;
+            
+            // 현재 열 수 계산
+            let columns = Math.max(1, Math.floor((availableWidth + cardGap) / (threshold + cardGap)));
+            
+            // 실제 카드 너비 계산
+            const actualCardWidth = (availableWidth - (columns - 1) * cardGap) / columns;
+            
+            // 1열 강제 전환 조건
+            if (actualCardWidth < threshold - lowerBuffer) {
+                return 1;
+            }
+            
+            // 2열 이상에서의 히스테리시스 적용
+            if (columns >= 2) {
+                const previousWidth = (availableWidth - (this.previousColumns - 1) * cardGap) / this.previousColumns;
+                
+                // 이전 상태가 유효하면 히스테리시스 적용
+                if (this.previousColumns > 0) {
+                    if (previousWidth >= threshold - lowerBuffer && previousWidth <= threshold + upperBuffer) {
+                        return this.previousColumns;
+                    }
+                }
+            }
+            
+            return columns;
+        }
+
+    /**
      * 카드 너비를 계산합니다.
      */
-    public calculateCardWidth(columns: number): number {
-        const availableWidth = this.getAvailableWidth();
-        const cardGap = this.getCardGap();
-        const totalGapWidth = cardGap * (columns - 1);
-        
-        return Math.floor((availableWidth - totalGapWidth) / columns);
-    }
+        public calculateCardWidth(columns: number): number {
+            const availableWidth = this.getAvailableWidth();
+            const cardGap = this.getCardGap();
+            const totalGapWidth = cardGap * (columns - 1);
+            
+            return Math.floor((availableWidth - totalGapWidth) / columns);
+        }
 
     /**
      * 카드 높이를 계산합니다.
      */
     public calculateCardHeight(layout: CardNavigatorSettings['defaultLayout']): number | 'auto' {
+        // 그리드 레이아웃은 고정 높이 사용
         if (layout === 'grid') {
             return this.settings.gridCardHeight;
         }
 
-        if (!this.settings.alignCardHeight) {
-            return 'auto';
+        // 메이슨리 레이아웃은 자동 높이 사용
+        if (layout === 'masonry') {
+            return 200;
         }
 
-        const containerHeight = this.containerEl?.offsetHeight || 0;
-        const cardGap = this.getCardGap();
-        const containerPadding = this.getContainerPadding() * 2;
-        const availableHeight = containerHeight - containerPadding;
-        
-        return Math.floor((availableHeight - (cardGap * (this.settings.cardsPerView - 1))) / this.settings.cardsPerView);
-    }
+        // 리스트 레이아웃 또는 자동 레이아웃
+        if (layout === 'list' || layout === 'auto') {
+            if (!this.settings.alignCardHeight) {
+                return 'auto';
+            }
 
-    /**
-     * 자동 레이아웃의 열 수를 계산합니다.
-     */
-    public calculateAutoColumns(): number {
-        const availableWidth = this.getAvailableWidth();
-        const cardGap = this.getCardGap();
-        const threshold = this.settings.cardWidthThreshold;
-        
-        // 히스테리시스 버퍼 추가 (전환 지점에 안정성 추가)
-        const upperBuffer = 40; // 더 큰 버퍼로 조정
-        const lowerBuffer = 20; // 더 작은 버퍼 유지
-        
-        // 현재 열 수 계산
-        const columns = Math.max(1, Math.floor((availableWidth + cardGap) / (threshold + cardGap)));
-        
-        // 실제 카드 너비 계산
-        const actualCardWidth = (availableWidth - (columns - 1) * cardGap) / columns;
-        
-        // 히스테리시스 적용
-        if (columns > 1) {
-            // 현재 너비가 threshold + upperBuffer보다 작으면 열 수를 줄임
-            if (actualCardWidth < threshold - lowerBuffer) {
-                return columns - 1;
-            }
-            // 현재 너비가 threshold - lowerBuffer보다 크면 현재 열 수 유지
-            else if (actualCardWidth > threshold + upperBuffer) {
-                return columns;
-            }
-            // 그 사이 값이면 이전 상태 유지 (히스테리시스)
-            else {
-                return this.previousColumns || columns;
-            }
+            const containerHeight = this.containerEl?.offsetHeight || 0;
+            const cardGap = this.getCardGap();
+            const containerPadding = this.getContainerPadding() * 2;
+                        
+            // 사용 가능한 높이에서 모든 여백 제외
+            const availableHeight = containerHeight - containerPadding;
+            
+            // 정수로 나누어 떨어지는 높이 계산
+            const totalGaps = cardGap * (this.settings.cardsPerView - 1);
+            const heightWithoutGaps = availableHeight - totalGaps;
+            const cardHeight = Math.floor(heightWithoutGaps / this.settings.cardsPerView);
+            
+            // 마지막 1px 여유 확보
+            return cardHeight - 1;
         }
-        
-        return columns;
+
+        // 알 수 없는 레이아웃 타입의 경우 자동 높이 사용
+        console.warn(`[CardNavigator] 알 수 없는 레이아웃 타입: ${layout}, 'auto' 사용`);
+        return 'auto';
     }
 
     /**
@@ -179,16 +201,8 @@ export class LayoutConfig {
         // 항상 최신 설정값 사용
         if (isVertical) {
             style.width = '100%';
-            if (this.settings.alignCardHeight) {
-                const containerHeight = this.containerEl?.offsetHeight || 0;
-                const cardGap = this.getCardGap();
-                const containerPadding = this.getContainerPadding() * 2;
-                const availableHeight = containerHeight - containerPadding;
-                const cardHeight = Math.floor((availableHeight - (cardGap * (this.settings.cardsPerView - 1))) / this.settings.cardsPerView);
-                style.height = `${cardHeight}px`;
-            } else {
-                style.height = 'auto';
-            }
+            const height = this.calculateCardHeight(this.settings.defaultLayout);
+            style.height = height === 'auto' ? 'auto' : `${height}px`;
         } else {
             const cardWidth = this.calculateCardWidth(this.settings.cardsPerView);
             style.width = `${cardWidth}px`;

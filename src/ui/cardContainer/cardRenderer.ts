@@ -7,6 +7,8 @@ import { LayoutManager } from 'layouts/layoutManager';
 import { LayoutConfig } from 'layouts/layoutConfig';
 import { GridLayout } from 'layouts/gridLayout';
 import { MasonryLayout } from 'layouts/masonryLayout';
+import CardNavigatorPlugin from 'main';
+import { MarkdownRenderer } from 'obsidian';
 
 export class CardRenderer {
     private layoutStrategy: LayoutStrategy;
@@ -22,7 +24,8 @@ export class CardRenderer {
         private cardMaker: CardMaker,
         private layoutManager: LayoutManager,
         private alignCardHeight: boolean,
-        private cardsPerView: number
+        private cardsPerView: number,
+        private plugin: CardNavigatorPlugin
     ) {
         this.layoutStrategy = layoutManager.getLayoutStrategy();
         this.layoutConfig = layoutManager.getLayoutConfig();
@@ -31,6 +34,13 @@ export class CardRenderer {
     // 레이아웃 전략 설정 메서드
     public setLayoutStrategy(layoutStrategy: LayoutStrategy) {
         this.layoutStrategy = layoutStrategy;
+        this.updateContainerStyle();
+    }
+
+    // 설정 업데이트 메서드
+    public updateSettings(alignCardHeight: boolean, cardsPerView: number) {
+        this.alignCardHeight = alignCardHeight;
+        this.cardsPerView = cardsPerView;
         this.updateContainerStyle();
     }
 
@@ -59,6 +69,7 @@ export class CardRenderer {
                 return;
             }
 
+            // 컨테이너 스타일 업데이트
             this.updateContainerStyle();
 
             const containerRect = this.containerEl.getBoundingClientRect();
@@ -67,13 +78,6 @@ export class CardRenderer {
             const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
             const paddingTop = parseFloat(containerStyle.paddingTop) || 0;
             const availableWidth = containerRect.width - paddingLeft - paddingRight;
-
-            if (this.layoutStrategy instanceof ListLayout) {
-                const listContainerStyle = this.layoutStrategy.getContainerStyle();
-                Object.assign(this.containerEl.style, listContainerStyle);
-            } else {
-                this.resetContainerStyle();
-            }
 
             const cardPositions = this.layoutStrategy.arrange(
                 cardsData,
@@ -100,8 +104,46 @@ export class CardRenderer {
                 const card = cardsData[index];
                 const cardEl = this.cardMaker.createCardElement(card);
 
-                this.applyCardStyle(cardEl, position, paddingLeft, paddingTop);
-                this.applyCardClasses(cardEl, card, focusedCardId, activeFile);
+                // 레이아웃 타입에 따른 스타일 적용
+                if (this.layoutStrategy instanceof ListLayout) {
+                    const cardStyle = this.layoutConfig.getCardStyle(
+                        this.layoutStrategy.getScrollDirection() === 'vertical',
+                        this.alignCardHeight
+                    );
+                    Object.assign(cardEl.style, cardStyle);
+                } else if (this.layoutStrategy instanceof GridLayout) {
+                    // 그리드 레이아웃의 경우 고정 높이 적용
+                    Object.assign(cardEl.style, {
+                        height: `${this.plugin.settings.gridCardHeight}px`,
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                        minHeight: 'unset',
+                        maxHeight: `${this.plugin.settings.gridCardHeight}px`
+                    });
+                } else {
+                    // 메이슨리 레이아웃의 경우 absolute 포지셔닝 사용
+                    cardEl.style.position = 'absolute';
+                    cardEl.style.transform = `translate3d(${position.x + paddingLeft}px, ${position.y + paddingTop}px, 0)`;
+                    cardEl.style.width = `${position.width}px`;
+                    cardEl.style.height = position.height === 'auto' ? 'auto' : `${position.height}px`;
+                    cardEl.style.minHeight = '100px';
+                }
+
+                // 레이아웃 변경에 따른 클래스 업데이트
+                cardEl.classList.toggle('vertical', this.layoutStrategy.getScrollDirection() === 'vertical');
+                cardEl.classList.toggle('horizontal', this.layoutStrategy.getScrollDirection() !== 'vertical');
+                cardEl.classList.toggle('align-height', this.alignCardHeight);
+
+                // 포커스 및 활성 상태 적용
+                if (card.file.path === focusedCardId) {
+                    cardEl.classList.add('card-navigator-focused');
+                }
+                if (activeFile && card.file.path === activeFile.path) {
+                    cardEl.classList.add('card-navigator-active');
+                }
 
                 // 이전에 렌더링된 카드의 상태 유지
                 if (previouslyRenderedCards.has(card.file.path)) {
@@ -140,40 +182,6 @@ export class CardRenderer {
         this.containerEl.style.alignItems = '';
         this.containerEl.style.overflowY = '';
         this.containerEl.style.height = '100%';
-    }
-
-    private applyCardStyle(cardEl: HTMLElement, position: any, paddingLeft: number, paddingTop: number) {
-        if (this.layoutStrategy instanceof ListLayout) {
-            const cardStyle = this.layoutConfig.getCardStyle(
-                this.layoutStrategy.getScrollDirection() === 'vertical',
-                this.alignCardHeight
-            );
-            Object.assign(cardEl.style, cardStyle);
-        } else {
-            cardEl.style.position = 'absolute';
-            cardEl.style.transform = `translate3d(${position.x + paddingLeft}px, ${position.y + paddingTop}px, 0)`;
-            cardEl.style.width = `${position.width}px`;
-            
-            if (position.height === 'auto') {
-                cardEl.style.height = 'auto';
-                cardEl.style.minHeight = '100px';
-            } else {
-                cardEl.style.height = `${position.height}px`;
-            }
-        }
-    }
-
-    private applyCardClasses(cardEl: HTMLElement, card: Card, focusedCardId: string | null, activeFile: TFile | null) {
-        cardEl.classList.add(this.layoutStrategy.getScrollDirection() === 'vertical' ? 'vertical' : 'horizontal');
-        cardEl.classList.toggle('align-height', this.alignCardHeight);
-        
-        if (card.file.path === focusedCardId) {
-            cardEl.classList.add('card-navigator-focused');
-        }
-
-        if (activeFile && card.file.path === activeFile.path) {
-            cardEl.classList.add('card-navigator-active');
-        }
     }
 
     // 카드 크기 설정 확인 메서드
@@ -258,57 +266,28 @@ export class CardRenderer {
         this.containerEl.style.overflowY = isVertical ? 'auto' : 'hidden';
         this.containerEl.style.overflowX = isVertical ? 'hidden' : 'auto';
 
-        // 리스트 레이아웃인 경우 특별한 스타일 적용
+        // 레이아웃별 스타일 적용
         if (this.layoutStrategy instanceof ListLayout) {
             const listContainerStyle = this.layoutStrategy.getContainerStyle();
             Object.assign(this.containerEl.style, listContainerStyle);
+        } else if (this.layoutStrategy instanceof GridLayout) {
+            const columns = this.layoutStrategy.getColumnsCount();
+            const cardGap = this.layoutConfig.getCardGap();
+            const containerPadding = this.layoutConfig.getContainerPadding();
+            
+            Object.assign(this.containerEl.style, {
+                display: 'grid',
+                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                gridAutoRows: `${this.plugin.settings.gridCardHeight}px`,
+                gap: `${cardGap}px`,
+                position: 'relative',
+                height: '100%',
+                boxSizing: 'border-box',
+                alignItems: 'stretch',
+                alignContent: 'start'
+            });
         } else {
             this.resetContainerStyle();
         }
-    }
-
-    // 카드 위치만 업데이트하는 메서드
-    public updateCardPositions(cardsData: Card[]) {
-        if (!this.containerEl || !cardsData || cardsData.length === 0) return;
-
-        const containerRect = this.containerEl.getBoundingClientRect();
-        const containerStyle = window.getComputedStyle(this.containerEl);
-        const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
-        const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
-        const paddingTop = parseFloat(containerStyle.paddingTop) || 0;
-        const availableWidth = containerRect.width - paddingLeft - paddingRight;
-
-        const cardPositions = this.layoutStrategy.arrange(
-            cardsData,
-            availableWidth,
-            containerRect.height
-        );
-
-        // 카드 위치 업데이트
-        const cardElements = Array.from(this.containerEl.children) as HTMLElement[];
-        cardElements.forEach((cardEl, index) => {
-            if (index < cardPositions.length) {
-                const position = cardPositions[index];
-                if (this.layoutStrategy instanceof ListLayout) {
-                    const cardStyle = this.layoutConfig.getCardStyle(
-                        this.layoutStrategy.getScrollDirection() === 'vertical',
-                        this.alignCardHeight
-                    );
-                    Object.assign(cardEl.style, cardStyle);
-                } else {
-                    // transform을 사용하여 위치 업데이트
-                    cardEl.style.position = 'absolute';
-                    cardEl.style.transform = `translate(${position.x + paddingLeft}px, ${position.y + paddingTop}px)`;
-                    cardEl.style.width = `${position.width}px`;
-                    
-                    if (position.height === 'auto') {
-                        cardEl.style.height = 'auto';
-                        cardEl.style.minHeight = '100px';
-                    } else {
-                        cardEl.style.height = `${position.height}px`;
-                    }
-                }
-            }
-        });
     }
 } 

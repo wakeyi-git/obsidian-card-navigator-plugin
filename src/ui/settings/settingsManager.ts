@@ -10,11 +10,13 @@ export class SettingsManager implements ISettingsManager {
     // 설정 저장을 위한 디바운스 함수
     private saveSettingsDebounced = debounce(async () => {
         try {
-            await this.plugin.saveSettings();
+            await this.plugin.saveData(this.plugin.settings);
+            // 설정이 저장된 후에만 한 번 이벤트 발생
+            this.plugin.events.trigger('settings-updated');
         } catch (error) {
             console.error('Error saving settings:', error);
         }
-    }, 500);
+    }, 250);
     //#endregion
 
     //#region 초기화
@@ -78,14 +80,17 @@ export class SettingsManager implements ISettingsManager {
         value: CardNavigatorSettings[K]
     ) {
         this.plugin.settings[key] = value;
-        this.saveSettingsDebounced();
+        await this.saveSettingsDebounced();
         
-        const leaves = this.plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        leaves.forEach(leaf => {
-            if (leaf.view instanceof CardNavigatorView) {
-                leaf.view.refresh(RefreshType.SETTINGS);
-            }
-        });
+        // cardSetType이 변경되었을 때 모든 Card Navigator 뷰의 툴바 새로고침
+        if (key === 'cardSetType') {
+            const leaves = this.plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+            leaves.forEach(leaf => {
+                if (leaf.view instanceof CardNavigatorView) {
+                    leaf.view.toolbar.refresh();
+                }
+            });
+        }
     }
 
     // 현재 설정 가져오기
@@ -221,12 +226,8 @@ export class SettingsManager implements ISettingsManager {
 
     // 변경사항 적용
     applyChanges() {
-        const leaves = this.plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        leaves.forEach(leaf => {
-            if (leaf.view instanceof CardNavigatorView) {
-                leaf.view.refresh(RefreshType.SETTINGS);
-            }
-        });
+        // 설정 저장만 트리거
+        this.saveSettingsDebounced();
     }
 
     // 활성 폴더 가져오기

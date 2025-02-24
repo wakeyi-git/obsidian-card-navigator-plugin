@@ -30,7 +30,7 @@ export class ListLayout implements LayoutStrategy {
 
     // 카드 너비 설정
     setCardWidth(width: number): void {
-        this.cardWidth = width || this.layoutConfig.calculateCardWidth(1);
+        this.cardWidth = width || this.layoutConfig.calculateCardWidth(this.settings.cardsPerView);
     }
 
     /**
@@ -85,9 +85,9 @@ export class ListLayout implements LayoutStrategy {
     //#endregion
 
     //#region 레이아웃 속성 조회
-    // 열 수 반환 (리스트는 항상 1)
+    // 열 수 반환
     getColumnsCount(): number {
-        return 1;
+        return this.isVertical ? 1 : this.settings.cardsPerView;
     }
 
     // 스크롤 방향 반환 (레이아웃 방향에 따라)

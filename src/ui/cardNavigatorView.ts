@@ -12,7 +12,8 @@ export const VIEW_TYPE_CARD_NAVIGATOR = "card-navigator-view";
 export enum RefreshType {
     LAYOUT = 'layout',    // 레이아웃/리사이즈 관련 리프레시
     CONTENT = 'content',  // 파일 내용 변경 관련 리프레시
-    SETTINGS = 'settings' // 설정 변경 관련 리프레시
+    SETTINGS = 'settings', // 설정 변경 관련 리프레시
+    ALL = 'all'           // 전체 업데이트
 }
 
 export class CardNavigatorView extends ItemView {
@@ -109,19 +110,13 @@ export class CardNavigatorView extends ItemView {
         await this.cardContainer.displayCards(sortedFiles);
     }
 
-    // 레이아웃 설정 업데이트 및 리프레시 메서드
-    public updateLayoutAndRefresh(skipContentRefresh: boolean = false) {
+    // 레이아웃 설정 업데이트 메서드
+    private updateLayout() {
         const settings = this.plugin.settings;
         if (settings.defaultLayout) {
             this.cardContainer.setLayout(settings.defaultLayout);
         } else {
             this.cardContainer.setLayout('auto');
-        }
-        
-        this.cardContainer.updateSettings(settings);
-        
-        if (!skipContentRefresh) {
-            this.refresh(RefreshType.CONTENT);
         }
     }
     //#endregion
@@ -175,91 +170,111 @@ export class CardNavigatorView extends ItemView {
     //#endregion
 
     //#region 리프레시 관리
-    // 리프레시 타입별 디바운스 시간 반환 메서드
-    private getDebounceTime(type: RefreshType): number {
-        switch (type) {
-            case RefreshType.LAYOUT:
-                return 100;
-            case RefreshType.CONTENT:
-                return 150;
-            case RefreshType.SETTINGS:
-                return 200;
-        }
-    }
-
-    // 타입별 리프레시 실행 메서드
-    private async refreshByType(type: RefreshType) {
-        try {
-            switch (type) {
-                case RefreshType.LAYOUT:
-                    this.cardContainer.handleResize();
-                    break;
-                case RefreshType.CONTENT:
-                    await this.toolbar.refresh();
-                    await this.updateCardContainerContent();
-                    break;
-                case RefreshType.SETTINGS:
-                    await this.toolbar.refresh();
-                    this.updateLayoutAndRefresh(true);
-                    break;
-            }
-        } catch (error) {
-            throw error;
-        }
-    }
-
     // 배치 리프레시 실행 메서드
     public async refreshBatch(types: RefreshType[]) {
-        const now = Date.now();
+        if (!this.cardContainer) return;
         
+        console.log(`[CardNavigator] 배치 리프레시 요청 - 타입들:`, types);
+
+        // 현재 시간과 마지막 리프레시 시간을 비교
+        const now = Date.now();
         if (now - this.lastRefreshTime < this.REFRESH_COOLDOWN) {
+            // 쿨다운 중이면 타입을 병합하고 대기
             types.forEach(type => this.pendingRefreshTypes.add(type));
-            return;
-        }
-
-        if (this.isRefreshInProgress) {
-            types.forEach(type => this.pendingRefreshTypes.add(type));
-            return;
-        }
-
-        if (this.refreshTimeout) {
-            clearTimeout(this.refreshTimeout);
-            this.refreshTimeout = null;
-        }
-
-        types.forEach(type => this.pendingRefreshTypes.add(type));
-
-        const minDebounceTime = Math.min(
-            ...Array.from(this.pendingRefreshTypes).map(t => this.getDebounceTime(t))
-        );
-
-        this.refreshTimeout = setTimeout(async () => {
-            try {
-                this.isRefreshInProgress = true;
-                this.lastRefreshTime = Date.now();
-
-                if (this.pendingRefreshTypes.has(RefreshType.LAYOUT)) {
-                    await this.refreshByType(RefreshType.LAYOUT);
-                }
-
-                if (this.pendingRefreshTypes.has(RefreshType.SETTINGS)) {
-                    await this.refreshByType(RefreshType.SETTINGS);
-                }
-
-                if (this.pendingRefreshTypes.has(RefreshType.CONTENT)) {
-                    await this.refreshByType(RefreshType.CONTENT);
-                }
-            } finally {
-                this.pendingRefreshTypes.clear();
-                this.refreshTimeout = null;
-                this.isRefreshInProgress = false;
+            
+            // 이미 대기 중인 타이머가 있다면 취소
+            if (this.refreshTimeout) {
+                clearTimeout(this.refreshTimeout);
             }
-        }, minDebounceTime);
+            
+            // 새로운 타이머 설정
+            this.refreshTimeout = setTimeout(() => {
+                this.refreshTimeout = null;
+                const pendingTypes = Array.from(this.pendingRefreshTypes);
+                this.pendingRefreshTypes.clear();
+                if (pendingTypes.length > 0) {
+                    this.refreshBatch(pendingTypes);
+                }
+            }, this.REFRESH_COOLDOWN);
+            
+            return;
+        }
+
+        // 이미 진행 중인 리프레시가 있으면 타입을 병합하고 대기
+        if (this.isRefreshInProgress) {
+            console.log(`[CardNavigator] 리프레시가 진행 중 - 타입 병합`);
+            types.forEach(type => this.pendingRefreshTypes.add(type));
+            return;
+        }
+
+        try {
+            this.isRefreshInProgress = true;
+            this.lastRefreshTime = now;
+            
+            // 대기 중인 리프레시 타입들을 현재 타입들과 병합
+            types.forEach(type => this.pendingRefreshTypes.add(type));
+            const mergedTypes = Array.from(this.pendingRefreshTypes);
+            this.pendingRefreshTypes.clear();
+
+            // 컨테이너 요소 가져오기
+            const containerEl = this.cardContainer.getContainerElement();
+            if (!containerEl) return;
+
+            try {
+                // 단일 통합 업데이트 실행
+                await this.refreshByType(RefreshType.SETTINGS);
+                
+                // 짧은 지연 후 레이아웃 재계산
+                await new Promise(resolve => setTimeout(resolve, 50));
+            } catch (error) {
+                console.error(`[CardNavigator] 리프레시 중 오류 발생:`, error);
+            }
+        } finally {
+            this.isRefreshInProgress = false;
+            this.pendingRefreshTypes.clear();
+        }
     }
 
     // 단일 리프레시 실행 메서드
-    async refresh(type: RefreshType = RefreshType.CONTENT) {
+    public async refresh(type: RefreshType = RefreshType.CONTENT) {
         await this.refreshBatch([type]);
+    }
+
+    private async refreshByType(type: RefreshType) {
+        if (!this.cardContainer) return;
+
+        console.log(`[CardNavigator] 리프레시 시작 - 타입: ${type}`);
+        const startTime = performance.now();
+
+        try {
+            // 모든 타입을 단일 업데이트로 처리
+            console.log(`[CardNavigator] 통합 업데이트 시작`);
+            
+            const folder = await this.getCurrentFolder();
+            if (folder) {
+                // 1. 설정 업데이트
+                this.cardContainer.updateSettings(this.plugin.settings);
+                
+                // 2. 레이아웃 업데이트
+                this.updateLayout();
+                
+                // 3. 컨텐츠 업데이트
+                const files = folder.children
+                    .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
+                const sortedFiles = this.sortFiles(files);
+                
+                // 단일 렌더링 사이클에서 모든 카드 업데이트
+                await this.cardContainer.displayCards(sortedFiles);
+            }
+            
+            console.log(`[CardNavigator] 통합 업데이트 완료`);
+
+            const endTime = performance.now();
+            console.log(`[CardNavigator] 리프레시 완료 - 타입: ${type}, 소요시간: ${endTime - startTime}ms`);
+        } catch (error) {
+            console.error(`[CardNavigator] 리프레시 중 오류 발생:`, error);
+            throw error;
+        }
     }
     //#endregion
 }

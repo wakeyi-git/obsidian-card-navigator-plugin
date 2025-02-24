@@ -100,7 +100,7 @@ export default class CardNavigatorPlugin extends Plugin {
     // 설정 저장 메서드
     async saveSettings() {
         await this.saveData(this.settings);
-        this.events.trigger('settings-updated');
+        // 여기서는 이벤트를 트리거하지 않음
     }
     //#endregion
 
@@ -179,19 +179,23 @@ export default class CardNavigatorPlugin extends Plugin {
         );
 
         this.registerEvent(
-            this.app.workspace.on('active-leaf-change', () => {
-                this.handleFileChange(this.app.workspace.getActiveFile());
-            })
-        );
-
-        this.registerEvent(
             this.app.workspace.on('file-open', (file) => {
                 this.handleFileChange(file);
             })
         );
 
+        // 설정 업데이트 이벤트 처리를 디바운스하고 배치로 처리
+        let pendingSettingsUpdate = false;
+        const processSettingsUpdate = debounce(() => {
+            if (pendingSettingsUpdate) {
+                this.refreshAllViews(RefreshType.SETTINGS);
+                pendingSettingsUpdate = false;
+            }
+        }, 250); // 디바운스 시간을 250ms로 증가
+
         this.events.on('settings-updated', () => {
-            this.refreshAllViews(RefreshType.SETTINGS);
+            pendingSettingsUpdate = true;
+            processSettingsUpdate();
         });
 
         this.registerEvent(
@@ -206,15 +210,7 @@ export default class CardNavigatorPlugin extends Plugin {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach(leaf => {
             if (leaf.view instanceof CardNavigatorView) {
-                if (type === RefreshType.LAYOUT) {
-                    leaf.view.refresh(RefreshType.LAYOUT);
-                }
-                else if (type === RefreshType.SETTINGS) {
-                    leaf.view.refreshBatch([RefreshType.SETTINGS, RefreshType.CONTENT]);
-                }
-                else {
-                    leaf.view.refresh(RefreshType.CONTENT);
-                }
+                leaf.view.refreshBatch([type]);
             }
         });
     }
@@ -263,8 +259,8 @@ export default class CardNavigatorPlugin extends Plugin {
         leaves.forEach(leaf => {
             if (leaf.view instanceof CardNavigatorView) {
                 leaf.view.cardContainer.setLayout(layout);
-                this.saveSettings();
-                leaf.view.refreshBatch([RefreshType.LAYOUT, RefreshType.SETTINGS]);
+                // 설정 저장만 하고 리프레시는 settingsManager에서 처리
+                this.saveData(this.settings);
             }
         });
     }

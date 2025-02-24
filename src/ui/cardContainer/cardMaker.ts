@@ -165,21 +165,6 @@ export class CardMaker extends Component {
 
     private async renderCardContent(contentEl: HTMLElement, content: string, filePath: string) {
         try {
-            if (this.renderedCards.has(filePath) && !this.modifiedCards.has(filePath)) {
-                const cachedContent = this.renderCache.get(filePath);
-                if (cachedContent) {
-                    const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
-                    if (markdownContainer) {
-                        markdownContainer.innerHTML = cachedContent;
-                        await this.processImages(contentEl, filePath);
-                        markdownContainer.style.opacity = '1';
-                        markdownContainer.classList.remove('loading');
-                        contentEl.classList.remove('loading');
-                    }
-                    return;
-                }
-            }
-
             const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
             if (!markdownContainer) return;
 
@@ -187,6 +172,10 @@ export class CardMaker extends Component {
             markdownContainer.classList.add('loading');
             contentEl.classList.add('loading');
 
+            // 기존 내용 제거
+            markdownContainer.empty();
+
+            // 새로운 내용 렌더링
             await MarkdownRenderer.render(
                 this.plugin.app,
                 content,
@@ -195,11 +184,10 @@ export class CardMaker extends Component {
                 this
             );
 
-            this.renderCache.set(filePath, markdownContainer.innerHTML);
-            this.renderedCards.add(filePath);
-            this.cleanCache();
-            
+            // 이미지 처리
             await this.processImages(contentEl, filePath);
+
+            // 렌더링 완료 후 표시
             markdownContainer.style.opacity = '1';
             markdownContainer.classList.remove('loading');
             contentEl.classList.remove('loading');
@@ -207,7 +195,8 @@ export class CardMaker extends Component {
             console.error(`Failed to render content for ${filePath}:`, error);
             const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
             if (markdownContainer) {
-                markdownContainer.textContent = content;
+                markdownContainer.empty();
+                markdownContainer.createSpan({ text: content });
                 markdownContainer.style.opacity = '1';
                 markdownContainer.classList.remove('loading');
             }
@@ -320,9 +309,26 @@ export class CardMaker extends Component {
     }
 
     private truncateBody(body: string): string {
-        if (!this.plugin.settings.bodyLengthLimit) return body;
-        const maxLength = this.plugin.settings.bodyLength;
-        return body.length <= maxLength ? body : `${body.slice(0, maxLength)}...`;
+        // 캐시 키 생성
+        const cacheKey = `${body}_${this.plugin.settings.bodyLengthLimit}_${this.plugin.settings.bodyLength}`;
+        
+        // 캐시된 결과가 있으면 반환
+        const cachedResult = this.renderCache.get(cacheKey);
+        if (cachedResult) {
+            return cachedResult;
+        }
+
+        let result = body;
+        if (this.plugin.settings.bodyLengthLimit) {
+            const maxLength = this.plugin.settings.bodyLength;
+            result = body.length <= maxLength ? body : `${body.slice(0, maxLength)}...`;
+        }
+
+        // 결과를 캐시에 저장
+        this.renderCache.set(cacheKey, result);
+        this.cleanCache();
+
+        return result;
     }
 
     createCardElement(card: Card): HTMLElement {
@@ -402,11 +408,16 @@ export class CardMaker extends Component {
         if (!content) return;
 
         // 이미 렌더링된 경우 스킵
-        if (!contentEl.classList.contains('loading') && !markdownContainer.classList.contains('loading')) {
+        if (markdownContainer.children.length > 0) {
+            cardElement.removeAttribute('data-rendering');
             return;
         }
 
         try {
+            // 기존 내용 제거
+            markdownContainer.empty();
+
+            // 새로운 내용 렌더링
             await MarkdownRenderer.render(
                 this.plugin.app,
                 content,
@@ -415,20 +426,28 @@ export class CardMaker extends Component {
                 this
             );
 
-            this.renderCache.set(filePath, markdownContainer.innerHTML);
-            this.renderedCards.add(filePath);
-            this.cleanCache();
-            
+            // 이미지 처리
             await this.processImages(contentEl, filePath);
-            markdownContainer.style.opacity = '1';
-            markdownContainer.classList.remove('loading');
-            contentEl.classList.remove('loading');
+
+            // 렌더링 완료 표시
+            cardElement.removeAttribute('data-rendering');
         } catch (error) {
             console.error(`Failed to render content for ${filePath}:`, error);
-            markdownContainer.textContent = content;
-            markdownContainer.style.opacity = '1';
-            markdownContainer.classList.remove('loading');
-            contentEl.classList.remove('loading');
+            markdownContainer.empty();
+            markdownContainer.createSpan({ text: content });
+            cardElement.removeAttribute('data-rendering');
         }
+    }
+
+    // 설정이 변경될 때 호출되는 메서드 추가
+    public clearCache() {
+        this.renderCache.clear();
+        this.renderedCards.clear();
+        this.modifiedCards.clear();
+        this.renderQueue.clear();
+        
+        // 진행 중인 타임아웃 정리
+        this.renderTimeouts.forEach(timeout => clearTimeout(timeout));
+        this.renderTimeouts.clear();
     }
 }

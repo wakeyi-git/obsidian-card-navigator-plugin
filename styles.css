@@ -309,10 +309,6 @@
     box-sizing: border-box;
 }
 
-.card-navigator-container.visible {
-    opacity: 1;
-}
-
 .card-navigator-container.vertical {
     overflow-y: auto;
     overflow-x: hidden;
