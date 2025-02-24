@@ -7,6 +7,7 @@ export class SearchService {
     private options: SearchOptions;
     private searchPrefix: string = '';
     private lastSearchResults: TFile[] | null = null;  // 마지막 검색 결과를 저장할 캐시
+    private searchCache: Map<string, TFile[]> = new Map();
 
     constructor(private plugin: CardNavigatorPlugin) {
         this.app = this.plugin.app;
@@ -29,9 +30,25 @@ export class SearchService {
         return this.sortFiles([...this.lastSearchResults]);
     }
 
-    // 캐시 정리 메서드
+    // 캐시 관련 메서드 추가
+    getFromCache(cacheKey: string): TFile[] | undefined {
+        return this.searchCache.get(cacheKey);
+    }
+
+    addToCache(cacheKey: string, files: TFile[]) {
+        this.searchCache.set(cacheKey, files);
+        // 캐시 크기 제한
+        if (this.searchCache.size > 100) {
+            const firstKey = Array.from(this.searchCache.keys())[0];
+            if (firstKey) {
+                this.searchCache.delete(firstKey);
+            }
+        }
+    }
+
     clearCache() {
         this.lastSearchResults = null;
+        this.searchCache.clear();
     }
 
     // 파일 검색 메서드

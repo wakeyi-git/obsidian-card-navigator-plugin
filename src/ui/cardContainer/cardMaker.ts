@@ -385,4 +385,50 @@ export class CardMaker extends Component {
         this.renderTimeouts.clear();
         super.onunload();
     }
+
+    public async ensureCardRendered(cardElement: HTMLElement) {
+        if (!cardElement) return;
+
+        const contentEl = cardElement.querySelector('.card-navigator-body') as HTMLElement;
+        if (!contentEl) return;
+
+        const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
+        if (!markdownContainer) return;
+
+        const filePath = cardElement.getAttribute('data-original-path');
+        if (!filePath) return;
+
+        const content = cardElement.dataset.content;
+        if (!content) return;
+
+        // 이미 렌더링된 경우 스킵
+        if (!contentEl.classList.contains('loading') && !markdownContainer.classList.contains('loading')) {
+            return;
+        }
+
+        try {
+            await MarkdownRenderer.render(
+                this.plugin.app,
+                content,
+                markdownContainer,
+                filePath,
+                this
+            );
+
+            this.renderCache.set(filePath, markdownContainer.innerHTML);
+            this.renderedCards.add(filePath);
+            this.cleanCache();
+            
+            await this.processImages(contentEl, filePath);
+            markdownContainer.style.opacity = '1';
+            markdownContainer.classList.remove('loading');
+            contentEl.classList.remove('loading');
+        } catch (error) {
+            console.error(`Failed to render content for ${filePath}:`, error);
+            markdownContainer.textContent = content;
+            markdownContainer.style.opacity = '1';
+            markdownContainer.classList.remove('loading');
+            contentEl.classList.remove('loading');
+        }
+    }
 }
