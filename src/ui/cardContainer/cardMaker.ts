@@ -136,20 +136,20 @@ export class CardMaker extends Component {
             if (this.renderedCards.has(filePath) && !this.modifiedCards.has(filePath)) {
                 const cachedContent = this.renderCache.get(filePath);
                 if (cachedContent) {
-                    contentEl.empty();
-                    const markdownContainer = contentEl.createDiv({
-                        cls: 'markdown-rendered'
-                    });
-                    markdownContainer.innerHTML = cachedContent;
-                    await this.processImages(contentEl, filePath);
+                    const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
+                    if (markdownContainer) {
+                        markdownContainer.innerHTML = cachedContent;
+                        await this.processImages(contentEl, filePath);
+                        markdownContainer.style.opacity = '1';
+                        markdownContainer.classList.remove('loading');
+                        contentEl.classList.remove('loading');
+                    }
                     return;
                 }
             }
 
-            contentEl.empty();
-            const markdownContainer = contentEl.createDiv({
-                cls: 'markdown-rendered'
-            });
+            const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
+            if (!markdownContainer) return;
 
             await MarkdownRenderer.render(
                 this.plugin.app,
@@ -163,9 +163,18 @@ export class CardMaker extends Component {
             this.cleanCache();
             
             await this.processImages(contentEl, filePath);
+            markdownContainer.style.opacity = '1';
+            markdownContainer.classList.remove('loading');
+            contentEl.classList.remove('loading');
         } catch (error) {
             console.error(`Failed to render content for ${filePath}:`, error);
-            contentEl.textContent = content;
+            const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
+            if (markdownContainer) {
+                markdownContainer.textContent = content;
+                markdownContainer.style.opacity = '1';
+                markdownContainer.classList.remove('loading');
+            }
+            contentEl.classList.remove('loading');
         }
     }
 
@@ -307,7 +316,11 @@ export class CardMaker extends Component {
             
             if (settings.renderContentAsHtml) {
                 cardElement.dataset.content = card.body;
-                contentEl.textContent = 'loading...';
+                const markdownContainer = contentEl.createDiv({
+                    cls: 'markdown-rendered loading'
+                });
+                markdownContainer.style.opacity = '0';
+                contentEl.classList.add('loading');
                 this.intersectionObserver.observe(cardElement);
             } else {
                 contentEl.textContent = card.body;
