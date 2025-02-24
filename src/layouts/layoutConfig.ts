@@ -74,12 +74,12 @@ export class LayoutConfig {
      * 카드 높이를 계산합니다.
      */
     public calculateCardHeight(layout: CardNavigatorSettings['defaultLayout']): number | 'auto' {
-        if (!this.settings.alignCardHeight) {
-            return 'auto';
-        }
-
         if (layout === 'grid') {
             return this.settings.gridCardHeight;
+        }
+
+        if (!this.settings.alignCardHeight) {
+            return 'auto';
         }
 
         const containerHeight = this.containerEl?.offsetHeight || 0;
