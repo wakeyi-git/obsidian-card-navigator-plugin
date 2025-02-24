@@ -34,34 +34,66 @@ export class CardMaker extends Component {
         if (this.renderCache.size > this.MAX_CACHE_SIZE) {
             const entriesToDelete = Array.from(this.renderCache.keys())
                 .slice(0, this.renderCache.size - this.MAX_CACHE_SIZE);
-            entriesToDelete.forEach(key => this.renderCache.delete(key));
+            entriesToDelete.forEach(key => {
+                this.renderCache.delete(key);
+                this.renderedCards.delete(key);
+            });
         }
     }
 
     private registerFileEvents() {
         this.registerEvent(
-            this.plugin.app.vault.on('modify', (file) => {
+            this.plugin.app.vault.on('modify', async (file) => {
                 if (file instanceof TFile && file.extension === 'md') {
-                    this.modifiedCards.add(file.path);
-                    this.renderCache.delete(file.path);
-                    this.updateModifiedCard(file);
+                    const activeFile = this.plugin.app.workspace.getActiveFile();
+                    if (activeFile && activeFile.path === file.path) {
+                        // 캐시 초기화
+                        this.modifiedCards.add(file.path);
+                        this.renderCache.delete(file.path);
+                        this.renderedCards.delete(file.path);
+
+                        // 카드 내용 즉시 업데이트
+                        const content = await this.plugin.app.vault.cachedRead(file);
+                        const { cleanBody } = separateFrontmatterAndBody(content);
+                        
+                        const safeCardId = CSS.escape(file.path);
+                        const cardElements = document.querySelectorAll(`.card-navigator-card[data-card-id="${safeCardId}"]`) as NodeListOf<HTMLElement>;
+                        
+                        for (const cardElement of Array.from(cardElements)) {
+                            const contentEl = cardElement.querySelector('.card-navigator-body') as HTMLElement;
+                            if (contentEl) {
+                                if (this.plugin.settings.renderContentAsHtml) {
+                                    // HTML 렌더링 시 기존 마크다운 컨테이너 초기화
+                                    const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
+                                    if (markdownContainer) {
+                                        markdownContainer.empty();
+                                        markdownContainer.classList.add('loading');
+                                        markdownContainer.style.opacity = '0';
+                                        
+                                        // 새로운 내용 렌더링
+                                        await MarkdownRenderer.render(
+                                            this.plugin.app,
+                                            cleanBody,
+                                            markdownContainer,
+                                            file.path,
+                                            this
+                                        );
+                                        
+                                        // 렌더링 완료 후 표시
+                                        markdownContainer.style.opacity = '1';
+                                        markdownContainer.classList.remove('loading');
+                                    }
+                                } else {
+                                    contentEl.textContent = cleanBody;
+                                }
+                            }
+                        }
+                        
+                        this.modifiedCards.delete(file.path);
+                    }
                 }
             })
         );
-    }
-
-    private async updateModifiedCard(file: TFile) {
-        const safeCardId = CSS.escape(file.path);
-        const cardElement = document.querySelector(`[data-card-id="${safeCardId}"]`) as HTMLElement;
-        if (cardElement) {
-            const contentEl = cardElement.querySelector('.card-navigator-body') as HTMLElement;
-            if (contentEl) {
-                const content = await this.plugin.app.vault.cachedRead(file);
-                const { cleanBody } = separateFrontmatterAndBody(content);
-                await this.renderCardContent(contentEl, cleanBody, file.path);
-                this.modifiedCards.delete(file.path);
-            }
-        }
     }
 
     private createIntersectionObserver(): IntersectionObserver {
@@ -151,6 +183,10 @@ export class CardMaker extends Component {
             const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
             if (!markdownContainer) return;
 
+            markdownContainer.style.opacity = '0';
+            markdownContainer.classList.add('loading');
+            contentEl.classList.add('loading');
+
             await MarkdownRenderer.render(
                 this.plugin.app,
                 content,
@@ -160,6 +196,7 @@ export class CardMaker extends Component {
             );
 
             this.renderCache.set(filePath, markdownContainer.innerHTML);
+            this.renderedCards.add(filePath);
             this.cleanCache();
             
             await this.processImages(contentEl, filePath);

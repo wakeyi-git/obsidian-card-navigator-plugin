@@ -190,13 +190,25 @@ export class CardContainer {
     public handleResize() {
         if (!this.containerEl) return;
         
+        // 레이아웃 업데이트 전에 현재 스크롤 위치 저장
+        const currentScrollTop = this.containerEl.scrollTop;
+        const currentScrollLeft = this.containerEl.scrollLeft;
+        
+        // 레이아웃 매니저 업데이트
         this.layoutManager.updateLayout();
         this.cardRenderer?.setLayoutStrategy(this.layoutManager.getLayoutStrategy());
         
-        const files = this.cards.map(card => card.file);
-        this.displayCards(files);
-
+        // 카드 위치만 업데이트
+        if (this.cardRenderer && this.cards.length > 0) {
+            this.cardRenderer.updateCardPositions(this.cards);
+        }
+        
+        // 키보드 네비게이터 업데이트
         this.keyboardNavigator?.updateLayout(this.layoutManager.getLayoutStrategy());
+        
+        // 스크롤 위치 복원
+        this.containerEl.scrollTop = currentScrollTop;
+        this.containerEl.scrollLeft = currentScrollLeft;
     }
 
     // 현재 레이아웃 전략 반환 메서드

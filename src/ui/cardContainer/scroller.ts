@@ -5,6 +5,7 @@ import { LayoutConfig } from 'layouts/layoutConfig';
 
 export class Scroller {
     private layoutConfig: LayoutConfig;
+    private currentAnimationFrame: number | null = null;
 
     constructor(
         private containerEl: HTMLElement,
@@ -103,6 +104,11 @@ export class Scroller {
     private smoothScroll(scrollProperty: 'scrollTop' | 'scrollLeft', targetPosition: number) {
         if (!this.containerEl) return;
 
+        // 이전 애니메이션이 있다면 취소
+        if (this.currentAnimationFrame !== null) {
+            cancelAnimationFrame(this.currentAnimationFrame);
+        }
+
         const startPosition = this.containerEl[scrollProperty];
         const distance = targetPosition - startPosition;
         const duration = 300; // ms
@@ -112,18 +118,24 @@ export class Scroller {
             if (startTime === null) startTime = currentTime;
             const timeElapsed = currentTime - startTime;
             const progress = Math.min(timeElapsed / duration, 1);
-            const easeProgress = 0.5 - Math.cos(progress * Math.PI) / 2;
+
+            // easeInOutCubic 이징 함수 사용
+            const easeProgress = progress < 0.5
+                ? 4 * progress * progress * progress
+                : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
             if (this.containerEl) {
                 this.containerEl[scrollProperty] = startPosition + distance * easeProgress;
             }
 
-            if (timeElapsed < duration && this.containerEl) {
-                requestAnimationFrame(animation);
+            if (progress < 1 && this.containerEl) {
+                this.currentAnimationFrame = requestAnimationFrame(animation);
+            } else {
+                this.currentAnimationFrame = null;
             }
         };
 
-        requestAnimationFrame(animation);
+        this.currentAnimationFrame = requestAnimationFrame(animation);
     }
 
     // 방향별 스크롤 메서드
@@ -165,10 +177,7 @@ export class Scroller {
         }
 
         if (this.plugin.settings.enableScrollAnimation) {
-            this.containerEl.scrollTo({
-                [isVertical ? 'top' : 'left']: targetScroll,
-                behavior: 'smooth'
-            });
+            this.smoothScroll(isVertical ? 'scrollTop' : 'scrollLeft', targetScroll);
         } else {
             this.containerEl[isVertical ? 'scrollTop' : 'scrollLeft'] = targetScroll;
         }

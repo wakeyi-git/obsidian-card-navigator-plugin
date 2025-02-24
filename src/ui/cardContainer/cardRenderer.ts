@@ -151,14 +151,12 @@ export class CardRenderer {
             Object.assign(cardEl.style, cardStyle);
         } else {
             cardEl.style.position = 'absolute';
-            cardEl.style.left = `${position.x + paddingLeft}px`;
-            cardEl.style.top = `${position.y + paddingTop}px`;
+            cardEl.style.transform = `translate3d(${position.x + paddingLeft}px, ${position.y + paddingTop}px, 0)`;
             cardEl.style.width = `${position.width}px`;
             
-            // height가 'auto'인 경우 min-height 설정
             if (position.height === 'auto') {
                 cardEl.style.height = 'auto';
-                cardEl.style.minHeight = '100px'; // 최소 높이 설정
+                cardEl.style.minHeight = '100px';
             } else {
                 cardEl.style.height = `${position.height}px`;
             }
@@ -267,5 +265,50 @@ export class CardRenderer {
         } else {
             this.resetContainerStyle();
         }
+    }
+
+    // 카드 위치만 업데이트하는 메서드
+    public updateCardPositions(cardsData: Card[]) {
+        if (!this.containerEl || !cardsData || cardsData.length === 0) return;
+
+        const containerRect = this.containerEl.getBoundingClientRect();
+        const containerStyle = window.getComputedStyle(this.containerEl);
+        const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
+        const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
+        const paddingTop = parseFloat(containerStyle.paddingTop) || 0;
+        const availableWidth = containerRect.width - paddingLeft - paddingRight;
+
+        const cardPositions = this.layoutStrategy.arrange(
+            cardsData,
+            availableWidth,
+            containerRect.height
+        );
+
+        // 카드 위치 업데이트
+        const cardElements = Array.from(this.containerEl.children) as HTMLElement[];
+        cardElements.forEach((cardEl, index) => {
+            if (index < cardPositions.length) {
+                const position = cardPositions[index];
+                if (this.layoutStrategy instanceof ListLayout) {
+                    const cardStyle = this.layoutConfig.getCardStyle(
+                        this.layoutStrategy.getScrollDirection() === 'vertical',
+                        this.alignCardHeight
+                    );
+                    Object.assign(cardEl.style, cardStyle);
+                } else {
+                    // transform을 사용하여 위치 업데이트
+                    cardEl.style.position = 'absolute';
+                    cardEl.style.transform = `translate(${position.x + paddingLeft}px, ${position.y + paddingTop}px)`;
+                    cardEl.style.width = `${position.width}px`;
+                    
+                    if (position.height === 'auto') {
+                        cardEl.style.height = 'auto';
+                        cardEl.style.minHeight = '100px';
+                    } else {
+                        cardEl.style.height = `${position.height}px`;
+                    }
+                }
+            }
+        });
     }
 } 
