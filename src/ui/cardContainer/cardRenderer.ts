@@ -11,6 +11,9 @@ import { MasonryLayout } from 'layouts/masonryLayout';
 export class CardRenderer {
     private layoutStrategy: LayoutStrategy;
     private layoutConfig: LayoutConfig;
+    private renderedCards: Set<string> = new Set(); // 렌더링된 카드 추적
+    private renderingInProgress: boolean = false;
+    private pendingRender: boolean = false;
 
     //#region 초기화 및 기본 설정
     // 생성자: 카드 렌더러 초기화
@@ -35,6 +38,7 @@ export class CardRenderer {
     public cleanup(): void {
         if (this.containerEl) {
             this.containerEl.empty();
+            this.renderedCards.clear();
         }
     }
     //#endregion
@@ -42,75 +46,90 @@ export class CardRenderer {
     //#region 카드 렌더링
     // 카드 렌더링 메서드
     public async renderCards(cardsData: Card[], focusedCardId: string | null = null, activeFile: TFile | null = null) {
-        if (!this.containerEl) return;
-    
-        if (!cardsData || cardsData.length === 0) {
-            console.warn('The card data is empty.');
+        if (this.renderingInProgress) {
+            this.pendingRender = true;
             return;
         }
 
-        this.updateContainerStyle();
+        try {
+            this.renderingInProgress = true;
 
-        const containerEl = this.containerEl;
-        
-        // 컨테이너 크기 및 스타일 계산
-        const containerRect = containerEl.getBoundingClientRect();
-        const containerStyle = window.getComputedStyle(containerEl);
-        const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
-        const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
-        const paddingTop = parseFloat(containerStyle.paddingTop) || 0;
-        const availableWidth = containerRect.width - paddingLeft - paddingRight;
+            if (!this.containerEl || !cardsData || cardsData.length === 0) {
+                console.warn('Invalid render state or empty card data.');
+                return;
+            }
 
-        // 리스트 레이아웃인 경우 특별한 스타일 적용
-        if (this.layoutStrategy instanceof ListLayout) {
-            const listContainerStyle = this.layoutStrategy.getContainerStyle();
-            Object.assign(containerEl.style, listContainerStyle);
-        } else {
-            this.resetContainerStyle();
+            this.updateContainerStyle();
+
+            const containerRect = this.containerEl.getBoundingClientRect();
+            const containerStyle = window.getComputedStyle(this.containerEl);
+            const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
+            const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
+            const paddingTop = parseFloat(containerStyle.paddingTop) || 0;
+            const availableWidth = containerRect.width - paddingLeft - paddingRight;
+
+            if (this.layoutStrategy instanceof ListLayout) {
+                const listContainerStyle = this.layoutStrategy.getContainerStyle();
+                Object.assign(this.containerEl.style, listContainerStyle);
+            } else {
+                this.resetContainerStyle();
+            }
+
+            const cardPositions = this.layoutStrategy.arrange(
+                cardsData,
+                availableWidth,
+                containerRect.height
+            );
+
+            if (cardPositions.length !== cardsData.length) {
+                const minLength = Math.min(cardPositions.length, cardsData.length);
+                cardsData = cardsData.slice(0, minLength);
+                cardPositions.length = minLength;
+            }
+
+            // 현재 스크롤 위치와 렌더링된 카드 상태 저장
+            const currentScrollTop = this.containerEl.scrollTop;
+            const currentScrollLeft = this.containerEl.scrollLeft;
+            const previouslyRenderedCards = new Set(this.renderedCards);
+
+            const fragment = document.createDocumentFragment();
+            const newRenderedCards = new Set<string>();
+
+            // 카드 생성 및 스타일 적용
+            cardPositions.forEach((position, index) => {
+                const card = cardsData[index];
+                const cardEl = this.cardMaker.createCardElement(card);
+
+                this.applyCardStyle(cardEl, position, paddingLeft, paddingTop);
+                this.applyCardClasses(cardEl, card, focusedCardId, activeFile);
+
+                // 이전에 렌더링된 카드의 상태 유지
+                if (previouslyRenderedCards.has(card.file.path)) {
+                    newRenderedCards.add(card.file.path);
+                }
+
+                fragment.appendChild(cardEl);
+            });
+
+            this.containerEl.empty();
+            this.containerEl.appendChild(fragment);
+
+            // 스크롤 위치 복원
+            this.containerEl.scrollTop = currentScrollTop;
+            this.containerEl.scrollLeft = currentScrollLeft;
+
+            this.renderedCards = newRenderedCards;
+            await this.ensureCardSizesAreSet();
+
+        } finally {
+            this.renderingInProgress = false;
+            
+            // 대기 중인 렌더링이 있다면 실행
+            if (this.pendingRender) {
+                this.pendingRender = false;
+                this.renderCards(cardsData, focusedCardId, activeFile);
+            }
         }
-
-        // 카드 위치 계산
-        const cardPositions = this.layoutStrategy.arrange(
-            cardsData,
-            availableWidth,
-            containerRect.height
-        );
-    
-        if (cardPositions.length !== cardsData.length) {
-            console.warn('Card positions and card data length mismatch. Adjusting...');
-            const minLength = Math.min(cardPositions.length, cardsData.length);
-            cardsData = cardsData.slice(0, minLength);
-            cardPositions.length = minLength;
-        }
-
-        // 현재 스크롤 위치 저장
-        const currentScrollTop = containerEl.scrollTop;
-        const currentScrollLeft = containerEl.scrollLeft;
-    
-        // DocumentFragment를 사용하여 DOM 업데이트 최적화
-        const fragment = document.createDocumentFragment();
-    
-        // 카드 생성 및 스타일 적용
-        cardPositions.forEach((position, index) => {
-            const card = cardsData[index];
-            const cardEl = this.cardMaker.createCardElement(card);
-
-            this.applyCardStyle(cardEl, position, paddingLeft, paddingTop);
-            this.applyCardClasses(cardEl, card, focusedCardId, activeFile);
-
-            fragment.appendChild(cardEl);
-        });
-
-        // 기존 카드 제거 및 새 카드 추가
-        containerEl.empty();
-        containerEl.appendChild(fragment);
-
-        // 스크롤 위치 복원
-        containerEl.scrollTop = currentScrollTop;
-        containerEl.scrollLeft = currentScrollLeft;
-
-        // 카드 크기가 올바르게 설정될 때까지 대기
-        await this.ensureCardSizesAreSet();
     }
 
     private resetContainerStyle() {

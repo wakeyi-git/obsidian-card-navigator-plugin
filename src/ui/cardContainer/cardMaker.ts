@@ -7,11 +7,12 @@ import { CardInteractionManager } from './cardInteractionManager';
 type CardElementTag = 'div' | 'h3' | 'h4';
 
 export class CardMaker extends Component {
-    private readonly MAX_CACHE_SIZE = 100;
-    private readonly MAX_CONCURRENT_RENDERS = 3;
-    private readonly INTERSECTION_ROOT_MARGIN = '100px';
+    private readonly MAX_CACHE_SIZE = 500;
+    private readonly MAX_CONCURRENT_RENDERS = 5;
+    private readonly INTERSECTION_ROOT_MARGIN = '200px';
     private readonly INTERSECTION_THRESHOLD = 0.1;
     private readonly RENDER_QUEUE_INTERVAL = 50;
+    private readonly RENDER_TIMEOUT = 2000;
 
     private interactionManager: CardInteractionManager;
     private renderCache: Map<string, string> = new Map();
@@ -19,6 +20,8 @@ export class CardMaker extends Component {
     private modifiedCards: Set<string> = new Set();
     private renderQueue: Set<string> = new Set();
     private isProcessingQueue = false;
+    private renderedCards: Set<string> = new Set();
+    private renderTimeouts: Map<string, NodeJS.Timeout> = new Map();
 
     constructor(private plugin: CardNavigatorPlugin) {
         super();
@@ -48,7 +51,8 @@ export class CardMaker extends Component {
     }
 
     private async updateModifiedCard(file: TFile) {
-        const cardElement = document.querySelector(`[data-card-id="${file.path}"]`) as HTMLElement;
+        const safeCardId = CSS.escape(file.path);
+        const cardElement = document.querySelector(`[data-card-id="${safeCardId}"]`) as HTMLElement;
         if (cardElement) {
             const contentEl = cardElement.querySelector('.card-navigator-body') as HTMLElement;
             if (contentEl) {
@@ -62,16 +66,23 @@ export class CardMaker extends Component {
 
     private createIntersectionObserver(): IntersectionObserver {
         return new IntersectionObserver((entries) => {
-            entries
-                .filter(entry => entry.isIntersecting)
-                .forEach(entry => {
-                    const cardElement = entry.target as HTMLElement;
-                    const filePath = cardElement.dataset.cardId;
-                    if (filePath) {
-                        this.renderQueue.add(filePath);
-                        this.processRenderQueue();
+            entries.forEach(entry => {
+                const cardElement = entry.target as HTMLElement;
+                const filePath = cardElement.getAttribute('data-original-path');
+                if (!filePath) return;
+
+                if (entry.isIntersecting) {
+                    this.renderQueue.add(filePath);
+                    this.processRenderQueue();
+                } else {
+                    this.renderQueue.delete(filePath);
+                    const timeout = this.renderTimeouts.get(filePath);
+                    if (timeout) {
+                        clearTimeout(timeout);
+                        this.renderTimeouts.delete(filePath);
                     }
-                });
+                }
+            });
         }, {
             rootMargin: this.INTERSECTION_ROOT_MARGIN,
             threshold: this.INTERSECTION_THRESHOLD
@@ -86,14 +97,31 @@ export class CardMaker extends Component {
 
         for (const filePath of itemsToProcess) {
             this.renderQueue.delete(filePath);
-            const cardElement = document.querySelector(`[data-card-id="${filePath}"]`) as HTMLElement;
+            const safeCardId = CSS.escape(filePath);
+            const cardElement = document.querySelector(`[data-card-id="${safeCardId}"]`) as HTMLElement;
             if (!cardElement) continue;
 
             const contentEl = cardElement.querySelector('.card-navigator-body') as HTMLElement;
             const content = cardElement.dataset.content;
 
             if (contentEl && content && this.plugin.settings.renderContentAsHtml) {
-                await this.renderCardContent(contentEl, content, filePath);
+                const timeout = setTimeout(() => {
+                    console.warn(`Rendering timeout for ${filePath}`);
+                    this.renderQueue.add(filePath);
+                    this.renderTimeouts.delete(filePath);
+                }, this.RENDER_TIMEOUT);
+
+                this.renderTimeouts.set(filePath, timeout);
+
+                try {
+                    await this.renderCardContent(contentEl, content, filePath);
+                    this.renderedCards.add(filePath);
+                } catch (error) {
+                    console.error(`Failed to render card ${filePath}:`, error);
+                } finally {
+                    clearTimeout(timeout);
+                    this.renderTimeouts.delete(filePath);
+                }
             }
         }
 
@@ -105,31 +133,24 @@ export class CardMaker extends Component {
 
     private async renderCardContent(contentEl: HTMLElement, content: string, filePath: string) {
         try {
-            contentEl.empty();
-            
-            if (!this.plugin.settings.renderContentAsHtml) {
-                contentEl.removeClass('html-content');
-                contentEl.addClass('plain-text');
-                contentEl.textContent = content;
-                return;
+            if (this.renderedCards.has(filePath) && !this.modifiedCards.has(filePath)) {
+                const cachedContent = this.renderCache.get(filePath);
+                if (cachedContent) {
+                    contentEl.empty();
+                    const markdownContainer = contentEl.createDiv({
+                        cls: 'markdown-rendered'
+                    });
+                    markdownContainer.innerHTML = cachedContent;
+                    await this.processImages(contentEl, filePath);
+                    return;
+                }
             }
 
-            contentEl.removeClass('plain-text');
-            contentEl.addClass('html-content');
-
+            contentEl.empty();
             const markdownContainer = contentEl.createDiv({
                 cls: 'markdown-rendered'
             });
 
-            // 캐시된 내용이 있고 수정되지 않은 경우 사용
-            const cachedContent = this.modifiedCards.has(filePath) ? null : this.renderCache.get(filePath);
-            if (cachedContent) {
-                markdownContainer.innerHTML = cachedContent;
-                await this.processImages(contentEl, filePath);
-                return;
-            }
-
-            // 새로운 렌더링 수행
             await MarkdownRenderer.render(
                 this.plugin.app,
                 content,
@@ -138,7 +159,6 @@ export class CardMaker extends Component {
                 this
             );
 
-            // 캐시 업데이트
             this.renderCache.set(filePath, markdownContainer.innerHTML);
             this.cleanCache();
             
@@ -262,7 +282,8 @@ export class CardMaker extends Component {
     createCardElement(card: Card): HTMLElement {
         const cardElement = document.createElement('div');
         cardElement.className = 'card-navigator-card';
-        cardElement.dataset.cardId = card.file.path;
+        cardElement.setAttribute('data-card-id', card.file.path);
+        cardElement.setAttribute('data-original-path', card.file.path);
 
         this.addCardContent(cardElement, card);
         this.interactionManager.setupInteractions(cardElement, card);
@@ -286,7 +307,7 @@ export class CardMaker extends Component {
             
             if (settings.renderContentAsHtml) {
                 cardElement.dataset.content = card.body;
-                contentEl.textContent = '로딩 중...';
+                contentEl.textContent = 'loading...';
                 this.intersectionObserver.observe(cardElement);
             } else {
                 contentEl.textContent = card.body;
@@ -309,6 +330,9 @@ export class CardMaker extends Component {
         this.renderCache.clear();
         this.modifiedCards.clear();
         this.renderQueue.clear();
+        this.renderedCards.clear();
+        this.renderTimeouts.forEach(timeout => clearTimeout(timeout));
+        this.renderTimeouts.clear();
         super.onunload();
     }
 }

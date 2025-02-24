@@ -157,12 +157,29 @@ export class CardInteractionManager {
                     this.getLink(card.file);
                 e.dataTransfer.setData('text/plain', content);
                 e.dataTransfer.effectAllowed = 'copy';
-                e.dataTransfer.setDragImage(cardElement, 0, 0);
+
+                // 드래그 이미지 생성
+                const dragImage = cardElement.cloneNode(true) as HTMLElement;
+                dragImage.style.position = 'fixed';
+                dragImage.style.top = '-9999px';
+                dragImage.style.left = '-9999px';
+                dragImage.style.width = `${cardElement.offsetWidth}px`;
+                dragImage.style.height = `${cardElement.offsetHeight}px`;
+                dragImage.style.pointerEvents = 'none';
+                dragImage.style.opacity = '0.7';
+                document.body.appendChild(dragImage);
+
+                e.dataTransfer.setDragImage(dragImage, 0, 0);
                 this.currentDraggedCard = card;
+                this.dragImage = dragImage;
             }
         });
 
         cardElement.addEventListener('dragend', () => {
+            if (this.dragImage) {
+                this.dragImage.remove();
+                this.dragImage = null;
+            }
             this.currentDraggedCard = null;
         });
     }
