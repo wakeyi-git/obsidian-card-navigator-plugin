@@ -45,6 +45,27 @@ export class LayoutManager {
         this.layoutStrategy = this.createLayoutStrategy();
     }
 
+    /**
+     * 컨테이너 너비 변화에 대응하여 레이아웃 전략을 업데이트합니다.
+     * 레이아웃 전략 인스턴스를 재생성하지 않고 너비 변화만 처리합니다.
+     * 이는 특히 메이슨리 레이아웃에서 실시간 너비 업데이트에 유용합니다.
+     */
+    public updateContainerWidth(): void {
+        const availableWidth = this.layoutConfig.getAvailableWidth();
+        
+        // 메이슨리 레이아웃인 경우 직접 너비 업데이트 메서드 호출
+        if (this.layoutStrategy instanceof MasonryLayout) {
+            this.layoutStrategy.updateContainerWidth(availableWidth);
+        } 
+        // 그리드 레이아웃인 경우 카드 너비 업데이트
+        else if (this.layoutStrategy instanceof GridLayout) {
+            const columns = this.layoutStrategy.getColumnsCount();
+            const cardWidth = this.layoutConfig.calculateCardWidth(columns);
+            this.layoutStrategy.setCardWidth(cardWidth);
+        }
+        // 리스트 레이아웃은 자동으로 너비가 조정되므로 별도 처리 불필요
+    }
+
     public getLayoutConfig(): LayoutConfig {
         return this.layoutConfig;
     }

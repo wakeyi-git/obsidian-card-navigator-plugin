@@ -19,7 +19,7 @@ export interface LayoutStrategy {
      * 카드의 너비를 설정합니다.
      * @param width - 설정할 카드의 너비
      */
-    setCardWidth(width: number): void;
+    setCardWidth(width?: number): void;
     //#endregion
 
     //#region 레이아웃 속성
@@ -45,20 +45,35 @@ export interface LayoutStrategy {
      * 카드 스타일을 가져옵니다.
      */
     getCardStyle(): Partial<CSSStyleDeclaration>;
+
+    //#region 컨테이너 관련 메서드
+    /**
+     * 컨테이너를 설정합니다.
+     * @param container - 컨테이너 요소
+     */
+    setContainer?(container: HTMLElement): void;
+
+    /**
+     * 컨테이너의 설정을 업데이트합니다.
+     * @param settings - 업데이트할 설정 객체
+     */
+    updateSettings?(settings: any): void;
+
+    /**
+     * 컨테이너의 너비가 변경될 때 대응하는 메서드
+     * @param newWidth - 새로운 컨테이너의 너비
+     */
+    updateContainerWidth?(newWidth: number): void;
+    //#endregion
 }
 
 /**
  * 레이아웃에서 카드의 위치와 크기를 정의하는 인터페이스
  */
 export interface CardPosition {
-    // 카드 객체
-    card: Card;
-    // 카드의 X 좌표 위치
-    x: number;
-    // 카드의 Y 좌표 위치
-    y: number;
-    // 카드의 너비 (숫자 또는 'auto')
+    id: string;
+    left: number;
+    top: number;
     width: number;
-    // 카드의 높이 (숫자 또는 'auto')
-    height: number | 'auto';
+    height: number;
 }

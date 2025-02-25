@@ -40,16 +40,23 @@ export class GridLayout implements LayoutStrategy {
         const positions: CardPosition[] = [];
         const cardGap = this.layoutConfig.getCardGap();
         const cardWidth = this.cardWidth;
-        const cardHeight = this.layoutConfig.calculateCardHeight('grid');
+        
+        // 카드 높이 계산 (그리드 레이아웃은 항상 숫자 값 반환)
+        const cardHeightValue = this.layoutConfig.calculateCardHeight('grid');
+        // 'auto'인 경우 기본값 사용
+        const cardHeight = cardHeightValue === 'auto' ? 200 : cardHeightValue;
 
         cards.forEach((card, index) => {
             const row = Math.floor(index / this.columns);
             const col = index % this.columns;
+            
+            // 카드 ID (파일 경로 사용)
+            const cardId = card.file.path;
 
             const position: CardPosition = {
-                card,
-                x: col * (cardWidth + cardGap),
-                y: row * (typeof cardHeight === 'number' ? cardHeight + cardGap : containerHeight / this.settings.cardsPerView),
+                id: cardId,
+                left: col * (cardWidth + cardGap),
+                top: row * (cardHeight + cardGap),
                 width: cardWidth,
                 height: cardHeight
             };
@@ -82,13 +89,22 @@ export class GridLayout implements LayoutStrategy {
 
     //#region 레이아웃 속성 조회
     // 그리드의 열 수 반환
-    getColumnsCount(): number {
+    public getColumnsCount(): number {
         return this.columns;
     }
 
     // 스크롤 방향 반환 (항상 수직)
     getScrollDirection(): 'vertical' | 'horizontal' {
         return 'vertical';
+    }
+
+    // 컨테이너 너비 변화에 대응하는 메서드
+    public updateContainerWidth(newWidth: number): void {
+        if (newWidth <= 0) return;
+        
+        // 카드 너비 재계산
+        const cardWidth = this.layoutConfig.calculateCardWidth(this.columns);
+        this.setCardWidth(cardWidth);
     }
     //#endregion
 }

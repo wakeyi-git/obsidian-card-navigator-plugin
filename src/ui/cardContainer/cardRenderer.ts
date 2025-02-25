@@ -126,9 +126,9 @@ export class CardRenderer {
                 } else {
                     // 메이슨리 레이아웃의 경우 absolute 포지셔닝 사용
                     cardEl.style.position = 'absolute';
-                    cardEl.style.transform = `translate3d(${position.x + paddingLeft}px, ${position.y + paddingTop}px, 0)`;
+                    cardEl.style.transform = `translate3d(${position.left + paddingLeft}px, ${position.top + paddingTop}px, 0)`;
                     cardEl.style.width = `${position.width}px`;
-                    cardEl.style.height = position.height === 'auto' ? 'auto' : `${position.height}px`;
+                    cardEl.style.height = `${position.height}px`;
                     cardEl.style.minHeight = '100px';
                 }
 

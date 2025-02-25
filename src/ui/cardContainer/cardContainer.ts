@@ -296,6 +296,9 @@ export class CardContainer {
         
         if (this.isResizing) {
             if (this.pendingResizeFrame === null) {
+                // 리사이징 중에도 컨테이너 너비 변화는 실시간으로 업데이트
+                this.layoutManager.updateContainerWidth();
+                
                 this.pendingResizeFrame = requestAnimationFrame(() => this.handleResize());
             }
             return;
@@ -316,37 +319,45 @@ export class CardContainer {
             // 이전 카드 크기 저장
             const previousCardWidth = this.layoutConfig.calculateCardWidth(previousColumns);
             
-            // 레이아웃 매니저 업데이트
-            this.layoutManager.updateLayout();
-            const newLayoutStrategy = this.layoutManager.getLayoutStrategy();
-            const currentColumns = newLayoutStrategy.getColumnsCount();
+            // 먼저 컨테이너 너비 변화에 대한 실시간 업데이트 시도
+            this.layoutManager.updateContainerWidth();
             
-            // 새로운 카드 크기 계산
-            const currentCardWidth = this.layoutConfig.calculateCardWidth(currentColumns);
-            const cardWidthChanged = Math.abs(currentCardWidth - previousCardWidth) > 1; // 1px 오차 허용
+            // 레이아웃 타입 변경이 필요한지 확인 (예: auto 모드에서 열 수 변경)
+            const shouldUpdateLayoutType = this.shouldUpdateLayoutType(previousStrategy);
             
-            // 레이아웃 전략 업데이트
-            this.cardRenderer?.setLayoutStrategy(newLayoutStrategy);
-            
-            // 레이아웃 변경 감지
-            const isLayoutTypeChanged = previousStrategy.constructor !== newLayoutStrategy.constructor;
-            const isColumnsChanged = previousColumns !== currentColumns;
-            const needsFullRerender = isLayoutTypeChanged || isColumnsChanged || cardWidthChanged;
-            
-            if (needsFullRerender) {
-                // 전체 레이아웃 재렌더링
-                this.cardRenderer?.renderCards(this.cards, this.focusedCardId, activeFile);
+            if (shouldUpdateLayoutType) {
+                // 레이아웃 타입 변경이 필요한 경우에만 전체 레이아웃 업데이트
+                this.layoutManager.updateLayout();
+                const newLayoutStrategy = this.layoutManager.getLayoutStrategy();
+                const currentColumns = newLayoutStrategy.getColumnsCount();
                 
-                // 키보드 네비게이터 업데이트
-                this.keyboardNavigator?.updateLayout(newLayoutStrategy);
+                // 새로운 카드 크기 계산
+                const currentCardWidth = this.layoutConfig.calculateCardWidth(currentColumns);
+                const cardWidthChanged = Math.abs(currentCardWidth - previousCardWidth) > 1; // 1px 오차 허용
                 
-                // 스크롤 위치 복원
-                requestAnimationFrame(() => {
-                    if (this.containerEl) {
-                        this.containerEl.scrollTop = currentScrollTop;
-                        this.containerEl.scrollLeft = currentScrollLeft;
-                    }
-                });
+                // 레이아웃 변경 감지
+                const isLayoutTypeChanged = previousStrategy.constructor !== newLayoutStrategy.constructor;
+                const isColumnsChanged = previousColumns !== currentColumns;
+                const needsFullRerender = isLayoutTypeChanged || isColumnsChanged || cardWidthChanged;
+                
+                if (needsFullRerender) {
+                    // 레이아웃 전략 업데이트
+                    this.cardRenderer?.setLayoutStrategy(newLayoutStrategy);
+                    
+                    // 전체 레이아웃 재렌더링
+                    this.cardRenderer?.renderCards(this.cards, this.focusedCardId, activeFile);
+                    
+                    // 키보드 네비게이터 업데이트
+                    this.keyboardNavigator?.updateLayout(newLayoutStrategy);
+                    
+                    // 스크롤 위치 복원
+                    requestAnimationFrame(() => {
+                        if (this.containerEl) {
+                            this.containerEl.scrollTop = currentScrollTop;
+                            this.containerEl.scrollLeft = currentScrollLeft;
+                        }
+                    });
+                }
             }
         } finally {
             this.isResizing = false;
@@ -356,6 +367,37 @@ export class CardContainer {
                 this.pendingResizeFrame = null;
             }
         }
+    }
+
+    /**
+     * 레이아웃 타입 업데이트가 필요한지 확인합니다.
+     * auto 모드에서 열 수 변경이 필요한 경우 등을 감지합니다.
+     */
+    private shouldUpdateLayoutType(currentStrategy: LayoutStrategy): boolean {
+        // auto 모드에서만 레이아웃 타입이 변경될 수 있음
+        if (this.plugin.settings.defaultLayout !== 'auto') {
+            return false;
+        }
+        
+        // 현재 사용 가능한 너비
+        const availableWidth = this.layoutConfig.getAvailableWidth();
+        
+        // 현재 열 수
+        const currentColumns = currentStrategy.getColumnsCount();
+        
+        // 새로운 열 수 계산
+        const newColumns = this.layoutConfig.calculateAutoColumns();
+        
+        // 열 수가 변경되었는지 확인
+        const columnsChanged = currentColumns !== newColumns;
+        
+        // 열 수가 변경되었거나, 1열에서 다열로 또는 다열에서 1열로 변경되는 경우
+        const layoutTypeChangeNeeded = columnsChanged && (
+            (currentColumns === 1 && newColumns > 1) || 
+            (currentColumns > 1 && newColumns === 1)
+        );
+        
+        return layoutTypeChangeNeeded;
     }
 
     // 현재 레이아웃 전략 반환 메서드

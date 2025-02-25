@@ -50,23 +50,26 @@ export class ListLayout implements LayoutStrategy {
         let currentPosition = 0;
 
         // 최신 설정값으로 카드 높이 계산
-        const cardHeight = this.layoutConfig.calculateCardHeight('list');
+        const cardHeightValue = this.layoutConfig.calculateCardHeight('list');
+        // 'auto'인 경우 기본값 사용
+        const cardHeight = cardHeightValue === 'auto' ? 200 : cardHeightValue;
         const cardWidth = this.isVertical ? containerWidth : this.cardWidth;
 
         cards.forEach((card) => {
+            // 카드 ID (파일 경로 사용)
+            const cardId = card.file.path;
+            
             const position: CardPosition = {
-                card,
-                x: this.isVertical ? 0 : currentPosition,
-                y: this.isVertical ? currentPosition : 0,
+                id: cardId,
+                left: this.isVertical ? 0 : currentPosition,
+                top: this.isVertical ? currentPosition : 0,
                 width: cardWidth,
                 height: cardHeight
             };
             positions.push(position);
 
             // 최신 설정값으로 위치 계산
-            const positionDelta = this.isVertical ? 
-                (typeof cardHeight === 'number' ? cardHeight : containerHeight / this.settings.cardsPerView) : 
-                cardWidth;
+            const positionDelta = this.isVertical ? cardHeight : cardWidth;
             currentPosition += positionDelta + cardGap;
         });
 
@@ -86,13 +89,23 @@ export class ListLayout implements LayoutStrategy {
 
     //#region 레이아웃 속성 조회
     // 열 수 반환
-    getColumnsCount(): number {
+    public getColumnsCount(): number {
         return this.isVertical ? 1 : this.settings.cardsPerView;
     }
 
     // 스크롤 방향 반환 (레이아웃 방향에 따라)
     getScrollDirection(): 'vertical' | 'horizontal' {
         return this.isVertical ? 'vertical' : 'horizontal';
+    }
+
+    // 컨테이너 너비 변화에 대응하는 메서드
+    public updateContainerWidth(newWidth: number): void {
+        if (newWidth <= 0) return;
+        
+        // 리스트 레이아웃은 자동으로 너비가 조정되므로 별도 처리 불필요
+        // 필요한 경우 카드 너비 재계산
+        const cardWidth = this.layoutConfig.calculateCardWidth(1);
+        this.setCardWidth(cardWidth);
     }
     //#endregion
 }

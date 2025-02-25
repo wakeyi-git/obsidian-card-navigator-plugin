@@ -14,6 +14,8 @@ export class MasonryLayout implements LayoutStrategy {
     private columns: number = 1;
     private columnHeights: number[] = [];
     private layoutConfig: LayoutConfig;
+    private previousContainerWidth: number = 0; // 이전 컨테이너 너비 저장 변수
+    private cardHeights: Map<string, number> = new Map(); // 카드 ID별 높이 저장 (고정 높이 유지용)
     //#endregion
 
     //#region 초기화 및 설정
@@ -53,6 +55,11 @@ export class MasonryLayout implements LayoutStrategy {
         
         // 컨테이너 스타일 적용
         this.applyContainerStyle();
+        
+        // 초기 컨테이너 너비 저장
+        if (this.container) {
+            this.previousContainerWidth = this.layoutConfig.getAvailableWidth();
+        }
     }
 
     // 컨테이너 스타일 적용 (일원화된 메서드)
@@ -85,7 +92,11 @@ export class MasonryLayout implements LayoutStrategy {
         return this.layoutConfig.calculateCardWidth(this.columns);
     }
 
-    // 카드 너비 설정
+    /**
+     * 카드 너비 설정
+     * 컨테이너 너비 변화에 따라 카드 너비를 업데이트합니다.
+     * 카드 높이는 고정된 상태를 유지합니다.
+     */
     setCardWidth(width?: number): void {
         const oldWidth = this.cardWidth;
         
@@ -96,24 +107,57 @@ export class MasonryLayout implements LayoutStrategy {
             this.cardWidth = width;
         }
 
-        // 카드 너비가 변경되면 열 수도 다시 계산
-        const newColumns = this.determineColumnsCount();
-        if (newColumns !== this.columns || Math.abs(oldWidth - this.cardWidth) > 1) {
-            this.columns = newColumns;
-            this.columnHeights = new Array(this.columns).fill(0);
-            this.layoutConfig.updatePreviousColumns(this.columns);
+        // 현재 컨테이너 너비 확인
+        const currentContainerWidth = this.container ? this.layoutConfig.getAvailableWidth() : 0;
+        const containerWidthChanged = Math.abs(currentContainerWidth - this.previousContainerWidth) > 1;
+        
+        // 컨테이너 너비가 변경되었거나 카드 너비가 변경된 경우에만 업데이트
+        if (containerWidthChanged || Math.abs(oldWidth - this.cardWidth) > 1) {
+            // 열 수 재계산 (auto 모드에서만 변경될 수 있음)
+            const newColumns = this.determineColumnsCount();
             
-            // 열 수가 변경되면 카드 너비도 다시 계산
-            this.cardWidth = this.calculateCardWidth();
-
-            // 컨테이너가 있는 경우 CSS 변수 업데이트
-            if (this.container) {
-                this.container.style.setProperty('--masonry-columns', this.columns.toString());
-                this.container.style.setProperty('--masonry-card-width', `${this.cardWidth}px`);
+            // 열 수가 변경되었거나 컨테이너 너비가 변경된 경우
+            if (newColumns !== this.columns || containerWidthChanged) {
+                const columnsChanged = newColumns !== this.columns;
                 
-                // 컨테이너 스타일 다시 적용
-                this.applyContainerStyle();
+                // 열 수 업데이트
+                if (columnsChanged) {
+                    this.columns = newColumns;
+                    this.columnHeights = new Array(this.columns).fill(0);
+                    this.layoutConfig.updatePreviousColumns(this.columns);
+                }
+                
+                // 카드 너비 재계산
+                this.cardWidth = this.calculateCardWidth();
+                
+                // 컨테이너 너비 업데이트
+                if (this.container) {
+                    this.previousContainerWidth = currentContainerWidth;
+                }
+
+                // 컨테이너가 있는 경우 CSS 변수 업데이트
+                if (this.container) {
+                    this.container.style.setProperty('--masonry-columns', this.columns.toString());
+                    this.container.style.setProperty('--masonry-card-width', `${this.cardWidth}px`);
+                    
+                    // 컨테이너 스타일 다시 적용
+                    this.applyContainerStyle();
+                }
             }
+        }
+    }
+
+    /**
+     * 컨테이너 너비 변화에 직접 반응하는 메서드
+     * 레이아웃 매니저에서 직접 호출할 수 있습니다.
+     */
+    public updateContainerWidth(newWidth: number): void {
+        if (!this.container || newWidth <= 0) return;
+        
+        const widthChanged = Math.abs(newWidth - this.previousContainerWidth) > 1;
+        if (widthChanged) {
+            this.previousContainerWidth = newWidth;
+            this.setCardWidth();
         }
     }
 
@@ -121,10 +165,14 @@ export class MasonryLayout implements LayoutStrategy {
     arrange(cards: Card[], containerWidth: number, containerHeight: number): CardPosition[] {
         if (!this.container) return [];
 
-        // 열 수와 카드 너비 업데이트
-        this.setCardWidth();
+        // 컨테이너 너비 변화 감지 및 카드 너비 업데이트
+        const currentContainerWidth = this.layoutConfig.getAvailableWidth();
+        if (Math.abs(currentContainerWidth - this.previousContainerWidth) > 1) {
+            this.previousContainerWidth = currentContainerWidth;
+            this.setCardWidth();
+        }
 
-        // 컨테이너 스타일 적용 (일원화된 메서드 사용)
+        // 컨테이너 스타일 적용
         this.applyContainerStyle();
 
         // 컬럼 높이 초기화
@@ -134,15 +182,29 @@ export class MasonryLayout implements LayoutStrategy {
 
         // 카드 배치
         cards.forEach((card) => {
-            const contentHeight = this.calculateEstimatedHeight(card);
+            // 카드 ID (파일 경로 사용)
+            const cardId = card.file.path;
+            
+            // 카드 높이 결정 (이미 계산된 높이가 있으면 재사용, 없으면 계산)
+            let contentHeight: number;
+            if (this.cardHeights.has(cardId)) {
+                // 이미 계산된 높이 재사용 (고정 높이 유지)
+                contentHeight = this.cardHeights.get(cardId)!;
+            } else {
+                // 새 카드의 경우 높이 계산 및 저장
+                contentHeight = this.calculateEstimatedHeight(card);
+                this.cardHeights.set(cardId, contentHeight);
+            }
+            
+            // 가장 높이가 낮은 열 찾기
             const minHeightIndex = this.columnHeights.indexOf(Math.min(...this.columnHeights));
             const x = minHeightIndex * (this.cardWidth + cardGap);
             const y = this.columnHeights[minHeightIndex];
             
             positions.push({
-                card,
-                x,
-                y,
+                id: cardId,
+                left: x,
+                top: y,
                 width: this.cardWidth,
                 height: contentHeight
             });
@@ -151,7 +213,7 @@ export class MasonryLayout implements LayoutStrategy {
             
             // 카드 요소 스타일 업데이트
             const cardElement = this.container!.querySelector(
-                `[data-card-id="${card.file.path}"]`
+                `[data-card-id="${cardId}"]`
             ) as HTMLElement;
             
             if (cardElement) {
@@ -175,6 +237,7 @@ export class MasonryLayout implements LayoutStrategy {
     }
 
     // 컨텐츠 기반 예상 높이 계산
+    // 참고: 이 메서드는 카드 생성 시 한 번만 호출되며, 이후 높이는 고정됩니다.
     private calculateEstimatedHeight(card: Card): number {
         const lineHeight = 1.5;  // 기본 줄간격
         const padding = 32;      // 카드 내부 여백 (16px * 2)
@@ -334,13 +397,33 @@ export class MasonryLayout implements LayoutStrategy {
     destroy() {
         this.container = null;
         this.columnHeights = [];
+        this.cardHeights.clear();
     }
 
+    // 설정 업데이트
     updateSettings(settings: CardNavigatorSettings) {
+        const oldSettings = this.settings;
         this.settings = settings;
+        
         // 설정이 변경되면 열 수도 다시 계산
         this.columns = this.determineColumnsCount();
+        
+        // 카드 너비 업데이트
         this.setCardWidth();
+        
+        // 카드 내용 관련 설정이 변경된 경우 카드 높이 캐시 초기화
+        if (
+            oldSettings.showFileName !== settings.showFileName ||
+            oldSettings.showFirstHeader !== settings.showFirstHeader ||
+            oldSettings.showBody !== settings.showBody ||
+            oldSettings.fileNameFontSize !== settings.fileNameFontSize ||
+            oldSettings.firstHeaderFontSize !== settings.firstHeaderFontSize ||
+            oldSettings.bodyFontSize !== settings.bodyFontSize ||
+            oldSettings.bodyLength !== settings.bodyLength ||
+            oldSettings.bodyLengthLimit !== settings.bodyLengthLimit
+        ) {
+            this.cardHeights.clear();
+        }
     }
     //#endregion
 }
