@@ -62,51 +62,51 @@ export class LayoutConfig {
     /**
      * 자동 레이아웃의 열 수를 계산합니다.
      */
-        public calculateAutoColumns(): number {
-            const availableWidth = this.getAvailableWidth();
-            const cardGap = this.getCardGap();
-            const threshold = this.settings.cardWidthThreshold;
+    public calculateAutoColumns(): number {
+        const availableWidth = this.getAvailableWidth();
+        const cardGap = this.getCardGap();
+        const threshold = this.settings.cardWidthThreshold;
+        
+        // 히스테리시스 버퍼
+        const upperBuffer = 40;
+        const lowerBuffer = 20;
+        
+        // 현재 열 수 계산
+        let columns = Math.max(1, Math.floor((availableWidth + cardGap) / (threshold + cardGap)));
+        
+        // 실제 카드 너비 계산
+        const actualCardWidth = (availableWidth - (columns - 1) * cardGap) / columns;
+        
+        // 1열 강제 전환 조건
+        if (actualCardWidth < threshold - lowerBuffer) {
+            return 1;
+        }
+        
+        // 2열 이상에서의 히스테리시스 적용
+        if (columns >= 2) {
+            const previousWidth = (availableWidth - (this.previousColumns - 1) * cardGap) / this.previousColumns;
             
-            // 히스테리시스 버퍼
-            const upperBuffer = 40;
-            const lowerBuffer = 20;
-            
-            // 현재 열 수 계산
-            let columns = Math.max(1, Math.floor((availableWidth + cardGap) / (threshold + cardGap)));
-            
-            // 실제 카드 너비 계산
-            const actualCardWidth = (availableWidth - (columns - 1) * cardGap) / columns;
-            
-            // 1열 강제 전환 조건
-            if (actualCardWidth < threshold - lowerBuffer) {
-                return 1;
-            }
-            
-            // 2열 이상에서의 히스테리시스 적용
-            if (columns >= 2) {
-                const previousWidth = (availableWidth - (this.previousColumns - 1) * cardGap) / this.previousColumns;
-                
-                // 이전 상태가 유효하면 히스테리시스 적용
-                if (this.previousColumns > 0) {
-                    if (previousWidth >= threshold - lowerBuffer && previousWidth <= threshold + upperBuffer) {
-                        return this.previousColumns;
-                    }
+            // 이전 상태가 유효하면 히스테리시스 적용
+            if (this.previousColumns > 0) {
+                if (previousWidth >= threshold - lowerBuffer && previousWidth <= threshold + upperBuffer) {
+                    return this.previousColumns;
                 }
             }
-            
-            return columns;
         }
+        
+        return columns;
+    }
 
     /**
      * 카드 너비를 계산합니다.
      */
-        public calculateCardWidth(columns: number): number {
-            const availableWidth = this.getAvailableWidth();
-            const cardGap = this.getCardGap();
-            const totalGapWidth = cardGap * (columns - 1);
-            
-            return Math.floor((availableWidth - totalGapWidth) / columns);
-        }
+    public calculateCardWidth(columns: number): number {
+        const availableWidth = this.getAvailableWidth();
+        const cardGap = this.getCardGap();
+        const totalGapWidth = cardGap * (columns - 1);
+        
+        return Math.floor((availableWidth - totalGapWidth) / columns);
+    }
 
     /**
      * 카드 높이를 계산합니다.

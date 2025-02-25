@@ -304,8 +304,7 @@
 .card-navigator-container {
     position: relative;
     height: 100%;
-    width: calc(100% + var(--size-4-3));
-    padding-right: var(--size-4-3);
+    width: 100%;
     box-sizing: border-box;
 }
 
@@ -512,16 +511,6 @@
 .popout-window::resize-handle {
     width: 10px; /* 드래그 가능한 영역 넓힘 */
     height: 10px;
-}
-
-.masonry-layout {
-    position: relative;
-    width: calc(100% + var(--size-4-3));
-    padding-right: var(--size-4-3);
-    height: 100%;
-    overflow-y: auto;
-    overflow-x: hidden;
-    display: block; /* flex 대신 block 사용 */
 }
 
 .settings-section-margin {

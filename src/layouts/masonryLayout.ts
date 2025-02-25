@@ -24,10 +24,26 @@ export class MasonryLayout implements LayoutStrategy {
         layoutConfig: LayoutConfig
     ) {
         this.layoutConfig = layoutConfig;
-        // 초기 열 수와 카드 너비 설정
-        this.columns = this.layoutConfig.calculateAutoColumns();
-        this.cardWidth = this.layoutConfig.calculateCardWidth(this.columns);
+        // 초기 열 수 설정
+        this.columns = this.determineColumnsCount();
+        this.cardWidth = this.calculateCardWidth();
         this.columnHeights = new Array(this.columns).fill(0);
+    }
+
+    // 열 수 결정 (일원화된 메서드)
+    private determineColumnsCount(): number {
+        // defaultLayout이 'masonry'일 때는 settings.masonryColumns 사용
+        if (this.settings.defaultLayout === 'masonry') {
+            return this.settings.masonryColumns;
+        }
+        
+        // defaultLayout이 'auto'이고 alignCardHeight가 false일 때만 동적 계산
+        if (this.settings.defaultLayout === 'auto' && !this.settings.alignCardHeight) {
+            return this.layoutConfig.calculateAutoColumns();
+        }
+        
+        // 기본값으로 masonryColumns 사용
+        return this.settings.masonryColumns;
     }
 
     // 컨테이너 설정
@@ -35,8 +51,20 @@ export class MasonryLayout implements LayoutStrategy {
         this.container = container;
         this.container.classList.add('masonry-layout');
         
-        // 컨테이너 기본 스타일 설정
-        Object.assign(container.style, {
+        // 컨테이너 스타일 적용
+        this.applyContainerStyle();
+    }
+
+    // 컨테이너 스타일 적용 (일원화된 메서드)
+    private applyContainerStyle() {
+        if (!this.container) return;
+        
+        // 기본 컨테이너 스타일 가져오기
+        const containerStyle = this.layoutConfig.getContainerStyle(true);
+        
+        // 메이슨리 레이아웃 특화 스타일 추가
+        Object.assign(this.container.style, {
+            ...containerStyle,
             position: 'relative',
             width: '100%',
             height: '100%',
@@ -47,27 +75,44 @@ export class MasonryLayout implements LayoutStrategy {
 
         // CSS 변수 설정
         const cardGap = this.layoutConfig.getCardGap();
-        container.style.setProperty('--masonry-columns', this.columns.toString());
-        container.style.setProperty('--masonry-gap', `${cardGap}px`);
-        container.style.setProperty('--masonry-card-width', `${this.cardWidth}px`);
+        this.container.style.setProperty('--masonry-columns', this.columns.toString());
+        this.container.style.setProperty('--masonry-gap', `${cardGap}px`);
+        this.container.style.setProperty('--masonry-card-width', `${this.cardWidth}px`);
+    }
+
+    // 카드 너비 계산 (일원화된 메서드)
+    private calculateCardWidth(): number {
+        return this.layoutConfig.calculateCardWidth(this.columns);
     }
 
     // 카드 너비 설정
-    setCardWidth(width: number): void {
+    setCardWidth(width?: number): void {
         const oldWidth = this.cardWidth;
-        this.cardWidth = width;
+        
+        // width 매개변수가 제공되지 않으면 계산
+        if (width === undefined) {
+            this.cardWidth = this.calculateCardWidth();
+        } else {
+            this.cardWidth = width;
+        }
 
         // 카드 너비가 변경되면 열 수도 다시 계산
-        const newColumns = this.layoutConfig.calculateAutoColumns();
-        if (newColumns !== this.columns || Math.abs(oldWidth - width) > 1) {
+        const newColumns = this.determineColumnsCount();
+        if (newColumns !== this.columns || Math.abs(oldWidth - this.cardWidth) > 1) {
             this.columns = newColumns;
             this.columnHeights = new Array(this.columns).fill(0);
             this.layoutConfig.updatePreviousColumns(this.columns);
+            
+            // 열 수가 변경되면 카드 너비도 다시 계산
+            this.cardWidth = this.calculateCardWidth();
 
             // 컨테이너가 있는 경우 CSS 변수 업데이트
             if (this.container) {
                 this.container.style.setProperty('--masonry-columns', this.columns.toString());
                 this.container.style.setProperty('--masonry-card-width', `${this.cardWidth}px`);
+                
+                // 컨테이너 스타일 다시 적용
+                this.applyContainerStyle();
             }
         }
     }
@@ -77,17 +122,10 @@ export class MasonryLayout implements LayoutStrategy {
         if (!this.container) return [];
 
         // 열 수와 카드 너비 업데이트
-        this.setCardWidth(this.layoutConfig.calculateCardWidth(this.columns));
+        this.setCardWidth();
 
-        // 컨테이너 스타일 설정
-        const containerStyle = this.layoutConfig.getContainerStyle(true);
-        Object.assign(this.container.style, {
-            ...containerStyle,
-            position: 'relative',
-            width: 'calc(100% + 12px)',
-            paddingRight: '12px',
-            height: '100%'
-        });
+        // 컨테이너 스타일 적용 (일원화된 메서드 사용)
+        this.applyContainerStyle();
 
         // 컬럼 높이 초기화
         this.columnHeights = new Array(this.columns).fill(0);
@@ -124,7 +162,6 @@ export class MasonryLayout implements LayoutStrategy {
                     transform: `translate3d(${x}px, ${y}px, 0)`,
                     height: `${contentHeight}px`,
                     minHeight: '100px',
-                    transition: 'transform 0.3s ease-in-out, width 0.3s ease-in-out'
                 });
             }
         });
@@ -301,7 +338,9 @@ export class MasonryLayout implements LayoutStrategy {
 
     updateSettings(settings: CardNavigatorSettings) {
         this.settings = settings;
-        this.setCardWidth(this.layoutConfig.calculateCardWidth(this.columns));
+        // 설정이 변경되면 열 수도 다시 계산
+        this.columns = this.determineColumnsCount();
+        this.setCardWidth();
     }
     //#endregion
 }
