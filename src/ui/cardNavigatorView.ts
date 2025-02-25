@@ -174,7 +174,6 @@ export class CardNavigatorView extends ItemView {
     public async refreshBatch(types: RefreshType[]) {
         if (!this.cardContainer) return;
         
-        console.log(`[CardNavigator] 배치 리프레시 요청 - 타입들:`, types);
 
         // 현재 시간과 마지막 리프레시 시간을 비교
         const now = Date.now();
@@ -202,7 +201,6 @@ export class CardNavigatorView extends ItemView {
 
         // 이미 진행 중인 리프레시가 있으면 타입을 병합하고 대기
         if (this.isRefreshInProgress) {
-            console.log(`[CardNavigator] 리프레시가 진행 중 - 타입 병합`);
             types.forEach(type => this.pendingRefreshTypes.add(type));
             return;
         }
@@ -213,7 +211,6 @@ export class CardNavigatorView extends ItemView {
             
             // 대기 중인 리프레시 타입들을 현재 타입들과 병합
             types.forEach(type => this.pendingRefreshTypes.add(type));
-            const mergedTypes = Array.from(this.pendingRefreshTypes);
             this.pendingRefreshTypes.clear();
 
             // 컨테이너 요소 가져오기
@@ -243,13 +240,8 @@ export class CardNavigatorView extends ItemView {
     private async refreshByType(type: RefreshType) {
         if (!this.cardContainer) return;
 
-        console.log(`[CardNavigator] 리프레시 시작 - 타입: ${type}`);
-        const startTime = performance.now();
-
         try {
-            // 모든 타입을 단일 업데이트로 처리
-            console.log(`[CardNavigator] 통합 업데이트 시작`);
-            
+            // 모든 타입을 단일 업데이트로 처리            
             const folder = await this.getCurrentFolder();
             if (folder) {
                 // 1. 설정 업데이트
@@ -267,10 +259,6 @@ export class CardNavigatorView extends ItemView {
                 await this.cardContainer.displayCards(sortedFiles);
             }
             
-            console.log(`[CardNavigator] 통합 업데이트 완료`);
-
-            const endTime = performance.now();
-            console.log(`[CardNavigator] 리프레시 완료 - 타입: ${type}, 소요시간: ${endTime - startTime}ms`);
         } catch (error) {
             console.error(`[CardNavigator] 리프레시 중 오류 발생:`, error);
             throw error;

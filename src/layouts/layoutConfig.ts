@@ -143,9 +143,6 @@ export class LayoutConfig {
             // 마지막 1px 여유 확보
             return cardHeight - 1;
         }
-
-        // 알 수 없는 레이아웃 타입의 경우 자동 높이 사용
-        console.warn(`[CardNavigator] 알 수 없는 레이아웃 타입: ${layout}, 'auto' 사용`);
         return 'auto';
     }
 
