@@ -26,6 +26,7 @@ export class CardContainer {
     private keyboardNavigator: KeyboardNavigator | null = null;
     private scroller!: Scroller;
     public cards: Card[] = [];
+    private lastActiveFolder: string | null = null; // 마지막 활성 폴더 경로 추적
     private resizeObserver: ResizeObserver;
     private focusedCardId: string | null = null;
     private searchResults: TFile[] | null = null;
@@ -50,15 +51,39 @@ export class CardContainer {
         // 파일 열림 이벤트 등록
         this.plugin.registerEvent(
             this.app.workspace.on('file-open', async (file) => {
-                if (this.cardRenderer && file) {
+                if (!this.cardRenderer || !file) return;
+                
+                // 현재 파일의 폴더 경로 확인
+                const currentFolder = file.parent ? file.parent.path : null;
+                
+                // 폴더 변경 여부 확인
+                const folderChanged = this.lastActiveFolder !== currentFolder;
+                
+                // 폴더가 변경된 경우에만 전체 렌더링
+                const needsFullRendering = folderChanged;
+                
+                if (needsFullRendering) {
+                    // 전체 렌더링 수행
                     await this.cardRenderer.renderCards(this.cards, this.focusedCardId, file);
-                    // DOM 업데이트 후 스크롤 실행
-                    requestAnimationFrame(() => {
-                        setTimeout(() => {
-                            this.scrollToActiveCard(true);
-                        }, 50);
-                    });
+                } else {
+                    // 활성 카드 상태만 업데이트
+                    const activeCardFound = this.cardRenderer.updateActiveCard(file, this.focusedCardId);
+                    
+                    // 활성 카드를 찾지 못한 경우 전체 렌더링 수행
+                    if (!activeCardFound) {
+                        await this.cardRenderer.renderCards(this.cards, this.focusedCardId, file);
+                    }
                 }
+                
+                // 마지막 활성 폴더 업데이트
+                this.lastActiveFolder = currentFolder;
+                
+                // DOM 업데이트 후 스크롤 실행
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        this.scrollToActiveCard(true);
+                    }, 50);
+                });
             })
         );
     }

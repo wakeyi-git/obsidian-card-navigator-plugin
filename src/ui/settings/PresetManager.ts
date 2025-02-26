@@ -315,15 +315,19 @@ export class PresetManager implements IPresetManager {
     async applyFolderPreset(folderPath: string): Promise<void> {
         let currentPath: string | null = folderPath;
         let presetApplied = false;
+        let presetToApply: string | null = null;
     
-        while (currentPath && !presetApplied) {
+        // 현재 적용된 프리셋 확인
+        const currentPreset = this.plugin.settings.lastActivePreset;
+    
+        // 폴더 경로를 거슬러 올라가며 적용할 프리셋 찾기
+        while (currentPath && !presetToApply) {
             if (!this.plugin.settings.activeFolderPresets) {
                 this.plugin.settings.activeFolderPresets = {};
             }
             const presetName = this.plugin.settings.activeFolderPresets[currentPath];
             if (presetName) {
-                await this.applyPreset(presetName);
-                presetApplied = true;
+                presetToApply = presetName;
             } else {
                 currentPath = currentPath.includes('/') 
                     ? currentPath.substring(0, currentPath.lastIndexOf('/')) 
@@ -331,9 +335,18 @@ export class PresetManager implements IPresetManager {
             }
         }
     
-        if (!presetApplied) {
-            await this.applyGlobalPreset();
+        // 적용할 프리셋이 없으면 글로벌 프리셋 사용
+        if (!presetToApply) {
+            presetToApply = this.plugin.settings.GlobalPreset;
         }
+        
+        // 현재 적용된 프리셋과 동일한 경우 다시 적용하지 않음
+        if (presetToApply && presetToApply !== currentPreset) {
+            await this.applyPreset(presetToApply);
+            presetApplied = true;
+        }
+        
+        return;
     }
 
     // 프리셋 적용
