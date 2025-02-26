@@ -8,25 +8,16 @@ type CardElementTag = 'div' | 'h3' | 'h4';
 
 export class CardMaker extends Component {
     private readonly MAX_CACHE_SIZE = 500;
-    private readonly MAX_CONCURRENT_RENDERS = 5;
-    private readonly INTERSECTION_ROOT_MARGIN = '200px';
-    private readonly INTERSECTION_THRESHOLD = 0.1;
-    private readonly RENDER_QUEUE_INTERVAL = 50;
     private readonly RENDER_TIMEOUT = 2000;
 
     private interactionManager: CardInteractionManager;
     private renderCache: Map<string, string> = new Map();
-    private intersectionObserver: IntersectionObserver;
     private modifiedCards: Set<string> = new Set();
-    private renderQueue: Set<string> = new Set();
-    private isProcessingQueue = false;
-    private renderedCards: Set<string> = new Set();
     private renderTimeouts: Map<string, NodeJS.Timeout> = new Map();
 
     constructor(private plugin: CardNavigatorPlugin) {
         super();
         this.interactionManager = new CardInteractionManager(plugin);
-        this.intersectionObserver = this.createIntersectionObserver();
         this.registerFileEvents();
     }
 
@@ -36,7 +27,6 @@ export class CardMaker extends Component {
                 .slice(0, this.renderCache.size - this.MAX_CACHE_SIZE);
             entriesToDelete.forEach(key => {
                 this.renderCache.delete(key);
-                this.renderedCards.delete(key);
             });
         }
     }
@@ -47,21 +37,25 @@ export class CardMaker extends Component {
                 if (file instanceof TFile && file.extension === 'md') {
                     const activeFile = this.plugin.app.workspace.getActiveFile();
                     if (activeFile && activeFile.path === file.path) {
-                        // 캐시 초기화
+                        // 이미 수정 중인 카드는 처리하지 않음
+                        if (this.modifiedCards.has(file.path)) return;
+                        
+                        // 캐시 초기화 및 수정 중 상태 설정
                         this.modifiedCards.add(file.path);
                         this.renderCache.delete(file.path);
-                        this.renderedCards.delete(file.path);
-
-                        // 카드 내용 즉시 업데이트
-                        const content = await this.plugin.app.vault.cachedRead(file);
-                        const { cleanBody } = separateFrontmatterAndBody(content);
                         
-                        const safeCardId = CSS.escape(file.path);
-                        const cardElements = document.querySelectorAll(`.card-navigator-card[data-card-id="${safeCardId}"]`) as NodeListOf<HTMLElement>;
-                        
-                        for (const cardElement of Array.from(cardElements)) {
-                            const contentEl = cardElement.querySelector('.card-navigator-body') as HTMLElement;
-                            if (contentEl) {
+                        try {
+                            // 카드 내용 즉시 업데이트
+                            const content = await this.plugin.app.vault.cachedRead(file);
+                            const { cleanBody } = separateFrontmatterAndBody(content);
+                            
+                            const safeCardId = CSS.escape(file.path);
+                            const cardElements = document.querySelectorAll(`.card-navigator-card[data-card-id="${safeCardId}"]`) as NodeListOf<HTMLElement>;
+                            
+                            for (const cardElement of Array.from(cardElements)) {
+                                const contentEl = cardElement.querySelector('.card-navigator-body') as HTMLElement;
+                                if (!contentEl) continue;
+                                
                                 if (this.plugin.settings.renderContentAsHtml) {
                                     // HTML 렌더링 시 기존 마크다운 컨테이너 초기화
                                     const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
@@ -70,106 +64,47 @@ export class CardMaker extends Component {
                                         markdownContainer.classList.add('loading');
                                         markdownContainer.style.opacity = '0';
                                         
-                                        // 새로운 내용 렌더링
-                                        await MarkdownRenderer.render(
-                                            this.plugin.app,
-                                            cleanBody,
-                                            markdownContainer,
-                                            file.path,
-                                            this
-                                        );
-                                        
-                                        // 렌더링 완료 후 표시
-                                        markdownContainer.style.opacity = '1';
-                                        markdownContainer.classList.remove('loading');
+                                        try {
+                                            // 새로운 내용 렌더링
+                                            await MarkdownRenderer.render(
+                                                this.plugin.app,
+                                                cleanBody,
+                                                markdownContainer,
+                                                file.path,
+                                                this
+                                            );
+                                            
+                                            // 렌더링 완료 후 표시
+                                            markdownContainer.style.opacity = '1';
+                                            markdownContainer.classList.remove('loading');
+                                        } catch (error) {
+                                            console.error(`[CardNavigator] 수정된 카드 렌더링 실패 ${file.path}:`, error);
+                                            markdownContainer.textContent = cleanBody;
+                                            markdownContainer.style.opacity = '1';
+                                            markdownContainer.classList.remove('loading');
+                                        }
                                     }
                                 } else {
+                                    // HTML 렌더링을 사용하지 않는 경우 직접 텍스트 설정
                                     contentEl.textContent = cleanBody;
                                 }
                             }
+                        } finally {
+                            // 처리 완료 후 수정 중 상태 해제
+                            this.modifiedCards.delete(file.path);
                         }
-                        
-                        this.modifiedCards.delete(file.path);
                     }
                 }
             })
         );
     }
 
-    private createIntersectionObserver(): IntersectionObserver {
-        return new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                const cardElement = entry.target as HTMLElement;
-                const filePath = cardElement.getAttribute('data-original-path');
-                if (!filePath) return;
-
-                if (entry.isIntersecting) {
-                    this.renderQueue.add(filePath);
-                    this.processRenderQueue();
-                } else {
-                    this.renderQueue.delete(filePath);
-                    const timeout = this.renderTimeouts.get(filePath);
-                    if (timeout) {
-                        clearTimeout(timeout);
-                        this.renderTimeouts.delete(filePath);
-                    }
-                }
-            });
-        }, {
-            rootMargin: this.INTERSECTION_ROOT_MARGIN,
-            threshold: this.INTERSECTION_THRESHOLD
-        });
-    }
-
-    private async processRenderQueue() {
-        if (this.isProcessingQueue || this.renderQueue.size === 0) return;
-
-        this.isProcessingQueue = true;
-        const itemsToProcess = Array.from(this.renderQueue).slice(0, this.MAX_CONCURRENT_RENDERS);
-
-        for (const filePath of itemsToProcess) {
-            this.renderQueue.delete(filePath);
-            const safeCardId = CSS.escape(filePath);
-            const cardElement = document.querySelector(`[data-card-id="${safeCardId}"]`) as HTMLElement;
-            if (!cardElement) continue;
-
-            const contentEl = cardElement.querySelector('.card-navigator-body') as HTMLElement;
-            const content = cardElement.dataset.content;
-
-            if (contentEl && content && this.plugin.settings.renderContentAsHtml) {
-                const timeout = setTimeout(() => {
-                    console.warn(`Rendering timeout for ${filePath}`);
-                    this.renderQueue.add(filePath);
-                    this.renderTimeouts.delete(filePath);
-                }, this.RENDER_TIMEOUT);
-
-                this.renderTimeouts.set(filePath, timeout);
-
-                try {
-                    await this.renderCardContent(contentEl, content, filePath);
-                    this.renderedCards.add(filePath);
-                } catch (error) {
-                    console.error(`Failed to render card ${filePath}:`, error);
-                } finally {
-                    clearTimeout(timeout);
-                    this.renderTimeouts.delete(filePath);
-                }
-            }
-        }
-
-        this.isProcessingQueue = false;
-        if (this.renderQueue.size > 0) {
-            setTimeout(() => this.processRenderQueue(), this.RENDER_QUEUE_INTERVAL);
-        }
-    }
-
     private async renderCardContent(contentEl: HTMLElement, content: string, filePath: string) {
         try {
             const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
             if (!markdownContainer) return;
-
+            
             // 기존 내용을 유지하면서 렌더링 준비
-            // 플레이스홀더 텍스트는 유지하고 나중에 제거
             const placeholderText = markdownContainer.querySelector('.placeholder-text');
             
             // 새로운 내용을 렌더링할 임시 컨테이너 생성
@@ -191,7 +126,6 @@ export class CardMaker extends Component {
             // 이미지 처리
             await this.processImages(tempContainer, filePath);
 
-            // 렌더링된 내용을 실제 컨테이너로 이동
             // 플레이스홀더 텍스트 제거
             if (placeholderText) {
                 placeholderText.remove();
@@ -214,9 +148,8 @@ export class CardMaker extends Component {
             setTimeout(() => {
                 markdownContainer.style.opacity = '1';
             }, 10);
-            
         } catch (error) {
-            console.error(`Failed to render content for ${filePath}:`, error);
+            console.error(`[CardNavigator] ${filePath} 내용 렌더링 실패:`, error);
             const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
             if (markdownContainer) {
                 // 플레이스홀더 텍스트 제거
@@ -229,6 +162,7 @@ export class CardMaker extends Component {
                 markdownContainer.createSpan({ text: content });
                 markdownContainer.style.opacity = '1';
             }
+            throw error; // 오류를 상위로 전파하여 적절한 상태 처리
         }
     }
 
@@ -364,14 +298,14 @@ export class CardMaker extends Component {
         cardElement.className = 'card-navigator-card';
         cardElement.setAttribute('data-card-id', card.file.path);
         cardElement.setAttribute('data-original-path', card.file.path);
-
+        
         this.addCardContent(cardElement, card);
         this.interactionManager.setupInteractions(cardElement, card);
 
         return cardElement;
     }
 
-    private addCardContent(cardElement: HTMLElement, card: Card) {
+    private async addCardContent(cardElement: HTMLElement, card: Card) {
         const { settings } = this.plugin;
         
         if (settings.showFileName && card.fileName) {
@@ -386,6 +320,7 @@ export class CardMaker extends Component {
             const contentEl = this.createContentElement(cardElement, 'div', '', 'body', settings.bodyFontSize);
             
             if (settings.renderContentAsHtml) {
+                // 카드 내용 데이터 저장
                 cardElement.dataset.content = card.body;
                 
                 // 마크다운 컨테이너 생성 및 스타일 개선
@@ -401,23 +336,41 @@ export class CardMaker extends Component {
                 const placeholderText = card.body.length > 50 ? card.body.substring(0, 50) + '...' : card.body;
                 markdownContainer.createSpan({ text: placeholderText, cls: 'placeholder-text' });
                 
-                // 인터섹션 옵저버로 뷰포트에 들어올 때 렌더링
-                this.intersectionObserver.observe(cardElement);
+                // 즉시 렌더링 (큐 사용하지 않고 직접 렌더링)
+                try {
+                    const timeout = setTimeout(() => {
+                        console.warn(`[CardNavigator] 렌더링 타임아웃 발생: ${card.file.path}`);
+                        this.renderTimeouts.delete(card.file.path);
+                    }, this.RENDER_TIMEOUT);
+                    
+                    this.renderTimeouts.set(card.file.path, timeout);
+                    
+                    // 비동기로 렌더링 시작하고 완료를 기다리지 않음
+                    this.renderCardContent(contentEl, card.body, card.file.path)
+                        .catch(error => console.error(`[CardNavigator] 카드 렌더링 실패 ${card.file.path}:`, error))
+                        .finally(() => {
+                            clearTimeout(timeout);
+                            this.renderTimeouts.delete(card.file.path);
+                        });
+                } catch (error) {
+                    console.error(`[CardNavigator] 카드 렌더링 시작 실패 ${card.file.path}:`, error);
+                    markdownContainer.textContent = card.body;
+                    markdownContainer.style.opacity = '1';
+                }
             } else {
                 contentEl.textContent = card.body;
-                contentEl.addClass('ellipsis');
             }
         }
     }
 
     // 기존 카드 요소의 내용을 업데이트하는 public 메서드 추가
-    public updateCardContent(cardElement: HTMLElement, card: Card) {
+    public async updateCardContent(cardElement: HTMLElement, card: Card) {
         // 기존 내용 요소 제거
         const contentElements = cardElement.querySelectorAll('.card-navigator-filename, .card-navigator-first-header, .card-navigator-body');
         contentElements.forEach(el => el.remove());
         
         // 내용 다시 추가
-        this.addCardContent(cardElement, card);
+        await this.addCardContent(cardElement, card);
     }
 
     private createContentElement(parent: HTMLElement, tag: CardElementTag, text: string, type: string, fontSize: number): HTMLElement {
@@ -430,11 +383,8 @@ export class CardMaker extends Component {
     }
 
     public onunload() {
-        this.intersectionObserver.disconnect();
         this.renderCache.clear();
         this.modifiedCards.clear();
-        this.renderQueue.clear();
-        this.renderedCards.clear();
         this.renderTimeouts.forEach(timeout => clearTimeout(timeout));
         this.renderTimeouts.clear();
         super.onunload();
@@ -460,12 +410,8 @@ export class CardMaker extends Component {
                                   markdownContainer.querySelector('.placeholder-text') !== null;
         
         if (markdownContainer.children.length > 0 && !hasOnlyPlaceholder) {
-            cardElement.removeAttribute('data-rendering');
             return;
         }
-
-        // 렌더링 중 표시
-        cardElement.setAttribute('data-rendering', 'true');
 
         try {
             // 새로운 내용을 렌더링할 임시 컨테이너 생성
@@ -510,11 +456,8 @@ export class CardMaker extends Component {
             setTimeout(() => {
                 markdownContainer.style.opacity = '1';
             }, 10);
-
-            // 렌더링 완료 표시
-            cardElement.removeAttribute('data-rendering');
         } catch (error) {
-            console.error(`Failed to render content for ${filePath}:`, error);
+            console.error(`[CardNavigator] ${filePath} 내용 렌더링 실패:`, error);
             
             // 플레이스홀더 텍스트 제거
             const placeholderText = markdownContainer.querySelector('.placeholder-text');
@@ -524,19 +467,44 @@ export class CardMaker extends Component {
             
             markdownContainer.createSpan({ text: content });
             markdownContainer.style.opacity = '1';
-            cardElement.removeAttribute('data-rendering');
         }
     }
 
-    // 설정이 변경될 때 호출되는 메서드 추가
+    // 설정이 변경될 때 호출되는 메서드
     public clearCache() {
+        // 모든 캐시 초기화
         this.renderCache.clear();
-        this.renderedCards.clear();
         this.modifiedCards.clear();
-        this.renderQueue.clear();
         
         // 진행 중인 타임아웃 정리
         this.renderTimeouts.forEach(timeout => clearTimeout(timeout));
         this.renderTimeouts.clear();
+        
+        // 모든 카드 요소를 즉시 다시 렌더링
+        const cardElements = document.querySelectorAll('.card-navigator-card') as NodeListOf<HTMLElement>;
+        for (const cardElement of Array.from(cardElements)) {
+            const filePath = cardElement.getAttribute('data-original-path');
+            const content = cardElement.dataset.content;
+            
+            if (filePath && content) {
+                const contentEl = cardElement.querySelector('.card-navigator-body') as HTMLElement;
+                if (contentEl) {
+                    const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
+                    if (markdownContainer) {
+                        // 렌더링 상태 초기화
+                        markdownContainer.empty();
+                        markdownContainer.style.opacity = '0.3';
+                        
+                        // 로딩 중 표시를 위한 임시 텍스트 추가
+                        const placeholderText = content.length > 50 ? content.substring(0, 50) + '...' : content;
+                        markdownContainer.createSpan({ text: placeholderText, cls: 'placeholder-text' });
+                        
+                        // 비동기로 렌더링 시작하고 완료를 기다리지 않음
+                        this.renderCardContent(contentEl, content, filePath)
+                            .catch(error => console.error(`[CardNavigator] 카드 렌더링 실패 ${filePath}:`, error));
+                    }
+                }
+            }
+        }
     }
 }

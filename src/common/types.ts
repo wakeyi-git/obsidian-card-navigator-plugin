@@ -95,7 +95,7 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     sortOrder: 'asc',
     renderContentAsHtml: false,
     dragDropContent: false,
-    defaultLayout: 'auto',
+    defaultLayout: 'list',
     cardWidthThreshold: 250,
     alignCardHeight: true,
     cardsPerView: 4,

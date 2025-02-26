@@ -7,12 +7,38 @@ import { LayoutStrategy } from './layoutStrategy';
  * 컨테이너와 카드의 스타일을 일관되게 적용합니다.
  */
 export class LayoutStyleManager {
+    private initialWidth: number = 0;
+    private initialHeight: number = 0;
+
     constructor(
         private app: App,
         private containerEl: HTMLElement,
         private settings: CardNavigatorSettings
     ) {
         this.updateCSSVariables();
+    }
+
+    /**
+     * 초기 컨테이너 크기를 설정합니다.
+     * 이 메서드는 컨테이너 크기가 아직 DOM에 반영되지 않았을 때 사용됩니다.
+     */
+    public setInitialContainerSize(width: number, height: number): void {
+        this.initialWidth = width;
+        this.initialHeight = height;
+        
+        // CSS 변수로 초기 크기 설정
+        if (this.containerEl) {
+            this.containerEl.style.setProperty('--initial-container-width', `${width}px`);
+            this.containerEl.style.setProperty('--initial-container-height', `${height}px`);
+            
+            // 컨테이너 최소 크기 설정 (실제 크기가 감지되기 전까지 사용)
+            if (this.containerEl.offsetWidth === 0) {
+                this.containerEl.style.minWidth = `${width}px`;
+            }
+            if (this.containerEl.offsetHeight === 0) {
+                this.containerEl.style.minHeight = `${height}px`;
+            }
+        }
     }
 
     /**
@@ -87,8 +113,9 @@ export class LayoutStyleManager {
         this.containerEl.style.justifyContent = 'flex-start';
         
         // 스크롤 방향에 따른 오버플로우 설정
+        // 가로 방향일 때도 세로 스크롤이 가능하도록 항상 'auto'로 설정
         this.containerEl.style.overflowX = isVertical ? 'hidden' : 'auto';
-        this.containerEl.style.overflowY = isVertical ? 'auto' : 'hidden';
+        this.containerEl.style.overflowY = 'auto';
         
         // CSS 변수 설정
         this.containerEl.style.setProperty('--list-direction', isVertical ? 'column' : 'row');
@@ -264,7 +291,13 @@ export class LayoutStyleManager {
     public getAvailableWidth(): number {
         if (!this.containerEl) return 0;
         
-        const containerWidth = this.containerEl.offsetWidth;
+        // 컨테이너 너비가 0이고 초기 너비가 설정되어 있으면 초기 너비 사용
+        let containerWidth = this.containerEl.offsetWidth;
+        if (containerWidth === 0 && this.initialWidth > 0) {
+            containerWidth = this.initialWidth;
+            console.log('[CardNavigator] 컨테이너 너비가 0, 초기 너비 사용:', containerWidth);
+        }
+        
         const containerPadding = this.getContainerPadding();
         
         return containerWidth - (containerPadding * 2);
