@@ -232,39 +232,6 @@ export class CardRenderer {
         }
         return null;
     }
-
-    /**
-     * 활성 카드 상태만 업데이트합니다.
-     * 전체 렌더링 없이 활성 카드 클래스만 변경합니다.
-     */
-    public updateActiveCard(activeFile: TFile | null, focusedCardId: string | null = null): boolean {
-        if (!this.containerEl || !activeFile) return false;
-        
-        let activeCardFound = false;
-        
-        // 모든 카드 요소를 순회하며 활성 상태 업데이트
-        this.containerEl.querySelectorAll('.card-navigator-card').forEach((element) => {
-            const cardEl = element as HTMLElement;
-            const cardId = cardEl.getAttribute('data-card-id');
-            
-            if (!cardId) return;
-            
-            // 활성 파일 강조 - 두 클래스 모두 설정
-            const isActive = activeFile && activeFile.path === cardId;
-            cardEl.classList.toggle('active', isActive);
-            cardEl.classList.toggle('card-navigator-active', isActive);
-            
-            // 포커스된 카드 강조
-            const isFocused = focusedCardId === cardId;
-            cardEl.classList.toggle('card-navigator-focused', isFocused);
-            
-            if (isActive) {
-                activeCardFound = true;
-            }
-        });
-        
-        return activeCardFound;
-    }
     //#endregion
 
     private updateContainerStyle() {
