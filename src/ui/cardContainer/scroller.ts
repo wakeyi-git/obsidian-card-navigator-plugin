@@ -80,53 +80,30 @@ export class Scroller {
         if (this.plugin.settings.renderContentAsHtml && !this.plugin.settings.alignCardHeight) {
             let lastOffset = 0;
             let stabilityCount = 0;
-            const MAX_STABILITY_COUNT = 5;  // 5프레임 동안 안정적이면 완료로 간주 (증가)
-            const MAX_ADJUSTMENT_TIME = 3000;  // 최대 3초 동안 조정 (증가)
-            const STABILITY_THRESHOLD = 0.5;  // 오차 허용 범위 (픽셀)
+            const MAX_STABILITY_COUNT = 3;  // 3프레임 동안 안정적이면 완료로 간주
+            const MAX_ADJUSTMENT_TIME = 2000;  // 최대 2초 동안만 조정
             const startTime = Date.now();
-
-            // 마크다운 렌더링 완료 확인
-            const checkMarkdownRendered = () => {
-                const markdownContainer = card.querySelector('.markdown-rendered') as HTMLElement;
-                return markdownContainer && markdownContainer.children.length > 0 && 
-                       !markdownContainer.classList.contains('loading');
-            };
 
             const recheckPosition = () => {
                 const currentTime = Date.now();
                 if (currentTime - startTime > MAX_ADJUSTMENT_TIME) {
-                    // 최대 시간 초과 시 마지막으로 한 번 더 조정
-                    adjustScroll();
-                    return;
-                }
-
-                // 마크다운 렌더링이 완료되지 않았으면 계속 대기
-                if (!checkMarkdownRendered()) {
-                    requestAnimationFrame(recheckPosition);
-                    return;
+                    return; // 최대 시간 초과
                 }
 
                 const containerRect = this.containerEl.getBoundingClientRect();
                 const cardRect = card.getBoundingClientRect();
                 
-                // 중앙 위치 기준으로 오프셋 계산
+                // 수정: 중앙 위치 기준으로 오프셋 계산
                 const isVertical = this.getLayoutStrategy().getScrollDirection() === 'vertical';
                 const currentOffset = isVertical
                     ? (cardRect.top + cardRect.height / 2) - (containerRect.top + containerRect.height / 2)
                     : (cardRect.left + cardRect.width / 2) - (containerRect.left + containerRect.width / 2);
 
                 // 오차 범위 내에서 위치가 안정적인지 확인
-                if (Math.abs(currentOffset) < STABILITY_THRESHOLD) {
-                    // 이미 중앙에 위치한 경우
-                    return;
-                }
-                
-                if (Math.abs(currentOffset - lastOffset) < STABILITY_THRESHOLD) {
+                if (Math.abs(currentOffset - lastOffset) < 1) {
                     stabilityCount++;
                     if (stabilityCount >= MAX_STABILITY_COUNT) {
-                        // 안정화 완료 시 마지막으로 한 번 더 조정
-                        adjustScroll();
-                        return;
+                        return; // 안정화 완료
                     }
                 } else {
                     stabilityCount = 0;
@@ -134,8 +111,6 @@ export class Scroller {
 
                 lastOffset = currentOffset;
                 adjustScroll();
-                
-                // 다음 프레임에서 다시 확인
                 requestAnimationFrame(recheckPosition);
             };
 

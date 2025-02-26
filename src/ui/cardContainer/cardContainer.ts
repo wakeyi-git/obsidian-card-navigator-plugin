@@ -117,31 +117,11 @@ export class CardContainer {
                 }
                 
                 // DOM 업데이트 후 스크롤 실행
-                const checkRenderingComplete = () => {
-                    // 활성 카드 찾기
-                    const activeCard = this.containerEl.querySelector('.card-navigator-active, .active') as HTMLElement;
-                    if (!activeCard) {
-                        // 활성 카드가 없으면 약간 지연 후 다시 확인
-                        setTimeout(checkRenderingComplete, 50);
-                        return;
-                    }
-                    
-                    // 마크다운 렌더링 상태 확인
-                    const markdownContainer = activeCard.querySelector('.markdown-rendered') as HTMLElement;
-                    const isRendering = activeCard.hasAttribute('data-rendering') || 
-                                       (markdownContainer && markdownContainer.classList.contains('loading'));
-                    
-                    if (isRendering && this.plugin.settings.renderContentAsHtml) {
-                        // 렌더링 중이면 약간 지연 후 다시 확인 (최대 10회)
-                        setTimeout(checkRenderingComplete, 100);
-                    } else {
-                        // 렌더링이 완료되었거나 HTML 렌더링을 사용하지 않는 경우 스크롤 실행
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
                         this.scrollToActiveCard(true);
-                    }
-                };
-                
-                // 약간의 지연 후 렌더링 상태 확인 시작
-                setTimeout(checkRenderingComplete, 100);
+                    }, 50);
+                });
             })
         );
     }
