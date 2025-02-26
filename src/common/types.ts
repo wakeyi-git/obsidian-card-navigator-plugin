@@ -71,6 +71,7 @@ export interface CardNavigatorSettings {
     
     // 기타 설정
     enableScrollAnimation: boolean;
+    useCssGridMode: boolean;
 }
 
 // 전역 설정 키 정의
@@ -84,7 +85,7 @@ export const globalSettingsKeys: (keyof CardNavigatorSettings)[] = [
     'activeFolderPresets',
     'cardSetType',
     'selectedFolder'
-] as const;
+];
 
 // 기본 설정값 정의
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {
@@ -116,7 +117,8 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     autoApplyFolderPresets: false,
     folderPresets: {},
     activeFolderPresets: {},
-    enableScrollAnimation: true
+    enableScrollAnimation: true,
+    useCssGridMode: false
 };
 //#endregion
 

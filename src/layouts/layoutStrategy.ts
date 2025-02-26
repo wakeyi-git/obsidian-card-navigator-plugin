@@ -39,7 +39,7 @@ export interface LayoutStrategy {
     /**
      * 컨테이너 스타일을 가져옵니다.
      */
-    getContainerStyle(): Partial<CSSStyleDeclaration>;
+    getContainerStyle?(): Partial<CSSStyleDeclaration>;
 
     /**
      * 카드 스타일을 가져옵니다.

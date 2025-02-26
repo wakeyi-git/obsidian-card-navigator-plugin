@@ -184,6 +184,8 @@ export class LayoutConfig {
             alignItems: 'stretch',
             overflowY: isVertical ? 'auto' : 'hidden',
             overflowX: isVertical ? 'hidden' : 'auto',
+            paddingLeft: `${this.getContainerPadding()}px`,
+            paddingRight: `${this.getContainerPadding()}px`,
         };
     }
 

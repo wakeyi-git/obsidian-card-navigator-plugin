@@ -40,7 +40,7 @@ export async function errorWrapper<T>(
         } else {
             log_error(error);
         }
-        return null as T;
+        return null as unknown as T;
     }
 }
 
@@ -56,7 +56,7 @@ export function errorWrapperSync<T>(fn: () => T, msg: string): T {
     } catch (e) {
         const error = e as Error; // 타입 명시
         log_error(new CardNavigatorError(msg, error.message));
-        return null as T;
+        return null as unknown as T;
     }
 }
 //#endregion

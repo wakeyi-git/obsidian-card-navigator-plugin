@@ -76,7 +76,6 @@ export class CardRenderer {
             const containerStyle = window.getComputedStyle(this.containerEl);
             const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
             const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
-            const paddingTop = parseFloat(containerStyle.paddingTop) || 0;
             const availableWidth = containerRect.width - paddingLeft - paddingRight;
 
             const cardPositions = this.layoutStrategy.arrange(
@@ -126,7 +125,7 @@ export class CardRenderer {
                 } else {
                     // 메이슨리 레이아웃의 경우 absolute 포지셔닝 사용
                     cardEl.style.position = 'absolute';
-                    cardEl.style.transform = `translate3d(${position.left + paddingLeft}px, ${position.top + paddingTop}px, 0)`;
+                    cardEl.style.transform = `translate3d(${position.left}px, ${position.top}px, 0)`;
                     cardEl.style.width = `${position.width}px`;
                     cardEl.style.height = `${position.height}px`;
                     cardEl.style.minHeight = '100px';
@@ -273,7 +272,6 @@ export class CardRenderer {
         } else if (this.layoutStrategy instanceof GridLayout) {
             const columns = this.layoutStrategy.getColumnsCount();
             const cardGap = this.layoutConfig.getCardGap();
-            const containerPadding = this.layoutConfig.getContainerPadding();
             
             Object.assign(this.containerEl.style, {
                 display: 'grid',
@@ -286,6 +284,11 @@ export class CardRenderer {
                 alignItems: 'stretch',
                 alignContent: 'start'
             });
+        } else if (this.layoutStrategy instanceof MasonryLayout) {
+            // MasonryLayout의 경우 레이아웃 자체의 스타일 적용 메서드 호출
+            if (this.layoutStrategy.setContainer) {
+                this.layoutStrategy.setContainer(this.containerEl);
+            }
         } else {
             this.resetContainerStyle();
         }

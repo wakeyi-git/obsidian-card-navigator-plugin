@@ -6,6 +6,12 @@
     --card-navigator-popup-width: 250px;
 }
 
+/* 옵시디언 좌우 패딩만 제거 */
+.workspace-leaf-content[data-type="card-navigator-view"] .view-content {
+    padding-left: 0;
+    padding-right: 0;
+}
+
 .card-navigator {
     position: relative;
     height: 100%;
@@ -25,6 +31,8 @@
     z-index: 100;
     width: 100%;
 	margin-bottom: var(--size-4-3); /* Margin below the toolbar */
+    padding-left: var(--card-navigator-container-padding);
+    padding-right: var(--card-navigator-container-padding);
 }
 
 .card-navigator-toolbar-container {
@@ -88,7 +96,6 @@
     z-index: 100;
     max-height: 200px;
     overflow-y: auto;
-    padding: var(--size-4-2);
 }
 
 .search-option-item {

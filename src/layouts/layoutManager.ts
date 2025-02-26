@@ -115,9 +115,9 @@ export class LayoutManager {
                 );
             } else {
                 layoutStrategy = new MasonryLayout(
+                    this.layoutConfig,
                     this.plugin.settings,
-                    this.cardMaker,
-                    this.layoutConfig
+                    this.cardMaker
                 );
             }
         }
@@ -162,9 +162,9 @@ export class LayoutManager {
             }
             case 'masonry': {
                 layoutStrategy = new MasonryLayout(
+                    this.layoutConfig,
                     this.plugin.settings,
-                    this.cardMaker,
-                    this.layoutConfig
+                    this.cardMaker
                 );
                 break;
             }
@@ -213,8 +213,10 @@ export class LayoutManager {
         // 현재 레이아웃 전략 재생성
         this.layoutStrategy = this.createLayoutStrategy();
         
-        // 컨테이너 스타일 업데이트
-        const containerStyle = this.layoutStrategy.getContainerStyle();
-        Object.assign(this.containerEl.style, containerStyle);
+        // 컨테이너 스타일 업데이트 (getContainerStyle이 있는 경우에만)
+        if (this.layoutStrategy.getContainerStyle) {
+            const containerStyle = this.layoutStrategy.getContainerStyle();
+            Object.assign(this.containerEl.style, containerStyle);
+        }
     }
 } 
