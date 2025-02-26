@@ -13,16 +13,13 @@ export class LayoutManager {
     private containerEl: HTMLElement;
     private lastContainerWidth: number = 0;
     private lastContainerHeight: number = 0;
-    private cardContainer: any; // CardContainer 타입 참조
 
     constructor(
         private plugin: any,
         containerEl: HTMLElement,
-        private cardMaker: CardMaker,
-        cardContainer?: any // CardContainer 인스턴스 참조
+        private cardMaker: CardMaker
     ) {
         this.containerEl = containerEl;
-        this.cardContainer = cardContainer; // CardContainer 참조 저장
         this.layoutStyleManager = new LayoutStyleManager(plugin.app, containerEl, plugin.settings);
         this.currentLayout = plugin.settings.defaultLayout;
         this.lastContainerWidth = containerEl.offsetWidth;
@@ -94,20 +91,10 @@ export class LayoutManager {
      * 카드를 배치합니다.
      */
     public arrangeCards(cards: Card[], containerWidth?: number, containerHeight?: number): CardPosition[] {
-        if (!containerWidth || containerWidth === 0) {
-            // 컨테이너 너비가 0이면 layoutStyleManager에서 사용 가능한 너비 가져오기
-            const availableWidth = this.layoutStyleManager.getAvailableWidth();
-            if (availableWidth > 0) {
-                // 패딩을 다시 추가하여 전체 컨테이너 너비 계산
-                const containerPadding = this.layoutStyleManager.getContainerPadding();
-                containerWidth = availableWidth + (containerPadding * 2);
-                console.log('[CardNavigator] 컨테이너 너비 0, 계산된 너비 사용:', containerWidth);
-            } else {
-                containerWidth = this.containerEl.offsetWidth;
-            }
+        if (!containerWidth) {
+            containerWidth = this.containerEl.offsetWidth;
         }
-        
-        if (!containerHeight || containerHeight === 0) {
+        if (!containerHeight) {
             containerHeight = this.containerEl.offsetHeight;
         }
         
@@ -237,12 +224,6 @@ export class LayoutManager {
      * 컨테이너가 수직인지 확인합니다.
      */
     private isVerticalContainer(): boolean {
-        // CardContainer의 방향 결정 메서드가 있으면 사용
-        if (this.cardContainer && typeof this.cardContainer.determineVerticalOrientation === 'function') {
-            return this.cardContainer.determineVerticalOrientation();
-        }
-        
-        // 기존 방식으로 폴백
         if (!this.containerEl) return true;
         const { width, height } = this.containerEl.getBoundingClientRect();
         return height > width;
@@ -288,9 +269,8 @@ export class LayoutManager {
             
             // 컨테이너 방향과 크기에 따라 적절한 레이아웃 선택
             if (columns === 1) {
-                // 1열인 경우 리스트 레이아웃 사용 (컨테이너 방향에 따라 방향 결정)
+                // 1열인 경우 항상 리스트 레이아웃 사용
                 layoutStrategy = new ListLayout(isVertical, settings, this.plugin.app, this.containerEl);
-                console.log('[CardNavigator] 리스트 레이아웃 생성, isVertical:', isVertical);
             } else if (isVertical) {
                 // 세로 방향이고 여러 열이 가능한 경우
                 if (settings.alignCardHeight) {
@@ -326,10 +306,9 @@ export class LayoutManager {
                 layoutStrategy.setColumnsCount(settings.masonryColumns);
             }
         } else {
-            // 리스트 레이아웃 (기본값) - 컨테이너 방향에 따라 방향 결정
+            // 리스트 레이아웃 (기본값)
             const isVertical = this.isVerticalContainer();
             layoutStrategy = new ListLayout(isVertical, settings, this.plugin.app, this.containerEl);
-            console.log('[CardNavigator] 기본 리스트 레이아웃 생성, isVertical:', isVertical);
         }
 
         return layoutStrategy;

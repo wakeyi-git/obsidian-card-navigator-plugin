@@ -107,89 +107,21 @@ export default class CardNavigatorPlugin extends Plugin {
     //#region 뷰 관리
     // 카드 네비게이터 뷰 활성화 메서드
     async activateView() {
-        console.log('[CardNavigator] activateView 호출됨');
         const { workspace } = this.app;
         let leaf: WorkspaceLeaf | null = null;
     
         const existingLeaf = workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0];
         
         if (existingLeaf) {
-            console.log('[CardNavigator] 기존 뷰 발견, 단순 표시만 수행');
-            // 이미 존재하는 뷰인 경우 단순히 표시만 하고 리프레시는 하지 않음
             leaf = existingLeaf;
             workspace.revealLeaf(leaf);
-            
-            // 이미 초기화된 뷰인 경우 프리셋 적용
-            if (leaf.view instanceof CardNavigatorView && 
-                leaf.view.cardContainer && 
-                typeof leaf.view.cardContainer.setLayout === 'function') {
-                console.log('[CardNavigator] 기존 뷰에 프리셋 적용');
-                await this.selectAndApplyPresetForCurrentFile();
-            } else {
-                console.log('[CardNavigator] 기존 뷰가 아직 초기화되지 않음, 프리셋 적용 건너뜀');
-            }
         } else {
-            console.log('[CardNavigator] 새 뷰 생성 시작');
-            // 새로운 뷰를 생성하는 경우
             leaf = workspace.getRightLeaf(false);
             if (leaf) {
-                console.log('[CardNavigator] 뷰 상태 설정 전');
-                
-                // 뷰 초기화 완료 이벤트를 위한 프로미스 생성
-                const viewInitialized = new Promise<void>((resolve) => {
-                    // 이벤트 리스너 등록
-                    const onViewInitialized = () => {
-                        console.log('[CardNavigator] 뷰 초기화 완료 이벤트 수신');
-                        this.events.off('view-initialized', onViewInitialized);
-                        resolve();
-                    };
-                    this.events.on('view-initialized', onViewInitialized);
-                    
-                    // 타임아웃 설정 (10초 후 자동 해제)
-                    setTimeout(() => {
-                        this.events.off('view-initialized', onViewInitialized);
-                        console.log('[CardNavigator] 뷰 초기화 타임아웃, 계속 진행');
-                        resolve();
-                    }, 10000);
-                });
-                
-                // 뷰 상태 설정 - 이 과정에서 onOpen이 호출되어 초기화됨
                 await leaf.setViewState({ type: VIEW_TYPE_CARD_NAVIGATOR, active: true });
-                console.log('[CardNavigator] 뷰 상태 설정 완료');
                 workspace.revealLeaf(leaf);
-                
-                // 뷰 초기화 완료 이벤트 대기
-                console.log('[CardNavigator] 뷰 초기화 완료 이벤트 대기 시작');
-                await viewInitialized;
-                console.log('[CardNavigator] 뷰 초기화 완료 이벤트 대기 종료');
-                
-                // 추가 안전 장치: 뷰가 실제로 초기화되었는지 확인
-                if (leaf.view instanceof CardNavigatorView) {
-                    const view = leaf.view;
-                    let attempts = 0;
-                    const maxAttempts = 20;
-                    
-                    // 카드 컨테이너가 초기화될 때까지 대기
-                    while (attempts < maxAttempts && !view.isInitialized()) {
-                        console.log(`[CardNavigator] 카드 컨테이너 초기화 대기 중... (시도 ${attempts + 1}/${maxAttempts})`);
-                        await new Promise(resolve => setTimeout(resolve, 100));
-                        attempts++;
-                    }
-                    
-                    if (view.isInitialized()) {
-                        console.log('[CardNavigator] 카드 컨테이너가 완전히 초기화됨, 프리셋 적용 진행');
-                    } else {
-                        console.log('[CardNavigator] 카드 컨테이너 초기화 실패, 프리셋 적용 시도는 계속 진행');
-                    }
-                }
-                
-                // 현재 파일에 맞는 프리셋 적용
-                console.log('[CardNavigator] 프리셋 적용 시작');
-                await this.selectAndApplyPresetForCurrentFile();
-                console.log('[CardNavigator] 프리셋 적용 완료');
             }
         }
-        console.log('[CardNavigator] activateView 완료');
     }
 
     // 첫 번째 카드 네비게이터 뷰 반환 메서드
@@ -240,55 +172,9 @@ export default class CardNavigatorPlugin extends Plugin {
     //#region 이벤트 처리
     // 중앙 이벤트 등록 메서드
     private registerCentralizedEvents() {
-        // layout-change 이벤트 핸들러에 디바운스 적용
-        const processLayoutChange = debounce(() => {
-            console.log('[CardNavigator] layout-change 이벤트 처리 시작');
-            
-            // 약간의 지연 후 레이아웃 업데이트 실행
-            setTimeout(() => {
-                // 모든 카드 네비게이터 뷰 가져오기
-                const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-                
-                // 초기화 중인 뷰가 있는지 확인
-                const hasInitializingView = leaves.some(leaf => 
-                    leaf.view instanceof CardNavigatorView && 
-                    !leaf.view.isInitialized()
-                );
-                
-                if (hasInitializingView) {
-                    console.log('[CardNavigator] 초기화 중인 뷰가 있음, 레이아웃 업데이트 지연');
-                    // 초기화 중인 뷰가 있으면 이벤트 처리를 지연 (500ms 후 재시도)
-                    setTimeout(() => processLayoutChange(), 500);
-                    return;
-                }
-                
-                // 초기화된 뷰가 있는지 확인 - 더 엄격한 검사 추가
-                const hasInitializedView = leaves.some(leaf => {
-                    if (leaf.view instanceof CardNavigatorView) {
-                        // 카드 컨테이너가 존재하고, 필요한 메서드가 있으며, 
-                        // 카드 렌더러가 초기화되었는지 확인
-                        return leaf.view.cardContainer && 
-                               typeof leaf.view.cardContainer.setLayout === 'function' &&
-                               leaf.view.isInitialized();
-                    }
-                    return false;
-                });
-                
-                if (hasInitializedView) {
-                    console.log('[CardNavigator] 완전히 초기화된 뷰 발견, 레이아웃 업데이트 실행');
-                    this.refreshAllViews(RefreshType.LAYOUT);
-                } else {
-                    console.log('[CardNavigator] 완전히 초기화된 뷰 없음, 레이아웃 업데이트 건너뜀');
-                }
-                
-                console.log('[CardNavigator] layout-change 이벤트 처리 완료');
-            }, 300); // 뷰가 초기화될 시간을 주기 위해 300ms 지연
-        }, 300); // 디바운스 시간을 200ms에서 300ms로 증가
-
         this.registerEvent(
             this.app.workspace.on('layout-change', () => {
-                console.log('[CardNavigator] layout-change 이벤트 발생');
-                processLayoutChange();
+                this.refreshAllViews(RefreshType.LAYOUT);
             })
         );
 
@@ -321,23 +207,10 @@ export default class CardNavigatorPlugin extends Plugin {
 
     // 모든 뷰 새로고침 메서드
     private refreshAllViews(type: RefreshType) {
-        console.log(`[CardNavigator] refreshAllViews 호출됨, 타입: ${type}`);
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        
         leaves.forEach(leaf => {
             if (leaf.view instanceof CardNavigatorView) {
-                // 뷰가 초기화되었는지 확인
-                const view = leaf.view;
-                
-                // 뷰가 완전히 초기화되었는지 확인
-                const isInitialized = view.isInitialized();
-                
-                if (isInitialized) {
-                    console.log(`[CardNavigator] 뷰 리프레시 실행, 타입: ${type}`);
-                    view.refreshBatch([type]);
-                } else {
-                    console.log(`[CardNavigator] 뷰가 완전히 초기화되지 않음, 리프레시 중단`);
-                }
+                leaf.view.refreshBatch([type]);
             }
         });
     }
@@ -382,23 +255,14 @@ export default class CardNavigatorPlugin extends Plugin {
     //#region 레이아웃 관리
     // 레이아웃 업데이트 메서드
     public updateLayout(layout: CardNavigatorSettings['defaultLayout']) {
-        console.log('[CardNavigator] CardNavigatorPlugin.updateLayout 호출됨, 레이아웃:', layout);
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach(leaf => {
             if (leaf.view instanceof CardNavigatorView) {
-                const view = leaf.view;
-                if (view.cardContainer && typeof view.cardContainer.setLayout === 'function') {
-                    console.log('[CardNavigator] 카드 컨테이너 setLayout 호출');
-                    view.cardContainer.setLayout(layout);
-                    console.log('[CardNavigator] 카드 컨테이너 setLayout 완료');
-                } else {
-                    console.log('[CardNavigator] 카드 컨테이너가 초기화되지 않음, 레이아웃 업데이트 중단');
-                }
+                leaf.view.cardContainer.setLayout(layout);
                 // 설정 저장만 하고 리프레시는 settingsManager에서 처리
                 this.saveData(this.settings);
             }
         });
-        console.log('[CardNavigator] CardNavigatorPlugin.updateLayout 완료');
     }
 
     // 설정 탭 새로고침 메서드

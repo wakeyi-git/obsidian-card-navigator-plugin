@@ -9,15 +9,7 @@ export class CardRenderer {
     private layoutStrategy: LayoutStrategy;
     private renderedCards: Set<string> = new Set(); // 렌더링된 카드 추적
     private renderingInProgress: boolean = false;
-    private pendingRender: {
-        cards: Card[] | null,
-        focusedCardId: string | null,
-        activeFile: TFile | null,
-        timestamp: number
-    } | null = null;
-    private lastRenderHash: string = ''; // 마지막 렌더링 상태 해시
-    private renderDebounceTimeout: NodeJS.Timeout | null = null;
-    private RENDER_DEBOUNCE_DELAY = 100; // 디바운스 지연 시간(ms)
+    private pendingRender: boolean = false;
 
     //#region 초기화 및 기본 설정
     // 생성자: 카드 렌더러 초기화
@@ -43,263 +35,121 @@ export class CardRenderer {
         if (this.containerEl) {
             this.containerEl.innerHTML = '';
         }
-        
-        // 대기 중인 타이머 정리
-        if (this.renderDebounceTimeout) {
-            clearTimeout(this.renderDebounceTimeout);
-            this.renderDebounceTimeout = null;
-        }
-        
-        this.pendingRender = null;
-        this.renderingInProgress = false;
     }
     //#endregion
 
     //#region 카드 렌더링
     /**
-     * 카드 렌더링을 요청합니다. 디바운싱과 중복 방지 로직이 적용됩니다.
-     * @param cards 렌더링할 카드 배열
-     * @param focusedCardId 포커스된 카드 ID
-     * @param activeFile 활성 파일
+     * 카드를 렌더링합니다.
      */
     public renderCards(cards: Card[], focusedCardId: string | null = null, activeFile: TFile | null = null): void {
-        console.log('[CardNavigator] CardRenderer.renderCards 요청됨, 카드 수:', cards.length);
-        if (!this.containerEl) return;
-        
-        // 현재 렌더링 상태 해시 생성
-        const currentHash = this.generateRenderHash(cards, focusedCardId, activeFile);
-        
-        // 이전 렌더링과 동일한 상태인 경우 중복 렌더링 방지
-        if (currentHash === this.lastRenderHash) {
-            console.log('[CardNavigator] 이전 렌더링과 동일한 상태, 렌더링 건너뜀');
-            return;
-        }
-        
-        // 대기 중인 타이머가 있으면 취소
-        if (this.renderDebounceTimeout) {
-            clearTimeout(this.renderDebounceTimeout);
-            this.renderDebounceTimeout = null;
-        }
-        
-        // 이미 렌더링 중인 경우 대기 요청으로 설정
-        if (this.renderingInProgress) {
-            console.log('[CardNavigator] 이미 렌더링 중, 대기 요청으로 설정');
-            this.pendingRender = {
-                cards,
-                focusedCardId,
-                activeFile,
-                timestamp: Date.now()
-            };
-            return;
-        }
-        
-        // 디바운스 적용하여 렌더링 실행
-        this.renderDebounceTimeout = setTimeout(() => {
-            this.renderDebounceTimeout = null;
-            this.executeRender(cards, focusedCardId, activeFile, currentHash);
-        }, this.RENDER_DEBOUNCE_DELAY);
-    }
-    
-    /**
-     * 실제 렌더링을 수행합니다.
-     */
-    private async executeRender(cards: Card[], focusedCardId: string | null, activeFile: TFile | null, renderHash: string): Promise<void> {
         if (!this.containerEl) return;
         
         // 렌더링 상태 업데이트
         this.renderingInProgress = true;
-        console.log('[CardNavigator] 렌더링 실행 시작');
         
-        try {
-            // 현재 스크롤 위치 저장
-            const scrollContainer = this.containerEl.closest('.card-navigator-scroll-container') as HTMLElement;
-            const scrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
-            const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
-            
-            // 기존 카드 요소 맵 생성
-            const existingCardElements = new Map<string, HTMLElement>();
-            this.containerEl.querySelectorAll('.card-navigator-card').forEach((element) => {
-                const cardEl = element as HTMLElement;
-                const cardId = cardEl.getAttribute('data-card-id');
-                if (cardId) {
-                    existingCardElements.set(cardId, cardEl);
-                }
-            });
-            
-            console.log('[CardNavigator] 기존 카드 요소 수:', existingCardElements.size);
-            
-            // 카드 위치 계산
-            const containerWidth = this.containerEl.offsetWidth;
-            const containerHeight = this.containerEl.offsetHeight;
-            console.log('[CardNavigator] 컨테이너 크기:', containerWidth, 'x', containerHeight);
-            
-            // 컨테이너 크기가 유효하지 않으면 렌더링 건너뛰기
-            if (containerWidth <= 0 || containerHeight <= 0) {
-                console.log('[CardNavigator] 유효하지 않은 컨테이너 크기, 렌더링 건너뛰기');
-                return;
-            }
-            
-            const cardPositions = this.layoutManager.arrangeCards(cards, containerWidth, containerHeight);
-            console.log('[CardNavigator] 카드 위치 계산 완료');
-            
-            // 레이아웃 타입 가져오기
-            const layoutType = this.layoutStrategy.getLayoutType();
-            console.log('[CardNavigator] 현재 레이아웃 타입:', layoutType);
-            
-            // 새로운 카드 ID 집합 생성
-            const newCardIds = new Set(cards.map(card => card.file.path));
-            
-            // 더 이상 필요 없는 카드 요소 제거
-            let removedCount = 0;
-            existingCardElements.forEach((cardEl, cardId) => {
-                if (!newCardIds.has(cardId)) {
-                    cardEl.remove();
-                    removedCount++;
-                }
-            });
-            console.log('[CardNavigator] 제거된 카드 요소 수:', removedCount);
-            
-            // 카드 기본 스타일 가져오기
-            const cardStyle = this.layoutManager.getCardStyle();
-            
-            // 카드 컨테이너 비우기 대신 개별 카드 업데이트
-            const fragment = document.createDocumentFragment();
-            const updatedCards = new Set<string>();
-            
-            // 카드 렌더링
-            console.log('[CardNavigator] 카드 요소 생성/업데이트 시작');
-            let reusedCount = 0;
-            let newCount = 0;
-            
-            cardPositions.forEach((position) => {
-                const card = cards.find(c => c.file.path === position.id);
-                if (!card) return;
-                
-                // 카드 ID 저장
-                updatedCards.add(position.id);
-                
-                // 기존 카드 요소 재사용 또는 새로 생성
-                let cardEl: HTMLElement;
-                if (existingCardElements.has(position.id)) {
-                    cardEl = existingCardElements.get(position.id)!;
-                    // 컨테이너에서 제거 (나중에 올바른 순서로 다시 추가)
-                    if (cardEl.parentElement === this.containerEl) {
-                        cardEl.remove();
-                    }
-                    
-                    // 레이아웃 전환 시 이전 스타일 완전히 초기화
-                    this.resetCardStyle(cardEl);
-                    
-                    // 기존 카드 요소를 재사용할 때도 내용 업데이트
-                    // 파일이 수정된 경우에만 내용 업데이트
-                    const existingTimestamp = cardEl.getAttribute('data-mtime');
-                    const newTimestamp = card.file.stat.mtime.toString();
-                    if (existingTimestamp !== newTimestamp) {
-                        this.cardMaker.updateCardContent(cardEl, card);
-                        cardEl.setAttribute('data-mtime', newTimestamp);
-                    }
-                    reusedCount++;
-                } else {
-                    cardEl = this.cardMaker.createCardElement(card);
-                    cardEl.setAttribute('data-mtime', card.file.stat.mtime.toString());
-                    newCount++;
-                }
-                
-                // 기본 카드 스타일 적용
-                Object.assign(cardEl.style, cardStyle);
-                
-                // 레이아웃 타입에 따라 다른 위치 및 크기 스타일 적용
-                this.applyCardPositionStyle(cardEl, position, layoutType);
-                
-                // 활성 파일 표시
-                if (activeFile && card.file.path === activeFile.path) {
-                    cardEl.classList.add('card-navigator-active');
-                } else {
-                    cardEl.classList.remove('card-navigator-active');
-                }
-                
-                // 포커스된 카드 표시
-                if (focusedCardId && card.file.path === focusedCardId) {
-                    cardEl.classList.add('card-navigator-focused');
-                } else {
-                    cardEl.classList.remove('card-navigator-focused');
-                }
-                
-                // 프래그먼트에 카드 추가
-                fragment.appendChild(cardEl);
-                
-                // 렌더링된 카드 추적
-                this.renderedCards.add(card.file.path);
-            });
-            
-            console.log('[CardNavigator] 재사용된 카드 요소 수:', reusedCount, '새로 생성된 카드 요소 수:', newCount);
-            
-            // 컨테이너 비우기
-            console.log('[CardNavigator] 컨테이너 비우기');
-            this.containerEl.innerHTML = '';
-            
-            // 프래그먼트 추가
-            console.log('[CardNavigator] 프래그먼트 추가');
-            this.containerEl.appendChild(fragment);
-            
-            // 렌더링된 카드 수 로깅
-            console.log('[CardNavigator] 렌더링된 카드 수:', this.containerEl.children.length);
-            
-            // 스크롤 위치 복원
-            if (scrollContainer) {
-                scrollContainer.scrollLeft = scrollLeft;
-                scrollContainer.scrollTop = scrollTop;
-            }
-            
-            // 렌더링 해시 업데이트
-            this.lastRenderHash = renderHash;
-            
-            // 렌더링 완료 이벤트 발생
-            this.containerEl.dispatchEvent(new CustomEvent('cards-rendered', {
-                detail: {
-                    cardCount: cards.length,
-                    timestamp: Date.now()
-                }
-            }));
-        } catch (error) {
-            console.error('[CardNavigator] 카드 렌더링 중 오류 발생:', error);
-        } finally {
-            // 렌더링 완료 후 상태 업데이트
-            this.renderingInProgress = false;
-            
-            // 대기 중인 렌더링 요청이 있으면 처리
-            if (this.pendingRender) {
-                console.log('[CardNavigator] 대기 중인 렌더링 요청 처리');
-                const { cards, focusedCardId, activeFile, timestamp } = this.pendingRender;
-                this.pendingRender = null;
-                
-                // 마지막 요청 이후 일정 시간이 지났는지 확인
-                const timeSinceLastRequest = Date.now() - timestamp;
-                const delay = Math.max(50, Math.min(200, this.RENDER_DEBOUNCE_DELAY - timeSinceLastRequest));
-                
-                // 약간의 지연 후 다시 렌더링 시도
-                setTimeout(() => {
-                    if (cards) {
-                        this.renderCards(cards, focusedCardId, activeFile);
-                    }
-                }, delay);
-            }
-        }
+        // 현재 스크롤 위치 저장
+        const scrollContainer = this.containerEl.closest('.card-navigator-scroll-container') as HTMLElement;
+        const scrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
+        const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
         
-        console.log('[CardNavigator] CardRenderer.renderCards 완료');
-    }
-    
-    /**
-     * 렌더링 상태 해시를 생성합니다.
-     * 이 해시는 카드 목록, 포커스된 카드, 활성 파일의 상태를 기반으로 합니다.
-     */
-    private generateRenderHash(cards: Card[], focusedCardId: string | null, activeFile: TFile | null): string {
-        const cardIds = cards.map(card => `${card.file.path}:${card.file.stat.mtime}`).join(',');
-        const focusState = focusedCardId || 'none';
-        const activeState = activeFile ? activeFile.path : 'none';
+        // 기존 카드 요소 맵 생성
+        const existingCardElements = new Map<string, HTMLElement>();
+        this.containerEl.querySelectorAll('.card-navigator-card').forEach((element) => {
+            const cardEl = element as HTMLElement;
+            const cardId = cardEl.getAttribute('data-card-id');
+            if (cardId) {
+                existingCardElements.set(cardId, cardEl);
+            }
+        });
+        
+        // 카드 위치 계산
+        const containerWidth = this.containerEl.offsetWidth;
+        const containerHeight = this.containerEl.offsetHeight;
+        const cardPositions = this.layoutManager.arrangeCards(cards, containerWidth, containerHeight);
+        
+        // 레이아웃 타입 가져오기
         const layoutType = this.layoutStrategy.getLayoutType();
         
-        return `${cardIds}|${focusState}|${activeState}|${layoutType}|${this.containerEl.offsetWidth}x${this.containerEl.offsetHeight}`;
+        // 새로운 카드 ID 집합 생성
+        const newCardIds = new Set(cards.map(card => card.file.path));
+        
+        // 더 이상 필요 없는 카드 요소 제거
+        existingCardElements.forEach((cardEl, cardId) => {
+            if (!newCardIds.has(cardId)) {
+                cardEl.remove();
+            }
+        });
+        
+        // 카드 기본 스타일 가져오기
+        const cardStyle = this.layoutManager.getCardStyle();
+        
+        // 카드 컨테이너 비우기 대신 개별 카드 업데이트
+        const fragment = document.createDocumentFragment();
+        const updatedCards = new Set<string>();
+        
+        // 카드 렌더링
+        cardPositions.forEach((position) => {
+            const card = cards.find(c => c.file.path === position.id);
+            if (!card) return;
+            
+            // 카드 ID 저장
+            updatedCards.add(position.id);
+            
+            // 기존 카드 요소 재사용 또는 새로 생성
+            let cardEl: HTMLElement;
+            if (existingCardElements.has(position.id)) {
+                cardEl = existingCardElements.get(position.id)!;
+                // 컨테이너에서 제거 (나중에 올바른 순서로 다시 추가)
+                if (cardEl.parentElement === this.containerEl) {
+                    cardEl.remove();
+                }
+                
+                // 레이아웃 전환 시 이전 스타일 완전히 초기화
+                this.resetCardStyle(cardEl);
+                
+                // 기존 카드 요소를 재사용할 때도 내용 업데이트
+                this.cardMaker.updateCardContent(cardEl, card);
+            } else {
+                cardEl = this.cardMaker.createCardElement(card);
+            }
+            
+            // 기본 카드 스타일 적용
+            Object.assign(cardEl.style, cardStyle);
+            
+            // 레이아웃 타입에 따라 다른 위치 및 크기 스타일 적용
+            this.applyCardPositionStyle(cardEl, position, layoutType);
+            
+            // 활성 파일 강조 - 두 클래스 모두 설정
+            const isActive = activeFile && activeFile.path === card.file.path;
+            cardEl.classList.toggle('active', isActive || false);
+            cardEl.classList.toggle('card-navigator-active', isActive || false);
+            
+            // 포커스된 카드 강조
+            const isFocused = focusedCardId === card.file.path;
+            cardEl.classList.toggle('card-navigator-focused', isFocused);
+            
+            // 프래그먼트에 추가
+            fragment.appendChild(cardEl);
+        });
+        
+        // 컨테이너 비우기
+        this.containerEl.innerHTML = '';
+        
+        // 모든 카드를 한 번에 추가
+        this.containerEl.appendChild(fragment);
+        
+        // 스크롤 위치 복원
+        if (scrollContainer) {
+            scrollContainer.scrollLeft = scrollLeft;
+            scrollContainer.scrollTop = scrollTop;
+        }
+        
+        // 렌더링된 카드 추적
+        this.renderedCards = new Set(cards.map(card => card.file.path));
+        
+        // 렌더링 상태 업데이트
+        this.renderingInProgress = false;
     }
 
     /**
