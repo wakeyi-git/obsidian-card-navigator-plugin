@@ -118,7 +118,6 @@
     "CARD_WIDTH_THRESHOLD_DESC": "자동 레이아웃에서 열 추가/제거를 위한 카드 너비 임계값",
     "ALIGN_CARD_HEIGHT": "카드 높이 정렬",
     "ALIGN_CARD_HEIGHT_DESC": "활성화하면 모든 카드의 높이가 동일합니다(그리드). 비활성화하면 카드 높이가 내용에 맞게 조정됩니다(매소니).",
-    "AUTO_LAYOUT_GRID_MASONRY_SWITCH": "자동 레이아웃 모드에서 이 설정은 그리드와 매소니 레이아웃 간 전환에 사용됩니다.",
     "CARDS_PER_VIEW": "뷰당 카드 수",
     "CARDS_PER_VIEW_DESC": "리스트 레이아웃에서 카드의 높이가 같을 때 한 번에 표시할 카드 수",
     "GRID_COLUMNS": "그리드 열",

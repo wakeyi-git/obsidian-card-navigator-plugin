@@ -1,10 +1,10 @@
 import { Card } from 'common/types';
 import { LayoutStrategy } from 'layouts/layoutStrategy';
 import CardNavigatorPlugin from 'main';
-import { LayoutStyleManager } from 'layouts/layoutStyleManager';
+import { LayoutConfig } from 'layouts/layoutConfig';
 
 export class Scroller {
-    private layoutStyleManager: LayoutStyleManager;
+    private layoutConfig: LayoutConfig;
     private currentAnimationFrame: number | null = null;
 
     constructor(
@@ -13,27 +13,15 @@ export class Scroller {
         private getLayoutStrategy: () => LayoutStrategy,
         private getCardSize: () => { width: number, height: number }
     ) {
-        this.layoutStyleManager = new LayoutStyleManager(plugin.app, containerEl, plugin.settings);
+        this.layoutConfig = new LayoutConfig(plugin.app, containerEl, plugin.settings);
     }
 
     // 활성 카드로 스크롤 메서드
     public scrollToActiveCard(animate = true) {
         if (!this.containerEl) return;
-        
-        // 활성 카드 찾기 - 두 클래스 모두 확인
-        let activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement;
-        
-        // 첫 번째 클래스로 찾지 못하면 두 번째 클래스로 시도
-        if (!activeCard) {
-            activeCard = this.containerEl.querySelector('.active') as HTMLElement;
-        }
-        
-        if (!activeCard) {
-            console.debug('활성 카드를 찾을 수 없습니다.');
-            return;
-        }
-        
-        // 활성 카드를 중앙으로 스크롤
+        const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement | null;
+        if (!activeCard) return;
+
         this.centerCard(activeCard, animate);
     }
 
@@ -51,16 +39,12 @@ export class Scroller {
             const isVertical = this.getLayoutStrategy().getScrollDirection() === 'vertical';
 
             if (isVertical) {
-                // 수직 스크롤 오프셋 계산 수정
                 const containerVisibleHeight = containerRect.height;
-                // 카드의 중앙이 컨테이너의 중앙에 오도록 계산
-                offset = (cardRect.top + cardRect.height / 2) - (containerRect.top + containerVisibleHeight / 2);
+                offset = cardRect.top - containerRect.top - (containerVisibleHeight - cardRect.height) / 2;
                 scrollProperty = 'scrollTop';
             } else {
-                // 수평 스크롤 오프셋 계산 수정
                 const containerVisibleWidth = containerRect.width;
-                // 카드의 중앙이 컨테이너의 중앙에 오도록 계산
-                offset = (cardRect.left + cardRect.width / 2) - (containerRect.left + containerVisibleWidth / 2);
+                offset = cardRect.left - containerRect.left - (containerVisibleWidth - cardRect.width) / 2;
                 scrollProperty = 'scrollLeft';
             }
 
@@ -92,12 +76,9 @@ export class Scroller {
 
                 const containerRect = this.containerEl.getBoundingClientRect();
                 const cardRect = card.getBoundingClientRect();
-                
-                // 수정: 중앙 위치 기준으로 오프셋 계산
-                const isVertical = this.getLayoutStrategy().getScrollDirection() === 'vertical';
-                const currentOffset = isVertical
-                    ? (cardRect.top + cardRect.height / 2) - (containerRect.top + containerRect.height / 2)
-                    : (cardRect.left + cardRect.width / 2) - (containerRect.left + containerRect.width / 2);
+                const currentOffset = this.getLayoutStrategy().getScrollDirection() === 'vertical'
+                    ? cardRect.top - containerRect.top
+                    : cardRect.left - containerRect.left;
 
                 // 오차 범위 내에서 위치가 안정적인지 확인
                 if (Math.abs(currentOffset - lastOffset) < 1) {
@@ -163,7 +144,7 @@ export class Scroller {
         const { width, height } = this.getCardSize();
         const cardsPerView = this.plugin.settings.cardsPerView;
         const isVertical = this.getLayoutStrategy().getScrollDirection() === 'vertical';
-        const cardGap = this.layoutStyleManager.getCardGap();
+        const cardGap = this.layoutConfig.getCardGap();
         
         const cardSize = (isVertical ? height : width) + cardGap;
         const currentScroll = isVertical ? this.containerEl.scrollTop : this.containerEl.scrollLeft;

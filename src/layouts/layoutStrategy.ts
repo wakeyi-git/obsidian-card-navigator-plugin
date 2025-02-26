@@ -1,4 +1,4 @@
-import { Card, CardNavigatorSettings } from 'common/types';
+import { Card } from 'common/types';
 
 /**
  * 레이아웃 전략을 정의하는 인터페이스
@@ -13,7 +13,7 @@ export interface LayoutStrategy {
      * @param containerHeight - 컨테이너의 높이
      * @returns 각 카드의 위치와 크기를 나타내는 CardPosition 객체 배열
      */
-    calculatePositions(cards: Card[], containerWidth: number, containerHeight: number): CardPosition[];
+    arrange(cards: Card[], containerWidth: number, containerHeight: number): CardPosition[];
 
     /**
      * 카드의 너비를 설정합니다.
@@ -23,12 +23,6 @@ export interface LayoutStrategy {
     //#endregion
 
     //#region 레이아웃 속성
-    /**
-     * 레이아웃의 타입을 반환합니다.
-     * @returns 레이아웃 타입 ('list', 'grid', 'masonry', 'auto')
-     */
-    getLayoutType(): CardNavigatorSettings['defaultLayout'];
-
     /**
      * 레이아웃의 스크롤 방향을 반환합니다.
      * @returns 수직 스크롤의 경우 'vertical', 수평 스크롤의 경우 'horizontal'
@@ -42,9 +36,19 @@ export interface LayoutStrategy {
     getColumnsCount(): number;
     //#endregion
 
+    /**
+     * 컨테이너 스타일을 가져옵니다.
+     */
+    getContainerStyle?(): Partial<CSSStyleDeclaration>;
+
+    /**
+     * 카드 스타일을 가져옵니다.
+     */
+    getCardStyle(): Partial<CSSStyleDeclaration>;
+
     //#region 컨테이너 관련 메서드
     /**
-     * 컨테이너를 설정합니다. (메이슨리 레이아웃에서만 필요)
+     * 컨테이너를 설정합니다.
      * @param container - 컨테이너 요소
      */
     setContainer?(container: HTMLElement): void;
@@ -53,13 +57,13 @@ export interface LayoutStrategy {
      * 컨테이너의 설정을 업데이트합니다.
      * @param settings - 업데이트할 설정 객체
      */
-    updateSettings(settings: CardNavigatorSettings): void;
+    updateSettings?(settings: any): void;
 
     /**
      * 컨테이너의 너비가 변경될 때 대응하는 메서드
      * @param newWidth - 새로운 컨테이너의 너비
      */
-    handleContainerResize(newWidth: number): void;
+    updateContainerWidth?(newWidth: number): void;
     //#endregion
 }
 
@@ -72,5 +76,4 @@ export interface CardPosition {
     top: number;
     width: number;
     height: number;
-    column?: number; // CSS Grid에서 사용할 열 번호 (선택적)
 }

@@ -53,25 +53,20 @@ export class KeyboardNavigator {
         this.containerEl.focus();
         this.isFocused = true;
     
-        // 활성 카드 인덱스 찾기
         const activeCardIndex = this.findActiveCardIndex();
-        
         if (activeCardIndex !== -1) {
-            // 활성 카드가 있으면 해당 카드에 포커스 설정
-            this.focusedCardIndex = activeCardIndex;
+            this.focusedCardIndex = this.ensureValidIndex(activeCardIndex);
         } else {
-            // 활성 카드가 없으면 첫 번째 보이는 카드에 포커스 설정
             const firstVisibleCardIndex = this.findFirstVisibleCardIndex();
             if (firstVisibleCardIndex !== null) {
-                this.focusedCardIndex = firstVisibleCardIndex;
+                this.focusedCardIndex = this.ensureValidIndex(firstVisibleCardIndex);
             } else {
-                this.focusedCardIndex = 0;
+                this.focusedCardIndex = this.ensureValidIndex(0);
             }
         }
 
         this.updateFocusedCardImmediate();
         
-        // 포커스된 카드로 스크롤
         requestAnimationFrame(() => {
             this.scrollToFocusedCard(true);
             this.updateFocusedCardImmediate();
@@ -198,117 +193,20 @@ export class KeyboardNavigator {
 
     // 페이지 단위 포커스 이동
     private moveFocusPage(direction: number) {
-        if (this.focusedCardIndex === null || !this.containerEl) return;
-
+        if (this.focusedCardIndex === null) return;
+    
         const totalCards = this.containerEl.children.length;
-        const layoutStrategy = this.cardContainer.getLayoutStrategy();
-        const isVertical = layoutStrategy.getScrollDirection() === 'vertical';
-        
-        // 그리드 또는 메이슨리 레이아웃인 경우
-        if (layoutStrategy instanceof GridLayout || layoutStrategy instanceof MasonryLayout) {
-            const columns = layoutStrategy.getColumnsCount();
-            
-            // 현재 행과 열 계산
-            const currentRow = Math.floor(this.focusedCardIndex / columns);
-            const currentCol = this.focusedCardIndex % columns;
-            
-            // 컨테이너와 카드의 크기 정보 가져오기
-            const containerRect = this.containerEl.getBoundingClientRect();
-            const cardEl = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
-            if (!cardEl) return;
-            
-            const cardRect = cardEl.getBoundingClientRect();
-            
-            let newIndex: number;
-            
-            // 수직 스크롤 방향인 경우 (일반적인 그리드)
-            if (isVertical) {
-                // 뷰포트에 표시되는 대략적인 행 수 계산
-                const cardHeight = cardRect.height;
-                const containerHeight = containerRect.height;
-                const rowsPerView = Math.max(1, Math.floor(containerHeight / cardHeight));
-                
-                // 이동할 행 수 계산 (최소 1행)
-                const rowsToMove = Math.max(1, rowsPerView - 1);
-                
-                // 새 행 계산
-                const newRow = direction > 0 
-                    ? Math.min(Math.ceil(totalCards / columns) - 1, currentRow + rowsToMove)
-                    : Math.max(0, currentRow - rowsToMove);
-                
-                // 새 인덱스 계산
-                newIndex = newRow * columns + currentCol;
-            } 
-            // 수평 스크롤 방향인 경우
-            else {
-                // 뷰포트에 표시되는 대략적인 열 수 계산
-                const cardWidth = cardRect.width;
-                const containerWidth = containerRect.width;
-                const colsPerView = Math.max(1, Math.floor(containerWidth / cardWidth));
-                
-                // 이동할 열 수 계산 (최소 1열)
-                const colsToMove = Math.max(1, colsPerView - 1);
-                
-                // 새 열 계산
-                const newCol = direction > 0 
-                    ? Math.min(columns - 1, currentCol + colsToMove)
-                    : Math.max(0, currentCol - colsToMove);
-                
-                // 새 인덱스 계산
-                newIndex = currentRow * columns + newCol;
-                
-                // 열 이동으로 인덱스 범위를 벗어나면 행도 조정
-                if (newIndex >= totalCards) {
-                    // 다음 행의 첫 번째 열로 이동
-                    if (direction > 0 && currentRow < Math.ceil(totalCards / columns) - 1) {
-                        newIndex = (currentRow + 1) * columns;
-                    } 
-                    // 마지막 카드로 이동
-                    else {
-                        newIndex = totalCards - 1;
-                    }
-                }
-            }
-            
-            // 마지막 행에서는 열 수가 적을 수 있으므로 조정
-            newIndex = Math.min(totalCards - 1, newIndex);
-            
-            this.focusedCardIndex = this.ensureValidIndex(newIndex);
-        } 
-        // 리스트 레이아웃 또는 기타 레이아웃인 경우
-        else {
-            // 컨테이너와 카드의 크기 정보 가져오기
-            const containerRect = this.containerEl.getBoundingClientRect();
-            const cardEl = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
-            if (!cardEl) return;
-            
-            const cardRect = cardEl.getBoundingClientRect();
-            
-            let cardsToMove: number;
-            
-            // 뷰포트에 표시되는 카드 수 계산
-            if (isVertical) {
-                const cardHeight = cardRect.height;
-                const containerHeight = containerRect.height;
-                cardsToMove = Math.max(1, Math.floor(containerHeight / cardHeight) - 1);
-            } else {
-                const cardWidth = cardRect.width;
-                const containerWidth = containerRect.width;
-                cardsToMove = Math.max(1, Math.floor(containerWidth / cardWidth) - 1);
-            }
-            
-            // 설정된 cardsPerView와 계산된 값 중 더 작은 값 사용
-            const cardsPerView = this.plugin.settings.cardsPerView;
-            cardsToMove = Math.min(cardsToMove, cardsPerView);
-            
-            // 새 인덱스 계산
-            const newIndex = direction > 0
-                ? Math.min(totalCards - 1, this.focusedCardIndex + cardsToMove)
-                : Math.max(0, this.focusedCardIndex - cardsToMove);
-            
-            this.focusedCardIndex = this.ensureValidIndex(newIndex);
+        const cardsPerView = this.plugin.settings.cardsPerView;
+    
+        let newIndex: number;
+    
+        if (direction > 0) {
+            newIndex = Math.min(totalCards - 1, this.focusedCardIndex + cardsPerView);
+        } else {
+            newIndex = Math.max(0, this.focusedCardIndex - cardsPerView);
         }
-        
+    
+        this.focusedCardIndex = this.ensureValidIndex(newIndex);
         this.updateFocusedCardImmediate();
         this.scrollToFocusedCard();
     }
@@ -394,25 +292,9 @@ export class KeyboardNavigator {
     // 활성 카드의 인덱스 찾기
     private findActiveCardIndex(): number {
         if (!this.containerEl) return -1;
-        
-        // 모든 카드 요소를 배열로 변환하여 활성 카드 찾기
-        const cards = Array.from(this.containerEl.children);
-        
-        // 'card-navigator-active' 클래스를 가진 카드 찾기
-        const activeIndex = cards.findIndex(
-            child => child instanceof HTMLElement && 
-            child.classList.contains('card-navigator-active')
+        return Array.from(this.containerEl.children).findIndex(
+            child => child instanceof HTMLElement && child.classList?.contains('card-navigator-active')
         );
-        
-        // 활성 카드가 없으면 'active' 클래스를 가진 카드 찾기 (대체 방법)
-        if (activeIndex === -1) {
-            return cards.findIndex(
-                child => child instanceof HTMLElement && 
-                child.classList.contains('active')
-            );
-        }
-        
-        return activeIndex;
     }
 
     // 첫 번째 보이는 카드의 인덱스 찾기

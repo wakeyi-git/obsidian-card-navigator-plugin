@@ -258,8 +258,10 @@ export class CardNavigatorView extends ItemView {
                 // 단일 렌더링 사이클에서 모든 카드 업데이트
                 await this.cardContainer.displayCards(sortedFiles);
             }
+            
         } catch (error) {
-            console.error(`[CardNavigator] 리프레시 중 오류 발생: ${error}`);
+            console.error(`[CardNavigator] 리프레시 중 오류 발생:`, error);
+            throw error;
         }
     }
     //#endregion
