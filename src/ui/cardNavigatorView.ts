@@ -113,6 +113,11 @@ export class CardNavigatorView extends ItemView {
     // 레이아웃 설정 업데이트 메서드
     private updateLayout() {
         const settings = this.plugin.settings;
+        if (!this.cardContainer) {
+            console.log(`[CardNavigator] updateLayout: cardContainer가 초기화되지 않음`);
+            return;
+        }
+        
         if (settings.defaultLayout) {
             this.cardContainer.setLayout(settings.defaultLayout);
         } else {
@@ -174,11 +179,13 @@ export class CardNavigatorView extends ItemView {
     public async refreshBatch(types: RefreshType[]) {
         if (!this.cardContainer) return;
         
+        console.log(`[CardNavigator] refreshBatch 호출됨: 타입 ${types.join(', ')}`);
 
         // 현재 시간과 마지막 리프레시 시간을 비교
         const now = Date.now();
         if (now - this.lastRefreshTime < this.REFRESH_COOLDOWN) {
             // 쿨다운 중이면 타입을 병합하고 대기
+            console.log(`[CardNavigator] 리프레시 쿨다운 중 (${this.REFRESH_COOLDOWN}ms), 타입 병합`);
             types.forEach(type => this.pendingRefreshTypes.add(type));
             
             // 이미 대기 중인 타이머가 있다면 취소
@@ -192,6 +199,7 @@ export class CardNavigatorView extends ItemView {
                 const pendingTypes = Array.from(this.pendingRefreshTypes);
                 this.pendingRefreshTypes.clear();
                 if (pendingTypes.length > 0) {
+                    console.log(`[CardNavigator] 쿨다운 후 대기 중인 리프레시 실행: ${pendingTypes.join(', ')}`);
                     this.refreshBatch(pendingTypes);
                 }
             }, this.REFRESH_COOLDOWN);
@@ -201,6 +209,7 @@ export class CardNavigatorView extends ItemView {
 
         // 이미 진행 중인 리프레시가 있으면 타입을 병합하고 대기
         if (this.isRefreshInProgress) {
+            console.log(`[CardNavigator] 리프레시 이미 진행 중, 타입 병합`);
             types.forEach(type => this.pendingRefreshTypes.add(type));
             return;
         }
@@ -214,9 +223,14 @@ export class CardNavigatorView extends ItemView {
             const refreshTypes = Array.from(this.pendingRefreshTypes);
             this.pendingRefreshTypes.clear();
 
+            console.log(`[CardNavigator] 리프레시 실행: ${refreshTypes.join(', ')}`);
+
             // 컨테이너 요소 가져오기
             const containerEl = this.cardContainer.getContainerElement();
-            if (!containerEl) return;
+            if (!containerEl) {
+                console.log(`[CardNavigator] 컨테이너 요소가 없음, 리프레시 취소`);
+                return;
+            }
 
             try {
                 // 모든 타입에 대해 리프레시 실행
@@ -224,12 +238,24 @@ export class CardNavigatorView extends ItemView {
                 
                 // 짧은 지연 후 레이아웃 재계산
                 await new Promise(resolve => setTimeout(resolve, 50));
+                console.log(`[CardNavigator] 리프레시 완료`);
             } catch (error) {
                 console.error(`[CardNavigator] 리프레시 중 오류 발생:`, error);
             }
         } finally {
             this.isRefreshInProgress = false;
-            this.pendingRefreshTypes.clear();
+            
+            // 대기 중인 리프레시가 있으면 처리
+            if (this.pendingRefreshTypes.size > 0) {
+                const pendingTypes = Array.from(this.pendingRefreshTypes);
+                this.pendingRefreshTypes.clear();
+                console.log(`[CardNavigator] 대기 중인 리프레시 실행: ${pendingTypes.join(', ')}`);
+                
+                // 약간의 지연 후 대기 중인 리프레시 실행
+                setTimeout(() => {
+                    this.refreshBatch(pendingTypes);
+                }, this.REFRESH_COOLDOWN);
+            }
         }
     }
 
@@ -242,23 +268,47 @@ export class CardNavigatorView extends ItemView {
         if (!this.cardContainer) return;
 
         try {
+            console.log(`[CardNavigator] refreshByType 시작: ${types.join(', ')}`);
+            
             // 모든 타입을 단일 업데이트로 처리            
             const folder = await this.getCurrentFolder();
             if (folder) {
+                console.log(`[CardNavigator] 현재 폴더: ${folder.path}`);
+                
                 // 1. 설정 업데이트
+                console.log(`[CardNavigator] 설정 업데이트 시작`);
                 this.cardContainer.updateSettings(this.plugin.settings);
+                console.log(`[CardNavigator] 설정 업데이트 완료`);
                 
                 // 2. 레이아웃 업데이트
-                this.updateLayout();
+                console.log(`[CardNavigator] 레이아웃 업데이트 시작`);
+                // 레이아웃 매니저가 초기화되었는지 확인
+                try {
+                    this.updateLayout();
+                    console.log(`[CardNavigator] 레이아웃 업데이트 완료`);
+                } catch (error) {
+                    console.log(`[CardNavigator] 레이아웃 매니저가 아직 초기화되지 않음, 업데이트 건너뜀: ${error}`);
+                }
                 
-                // 3. 컨텐츠 업데이트
+                // 3. 컨텐츠 업데이트 - 단일 호출로 통합
+                console.log(`[CardNavigator] 컨텐츠 업데이트 시작`);
                 const files = folder.children
                     .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
+                console.log(`[CardNavigator] 폴더 내 마크다운 파일 수: ${files.length}`);
+                
                 const sortedFiles = this.sortFiles(files);
+                console.log(`[CardNavigator] 정렬된 파일 수: ${sortedFiles.length}`);
                 
                 // 단일 렌더링 사이클에서 모든 카드 업데이트
+                // 중복 호출 방지를 위해 displayCards를 한 번만 호출
+                console.log(`[CardNavigator] displayCards 호출 시작`);
                 await this.cardContainer.displayCards(sortedFiles);
+                console.log(`[CardNavigator] displayCards 호출 완료`);
+            } else {
+                console.log(`[CardNavigator] 현재 폴더를 찾을 수 없음`);
             }
+            
+            console.log(`[CardNavigator] refreshByType 완료`);
         } catch (error) {
             console.error(`[CardNavigator] 리프레시 중 오류 발생: ${error}`);
         }
