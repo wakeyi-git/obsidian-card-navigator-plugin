@@ -300,4 +300,22 @@ export class LayoutStyleManager {
         this.settings = settings;
         this.updateCSSVariables();
     }
+
+    /**
+     * 초기 컨테이너 크기를 설정합니다.
+     * 컨테이너 크기가 처음 설정될 때 호출됩니다.
+     */
+    public setInitialContainerSize(width: number, height: number): void {
+        if (!this.containerEl) return;
+        
+        // 컨테이너 크기 정보를 CSS 변수로 저장
+        this.containerEl.style.setProperty('--container-initial-width', `${width}px`);
+        this.containerEl.style.setProperty('--container-initial-height', `${height}px`);
+        
+        // 방향 정보 저장 (높이가 너비보다 크면 세로 방향)
+        const isVertical = height >= width;
+        this.containerEl.style.setProperty('--container-orientation', isVertical ? 'vertical' : 'horizontal');
+        
+        console.log(`[CardNavigator] 초기 컨테이너 크기 설정: ${width}x${height}, 방향: ${isVertical ? '세로' : '가로'}`);
+    }
 } 
