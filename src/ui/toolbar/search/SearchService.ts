@@ -27,7 +27,9 @@ export class SearchService {
     // 검색 결과 재정렬 메서드
     resortLastResults(): TFile[] | null {
         if (!this.lastSearchResults) return null;
-        return this.sortFiles([...this.lastSearchResults]);
+        const sortedResults = this.sortFiles([...this.lastSearchResults]);
+        this.lastSearchResults = sortedResults; // 정렬된 결과를 다시 저장
+        return sortedResults;
     }
 
     // 캐시 관련 메서드 추가

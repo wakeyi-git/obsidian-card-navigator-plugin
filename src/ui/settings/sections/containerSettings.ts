@@ -72,7 +72,7 @@ export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavig
         async () => {
             // 모든 Card Navigator 뷰 업데이트
             const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-            leaves.forEach(leaf => {
+            for (const leaf of leaves) {
                 if (leaf.view instanceof CardNavigatorView) {
                     const view = leaf.view;
                     const searchService = getSearchService(plugin);
@@ -80,13 +80,17 @@ export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavig
                     if (resortedResults) {
                         // 재정렬된 결과를 검색 결과로 설정하고 카드 업데이트
                         view.cardContainer.setSearchResults(resortedResults);
-                        view.cardContainer.displayCards(resortedResults);
+                        
+                        // 강제로 카드 다시 렌더링을 위해 cards 배열 초기화
+                        view.cardContainer.cards = [];
+                        
+                        await view.cardContainer.displayCards(resortedResults);
                     } else {
                         // 검색 결과가 없다면 일반 새로고침
-                        view.refresh(RefreshType.CONTENT);
+                        await view.refresh(RefreshType.CONTENT);
                     }
                 }
-            });
+            }
         }
     );
 

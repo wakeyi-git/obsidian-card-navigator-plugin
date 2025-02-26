@@ -25,7 +25,7 @@ export class CardContainer {
     private layoutConfig!: LayoutConfig;
     private keyboardNavigator: KeyboardNavigator | null = null;
     private scroller!: Scroller;
-    private cards: Card[] = [];
+    public cards: Card[] = [];
     private resizeObserver: ResizeObserver;
     private focusedCardId: string | null = null;
     private searchResults: TFile[] | null = null;
@@ -228,6 +228,10 @@ export class CardContainer {
             settings.showFirstHeader !== undefined ||
             settings.showBody !== undefined ||
             settings.renderContentAsHtml !== undefined;
+        
+        const needsSortUpdate =
+            settings.sortCriterion !== undefined ||
+            settings.sortOrder !== undefined;
 
         // 설정값 업데이트
         if (settings.alignCardHeight !== undefined) {
@@ -242,6 +246,12 @@ export class CardContainer {
         if (settings.cardsPerView !== undefined) {
             this.plugin.settings.cardsPerView = settings.cardsPerView;
         }
+        if (settings.sortCriterion !== undefined) {
+            this.plugin.settings.sortCriterion = settings.sortCriterion;
+        }
+        if (settings.sortOrder !== undefined) {
+            this.plugin.settings.sortOrder = settings.sortOrder;
+        }
 
         // 컨텐츠 관련 설정이 변경된 경우 캐시 초기화
         if (needsContentUpdate) {
@@ -249,7 +259,7 @@ export class CardContainer {
         }
 
         // 레이아웃 매니저 설정 업데이트
-        if (needsLayoutUpdate) {
+        if (needsLayoutUpdate || needsSortUpdate) {
             // 컨테이너 스타일 업데이트
             this.updateContainerStyle();
             
@@ -272,6 +282,11 @@ export class CardContainer {
                     top: this.containerEl?.scrollTop || 0,
                     left: this.containerEl?.scrollLeft || 0
                 };
+
+                // 정렬 변경 시 카드 배열 초기화
+                if (needsSortUpdate) {
+                    this.cards = [];
+                }
 
                 // 카드 다시 렌더링
                 if (this.cards.length > 0) {
@@ -528,7 +543,13 @@ export class CardContainer {
             return !existingCard || existingCard.file.stat.mtime !== card.file.stat.mtime;
         });
 
-        if (changedCards.length === 0 && this.cards.length === cardsData.length) {
+        // 정렬 순서 변경 감지
+        const orderChanged = cardsData.length === this.cards.length && 
+            cardsData.some((card, index) => 
+                this.cards.length <= index || this.cards[index].file.path !== card.file.path
+            );
+
+        if (changedCards.length === 0 && this.cards.length === cardsData.length && !orderChanged) {
             return; // 변경사항이 없으면 렌더링 스킵
         }
 
