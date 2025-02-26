@@ -168,39 +168,67 @@ export class CardMaker extends Component {
             const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
             if (!markdownContainer) return;
 
-            markdownContainer.style.opacity = '0';
-            markdownContainer.classList.add('loading');
-            contentEl.classList.add('loading');
+            // 기존 내용을 유지하면서 렌더링 준비
+            // 플레이스홀더 텍스트는 유지하고 나중에 제거
+            const placeholderText = markdownContainer.querySelector('.placeholder-text');
+            
+            // 새로운 내용을 렌더링할 임시 컨테이너 생성
+            const tempContainer = document.createElement('div');
+            tempContainer.style.position = 'absolute';
+            tempContainer.style.visibility = 'hidden';
+            tempContainer.className = 'temp-markdown-container';
+            contentEl.appendChild(tempContainer);
 
-            // 기존 내용 제거
-            markdownContainer.empty();
-
-            // 새로운 내용 렌더링
+            // 임시 컨테이너에 새 내용 렌더링
             await MarkdownRenderer.render(
                 this.plugin.app,
                 content,
-                markdownContainer,
+                tempContainer,
                 filePath,
                 this
             );
 
             // 이미지 처리
-            await this.processImages(contentEl, filePath);
+            await this.processImages(tempContainer, filePath);
 
-            // 렌더링 완료 후 표시
-            markdownContainer.style.opacity = '1';
-            markdownContainer.classList.remove('loading');
-            contentEl.classList.remove('loading');
+            // 렌더링된 내용을 실제 컨테이너로 이동
+            // 플레이스홀더 텍스트 제거
+            if (placeholderText) {
+                placeholderText.remove();
+            }
+            
+            // 기존 내용 제거 (플레이스홀더 제외)
+            Array.from(markdownContainer.children)
+                .filter(child => !child.classList.contains('placeholder-text'))
+                .forEach(child => child.remove());
+            
+            // 새 내용 이동
+            while (tempContainer.firstChild) {
+                markdownContainer.appendChild(tempContainer.firstChild);
+            }
+            
+            // 임시 컨테이너 제거
+            tempContainer.remove();
+
+            // 부드러운 전환으로 표시
+            setTimeout(() => {
+                markdownContainer.style.opacity = '1';
+            }, 10);
+            
         } catch (error) {
             console.error(`Failed to render content for ${filePath}:`, error);
             const markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
             if (markdownContainer) {
-                markdownContainer.empty();
+                // 플레이스홀더 텍스트 제거
+                const placeholderText = markdownContainer.querySelector('.placeholder-text');
+                if (placeholderText) {
+                    placeholderText.remove();
+                }
+                
+                // 오류 시 일반 텍스트로 표시
                 markdownContainer.createSpan({ text: content });
                 markdownContainer.style.opacity = '1';
-                markdownContainer.classList.remove('loading');
             }
-            contentEl.classList.remove('loading');
         }
     }
 
@@ -359,17 +387,37 @@ export class CardMaker extends Component {
             
             if (settings.renderContentAsHtml) {
                 cardElement.dataset.content = card.body;
+                
+                // 마크다운 컨테이너 생성 및 스타일 개선
                 const markdownContainer = contentEl.createDiv({
-                    cls: 'markdown-rendered loading'
+                    cls: 'markdown-rendered'
                 });
-                markdownContainer.style.opacity = '0';
-                contentEl.classList.add('loading');
+                
+                // 깜빡임 방지를 위한 스타일 설정
+                markdownContainer.style.opacity = '0.3';
+                markdownContainer.style.transition = 'opacity 0.2s ease-in-out';
+                
+                // 로딩 중 표시를 위한 임시 텍스트 추가 (깜빡임 감소)
+                const placeholderText = card.body.length > 50 ? card.body.substring(0, 50) + '...' : card.body;
+                markdownContainer.createSpan({ text: placeholderText, cls: 'placeholder-text' });
+                
+                // 인터섹션 옵저버로 뷰포트에 들어올 때 렌더링
                 this.intersectionObserver.observe(cardElement);
             } else {
                 contentEl.textContent = card.body;
                 contentEl.addClass('ellipsis');
             }
         }
+    }
+
+    // 기존 카드 요소의 내용을 업데이트하는 public 메서드 추가
+    public updateCardContent(cardElement: HTMLElement, card: Card) {
+        // 기존 내용 요소 제거
+        const contentElements = cardElement.querySelectorAll('.card-navigator-filename, .card-navigator-first-header, .card-navigator-body');
+        contentElements.forEach(el => el.remove());
+        
+        // 내용 다시 추가
+        this.addCardContent(cardElement, card);
     }
 
     private createContentElement(parent: HTMLElement, tag: CardElementTag, text: string, type: string, fontSize: number): HTMLElement {
@@ -407,34 +455,75 @@ export class CardMaker extends Component {
         const content = cardElement.dataset.content;
         if (!content) return;
 
-        // 이미 렌더링된 경우 스킵
-        if (markdownContainer.children.length > 0) {
+        // 이미 완전히 렌더링된 경우 스킵 (플레이스홀더만 있는 경우는 렌더링 필요)
+        const hasOnlyPlaceholder = markdownContainer.children.length === 1 && 
+                                  markdownContainer.querySelector('.placeholder-text') !== null;
+        
+        if (markdownContainer.children.length > 0 && !hasOnlyPlaceholder) {
             cardElement.removeAttribute('data-rendering');
             return;
         }
 
-        try {
-            // 기존 내용 제거
-            markdownContainer.empty();
+        // 렌더링 중 표시
+        cardElement.setAttribute('data-rendering', 'true');
 
-            // 새로운 내용 렌더링
+        try {
+            // 새로운 내용을 렌더링할 임시 컨테이너 생성
+            const tempContainer = document.createElement('div');
+            tempContainer.style.position = 'absolute';
+            tempContainer.style.visibility = 'hidden';
+            tempContainer.className = 'temp-markdown-container';
+            contentEl.appendChild(tempContainer);
+
+            // 임시 컨테이너에 새 내용 렌더링
             await MarkdownRenderer.render(
                 this.plugin.app,
                 content,
-                markdownContainer,
+                tempContainer,
                 filePath,
                 this
             );
 
             // 이미지 처리
-            await this.processImages(contentEl, filePath);
+            await this.processImages(tempContainer, filePath);
+
+            // 플레이스홀더 텍스트 제거
+            const placeholderText = markdownContainer.querySelector('.placeholder-text');
+            if (placeholderText) {
+                placeholderText.remove();
+            }
+            
+            // 기존 내용 제거 (플레이스홀더 제외)
+            Array.from(markdownContainer.children)
+                .filter(child => !child.classList.contains('placeholder-text'))
+                .forEach(child => child.remove());
+            
+            // 새 내용 이동
+            while (tempContainer.firstChild) {
+                markdownContainer.appendChild(tempContainer.firstChild);
+            }
+            
+            // 임시 컨테이너 제거
+            tempContainer.remove();
+
+            // 부드러운 전환으로 표시
+            setTimeout(() => {
+                markdownContainer.style.opacity = '1';
+            }, 10);
 
             // 렌더링 완료 표시
             cardElement.removeAttribute('data-rendering');
         } catch (error) {
             console.error(`Failed to render content for ${filePath}:`, error);
-            markdownContainer.empty();
+            
+            // 플레이스홀더 텍스트 제거
+            const placeholderText = markdownContainer.querySelector('.placeholder-text');
+            if (placeholderText) {
+                placeholderText.remove();
+            }
+            
             markdownContainer.createSpan({ text: content });
+            markdownContainer.style.opacity = '1';
             cardElement.removeAttribute('data-rendering');
         }
     }

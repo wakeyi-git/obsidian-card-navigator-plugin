@@ -16,7 +16,7 @@ export class SettingsManager implements ISettingsManager {
         } catch (error) {
             console.error('Error saving settings:', error);
         }
-    }, 250);
+    }, 50);
     //#endregion
 
     //#region 초기화

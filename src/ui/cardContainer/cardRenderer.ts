@@ -45,17 +45,13 @@ export class CardRenderer {
     public renderCards(cards: Card[], focusedCardId: string | null = null, activeFile: TFile | null = null): void {
         if (!this.containerEl) return;
         
+        // 렌더링 상태 업데이트
+        this.renderingInProgress = true;
+        
         // 현재 스크롤 위치 저장
-        const scrollTop = this.containerEl.scrollTop;
-        const scrollLeft = this.containerEl.scrollLeft;
-        
-        // 카드 위치 계산
-        const containerWidth = this.containerEl.offsetWidth;
-        const containerHeight = this.containerEl.offsetHeight;
-        const cardPositions = this.layoutManager.arrangeCards(cards, containerWidth, containerHeight);
-        
-        // 레이아웃 타입 가져오기
-        const layoutType = this.layoutStrategy.getLayoutType();
+        const scrollContainer = this.containerEl.closest('.card-navigator-scroll-container') as HTMLElement;
+        const scrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
+        const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
         
         // 기존 카드 요소 맵 생성
         const existingCardElements = new Map<string, HTMLElement>();
@@ -66,6 +62,14 @@ export class CardRenderer {
                 existingCardElements.set(cardId, cardEl);
             }
         });
+        
+        // 카드 위치 계산
+        const containerWidth = this.containerEl.offsetWidth;
+        const containerHeight = this.containerEl.offsetHeight;
+        const cardPositions = this.layoutManager.arrangeCards(cards, containerWidth, containerHeight);
+        
+        // 레이아웃 타입 가져오기
+        const layoutType = this.layoutStrategy.getLayoutType();
         
         // 새로운 카드 ID 집합 생성
         const newCardIds = new Set(cards.map(card => card.file.path));
@@ -103,6 +107,9 @@ export class CardRenderer {
                 
                 // 레이아웃 전환 시 이전 스타일 완전히 초기화
                 this.resetCardStyle(cardEl);
+                
+                // 기존 카드 요소를 재사용할 때도 내용 업데이트
+                this.cardMaker.updateCardContent(cardEl, card);
             } else {
                 cardEl = this.cardMaker.createCardElement(card);
             }
@@ -133,8 +140,16 @@ export class CardRenderer {
         this.containerEl.appendChild(fragment);
         
         // 스크롤 위치 복원
-        this.containerEl.scrollTop = scrollTop;
-        this.containerEl.scrollLeft = scrollLeft;
+        if (scrollContainer) {
+            scrollContainer.scrollLeft = scrollLeft;
+            scrollContainer.scrollTop = scrollTop;
+        }
+        
+        // 렌더링된 카드 추적
+        this.renderedCards = new Set(cards.map(card => card.file.path));
+        
+        // 렌더링 상태 업데이트
+        this.renderingInProgress = false;
     }
 
     /**
