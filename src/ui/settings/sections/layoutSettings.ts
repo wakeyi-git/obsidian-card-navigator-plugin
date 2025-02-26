@@ -44,7 +44,7 @@ export function addLayoutSettings(containerEl: HTMLElement, plugin: CardNavigato
     // Align Card Height
     settings.alignCardHeight = new Setting(containerEl)
     .setName(t('ALIGN_CARD_HEIGHT'))
-    .setDesc(t('ALIGN_CARD_HEIGHT_DESC'))
+    .setDesc(t('ALIGN_CARD_HEIGHT_DESC') + ' ' + t('AUTO_LAYOUT_GRID_MASONRY_SWITCH'))
     .addToggle(toggle => toggle
         .setValue(plugin.settings.alignCardHeight)
         .onChange(async (value) => {

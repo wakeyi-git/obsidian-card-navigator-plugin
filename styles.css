@@ -334,7 +334,6 @@
     position: relative;
     border: var(--border-width) solid var(--background-modifier-border);
     border-radius: var(--radius-m);
-    padding: var(--size-4-4);
     background-color: var(--background-primary);
     box-sizing: border-box;
     display: flex;
@@ -649,4 +648,17 @@ color: var(--interactive-accent);
 
 .card-navigator-card.card-navigator-active .markdown-rendered .list-bullet {
     color: var(--interactive-accent);
+}
+
+/* 메이슨리 레이아웃 스타일 */
+.card-navigator-container.masonry-layout {
+    --masonry-columns: 3;
+    --masonry-gap: 10px;
+    --masonry-card-width: 200px;
+}
+
+.card-navigator-container.masonry-layout .card-navigator-card {
+    width: var(--masonry-card-width);
+    margin-bottom: var(--masonry-gap);
+    transition: left 0.3s ease, top 0.3s ease;
 }
