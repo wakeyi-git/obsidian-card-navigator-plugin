@@ -4,7 +4,6 @@
     --card-navigator-gap: 10px;
     --card-navigator-icon-size: 20px;
     --card-navigator-popup-width: 250px;
-    --card-navigator-transition-duration: 0.2s; /* 전환 효과 지속 시간 */
 }
 
 /* 옵시디언 좌우 패딩만 제거 */
@@ -412,7 +411,6 @@
     -webkit-box-orient: vertical;
 }
 
-/* 마크다운 렌더링 관련 스타일 */
 .card-navigator-body .markdown-rendered {
     width: 100%;
     padding: 0;
@@ -420,41 +418,6 @@
     flex: 1;
     overflow-y: auto;
     padding-right: 4px;
-    transition: opacity var(--card-navigator-transition-duration) ease-in-out;
-    will-change: opacity; /* 성능 최적화 */
-}
-
-/* 플레이스홀더 텍스트 스타일 */
-.card-navigator-body .markdown-rendered .placeholder-text {
-    opacity: 0.7;
-    color: var(--text-muted);
-    font-style: italic;
-}
-
-/* 임시 렌더링 컨테이너 스타일 */
-.temp-markdown-container {
-    position: absolute !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-    z-index: -1 !important;
-    opacity: 0 !important;
-}
-
-/* 렌더링 중인 카드 스타일 */
-.card-navigator-card[data-rendering="true"] {
-    position: relative;
-}
-
-.card-navigator-card[data-rendering="true"]::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: var(--background-primary);
-    opacity: 0.1;
-    pointer-events: none;
 }
 
 /* 블릿 리스트 여백 조정 */

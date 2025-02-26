@@ -148,7 +148,6 @@ export class CardContainer {
 
     // 컨테이너 초기화 메서드
     async initialize(containerEl: HTMLElement) {
-        console.log('[CardNavigator] CardContainer.initialize 시작');
         this.cleanup();
         
         this.containerEl = containerEl;
@@ -159,12 +158,9 @@ export class CardContainer {
             this.containerEl.classList.add('card-navigator-container');
             
             // 컨테이너 크기가 설정될 때까지 대기
-            console.log('[CardNavigator] 컨테이너 크기 대기 시작');
             await this.waitForContainerSize();
-            console.log('[CardNavigator] 컨테이너 크기 대기 완료');
             
             // 레이아웃 스타일 매니저 초기화
-            console.log('[CardNavigator] 레이아웃 스타일 매니저 초기화');
             this.layoutStyleManager = new LayoutStyleManager(this.app, containerEl, this.plugin.settings);
             console.log('[CardNavigator] 레이아웃 스타일 매니저 초기화 완료');
             
@@ -172,11 +168,9 @@ export class CardContainer {
             this.initializeContainerSizeAndOrientation();
             
             // 레이아웃 매니저 초기화
-            console.log('[CardNavigator] 레이아웃 매니저 초기화');
             this.layoutManager = new LayoutManager(this.plugin, containerEl, this.cardMaker);
             
             // 스크롤러 초기화
-            console.log('[CardNavigator] 스크롤러 초기화');
             this.scroller = new Scroller(
                 containerEl,
                 this.plugin,
@@ -186,12 +180,10 @@ export class CardContainer {
             console.log('[CardNavigator] 스크롤러 초기화 완료');
             
             // 컨테이너 스타일 업데이트
-            console.log('[CardNavigator] 컨테이너 스타일 업데이트');
             this.updateContainerStyle();
             console.log('[CardNavigator] 컨테이너 스타일 업데이트 완료');
             
             // 카드 렌더러 초기화
-            console.log('[CardNavigator] 카드 렌더러 초기화');
             this.cardRenderer = new CardRenderer(
                 this.containerEl,
                 this.cardMaker,
@@ -200,27 +192,20 @@ export class CardContainer {
             );
 
             // 키보드 내비게이터 초기화
-            console.log('[CardNavigator] 키보드 내비게이터 초기화');
             this.initializeKeyboardNavigator();
             
             // 리사이즈 옵저버 설정
-            console.log('[CardNavigator] 리사이즈 옵저버 설정');
             this.setupResizeObserver();
             console.log('[CardNavigator] 컨테이너 크기 관찰 시작');
             
             // 스크롤 이벤트 리스너 설정
-            console.log('[CardNavigator] 스크롤 이벤트 리스너 설정');
             this.containerEl.addEventListener('scroll', this.handleScroll);
             
             // 초기 레이아웃 업데이트 강제 실행
-            console.log('[CardNavigator] 초기 레이아웃 업데이트 대기');
             await new Promise(resolve => setTimeout(resolve, 100));
-            console.log('[CardNavigator] 초기 리사이즈 처리 시작');
             this.handleResize();
-            console.log('[CardNavigator] 초기 리사이즈 처리 완료');
             
             // 리사이즈 이벤트 리스너 설정
-            console.log('[CardNavigator] 리사이즈 이벤트 리스너 설정');
             this.containerEl.addEventListener('masonry-resize', (e: Event) => {
                 const customEvent = e as CustomEvent;
                 if (customEvent.detail?.needsRecalculation) {
@@ -265,8 +250,6 @@ export class CardContainer {
                     this.cardRenderer?.renderCards(this.cards, this.focusedCardId, activeFile);
                 }
             });
-            
-            console.log('[CardNavigator] CardContainer.initialize 완료');
         } catch (error) {
             console.error('[CardNavigator] 카드 컨테이너 초기화 중 오류 발생:', error);
             throw error;
@@ -570,11 +553,6 @@ export class CardContainer {
         const needsSortUpdate =
             settings.sortCriterion !== undefined ||
             settings.sortOrder !== undefined;
-            
-        const needsStyleUpdate =
-            settings.fileNameFontSize !== undefined ||
-            settings.firstHeaderFontSize !== undefined ||
-            settings.bodyFontSize !== undefined;
 
         // 설정값 업데이트
         if (settings.alignCardHeight !== undefined) {
@@ -595,58 +573,13 @@ export class CardContainer {
         if (settings.sortOrder !== undefined) {
             this.plugin.settings.sortOrder = settings.sortOrder;
         }
-        if (settings.fileNameFontSize !== undefined) {
-            this.plugin.settings.fileNameFontSize = settings.fileNameFontSize;
-        }
-        if (settings.firstHeaderFontSize !== undefined) {
-            this.plugin.settings.firstHeaderFontSize = settings.firstHeaderFontSize;
-        }
-        if (settings.bodyFontSize !== undefined) {
-            this.plugin.settings.bodyFontSize = settings.bodyFontSize;
-        }
 
         // 컨텐츠 관련 설정이 변경된 경우 캐시 초기화
-        if (needsContentUpdate || needsStyleUpdate) {
+        if (needsContentUpdate) {
             this.cardMaker.clearCache();
         }
 
-        // 현재 스크롤 위치 저장
-        const scrollPosition = {
-            top: this.containerEl?.scrollTop || 0,
-            left: this.containerEl?.scrollLeft || 0
-        };
-
-        // 스타일이나 컨텐츠 관련 설정이 변경된 경우 카드 완전히 다시 생성
-        if (needsContentUpdate || needsStyleUpdate) {
-            try {
-                // 컨테이너 스타일 업데이트
-                this.updateContainerStyle();
-                
-                // 현재 파일 목록 저장
-                const files = this.cards.map(card => card.file);
-                
-                // 카드 배열 초기화
-                this.cards = [];
-                
-                // 카드 다시 생성 및 렌더링
-                this.displayCards(files).then(() => {
-                    // 스크롤 위치 복원
-                    requestAnimationFrame(() => {
-                        if (this.containerEl) {
-                            this.containerEl.scrollTop = scrollPosition.top;
-                            this.containerEl.scrollLeft = scrollPosition.left;
-                        }
-                    });
-                });
-                
-                // 여기서 리턴하여 아래 코드 실행 방지
-                return;
-            } catch (error) {
-                console.error('[CardNavigator] 카드 재생성 중 오류 발생:', error);
-            }
-        }
-
-        // 레이아웃 매니저 설정 업데이트 (스타일/컨텐츠 변경이 아닌 경우에만 실행)
+        // 레이아웃 매니저 설정 업데이트
         if (needsLayoutUpdate || needsSortUpdate) {
             try {
                 // 컨테이너 스타일 업데이트
@@ -663,21 +596,18 @@ export class CardContainer {
                         this.cardRenderer.setLayoutStrategy(newLayoutStrategy);
                     }
 
+                    // 현재 스크롤 위치 저장
+                    const scrollPosition = {
+                        top: this.containerEl?.scrollTop || 0,
+                        left: this.containerEl?.scrollLeft || 0
+                    };
+
                     // 정렬 변경 시 카드 배열 초기화
                     if (needsSortUpdate) {
                         this.cards = [];
-                        // 현재 폴더의 파일 가져와서 다시 표시
-                        this.getCurrentFolder().then(folder => {
-                            if (folder) {
-                                const files = folder.children
-                                    .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
-                                this.displayCards(files);
-                            }
-                        });
-                        return;
                     }
                     
-                    // 카드 다시 렌더링 (레이아웃만 변경된 경우)
+                    // 카드 다시 렌더링
                     if (this.cards.length > 0 && this.cardRenderer) {
                         const activeFile = this.app.workspace.getActiveFile();
                         this.cardRenderer.renderCards(this.cards, this.focusedCardId, activeFile);
@@ -811,6 +741,37 @@ export class CardContainer {
         });
     }
 
+    /**
+     * 레이아웃 타입 업데이트가 필요한지 확인합니다.
+     * auto 모드에서 열 수 변경이 필요한 경우 등을 감지합니다.
+     */
+    private shouldUpdateLayoutType(currentStrategy: LayoutStrategy): boolean {
+        // auto 모드에서만 레이아웃 타입이 변경될 수 있음
+        if (this.plugin.settings.defaultLayout !== 'auto') {
+            return false;
+        }
+        
+        // 현재 사용 가능한 너비
+        const availableWidth = this.layoutStyleManager.getAvailableWidth();
+        
+        // 현재 열 수
+        const currentColumns = currentStrategy.getColumnsCount();
+        
+        // 새로운 열 수 계산
+        const newColumns = Math.max(1, Math.floor(availableWidth / 300)); // 300px 기준으로 열 수 계산
+        
+        // 열 수가 변경되었는지 확인
+        const columnsChanged = currentColumns !== newColumns;
+        
+        // 열 수가 변경되었거나, 1열에서 다열로 또는 다열에서 1열로 변경되는 경우
+        const layoutTypeChangeNeeded = columnsChanged && (
+            (currentColumns === 1 && newColumns > 1) || 
+            (currentColumns > 1 && newColumns === 1)
+        );
+        
+        return layoutTypeChangeNeeded;
+    }
+
     // 현재 레이아웃 전략 반환 메서드
     public getLayoutStrategy(): LayoutStrategy {
         return this.layoutManager.getLayoutStrategy();
@@ -907,116 +868,66 @@ export class CardContainer {
         return files;
     }
 
-    // 중복 호출 방지를 위한 플래그
-    private isDisplayingCards = false;
-    // 마지막으로 처리한 파일 목록의 해시
-    private lastDisplayedFilesHash = '';
-
-    // 파일 목록의 해시 생성 (비교용)
-    private getFilesHash(files: TFile[]): string {
-        if (!files || files.length === 0) return '';
-        return files.map(file => `${file.path}:${file.stat.mtime}`).join('|');
-    }
-
     // 카드 표시 메서드
     public async displayCards(files: TFile[]) {
-        console.log(`[CardNavigator] displayCards 호출됨: 파일 수 ${files?.length || 0}`);
-        if (!this.containerEl) {
-            console.log(`[CardNavigator] displayCards: 컨테이너 요소가 없음`);
+        if (!this.containerEl) return;
+
+        let displayFiles: TFile[] = [];
+        const folder = await this.getCurrentFolder();
+        
+        if (!folder) {
+            // 폴더를 찾을 수 없는 경우 UI 표시
+            this.containerEl.innerHTML = `
+                <div class="card-navigator-empty-state">
+                    <div class="card-navigator-empty-message">
+                        ${t('No cards to display')}
+                    </div>
+                </div>`;
             return;
         }
 
-        // 이미 카드 표시 중인 경우 중복 호출 방지
-        if (this.isDisplayingCards) {
-            console.log(`[CardNavigator] displayCards: 이미 카드 표시 중, 중복 호출 방지`);
-            return;
+        // 검색 결과가 있으면 그것을 우선 사용
+        if (this.searchResults) {
+            displayFiles = this.searchResults;
         }
-
-        try {
-            this.isDisplayingCards = true;
-
-            let displayFiles: TFile[] = [];
-            const folder = await this.getCurrentFolder();
-            
-            if (!folder) {
-                console.log(`[CardNavigator] displayCards: 폴더를 찾을 수 없음`);
-                // 폴더를 찾을 수 없는 경우 UI 표시
-                this.containerEl.innerHTML = `
-                    <div class="card-navigator-empty-state">
-                        <div class="card-navigator-empty-message">
-                            ${t('No cards to display')}
-                        </div>
-                    </div>`;
-                return;
-            }
-
-            console.log(`[CardNavigator] displayCards: 현재 폴더 ${folder.path}`);
-            
-            // 검색 결과가 있으면 그것을 우선 사용
-            if (this.searchResults) {
-                console.log(`[CardNavigator] displayCards: 검색 결과 사용 (${this.searchResults.length}개 파일)`);
-                displayFiles = this.searchResults;
-            }
-            // 검색 결과가 없는 경우에만 기존 로직 사용
-            else if (!files || files.length === 0 || this.plugin.settings.cardSetType === 'vault') {
-                if (this.plugin.settings.cardSetType === 'vault') {
-                    console.log(`[CardNavigator] displayCards: 전체 볼트 파일 사용`);
-                    displayFiles = this.getAllMarkdownFiles(folder);
-                } else {
-                    console.log(`[CardNavigator] displayCards: 현재 폴더 파일 사용`);
-                    displayFiles = folder.children
-                        .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
-                }
+        // 검색 결과가 없는 경우에만 기존 로직 사용
+        else if (!files || files.length === 0 || this.plugin.settings.cardSetType === 'vault') {
+            if (this.plugin.settings.cardSetType === 'vault') {
+                displayFiles = this.getAllMarkdownFiles(folder);
             } else {
-                console.log(`[CardNavigator] displayCards: 제공된 파일 목록 사용`);
-                displayFiles = files;
+                displayFiles = folder.children
+                    .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
             }
-            
-            console.log(`[CardNavigator] displayCards: 표시할 파일 수 ${displayFiles.length}`);
-            
-            if (displayFiles.length === 0) {
-                console.log(`[CardNavigator] displayCards: 표시할 파일이 없음`);
-                // 빈 상태 UI 표시
-                this.containerEl.innerHTML = `
-                    <div class="card-navigator-empty-state">
-                        <div class="card-navigator-empty-message">
-                            ${t('No markdown files found')}
-                        </div>
-                    </div>`;
-                return;
-            }
-            
-            // 파일 목록 해시 계산 및 비교
-            const currentFilesHash = this.getFilesHash(displayFiles);
-            if (currentFilesHash === this.lastDisplayedFilesHash) {
-                console.log(`[CardNavigator] displayCards: 동일한 파일 목록이 이미 표시됨, 중복 렌더링 방지`);
-                return;
-            }
-            this.lastDisplayedFilesHash = currentFilesHash;
-            
-            this.updateContainerStyle();
-            console.log(`[CardNavigator] displayCards: 카드 데이터 생성 시작`);
-            const cardsData = await this.createCardsData(displayFiles);
-            console.log(`[CardNavigator] displayCards: 카드 데이터 생성 완료 (${cardsData.length}개)`);
-            
-            if (cardsData.length === 0) {
-                console.log(`[CardNavigator] displayCards: 카드 데이터를 생성할 수 없음`);
-                // 카드 데이터를 생성할 수 없는 경우 UI 표시
-                this.containerEl.innerHTML = `
-                    <div class="card-navigator-empty-state">
-                        <div class="card-navigator-empty-message">
-                            ${t('Failed to create cards')}
-                        </div>
-                    </div>`;
-                return;
-            }
-            
-            console.log(`[CardNavigator] displayCards: 카드 렌더링 시작`);
-            await this.renderCards(cardsData);
-            console.log(`[CardNavigator] displayCards: 카드 렌더링 완료`);
-        } finally {
-            this.isDisplayingCards = false;
+        } else {
+            displayFiles = files;
         }
+        
+        if (displayFiles.length === 0) {
+            // 빈 상태 UI 표시
+            this.containerEl.innerHTML = `
+                <div class="card-navigator-empty-state">
+                    <div class="card-navigator-empty-message">
+                        ${t('No markdown files found')}
+                    </div>
+                </div>`;
+            return;
+        }
+        
+        this.updateContainerStyle();
+        const cardsData = await this.createCardsData(displayFiles);
+        
+        if (cardsData.length === 0) {
+            // 카드 데이터를 생성할 수 없는 경우 UI 표시
+            this.containerEl.innerHTML = `
+                <div class="card-navigator-empty-state">
+                    <div class="card-navigator-empty-message">
+                        ${t('Failed to create cards')}
+                    </div>
+                </div>`;
+            return;
+        }
+        
+        await this.renderCards(cardsData);
     }
 
     // 카드 데이터 생성 메서드
@@ -1043,9 +954,8 @@ export class CardContainer {
 
     // 카드 렌더링 메서드
     private async renderCards(cardsData: Card[]) {
-        console.log(`[CardNavigator] renderCards 호출됨: 카드 수 ${cardsData?.length || 0}`);
         if (!cardsData || cardsData.length === 0) {
-            console.log(`[CardNavigator] renderCards: 카드 데이터가 비어 있음`);
+            console.debug('The card data is empty.');
             return;
         }
 
@@ -1061,22 +971,16 @@ export class CardContainer {
                 this.cards.length <= index || this.cards[index].file.path !== card.file.path
             );
 
-        console.log(`[CardNavigator] renderCards: 변경된 카드 수 ${changedCards.length}, 순서 변경 ${orderChanged}`);
-
         if (changedCards.length === 0 && this.cards.length === cardsData.length && !orderChanged) {
-            console.log(`[CardNavigator] renderCards: 변경사항이 없어 렌더링 스킵`);
             return; // 변경사항이 없으면 렌더링 스킵
         }
 
         // 카드 데이터 업데이트
         this.cards = cardsData;
         const activeFile = this.plugin.app.workspace.getActiveFile();
-        console.log(`[CardNavigator] renderCards: 활성 파일 ${activeFile?.path || '없음'}`);
 
         // 카드 렌더링
-        console.log(`[CardNavigator] renderCards: cardRenderer.renderCards 호출 시작`);
         await this.cardRenderer?.renderCards(cardsData, this.focusedCardId, activeFile);
-        console.log(`[CardNavigator] renderCards: cardRenderer.renderCards 호출 완료`);
 
         // DOM이 업데이트될 때까지 기다린 후 스크롤 위치 조정
         requestAnimationFrame(() => {
@@ -1084,13 +988,10 @@ export class CardContainer {
                 child => child.classList.contains('card-navigator-active')
             );
 
-            console.log(`[CardNavigator] renderCards: 활성 카드 인덱스 ${newActiveCardIndex}`);
             if (newActiveCardIndex !== -1) {
                 // 약간의 지연 후 스크롤 실행
                 setTimeout(() => {
-                    console.log(`[CardNavigator] renderCards: 활성 카드로 스크롤 시작`);
                     this.scrollToActiveCard(false);
-                    console.log(`[CardNavigator] renderCards: 활성 카드로 스크롤 완료`);
                 }, 50);
             }
         });

@@ -107,27 +107,19 @@ export default class CardNavigatorPlugin extends Plugin {
     //#region 뷰 관리
     // 카드 네비게이터 뷰 활성화 메서드
     async activateView() {
-        console.log('[CardNavigator] activateView 호출됨');
         const { workspace } = this.app;
         let leaf: WorkspaceLeaf | null = null;
     
         const existingLeaf = workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0];
         
         if (existingLeaf) {
-            console.log('[CardNavigator] 기존 뷰 활성화');
             leaf = existingLeaf;
             workspace.revealLeaf(leaf);
         } else {
-            console.log('[CardNavigator] 새 뷰 생성');
             leaf = workspace.getRightLeaf(false);
             if (leaf) {
-                console.log('[CardNavigator] 새 뷰 설정 시작');
                 await leaf.setViewState({ type: VIEW_TYPE_CARD_NAVIGATOR, active: true });
-                console.log('[CardNavigator] 새 뷰 설정 완료');
                 workspace.revealLeaf(leaf);
-                console.log('[CardNavigator] 새 뷰 표시됨');
-            } else {
-                console.log('[CardNavigator] 뷰를 생성할 수 없음');
             }
         }
     }
@@ -199,7 +191,7 @@ export default class CardNavigatorPlugin extends Plugin {
                 this.refreshAllViews(RefreshType.SETTINGS);
                 pendingSettingsUpdate = false;
             }
-        }, 50); // 디바운스 시간을 50ms로 감소
+        }, 250); // 디바운스 시간을 250ms로 증가
 
         this.events.on('settings-updated', () => {
             pendingSettingsUpdate = true;
