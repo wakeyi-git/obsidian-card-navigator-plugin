@@ -11,18 +11,22 @@ export class GridLayout implements LayoutStrategy {
     private cardWidth: number = 0;
     private layoutConfig: LayoutConfig;
     private settings: CardNavigatorSettings;
+    private columns: number;
+    private cardGap: number;
     //#endregion
 
     //#region 초기화
     // 생성자: 그리드 레이아웃 초기화
     constructor(
-        private columns: number,
-        private cardGap: number,
+        columns: number,
         settings: CardNavigatorSettings,
         layoutConfig: LayoutConfig
     ) {
         this.layoutConfig = layoutConfig;
         this.settings = settings;
+        this.columns = columns;
+        this.cardGap = layoutConfig.getCardGap(); // LayoutConfig에서 가져오기
+        
         if (columns <= 0) {
             throw new Error('The number of columns must be greater than 0');
         }
@@ -38,7 +42,7 @@ export class GridLayout implements LayoutStrategy {
     // 카드를 그리드 형태로 배치
     arrange(cards: Card[], containerWidth: number, containerHeight: number): CardPosition[] {
         const positions: CardPosition[] = [];
-        const cardGap = this.layoutConfig.getCardGap();
+        const cardGap = this.cardGap; // 클래스 속성 사용
         const cardWidth = this.cardWidth;
         
         // 카드 높이 계산
@@ -82,6 +86,7 @@ export class GridLayout implements LayoutStrategy {
      */
     public updateSettings(settings: CardNavigatorSettings) {
         this.settings = settings;
+        this.cardGap = this.layoutConfig.getCardGap(); // 설정 업데이트 시 cardGap도 업데이트
         // 카드 너비 재계산
         this.setCardWidth(this.layoutConfig.calculateCardWidth(this.columns));
     }

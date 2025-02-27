@@ -252,7 +252,6 @@ export class LayoutManager {
             // auto 레이아웃에서 1열인 경우 리스트 레이아웃 사용
             layoutStrategy = new ListLayout(
                 this.isVertical, // isVerticalContainer 메서드의 결과 사용
-                cardGap, 
                 alignCardHeight,
                 this.plugin.settings,
                 this.layoutConfig
@@ -262,12 +261,12 @@ export class LayoutManager {
             if (alignCardHeight) {
                 layoutStrategy = new GridLayout(
                     columns, 
-                    cardGap, 
                     this.plugin.settings, 
                     this.layoutConfig
                 );
             } else {
                 layoutStrategy = new MasonryLayout(
+                    columns,     // 명시적으로 열 수 전달
                     this.layoutConfig,
                     this.plugin.settings,
                     this.cardMaker
@@ -301,8 +300,7 @@ export class LayoutManager {
         switch (layout) {
             case 'list': {
                 layoutStrategy = new ListLayout(
-                    this.isVertical, // isVerticalContainer 메서드의 결과 사용
-                    cardGap, 
+                    this.isVertical,
                     alignCardHeight,
                     this.plugin.settings,
                     this.layoutConfig
@@ -312,7 +310,6 @@ export class LayoutManager {
             case 'grid': {
                 layoutStrategy = new GridLayout(
                     gridColumns, 
-                    cardGap, 
                     this.plugin.settings, 
                     this.layoutConfig
                 );
@@ -320,6 +317,7 @@ export class LayoutManager {
             }
             case 'masonry': {
                 layoutStrategy = new MasonryLayout(
+                    masonryColumns,  // 명시적으로 열 수 전달
                     this.layoutConfig,
                     this.plugin.settings,
                     this.cardMaker

@@ -12,6 +12,7 @@ export class MasonryLayout implements LayoutStrategy {
     private container: HTMLElement | null = null;
     private cardWidth: number = 0;
     private columns: number = 1;
+    private cardGap: number = 10; // 카드 간격 기본값
     private columnHeights: number[] = [];
     private layoutConfig: LayoutConfig;
     private previousContainerWidth: number = 0; // 이전 컨테이너 너비 저장 변수
@@ -21,31 +22,23 @@ export class MasonryLayout implements LayoutStrategy {
     //#region 초기화 및 설정
     // 생성자: 메이슨리 레이아웃 초기화
     constructor(
+        columns: number,
         layoutConfig: LayoutConfig,
         private settings: CardNavigatorSettings,
         private cardMaker: CardMaker
     ) {
         this.layoutConfig = layoutConfig;
-        // 초기 열 수 설정
-        this.columns = this.determineColumnsCount();
+        this.columns = columns;
+        this.cardGap = layoutConfig.getCardGap(); // LayoutConfig에서 가져오기
         this.cardWidth = this.calculateCardWidth();
         this.columnHeights = new Array(this.columns).fill(0);
     }
 
     // 열 수 결정 (일원화된 메서드)
     private determineColumnsCount(): number {
-        // defaultLayout이 'masonry'일 때는 settings.masonryColumns 사용
-        if (this.settings.defaultLayout === 'masonry') {
-            return this.settings.masonryColumns;
-        }
-        
-        // defaultLayout이 'auto'이고 alignCardHeight가 false일 때만 동적 계산
-        if (this.settings.defaultLayout === 'auto' && !this.settings.alignCardHeight) {
-            return this.layoutConfig.calculateAutoColumns();
-        }
-        
-        // 기본값으로 masonryColumns 사용
-        return this.settings.masonryColumns;
+        // 생성자에서 전달받은 columns 값을 사용하므로 이 메서드는 더 이상 필요하지 않습니다.
+        // 하지만 호환성을 위해 유지하고, 현재 설정된 columns 값을 반환합니다.
+        return this.columns;
     }
 
     /**
@@ -87,12 +80,11 @@ export class MasonryLayout implements LayoutStrategy {
         
         // 패딩 값 가져오기
         const containerPadding = this.layoutConfig.getContainerPadding();
-        const cardGap = this.layoutConfig.getCardGap();
         
         // CSS 변수 설정 - 일관된 변수명 사용
         this.container.style.setProperty('--card-navigator-columns', this.columns.toString());
         this.container.style.setProperty('--card-navigator-card-width', `${this.cardWidth}px`);
-        this.container.style.setProperty('--card-navigator-gap', `${cardGap}px`);
+        this.container.style.setProperty('--card-navigator-gap', `${this.cardGap}px`);
         this.container.style.setProperty('--card-navigator-container-padding', `${containerPadding}px`);
         
         // 컨테이너 스타일 적용
@@ -181,7 +173,7 @@ export class MasonryLayout implements LayoutStrategy {
         this.columnHeights = new Array(this.columns).fill(0);
         
         const positions: CardPosition[] = [];
-        const cardGap = this.layoutConfig.getCardGap();
+        const cardGap = this.cardGap;
         const containerPadding = this.layoutConfig.getContainerPadding();
         const cardStyle = this.getCardStyle();
         const transitionStyle = this.getCardTransitionStyle();
@@ -395,6 +387,9 @@ export class MasonryLayout implements LayoutStrategy {
         // 설정 변경 감지 플래그
         let needsLayoutUpdate = false;
         let needsHeightRecalculation = false;
+        
+        // cardGap 업데이트 - layoutConfig에서 최신 값 가져오기
+        this.cardGap = this.layoutConfig.getCardGap();
         
         // 열 수 관련 설정 변경 감지
         if (

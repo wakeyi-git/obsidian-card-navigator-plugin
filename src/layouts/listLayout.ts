@@ -12,20 +12,23 @@ export class ListLayout implements LayoutStrategy {
     private layoutConfig: LayoutConfig;
     private settings: CardNavigatorSettings;
     private alignCardHeight: boolean;
+    private cardGap: number;
+    private isVertical: boolean;
     //#endregion
 
     //#region 초기화
     // 생성자: 리스트 레이아웃 초기화
     constructor(
-        private isVertical: boolean,
-        private cardGap: number,
+        isVertical: boolean,
         alignCardHeight: boolean,
         settings: CardNavigatorSettings,
         layoutConfig: LayoutConfig
     ) {
         this.layoutConfig = layoutConfig;
         this.settings = settings;
+        this.isVertical = isVertical;
         this.alignCardHeight = alignCardHeight;
+        this.cardGap = layoutConfig.getCardGap(); // LayoutConfig에서 가져오기
     }
 
     // 카드 너비 설정
@@ -39,6 +42,7 @@ export class ListLayout implements LayoutStrategy {
     public updateSettings(settings: CardNavigatorSettings) {
         this.settings = settings;
         this.alignCardHeight = settings.alignCardHeight;
+        this.cardGap = this.layoutConfig.getCardGap(); // 설정 업데이트 시 cardGap도 업데이트
         // 카드 너비 재계산
         this.setCardWidth(this.layoutConfig.calculateCardWidth(this.isVertical ? 1 : this.settings.cardsPerView));
     }
@@ -48,7 +52,7 @@ export class ListLayout implements LayoutStrategy {
     // 카드를 리스트 형태로 배치 (세로 또는 가로)
     arrange(cards: Card[], containerWidth: number, containerHeight: number): CardPosition[] {
         const positions: CardPosition[] = [];
-        const cardGap = this.layoutConfig.getCardGap();
+        const cardGap = this.cardGap; // 클래스 속성 사용
         let currentPosition = 0;
 
         // 카드 높이 계산
