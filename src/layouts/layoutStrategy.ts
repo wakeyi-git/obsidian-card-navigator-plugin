@@ -34,6 +34,12 @@ export interface LayoutStrategy {
      * @returns 레이아웃의 열 수
      */
     getColumnsCount(): number;
+    
+    /**
+     * 레이아웃 타입을 반환합니다.
+     * @returns 레이아웃 타입 (예: 'list', 'grid', 'masonry', 'auto')
+     */
+    getLayoutType(): string;
     //#endregion
 
     /**

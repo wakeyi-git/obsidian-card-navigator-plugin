@@ -53,6 +53,13 @@ export class LayoutManager {
     public updateContainerWidth(): void {
         const availableWidth = this.layoutConfig.getAvailableWidth();
         
+        // Auto 레이아웃 모드에서 열 수 계산 및 업데이트
+        if (this.plugin.settings.defaultLayout === 'auto') {
+            const newColumns = this.layoutConfig.calculateAutoColumns();
+            // 현재 열 수 저장
+            this.layoutConfig.updatePreviousColumns(newColumns);
+        }
+        
         // 메이슨리 레이아웃인 경우 직접 너비 업데이트 메서드 호출
         if (this.layoutStrategy instanceof MasonryLayout) {
             this.layoutStrategy.updateContainerWidth(availableWidth);

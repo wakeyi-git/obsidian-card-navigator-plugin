@@ -475,6 +475,11 @@ export class MasonryLayout implements LayoutStrategy {
         return 'vertical';
     }
 
+    // 레이아웃 타입 반환
+    getLayoutType(): string {
+        return 'masonry';
+    }
+
     /**
      * 컨테이너 스타일을 가져옵니다.
      * 메이슨리 레이아웃에 특화된 스타일을 반환합니다.

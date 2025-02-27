@@ -275,10 +275,8 @@ export class CardContainer {
                 console.log('[CardNavigator] 리프 크기 기반 초기 크기 설정:', 
                     this.lastWidth, 'x', this.lastHeight);
                 
-                // 레이아웃 스타일 매니저에 초기 크기 설정
-                if (this.layoutStyleManager) {
-                    this.layoutStyleManager.setInitialContainerSize(this.lastWidth, this.lastHeight);
-                }
+                // 컨테이너 크기 및 방향 초기화
+                this.initializeContainerSizeAndOrientation();
                 
                 // 레이아웃 매니저 초기화 상태 확인
                 const isLayoutManagerInitialized = !!this.layoutManager;
@@ -315,6 +313,22 @@ export class CardContainer {
     }
 
     /**
+     * 초기 컨테이너 크기 설정 및 방향 결정 메서드
+     */
+        private initializeContainerSizeAndOrientation(): void {
+            if (!this.containerEl) return;
+            
+            // 컨테이너 크기 가져오기
+            const width = this.containerEl.offsetWidth || this.lastWidth;
+            const height = this.containerEl.offsetHeight || this.lastHeight;
+            
+            // 방향 결정 (높이가 너비보다 크면 세로 방향)
+            this.isVertical = height >= width;
+            
+            console.log(`[CardNavigator] 초기 컨테이너 크기: ${width}x${height}, 방향: ${this.isVertical ? '세로' : '가로'}`);
+        }
+
+    /**
      * 기존 뷰의 컨테이너 크기가 설정될 때까지 대기합니다.
      * @param resolve Promise resolve 함수
      */
@@ -333,10 +347,8 @@ export class CardContainer {
                 this.lastWidth = this.containerEl.offsetWidth;
                 this.lastHeight = this.containerEl.offsetHeight;
                 
-                // 레이아웃 스타일 매니저에 초기 크기 설정
-                if (this.layoutStyleManager) {
-                    this.layoutStyleManager.setInitialContainerSize(this.lastWidth, this.lastHeight);
-                }
+                // 컨테이너 크기 및 방향 초기화
+                this.initializeContainerSizeAndOrientation();
                 
                 // 레이아웃 매니저 초기화 상태 확인
                 const isLayoutManagerInitialized = !!this.layoutManager;
@@ -585,13 +597,10 @@ export class CardContainer {
             return false;
         }
         
-        // 현재 사용 가능한 너비
-        const availableWidth = this.layoutConfig.getAvailableWidth();
-        
         // 현재 열 수
         const currentColumns = currentStrategy.getColumnsCount();
         
-        // 새로운 열 수 계산
+        // 새로운 열 수 계산 (히스테리시스 적용된 값)
         const newColumns = this.layoutConfig.calculateAutoColumns();
         
         // 열 수가 변경되었는지 확인
@@ -600,7 +609,9 @@ export class CardContainer {
         // 열 수가 변경되었거나, 1열에서 다열로 또는 다열에서 1열로 변경되는 경우
         const layoutTypeChangeNeeded = columnsChanged && (
             (currentColumns === 1 && newColumns > 1) || 
-            (currentColumns > 1 && newColumns === 1)
+            (currentColumns > 1 && newColumns === 1) ||
+            // 다열에서 다른 다열로 변경되는 경우도 포함 (예: 2열 -> 3열)
+            (currentColumns > 1 && newColumns > 1 && currentColumns !== newColumns)
         );
         
         return layoutTypeChangeNeeded;

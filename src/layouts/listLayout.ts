@@ -98,6 +98,11 @@ export class ListLayout implements LayoutStrategy {
         return this.isVertical ? 'vertical' : 'horizontal';
     }
 
+    // 레이아웃 타입 반환
+    getLayoutType(): string {
+        return 'list';
+    }
+
     // 컨테이너 너비 변화에 대응하는 메서드
     public updateContainerWidth(newWidth: number): void {
         if (newWidth <= 0) return;

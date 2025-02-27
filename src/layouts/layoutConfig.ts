@@ -83,12 +83,22 @@ export class LayoutConfig {
         }
         
         // 2열 이상에서의 히스테리시스 적용
-        if (columns >= 2) {
+        if (columns >= 2 && this.previousColumns > 0) {
+            // 이전 열 수에서의 카드 너비 계산
             const previousWidth = (availableWidth - (this.previousColumns - 1) * cardGap) / this.previousColumns;
             
             // 이전 상태가 유효하면 히스테리시스 적용
-            if (this.previousColumns > 0) {
-                if (previousWidth >= threshold - lowerBuffer && previousWidth <= threshold + upperBuffer) {
+            if (previousWidth >= threshold - lowerBuffer && previousWidth <= threshold + upperBuffer) {
+                return this.previousColumns;
+            }
+            
+            // 열 수가 증가하는 경우 (컨테이너 너비 증가)
+            if (columns > this.previousColumns) {
+                // 새로운 열 수에서의 카드 너비가 임계값보다 충분히 큰 경우에만 열 수 증가
+                if (actualCardWidth >= threshold + upperBuffer) {
+                    return columns;
+                } else {
+                    // 그렇지 않으면 이전 열 수 유지
                     return this.previousColumns;
                 }
             }
@@ -150,9 +160,8 @@ export class LayoutConfig {
      * 컨테이너가 수직인지 확인합니다.
      */
     public isVerticalContainer(): boolean {
-        if (!this.containerEl) return true;
-        const { width, height } = this.containerEl.getBoundingClientRect();
-        return height > width;
+        // 항상 수직 레이아웃 사용 (세로 스크롤)
+        return true;
     }
     //#endregion
 
