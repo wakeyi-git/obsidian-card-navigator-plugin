@@ -148,7 +148,7 @@ export default class CardNavigatorPlugin extends Plugin {
         leaves.forEach(leaf => {
             if (leaf.view instanceof CardNavigatorView) {
                 const { cardContainer } = leaf.view;
-                const isVertical = cardContainer.isVertical;
+                const isVertical = cardContainer.layoutManager.getIsVertical();
     
                 switch (direction) {
                     case 'up':

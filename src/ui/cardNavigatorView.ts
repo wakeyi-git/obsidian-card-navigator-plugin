@@ -230,7 +230,28 @@ export class CardNavigatorView extends ItemView {
         if (!this.cardContainer) return;
 
         try {
-            // 모든 타입을 단일 업데이트로 처리            
+            // 컨테이너 요소 가져오기
+            const containerEl = this.cardContainer.getContainerElement();
+            if (!containerEl) return;
+            
+            // 컨테이너 크기 확인
+            const width = containerEl.offsetWidth;
+            const height = containerEl.offsetHeight;
+            
+            // 컨테이너 크기가 0인 경우 지연 후 재시도
+            if (width === 0 || height === 0) {
+                console.log(`[CardNavigator] refreshByType - 컨테이너 크기가 0입니다. 지연 후 재시도`);
+                setTimeout(() => this.refreshByType(type), 150);
+                return;
+            }
+            
+            // layoutManager가 초기화되었는지 확인
+            if (!this.cardContainer.layoutManager) {
+                console.log(`[CardNavigator] refreshByType - layoutManager가 초기화되지 않았습니다. 지연 후 재시도`);
+                setTimeout(() => this.refreshByType(type), 150);
+                return;
+            }
+            
             // 1. 설정 업데이트
             this.cardContainer.updateSettings(this.plugin.settings);
             

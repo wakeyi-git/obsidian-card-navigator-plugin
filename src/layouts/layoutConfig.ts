@@ -32,6 +32,20 @@ export class LayoutConfig {
     }
 
     /**
+     * CSS 변수 값을 숫자로 가져옵니다.
+     */
+    private getCSSVariableAsNumber(variableName: string, defaultValue: number): number {
+        if (!this.containerEl) return defaultValue;
+        
+        const value = getComputedStyle(this.containerEl).getPropertyValue(variableName);
+        if (!value) return defaultValue;
+        
+        // px 단위 제거 후 숫자로 변환
+        const numValue = parseFloat(value.replace('px', ''));
+        return isNaN(numValue) ? defaultValue : numValue;
+    }
+
+    /**
      * 카드 간격을 가져옵니다.
      */
     public getCardGap(): number {
@@ -47,48 +61,6 @@ export class LayoutConfig {
     //#endregion
 
     //#region 컨테이너 관련 메서드
-    /**
-     * 리프(Leaf)의 크기 정보를 가져옵니다.
-     * 컨테이너가 아직 생성되지 않았을 때 사용할 수 있습니다.
-     */
-    public getLeafSize(): { width: number, height: number, ratio: number } {
-        try {
-            // 카드 네비게이터 뷰 리프 가져오기
-            const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-            const leaf = leaves.length > 0 ? leaves[0] : null;
-            
-            if (!leaf) {
-                console.log(`[CardNavigator] 카드 네비게이터 리프를 찾을 수 없음`);
-                return { width: 0, height: 0, ratio: 0 };
-            }
-            
-            // 리프의 뷰 요소 가져오기
-            const leafView = leaf.view;
-            if (!leafView) {
-                console.log(`[CardNavigator] 리프 뷰를 찾을 수 없음`);
-                return { width: 0, height: 0, ratio: 0 };
-            }
-            
-            // 리프 뷰의 컨테이너 요소 가져오기
-            const viewEl = leafView.containerEl;
-            if (!viewEl) {
-                console.log(`[CardNavigator] 리프 뷰 컨테이너를 찾을 수 없음`);
-                return { width: 0, height: 0, ratio: 0 };
-            }
-            
-            // 리프 컨테이너의 크기 가져오기
-            const width = viewEl.offsetWidth || 0;
-            const height = viewEl.offsetHeight || 0;
-            const ratio = width > 0 && height > 0 ? width / height : 0;
-            
-            console.log(`[CardNavigator] 리프 크기: ${width}x${height}, 비율(w/h): ${ratio.toFixed(2)}`);
-            return { width, height, ratio };
-        } catch (error) {
-            console.log(`[CardNavigator] 리프 크기 가져오기 오류: ${error}`);
-            return { width: 0, height: 0, ratio: 0 };
-        }
-    }
-
     /**
      * 컨테이너 크기 정보를 가져옵니다.
      */
@@ -142,18 +114,19 @@ export class LayoutConfig {
         
         // 컨테이너 크기가 아직 계산되지 않은 경우 (초기 렌더링 시)
         if (width === 0 || height === 0) {
-            console.log(`[CardNavigator] 컨테이너 크기가 아직 계산되지 않음. 리프 크기를 확인합니다.`);
+            console.log(`[CardNavigator] 컨테이너 크기가 아직 계산되지 않음. 대체 방법 시도`);
             
-            // 리프 크기 확인
-            const leafSize = this.getLeafSize();
+            // CSS 변수에서 크기 정보 가져오기 시도
+            const containerWidth = this.getCSSVariableAsNumber('--container-width', 0);
+            const containerHeight = this.getCSSVariableAsNumber('--container-height', 0);
             
-            // 리프 크기가 유효한 경우 리프 크기 기반으로 방향 결정
-            if (leafSize.width > 0 && leafSize.height > 0) {
-                const isVerticalByLeaf = leafSize.ratio < 1;
-                console.log(`[CardNavigator] 리프 크기 기반 방향 결정: isVertical = ${isVerticalByLeaf} (${isVerticalByLeaf ? '세로' : '가로'} 모드)`);
+            if (containerWidth > 0 && containerHeight > 0) {
+                const cssRatio = containerWidth / containerHeight;
+                const isVerticalByCSS = cssRatio < 1;
+                console.log(`[CardNavigator] CSS 변수 기반 방향 결정: ${containerWidth}x${containerHeight}, isVertical = ${isVerticalByCSS}`);
                 
                 // 캐시된 방향 값 업데이트
-                this._isVertical = isVerticalByLeaf;
+                this._isVertical = isVerticalByCSS;
                 
                 // 레이아웃 타입에 따른 추가 처리
                 if (this.settings.defaultLayout === 'grid' || this.settings.defaultLayout === 'masonry') {
@@ -162,7 +135,7 @@ export class LayoutConfig {
                     return true;
                 }
                 
-                return isVerticalByLeaf;
+                return isVerticalByCSS;
             }
             
             // 캐시된 값이 있으면 사용

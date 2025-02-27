@@ -5,6 +5,7 @@ import { ListLayout } from "./listLayout";
 import { MasonryLayout } from "./masonryLayout";
 import { LayoutStrategy } from "./layoutStrategy";
 import { LayoutConfig } from './layoutConfig';
+import CardNavigatorPlugin from 'main';
 
 /**
  * 레이아웃 전략을 관리하는 클래스
@@ -18,15 +19,19 @@ export class LayoutManager {
     private layoutConfig: LayoutConfig;
     private savedCardHeights: Map<string, number> = new Map();
     private resizeObserver: ResizeObserver | null = null;
+    private plugin: CardNavigatorPlugin;
+    private cardMaker: CardMaker;
 
     constructor(
-        private plugin: any,
+        plugin: CardNavigatorPlugin,
         containerEl: HTMLElement,
-        private cardMaker: CardMaker
+        cardMaker: CardMaker
     ) {
+        this.plugin = plugin;
         this.containerEl = containerEl;
-        this.layoutConfig = new LayoutConfig(plugin.app, containerEl, plugin.settings);
-        this.currentLayout = plugin.settings.defaultLayout;
+        this.cardMaker = cardMaker;
+        this.layoutConfig = new LayoutConfig(this.plugin.app, containerEl, this.plugin.settings);
+        this.currentLayout = this.plugin.settings.defaultLayout;
         this.isVertical = this.layoutConfig.isVerticalContainer();
         this.layoutStrategy = this.createLayoutStrategy();
         
@@ -101,7 +106,19 @@ export class LayoutManager {
         
         // 컨테이너 크기가 유효한지 확인
         if (width === 0 || height === 0) {
-            console.log(`[CardNavigator] 컨테이너 크기가 아직 계산되지 않음. 레이아웃 업데이트 지연`);
+            console.log(`[CardNavigator] 컨테이너 크기가 아직 계산되지 않음. 대체 방법 시도`);
+            
+            // CSS 변수에서 크기 정보 가져오기 시도
+            const containerWidth = this.getCSSVariableAsNumber('--container-width', 0);
+            const containerHeight = this.getCSSVariableAsNumber('--container-height', 0);
+            
+            if (containerWidth > 0 && containerHeight > 0) {
+                console.log(`[CardNavigator] CSS 변수에서 크기 정보 가져옴: ${containerWidth}x${containerHeight}`);
+                
+                // CSS 변수 기반으로 레이아웃 업데이트 진행
+                this.updateLayoutWithSize(containerWidth, containerHeight);
+                return;
+            }
             
             // 컨테이너 크기가 계산될 때까지 지연
             setTimeout(() => {
@@ -110,11 +127,23 @@ export class LayoutManager {
                 if (newSize.width > 0 && newSize.height > 0) {
                     console.log(`[CardNavigator] 컨테이너 크기 계산됨: ${newSize.width}x${newSize.height}. 레이아웃 업데이트 재시도`);
                     this.updateLayout();
+                } else {
+                    // 여전히 크기가 0이면 기본 크기 사용
+                    console.log(`[CardNavigator] 컨테이너 크기를 계산할 수 없음. 기본 크기 사용`);
+                    this.updateLayoutWithSize(400, 600);
                 }
-            }, 100);
+            }, 150); // 지연 시간 증가
             return;
         }
         
+        // 정상적인 크기로 레이아웃 업데이트
+        this.updateLayoutWithSize(width, height);
+    }
+
+    /**
+     * 지정된 크기로 레이아웃을 업데이트합니다.
+     */
+    private updateLayoutWithSize(width: number, height: number) {
         // 레이아웃 방향 업데이트 (isVerticalContainer 메서드 호출)
         const newIsVertical = this.layoutConfig.isVerticalContainer();
         
@@ -135,6 +164,20 @@ export class LayoutManager {
             // 방향은 같지만 크기가 변경된 경우 컨테이너 너비 업데이트
             this.updateContainerWidth();
         }
+    }
+
+    /**
+     * CSS 변수 값을 숫자로 가져옵니다.
+     */
+    private getCSSVariableAsNumber(variableName: string, defaultValue: number): number {
+        if (!this.containerEl) return defaultValue;
+        
+        const value = getComputedStyle(this.containerEl).getPropertyValue(variableName);
+        if (!value) return defaultValue;
+        
+        // px 단위 제거 후 숫자로 변환
+        const numValue = parseFloat(value.replace('px', ''));
+        return isNaN(numValue) ? defaultValue : numValue;
     }
 
     /**
@@ -372,5 +415,12 @@ export class LayoutManager {
         if (this.layoutStrategy instanceof MasonryLayout && this.savedCardHeights.size > 0) {
             this.layoutStrategy.setCardHeights(this.savedCardHeights);
         }
+    }
+
+    /**
+     * 현재 레이아웃이 세로 방향인지 여부를 반환합니다.
+     */
+    public getIsVertical(): boolean {
+        return this.isVertical;
     }
 } 
