@@ -383,6 +383,8 @@
     height: 100%;
     width: 100%;
     box-sizing: border-box;
+    padding-left: 10px;
+    padding-right: 10px;
 }
 
 .card-navigator-container.vertical {

@@ -26,13 +26,11 @@ export class ListLayout implements LayoutStrategy {
         this.layoutConfig = layoutConfig;
         this.settings = settings;
         this.alignCardHeight = alignCardHeight;
-        console.log(`[CardNavigator] ListLayout 생성: isVertical = ${isVertical}, alignCardHeight = ${alignCardHeight}`);
     }
 
     // 카드 너비 설정
     setCardWidth(width: number): void {
         this.cardWidth = width || this.layoutConfig.calculateCardWidth(this.settings.cardsPerView);
-        console.log(`[CardNavigator] ListLayout 카드 너비 설정: ${this.cardWidth}px`);
     }
 
     /**
@@ -49,8 +47,6 @@ export class ListLayout implements LayoutStrategy {
     //#region 카드 배치 및 레이아웃 관리
     // 카드를 리스트 형태로 배치 (세로 또는 가로)
     arrange(cards: Card[], containerWidth: number, containerHeight: number): CardPosition[] {
-        console.log(`[CardNavigator] ListLayout arrange 호출: isVertical = ${this.isVertical}, 컨테이너 크기 = ${containerWidth}x${containerHeight}`);
-        
         const positions: CardPosition[] = [];
         const cardGap = this.layoutConfig.getCardGap();
         let currentPosition = 0;
@@ -66,8 +62,6 @@ export class ListLayout implements LayoutStrategy {
         const cardWidth = this.isVertical ? 
             containerWidth : 
             this.cardWidth || this.layoutConfig.calculateCardWidth(this.settings.cardsPerView);
-        
-        console.log(`[CardNavigator] ListLayout 카드 크기 계산: width = ${cardWidth}px, height = ${cardHeight}px`);
 
         cards.forEach((card, index) => {
             // 카드 ID (파일 경로 사용)
@@ -84,7 +78,6 @@ export class ListLayout implements LayoutStrategy {
                 height: cardHeight
             };
             
-            console.log(`[CardNavigator] 카드 #${index} 위치: left=${position.left}, top=${position.top}, width=${position.width}, height=${position.height}`);
             positions.push(position);
 
             // 최신 설정값으로 위치 계산
@@ -114,7 +107,6 @@ export class ListLayout implements LayoutStrategy {
         // true(세로 모드): 1열 (세로로 쌓임)
         // false(가로 모드): cardsPerView 열 (가로로 나열됨)
         const columns = this.isVertical ? 1 : this.settings.cardsPerView;
-        console.log(`[CardNavigator] ListLayout 열 수: isVertical = ${this.isVertical}, columns = ${columns}`);
         return columns;
     }
 
@@ -123,7 +115,6 @@ export class ListLayout implements LayoutStrategy {
         // isVertical 값에 따라 스크롤 방향 결정
         // true: 세로 스크롤, false: 가로 스크롤
         const direction = this.isVertical ? 'vertical' : 'horizontal';
-        console.log(`[CardNavigator] 스크롤 방향: isVertical = ${this.isVertical}, direction = ${direction}, layoutType = list`);
         return direction;
     }
 
