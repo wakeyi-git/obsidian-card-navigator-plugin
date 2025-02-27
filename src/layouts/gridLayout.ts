@@ -41,8 +41,8 @@ export class GridLayout implements LayoutStrategy {
         const cardGap = this.layoutConfig.getCardGap();
         const cardWidth = this.cardWidth;
         
-        // 카드 높이 계산 (그리드 레이아웃은 항상 숫자 값 반환)
-        const cardHeightValue = this.layoutConfig.calculateCardHeight('grid');
+        // 카드 높이 계산
+        const cardHeightValue = this.layoutConfig.calculateCardHeight('grid', true);
         // 'auto'인 경우 기본값 사용
         const cardHeight = cardHeightValue === 'auto' ? 200 : cardHeightValue;
 
@@ -83,7 +83,7 @@ export class GridLayout implements LayoutStrategy {
     public updateSettings(settings: CardNavigatorSettings) {
         this.settings = settings;
         // 카드 너비 재계산
-        this.setCardWidth(this.cardWidth);
+        this.setCardWidth(this.layoutConfig.calculateCardWidth(this.columns));
     }
     //#endregion
 

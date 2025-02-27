@@ -24,7 +24,26 @@ export class Scroller {
 
         // enableScrollAnimation 설정을 고려하여 애니메이션 적용 여부 결정
         const shouldAnimate = animate && this.plugin.settings.enableScrollAnimation;
-        this.centerCard(activeCard, shouldAnimate);
+        
+        // 카드가 완전히 렌더링될 때까지 약간 지연 후 중앙 정렬 시도
+        // 특히 HTML 렌더링이 활성화된 경우 중요
+        if (this.plugin.settings.renderContentAsHtml) {
+            // 즉시 한 번 중앙 정렬 시도
+            this.centerCard(activeCard, shouldAnimate);
+            
+            // 약간의 지연 후 다시 중앙 정렬 시도 (렌더링 완료 후)
+            setTimeout(() => {
+                this.centerCard(activeCard, shouldAnimate);
+                
+                // 추가 보정을 위한 두 번째 시도 (특히 이미지가 있는 경우)
+                setTimeout(() => {
+                    this.centerCard(activeCard, shouldAnimate);
+                }, 100);
+            }, 50);
+        } else {
+            // HTML 렌더링이 비활성화된 경우 즉시 중앙 정렬
+            this.centerCard(activeCard, shouldAnimate);
+        }
     }
 
     // 카드 중앙 정렬 메서드
@@ -39,14 +58,31 @@ export class Scroller {
             let offset = 0;
             let scrollProperty: 'scrollTop' | 'scrollLeft';
             const isVertical = this.getLayoutStrategy().getScrollDirection() === 'vertical';
+            
+            // 컨테이너 패딩 가져오기
+            const containerPadding = this.layoutConfig.getContainerPadding();
 
             if (isVertical) {
-                const containerVisibleHeight = containerRect.height;
-                offset = cardRect.top - containerRect.top - (containerVisibleHeight - cardRect.height) / 2;
+                // 컨테이너의 실제 가시 영역 높이 (패딩 제외)
+                const containerVisibleHeight = containerRect.height - (containerPadding * 2);
+                
+                // 카드의 중앙이 컨테이너의 중앙에 오도록 계산
+                // 컨테이너 상단 + 패딩 + (가시 영역 높이 - 카드 높이) / 2 = 카드가 위치해야 할 곳
+                const targetCardTop = containerRect.top + containerPadding + (containerVisibleHeight - cardRect.height) / 2;
+                
+                // 현재 카드 위치와 목표 위치의 차이 계산
+                offset = cardRect.top - targetCardTop;
                 scrollProperty = 'scrollTop';
             } else {
-                const containerVisibleWidth = containerRect.width;
-                offset = cardRect.left - containerRect.left - (containerVisibleWidth - cardRect.width) / 2;
+                // 컨테이너의 실제 가시 영역 너비 (패딩 제외)
+                const containerVisibleWidth = containerRect.width - (containerPadding * 2);
+                
+                // 카드의 중앙이 컨테이너의 중앙에 오도록 계산
+                // 컨테이너 좌측 + 패딩 + (가시 영역 너비 - 카드 너비) / 2 = 카드가 위치해야 할 곳
+                const targetCardLeft = containerRect.left + containerPadding + (containerVisibleWidth - cardRect.width) / 2;
+                
+                // 현재 카드 위치와 목표 위치의 차이 계산
+                offset = cardRect.left - targetCardLeft;
                 scrollProperty = 'scrollLeft';
             }
 
@@ -79,9 +115,21 @@ export class Scroller {
 
                 const containerRect = this.containerEl.getBoundingClientRect();
                 const cardRect = card.getBoundingClientRect();
-                const currentOffset = this.getLayoutStrategy().getScrollDirection() === 'vertical'
-                    ? cardRect.top - containerRect.top
-                    : cardRect.left - containerRect.left;
+                
+                // 컨테이너 패딩 가져오기
+                const containerPadding = this.layoutConfig.getContainerPadding();
+                
+                // 스크롤 방향에 따라 중앙 위치 계산
+                const isVertical = this.getLayoutStrategy().getScrollDirection() === 'vertical';
+                const containerCenter = isVertical 
+                    ? containerRect.top + containerPadding + (containerRect.height - containerPadding * 2) / 2
+                    : containerRect.left + containerPadding + (containerRect.width - containerPadding * 2) / 2;
+                
+                const cardCenter = isVertical
+                    ? cardRect.top + cardRect.height / 2
+                    : cardRect.left + cardRect.width / 2;
+                
+                const currentOffset = cardCenter - containerCenter;
 
                 // 오차 범위 내에서 위치가 안정적인지 확인
                 if (Math.abs(currentOffset - lastOffset) < 1) {

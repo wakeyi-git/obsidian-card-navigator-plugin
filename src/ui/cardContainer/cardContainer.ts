@@ -464,11 +464,21 @@ export class CardContainer {
                     const activeFile = this.app.workspace.getActiveFile();
                     this.cardRenderer.renderCards(this.cards, this.focusedCardId, activeFile);
 
-                    // 스크롤 위치 복원
+                    // 활성 카드가 있는 경우 중앙으로 스크롤, 없는 경우 이전 스크롤 위치 복원
                     requestAnimationFrame(() => {
                         if (this.containerEl) {
-                            this.containerEl.scrollTop = scrollPosition.top;
-                            this.containerEl.scrollLeft = scrollPosition.left;
+                            const hasActiveCard = this.containerEl.querySelector('.card-navigator-active') !== null;
+                            
+                            if (hasActiveCard) {
+                                // 활성 카드를 중앙으로 스크롤
+                                this.scrollToActiveCard(true);
+                            } else {
+                                // 활성 카드가 없는 경우 이전 스크롤 위치 복원
+                                if (this.containerEl) {
+                                    this.containerEl.scrollTop = scrollPosition.top;
+                                    this.containerEl.scrollLeft = scrollPosition.left;
+                                }
+                            }
                         }
                     });
                 }
@@ -536,11 +546,19 @@ export class CardContainer {
                     // 키보드 네비게이터 업데이트
                     this.keyboardNavigator?.updateLayout(newLayoutStrategy);
                     
-                    // 스크롤 위치 복원
+                    // 활성 카드가 있는 경우 중앙으로 스크롤, 없는 경우 이전 스크롤 위치 복원
                     requestAnimationFrame(() => {
                         if (this.containerEl) {
-                            this.containerEl.scrollTop = currentScrollTop;
-                            this.containerEl.scrollLeft = currentScrollLeft;
+                            const hasActiveCard = this.containerEl.querySelector('.card-navigator-active') !== null;
+                            
+                            if (hasActiveCard) {
+                                // 활성 카드를 중앙으로 스크롤
+                                this.scrollToActiveCard(true);
+                            } else {
+                                // 활성 카드가 없는 경우 이전 스크롤 위치 복원
+                                this.containerEl.scrollTop = currentScrollTop;
+                                this.containerEl.scrollLeft = currentScrollLeft;
+                            }
                         }
                     });
                 }
@@ -647,6 +665,20 @@ export class CardContainer {
                 try {
                     const activeFile = this.app.workspace.getActiveFile();
                     this.cardRenderer.renderCards(this.cards, this.focusedCardId, activeFile);
+                    
+                    // 활성 카드가 있는 경우 중앙으로 스크롤
+                    requestAnimationFrame(() => {
+                        if (this.containerEl) {
+                            const hasActiveCard = this.containerEl.querySelector('.card-navigator-active') !== null;
+                            
+                            if (hasActiveCard) {
+                                // 활성 카드를 중앙으로 스크롤
+                                setTimeout(() => {
+                                    this.scrollToActiveCard(true);
+                                }, 50);
+                            }
+                        }
+                    });
                 } finally {
                     // 렌더링 상태 플래그 해제
                     this.isDisplayingCards = false;
@@ -776,15 +808,15 @@ export class CardContainer {
 
         // DOM이 업데이트될 때까지 기다린 후 스크롤 위치 조정
         requestAnimationFrame(() => {
-            const newActiveCardIndex = Array.from(this.containerEl.children).findIndex(
-                child => child.classList.contains('card-navigator-active')
-            );
-
-            if (newActiveCardIndex !== -1) {
-                // 약간의 지연 후 스크롤 실행
-                setTimeout(() => {
-                    this.scrollToActiveCard(false);
-                }, 50);
+            if (this.containerEl) {
+                const hasActiveCard = this.containerEl.querySelector('.card-navigator-active') !== null;
+                
+                if (hasActiveCard) {
+                    // 약간의 지연 후 스크롤 실행
+                    setTimeout(() => {
+                        this.scrollToActiveCard(true);
+                    }, 50);
+                }
             }
         });
     }

@@ -319,148 +319,17 @@ export class MasonryLayout implements LayoutStrategy {
     // 컨텐츠 기반 예상 높이 계산
     // 참고: 이 메서드는 카드 생성 시 한 번만 호출되며, 이후 높이는 고정됩니다.
     private calculateEstimatedHeight(card: Card): number {
-        const lineHeight = 1.5;  // 기본 줄간격
-        const padding = 32;      // 카드 내부 여백 (16px * 2)
-        let estimatedHeight = padding;  // 시작 높이는 패딩값
+        // 메이슨리 레이아웃에서는 카드 높이가 자동으로 계산됨
+        // 카드 객체와 카드 너비를 전달하여 직접 높이 계산
+        const cardHeight = this.layoutConfig.calculateCardHeight('masonry', true, card, this.cardWidth);
         
-        // 1. 파일명 높이 계산
-        if (this.settings.showFileName && card.file.basename) {
-            estimatedHeight += Math.ceil(
-                (card.file.basename.length * this.settings.fileNameFontSize * 0.6) 
-                / (this.cardWidth - padding)
-            ) * this.settings.fileNameFontSize * lineHeight;
-            estimatedHeight += 8; // 파일명 아래 여백
+        // 'auto'가 아닌 경우 해당 값 사용 (이제는 항상 숫자 값이 반환됨)
+        if (cardHeight !== 'auto') {
+            return cardHeight as number;
         }
         
-        // 2. 첫 번째 헤더 높이 계산
-        if (this.settings.showFirstHeader && card.firstHeader) {
-            estimatedHeight += Math.ceil(
-                (card.firstHeader.length * this.settings.firstHeaderFontSize * 0.6) 
-                / (this.cardWidth - padding)
-            ) * this.settings.firstHeaderFontSize * lineHeight;
-            estimatedHeight += 16; // 헤더 아래 여백
-        }
-        
-        // 3. 본문 텍스트 높이 계산
-        if (this.settings.showBody && card.body) {
-            // 마크다운 구문 제거 전에 이미지 카운트 계산
-            const markdownImages = (card.body.match(/!\[(?:.*?)\]\((?:.*?)\)/g) || []);
-            const htmlImages = (card.body.match(/<img[^>]+>/g) || []);
-            const embedImages = (card.body.match(/\[\[(?:.*?\.(?:png|jpg|jpeg|gif|bmp|svg))\]\]/gi) || []);
-            
-            // 총 이미지 개수
-            const imageCount = markdownImages.length + htmlImages.length + embedImages.length;
-            
-            if (imageCount > 0) {
-                // 이미지당 예상 높이 추가 (기본 500px)
-                const baseImageHeight = 200;
-                
-                // 이미지 크기 힌트 확인 (예: ![|100x200])
-                let totalImageHeight = 0;
-                
-                // 마크다운 이미지 크기 분석
-                markdownImages.forEach(img => {
-                    const sizeHint = img.match(/\|(\d+)x(\d+)/);
-                    if (sizeHint) {
-                        totalImageHeight += parseInt(sizeHint[2]); // 높이값 사용
-                    } else {
-                        totalImageHeight += baseImageHeight;
-                    }
-                });
-                
-                // HTML 이미지 크기 분석
-                htmlImages.forEach(img => {
-                    const heightMatch = img.match(/height="(\d+)"/);
-                    if (heightMatch) {
-                        totalImageHeight += parseInt(heightMatch[1]);
-                    } else {
-                        totalImageHeight += baseImageHeight;
-                    }
-                });
-                
-                // 임베드 이미지는 기본 크기 적용
-                totalImageHeight += embedImages.length * baseImageHeight;
-                
-                estimatedHeight += totalImageHeight;
-                estimatedHeight += imageCount * 32; // 이미지 간격
-            }
-            
-            // 마크다운 구문 제거 (이미지 제외)
-            const plainText = card.body
-                .replace(/!\[(?:.*?)\]\((?:.*?)\)/g, '') // 이미지 마크다운 제거
-                .replace(/<img[^>]+>/g, '') // HTML 이미지 태그 제거
-                .replace(/\[\[(?:.*?\.(?:png|jpg|jpeg|gif|bmp|svg))\]\]/gi, '') // 임베드 이미지 제거
-                .replace(/[#*`_~\[\]()]/g, ''); // 다른 마크다운 구문 제거
-            
-            // 텍스트 줄 수 계산 개선
-            const lines = plainText.split('\n');
-            let totalLines = 0;
-            
-            // HTML 렌더링 여부에 따른 계수 조정
-            const charWidthMultiplier = this.settings.renderContentAsHtml ? 
-                { korean: 1.0, other: 0.5 } : // HTML 렌더링 시 더 조밀하게
-                { korean: 0.9, other: 0.45 };  // 일반 텍스트 시 더 넓게
-            
-            const spaceMultiplier = this.settings.renderContentAsHtml ? 12 : 4; // 여유 공간 조정
-            const emptyLineHeight = this.settings.renderContentAsHtml ? 1.0 : 0.5; // 빈 줄 높이 조정
-            
-            lines.forEach(line => {
-                if (line.trim() === '') {
-                    // 빈 줄 계산 (HTML 렌더링 여부에 따라 다르게)
-                    totalLines += emptyLineHeight;
-                } else {
-                    // 한글/영문 너비 계산 (HTML 렌더링 여부에 따라 다르게)
-                    let lineWidth = 0;
-                    for (let char of line) {
-                        // 한글 유니코드 범위: AC00-D7AF
-                        if (/[\uAC00-\uD7AF]/.test(char)) {
-                            lineWidth += this.settings.bodyFontSize * charWidthMultiplier.korean;
-                        } else {
-                            lineWidth += this.settings.bodyFontSize * charWidthMultiplier.other;
-                        }
-                    }
-                    
-                    // 실제 줄 수 계산 (HTML 렌더링 여부에 따라 여유 공간 다르게)
-                    const availableWidth = this.cardWidth - (padding + spaceMultiplier);
-                    const lineCount = Math.ceil(lineWidth / availableWidth);
-                    
-                    // HTML 렌더링 시 더 조밀하게, 일반 텍스트 시 더 넓게
-                    const lineMultiplier = this.settings.renderContentAsHtml ? 1.0 : 0.7;
-                    totalLines += Math.max(1, lineCount * lineMultiplier);
-                }
-            });
-            
-            // 줄 간격을 고려한 높이 계산 (HTML 렌더링 여부에 따라 다르게)
-            const lineHeightMultiplier = this.settings.renderContentAsHtml ? 1.3 : 0.9;
-            estimatedHeight += totalLines * this.settings.bodyFontSize * lineHeightMultiplier;
-            
-            // 단락 간격 조정 (HTML 렌더링 여부에 따라 다르게)
-            const paragraphCount = plainText.split(/\n\s*\n/).length - 1;
-            if (paragraphCount > 0) {
-                const paragraphSpaceMultiplier = this.settings.renderContentAsHtml ? 0.8 : 0.3;
-                estimatedHeight += paragraphCount * this.settings.bodyFontSize * paragraphSpaceMultiplier;
-            }
-            
-            // HTML 태그가 있는 경우 추가 높이 계산
-            const htmlTagCount = (card.body.match(/<[^>]*>/g) || []).length;
-            if (htmlTagCount > 0) {
-                const tagHeightMultiplier = this.settings.renderContentAsHtml ? 0.8 : 0.3;
-                estimatedHeight += htmlTagCount * this.settings.bodyFontSize * tagHeightMultiplier;
-            }
-            
-            // 코드 블록 높이 추가
-            const codeBlocks = card.body.match(/```[\s\S]*?```/g) || [];
-            codeBlocks.forEach(block => {
-                const lines = block.split('\n').length;
-                estimatedHeight += lines * this.settings.bodyFontSize * lineHeight;
-                estimatedHeight += 32; // 코드 블록 여백
-            });
-        }
-        
-        // 4. 최소 높이 보장
-        const finalHeight = Math.max(estimatedHeight, 100);
-                
-        return finalHeight;
+        // 만약을 위한 대비책 (calculateCardHeight가 'auto'를 반환하는 경우)
+        return this.layoutConfig.calculateEstimatedHeight(card, this.cardWidth);
     }
     //#endregion
 
@@ -485,30 +354,20 @@ export class MasonryLayout implements LayoutStrategy {
      * 메이슨리 레이아웃에 특화된 스타일을 반환합니다.
      */
     getContainerStyle(): Partial<CSSStyleDeclaration> {
-        const containerPadding = this.layoutConfig.getContainerPadding();
-        return {
-            position: 'relative',
-            width: '100%',
-            height: '100%',
-            boxSizing: 'border-box',
-            display: 'block',
-            overflow: 'auto',
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            transition: 'height 0.35s cubic-bezier(0.25, 0.1, 0.25, 1)',
-            paddingRight: `${containerPadding}px`,
-            paddingLeft: `${containerPadding}px`,
-        };
+        return this.layoutConfig.getContainerStyle(true); // 메이슨리는 항상 수직
     }
 
     getCardStyle(): Partial<CSSStyleDeclaration> {
-        return {
-            ...this.layoutConfig.getCardStyle(true, false),
+        const baseStyle = this.layoutConfig.getCardStyle(true, false); // 메이슨리는 항상 수직, 높이 정렬 안함
+        
+        // 메이슨리 레이아웃 추가 스타일
+        const style: Partial<CSSStyleDeclaration> = {
+            ...baseStyle,
             position: 'absolute',
-            width: `${this.cardWidth}px`,
-            transition: this.getCardTransitionStyle(),
-            willChange: 'transform, width'
+            transition: this.getCardTransitionStyle()
         };
+        
+        return style;
     }
 
     /**
@@ -594,6 +453,22 @@ export class MasonryLayout implements LayoutStrategy {
 
         // 공통 arrangeCards 메서드 호출
         return this.arrangeCards(null, cards);
+    }
+
+    /**
+     * 카드 높이 정보를 가져옵니다.
+     * 레이아웃 전략이 재생성될 때 높이 정보를 유지하기 위해 사용됩니다.
+     */
+    public getCardHeights(): Map<string, number> {
+        return new Map(this.cardHeights);
+    }
+
+    /**
+     * 카드 높이 정보를 설정합니다.
+     * 레이아웃 전략이 재생성될 때 이전 높이 정보를 복원하기 위해 사용됩니다.
+     */
+    public setCardHeights(heights: Map<string, number>): void {
+        this.cardHeights = new Map(heights);
     }
     //#endregion
 }

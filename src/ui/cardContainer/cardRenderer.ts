@@ -105,11 +105,29 @@ export class CardRenderer {
 
                 // 레이아웃 타입에 따른 스타일 적용
                 if (this.layoutStrategy instanceof ListLayout) {
-                    const cardStyle = this.layoutConfig.getCardStyle(
-                        this.layoutStrategy.getScrollDirection() === 'vertical',
-                        this.alignCardHeight
-                    );
-                    Object.assign(cardEl.style, cardStyle);
+                    const isVertical = this.layoutStrategy.getScrollDirection() === 'vertical';
+                    
+                    // 높이 정렬이 비활성화된 경우 카드 내용 기반 높이 계산
+                    if (!this.alignCardHeight && isVertical) {
+                        const cardWidth = parseFloat(cardEl.style.width) || position.width;
+                        const cardHeight = this.layoutConfig.calculateCardHeight(
+                            'list', 
+                            isVertical, 
+                            card, 
+                            cardWidth
+                        );
+                        
+                        if (cardHeight !== 'auto') {
+                            cardEl.style.height = `${cardHeight}px`;
+                        }
+                    } else {
+                        // 기존 방식대로 스타일 적용
+                        const cardStyle = this.layoutConfig.getCardStyle(
+                            isVertical,
+                            this.alignCardHeight
+                        );
+                        Object.assign(cardEl.style, cardStyle);
+                    }
                 } else if (this.layoutStrategy instanceof GridLayout) {
                     // 그리드 레이아웃의 경우 고정 높이 적용
                     Object.assign(cardEl.style, {

@@ -1,17 +1,21 @@
 import { App } from 'obsidian';
 import { CardNavigatorSettings } from 'common/types';
 import { LayoutStrategy } from './layoutStrategy';
+import { LayoutConfig } from './layoutConfig';
 
 /**
- * 레이아웃 스타일을 중앙에서 관리하는 클래스
- * 컨테이너와 카드의 스타일을 일관되게 적용합니다.
+ * 레이아웃 스타일을 DOM 요소에 적용하는 클래스
+ * LayoutConfig의 계산 결과를 사용하여 실제 DOM 요소에 스타일을 적용합니다.
  */
 export class LayoutStyleManager {
+    private layoutConfig: LayoutConfig;
+
     constructor(
         private app: App,
         private containerEl: HTMLElement,
         private settings: CardNavigatorSettings
     ) {
+        this.layoutConfig = new LayoutConfig(app, containerEl, settings);
         this.updateCSSVariables();
     }
 
@@ -23,8 +27,8 @@ export class LayoutStyleManager {
 
         // 기본 CSS 변수 설정
         this.containerEl.style.setProperty('--cards-per-view', this.settings.cardsPerView.toString());
-        this.containerEl.style.setProperty('--card-navigator-gap', `${this.getCardGap()}px`);
-        this.containerEl.style.setProperty('--card-navigator-container-padding', `${this.getContainerPadding()}px`);
+        this.containerEl.style.setProperty('--card-navigator-gap', `${this.layoutConfig.getCardGap()}px`);
+        this.containerEl.style.setProperty('--card-navigator-container-padding', `${this.layoutConfig.getContainerPadding()}px`);
         
         // 그리드 레이아웃 CSS 변수
         this.containerEl.style.setProperty('--grid-columns', this.settings.gridColumns.toString());
@@ -32,7 +36,7 @@ export class LayoutStyleManager {
         
         // 메이슨리 레이아웃 CSS 변수
         this.containerEl.style.setProperty('--masonry-columns', this.settings.masonryColumns.toString());
-        this.containerEl.style.setProperty('--masonry-gap', `${this.getCardGap()}px`);
+        this.containerEl.style.setProperty('--masonry-gap', `${this.layoutConfig.getCardGap()}px`);
     }
 
     /**
@@ -41,25 +45,28 @@ export class LayoutStyleManager {
     public applyContainerStyle(layoutStrategy: LayoutStrategy): void {
         if (!this.containerEl) return;
         
+        // 컨테이너 크기 로깅
+        const { width, height, ratio } = this.layoutConfig.getContainerSize();
+        console.log(`[CardNavigator] applyContainerStyle - 컨테이너 크기: ${width}x${height}, 비율(w/h): ${ratio.toFixed(2)}`);
+        
         // 기본 스타일 설정
         this.containerEl.style.position = 'relative';
-        this.containerEl.style.overflow = 'auto';
         
         // 스크롤 방향에 따른 스타일 설정
         const scrollDirection = layoutStrategy.getScrollDirection();
         const isVertical = scrollDirection === 'vertical';
         
-        // 레이아웃 타입에 따른 스타일 설정
-        const layoutType = layoutStrategy.getLayoutType();
+        console.log(`[CardNavigator] 컨테이너 스타일 적용: layoutType = ${layoutStrategy.getLayoutType()}, scrollDirection = ${scrollDirection}, isVertical = ${isVertical}`);
         
         // CSS 변수 업데이트
         this.updateCSSVariables();
         
-        // 컨테이너 패딩 설정 - 좌우에만 패딩 적용
-        const containerPadding = this.getContainerPadding();
-        this.containerEl.style.padding = `0 ${containerPadding}px`; // 상하 패딩은 0, 좌우만 패딩 적용
+        // 컨테이너 스타일 적용 (LayoutConfig에서 가져온 스타일 사용)
+        const containerStyle = this.layoutConfig.getContainerStyle(isVertical);
+        Object.assign(this.containerEl.style, containerStyle);
         
-        // 레이아웃 타입별 스타일 적용
+        // 레이아웃 타입별 추가 스타일 적용
+        const layoutType = layoutStrategy.getLayoutType();
         if (layoutType === 'list') {
             this.applyListLayoutStyle(isVertical);
         } else if (layoutType === 'grid') {
@@ -75,8 +82,12 @@ export class LayoutStyleManager {
     private applyListLayoutStyle(isVertical: boolean): void {
         if (!this.containerEl) return;
         
+        // 컨테이너 크기 로깅
+        const { width, height, ratio } = this.layoutConfig.getContainerSize();
+        console.log(`[CardNavigator] applyListLayoutStyle - 컨테이너 크기: ${width}x${height}, 비율(w/h): ${ratio.toFixed(2)}`);
+        
         // 카드 간격 설정
-        const cardGap = this.getCardGap();
+        const cardGap = this.layoutConfig.getCardGap();
         this.containerEl.style.gap = `${cardGap}px`;
         
         // 플렉스 레이아웃 설정
@@ -93,6 +104,8 @@ export class LayoutStyleManager {
         // CSS 변수 설정
         this.containerEl.style.setProperty('--list-direction', isVertical ? 'column' : 'row');
         this.containerEl.style.setProperty('--list-gap', `${cardGap}px`);
+        
+        console.log(`[CardNavigator] 리스트 레이아웃 스타일 적용: isVertical = ${isVertical}, flexDirection = ${isVertical ? 'column' : 'row'}`);
     }
 
     /**
@@ -105,7 +118,7 @@ export class LayoutStyleManager {
         this.containerEl.style.display = 'grid';
         
         // 카드 간격 가져오기
-        const cardGap = this.getCardGap();
+        const cardGap = this.layoutConfig.getCardGap();
         
         // 그리드 레이아웃 CSS 변수 설정
         this.containerEl.style.setProperty('--grid-columns', columns.toString());
@@ -132,7 +145,7 @@ export class LayoutStyleManager {
         
         // 메이슨리 레이아웃 CSS 변수 설정
         this.containerEl.style.setProperty('--masonry-columns', columns.toString());
-        this.containerEl.style.setProperty('--masonry-gap', `${this.getCardGap()}px`);
+        this.containerEl.style.setProperty('--masonry-gap', `${this.layoutConfig.getCardGap()}px`);
         
         // 스크롤 설정 (메이슨리는 항상 수직 스크롤)
         this.containerEl.style.overflowX = 'hidden';
@@ -146,151 +159,54 @@ export class LayoutStyleManager {
         const layoutType = layoutStrategy.getLayoutType();
         const isVertical = layoutStrategy.getScrollDirection() === 'vertical';
         
-        // 기본 스타일 설정 - position 속성은 각 레이아웃 타입별로 설정
-        const style: Partial<CSSStyleDeclaration> = {
-            boxSizing: 'border-box',
-            transition: 'left 0.3s ease, top 0.3s ease, width 0.3s ease',
-            padding: `var(--size-4-4)` // 모든 레이아웃에 동일한 패딩 적용
-        };
-
-        // 레이아웃 타입별 스타일 적용
-        if (layoutType === 'list') {
-            // 리스트 레이아웃 스타일
-            style.position = 'relative';
-            style.flexShrink = '0';
-            
-            if (isVertical) {
-                style.width = '100%';
-                const height = this.calculateCardHeight('list');
-                style.height = height === 'auto' ? 'auto' : `${height}px`;
-            } else {
-                const cardWidth = this.calculateCardWidth(this.settings.cardsPerView);
-                style.width = `${cardWidth}px`;
-                style.height = '100%';
-            }
-        } else if (layoutType === 'grid') {
-            // 그리드 레이아웃 스타일
-            style.position = 'relative';
-            style.height = `${this.settings.gridCardHeight}px`;
-            style.width = '100%';
+        console.log(`[CardNavigator] 카드 스타일 계산: layoutType = ${layoutType}, isVertical = ${isVertical}`);
+        
+        // LayoutConfig에서 카드 스타일 가져오기
+        const style = this.layoutConfig.getCardStyle(isVertical, this.settings.alignCardHeight);
+        
+        // 레이아웃 타입별 추가 스타일 적용
+        if (layoutType === 'grid') {
+            // 그리드 레이아웃 추가 스타일
             style.display = 'flex';
             style.flexDirection = 'column';
             style.overflow = 'hidden';
         } else if (layoutType === 'masonry') {
-            // 메이슨리 레이아웃 스타일
+            // 메이슨리 레이아웃 추가 스타일
             style.position = 'absolute';
             style.width = 'var(--masonry-card-width, 100%)';
             style.transition = 'left 0.3s ease, top 0.3s ease';
         }
-
+        
         return style;
     }
 
     /**
      * 카드 너비를 계산합니다.
-     * 모든 레이아웃에서 일관되게 사용할 수 있는 통일된 계산 방식
      */
     public calculateCardWidth(columns: number): number {
-        const containerWidth = this.containerEl?.offsetWidth || 0;
-        const containerPadding = this.getContainerPadding();
-        const cardGap = this.getCardGap();
-        
-        // 사용 가능한 너비 계산 (패딩 고려)
-        const availableWidth = containerWidth - (containerPadding * 2);
-        
-        // 총 간격 너비 계산
-        const totalGapWidth = cardGap * (columns - 1);
-        
-        // 카드 너비 계산 (정수로 내림)
-        return Math.floor((availableWidth - totalGapWidth) / columns);
+        return this.layoutConfig.calculateCardWidth(columns);
     }
 
     /**
      * 카드 높이를 계산합니다.
      */
     public calculateCardHeight(layout: CardNavigatorSettings['defaultLayout']): number | 'auto' {
-        // 그리드 레이아웃은 고정 높이 사용
-        if (layout === 'grid') {
-            return this.settings.gridCardHeight;
-        }
-
-        // 메이슨리 레이아웃은 자동 높이 사용
-        if (layout === 'masonry') {
-            return 'auto';
-        }
-
-        // 리스트 레이아웃
-        if (layout === 'list') {
-            if (!this.settings.alignCardHeight) {
-                return 'auto';
-            }
-
-            const containerHeight = this.containerEl?.offsetHeight || 0;
-            const cardGap = this.getCardGap();
-            const containerPadding = this.getContainerPadding() * 2;
-                        
-            // 사용 가능한 높이에서 모든 여백 제외
-            const availableHeight = containerHeight - containerPadding;
-            
-            // 정수로 나누어 떨어지는 높이 계산
-            const totalGaps = cardGap * (this.settings.cardsPerView - 1);
-            const heightWithoutGaps = availableHeight - totalGaps;
-            const cardHeight = Math.floor(heightWithoutGaps / this.settings.cardsPerView);
-            
-            // 마지막 1px 여유 확보
-            return Math.max(100, cardHeight - 1);
-        }
-
-        // 자동 레이아웃은 현재 설정에 따라 결정
-        if (layout === 'auto') {
-            const isVertical = this.containerEl ? 
-                this.containerEl.offsetHeight > this.containerEl.offsetWidth : 
-                true;
-            
-            if (isVertical) {
-                return this.calculateCardHeight('list');
-            } else {
-                return 'auto';
-            }
-        }
-        
-        return 'auto';
+        // 카드 객체와 너비는 전달하지 않음 (메이슨리 레이아웃에서만 필요)
+        return this.layoutConfig.calculateCardHeight(layout, this.layoutConfig.isVerticalContainer());
     }
 
     /**
      * 사용 가능한 컨테이너 너비를 계산합니다.
-     * 패딩을 고려한 실제 사용 가능한 너비를 반환합니다.
      */
     public getAvailableWidth(): number {
-        if (!this.containerEl) return 0;
-        
-        const containerWidth = this.containerEl.offsetWidth;
-        const containerPadding = this.getContainerPadding();
-        
-        return containerWidth - (containerPadding * 2);
+        return this.layoutConfig.getAvailableWidth();
     }
 
     /**
-     * CSS 변수 값을 가져옵니다.
+     * LayoutConfig 인스턴스를 반환합니다.
      */
-    private getCSSVariable(variableName: string, defaultValue: number): number {
-        if (!this.containerEl) return defaultValue;
-        const valueStr = getComputedStyle(this.containerEl).getPropertyValue(variableName).trim();
-        return parseInt(valueStr) || defaultValue;
-    }
-
-    /**
-     * 카드 간격을 가져옵니다.
-     */
-    public getCardGap(): number {
-        return this.getCSSVariable('--card-navigator-gap', 10);
-    }
-
-    /**
-     * 컨테이너 패딩을 가져옵니다.
-     */
-    public getContainerPadding(): number {
-        return this.getCSSVariable('--card-navigator-container-padding', 10);
+    public getLayoutConfig(): LayoutConfig {
+        return this.layoutConfig;
     }
 
     /**
@@ -298,6 +214,7 @@ export class LayoutStyleManager {
      */
     public updateSettings(settings: CardNavigatorSettings): void {
         this.settings = settings;
+        this.layoutConfig.updateSettings(settings);
         this.updateCSSVariables();
     }
 

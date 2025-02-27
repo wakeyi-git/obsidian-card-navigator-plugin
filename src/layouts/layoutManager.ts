@@ -6,13 +6,18 @@ import { MasonryLayout } from "./masonryLayout";
 import { LayoutStrategy } from "./layoutStrategy";
 import { LayoutConfig } from './layoutConfig';
 
+/**
+ * 레이아웃 전략을 관리하는 클래스
+ * 적절한 레이아웃 전략을 생성하고 관리하며, 컨테이너 크기 변화에 대응합니다.
+ */
 export class LayoutManager {
     private currentLayout: CardNavigatorSettings['defaultLayout'];
     private layoutStrategy: LayoutStrategy;
     private isVertical: boolean;
-    private cardGap: number;
     private containerEl: HTMLElement;
     private layoutConfig: LayoutConfig;
+    private savedCardHeights: Map<string, number> = new Map();
+    private resizeObserver: ResizeObserver | null = null;
 
     constructor(
         private plugin: any,
@@ -23,32 +28,118 @@ export class LayoutManager {
         this.layoutConfig = new LayoutConfig(plugin.app, containerEl, plugin.settings);
         this.currentLayout = plugin.settings.defaultLayout;
         this.isVertical = this.layoutConfig.isVerticalContainer();
-        this.cardGap = this.layoutConfig.getCardGap();
         this.layoutStrategy = this.createLayoutStrategy();
+        
+        // 컨테이너 크기 변화 감지를 위한 ResizeObserver 설정
+        this.setupResizeObserver();
     }
 
+    /**
+     * 컨테이너 크기 변화를 감지하기 위한 ResizeObserver를 설정합니다.
+     */
+    private setupResizeObserver(): void {
+        if (!this.containerEl) return;
+        
+        // 기존 observer가 있으면 해제
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+        }
+        
+        // 새 observer 생성
+        this.resizeObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                if (entry.target === this.containerEl) {
+                    // 컨테이너 크기가 변경되면 레이아웃 업데이트
+                    this.updateLayout();
+                }
+            }
+        });
+        
+        // 컨테이너 관찰 시작
+        this.resizeObserver.observe(this.containerEl);
+    }
+
+    /**
+     * 리소스 정리를 위한 메서드
+     */
+    public destroy(): void {
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+            this.resizeObserver = null;
+        }
+    }
+
+    /**
+     * 현재 레이아웃 타입을 반환합니다.
+     */
     public getCurrentLayout(): CardNavigatorSettings['defaultLayout'] {
         return this.currentLayout;
     }
 
+    /**
+     * 현재 레이아웃 전략을 반환합니다.
+     */
     public getLayoutStrategy(): LayoutStrategy {
         return this.layoutStrategy;
     }
 
+    /**
+     * 레이아웃 타입을 설정하고 새 레이아웃 전략을 생성합니다.
+     */
     public setLayout(layout: CardNavigatorSettings['defaultLayout']) {
         this.currentLayout = layout;
         this.layoutStrategy = this.createLayoutStrategy();
     }
 
+    /**
+     * 컨테이너 크기 변화에 대응하여 레이아웃을 업데이트합니다.
+     */
     public updateLayout() {
-        this.isVertical = this.layoutConfig.isVerticalContainer();
-        this.layoutStrategy = this.createLayoutStrategy();
+        // 컨테이너 크기 로깅
+        const { width, height, ratio } = this.layoutConfig.getContainerSize();
+        console.log(`[CardNavigator] updateLayout - 컨테이너 크기: ${width}x${height}, 비율(w/h): ${ratio.toFixed(2)}`);
+        
+        // 컨테이너 크기가 유효한지 확인
+        if (width === 0 || height === 0) {
+            console.log(`[CardNavigator] 컨테이너 크기가 아직 계산되지 않음. 레이아웃 업데이트 지연`);
+            
+            // 컨테이너 크기가 계산될 때까지 지연
+            setTimeout(() => {
+                const newSize = this.layoutConfig.getContainerSize();
+                
+                if (newSize.width > 0 && newSize.height > 0) {
+                    console.log(`[CardNavigator] 컨테이너 크기 계산됨: ${newSize.width}x${newSize.height}. 레이아웃 업데이트 재시도`);
+                    this.updateLayout();
+                }
+            }, 100);
+            return;
+        }
+        
+        // 레이아웃 방향 업데이트 (isVerticalContainer 메서드 호출)
+        const newIsVertical = this.layoutConfig.isVerticalContainer();
+        
+        // 방향이 변경된 경우에만 레이아웃 전략 재생성
+        if (this.isVertical !== newIsVertical) {
+            console.log(`[CardNavigator] 레이아웃 방향 변경: ${this.isVertical} -> ${newIsVertical}`);
+            this.isVertical = newIsVertical;
+            
+            // 현재 메이슨리 레이아웃의 카드 높이 정보 저장
+            this.saveCardHeights();
+            
+            // 레이아웃 전략 재생성
+            this.layoutStrategy = this.createLayoutStrategy();
+            
+            // 저장된 카드 높이 정보 복원
+            this.restoreCardHeights();
+        } else {
+            // 방향은 같지만 크기가 변경된 경우 컨테이너 너비 업데이트
+            this.updateContainerWidth();
+        }
     }
 
     /**
      * 컨테이너 너비 변화에 대응하여 레이아웃 전략을 업데이트합니다.
      * 레이아웃 전략 인스턴스를 재생성하지 않고 너비 변화만 처리합니다.
-     * 이는 특히 메이슨리 레이아웃에서 실시간 너비 업데이트에 유용합니다.
      */
     public updateContainerWidth(): void {
         const availableWidth = this.layoutConfig.getAvailableWidth();
@@ -70,19 +161,30 @@ export class LayoutManager {
             const cardWidth = this.layoutConfig.calculateCardWidth(columns);
             this.layoutStrategy.setCardWidth(cardWidth);
         }
-        // 리스트 레이아웃은 자동으로 너비가 조정되므로 별도 처리 불필요
+        // 리스트 레이아웃인 경우 카드 너비 업데이트
+        else if (this.layoutStrategy instanceof ListLayout) {
+            this.layoutStrategy.updateContainerWidth(availableWidth);
+        }
     }
 
+    /**
+     * LayoutConfig 인스턴스를 반환합니다.
+     */
     public getLayoutConfig(): LayoutConfig {
         return this.layoutConfig;
     }
 
+    /**
+     * 레이아웃 전략을 생성합니다.
+     * 설정과 컨테이너 크기에 따라 적절한 레이아웃 전략을 생성합니다.
+     */
     private createLayoutStrategy(): LayoutStrategy {
         if (!this.containerEl) {
             throw new Error('Container element is not initialized');
         }
 
         const availableWidth = this.layoutConfig.getAvailableWidth();
+        const cardGap = this.layoutConfig.getCardGap();
         
         const {
             alignCardHeight,
@@ -104,9 +206,10 @@ export class LayoutManager {
         let layoutStrategy: LayoutStrategy;
 
         if (columns === 1) {
+            // auto 레이아웃에서 1열인 경우 리스트 레이아웃 사용
             layoutStrategy = new ListLayout(
-                this.isVertical, 
-                this.cardGap, 
+                this.isVertical, // isVerticalContainer 메서드의 결과 사용
+                cardGap, 
                 alignCardHeight,
                 this.plugin.settings,
                 this.layoutConfig
@@ -116,7 +219,7 @@ export class LayoutManager {
             if (alignCardHeight) {
                 layoutStrategy = new GridLayout(
                     columns, 
-                    this.cardGap, 
+                    cardGap, 
                     this.plugin.settings, 
                     this.layoutConfig
                 );
@@ -138,20 +241,25 @@ export class LayoutManager {
         return layoutStrategy;
     }
 
+    /**
+     * 특정 레이아웃 타입에 맞는 레이아웃 전략을 생성합니다.
+     */
     private createSpecificLayout(layout: CardNavigatorSettings['defaultLayout'], availableWidth: number): LayoutStrategy {
         const {
             alignCardHeight,
             gridColumns,
             masonryColumns,
         } = this.plugin.settings;
+        
+        const cardGap = this.layoutConfig.getCardGap();
 
         let layoutStrategy: LayoutStrategy;
 
         switch (layout) {
             case 'list': {
                 layoutStrategy = new ListLayout(
-                    this.isVertical, 
-                    this.cardGap, 
+                    this.isVertical, // isVerticalContainer 메서드의 결과 사용
+                    cardGap, 
                     alignCardHeight,
                     this.plugin.settings,
                     this.layoutConfig
@@ -161,7 +269,7 @@ export class LayoutManager {
             case 'grid': {
                 layoutStrategy = new GridLayout(
                     gridColumns, 
-                    this.cardGap, 
+                    cardGap, 
                     this.plugin.settings, 
                     this.layoutConfig
                 );
@@ -184,7 +292,8 @@ export class LayoutManager {
             layoutStrategy.setContainer(this.containerEl);
         }
         const cardWidth = this.layoutConfig.calculateCardWidth(
-            layout === 'list' ? 1 : (layout === 'grid' ? gridColumns : masonryColumns)
+            layout === 'list' ? (this.isVertical ? 1 : this.plugin.settings.cardsPerView) : 
+            (layout === 'grid' ? gridColumns : masonryColumns)
         );
         layoutStrategy.setCardWidth(cardWidth);
 
@@ -193,10 +302,17 @@ export class LayoutManager {
 
     /**
      * 설정이 변경되었을 때 호출되는 메서드
+     * 레이아웃 전략을 업데이트하고 필요한 경우 재생성합니다.
      */
     public updateSettings(settings: CardNavigatorSettings) {
         this.plugin.settings = settings;
         this.layoutConfig.updateSettings(settings);
+        
+        // 현재 메이슨리 레이아웃의 카드 높이 정보 저장
+        this.saveCardHeights();
+        
+        // 레이아웃 방향 업데이트
+        this.isVertical = this.layoutConfig.isVerticalContainer();
         
         // 모든 레이아웃 전략의 설정 업데이트
         if (this.layoutStrategy instanceof ListLayout) {
@@ -209,21 +325,52 @@ export class LayoutManager {
         
         // 레이아웃 전략 재생성
         this.layoutStrategy = this.createLayoutStrategy();
+        
+        // 저장된 카드 높이 정보 복원
+        this.restoreCardHeights();
     }
 
     /**
      * 레이아웃을 다시 렌더링합니다.
+     * 레이아웃 전략을 재생성하고 컨테이너 스타일을 업데이트합니다.
      */
     public rerender() {
         if (!this.containerEl) return;
         
+        // 현재 메이슨리 레이아웃의 카드 높이 정보 저장
+        this.saveCardHeights();
+        
+        // 레이아웃 방향 업데이트
+        this.isVertical = this.layoutConfig.isVerticalContainer();
+        
         // 현재 레이아웃 전략 재생성
         this.layoutStrategy = this.createLayoutStrategy();
+        
+        // 저장된 카드 높이 정보 복원
+        this.restoreCardHeights();
         
         // 컨테이너 스타일 업데이트 (getContainerStyle이 있는 경우에만)
         if (this.layoutStrategy.getContainerStyle) {
             const containerStyle = this.layoutStrategy.getContainerStyle();
             Object.assign(this.containerEl.style, containerStyle);
+        }
+    }
+
+    /**
+     * 현재 메이슨리 레이아웃의 카드 높이 정보를 저장합니다.
+     */
+    private saveCardHeights(): void {
+        if (this.layoutStrategy instanceof MasonryLayout) {
+            this.savedCardHeights = this.layoutStrategy.getCardHeights();
+        }
+    }
+
+    /**
+     * 저장된 카드 높이 정보를 새 레이아웃에 복원합니다.
+     */
+    private restoreCardHeights(): void {
+        if (this.layoutStrategy instanceof MasonryLayout && this.savedCardHeights.size > 0) {
+            this.layoutStrategy.setCardHeights(this.savedCardHeights);
         }
     }
 } 
