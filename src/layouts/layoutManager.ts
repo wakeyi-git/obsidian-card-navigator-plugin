@@ -6,6 +6,7 @@ import { MasonryLayout } from "./masonryLayout";
 import { LayoutStrategy } from "./layoutStrategy";
 import { LayoutConfig } from './layoutConfig';
 import CardNavigatorPlugin from 'main';
+import { LayoutStyleManager } from './layoutStyleManager';
 
 /**
  * 레이아웃 전략을 관리하는 클래스
@@ -17,6 +18,7 @@ export class LayoutManager {
     private isVertical: boolean;
     private containerEl: HTMLElement;
     private layoutConfig: LayoutConfig;
+    private layoutStyleManager: LayoutStyleManager;
     private savedCardHeights: Map<string, number> = new Map();
     private resizeObserver: ResizeObserver | null = null;
     private plugin: CardNavigatorPlugin;
@@ -31,6 +33,7 @@ export class LayoutManager {
         this.containerEl = containerEl;
         this.cardMaker = cardMaker;
         this.layoutConfig = new LayoutConfig(this.plugin.app, containerEl, this.plugin.settings);
+        this.layoutStyleManager = new LayoutStyleManager(this.plugin.app, containerEl, this.plugin.settings);
         this.currentLayout = this.plugin.settings.defaultLayout;
         this.isVertical = this.layoutConfig.isVerticalContainer();
         this.layoutStrategy = this.createLayoutStrategy();
@@ -342,36 +345,6 @@ export class LayoutManager {
     }
 
     /**
-     * 설정이 변경되었을 때 호출되는 메서드
-     * 레이아웃 전략을 업데이트하고 필요한 경우 재생성합니다.
-     */
-    public updateSettings(settings: CardNavigatorSettings) {
-        this.plugin.settings = settings;
-        this.layoutConfig.updateSettings(settings);
-        
-        // 현재 메이슨리 레이아웃의 카드 높이 정보 저장
-        this.saveCardHeights();
-        
-        // 레이아웃 방향 업데이트
-        this.isVertical = this.layoutConfig.isVerticalContainer();
-        
-        // 모든 레이아웃 전략의 설정 업데이트
-        if (this.layoutStrategy instanceof ListLayout) {
-            this.layoutStrategy.updateSettings(settings);
-        } else if (this.layoutStrategy instanceof GridLayout) {
-            this.layoutStrategy.updateSettings(settings);
-        } else if (this.layoutStrategy instanceof MasonryLayout) {
-            this.layoutStrategy.updateSettings(settings);
-        }
-        
-        // 레이아웃 전략 재생성
-        this.layoutStrategy = this.createLayoutStrategy();
-        
-        // 저장된 카드 높이 정보 복원
-        this.restoreCardHeights();
-    }
-
-    /**
      * 레이아웃을 다시 렌더링합니다.
      * 레이아웃 전략을 재생성하고 컨테이너 스타일을 업데이트합니다.
      */
@@ -390,10 +363,12 @@ export class LayoutManager {
         // 저장된 카드 높이 정보 복원
         this.restoreCardHeights();
         
-        // 컨테이너 스타일 업데이트 (getContainerStyle이 있는 경우에만)
-        if (this.layoutStrategy.getContainerStyle) {
-            const containerStyle = this.layoutStrategy.getContainerStyle();
-            Object.assign(this.containerEl.style, containerStyle);
+        // LayoutStyleManager를 사용하여 컨테이너 스타일 적용
+        this.layoutStyleManager.applyContainerStyle(this.layoutStrategy);
+        
+        // 메이슨리 레이아웃의 경우 레이아웃 자체의 스타일 적용 메서드 호출
+        if (this.layoutStrategy instanceof MasonryLayout && this.layoutStrategy.setContainer) {
+            this.layoutStrategy.setContainer(this.containerEl);
         }
     }
 
@@ -420,5 +395,37 @@ export class LayoutManager {
      */
     public getIsVertical(): boolean {
         return this.isVertical;
+    }
+
+    /**
+     * 설정을 업데이트합니다.
+     */
+    public updateSettings(settings: CardNavigatorSettings) {
+        this.plugin.settings = settings;
+        
+        // LayoutConfig 업데이트
+        this.layoutConfig.updateSettings(settings);
+        
+        // LayoutStyleManager 업데이트
+        this.layoutStyleManager = new LayoutStyleManager(this.plugin.app, this.containerEl, settings);
+        
+        // 현재 레이아웃 전략 업데이트
+        if (this.layoutStrategy) {
+            if (this.layoutStrategy.updateSettings) {
+                this.layoutStrategy.updateSettings(settings);
+            } else {
+                // updateSettings 메서드가 없는 경우 레이아웃 전략 재생성
+                this.layoutStrategy = this.createLayoutStrategy();
+            }
+        }
+        
+        // 레이아웃 타입이 변경된 경우 레이아웃 전략 재생성
+        if (this.currentLayout !== settings.defaultLayout) {
+            this.currentLayout = settings.defaultLayout;
+            this.layoutStrategy = this.createLayoutStrategy();
+        }
+        
+        // 저장된 카드 높이 정보 복원
+        this.restoreCardHeights();
     }
 } 

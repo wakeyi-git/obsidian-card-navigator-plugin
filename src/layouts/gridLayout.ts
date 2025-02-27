@@ -71,14 +71,13 @@ export class GridLayout implements LayoutStrategy {
     }
 
     getContainerStyle(): Partial<CSSStyleDeclaration> {
-        return this.layoutConfig.getContainerStyle(this.getScrollDirection() === 'vertical');
+        // 빈 객체 반환 - 실제 스타일은 LayoutStyleManager에서 적용
+        return {};
     }
 
     getCardStyle(): Partial<CSSStyleDeclaration> {
-        return this.layoutConfig.getCardStyle(
-            this.getScrollDirection() === 'vertical',
-            this.settings.alignCardHeight
-        );
+        // 빈 객체 반환 - 실제 스타일은 LayoutStyleManager에서 적용
+        return {};
     }
 
     /**

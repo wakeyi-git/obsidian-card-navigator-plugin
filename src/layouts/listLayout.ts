@@ -95,12 +95,14 @@ export class ListLayout implements LayoutStrategy {
 
     // 컨테이너 스타일 가져오기
     getContainerStyle(): Partial<CSSStyleDeclaration> {
-        return this.layoutConfig.getContainerStyle(this.isVertical);
+        // 빈 객체 반환 - 실제 스타일은 LayoutStyleManager에서 적용
+        return {};
     }
 
     // 카드 스타일 가져오기
     getCardStyle(): Partial<CSSStyleDeclaration> {
-        return this.layoutConfig.getCardStyle(this.isVertical, this.alignCardHeight);
+        // 빈 객체 반환 - 실제 스타일은 LayoutStyleManager에서 적용
+        return {};
     }
     //#endregion
 

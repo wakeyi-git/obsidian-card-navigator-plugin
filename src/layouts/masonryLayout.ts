@@ -69,27 +69,11 @@ export class MasonryLayout implements LayoutStrategy {
         // 메이슨리 레이아웃 클래스 추가
         this.container.classList.add('masonry-layout');
         
-        // 기존 스타일 속성 제거 (충돌 방지)
-        this.container.style.removeProperty('flex-direction');
-        this.container.style.removeProperty('gap');
-        this.container.style.removeProperty('align-items');
-        this.container.style.removeProperty('display');
-        this.container.style.removeProperty('grid-template-columns');
-        this.container.style.removeProperty('grid-auto-rows');
-        this.container.style.removeProperty('align-content');
-        
-        // 패딩 값 가져오기
-        const containerPadding = this.layoutConfig.getContainerPadding();
-        
         // CSS 변수 설정 - 일관된 변수명 사용
         this.container.style.setProperty('--card-navigator-columns', this.columns.toString());
         this.container.style.setProperty('--card-navigator-card-width', `${this.cardWidth}px`);
         this.container.style.setProperty('--card-navigator-gap', `${this.cardGap}px`);
-        this.container.style.setProperty('--card-navigator-container-padding', `${containerPadding}px`);
-        
-        // 컨테이너 스타일 적용
-        const containerStyle = this.getContainerStyle();
-        Object.assign(this.container.style, containerStyle);
+        this.container.style.setProperty('--card-navigator-container-padding', `${this.layoutConfig.getContainerPadding()}px`);
     }
 
     // 카드 너비 계산 (일원화된 메서드)
@@ -346,20 +330,13 @@ export class MasonryLayout implements LayoutStrategy {
      * 메이슨리 레이아웃에 특화된 스타일을 반환합니다.
      */
     getContainerStyle(): Partial<CSSStyleDeclaration> {
-        return this.layoutConfig.getContainerStyle(true); // 메이슨리는 항상 수직
+        // 빈 객체 반환 - 실제 스타일은 LayoutStyleManager에서 적용
+        return {};
     }
 
     getCardStyle(): Partial<CSSStyleDeclaration> {
-        const baseStyle = this.layoutConfig.getCardStyle(true, false); // 메이슨리는 항상 수직, 높이 정렬 안함
-        
-        // 메이슨리 레이아웃 추가 스타일
-        const style: Partial<CSSStyleDeclaration> = {
-            ...baseStyle,
-            position: 'absolute',
-            transition: this.getCardTransitionStyle()
-        };
-        
-        return style;
+        // 빈 객체 반환 - 실제 스타일은 LayoutStyleManager에서 적용
+        return {};
     }
 
     /**

@@ -193,25 +193,8 @@ export class LayoutConfig {
      * 컨테이너 스타일을 가져옵니다.
      */
     public getContainerStyle(isVertical: boolean): Partial<CSSStyleDeclaration> {
-        console.log(`[CardNavigator] 컨테이너 스타일 가져오기: isVertical = ${isVertical}`);
-        
-        const cardGap = this.getCardGap();
-        const containerPadding = this.getContainerPadding();
-        
-        // isVertical 값에 따라 컨테이너 스타일 설정
-        // true: 세로 배열 및 세로 스크롤, false: 가로 배열 및 가로 스크롤
-        return {
-            display: 'flex',
-            flexDirection: isVertical ? 'column' : 'row',
-            gap: `${cardGap}px`,
-            alignItems: 'stretch',
-            overflowY: isVertical ? 'auto' : 'hidden',
-            overflowX: isVertical ? 'hidden' : 'auto',
-            paddingLeft: isVertical ? `${containerPadding}px` : '0',
-            paddingRight: isVertical ? `${containerPadding}px` : '0',
-            paddingTop: isVertical ? '0' : `${containerPadding}px`,
-            paddingBottom: isVertical ? '0' : `${containerPadding}px`,
-        };
+        console.warn('[CardNavigator] getContainerStyle은 더 이상 사용되지 않습니다. LayoutStyleManager.applyContainerStyle을 사용하세요.');
+        return {}; // 빈 객체 반환
     }
     //#endregion
 
@@ -550,37 +533,8 @@ export class LayoutConfig {
      * 카드 스타일을 가져옵니다.
      */
     public getCardStyle(isVertical: boolean, alignCardHeight: boolean): Partial<CSSStyleDeclaration> {
-        console.log(`[CardNavigator] 카드 스타일 가져오기: isVertical = ${isVertical}, alignCardHeight = ${alignCardHeight}`);
-        
-        const style: Partial<CSSStyleDeclaration> = {
-            flexShrink: '0',
-            boxSizing: 'border-box',
-            transition: 'left 0.3s ease, top 0.3s ease, width 0.3s ease',
-            padding: `var(--size-4-4)`
-        };
-
-        // isVertical 값에 따라 카드 스타일 설정
-        if (isVertical) {
-            // 세로 모드: 카드가 세로로 쌓임
-            // 너비는 컨테이너 너비에 맞추고, 높이는 계산된 값 또는 auto 사용
-            style.width = '100%';
-            // 메이슨리 레이아웃이 아니므로 카드 객체와 너비를 전달하지 않음
-            const height = this.calculateCardHeight(this.settings.defaultLayout, isVertical);
-            style.height = height === 'auto' ? 'auto' : `${height}px`;
-            console.log(`[CardNavigator] 세로 모드 카드 스타일: width = 100%, height = ${style.height}`);
-        } else {
-            // 가로 모드: 카드가 가로로 나열됨
-            // 너비는 계산된 값 사용, 높이는 컨테이너 높이에 맞춤
-            const cardWidth = this.calculateCardWidth(this.settings.cardsPerView);
-            style.width = `${cardWidth}px`;
-            style.height = '100%';
-            
-            // 가로 모드에서 카드 내용이 잘 보이도록 최소 높이 설정
-            style.minHeight = '200px';
-            console.log(`[CardNavigator] 가로 모드 카드 스타일: width = ${style.width}, height = 100%, minHeight = 200px`);
-        }
-
-        return style;
+        console.warn('[CardNavigator] getCardStyle은 더 이상 사용되지 않습니다. LayoutStyleManager.getCardStyle을 사용하세요.');
+        return {}; // 빈 객체 반환
     }
     //#endregion
 
@@ -613,5 +567,44 @@ export class LayoutConfig {
         this.settings = settings;
         // 방향 캐시 초기화
         this._isVertical = null;
+    }
+
+    /**
+     * 컨테이너 스타일 계산에 필요한 값들을 가져옵니다.
+     * 이 메서드는 LayoutStyleManager에서 사용됩니다.
+     */
+    public getContainerStyleValues(isVertical: boolean): {
+        cardGap: number;
+        containerPadding: number;
+    } {
+        return {
+            cardGap: this.getCardGap(),
+            containerPadding: this.getContainerPadding()
+        };
+    }
+
+    /**
+     * 카드 스타일 계산에 필요한 값들을 가져옵니다.
+     * 이 메서드는 LayoutStyleManager에서 사용됩니다.
+     */
+    public getCardStyleValues(isVertical: boolean, alignCardHeight: boolean): {
+        cardWidth: number;
+        cardHeight: number | 'auto';
+    } {
+        let cardWidth: number;
+        let cardHeight: number | 'auto';
+        
+        if (isVertical) {
+            cardWidth = this.getAvailableWidth();
+            cardHeight = this.calculateCardHeight(this.settings.defaultLayout, isVertical);
+        } else {
+            cardWidth = this.calculateCardWidth(this.settings.cardsPerView);
+            cardHeight = alignCardHeight ? this.getAvailableHeight() : 'auto';
+        }
+        
+        return {
+            cardWidth,
+            cardHeight
+        };
     }
 } 
