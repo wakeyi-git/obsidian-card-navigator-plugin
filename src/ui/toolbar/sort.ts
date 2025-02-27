@@ -90,7 +90,21 @@ async function updateSortSettings(
         if (leaf.view instanceof CardNavigatorView) {
             const view = leaf.view;
             const searchService = getSearchService(plugin);
-            const resortedResults = searchService.resortLastResults();
+            const resortedResults = searchService.resortLastResults((a, b) => {
+                let comparison = 0;
+                switch (plugin.settings.sortCriterion) {
+                    case 'fileName':
+                        comparison = a.basename.localeCompare(b.basename, undefined, { numeric: true, sensitivity: 'base' });
+                        break;
+                    case 'lastModified':
+                        comparison = a.stat.mtime - b.stat.mtime;
+                        break;
+                    case 'created':
+                        comparison = a.stat.ctime - b.stat.ctime;
+                        break;
+                }
+                return plugin.settings.sortOrder === 'asc' ? comparison : -comparison;
+            });
             if (resortedResults) {
                 // 재정렬된 결과를 검색 결과로 설정하고 카드 업데이트
                 view.cardContainer.setSearchResults(resortedResults);

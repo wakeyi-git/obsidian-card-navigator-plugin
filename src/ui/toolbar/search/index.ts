@@ -5,33 +5,41 @@ import { SearchHistory } from './SearchHistory';
 import { SearchService } from './SearchService';
 import { SearchSuggest } from './SearchSuggest';
 import { MIN_SEARCH_TERM_LENGTH, SEARCH_DEBOUNCE_DELAY } from 'common/types';
+import { CardContainer } from 'ui/cardContainer/cardContainer';
 export * from 'common/types';
 
-// 검색 상태
+// 검색 상태 관리
 const searchState = {
     isSearching: false,
     lastSearchTerm: '',
-    searchHistory: new SearchHistory(),
-    searchService: null as SearchService | null
+    searchHistory: [] as string[],
 };
 
+// 검색 서비스 인스턴스
+let searchService: SearchService | null = null;
+
 // 검색어 전처리
-function preprocessSearchTerm(term: string): string {
-    return term.trim();
+function preprocessSearchTerm(searchTerm: string): string {
+    return searchTerm.trim();
 }
 
 // 검색어 유효성 검사
-function isValidSearchTerm(term: string): boolean {
-    const processed = preprocessSearchTerm(term);
-    return processed.length >= MIN_SEARCH_TERM_LENGTH;
+function isValidSearchTerm(searchTerm: string): boolean {
+    return searchTerm.length > 0;
 }
 
 // 검색 상태 업데이트
-function updateSearchState(searching: boolean, term: string = '') {
-    searchState.isSearching = searching;
-    if (term) {
-        searchState.lastSearchTerm = term;
-        searchState.searchHistory.add(term);
+function updateSearchState(searchTerm: string, isSearching: boolean) {
+    searchState.lastSearchTerm = searchTerm;
+    searchState.isSearching = isSearching;
+    
+    // 검색 기록에 추가 (중복 방지)
+    if (searchTerm && !searchState.searchHistory.includes(searchTerm)) {
+        searchState.searchHistory.unshift(searchTerm);
+        // 최대 10개 항목 유지
+        if (searchState.searchHistory.length > 10) {
+            searchState.searchHistory.pop();
+        }
     }
 }
 
@@ -43,95 +51,70 @@ function updateLoadingState(containerEl: HTMLElement | null, isLoading: boolean)
     searchContainer.toggleClass('is-searching', isLoading);
 }
 
-// 검색 실행
+// 검색 실행 함수
 export async function executeSearch(
-    plugin: CardNavigatorPlugin,
-    containerEl: HTMLElement | null,
-    searchTerm: string
+    cardContainer: CardContainer,
+    searchTerm: string,
+    updateLoadingState?: (isLoading: boolean) => void
 ) {
-    if (!containerEl) return;
-
-    const processed = preprocessSearchTerm(searchTerm);
-    
-    if (!processed) {
-        const view = plugin.app.workspace.getActiveViewOfType(CardNavigatorView);
-        if (view) {
-            updateSearchState(false);
-            updateLoadingState(containerEl, false);
-            await view.refresh(RefreshType.CONTENT);
-        }
-        return;
-    }
-
-    if (!isValidSearchTerm(processed)) {
-        return;
-    }
-
-    if (processed === searchState.lastSearchTerm) {
-        return;
-    }
-
     try {
-        updateSearchState(true, processed);
-        updateLoadingState(containerEl, true);
-
-        const view = plugin.app.workspace.getActiveViewOfType(CardNavigatorView);
-        if (view) {
-            if (!searchState.searchService) {
-                searchState.searchService = new SearchService(plugin);
-            }
-            await view.cardContainer.searchCards(processed);
+        // 로딩 상태 업데이트
+        if (updateLoadingState) {
+            updateLoadingState(true);
         }
-    } catch (error) {
-        console.error('Search failed:', error);
-    } finally {
-        updateSearchState(false);
-        updateLoadingState(containerEl, false);
-    }
-}
-
-// 디바운스된 검색 함수
-export const debouncedSearch = debounce(async (searchTerm: string, plugin: CardNavigatorPlugin, containerEl: HTMLElement) => {
-    const view = plugin.app.workspace.getActiveViewOfType(CardNavigatorView);
-    if (!view) return;
-
-    const searchService = getSearchService(plugin);
-    
-    if (!searchTerm.trim()) {
-        view.cardContainer.setSearchResults(null);
-        await view.cardContainer.displayCards([]);
-        return;
-    }
-
-    try {
-        // 현재 폴더나 설정에 따른 파일 목록 가져오기
-        const filesToSearch = await view.cardContainer.getFilteredFiles();
         
-        // 파일 목록에서 검색 수행
-        const searchResults = await searchService.searchFiles(filesToSearch, searchTerm);
-        view.cardContainer.setSearchResults(searchResults);
-        await view.cardContainer.displayCards([]);
+        // 검색어 전처리
+        const processedTerm = preprocessSearchTerm(searchTerm);
+        
+        // 검색 상태 업데이트
+        updateSearchState(processedTerm, true);
+        
+        // 검색 실행
+        await cardContainer.searchCards(processedTerm);
+        
+        // 검색 완료 상태 업데이트
+        updateSearchState(processedTerm, false);
     } catch (error) {
         console.error('검색 중 오류 발생:', error);
+        // 오류 발생 시 검색 상태 초기화
+        updateSearchState('', false);
+    } finally {
+        // 로딩 상태 업데이트
+        if (updateLoadingState) {
+            updateLoadingState(false);
+        }
     }
-}, 200);
-
-// 검색 히스토리 가져오기
-export function getSearchHistory(): string[] {
-    return searchState.searchHistory.recent;
 }
 
-// 검색 히스토리 지우기
-export function clearSearchHistory() {
-    searchState.searchHistory.clear();
+// 디바운스된 검색 함수 (입력 지연 후 검색 실행)
+export const debouncedSearch = debounce(
+    async (
+        plugin: CardNavigatorPlugin,
+        cardContainer: CardContainer,
+        searchTerm: string,
+        updateLoadingState?: (isLoading: boolean) => void
+    ) => {
+        await executeSearch(cardContainer, searchTerm, updateLoadingState);
+    },
+    300
+);
+
+// 검색 기록 가져오기
+export function getSearchHistory(): string[] {
+    return [...searchState.searchHistory];
+}
+
+// 검색 기록 초기화
+export function clearSearchHistory(): void {
+    searchState.searchHistory = [];
 }
 
 // 검색 서비스 가져오기
 export function getSearchService(plugin: CardNavigatorPlugin): SearchService {
-    if (!searchState.searchService) {
-        searchState.searchService = new SearchService(plugin);
+    if (!searchService) {
+        searchService = new SearchService(plugin);
     }
-    return searchState.searchService;
+    return searchService;
 }
 
 export { SearchHistory, SearchService, SearchSuggest }; 

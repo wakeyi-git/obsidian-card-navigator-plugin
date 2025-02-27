@@ -1,56 +1,77 @@
-import { App, TFile, TFolder, CachedMetadata } from 'obsidian';
+import { App, TFile, TFolder, CachedMetadata, TAbstractFile, Vault } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { SearchOptions, DEFAULT_SEARCH_OPTIONS, BATCH_SIZE } from 'common/types';
 
 export class SearchService {
     private app: App;
     private options: SearchOptions;
-    private searchPrefix: string = '';
-    private lastSearchResults: TFile[] | null = null;  // 마지막 검색 결과를 저장할 캐시
+    private searchPrefix = {
+        path: 'path:',
+        tag: 'tag:',
+        property: 'property:',
+    };
+    private lastSearchResults: TFile[] | null = null;
     private searchCache: Map<string, TFile[]> = new Map();
 
     constructor(private plugin: CardNavigatorPlugin) {
         this.app = this.plugin.app;
-        this.options = DEFAULT_SEARCH_OPTIONS;
+        this.options = {
+            searchInTitle: true,
+            searchInHeaders: true,
+            searchInTags: true,
+            searchInContent: true,
+            searchInFrontmatter: true,
+            caseSensitive: false,
+            useRegex: false
+        };
     }
 
     // 검색 옵션 설정
-    setOptions(options: Partial<SearchOptions>) {
+    public setOptions(options: Partial<SearchOptions>) {
         this.options = { ...this.options, ...options };
     }
 
-    // 검색 옵션 가져오기
-    getOption<K extends keyof SearchOptions>(key: K): SearchOptions[K] {
+    // 특정 검색 옵션 가져오기
+    public getOption<K extends keyof SearchOptions>(key: K): SearchOptions[K] {
         return this.options[key];
     }
 
-    // 검색 결과 재정렬 메서드
-    resortLastResults(): TFile[] | null {
+    // 마지막 검색 결과 재정렬
+    public resortLastResults(sortFn: (a: TFile, b: TFile) => number): TFile[] | null {
         if (!this.lastSearchResults) return null;
-        const sortedResults = this.sortFiles([...this.lastSearchResults]);
-        this.lastSearchResults = sortedResults; // 정렬된 결과를 다시 저장
-        return sortedResults;
+        
+        const sorted = [...this.lastSearchResults].sort(sortFn);
+        this.lastSearchResults = sorted;
+        return sorted;
     }
 
-    // 캐시 관련 메서드 추가
-    getFromCache(cacheKey: string): TFile[] | undefined {
-        return this.searchCache.get(cacheKey);
+    // 캐시에서 검색 결과 가져오기
+    public getFromCache(key: string): TFile[] | undefined {
+        return this.searchCache.get(key);
     }
 
-    addToCache(cacheKey: string, files: TFile[]) {
-        this.searchCache.set(cacheKey, files);
-        // 캐시 크기 제한
-        if (this.searchCache.size > 100) {
-            const firstKey = Array.from(this.searchCache.keys())[0];
-            if (firstKey) {
-                this.searchCache.delete(firstKey);
-            }
-        }
+    // 캐시에 검색 결과 추가
+    public addToCache(key: string, files: TFile[]): void {
+        this.searchCache.set(key, files);
     }
 
-    clearCache() {
-        this.lastSearchResults = null;
+    // 캐시 초기화
+    public clearCache(): void {
         this.searchCache.clear();
+    }
+
+    // 폴더의 모든 마크다운 파일 가져오기
+    public getAllMarkdownFiles(folder: TFolder): TFile[] {
+        const files: TFile[] = [];
+        
+        // Obsidian의 Vault.recurseChildren API 사용
+        Vault.recurseChildren(folder, (file: TAbstractFile) => {
+            if (file instanceof TFile && file.extension === 'md') {
+                files.push(file);
+            }
+        });
+        
+        return files;
     }
 
     // 파일 검색 메서드
@@ -314,21 +335,6 @@ export class SearchService {
         if (!cache.frontmatter) return false;
         return Object.values(cache.frontmatter).some(value => 
             pattern.test(String(value)));
-    }
-
-    // 전체 볼트에서 파일 가져오기
-    getAllMarkdownFiles(folder: TFolder): TFile[] {
-        const files: TFile[] = [];
-        
-        folder.children.forEach(child => {
-            if (child instanceof TFile && child.extension === 'md') {
-                files.push(child);
-            } else if (child instanceof TFolder) {
-                files.push(...this.getAllMarkdownFiles(child));
-            }
-        });
-        
-        return files;
     }
 
     // 파일 정렬 메서드

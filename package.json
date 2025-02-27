@@ -23,6 +23,7 @@
 	},
 	"dependencies": {
 		"@popperjs/core": "^2.11.8",
+		"hangul-js": "^0.2.6",
 		"i18next": "^23.15.1"
 	}
 }

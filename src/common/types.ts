@@ -1,5 +1,6 @@
 import { TFile } from 'obsidian';
 import { t } from 'i18next';
+import { App } from 'obsidian';
 
 //#region 기본 인터페이스
 // 카드 객체 구조 정의
@@ -21,6 +22,12 @@ export interface Preset {
 // 폴더별 프리셋 구조 정의
 export interface FolderPresets {
     [folderPath: string]: string[];
+}
+
+// 카드 목록 제공자 인터페이스 추가
+export interface CardListProvider {
+    getCardList(app: App, searchTerm?: string): Promise<TFile[]>;
+    getName(): string;
 }
 //#endregion
 
@@ -166,6 +173,9 @@ export type defaultLayout = 'auto' | 'list' | 'grid' | 'masonry';
 export type ToolbarMenu = 'sort' | 'settings';
 // 카드 세트 타입
 export type CardSetType = 'activeFolder' | 'selectedFolder' | 'vault';
+
+// 카드 목록 제공자 타입
+export type CardListProviderType = CardSetType | 'search';
 //#endregion
 
 //#region UI 설정 옵션

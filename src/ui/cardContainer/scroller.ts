@@ -22,7 +22,9 @@ export class Scroller {
         const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement | null;
         if (!activeCard) return;
 
-        this.centerCard(activeCard, animate);
+        // enableScrollAnimation 설정을 고려하여 애니메이션 적용 여부 결정
+        const shouldAnimate = animate && this.plugin.settings.enableScrollAnimation;
+        this.centerCard(activeCard, shouldAnimate);
     }
 
     // 카드 중앙 정렬 메서드
@@ -50,6 +52,7 @@ export class Scroller {
 
             const newScrollPosition = this.containerEl[scrollProperty] + offset;
 
+            // enableScrollAnimation 설정을 고려하여 애니메이션 적용 여부 결정
             if (animate && this.plugin.settings.enableScrollAnimation) {
                 this.smoothScroll(scrollProperty, newScrollPosition);
             } else {
@@ -176,10 +179,12 @@ export class Scroller {
             }
         }
 
+        // enableScrollAnimation 설정에 따라 스크롤 방식 결정
+        const scrollProperty = isVertical ? 'scrollTop' : 'scrollLeft';
         if (this.plugin.settings.enableScrollAnimation) {
-            this.smoothScroll(isVertical ? 'scrollTop' : 'scrollLeft', targetScroll);
+            this.smoothScroll(scrollProperty, targetScroll);
         } else {
-            this.containerEl[isVertical ? 'scrollTop' : 'scrollLeft'] = targetScroll;
+            this.containerEl[scrollProperty] = targetScroll;
         }
     }
 

@@ -18,7 +18,7 @@ export enum RefreshType {
 
 export class CardNavigatorView extends ItemView {
     //#region 클래스 속성
-    public toolbar: Toolbar;
+    public toolbar!: Toolbar;
     public cardContainer: CardContainer;
     private refreshDebounceTimers: Map<RefreshType, NodeJS.Timeout> = new Map();
     private isRefreshInProgress = false;
@@ -32,8 +32,8 @@ export class CardNavigatorView extends ItemView {
     // 생성자
     constructor(leaf: WorkspaceLeaf, private plugin: CardNavigatorPlugin) {
         super(leaf);
-        this.toolbar = new Toolbar(this.plugin);
         this.cardContainer = new CardContainer(this.plugin, this.leaf);
+        // 툴바는 onOpen에서 초기화됩니다.
     }
 
     // 뷰 타입 반환 메서드
@@ -58,9 +58,17 @@ export class CardNavigatorView extends ItemView {
 
         const navigatorEl = container.createDiv('card-navigator');
         const toolbarEl = navigatorEl.createDiv('card-navigator-toolbar');
+        
+        // 툴바 컨테이너 요소 생성 및 클래스 추가
+        const toolbarContainerEl = toolbarEl.createDiv('card-navigator-toolbar-container');
+        
         const cardContainerEl = navigatorEl.createDiv('card-navigator-container');
 
-        this.toolbar.initialize(toolbarEl);
+        // 툴바 초기화 - CardContainer 인스턴스 전달
+        this.toolbar = new Toolbar(this.plugin, toolbarContainerEl, this.cardContainer);
+        // 명시적으로 initialize 메서드 호출
+        this.toolbar.initialize(toolbarContainerEl);
+        
         this.cardContainer.initialize(cardContainerEl);
     }
 
@@ -74,21 +82,8 @@ export class CardNavigatorView extends ItemView {
     //#region 폴더 및 파일 관리
     // 현재 폴더 경로 반환 메서드
     public async getCurrentFolderPath(): Promise<string | null> {
-        const folder = await this.getCurrentFolder();
+        const folder = await this.cardContainer.getCurrentFolder();
         return folder?.path || null;
-    }
-
-    // 현재 폴더 반환 메서드
-    private async getCurrentFolder(): Promise<TFolder | null> {
-        if (this.plugin.settings.cardSetType === 'selectedFolder' && this.plugin.settings.selectedFolder) {
-            const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.selectedFolder);
-            return abstractFile instanceof TFolder ? abstractFile : null;
-        } else if (this.plugin.settings.cardSetType === 'vault') {
-            return this.plugin.app.vault.getRoot();
-        } else {
-            const activeFile = this.plugin.app.workspace.getActiveFile();
-            return activeFile?.parent || null;
-        }
     }
 
     // 파일 정렬 메서드
@@ -101,13 +96,7 @@ export class CardNavigatorView extends ItemView {
     //#region 카드 컨테이너 관리
     // 카드 컨테이너 컨텐츠 업데이트 메서드
     private async updateCardContainerContent() {
-        const folder = await this.getCurrentFolder();
-        if (!folder) return;
-
-        const files = folder.children.filter((file: any): file is TFile => file instanceof TFile);
-        const mdFiles = files.filter(file => file.extension === 'md');
-        const sortedFiles = this.sortFiles(mdFiles);
-        await this.cardContainer.displayCards(sortedFiles);
+        await this.cardContainer.displayCards([]);
     }
 
     // 레이아웃 설정 업데이트 메서드
@@ -242,27 +231,27 @@ export class CardNavigatorView extends ItemView {
 
         try {
             // 모든 타입을 단일 업데이트로 처리            
-            const folder = await this.getCurrentFolder();
-            if (folder) {
-                // 1. 설정 업데이트
-                this.cardContainer.updateSettings(this.plugin.settings);
-                
-                // 2. 레이아웃 업데이트
-                this.updateLayout();
-                
-                // 3. 컨텐츠 업데이트
-                const files = folder.children
-                    .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
-                const sortedFiles = this.sortFiles(files);
-                
-                // 단일 렌더링 사이클에서 모든 카드 업데이트
-                await this.cardContainer.displayCards(sortedFiles);
-            }
+            // 1. 설정 업데이트
+            this.cardContainer.updateSettings(this.plugin.settings);
             
+            // 2. 레이아웃 업데이트
+            this.updateLayout();
+            
+            // 3. 컨텐츠 업데이트
+            await this.updateCardContainerContent();
         } catch (error) {
-            console.error(`[CardNavigator] 리프레시 중 오류 발생:`, error);
-            throw error;
+            console.error(`[CardNavigator] 리프레시 타입 ${type} 처리 중 오류 발생:`, error);
         }
     }
     //#endregion
+
+    // 검색 입력에 포커스 설정
+    public focusSearch(): void {
+        this.toolbar.focusSearch();
+    }
+
+    // 검색어 설정
+    public setSearchTerm(searchTerm: string): void {
+        this.toolbar.setSearchTerm(searchTerm);
+    }
 }

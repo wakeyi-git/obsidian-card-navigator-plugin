@@ -8,8 +8,8 @@ type CardElementTag = 'div' | 'h3' | 'h4';
 
 export class CardMaker extends Component {
     private readonly MAX_CACHE_SIZE = 500;
-    private readonly MAX_CONCURRENT_RENDERS = 5;
-    private readonly INTERSECTION_ROOT_MARGIN = '200px';
+    private readonly MAX_CONCURRENT_RENDERS = 15;
+    private readonly INTERSECTION_ROOT_MARGIN = '400px';
     private readonly INTERSECTION_THRESHOLD = 0.1;
     private readonly RENDER_QUEUE_INTERVAL = 50;
     private readonly RENDER_TIMEOUT = 2000;
@@ -104,8 +104,12 @@ export class CardMaker extends Component {
                 if (!filePath) return;
 
                 if (entry.isIntersecting) {
+                    // 즉시 렌더링 큐에 높은 우선순위로 추가
                     this.renderQueue.add(filePath);
-                    this.processRenderQueue();
+                    // 즉시 렌더링 처리 시작
+                    requestAnimationFrame(() => {
+                        this.processRenderQueue();
+                    });
                 } else {
                     this.renderQueue.delete(filePath);
                     const timeout = this.renderTimeouts.get(filePath);
@@ -116,8 +120,8 @@ export class CardMaker extends Component {
                 }
             });
         }, {
-            rootMargin: this.INTERSECTION_ROOT_MARGIN,
-            threshold: this.INTERSECTION_THRESHOLD
+            rootMargin: '600px', // 관찰 영역을 더 넓게 설정
+            threshold: 0.1
         });
     }
 
@@ -125,7 +129,7 @@ export class CardMaker extends Component {
         if (this.isProcessingQueue || this.renderQueue.size === 0) return;
 
         this.isProcessingQueue = true;
-        const itemsToProcess = Array.from(this.renderQueue).slice(0, this.MAX_CONCURRENT_RENDERS);
+        const itemsToProcess = Array.from(this.renderQueue).slice(0, this.MAX_CONCURRENT_RENDERS * 3);
 
         for (const filePath of itemsToProcess) {
             this.renderQueue.delete(filePath);
@@ -159,7 +163,7 @@ export class CardMaker extends Component {
 
         this.isProcessingQueue = false;
         if (this.renderQueue.size > 0) {
-            setTimeout(() => this.processRenderQueue(), this.RENDER_QUEUE_INTERVAL);
+            setTimeout(() => this.processRenderQueue(), 5);
         }
     }
 

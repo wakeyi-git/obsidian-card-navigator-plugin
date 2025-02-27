@@ -3,8 +3,9 @@ import CardNavigatorPlugin from '../../main';
 import { CardNavigatorView } from '../cardNavigatorView';
 import { SearchInput } from './search/SearchInput';
 import { toggleSort } from './sort';
-import { toggleSettings } from './settings';
+import { toggleSettings, closePopup } from './settings';
 import { t } from 'i18next';
+import { CardContainer } from 'ui/cardContainer/cardContainer';
 
 // Card Navigator 플러그인의 툴바를 나타내는 클래스
 export class Toolbar {
@@ -13,13 +14,18 @@ export class Toolbar {
     private settingsPopupOpen = false;
     private settingsIcon: HTMLElement | null = null;
     private popupObserver: MutationObserver | null = null;
-    private searchInput: SearchInput;
+    private searchInput!: SearchInput;
     //#endregion
 
     //#region 초기화 및 정리
     // 생성자: 툴바 초기화
-    constructor(private plugin: CardNavigatorPlugin) {
-        this.searchInput = new SearchInput(plugin);
+    constructor(
+        private plugin: CardNavigatorPlugin,
+        private parentEl: HTMLElement,
+        private cardContainer: CardContainer
+    ) {
+        // 툴바 컨테이너는 외부에서 제공됨
+        this.containerEl = parentEl;
     }
 
     // 툴바 초기화 및 컨테이너 설정
@@ -43,22 +49,35 @@ export class Toolbar {
         if (!this.containerEl) return;
 
         this.containerEl.empty();
+        
+        // 검색 컨테이너를 위한 래퍼 추가
+        const searchWrapper = document.createElement('div');
+        searchWrapper.addClass('card-navigator-search-wrapper');
+        this.containerEl.appendChild(searchWrapper);
 
-        const toolbarContainer = this.containerEl.createDiv('card-navigator-toolbar-container');
-
-        toolbarContainer.appendChild(this.searchInput.createSearchInput());
-        toolbarContainer.appendChild(this.createSeparator());
-        toolbarContainer.appendChild(this.createActionIconsContainer());
+        // 검색 입력 초기화 - 래퍼에 추가
+        this.searchInput = new SearchInput(this.plugin, searchWrapper, this.cardContainer);
+        
+        // 구분선 추가
+        const separator = this.createSeparator();
+        this.containerEl.appendChild(separator);
+        
+        // 아이콘 컨테이너 추가
+        const actionIcons = this.createActionIconsContainer();
+        this.containerEl.appendChild(actionIcons);
     }
 
     // 툴바에 대한 구분 요소를 생성
     private createSeparator(): HTMLElement {
-        return createDiv('toolbar-separator');
+        const separator = document.createElement('div');
+        separator.addClass('toolbar-separator');
+        return separator;
     }
 
     // 작업 아이콘(폴더 선택, 정렬, 설정)을 위한 컨테이너를 생성
     private createActionIconsContainer(): HTMLElement {
-        const container = createDiv('card-navigator-action-icons-container');
+        const container = document.createElement('div');
+        container.addClass('card-navigator-action-icons-container');
     
         // 현재 CardSetType에 따라 적절한 아이콘 선택
         const getCardSetIcon = () => {
@@ -111,7 +130,8 @@ export class Toolbar {
 
     // 개별 툴바 아이콘을 생성하는 도우미 함수
     private createToolbarIcon(iconName: string, ariaLabel: string, action: () => void): HTMLElement {
-        const icon = createDiv('clickable-icon');
+        const icon = document.createElement('div');
+        icon.addClass('clickable-icon');
         icon.ariaLabel = ariaLabel;
         
         // 정렬 아이콘인 경우 추가 클래스 부여
@@ -194,36 +214,61 @@ export class Toolbar {
     }
 
     // 설정 팝업을 토글
-    private toggleSettingsPopup() {
-        if (this.settingsPopupOpen) {
+    toggleSettingsPopup(): void {
+        // 현재 팝업이 열려있는지 확인
+        const isPopupOpen = !!document.querySelector('.card-navigator-settings-popup');
+        
+        if (isPopupOpen) {
             this.closeSettingsPopup();
         } else {
             this.openSettingsPopup();
         }
-        this.updateIconStates();
     }
 
     // 설정 팝업 열기
-    private openSettingsPopup() {
-        this.settingsPopupOpen = true;
+    openSettingsPopup(): void {
+        // 툴바 컨테이너 요소가 올바르게 선택되었는지 확인
+        if (!this.containerEl) {
+            console.error('설정 팝업 열기에서 컨테이너 요소가 null입니다');
+            return;
+        }
+        
+        // 툴바 컨테이너 요소가 DOM에 있는지 확인
+        if (!this.containerEl.isConnected) {
+            console.error('설정 팝업 열기에서 컨테이너 요소가 DOM에 연결되어 있지 않습니다');
+            return;
+        }
+        
+        // 설정 팝업 토글
         toggleSettings(this.plugin, this.containerEl);
+        
+        // 아이콘 상태 업데이트
+        this.updateIconStates({ settings: true });
     }
 
     // 설정 팝업 닫기
-    private closeSettingsPopup() {
-        this.settingsPopupOpen = false;
-        const settingsPopup = this.containerEl?.querySelector('.card-navigator-settings-popup');
-        if (settingsPopup) {
-            settingsPopup.remove();
-        }
+    closeSettingsPopup(): void {
+        // 팝업 닫기
+        closePopup('card-navigator-settings-popup', window);
+        
+        // 아이콘 상태 업데이트
+        this.updateIconStates();
     }
 
-    // 팝업 오픈 상태에 따라 아이콘의 시각적 상태를 업데이트
-    private updateIconStates() {
-        if (this.settingsIcon) {
-            this.settingsIcon.classList.toggle('card-navigator-icon-active', this.settingsPopupOpen);
-            // autoApplyPresets 상태에 따라 강조 클래스 토글
-            this.settingsIcon.classList.toggle('card-navigator-settings-active', this.plugin.settings.autoApplyPresets);
+    // 아이콘 상태 업데이트
+    updateIconStates(states?: { settings?: boolean }): void {
+        // 설정 아이콘 상태 업데이트
+        const settingsIcon = this.getSettingsIcon();
+        if (settingsIcon) {
+            const isSettingsOpen = states?.settings !== undefined 
+                ? states.settings 
+                : !!document.querySelector('.card-navigator-settings-popup');
+                
+            if (isSettingsOpen) {
+                settingsIcon.addClass('active');
+            } else {
+                settingsIcon.removeClass('active');
+            }
         }
     }
 
@@ -275,6 +320,39 @@ export class Toolbar {
                 this.settingsIcon.classList.toggle('card-navigator-settings-active', this.plugin.settings.autoApplyPresets);
             }
         }
+    }
+
+    /**
+     * 검색 입력에 포커스 설정
+     */
+    public focusSearch(): void {
+        this.searchInput.focus();
+    }
+
+    /**
+     * 검색어 설정
+     * @param searchTerm 검색어
+     */
+    public setSearchTerm(searchTerm: string): void {
+        this.searchInput.setSearchTerm(searchTerm);
+    }
+
+    /**
+     * 현재 검색어 가져오기
+     * @returns 현재 검색어
+     */
+    public getSearchTerm(): string {
+        return this.searchInput.getSearchTerm();
+    }
+
+    // 설정 아이콘 요소 가져오기
+    getSettingsIcon(): HTMLElement | null {
+        return this.containerEl?.querySelector('.card-navigator-settings-icon') as HTMLElement || null;
+    }
+    
+    // 정렬 아이콘 요소 가져오기
+    getSortIcon(): HTMLElement | null {
+        return this.containerEl?.querySelector('.card-navigator-sort-icon') as HTMLElement || null;
     }
     //#endregion
 }

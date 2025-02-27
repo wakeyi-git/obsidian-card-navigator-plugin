@@ -6,106 +6,35 @@ import { FolderSuggest } from 'ui/settings/components/FolderSuggest';
 import { t } from 'i18next';
 import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 
-// 팝업 관리를 위한 맵
-const currentPopups: Map<Window, { element: HTMLElement, type: ToolbarMenu }> = new Map();
+// 현재 팝업 정보를 저장하는 맵
+interface PopupInfo {
+    element: HTMLElement;
+    clickHandler: (e: MouseEvent) => void;
+}
+
+// 팝업 클래스 이름을 키로 사용하는 맵
+const currentPopups = new Map<string, PopupInfo>();
 
 //#region 설정 기능
 // 설정 메뉴 토글
-export function toggleSettings(plugin: CardNavigatorPlugin, containerEl: HTMLElement | null) {
-    if (!containerEl) {
-        console.error('Container element is undefined in toggleSettings');
+export function toggleSettings(plugin: CardNavigatorPlugin, toolbarEl: HTMLElement): void {
+    const currentWindow = window;
+    const popupClass = 'card-navigator-settings-popup';
+    
+    // 현재 팝업이 열려있는지 확인
+    const existingPopupElement = currentWindow.document.querySelector(`.${popupClass}`);
+    
+    if (existingPopupElement) {
+        closePopup(popupClass, currentWindow);
         return;
     }
-    const currentWindow = containerEl.ownerDocument.defaultView;
-    if (!currentWindow) {
-        console.error('Cannot determine the window of the container element');
-        return;
-    }
-    const settingsPopup = createPopup('card-navigator-settings-popup', 'settings', currentWindow);
-    const settingsManager = plugin.settingsManager;
-
-    // addFolderSelectionSetting(settingsPopup, plugin, settingsManager);
-    addPresetSettingsToPopup(settingsPopup, plugin);
     
-    const layoutSection = createCollapsibleSection(settingsPopup, t('LAYOUT_SETTINGS'), 'layout', true);
+    // 새 팝업 생성
+    closeCurrentPopup(currentWindow);
+    const popup = createPopup(popupClass, 'settings', currentWindow);
     
-    const updateLayoutSettings = (layout: CardNavigatorSettings['defaultLayout']) => {
-        layoutSection.empty();
-
-        addDropdownSetting('defaultLayout', t('DEFAULT_LAYOUT'), layoutSection, plugin, settingsManager, [
-            { value: 'auto', label: t('AUTO') },
-            { value: 'list', label: t('LIST') },
-            { value: 'grid', label: t('GRID') },
-            { value: 'masonry', label: t('MASONRY') }
-        ], (value) => {
-            updateLayoutSettings(value as CardNavigatorSettings['defaultLayout']);
-        });
-        
-        if (layout === 'auto') {
-            addSliderSetting('cardWidthThreshold', t('CARD_WIDTH_THRESHOLD'), layoutSection, plugin, settingsManager);
-        }
-        if (layout === 'grid') {
-            addSliderSetting('gridColumns', t('GRID_COLUMNS'), layoutSection, plugin, settingsManager);
-        }
-        if (layout === 'auto' || layout === 'grid') {
-            addSliderSetting('gridCardHeight', t('GRID_CARD_HEIGHT'), layoutSection, plugin, settingsManager);
-        }
-        if (layout === 'masonry') {
-            addSliderSetting('masonryColumns', t('MASONRY_COLUMNS'), layoutSection, plugin, settingsManager);
-        }
-        if (layout === 'auto' || layout === 'list') {
-            addToggleSetting('alignCardHeight', t('ALIGN_CARD_HEIGHT'), layoutSection, plugin, settingsManager, () => {
-                updateCardsPerViewSetting();
-            });
-            updateCardsPerViewSetting();
-        }
-
-        settingsPopup.addEventListener('click', (e) => e.stopPropagation());
-    };
-
-    const updateCardsPerViewSetting = () => {
-        const cardsPerViewSetting = layoutSection.querySelector('.setting-cards-per-view');
-        if (cardsPerViewSetting) {
-            cardsPerViewSetting.remove();
-        }
-        if (plugin.settings.alignCardHeight) {
-            addSliderSetting('cardsPerView', t('CARDS_PER_VIEW'), layoutSection, plugin, settingsManager)
-                .settingEl.addClass('setting-cards-per-view');
-        }
-    };
-
-    updateLayoutSettings(plugin.settings.defaultLayout);
-
-    const displaySection = createCollapsibleSection(settingsPopup, t('CARD_CONTENT_SETTINGS'), 'display', true);
-    addToggleSetting('renderContentAsHtml', t('RENDER_CONTENT_AS_HTML'), displaySection, plugin, settingsManager);
-    addToggleSetting('dragDropContent', t('DRAG_AND_DROP_CONTENT'), displaySection, plugin, settingsManager);
-    addToggleSetting('showFileName', t('SHOW_FILE_NAME'), displaySection, plugin, settingsManager);
-    addToggleSetting('showFirstHeader', t('SHOW_FIRST_HEADER'), displaySection, plugin, settingsManager);
-    addToggleSetting('showBody', t('SHOW_BODY'), displaySection, plugin, settingsManager);
-
-    const updateBodyLengthSetting = () => {
-        const bodyLengthSetting = displaySection.querySelector('.setting-body-length');
-        if (bodyLengthSetting) {
-            bodyLengthSetting.remove();
-        }
-        if (plugin.settings.bodyLengthLimit) {
-            addSliderSetting('bodyLength', t('BODY_LENGTH'), displaySection, plugin, settingsManager)
-            .settingEl.addClass('setting-body-length');
-        }
-    };
-
-    addToggleSetting('bodyLengthLimit', t('BODY_LENGTH_LIMIT'), displaySection, plugin, settingsManager, () => {
-        updateBodyLengthSetting();
-    });
-
-    updateBodyLengthSetting();
-
-    const stylingSection = createCollapsibleSection(settingsPopup, t('CARD_STYLING_SETTINGS'), 'styling', true);
-    addSliderSetting('fileNameFontSize', t('FILE_NAME_FONT_SIZE'), stylingSection, plugin, settingsManager);
-    addSliderSetting('firstHeaderFontSize', t('FIRST_HEADER_FONT_SIZE'), stylingSection, plugin, settingsManager);
-    addSliderSetting('bodyFontSize', t('BODY_FONT_SIZE'), stylingSection, plugin, settingsManager);
-
-    settingsPopup.addEventListener('click', (e) => e.stopPropagation());
+    // 설정 팝업 내용 생성
+    createSettingsContent(plugin, popup);
 }
 
 // 프리셋 설정 추가
@@ -352,46 +281,65 @@ function addSliderSetting(
 }
 
 //#region 유틸리티 함수
-// 팝업 관련 유틸리티
-function handleWindowClick(event: MouseEvent, windowObj: Window) {
-    onClickOutside(event, windowObj);
-}
+// 팝업 관련 유틸리티 함수들은 더 이상 필요하지 않으므로 제거합니다.
 
-function onClickOutside(event: MouseEvent, windowObj: Window) {
-    const target = event.target as Node;
-    const toolbarEl = windowObj.document.querySelector('.card-navigator-toolbar-container');
-    const existingPopup = currentPopups.get(windowObj);
-    if (existingPopup && !existingPopup.element.contains(target) && !toolbarEl?.contains(target)) {
-        if (
-            existingPopup.type === 'sort' ||
-            (existingPopup.type === 'settings' &&
-                !event.composedPath().some(el => (el as HTMLElement).classList?.contains('card-navigator-settings-popup')))
-        ) {
-            closeCurrentPopup(windowObj);
-        }
+// 팝업 생성 함수
+export function createPopup(popupClass: string, type: string, currentWindow: Window): HTMLElement {
+    // 툴바 요소 찾기 시도
+    let toolbarEl = currentWindow.document.querySelector('.card-navigator-toolbar-container') as HTMLElement;
+    
+    if (!toolbarEl) {
+        toolbarEl = currentWindow.document.querySelector('.card-navigator-toolbar') as HTMLElement;
     }
-}
-
-function createPopup(className: string, type: ToolbarMenu, windowObj: Window): HTMLElement {
-    closeCurrentPopup(windowObj);
-    const popup = windowObj.document.createElement('div');
-    popup.className = className;
-    const toolbarEl = windowObj.document.querySelector('.card-navigator-toolbar-container');
+    
+    // 카드 네비게이터 요소 찾기
+    const cardNavigatorEl = currentWindow.document.querySelector('.card-navigator') as HTMLElement;
+    
+    // 팝업 요소 생성
+    const popupEl = currentWindow.document.createElement('div');
+    popupEl.className = popupClass;
+    popupEl.setAttribute('data-type', type);
+    
+    // 팝업 요소를 적절한 위치에 추가
     if (toolbarEl) {
-        toolbarEl.insertAdjacentElement('afterend', popup);
-        currentPopups.set(windowObj, { element: popup, type });
-        windowObj.addEventListener('click', (e) => handleWindowClick(e, windowObj));
+        toolbarEl.appendChild(popupEl);
+    } else if (cardNavigatorEl) {
+        cardNavigatorEl.appendChild(popupEl);
+    } else {
+        console.error('팝업을 추가할 적절한 컨테이너를 찾을 수 없습니다.');
+        return popupEl; // 빈 팝업 반환
     }
-    return popup;
+    
+    // 문서 클릭 이벤트 리스너 등록
+    const clickHandler = (e: MouseEvent) => {
+        if (!popupEl.contains(e.target as Node) && 
+            !toolbarEl?.contains(e.target as Node)) {
+            closePopup(popupClass, currentWindow);
+        }
+    };
+    
+    // 이벤트 리스너 등록 및 currentPopups에 저장
+    currentWindow.document.addEventListener('click', clickHandler);
+    currentPopups.set(popupClass, {
+        element: popupEl,
+        clickHandler: clickHandler
+    });
+    
+    return popupEl;
 }
 
-function closeCurrentPopup(windowObj: Window) {
-    const existingPopup = currentPopups.get(windowObj);
-    if (existingPopup) {
-        existingPopup.element.remove();
-        currentPopups.delete(windowObj);
-        windowObj.removeEventListener('click', (e) => handleWindowClick(e, windowObj));
-    }
+// 현재 열려있는 모든 팝업 닫기
+export function closeCurrentPopup(currentWindow: Window): void {
+    // 모든 팝업 요소 찾기
+    const popups = currentWindow.document.querySelectorAll('.card-navigator-settings-popup, .card-navigator-sort-popup');
+    
+    // 각 팝업 요소 제거
+    popups.forEach(popup => {
+        const popupClass = popup.className;
+        if (typeof popupClass === 'string') {
+            closePopup(popupClass, currentWindow);
+        }
+    });
 }
 
 // UI 유틸리티
@@ -453,5 +401,120 @@ export async function handleLayoutChange(
     plugin.settings.defaultLayout = layout;
     await plugin.saveSettings();
     plugin.updateLayout(layout);
+}
+
+// 팝업 닫기 함수
+export function closePopup(popupClass: string, currentWindow: Window): void {
+    // 현재 팝업 정보 가져오기
+    const popupInfo = currentPopups.get(popupClass);
+    
+    if (popupInfo) {
+        const { element, clickHandler } = popupInfo;
+        
+        // 팝업 요소가 DOM에 있는지 확인
+        if (element && element.isConnected) {
+            element.remove();
+        }
+        
+        // 이벤트 리스너 제거
+        if (clickHandler) {
+            currentWindow.document.removeEventListener('click', clickHandler);
+        }
+        
+        // 맵에서 팝업 정보 제거
+        currentPopups.delete(popupClass);
+    }
+}
+
+// 설정 팝업 내용 생성 함수
+function createSettingsContent(plugin: CardNavigatorPlugin, popup: HTMLElement): void {
+    const settingsManager = plugin.settingsManager;
+
+    // 프리셋 설정 추가
+    addPresetSettingsToPopup(popup, plugin);
+    
+    // 레이아웃 섹션 생성
+    const layoutSection = createCollapsibleSection(popup, t('LAYOUT_SETTINGS'), 'layout', true);
+    
+    const updateLayoutSettings = (layout: CardNavigatorSettings['defaultLayout']) => {
+        layoutSection.empty();
+
+        addDropdownSetting('defaultLayout', t('DEFAULT_LAYOUT'), layoutSection, plugin, settingsManager, [
+            { value: 'auto', label: t('AUTO') },
+            { value: 'list', label: t('LIST') },
+            { value: 'grid', label: t('GRID') },
+            { value: 'masonry', label: t('MASONRY') }
+        ], (value) => {
+            updateLayoutSettings(value as CardNavigatorSettings['defaultLayout']);
+        });
+        
+        if (layout === 'auto') {
+            addSliderSetting('cardWidthThreshold', t('CARD_WIDTH_THRESHOLD'), layoutSection, plugin, settingsManager);
+        }
+        if (layout === 'grid') {
+            addSliderSetting('gridColumns', t('GRID_COLUMNS'), layoutSection, plugin, settingsManager);
+        }
+        if (layout === 'auto' || layout === 'grid') {
+            addSliderSetting('gridCardHeight', t('GRID_CARD_HEIGHT'), layoutSection, plugin, settingsManager);
+        }
+        if (layout === 'masonry') {
+            addSliderSetting('masonryColumns', t('MASONRY_COLUMNS'), layoutSection, plugin, settingsManager);
+        }
+        if (layout === 'auto' || layout === 'list') {
+            addToggleSetting('alignCardHeight', t('ALIGN_CARD_HEIGHT'), layoutSection, plugin, settingsManager, () => {
+                updateCardsPerViewSetting();
+            });
+            updateCardsPerViewSetting();
+        }
+
+        popup.addEventListener('click', (e) => e.stopPropagation());
+    };
+
+    const updateCardsPerViewSetting = () => {
+        const cardsPerViewSetting = layoutSection.querySelector('.setting-cards-per-view');
+        if (cardsPerViewSetting) {
+            cardsPerViewSetting.remove();
+        }
+        if (plugin.settings.alignCardHeight) {
+            addSliderSetting('cardsPerView', t('CARDS_PER_VIEW'), layoutSection, plugin, settingsManager)
+                .settingEl.addClass('setting-cards-per-view');
+        }
+    };
+
+    updateLayoutSettings(plugin.settings.defaultLayout);
+
+    // 카드 내용 섹션 생성
+    const displaySection = createCollapsibleSection(popup, t('CARD_CONTENT_SETTINGS'), 'display', true);
+    addToggleSetting('renderContentAsHtml', t('RENDER_CONTENT_AS_HTML'), displaySection, plugin, settingsManager);
+    addToggleSetting('dragDropContent', t('DRAG_AND_DROP_CONTENT'), displaySection, plugin, settingsManager);
+    addToggleSetting('showFileName', t('SHOW_FILE_NAME'), displaySection, plugin, settingsManager);
+    addToggleSetting('showFirstHeader', t('SHOW_FIRST_HEADER'), displaySection, plugin, settingsManager);
+    addToggleSetting('showBody', t('SHOW_BODY'), displaySection, plugin, settingsManager);
+
+    const updateBodyLengthSetting = () => {
+        const bodyLengthSetting = displaySection.querySelector('.setting-body-length');
+        if (bodyLengthSetting) {
+            bodyLengthSetting.remove();
+        }
+        if (plugin.settings.bodyLengthLimit) {
+            addSliderSetting('bodyLength', t('BODY_LENGTH'), displaySection, plugin, settingsManager)
+            .settingEl.addClass('setting-body-length');
+        }
+    };
+
+    addToggleSetting('bodyLengthLimit', t('BODY_LENGTH_LIMIT'), displaySection, plugin, settingsManager, () => {
+        updateBodyLengthSetting();
+    });
+
+    updateBodyLengthSetting();
+
+    // 카드 스타일링 섹션 생성
+    const stylingSection = createCollapsibleSection(popup, t('CARD_STYLING_SETTINGS'), 'styling', true);
+    addSliderSetting('fileNameFontSize', t('FILE_NAME_FONT_SIZE'), stylingSection, plugin, settingsManager);
+    addSliderSetting('firstHeaderFontSize', t('FIRST_HEADER_FONT_SIZE'), stylingSection, plugin, settingsManager);
+    addSliderSetting('bodyFontSize', t('BODY_FONT_SIZE'), stylingSection, plugin, settingsManager);
+
+    // 이벤트 버블링 방지
+    popup.addEventListener('click', (e) => e.stopPropagation());
 }
 
