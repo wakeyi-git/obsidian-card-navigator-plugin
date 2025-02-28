@@ -12,6 +12,7 @@
 	"author": "wakeyi",
 	"license": "MIT",
 	"devDependencies": {
+		"@types/masonry-layout": "^4.2.8",
 		"@types/node": "^22.13.5",
 		"@typescript-eslint/eslint-plugin": "^8.25.0",
 		"@typescript-eslint/parser": "^8.25.0",

@@ -1,24 +1,103 @@
 import { App } from 'obsidian';
 import { CardNavigatorSettings, Card } from 'common/types';
-import { VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 
 /**
- * 레이아웃 설정과 계산을 중앙에서 관리하는 클래스
- * 모든 레이아웃 관련 계산의 단일 소스 역할을 합니다.
+ * 레이아웃 설정을 관리하는 클래스
+ * 
+ * 이 클래스는 카드 레이아웃에 필요한 설정값을 계산하고 관리합니다.
+ * 컨테이너 크기, 카드 간격, 방향 등의 설정을 처리합니다.
  */
 export class LayoutConfig {
-    //#region 클래스 속성
-    private containerEl: HTMLElement;
+    private container: HTMLElement | null = null;
     private settings: CardNavigatorSettings;
-    private app: App;
-    private previousColumns: number = 0;
-    private _isVertical: boolean | null = null; // 캐시된 방향 값
-    //#endregion
+    private isInitialized: boolean = false;
+    private defaultContainerSize: { width: number; height: number };
+    private lastRatio: number | null = null;
+    private lastAvailableWidth: number | null = null;
 
-    constructor(app: App, containerEl: HTMLElement, settings: CardNavigatorSettings) {
-        this.app = app;
-        this.containerEl = containerEl;
+    constructor(settings: CardNavigatorSettings) {
         this.settings = settings;
+        // 초기 기본값을 뷰포트 크기의 일부로 설정
+        this.defaultContainerSize = this.calculateDefaultSizeFromViewport();
+    }
+
+    /**
+     * 뷰포트 크기를 기반으로 기본 컨테이너 크기를 계산합니다.
+     */
+    private calculateDefaultSizeFromViewport(): { width: number; height: number } {
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // 뷰포트의 80%를 기본 크기로 사용 (최소 400x600)
+        return {
+            width: Math.max(400, Math.floor(viewportWidth * 0.8)),
+            height: Math.max(600, Math.floor(viewportHeight * 0.8))
+        };
+    }
+
+    /**
+     * 컨테이너를 설정합니다.
+     */
+    setContainer(container: HTMLElement): void {
+        this.container = container;
+        if (container) {
+            this.isInitialized = true;
+        } else {
+            console.warn('[LayoutConfig] 컨테이너가 null로 설정되었습니다. 기본 뷰포트 크기를 사용합니다.');
+            // 컨테이너가 null인 경우에도 초기화 상태를 true로 설정하여 기본 크기를 사용하도록 함
+            this.isInitialized = true;
+            this.defaultContainerSize = this.calculateDefaultSizeFromViewport();
+        }
+    }
+
+    /**
+     * 설정을 업데이트합니다.
+     */
+    updateSettings(settings: CardNavigatorSettings): void {
+        this.settings = settings;
+    }
+
+    /**
+     * 컨테이너가 수직 방향인지 확인합니다.
+     * @returns 수직 방향 여부
+     */
+    public isVerticalContainer(): boolean {
+        // calculateContainerOrientation 메서드 재사용
+        const { isVertical } = this.calculateContainerOrientation();
+        return isVertical;
+    }
+
+    /**
+     * 컨테이너 방향을 계산합니다.
+     * @returns 컨테이너 방향 정보 (비율, 수직 여부)
+     */
+    public calculateContainerOrientation(): { ratio: number, isVertical: boolean } {
+        // 컨테이너 크기 가져오기
+        const { width, height } = this.getContainerSize();
+        
+        // 비율 계산
+        const ratio = width / height;
+        
+        // 방향 결정
+        let isVertical = true;
+        
+        // 설정에 따라 방향 결정
+        if (this.settings.layoutDirection === 'auto') {
+            // 자동 방향 - 비율에 따라 결정
+            isVertical = ratio < 1.2; // 너비가 높이의 1.2배 미만이면 수직
+        } else {
+            // 명시적 방향 설정
+            isVertical = this.settings.layoutDirection === 'vertical';
+        }
+        
+        return { ratio, isVertical };
+    }
+
+    /**
+     * 카드 간격을 가져옵니다.
+     */
+    getCardGap(): number {
+        return this.settings.cardGap;
     }
 
     //#region CSS 변수 가져오기
@@ -26,229 +105,151 @@ export class LayoutConfig {
      * CSS 변수 값을 가져옵니다.
      */
     public getCSSVariable(variableName: string, defaultValue: number): number {
-        if (!this.containerEl) return defaultValue;
-        const valueStr = getComputedStyle(this.containerEl).getPropertyValue(variableName).trim();
+        if (!this.container) return defaultValue;
+        const valueStr = getComputedStyle(this.container).getPropertyValue(variableName).trim();
         return parseInt(valueStr) || defaultValue;
     }
 
-    /**
-     * CSS 변수 값을 숫자로 가져옵니다.
-     */
-    private getCSSVariableAsNumber(variableName: string, defaultValue: number): number {
-        if (!this.containerEl) return defaultValue;
-        
-        const value = getComputedStyle(this.containerEl).getPropertyValue(variableName);
-        if (!value) return defaultValue;
-        
-        // px 단위 제거 후 숫자로 변환
-        const numValue = parseFloat(value.replace('px', ''));
-        return isNaN(numValue) ? defaultValue : numValue;
-    }
-
-    /**
-     * 카드 간격을 가져옵니다.
-     */
-    public getCardGap(): number {
-        return this.getCSSVariable('--card-navigator-gap', 10);
-    }
 
     /**
      * 컨테이너 패딩을 가져옵니다.
      */
     public getContainerPadding(): number {
-        return this.getCSSVariable('--card-navigator-container-padding', 10);
+        // 설정에서 containerPadding 값을 사용
+        return this.settings.containerPadding;
     }
     //#endregion
 
     //#region 컨테이너 관련 메서드
     /**
-     * 컨테이너 크기 정보를 가져옵니다.
+     * 컨테이너 크기를 가져옵니다.
+     * @returns 컨테이너 크기 (너비, 높이)
      */
-    public getContainerSize(): { width: number, height: number, ratio: number } {
-        const width = this.containerEl?.offsetWidth || 0;
-        const height = this.containerEl?.offsetHeight || 0;
-        const ratio = width > 0 && height > 0 ? width / height : 0;
+    public getContainerSize(): { width: number, height: number } {
+        if (!this.container) {
+            // 컨테이너가 없는 경우 뷰포트 크기 사용
+            return {
+                width: window.innerWidth,
+                height: window.innerHeight
+            };
+        }
         
-        return { width, height, ratio };
+        // 컨테이너 크기 계산
+        const containerRect = this.container.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // 뷰포트 내에서 실제 사용 가능한 컨테이너 크기 계산
+        let width = Math.min(containerRect.width, viewportWidth - containerRect.left);
+        let height = Math.min(containerRect.height, viewportHeight - containerRect.top);
+        
+        // 비정상적인 값 처리 - 뷰포트 기반 값으로 대체
+        if (width <= 0 || height <= 0) {
+            console.log(`[LayoutConfig] 컨테이너 크기가 유효하지 않습니다: ${width}x${height}. 뷰포트 기반 크기를 사용합니다.`);
+            
+            // 뷰포트 기반 크기 계산
+            width = Math.max(400, Math.floor(viewportWidth * 0.8));
+            height = Math.max(600, Math.floor(viewportHeight * 0.8));
+        }
+        
+        return { width, height };
     }
     
     /**
-     * 사용 가능한 컨테이너 너비를 계산합니다.
+     * 사용 가능한 너비를 계산합니다.
+     * @returns 사용 가능한 너비
      */
     public getAvailableWidth(): number {
-        if (!this.containerEl) return 0;
+        const { width } = this.getContainerSize();
+        const padding = this.getContainerPadding() * 2;
+        const availableWidth = Math.max(0, width - padding);
         
-        const containerStyle = window.getComputedStyle(this.containerEl);
-        const containerWidth = this.containerEl.offsetWidth;
-        const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
-        const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
+        // 로그 출력 빈도 줄이기 - 정적 변수 사용
+        if (!this.lastAvailableWidth || Math.abs(this.lastAvailableWidth - availableWidth) > 5) {
+            console.debug(`[LayoutConfig] 사용 가능한 너비 - 컨테이너 너비: ${width}, 패딩: ${padding}, 사용 가능: ${availableWidth}`);
+            this.lastAvailableWidth = availableWidth;
+        }
         
-        return containerWidth - paddingLeft - paddingRight;
+        return availableWidth;
     }
 
     /**
-     * 사용 가능한 컨테이너 높이를 계산합니다.
+     * 사용 가능한 높이를 계산합니다.
+     * @returns 사용 가능한 높이
      */
     public getAvailableHeight(): number {
-        if (!this.containerEl) return 0;
+        const { height } = this.getContainerSize();
+        const padding = this.getContainerPadding() * 2;
+        const availableHeight = Math.max(0, height - padding);
         
-        const containerStyle = window.getComputedStyle(this.containerEl);
-        const containerHeight = this.containerEl.offsetHeight;
-        const paddingTop = parseFloat(containerStyle.paddingTop) || 0;
-        const paddingBottom = parseFloat(containerStyle.paddingBottom) || 0;
+        // 비정상적으로 큰 높이 값 제한 (최대 10000px)
+        const maxReasonableHeight = 10000;
+        const finalHeight = Math.min(availableHeight, maxReasonableHeight);
         
-        return containerHeight - paddingTop - paddingBottom;
-    }
-
-    /**
-     * 컨테이너가 수직인지 확인합니다.
-     * 이 메서드는 레이아웃 방향을 결정하는 핵심 메서드입니다.
-     */
-    public isVerticalContainer(): boolean {
-        // 컨테이너 크기 정보 가져오기
-        const { width, height, ratio } = this.getContainerSize();
-        console.log(`[CardNavigator] 컨테이너 크기: ${width}x${height}, 비율(w/h): ${ratio.toFixed(2)}`);
-        
-        // 레이아웃 타입 로깅
-        console.log(`[CardNavigator] isVerticalContainer 호출: defaultLayout = ${this.settings.defaultLayout}`);
-        
-        // 컨테이너 크기가 아직 계산되지 않은 경우 (초기 렌더링 시)
-        if (width === 0 || height === 0) {
-            console.log(`[CardNavigator] 컨테이너 크기가 아직 계산되지 않음. 대체 방법 시도`);
-            
-            // CSS 변수에서 크기 정보 가져오기 시도
-            const containerWidth = this.getCSSVariableAsNumber('--container-width', 0);
-            const containerHeight = this.getCSSVariableAsNumber('--container-height', 0);
-            
-            if (containerWidth > 0 && containerHeight > 0) {
-                const cssRatio = containerWidth / containerHeight;
-                const isVerticalByCSS = cssRatio < 1;
-                console.log(`[CardNavigator] CSS 변수 기반 방향 결정: ${containerWidth}x${containerHeight}, isVertical = ${isVerticalByCSS}`);
-                
-                // 캐시된 방향 값 업데이트
-                this._isVertical = isVerticalByCSS;
-                
-                // 레이아웃 타입에 따른 추가 처리
-                if (this.settings.defaultLayout === 'grid' || this.settings.defaultLayout === 'masonry') {
-                    this._isVertical = true;
-                    console.log(`[CardNavigator] 그리드/메이슨리 레이아웃은 항상 세로 모드 사용`);
-                    return true;
-                }
-                
-                return isVerticalByCSS;
-            }
-            
-            // 캐시된 값이 있으면 사용
-            if (this._isVertical !== null) {
-                console.log(`[CardNavigator] 캐시된 방향 값 사용: isVertical = ${this._isVertical}`);
-                return this._isVertical;
-            }
-            
-            // 리스트 레이아웃인 경우 기본적으로 세로 모드 사용
-            if (this.settings.defaultLayout === 'list') {
-                this._isVertical = true;
-                console.log(`[CardNavigator] 리스트 레이아웃 기본값: isVertical = true (세로 모드)`);
-                return true;
-            }
-            
-            // auto 레이아웃에서 1열인 경우에도 기본적으로 세로 모드 사용
-            if (this.settings.defaultLayout === 'auto' && this.calculateAutoColumns() === 1) {
-                this._isVertical = true;
-                console.log(`[CardNavigator] auto 레이아웃 1열 기본값: isVertical = true (세로 모드)`);
-                return true;
-            }
-            
-            // 그리드 및 메이슨리 레이아웃은 항상 세로 모드 사용
-            this._isVertical = true;
-            console.log(`[CardNavigator] 그리드/메이슨리 레이아웃: isVertical = true (세로 모드)`);
-            return true;
+        if (finalHeight !== availableHeight) {
+            console.warn(`[LayoutConfig] 비정상적으로 큰 높이 값 감지: ${availableHeight}px, ${finalHeight}px로 제한됨`);
         }
         
-        // 컨테이너 비율에 따른 방향 결정
-        // 비율이 1보다 작으면 세로로 긴 컨테이너 (세로 모드 사용)
-        // 비율이 1보다 크면 가로로 긴 컨테이너 (가로 모드 사용)
-        const isVerticalByRatio = ratio < 1;
+        console.log(`[LayoutConfig] 사용 가능한 높이 - 컨테이너 높이: ${height}, 패딩: ${padding}, 사용 가능: ${finalHeight}`);
         
-        // 리스트 레이아웃인 경우 컨테이너 비율에 따라 방향 결정
-        if (this.settings.defaultLayout === 'list') {
-            this._isVertical = isVerticalByRatio;
-            console.log(`[CardNavigator] 리스트 레이아웃: isVertical = ${isVerticalByRatio} (${isVerticalByRatio ? '세로' : '가로'} 모드)`);
-            return isVerticalByRatio;
-        }
-        
-        // auto 레이아웃에서 1열인 경우에도 컨테이너 비율에 따라 방향 결정
-        if (this.settings.defaultLayout === 'auto' && this.calculateAutoColumns() === 1) {
-            this._isVertical = isVerticalByRatio;
-            console.log(`[CardNavigator] auto 레이아웃 1열: isVertical = ${isVerticalByRatio} (${isVerticalByRatio ? '세로' : '가로'} 모드)`);
-            return isVerticalByRatio;
-        }
-        
-        // 그리드 및 메이슨리 레이아웃은 항상 세로 모드 사용
-        this._isVertical = true;
-        console.log(`[CardNavigator] 그리드/메이슨리 레이아웃: isVertical = true (세로 모드)`);
-        return true;
-    }
-    
-    /**
-     * 컨테이너 스타일을 가져옵니다.
-     */
-    public getContainerStyle(isVertical: boolean): Partial<CSSStyleDeclaration> {
-        console.warn('[CardNavigator] getContainerStyle은 더 이상 사용되지 않습니다. LayoutStyleManager.applyContainerStyle을 사용하세요.');
-        return {}; // 빈 객체 반환
+        return finalHeight;
     }
     //#endregion
 
     //#region 레이아웃 계산
     /**
-     * 자동 레이아웃의 열 수를 계산합니다.
+     * 컨테이너 너비에 따라 자동으로 열 수를 계산합니다.
+     * 히스테리시스를 적용하여 너비가 약간 변경될 때 열 수가 자주 변경되는 것을 방지합니다.
      */
     public calculateAutoColumns(): number {
+        // 컨테이너 크기 가져오기
+        const containerWidth = this.getContainerSize().width;
         const availableWidth = this.getAvailableWidth();
-        const cardGap = this.getCardGap();
-        const threshold = this.settings.cardWidthThreshold;
         
-        // 히스테리시스 버퍼
-        const upperBuffer = 40;
-        const lowerBuffer = 20;
+        // 카드 간격 가져오기
+        const gap = this.getCardGap();
         
-        // 현재 열 수 계산
-        let columns = Math.max(1, Math.floor((availableWidth + cardGap) / (threshold + cardGap)));
+        // 카드 임계값 너비 (설정에서 가져옴)
+        const cardThresholdWidth = this.settings.cardThresholdWidth;
         
-        // 실제 카드 너비 계산
-        const actualCardWidth = (availableWidth - (columns - 1) * cardGap) / columns;
+        // 히스테리시스 버퍼 (열 수 변경 시 안정성을 위해)
+        const hysteresisBuffer = 50; // 더 큰 버퍼로 조정
         
-        // 1열 강제 전환 조건
-        if (actualCardWidth < threshold - lowerBuffer) {
-            return 1;
+        // 현재 열 수
+        const currentColumns = this.settings.cardsPerColumn || 1;
+        
+        // 최대 가능한 열 수 계산
+        const maxPossibleColumns = Math.max(1, Math.floor((availableWidth + gap) / (cardThresholdWidth + gap)));
+        
+        console.log(`[LayoutConfig] 열 수 계산 - 컨테이너 너비: ${containerWidth}px, 사용 가능한 너비: ${availableWidth}px`);
+        console.log(`[LayoutConfig] 열 수 계산 - 카드 임계값 너비: ${cardThresholdWidth}px, 간격: ${gap}px, 현재 열 수: ${currentColumns}`);
+        
+        // 열 수 증가 조건: 현재보다 더 많은 열을 수용할 수 있고, 히스테리시스 버퍼를 고려해도 충분한 공간이 있는 경우
+        const shouldIncrease = maxPossibleColumns > currentColumns && 
+            availableWidth >= (currentColumns + 1) * cardThresholdWidth + currentColumns * gap + hysteresisBuffer;
+        
+        // 열 수 감소 조건: 현재 열 수가 최대 가능 열 수보다 크거나, 히스테리시스 버퍼를 고려했을 때 현재 열 수를 유지할 수 없는 경우
+        const shouldDecrease = currentColumns > 1 && (
+            maxPossibleColumns < currentColumns || 
+            availableWidth < currentColumns * cardThresholdWidth + (currentColumns - 1) * gap - hysteresisBuffer
+        );
+        
+        console.log(`[LayoutConfig] 열 수 변경 조건 - 증가: ${shouldIncrease}, 감소: ${shouldDecrease}, 최대 가능 열 수: ${maxPossibleColumns}`);
+        
+        // 열 수 결정
+        let newColumns = currentColumns;
+        
+        if (shouldIncrease) {
+            newColumns = Math.min(maxPossibleColumns, currentColumns + 1);
+            console.log(`[LayoutConfig] 열 수 증가: ${currentColumns} -> ${newColumns}`);
+        } else if (shouldDecrease) {
+            newColumns = Math.max(1, maxPossibleColumns);
+            console.log(`[LayoutConfig] 열 수 감소: ${currentColumns} -> ${newColumns}`);
         }
         
-        // 2열 이상에서의 히스테리시스 적용
-        if (columns >= 2 && this.previousColumns > 0) {
-            // 이전 열 수에서의 카드 너비 계산
-            const previousWidth = (availableWidth - (this.previousColumns - 1) * cardGap) / this.previousColumns;
-            
-            // 이전 상태가 유효하면 히스테리시스 적용
-            if (previousWidth >= threshold - lowerBuffer && previousWidth <= threshold + upperBuffer) {
-                return this.previousColumns;
-            }
-            
-            // 열 수가 증가하는 경우 (컨테이너 너비 증가)
-            if (columns > this.previousColumns) {
-                // 새로운 열 수에서의 카드 너비가 임계값보다 충분히 큰 경우에만 열 수 증가
-                if (actualCardWidth >= threshold + upperBuffer) {
-                    return columns;
-                } else {
-                    // 그렇지 않으면 이전 열 수 유지
-                    return this.previousColumns;
-                }
-            }
-        }
-        
-        return columns;
+        return newColumns;
     }
-    //#endregion
 
-    //#region 카드 관련 메서드
     /**
      * 카드 너비를 계산합니다.
      */
@@ -262,349 +263,73 @@ export class LayoutConfig {
 
     /**
      * 카드 높이를 계산합니다.
-     * @param layout 레이아웃 타입
-     * @param isVertical 수직 방향 여부
-     * @param card 카드 객체 (메이슨리 레이아웃에서만 사용)
-     * @param cardWidth 카드 너비 (메이슨리 레이아웃에서만 사용)
-     * @returns 계산된 카드 높이 또는 'auto'
+     * 통합 레이아웃에서는 수직 방향, 높이 정렬 여부, 카드 뷰 수에 따라 높이를 결정합니다.
      */
-    public calculateCardHeight(
-        layout: CardNavigatorSettings['defaultLayout'], 
-        isVertical: boolean, 
-        card?: Card, 
-        cardWidth?: number
-    ): number | 'auto' {
-        // 그리드 레이아웃은 고정 높이 사용
-        if (layout === 'grid') {
-            return this.settings.gridCardHeight;
+    public calculateCardHeight(isVertical: boolean, card?: Card, cardWidth?: number): number | 'auto' {
+        // 디버그 로그 레벨 설정 (true: 상세 로그, false: 최소 로그)
+        const verboseLogging = false;
+        
+        if (verboseLogging) {
+            console.log(`[LayoutConfig] 카드 높이 계산 시작 - 높이 정렬: ${this.settings.alignCardHeight}, 수직 방향: ${isVertical}`);
         }
-
-        // 메이슨리 레이아웃은 카드 내용 기반 높이 계산
-        if (layout === 'masonry') {
-            // 카드 객체와 너비가 제공된 경우 직접 높이 계산
-            if (card && cardWidth) {
-                return this.calculateEstimatedHeight(card, cardWidth);
+        
+        // 높이 정렬이 활성화되지 않은 경우 'auto' 반환
+        if (!this.settings.alignCardHeight) {
+            if (verboseLogging) {
+                console.log(`[LayoutConfig] 높이 정렬이 비활성화되어 'auto' 반환`);
             }
-            // 그렇지 않으면 'auto' 반환
-            return 'auto';
-        }
-
-        // 리스트 레이아웃 또는 자동 레이아웃
-        if (layout === 'list' || layout === 'auto') {
-            // 세로 모드에서 높이 정렬이 활성화된 경우
-            if (isVertical && this.settings.alignCardHeight) {
-                const containerHeight = this.getAvailableHeight();
-                const cardGap = this.getCardGap();
-                
-                // 사용 가능한 높이에서 모든 여백 제외
-                const availableHeight = containerHeight;
-                
-                // 정수로 나누어 떨어지는 높이 계산
-                const totalGaps = cardGap * (this.settings.cardsPerView - 1);
-                const heightWithoutGaps = availableHeight - totalGaps;
-                const cardHeight = Math.floor(heightWithoutGaps / this.settings.cardsPerView);
-                
-                // 마지막 1px 여유 확보
-                return Math.max(100, cardHeight - 1);
-            }
-            
-            // 가로 모드에서는 컨테이너 높이에 맞춤
-            if (!isVertical) {
-                const containerHeight = this.getAvailableHeight();
-                return Math.max(100, containerHeight - 20); // 약간의 여백 제공
-            }
-            
-            // 높이 정렬이 비활성화된 경우
-            // 카드 객체와 너비가 제공된 경우 내용 기반 높이 계산
-            if (card && cardWidth) {
-                return this.calculateEstimatedHeight(card, cardWidth);
-            }
-            
-            // 카드 객체나 너비가 제공되지 않은 경우 자동 높이 사용
             return 'auto';
         }
         
+        // 높이 정렬이 활성화된 경우, 선택된 방식에 따라 높이 계산:
+        if (verboseLogging) {
+            console.log(`[LayoutConfig] 높이 계산 방식 - 고정 높이 사용: ${this.settings.useFixedHeight}, 고정 높이 값: ${this.settings.fixedCardHeight}, 열당 카드 수: ${this.settings.cardsPerColumn}`);
+        }
+        
+        // 1. 고정 높이 사용 (useFixedHeight가 true이고 fixedCardHeight가 0보다 큰 경우)
+        if (this.settings.useFixedHeight && this.settings.fixedCardHeight > 0) {
+            if (verboseLogging) {
+                console.log(`[LayoutConfig] 고정 높이 사용: ${this.settings.fixedCardHeight}px`);
+            }
+            return this.settings.fixedCardHeight;
+        }
+        
+        // 2. 열당 카드 수에 따른 높이 계산 (useFixedHeight가 false이고 cardsPerColumn이 0보다 큰 경우)
+        if (!this.settings.useFixedHeight && this.settings.cardsPerColumn > 0) {
+            const availableHeight = this.getAvailableHeight();
+            const cardGap = this.getCardGap();
+            const totalGapHeight = (this.settings.cardsPerColumn - 1) * cardGap;
+            const calculatedHeight = Math.floor((availableHeight - totalGapHeight) / this.settings.cardsPerColumn);
+            
+            if (verboseLogging) {
+                console.log(`[LayoutConfig] 열당 카드 수에 따른 높이 계산:`);
+                console.log(`  - 사용 가능한 높이: ${availableHeight}px`);
+                console.log(`  - 카드 간격: ${cardGap}px`);
+                console.log(`  - 총 간격 높이: ${totalGapHeight}px`);
+                console.log(`  - 계산된 카드 높이: ${calculatedHeight}px`);
+                console.log(`  - 설정된 cardsPerColumn: ${this.settings.cardsPerColumn}`);
+                console.log(`  - 실제 사용된 cardsPerColumn: ${this.settings.cardsPerColumn}`);
+            }
+            
+            return calculatedHeight;
+        }
+        
+        // 기본값: 자동 높이 (alignCardHeight는 true지만 다른 설정이 없는 경우)
+        if (verboseLogging) {
+            console.log(`[LayoutConfig] 기본값 'auto' 반환 - 높이 정렬은 활성화되었지만 다른 설정이 없음`);
+        }
         return 'auto';
-    }
-
-    /**
-     * 카드 내용에 기반한 예상 높이를 계산합니다.
-     * 메이슨리 레이아웃에서 사용됩니다.
-     * @param card 높이를 계산할 카드 객체
-     * @param cardWidth 카드의 너비 (픽셀)
-     * @returns 예상 카드 높이 (픽셀)
-     */
-    public calculateEstimatedHeight(card: Card, cardWidth: number): number {
-        const lineHeight = 1.6;  // 기본 줄간격
-        const padding = 40;      // 카드 내부 여백
-        let estimatedHeight = padding;  // 시작 높이는 패딩값
-
-        // 카드 너비에 따른 보정 계수 계산
-        // 좁은 너비에서는 높이를 줄이고, 넓은 너비에서는 높이를 늘림
-        const widthFactor = Math.max(0.8, Math.min(1.2, this.settings.cardWidthThreshold / cardWidth));
-        
-        // 1. 파일명 높이 계산 - 너비 기반 계수 조정
-        if (this.settings.showFileName && card.file.basename) {
-            const fileNameCharWidth = this.settings.fileNameFontSize * 0.6 * widthFactor;
-            const fileNameLines = Math.ceil(
-                (card.file.basename.length * fileNameCharWidth) 
-                / (cardWidth - padding)
-            );
-            estimatedHeight += fileNameLines * this.settings.fileNameFontSize * lineHeight;
-            estimatedHeight += 12; // 파일명 아래 여백
-        }
-
-        // 2. 첫 번째 헤더 높이 계산 - 너비 기반 계수 조정
-        if (this.settings.showFirstHeader && card.firstHeader) {
-            const headerCharWidth = this.settings.firstHeaderFontSize * 0.6 * widthFactor;
-            const headerLines = Math.ceil(
-                (card.firstHeader.length * headerCharWidth) 
-                / (cardWidth - padding)
-            );
-            estimatedHeight += headerLines * this.settings.firstHeaderFontSize * lineHeight;
-            estimatedHeight += 20; // 헤더 아래 여백
-        }
-
-        // 3. 본문 텍스트 높이 계산
-        if (this.settings.showBody && card.body) {
-            // 마크다운 구문 제거 전에 이미지 카운트 계산
-            const markdownImages = (card.body.match(/!\[(?:.*?)\]\((?:.*?)\)/g) || []);
-            const htmlImages = (card.body.match(/<img[^>]+>/g) || []);
-            const embedImages = (card.body.match(/\[\[(?:.*?\.(?:png|jpg|jpeg|gif|bmp|svg))\]\]/gi) || []);
-            
-            // 총 이미지 개수
-            const imageCount = markdownImages.length + htmlImages.length + embedImages.length;
-            
-            if (imageCount > 0) {
-                // 이미지당 예상 높이 추가 (너비에 비례하여 조정)
-                const baseImageHeight = Math.min(220, cardWidth * 0.7); // 너비에 비례한 이미지 높이
-                
-                // 이미지 크기 힌트 확인 (예: ![|100x200])
-                let totalImageHeight = 0;
-                
-                // 마크다운 이미지 크기 분석
-                markdownImages.forEach(img => {
-                    const sizeHint = img.match(/\|(\d+)x(\d+)/);
-                    if (sizeHint) {
-                        // 명시적 높이에 여유 공간 추가 (너비 비율에 따라 조정)
-                        const specifiedWidth = parseInt(sizeHint[1]);
-                        const specifiedHeight = parseInt(sizeHint[2]);
-                        
-                        // 이미지 비율 유지하면서 카드 너비에 맞게 조정
-                        const scaleFactor = Math.min(1, (cardWidth - padding) / specifiedWidth);
-                        totalImageHeight += specifiedHeight * scaleFactor + 20;
-                    } else {
-                        totalImageHeight += baseImageHeight;
-                    }
-                });
-                
-                // HTML 이미지 크기 분석
-                htmlImages.forEach(img => {
-                    const widthMatch = img.match(/width="(\d+)"/);
-                    const heightMatch = img.match(/height="(\d+)"/);
-                    
-                    if (widthMatch && heightMatch) {
-                        // 너비와 높이가 모두 지정된 경우 비율 유지
-                        const specifiedWidth = parseInt(widthMatch[1]);
-                        const specifiedHeight = parseInt(heightMatch[1]);
-                        
-                        // 이미지 비율 유지하면서 카드 너비에 맞게 조정
-                        const scaleFactor = Math.min(1, (cardWidth - padding) / specifiedWidth);
-                        totalImageHeight += specifiedHeight * scaleFactor + 20;
-                    } else if (heightMatch) {
-                        // 높이만 지정된 경우
-                        totalImageHeight += parseInt(heightMatch[1]) + 20;
-                    } else {
-                        totalImageHeight += baseImageHeight;
-                    }
-                });
-                
-                // 임베드 이미지는 기본 크기 적용
-                totalImageHeight += embedImages.length * baseImageHeight;
-                
-                estimatedHeight += totalImageHeight;
-                // 이미지 간격은 카드 너비에 비례하여 조정
-                estimatedHeight += imageCount * Math.min(40, cardWidth * 0.1); 
-            }
-            
-            // 마크다운 구문 제거 (이미지 제외)
-            const plainText = card.body
-                .replace(/!\[(?:.*?)\]\((?:.*?)\)/g, '') // 이미지 마크다운 제거
-                .replace(/<img[^>]+>/g, '') // HTML 이미지 태그 제거
-                .replace(/\[\[(?:.*?\.(?:png|jpg|jpeg|gif|bmp|svg))\]\]/gi, '') // 임베드 이미지 제거
-                .replace(/[#*`_~\[\]()]/g, ''); // 다른 마크다운 구문 제거
-            
-            // 텍스트 줄 수 계산 개선
-            const lines = plainText.split('\n');
-            let totalLines = 0;
-            
-            // HTML 렌더링 여부와 카드 너비에 따른 계수 조정
-            const charWidthMultiplier = this.settings.renderContentAsHtml ? 
-                { korean: 1.1 * widthFactor, other: 0.55 * widthFactor } : // HTML 렌더링 시
-                { korean: 1.0 * widthFactor, other: 0.5 * widthFactor };   // 일반 텍스트 시
-            
-            // 여유 공간도 카드 너비에 비례하여 조정
-            const spaceMultiplier = Math.min(16, cardWidth * 0.05);
-            const emptyLineHeight = this.settings.renderContentAsHtml ? 1.2 : 0.7;
-            
-            lines.forEach(line => {
-                if (line.trim() === '') {
-                    // 빈 줄 계산
-                    totalLines += emptyLineHeight;
-                } else {
-                    // 한글/영문 너비 계산
-                    let lineWidth = 0;
-                    for (let char of line) {
-                        // 한글 유니코드 범위: AC00-D7AF
-                        if (/[\uAC00-\uD7AF]/.test(char)) {
-                            lineWidth += this.settings.bodyFontSize * charWidthMultiplier.korean;
-                        } else {
-                            lineWidth += this.settings.bodyFontSize * charWidthMultiplier.other;
-                        }
-                    }
-                    
-                    // 실제 줄 수 계산 (카드 너비에 따라 조정)
-                    const availableWidth = cardWidth - (padding + spaceMultiplier);
-                    const lineCount = Math.max(1, Math.ceil(lineWidth / availableWidth));
-                    
-                    // 줄 수에 따른 높이 계산 계수 조정 (카드 너비에 따라 조정)
-                    const lineMultiplier = this.settings.renderContentAsHtml ? 
-                        1.1 * Math.pow(widthFactor, 0.8) : // 넓은 카드에서는 더 작은 계수 적용
-                        0.8 * Math.pow(widthFactor, 0.8);
-                    totalLines += lineCount * lineMultiplier;
-                }
-            });
-            
-            // 줄 간격을 고려한 높이 계산 (카드 너비에 따라 조정)
-            const lineHeightMultiplier = this.settings.renderContentAsHtml ? 
-                1.4 * Math.pow(widthFactor, 0.7) : // 넓은 카드에서는 더 작은 계수 적용
-                1.0 * Math.pow(widthFactor, 0.7);
-            estimatedHeight += totalLines * this.settings.bodyFontSize * lineHeightMultiplier;
-            
-            // 단락 간격 조정 (카드 너비에 따라 조정)
-            const paragraphCount = plainText.split(/\n\s*\n/).length - 1;
-            if (paragraphCount > 0) {
-                const paragraphSpaceMultiplier = this.settings.renderContentAsHtml ? 
-                    1.0 * widthFactor : 
-                    0.5 * widthFactor;
-                estimatedHeight += paragraphCount * this.settings.bodyFontSize * paragraphSpaceMultiplier;
-            }
-            
-            // HTML 태그가 있는 경우 추가 높이 계산
-            const htmlTagCount = (card.body.match(/<[^>]*>/g) || []).length;
-            if (htmlTagCount > 0) {
-                const tagHeightMultiplier = this.settings.renderContentAsHtml ? 
-                    1.0 * widthFactor : 
-                    0.5 * widthFactor;
-                estimatedHeight += htmlTagCount * this.settings.bodyFontSize * tagHeightMultiplier;
-            }
-            
-            // 코드 블록 높이 추가 (카드 너비에 따라 조정)
-            const codeBlocks = card.body.match(/```[\s\S]*?```/g) || [];
-            codeBlocks.forEach(block => {
-                const blockLines = block.split('\n');
-                let codeBlockHeight = 0;
-                
-                // 코드 블록 내 각 줄의 길이에 따른 높이 계산
-                blockLines.forEach(line => {
-                    const codeCharWidth = this.settings.bodyFontSize * 0.6 * widthFactor; // 코드 글꼴은 일반적으로 더 좁음
-                    const lineWidth = line.length * codeCharWidth;
-                    const availableWidth = cardWidth - (padding + 20); // 코드 블록은 추가 패딩 있음
-                    const lineCount = Math.max(1, Math.ceil(lineWidth / availableWidth));
-                    
-                    codeBlockHeight += lineCount * this.settings.bodyFontSize * lineHeight;
-                });
-                
-                estimatedHeight += codeBlockHeight;
-                estimatedHeight += 40; // 코드 블록 여백
-            });
-        }
-        
-        // 4. 최소 높이 보장 및 추가 여백 (카드 너비에 따라 조정)
-        const minHeight = Math.max(120, cardWidth * 0.4); // 카드 너비에 비례한 최소 높이
-        const additionalPadding = Math.min(20, cardWidth * 0.05); // 카드 너비에 비례한 추가 여백
-        
-        const finalHeight = Math.max(estimatedHeight, minHeight) + additionalPadding;
-        
-        return finalHeight;
-    }
-
-    /**
-     * 카드 스타일을 가져옵니다.
-     */
-    public getCardStyle(isVertical: boolean, alignCardHeight: boolean): Partial<CSSStyleDeclaration> {
-        console.warn('[CardNavigator] getCardStyle은 더 이상 사용되지 않습니다. LayoutStyleManager.getCardStyle을 사용하세요.');
-        return {}; // 빈 객체 반환
     }
     //#endregion
 
     //#region 레이아웃 속성
     /**
-     * 그리드 레이아웃의 열 수를 가져옵니다.
+     * 열 수를 가져옵니다.
+     * 통합 레이아웃에서는 수직 컨테이너인 경우 1, 그렇지 않은 경우 자동 계산된 값을 반환합니다.
      */
-    public getGridColumns(): number {
-        return this.settings.gridColumns;
-    }
-
-    /**
-     * 메이슨리 레이아웃의 열 수를 가져옵니다.
-     */
-    public getMasonryColumns(): number {
-        return this.settings.masonryColumns;
+    public getColumns(): number {
+        // 자동 계산된 열 수 반환
+        return this.calculateAutoColumns();
     }
     //#endregion
-
-    //#region 이전 열 수 업데이트
-    public updatePreviousColumns(columns: number) {
-        this.previousColumns = columns;
-    }
-    //#endregion
-
-    /**
-     * 설정을 업데이트합니다.
-     */
-    public updateSettings(settings: CardNavigatorSettings) {
-        this.settings = settings;
-        // 방향 캐시 초기화
-        this._isVertical = null;
-    }
-
-    /**
-     * 컨테이너 스타일 계산에 필요한 값들을 가져옵니다.
-     * 이 메서드는 LayoutStyleManager에서 사용됩니다.
-     */
-    public getContainerStyleValues(isVertical: boolean): {
-        cardGap: number;
-        containerPadding: number;
-    } {
-        return {
-            cardGap: this.getCardGap(),
-            containerPadding: this.getContainerPadding()
-        };
-    }
-
-    /**
-     * 카드 스타일 계산에 필요한 값들을 가져옵니다.
-     * 이 메서드는 LayoutStyleManager에서 사용됩니다.
-     */
-    public getCardStyleValues(isVertical: boolean, alignCardHeight: boolean): {
-        cardWidth: number;
-        cardHeight: number | 'auto';
-    } {
-        let cardWidth: number;
-        let cardHeight: number | 'auto';
-        
-        if (isVertical) {
-            cardWidth = this.getAvailableWidth();
-            cardHeight = this.calculateCardHeight(this.settings.defaultLayout, isVertical);
-        } else {
-            cardWidth = this.calculateCardWidth(this.settings.cardsPerView);
-            cardHeight = alignCardHeight ? this.getAvailableHeight() : 'auto';
-        }
-        
-        return {
-            cardWidth,
-            cardHeight
-        };
-    }
 } 

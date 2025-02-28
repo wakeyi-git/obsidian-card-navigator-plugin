@@ -131,13 +131,10 @@ export class SettingTab extends PluginSettingTab {
             case 'sortOrder':
                 this.updateContainerSettings();
                 break;
-            case 'defaultLayout':
-            case 'cardWidthThreshold':
+            case 'cardThresholdWidth':
             case 'alignCardHeight':
-            case 'cardsPerView':
-            case 'gridColumns':
-            case 'gridCardHeight':
-            case 'masonryColumns':
+            case 'fixedCardHeight':
+            case 'cardsPerColumn':
                 this.updateLayoutSettings();
                 break;
             case 'renderContentAsHtml':

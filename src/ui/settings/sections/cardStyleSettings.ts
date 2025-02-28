@@ -14,7 +14,7 @@ export function addCardStylingSettings(containerEl: HTMLElement, plugin: CardNav
         .setHeading();
 
     fontSizeSettings.forEach(({ key, name, description }) => {
-        if (key === 'fileNameFontSize' || key === 'firstHeaderFontSize' || key === 'bodyFontSize') {
+        if (key === 'fileNameFontSize' || key === 'firstHeaderFontSize' || key === 'bodyFontSize' || key === 'tagsFontSize') {
             settingTab.addSliderSetting(
                 containerEl,
                 key,

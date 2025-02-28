@@ -112,7 +112,7 @@ async function updateSortSettings(
                 // 강제로 카드 다시 렌더링을 위해 cards 배열 초기화
                 view.cardContainer.cards = [];
                 
-                await view.cardContainer.displayCards(resortedResults);
+                await view.cardContainer.displayFilesAsCards(resortedResults);
             } else {
                 // 검색 결과가 없다면 일반 새로고침
                 view.cardContainer.setSearchResults(null);

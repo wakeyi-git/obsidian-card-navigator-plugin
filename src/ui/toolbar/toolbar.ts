@@ -1,11 +1,12 @@
 import { setIcon, TFolder, FuzzySuggestModal, Menu, MenuItem, debounce } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { CardNavigatorView } from '../cardNavigatorView';
-import { SearchInput } from './search/SearchInput';
+import { SearchInput } from 'ui/toolbar/search/SearchInput';
 import { toggleSort } from './sort';
 import { toggleSettings, closePopup } from './settings';
 import { t } from 'i18next';
 import { CardContainer } from 'ui/cardContainer/cardContainer';
+import { SearchBar } from 'ui/toolbar/search/SearchBar';
 
 // Card Navigator 플러그인의 툴바를 나타내는 클래스
 export class Toolbar {
@@ -14,38 +15,68 @@ export class Toolbar {
     private settingsPopupOpen = false;
     private settingsIcon: HTMLElement | null = null;
     private popupObserver: MutationObserver | null = null;
-    private searchInput!: SearchInput;
+    private searchBar: SearchBar | null = null;
+    private settingsButton: HTMLElement | null = null;
+    private folderPathDisplay: HTMLElement | null = null;
+    private sortButton: HTMLElement | null = null;
+    private cardContainer: CardContainer;
     //#endregion
 
     //#region 초기화 및 정리
     // 생성자: 툴바 초기화
     constructor(
         private plugin: CardNavigatorPlugin,
-        private parentEl: HTMLElement,
-        private cardContainer: CardContainer
+        private view: CardNavigatorView,
+        cardContainer: CardContainer
     ) {
-        // 툴바 컨테이너는 외부에서 제공됨
-        this.containerEl = parentEl;
+        this.cardContainer = cardContainer;
     }
 
-    // 툴바 초기화 및 컨테이너 설정
-    initialize(containerEl: HTMLElement) {
+    /**
+     * 툴바를 초기화합니다.
+     * @param containerEl 툴바 컨테이너 요소
+     */
+    async initialize(containerEl: HTMLElement): Promise<void> {
         this.containerEl = containerEl;
-        this.createToolbar();
+        
+        // 툴바 요소 생성
+        this.createToolbarElements();
+        
+        // 검색 바 초기화
+        await this.initializeSearchBar();
+        
+        // 정렬 버튼 초기화
+        this.initializeSortButton();
+        
+        // 폴더 경로 표시 초기화
+        this.initializeFolderPathDisplay();
+        
+        // 설정 버튼 초기화
+        this.initializeSettingsButton();
+        
         this.setupPopupObserver();
     }
 
-    // 리소스 정리
-    onClose() {
+    /**
+     * 툴바를 닫습니다.
+     */
+    public onClose(): void {
+        // 팝업 옵저버 정리
         if (this.popupObserver) {
             this.popupObserver.disconnect();
+            this.popupObserver = null;
+        }
+        
+        // 검색 바 정리
+        if (this.searchBar) {
+            this.searchBar.onClose();
         }
     }
     //#endregion
 
     //#region 툴바 UI 생성
     // 툴바 UI 요소 생성
-    private createToolbar() {
+    private createToolbarElements() {
         if (!this.containerEl) return;
 
         this.containerEl.empty();
@@ -55,8 +86,10 @@ export class Toolbar {
         searchWrapper.addClass('card-navigator-search-wrapper');
         this.containerEl.appendChild(searchWrapper);
 
-        // 검색 입력 초기화 - 래퍼에 추가
-        this.searchInput = new SearchInput(this.plugin, searchWrapper, this.cardContainer);
+        // 검색 컨테이너 추가 (SearchBar에서 사용할 컨테이너)
+        const searchContainer = document.createElement('div');
+        searchContainer.addClass('card-navigator-search-container');
+        searchWrapper.appendChild(searchContainer);
         
         // 구분선 추가
         const separator = this.createSeparator();
@@ -102,7 +135,7 @@ export class Toolbar {
             { 
                 name: 'arrow-up-narrow-wide', 
                 label: t('SORT_CARDS'), 
-                action: () => toggleSort(this.plugin, this.containerEl) 
+                action: () => this.openSortMenu(this.sortButton as HTMLElement) 
             },
             { 
                 name: 'settings', 
@@ -323,18 +356,22 @@ export class Toolbar {
     }
 
     /**
-     * 검색 입력에 포커스 설정
+     * 검색 입력에 포커스를 설정합니다.
      */
     public focusSearch(): void {
-        this.searchInput.focus();
+        if (this.searchBar) {
+            this.searchBar.focus();
+        }
     }
 
     /**
-     * 검색어 설정
+     * 검색어를 설정합니다.
      * @param searchTerm 검색어
      */
     public setSearchTerm(searchTerm: string): void {
-        this.searchInput.setSearchTerm(searchTerm);
+        if (this.searchBar) {
+            this.searchBar.setSearchTerm(searchTerm);
+        }
     }
 
     /**
@@ -342,7 +379,7 @@ export class Toolbar {
      * @returns 현재 검색어
      */
     public getSearchTerm(): string {
-        return this.searchInput.getSearchTerm();
+        return this.searchBar ? this.searchBar.getSearchTerm() : '';
     }
 
     // 설정 아이콘 요소 가져오기
@@ -353,6 +390,111 @@ export class Toolbar {
     // 정렬 아이콘 요소 가져오기
     getSortIcon(): HTMLElement | null {
         return this.containerEl?.querySelector('.card-navigator-sort-icon') as HTMLElement || null;
+    }
+
+    /**
+     * 폴더 경로 표시를 업데이트합니다.
+     * @param folder 표시할 폴더
+     */
+    public updateFolderPathDisplay(folder: TFolder): void {
+        if (!this.containerEl || !folder) {
+            return;
+        }
+        
+        // 폴더 경로 표시 요소 찾기
+        const folderPathEl = this.containerEl.querySelector('.card-navigator-folder-path');
+        if (!folderPathEl) {
+            return;
+        }
+        
+        // 폴더 경로 표시 업데이트
+        folderPathEl.textContent = folder.path || folder.name;
+        folderPathEl.setAttribute('aria-label', `현재 폴더: ${folder.path || folder.name}`);
+        
+        // 툴팁 업데이트
+        folderPathEl.setAttribute('title', folder.path || folder.name);
+    }
+
+    /**
+     * 검색 바를 초기화합니다.
+     */
+    private async initializeSearchBar(): Promise<void> {
+        if (!this.containerEl) return;
+        
+        // 검색 바 컨테이너 찾기
+        const searchBarContainer = this.containerEl.querySelector('.card-navigator-search-container');
+        if (!searchBarContainer) return;
+        
+        // 검색 바 초기화
+        this.searchBar = new SearchBar(this.plugin, this.view, this.cardContainer);
+        await this.searchBar.initialize(searchBarContainer as HTMLElement);
+    }
+
+    /**
+     * 정렬 버튼을 초기화합니다.
+     */
+    private initializeSortButton(): void {
+        if (!this.containerEl) return;
+        
+        // 정렬 버튼 찾기
+        this.sortButton = this.containerEl.querySelector('.card-navigator-sort-button');
+        if (!this.sortButton) return;
+        
+        // 정렬 버튼 클릭 이벤트 설정
+        this.sortButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openSortMenu(this.sortButton as HTMLElement);
+        });
+    }
+
+    /**
+     * 폴더 경로 표시를 초기화합니다.
+     */
+    private initializeFolderPathDisplay(): void {
+        if (!this.containerEl) return;
+        
+        // 폴더 경로 표시 요소 찾기
+        this.folderPathDisplay = this.containerEl.querySelector('.card-navigator-folder-path');
+        
+        // 현재 폴더 가져오기
+        this.cardContainer.getCurrentFolder().then(folder => {
+            if (folder && this.folderPathDisplay) {
+                this.updateFolderPathDisplay(folder);
+            }
+        });
+    }
+
+    /**
+     * 설정 버튼을 초기화합니다.
+     */
+    private initializeSettingsButton(): void {
+        if (!this.containerEl) return;
+        
+        // 설정 버튼 찾기
+        this.settingsButton = this.containerEl.querySelector('.card-navigator-settings-button');
+        if (!this.settingsButton) return;
+        
+        // 설정 버튼 클릭 이벤트 설정
+        this.settingsButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openSettingsMenu(this.settingsButton as HTMLElement);
+        });
+    }
+
+    /**
+     * 정렬 메뉴를 엽니다.
+     * @param targetEl 메뉴를 열 대상 요소
+     */
+    private openSortMenu(targetEl: HTMLElement): void {
+        toggleSort(this.plugin, targetEl);
+    }
+
+    /**
+     * 설정 메뉴를 엽니다.
+     * @param targetEl 메뉴를 열 대상 요소
+     */
+    private openSettingsMenu(targetEl: HTMLElement): void {
+        toggleSettings(this.plugin, targetEl);
     }
     //#endregion
 }

@@ -207,4 +207,22 @@ export class CardListManager {
             return sortOrder === 'asc' ? comparison : -comparison;
         });
     }
+
+    /**
+     * 지정된 폴더의 모든 마크다운 파일을 가져옵니다.
+     * @param folder 대상 폴더
+     * @returns 마크다운 파일 배열
+     */
+    public getFilesInFolder(folder: TFolder): TFile[] {
+        if (!folder) {
+            console.warn('[CardListManager] 폴더가 없습니다.');
+            return [];
+        }
+        
+        // 폴더의 모든 마크다운 파일 가져오기
+        const files = this.getAllMarkdownFiles(folder);
+        
+        // 파일 정렬
+        return this.sortFiles(files);
+    }
 } 

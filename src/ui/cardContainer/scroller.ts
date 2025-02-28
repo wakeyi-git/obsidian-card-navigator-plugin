@@ -1,7 +1,7 @@
 import { Card } from 'common/types';
-import { LayoutStrategy } from 'layouts/layoutStrategy';
 import CardNavigatorPlugin from 'main';
 import { LayoutConfig } from 'layouts/layoutConfig';
+import { LayoutManager } from 'layouts/layoutManager';
 
 export class Scroller {
     private layoutConfig: LayoutConfig;
@@ -10,10 +10,11 @@ export class Scroller {
     constructor(
         private containerEl: HTMLElement,
         private plugin: CardNavigatorPlugin,
-        private getLayoutStrategy: () => LayoutStrategy,
+        private layoutManager: LayoutManager,
         private getCardSize: () => { width: number, height: number }
     ) {
-        this.layoutConfig = new LayoutConfig(plugin.app, containerEl, plugin.settings);
+        this.layoutConfig = new LayoutConfig(plugin.settings);
+        this.layoutConfig.setContainer(containerEl);
     }
 
     // 활성 카드로 스크롤 메서드
@@ -57,7 +58,7 @@ export class Scroller {
 
             let offset = 0;
             let scrollProperty: 'scrollTop' | 'scrollLeft';
-            const isVertical = this.getLayoutStrategy().getScrollDirection() === 'vertical';
+            const isVertical = this.layoutManager.getLayout().getScrollDirection() === 'vertical';
             
             // 컨테이너 패딩 가져오기
             const containerPadding = this.layoutConfig.getContainerPadding();
@@ -120,7 +121,7 @@ export class Scroller {
                 const containerPadding = this.layoutConfig.getContainerPadding();
                 
                 // 스크롤 방향에 따라 중앙 위치 계산
-                const isVertical = this.getLayoutStrategy().getScrollDirection() === 'vertical';
+                const isVertical = this.layoutManager.getLayout().getScrollDirection() === 'vertical';
                 const containerCenter = isVertical 
                     ? containerRect.top + containerPadding + (containerRect.height - containerPadding * 2) / 2
                     : containerRect.left + containerPadding + (containerRect.width - containerPadding * 2) / 2;
@@ -193,8 +194,8 @@ export class Scroller {
     private scrollInDirection(direction: 'up' | 'down' | 'left' | 'right', count = 1, totalCards: number) {
         if (!this.containerEl) return;
         const { width, height } = this.getCardSize();
-        const cardsPerView = this.plugin.settings.cardsPerView;
-        const isVertical = this.getLayoutStrategy().getScrollDirection() === 'vertical';
+        const cardsPerColumn = this.plugin.settings.cardsPerColumn;
+        const isVertical = this.layoutManager.getLayout().getScrollDirection() === 'vertical';
         const cardGap = this.layoutConfig.getCardGap();
         
         const cardSize = (isVertical ? height : width) + cardGap;
@@ -203,16 +204,16 @@ export class Scroller {
         const containerSize = isVertical ? this.containerEl.clientHeight : this.containerEl.clientWidth;
         
         let targetScroll;
-        if (count === cardsPerView) { // Page Up/Left or Page Down/Right
+        if (count === cardsPerColumn) { // Page Up/Left or Page Down/Right
             const currentEdgeCard = Math.floor((currentScroll + (direction === 'down' || direction === 'right' ? containerSize : 0)) / cardSize);
             if (direction === 'up' || direction === 'left') {
-                if (currentEdgeCard < cardsPerView) {
+                if (currentEdgeCard < cardsPerColumn) {
                     targetScroll = 0; // Scroll to the very start
                 } else {
-                    targetScroll = Math.max(0, (currentEdgeCard - cardsPerView) * cardSize);
+                    targetScroll = Math.max(0, (currentEdgeCard - cardsPerColumn) * cardSize);
                 }
             } else { // down or right
-                if (totalCards - currentEdgeCard < cardsPerView) {
+                if (totalCards - currentEdgeCard < cardsPerColumn) {
                     targetScroll = totalSize - containerSize; // Scroll to the very end
                 } else {
                     targetScroll = currentEdgeCard * cardSize;

@@ -1,237 +1,278 @@
-import { Menu, TFile, MarkdownView, Platform, Editor, WorkspaceLeaf, Notice } from 'obsidian';
-import CardNavigatorPlugin from 'main';
-import { Card } from 'common/types';
-import { t } from 'i18next';
-import { separateFrontmatterAndBody } from 'common/utils';
+import { TFile, Menu, Notice } from 'obsidian';
+import { Card } from '../../common/types';
+import { DEFAULT_SETTINGS } from '../../common/types';
 
+/**
+ * 카드 상호작용 관리 클래스
+ */
 export class CardInteractionManager {
-    private dragImage: HTMLElement | null = null;
-    private currentDraggedCard: Card | null = null;
-    private lastCursorUpdate: number | null = null;
-    private touchTimeout: NodeJS.Timeout | null = null;
-    private initialTouchPos: { x: number; y: number } | null = null;
+    private settings: any;
+    private interactionCache: Set<string> = new Set();
+    private dragStartTimeout: number | null = null;
+    private longPressTimeout: number | null = null;
+    private isLongPressing: boolean = false;
+    private isDragging: boolean = false;
+    
+    // 이벤트 핸들러 참조 저장 (제거 용도)
+    private eventHandlers: Map<string, {
+        element: HTMLElement,
+        type: string,
+        handler: EventListener
+    }[]> = new Map();
 
     constructor(
-        private plugin: CardNavigatorPlugin
-    ) {}
-
-    //#region 카드 상호작용 설정
-    public setupInteractions(cardElement: HTMLElement, card: Card) {
-        if (Platform.isMobile) {
-            this.setupMobileInteractions(cardElement, card);
-        } else {
-            this.setupDesktopInteractions(cardElement, card);
-        }
+        private openFile: (file: TFile) => void,
+        private showMenu: (cardEl: HTMLElement, card: Card, event: MouseEvent) => void,
+        private handleDragStart: (event: DragEvent, card: Card) => void,
+        private handleDragOver: (event: DragEvent) => void,
+        private handleDrop: (event: DragEvent, targetCard: Card) => void
+    ) {
+        this.settings = DEFAULT_SETTINGS;
     }
 
-    private setupMobileInteractions(cardElement: HTMLElement, card: Card) {
-        let touchStartTime = 0;
-        let isMoved = false;
-        let isLongPress = false;
+    /**
+     * 설정 업데이트
+     * @param settings 새 설정
+     */
+    public updateSettings(settings: any): void {
+        this.settings = settings;
+    }
 
-        const handleTouchStart = (e: TouchEvent) => {
-            const touch = e.touches[0];
-            touchStartTime = Date.now();
-            isMoved = false;
-            isLongPress = false;
-            this.initialTouchPos = { x: touch.clientX, y: touch.clientY };
+    /**
+     * 카드 상호작용 설정
+     * @param cardEl 카드 요소
+     * @param card 카드 데이터
+     */
+    public setupInteractions(cardEl: HTMLElement, card: Card): void {
+        // 이미 상호작용이 설정된 카드는 건너뜀
+        if (this.interactionCache.has(card.id)) {
+            return;
+        }
+        
+        // 상호작용 캐시에 추가
+        this.interactionCache.add(card.id);
+        
+        // 이벤트 핸들러 배열 초기화
+        const handlers: {
+            element: HTMLElement,
+            type: string,
+            handler: EventListener
+        }[] = [];
+        
+        // 클릭 이벤트 핸들러
+        const clickHandler = this.createClickHandler(card);
+        cardEl.addEventListener('click', clickHandler);
+        handlers.push({ element: cardEl, type: 'click', handler: clickHandler });
+        
+        // 컨텍스트 메뉴 이벤트 핸들러
+        const contextMenuHandler = this.createContextMenuHandler(cardEl, card);
+        cardEl.addEventListener('contextmenu', contextMenuHandler);
+        handlers.push({ element: cardEl, type: 'contextmenu', handler: contextMenuHandler });
+        
+        // 드래그 앤 드롭 이벤트 핸들러 (설정에서 활성화된 경우)
+        if (this.settings?.enableDragAndDrop) {
+            // 드래그 시작 이벤트 핸들러
+            const dragStartHandler = this.createDragStartHandler(card);
+            cardEl.addEventListener('dragstart', dragStartHandler);
+            handlers.push({ element: cardEl, type: 'dragstart', handler: dragStartHandler });
+            
+            // 드래그 오버 이벤트 핸들러
+            const dragOverHandler = this.createDragOverHandler();
+            cardEl.addEventListener('dragover', dragOverHandler);
+            handlers.push({ element: cardEl, type: 'dragover', handler: dragOverHandler });
+            
+            // 드롭 이벤트 핸들러
+            const dropHandler = this.createDropHandler(card);
+            cardEl.addEventListener('drop', dropHandler);
+            handlers.push({ element: cardEl, type: 'drop', handler: dropHandler });
+            
+            // 드래그 가능 속성 설정
+            cardEl.setAttribute('draggable', 'true');
+        }
+        
+        // 모바일 터치 이벤트 핸들러 (설정에서 활성화된 경우)
+        if (this.settings?.enableMobileInteractions) {
+            // 터치 시작 이벤트 핸들러
+            const touchStartHandler = this.createTouchStartHandler(cardEl, card);
+            cardEl.addEventListener('touchstart', touchStartHandler);
+            handlers.push({ element: cardEl, type: 'touchstart', handler: touchStartHandler });
+            
+            // 터치 종료 이벤트 핸들러
+            const touchEndHandler = this.createTouchEndHandler();
+            cardEl.addEventListener('touchend', touchEndHandler);
+            handlers.push({ element: cardEl, type: 'touchend', handler: touchEndHandler });
+            
+            // 터치 이동 이벤트 핸들러
+            const touchMoveHandler = this.createTouchMoveHandler();
+            cardEl.addEventListener('touchmove', touchMoveHandler);
+            handlers.push({ element: cardEl, type: 'touchmove', handler: touchMoveHandler });
+        }
+        
+        // 이벤트 핸들러 참조 저장
+        this.eventHandlers.set(card.id, handlers);
+    }
 
-            this.touchTimeout = setTimeout(() => {
-                if (!isMoved) {
-                    isLongPress = true;
-                    e.preventDefault();
-                    this.showContextMenu(e, card.file);
+    /**
+     * 카드 상호작용 제거
+     * @param cardId 카드 ID
+     */
+    public removeInteractions(cardId: string): void {
+        // 이벤트 핸들러 참조 가져오기
+        const handlers = this.eventHandlers.get(cardId);
+        
+        if (handlers) {
+            // 모든 이벤트 핸들러 제거
+            handlers.forEach(({ element, type, handler }) => {
+                element.removeEventListener(type, handler);
+            });
+            
+            // 이벤트 핸들러 참조 제거
+            this.eventHandlers.delete(cardId);
+        }
+        
+        // 상호작용 캐시에서 제거
+        this.interactionCache.delete(cardId);
+    }
+
+    /**
+     * 클릭 이벤트 핸들러 생성
+     */
+    private createClickHandler(card: Card): EventListener {
+        return (event: Event) => {
+            // 드래그 중이거나 롱 프레스 중이면 무시
+            if (this.isDragging || this.isLongPressing) {
+                return;
+            }
+            
+            // 파일 열기
+            if (card.file) {
+                this.openFile(card.file);
+            }
+        };
+    }
+
+    /**
+     * 컨텍스트 메뉴 이벤트 핸들러 생성
+     */
+    private createContextMenuHandler(cardEl: HTMLElement, card: Card): EventListener {
+        return (event: Event) => {
+            // 기본 컨텍스트 메뉴 방지
+            event.preventDefault();
+            
+            // 카드 메뉴 표시
+            this.showMenu(cardEl, card, event as MouseEvent);
+        };
+    }
+
+    /**
+     * 드래그 시작 이벤트 핸들러 생성
+     */
+    private createDragStartHandler(card: Card): EventListener {
+        return (event: Event) => {
+            // 드래그 시작 상태 설정
+            this.isDragging = true;
+            
+            // 드래그 이벤트 처리
+            this.handleDragStart(event as DragEvent, card);
+        };
+    }
+
+    /**
+     * 드래그 오버 이벤트 핸들러 생성
+     */
+    private createDragOverHandler(): EventListener {
+        return (event: Event) => {
+            // 기본 동작 방지
+            event.preventDefault();
+            
+            // 드래그 오버 이벤트 처리
+            this.handleDragOver(event as DragEvent);
+        };
+    }
+
+    /**
+     * 드롭 이벤트 핸들러 생성
+     */
+    private createDropHandler(card: Card): EventListener {
+        return (event: Event) => {
+            // 기본 동작 방지
+            event.preventDefault();
+            
+            // 드래그 상태 초기화
+            this.isDragging = false;
+            
+            // 드롭 이벤트 처리
+            this.handleDrop(event as DragEvent, card);
+        };
+    }
+
+    /**
+     * 터치 시작 이벤트 핸들러 생성
+     */
+    private createTouchStartHandler(cardEl: HTMLElement, card: Card): EventListener {
+        return (event: Event) => {
+            // 롱 프레스 타이머 설정 (500ms)
+            this.longPressTimeout = window.setTimeout(() => {
+                this.isLongPressing = true;
+                
+                // 햅틱 피드백 (지원되는 경우)
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
                 }
+                
+                // 컨텍스트 메뉴 표시
+                const touch = (event as TouchEvent).touches[0];
+                const mouseEvent = new MouseEvent('contextmenu', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    bubbles: true,
+                    cancelable: true,
+                    view: window
+                });
+                
+                this.showMenu(cardEl, card, mouseEvent);
+                
+                // 타이머 초기화
+                this.longPressTimeout = null;
             }, 500);
         };
+    }
 
-        const handleTouchMove = (e: TouchEvent) => {
-            if (!this.initialTouchPos) return;
-
-            const touch = e.touches[0];
-            const deltaX = Math.abs(touch.clientX - this.initialTouchPos.x);
-            const deltaY = Math.abs(touch.clientY - this.initialTouchPos.y);
-
-            if (deltaX > 10 || deltaY > 10) {
-                isMoved = true;
-                if (this.touchTimeout) {
-                    clearTimeout(this.touchTimeout);
-                    this.touchTimeout = null;
-                }
+    /**
+     * 터치 종료 이벤트 핸들러 생성
+     */
+    private createTouchEndHandler(): EventListener {
+        return () => {
+            // 롱 프레스 타이머 취소
+            if (this.longPressTimeout !== null) {
+                clearTimeout(this.longPressTimeout);
+                this.longPressTimeout = null;
             }
-        };
-
-        const handleTouchEnd = async (e: TouchEvent) => {
-            if (this.touchTimeout) {
-                clearTimeout(this.touchTimeout);
-                this.touchTimeout = null;
-            }
-
-            const touchDuration = Date.now() - touchStartTime;
-
-            if (!isMoved && !isLongPress && touchDuration < 200) {
-                e.preventDefault();
-                await this.openFile(card.file);
-            }
-
-            this.initialTouchPos = null;
-        };
-
-        cardElement.addEventListener('touchstart', handleTouchStart, { passive: true });
-        cardElement.addEventListener('touchmove', handleTouchMove, { passive: true });
-        cardElement.addEventListener('touchend', handleTouchEnd, { passive: false });
-    }
-
-    private setupDesktopInteractions(cardElement: HTMLElement, card: Card) {
-        cardElement.addEventListener('click', async () => {
-            await this.openFile(card.file);
-        });
-
-        cardElement.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            this.showContextMenu(e, card.file);
-        });
-
-        this.setupDesktopDragAndDrop(cardElement, card);
-    }
-
-    private async openFile(file: TFile) {
-        try {
-            const leaf = this.plugin.app.workspace.getLeaf(false);
-            await leaf.openFile(file, { active: true });
-        } catch (error) {
-            this.showError('FILE_OPEN_FAILED', error);
-        }
-    }
-
-    private showContextMenu(event: MouseEvent | TouchEvent, file: TFile) {
-        const menu = new Menu();
-        
-        // 기본 파일 작업 메뉴 추가
-        this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
-        
-        menu.addSeparator();
-
-        // 링크 복사 옵션
-        menu.addItem((item) => 
-            item.setTitle(t('COPY_AS_LINK'))
-                .setIcon('link')
-                .onClick(() => this.copyLink(file))
-        );
-
-        // 내용 복사 옵션
-        menu.addItem((item) => 
-            item.setTitle(t('COPY_CARD_CONTENT'))
-                .setIcon('file-text')
-                .onClick(async () => {
-                    try {
-                        const card = await this.createCardFromFile(file);
-                        await this.copyCardContent(card);
-                    } catch (error) {
-                        this.showError('COPY_FAILED', error);
-                    }
-                })
-        );
-
-        // 메뉴 위치 설정
-        const position = this.getMenuPosition(event);
-        menu.showAtPosition(position);
-    }
-
-    private getMenuPosition(event: MouseEvent | TouchEvent) {
-        if (event instanceof MouseEvent) {
-            return { x: event.pageX, y: event.pageY };
-        } else {
-            const touch = event.touches[0] || event.changedTouches[0];
-            return { x: touch.pageX, y: touch.pageY };
-        }
-    }
-
-    private setupDesktopDragAndDrop(cardElement: HTMLElement, card: Card) {
-        cardElement.setAttribute('draggable', 'true');
-        
-        cardElement.addEventListener('dragstart', async (e: DragEvent) => {
-            if (e.dataTransfer) {
-                const content = this.plugin.settings.dragDropContent ? 
-                    await this.getCardContent(card) : 
-                    this.getLink(card.file);
-                e.dataTransfer.setData('text/plain', content);
-                e.dataTransfer.effectAllowed = 'copy';
-
-                // 드래그 이미지 생성
-                const dragImage = cardElement.cloneNode(true) as HTMLElement;
-                dragImage.style.position = 'fixed';
-                dragImage.style.top = '-9999px';
-                dragImage.style.left = '-9999px';
-                dragImage.style.width = `${cardElement.offsetWidth}px`;
-                dragImage.style.height = `${cardElement.offsetHeight}px`;
-                dragImage.style.pointerEvents = 'none';
-                dragImage.style.opacity = '0.7';
-                document.body.appendChild(dragImage);
-
-                e.dataTransfer.setDragImage(dragImage, 0, 0);
-                this.currentDraggedCard = card;
-                this.dragImage = dragImage;
-            }
-        });
-
-        cardElement.addEventListener('dragend', () => {
-            if (this.dragImage) {
-                this.dragImage.remove();
-                this.dragImage = null;
-            }
-            this.currentDraggedCard = null;
-        });
-    }
-
-    //#region 유틸리티 메서드
-    private getLink(file: TFile): string {
-        return this.plugin.app.fileManager.generateMarkdownLink(file, '');
-    }
-
-    private async getCardContent(card: Card): Promise<string> {
-        const fileContent = await this.plugin.app.vault.cachedRead(card.file);
-        const { cleanBody } = separateFrontmatterAndBody(fileContent);
-        return `# ${card.file.basename}\n\n${cleanBody}`;
-    }
-
-    private async createCardFromFile(file: TFile): Promise<Card> {
-        const content = await this.plugin.app.vault.cachedRead(file);
-        const { cleanBody } = separateFrontmatterAndBody(content);
-        return {
-            file,
-            fileName: this.plugin.settings.showFileName ? file.basename : undefined,
-            firstHeader: this.plugin.settings.showFirstHeader ? 
-                cleanBody.match(/^#+\s+(.+)$/m)?.[1]?.trim() : undefined,
-            body: this.plugin.settings.showBody ? 
-                cleanBody.replace(/^#+\s+(.+)$/m, '').trim() : undefined
+            
+            // 롱 프레스 상태 초기화
+            setTimeout(() => {
+                this.isLongPressing = false;
+            }, 10);
         };
     }
 
-    private showError(messageKey: string, error: any) {
-        console.error(`${t(messageKey)}:`, error);
-        new Notice(t(messageKey));
+    /**
+     * 터치 이동 이벤트 핸들러 생성
+     */
+    private createTouchMoveHandler(): EventListener {
+        return () => {
+            // 롱 프레스 타이머 취소
+            if (this.longPressTimeout !== null) {
+                clearTimeout(this.longPressTimeout);
+                this.longPressTimeout = null;
+            }
+        };
     }
 
-    private async copyToClipboard(content: string, successKey: string) {
-        try {
-            await navigator.clipboard.writeText(content);
-            new Notice(t(successKey));
-        } catch (error) {
-            this.showError('COPY_FAILED', error);
-        }
+    /**
+     * 캐시 정리
+     */
+    public clearCache(): void {
+        this.interactionCache.clear();
     }
-    //#endregion
-
-    //#region 복사 기능
-    public async copyLink(file: TFile) {
-        const link = this.getLink(file);
-        await this.copyToClipboard(link, 'LINK_COPIED');
-    }
-
-    public async copyCardContent(card: Card) {
-        const content = await this.getCardContent(card);
-        await this.copyToClipboard(content, 'CONTENT_COPIED');
-    }
-    //#endregion
-} 
+}

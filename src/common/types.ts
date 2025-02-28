@@ -5,10 +5,12 @@ import { App } from 'obsidian';
 //#region 기본 인터페이스
 // 카드 객체 구조 정의
 export interface Card {
+    id: string;
     file: TFile;
     fileName?: string;
     firstHeader?: string;
     body?: string;
+    tags?: string[];
 }
 
 // 프리셋 구조 정의
@@ -45,16 +47,16 @@ export interface CardNavigatorSettings {
     // 렌더링 관련 설정
     renderContentAsHtml: boolean;
     dragDropContent: boolean;
-    defaultLayout: defaultLayout;
     
     // 카드 레이아웃 설정
-    cardWidthThreshold: number;
+    cardThresholdWidth: number;
     alignCardHeight: boolean;
-    cardsPerView: number;
-    gridColumns: number;
-    gridCardHeight: number;
-    masonryColumns: number;
-    
+    useFixedHeight: boolean;
+    fixedCardHeight: number;
+    cardsPerColumn: number;
+    cardGap: number;
+    containerPadding: number;
+
     // 카드 내용 표시 설정
     showFileName: boolean;
     showFirstHeader: boolean;
@@ -66,6 +68,7 @@ export interface CardNavigatorSettings {
     fileNameFontSize: number;
     firstHeaderFontSize: number;
     bodyFontSize: number;
+    tagsFontSize: number;
     
     // 프리셋 관련 설정
     presetFolderPath: string;
@@ -79,6 +82,10 @@ export interface CardNavigatorSettings {
     // 기타 설정
     enableScrollAnimation: boolean;
     useCssGridMode: boolean;
+    isVerticalContainer: boolean;
+
+    // 레이아웃 방향 설정
+    layoutDirection: 'auto' | 'horizontal' | 'vertical';
 }
 
 // 전역 설정 키 정의
@@ -102,13 +109,11 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     sortOrder: 'asc',
     renderContentAsHtml: false,
     dragDropContent: false,
-    defaultLayout: 'auto',
-    cardWidthThreshold: 250,
+    cardThresholdWidth: 250,
     alignCardHeight: true,
-    cardsPerView: 4,
-    gridColumns: 4,
-    gridCardHeight: 200,
-    masonryColumns: 4,
+    useFixedHeight: true,
+    fixedCardHeight: 200,
+    cardsPerColumn: 3,
     showFileName: true,
     showFirstHeader: true,
     showBody: true,
@@ -117,6 +122,7 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     fileNameFontSize: 17,
     firstHeaderFontSize: 17,
     bodyFontSize: 15,
+    tagsFontSize: 13,
     presetFolderPath: 'CardNavigatorPresets',
     GlobalPreset: 'default',
     lastActivePreset: 'default',
@@ -125,7 +131,11 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     folderPresets: {},
     activeFolderPresets: {},
     enableScrollAnimation: true,
-    useCssGridMode: false
+    useCssGridMode: false,
+    cardGap: 10,
+    containerPadding: 10,
+    isVerticalContainer: true,
+    layoutDirection: 'auto'
 };
 //#endregion
 
@@ -144,15 +154,16 @@ export interface RangeSettingConfig {
 
 // 숫자 설정의 범위 구성 정의
 export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> = {
-    cardWidthThreshold: { min: 150, max: 600, step: 10 },
-    gridColumns: { min: 1, max: 10, step: 1 },
-    gridCardHeight: { min: 100, max: 500, step: 10 },
-    masonryColumns: { min: 1, max: 10, step: 1 },
-    cardsPerView: { min: 1, max: 10, step: 1 },
+    cardThresholdWidth: { min: 150, max: 600, step: 10 },
+    fixedCardHeight: { min: 100, max: 500, step: 10 },
+    cardsPerColumn: { min: 1, max: 10, step: 1 },
     fileNameFontSize: { min: 10, max: 25, step: 1 },
     firstHeaderFontSize: { min: 10, max: 25, step: 1 },
     bodyFontSize: { min: 10, max: 25, step: 1 },
+    tagsFontSize: { min: 10, max: 25, step: 1 },
     bodyLength: { min: 1, max: 1001, step: 50 },
+    cardGap: { min: 0, max: 50, step: 1 },
+    containerPadding: { min: 0, max: 50, step: 1 }
 };
 //#endregion
 
@@ -167,8 +178,6 @@ export type ScrollDirection = 'up' | 'down' | 'left' | 'right';
 export type SortCriterion = 'fileName' | 'lastModified' | 'created';
 // 정렬 순서 타입
 export type SortOrder = 'asc' | 'desc';
-// 기본 레이아웃 타입
-export type defaultLayout = 'auto' | 'list' | 'grid' | 'masonry';
 // 툴바 메뉴 타입
 export type ToolbarMenu = 'sort' | 'settings';
 // 카드 세트 타입
@@ -201,6 +210,7 @@ export const fontSizeSettings: Array<{ name: string, key: keyof CardNavigatorSet
     { name: 'FILE_NAME_FONT_SIZE', key: 'fileNameFontSize', description: 'SET_FILE_NAME_FONT_SIZE' },
     { name: 'FIRST_HEADER_FONT_SIZE', key: 'firstHeaderFontSize', description: 'SET_FIRST_HEADER_FONT_SIZE' },
     { name: 'BODY_FONT_SIZE', key: 'bodyFontSize', description: 'SET_BODY_FONT_SIZE' },
+    { name: 'TAGS_FONT_SIZE', key: 'tagsFontSize', description: 'SET_TAGS_FONT_SIZE' },
 ];
 
 // 키보드 단축키 정의

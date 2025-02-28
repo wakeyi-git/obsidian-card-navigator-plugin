@@ -37,6 +37,7 @@ export default class CardNavigatorPlugin extends Plugin {
         this.settingsManager = new SettingsManager(this, this.presetManager);
         this.searchService = new SearchService(this);
         await this.presetManager.initialize();
+        
         await this.initializePlugin();
     
         this.addRibbonIcon('layers-3', t('OPEN_CARD_NAVIGATOR'), () => {
@@ -65,7 +66,6 @@ export default class CardNavigatorPlugin extends Plugin {
 
         this.addCommands();
         this.addScrollCommands();
-
         this.registerCentralizedEvents();
     }
 
@@ -108,19 +108,20 @@ export default class CardNavigatorPlugin extends Plugin {
     // 카드 네비게이터 뷰 활성화 메서드
     async activateView() {
         const { workspace } = this.app;
-        let leaf: WorkspaceLeaf | null = null;
-    
+        
+        // 기존 뷰가 있으면 해당 뷰를 활성화
         const existingLeaf = workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0];
         
         if (existingLeaf) {
-            leaf = existingLeaf;
+            workspace.revealLeaf(existingLeaf);
+            return;
+        }
+        
+        // 기존 뷰가 없으면 새 뷰 생성
+        const leaf = workspace.getRightLeaf(false);
+        if (leaf) {
+            await leaf.setViewState({ type: VIEW_TYPE_CARD_NAVIGATOR, active: true });
             workspace.revealLeaf(leaf);
-        } else {
-            leaf = workspace.getRightLeaf(false);
-            if (leaf) {
-                await leaf.setViewState({ type: VIEW_TYPE_CARD_NAVIGATOR, active: true });
-                workspace.revealLeaf(leaf);
-            }
         }
     }
 
@@ -145,23 +146,22 @@ export default class CardNavigatorPlugin extends Plugin {
     // 카드 스크롤 메서드
     scrollCards(direction: ScrollDirection, count: number) {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+        
         leaves.forEach(leaf => {
             if (leaf.view instanceof CardNavigatorView) {
                 const { cardContainer } = leaf.view;
                 const isVertical = cardContainer.layoutManager.getIsVertical();
-    
+
+                // 방향에 따라 적절한 스크롤 메서드 호출
                 switch (direction) {
                     case 'up':
-                        isVertical ? cardContainer.scrollUp(count) : cardContainer.scrollLeft(count);
-                        break;
                     case 'down':
-                        isVertical ? cardContainer.scrollDown(count) : cardContainer.scrollRight(count);
+                        const method = direction === 'up' ? 'scrollUp' : 'scrollDown';
+                        isVertical ? cardContainer[method](count) : cardContainer[direction === 'up' ? 'scrollLeft' : 'scrollRight'](count);
                         break;
                     case 'left':
-                        cardContainer.scrollLeft(count);
-                        break;
                     case 'right':
-                        cardContainer.scrollRight(count);
+                        cardContainer[direction === 'left' ? 'scrollLeft' : 'scrollRight'](count);
                         break;
                 }
             }
@@ -172,47 +172,45 @@ export default class CardNavigatorPlugin extends Plugin {
     //#region 이벤트 처리
     // 중앙 이벤트 등록 메서드
     private registerCentralizedEvents() {
+        // 레이아웃 변경 이벤트
         this.registerEvent(
             this.app.workspace.on('layout-change', () => {
                 this.refreshAllViews(RefreshType.LAYOUT);
             })
         );
 
+        // 파일 열기 이벤트
         this.registerEvent(
             this.app.workspace.on('file-open', (file) => {
                 this.handleFileChange(file);
             })
         );
 
-        // 설정 업데이트 이벤트 처리를 디바운스하고 배치로 처리
-        let pendingSettingsUpdate = false;
+        // 설정 업데이트 이벤트 처리를 디바운스
         const processSettingsUpdate = debounce(() => {
-            if (pendingSettingsUpdate) {
-                this.refreshAllViews(RefreshType.SETTINGS);
-                pendingSettingsUpdate = false;
-            }
-        }, 250); // 디바운스 시간을 250ms로 증가
+            this.refreshAllViews(RefreshType.SETTINGS);
+        }, 300); // 디바운스 시간 증가
 
-        this.events.on('settings-updated', () => {
-            pendingSettingsUpdate = true;
-            processSettingsUpdate();
-        });
+        this.events.on('settings-updated', processSettingsUpdate);
+
+        // 파일 수정 이벤트를 디바운스
+        const processFileModify = debounce(() => {
+            this.refreshAllViews(RefreshType.CONTENT);
+        }, 300);
 
         this.registerEvent(
-            this.app.vault.on('modify', () => {
-                this.refreshAllViews(RefreshType.CONTENT);
-            })
+            this.app.vault.on('modify', processFileModify)
         );
     }
 
     // 모든 뷰 새로고침 메서드
     private refreshAllViews(type: RefreshType) {
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        leaves.forEach(leaf => {
-            if (leaf.view instanceof CardNavigatorView) {
-                leaf.view.refreshBatch([type]);
-            }
-        });
+        this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)
+            .forEach(leaf => {
+                if (leaf.view instanceof CardNavigatorView) {
+                    leaf.view.refreshBatch([type]);
+                }
+            });
     }
 
     // 파일 변경 처리 메서드
@@ -223,20 +221,22 @@ export default class CardNavigatorPlugin extends Plugin {
         }
 
         // 폴더 기반 카드 표시 처리
-        if (this.settings.cardSetType !== 'activeFolder') return;
-        
-        if (!file || !(file instanceof TFile) || file.extension !== 'md') return;
+        if (this.settings.cardSetType !== 'activeFolder' || 
+            !file || 
+            !(file instanceof TFile) || 
+            file.extension !== 'md') return;
 
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        for (const leaf of leaves) {
-            if (!(leaf.view instanceof CardNavigatorView)) continue;
-
-            try {
-                await this.updateViewForFile(leaf.view, file);
-            } catch (error) {
-                console.error('[카드 네비게이터] 뷰 업데이트 실패:', error);
-            }
-        }
+        // 모든 카드 네비게이터 뷰 업데이트
+        this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)
+            .forEach(async leaf => {
+                if (leaf.view instanceof CardNavigatorView) {
+                    try {
+                        await this.updateViewForFile(leaf.view, file);
+                    } catch (error) {
+                        console.error('[카드 네비게이터] 뷰 업데이트 실패:', error);
+                    }
+                }
+            });
     }
 
     // 파일에 따른 뷰 업데이트 메서드
@@ -244,27 +244,17 @@ export default class CardNavigatorPlugin extends Plugin {
         const currentFolderPath = await view.getCurrentFolderPath();
         if (!currentFolderPath || !file.parent) return;
 
+        // 현재 폴더와 파일의 부모 폴더가 같은 경우에만 내용 새로고침
+        // 다른 경우에는 레이아웃, 설정, 내용을 모두 새로고침
         if (currentFolderPath === file.parent.path) {
             view.refresh(RefreshType.CONTENT);
         } else {
-            view.refreshBatch([RefreshType.LAYOUT, RefreshType.SETTINGS, RefreshType.CONTENT]);
+            view.refreshBatch([RefreshType.LAYOUT, RefreshType.CONTENT]);
         }
     }
     //#endregion
 
     //#region 레이아웃 관리
-    // 레이아웃 업데이트 메서드
-    public updateLayout(layout: CardNavigatorSettings['defaultLayout']) {
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        leaves.forEach(leaf => {
-            if (leaf.view instanceof CardNavigatorView) {
-                leaf.view.cardContainer.setLayout(layout);
-                // 설정 저장만 하고 리프레시는 settingsManager에서 처리
-                this.saveData(this.settings);
-            }
-        });
-    }
-
     // 설정 탭 새로고침 메서드
     refreshSettingsTab() {
         if (this.settingTab instanceof SettingTab) {
@@ -317,17 +307,15 @@ export default class CardNavigatorPlugin extends Plugin {
             { id: 'scroll-down-one-card', name: t('SCROLL_DOWN_ONE_CARD'), direction: 'down', count: 1 },
             { id: 'scroll-left-one-card', name: t('SCROLL_LEFT_ONE_CARD'), direction: 'left', count: 1 },
             { id: 'scroll-right-one-card', name: t('SCROLL_RIGHT_ONE_CARD'), direction: 'right', count: 1 },
-            { id: 'scroll-up-page', name: t('SCROLL_UP_LEFT_ONE_PAGE'), direction: 'up', count: this.settings.cardsPerView },
-            { id: 'scroll-down-page', name: t('SCROLL_DOWN_RIGHT_ONE_PAGE'), direction: 'down', count: this.settings.cardsPerView }
+            { id: 'scroll-up-page', name: t('SCROLL_UP_LEFT_ONE_PAGE'), direction: 'up', count: this.settings.cardsPerColumn },
+            { id: 'scroll-down-page', name: t('SCROLL_DOWN_RIGHT_ONE_PAGE'), direction: 'down', count: this.settings.cardsPerColumn }
         ];
 
-        scrollCommands.forEach(command => {
+        scrollCommands.forEach(({ id, name, direction, count }) => {
             this.addCommand({
-                id: command.id,
-                name: command.name,
-                callback: () => {
-                    this.scrollCards(command.direction as ScrollDirection, command.count);
-                }
+                id,
+                name,
+                callback: () => this.scrollCards(direction as ScrollDirection, count)
             });
         });
     }
@@ -336,12 +324,12 @@ export default class CardNavigatorPlugin extends Plugin {
     //#region 프리셋 관리
     // 프리셋 선택 및 적용 메서드
     private async selectAndApplyPreset(file: TFile) {
-        if (this.settings.autoApplyPresets) {
-            if (this.settings.autoApplyFolderPresets && file.parent) {
-                await this.presetManager.applyFolderPreset(file.parent.path);
-            } else {
-                await this.presetManager.applyGlobalPreset(this.settings.GlobalPreset);
-            }
+        if (!this.settings.autoApplyPresets) return;
+        
+        if (this.settings.autoApplyFolderPresets && file.parent) {
+            await this.presetManager.applyFolderPreset(file.parent.path);
+        } else {
+            await this.presetManager.applyGlobalPreset(this.settings.GlobalPreset);
         }
     }
 

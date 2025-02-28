@@ -1,10 +1,9 @@
 import { Menu, MenuItem, debounce } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { CardContainer } from './cardContainer';
-import { LayoutStrategy } from 'layouts/layoutStrategy';
-import { GridLayout } from 'layouts/gridLayout';
-import { MasonryLayout } from 'layouts/masonryLayout';
 import { t } from 'i18next';
+import { LayoutManager } from 'layouts/layoutManager';
+import { TFile } from 'obsidian';
 
 // KeyboardNavigator class to handle keyboard navigation for the card container
 export class KeyboardNavigator {
@@ -122,19 +121,19 @@ export class KeyboardNavigator {
         const keyHandlers: Record<string, () => void> = {
             ArrowLeft: () => {
                 e.preventDefault();
-                this.moveFocus(0, -1);
+                this.moveFocus('left');
             },
             ArrowRight: () => {
                 e.preventDefault();
-                this.moveFocus(0, 1);
+                this.moveFocus('right');
             },
             ArrowUp: () => {
                 e.preventDefault();
-                this.moveFocus(-1, 0);
+                this.moveFocus('up');
             },
             ArrowDown: () => {
                 e.preventDefault();
-                this.moveFocus(1, 0);
+                this.moveFocus('down');
             },
             PageUp: () => {
                 e.preventDefault();
@@ -174,21 +173,30 @@ export class KeyboardNavigator {
 
     //#region 포커스 이동
     // 포커스 이동
-    private moveFocus(rowDelta: number, colDelta: number) {
+    private moveFocus(direction: 'up' | 'down' | 'left' | 'right'): void {
         if (this.focusedCardIndex === null) {
             this.focusedCardIndex = 0;
-        } else {
-            const totalCards = this.containerEl.children.length;
-            const layoutStrategy = this.cardContainer.getLayoutStrategy();
-    
-            if (layoutStrategy instanceof GridLayout || layoutStrategy instanceof MasonryLayout) {
-                this.focusedCardIndex = this.ensureValidIndex(this.calculateGridIndex(rowDelta, colDelta, totalCards));
-            } else {
-                this.focusedCardIndex = this.ensureValidIndex(this.calculateListIndex(rowDelta, colDelta, totalCards));
-            }
+            this.updateFocusedCardImmediate();
+            this.scrollToFocusedCard(true);
+            return;
         }
+
+        const totalCards = this.containerEl.children.length;
+        if (totalCards === 0) return;
+
+        // 레이아웃 방향 확인
+        const isVertical = this.cardContainer.layoutManager.getLayout().getScrollDirection() === 'vertical';
+
+        // 그리드 레이아웃인 경우 (열 수가 1보다 큰 경우)
+        if (!isVertical || this.cardContainer.layoutManager.getLayout().getColumnsCount() > 1) {
+            this.moveInGrid(direction, totalCards);
+        } else {
+            // 리스트 레이아웃인 경우 (열 수가 1인 경우)
+            this.moveInList(direction, totalCards);
+        }
+
         this.updateFocusedCardImmediate();
-        this.scrollToFocusedCard();
+        this.scrollToFocusedCard(true);
     }
 
     // 페이지 단위 포커스 이동
@@ -196,14 +204,14 @@ export class KeyboardNavigator {
         if (this.focusedCardIndex === null) return;
     
         const totalCards = this.containerEl.children.length;
-        const cardsPerView = this.plugin.settings.cardsPerView;
+        const cardsPerColumn = this.plugin.settings.cardsPerColumn;
     
         let newIndex: number;
     
         if (direction > 0) {
-            newIndex = Math.min(totalCards - 1, this.focusedCardIndex + cardsPerView);
+            newIndex = Math.min(totalCards - 1, this.focusedCardIndex + cardsPerColumn);
         } else {
-            newIndex = Math.max(0, this.focusedCardIndex - cardsPerView);
+            newIndex = Math.max(0, this.focusedCardIndex - cardsPerColumn);
         }
     
         this.focusedCardIndex = this.ensureValidIndex(newIndex);
@@ -224,17 +232,64 @@ export class KeyboardNavigator {
         this.updateFocusedCardImmediate();
         this.scrollToFocusedCard();
     }
+
+    // 그리드 레이아웃에서 포커스 이동
+    private moveInGrid(direction: 'up' | 'down' | 'left' | 'right', totalCards: number): void {
+        if (this.focusedCardIndex === null) return;
+        
+        const columns = this.cardContainer.layoutManager.getLayout().getColumnsCount();
+        const currentRow = Math.floor(this.focusedCardIndex / columns);
+        const currentCol = this.focusedCardIndex % columns;
+        
+        let newRow = currentRow;
+        let newCol = currentCol;
+        
+        switch (direction) {
+            case 'up':
+                newRow = Math.max(0, currentRow - 1);
+                break;
+            case 'down':
+                newRow = Math.min(Math.floor((totalCards - 1) / columns), currentRow + 1);
+                break;
+            case 'left':
+                newCol = Math.max(0, currentCol - 1);
+                break;
+            case 'right':
+                newCol = Math.min(columns - 1, currentCol + 1);
+                break;
+        }
+        
+        const newIndex = newRow * columns + newCol;
+        this.focusedCardIndex = this.ensureValidIndex(newIndex);
+    }
+    
+    // 리스트 레이아웃에서 포커스 이동
+    private moveInList(direction: 'up' | 'down' | 'left' | 'right', totalCards: number): void {
+        if (this.focusedCardIndex === null) return;
+        
+        switch (direction) {
+            case 'up':
+            case 'left':
+                this.focusedCardIndex = this.ensureValidIndex(this.focusedCardIndex - 1);
+                break;
+            case 'down':
+            case 'right':
+                this.focusedCardIndex = this.ensureValidIndex(this.focusedCardIndex + 1);
+                break;
+        }
+    }
     //#endregion
 
     //#region 유틸리티 메서드
     // 그리드 레이아웃의 인덱스 계산
     private calculateGridIndex(rowDelta: number, colDelta: number, totalCards: number): number {
-        const layoutStrategy = this.cardContainer.getLayoutStrategy();
-        if (!(layoutStrategy instanceof GridLayout || layoutStrategy instanceof MasonryLayout)) {
-            console.warn('The layout strategy is unexpected.');
-            return this.focusedCardIndex ?? 0;
+        const columns = this.cardContainer.layoutManager.getLayout().getColumnsCount();
+        
+        // 열 수가 1이면 리스트 방식으로 계산
+        if (columns <= 1) {
+            return this.calculateListIndex(rowDelta, colDelta, totalCards);
         }
-        const columns = layoutStrategy.getColumnsCount();
+        
         const currentRow = Math.floor((this.focusedCardIndex ?? 0) / columns);
         const currentCol = (this.focusedCardIndex ?? 0) % columns;
 
@@ -346,11 +401,6 @@ export class KeyboardNavigator {
                 subtree: false
             });
         }
-    }
-
-    // 레이아웃 업데이트
-    public updateLayout(_layoutStrategy: LayoutStrategy) {
-        // TODO: Implement layout update logic
     }
     //#endregion
 }

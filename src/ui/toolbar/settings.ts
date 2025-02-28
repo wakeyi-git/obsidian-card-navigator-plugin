@@ -114,18 +114,9 @@ function refreshSettingsPopup(settingsPopup: HTMLElement, plugin: CardNavigatorP
 
 // 각 섹션의 설정값만 업데이트하는 함수들
 function updateLayoutSettingValues(layoutSection: HTMLElement, plugin: CardNavigatorPlugin) {
-    // 레이아웃 드롭다운 업데이트
-    const layoutDropdown = layoutSection.querySelector('.setting-item-dropdown select');
-    if (layoutDropdown instanceof HTMLSelectElement) {
-        layoutDropdown.value = plugin.settings.defaultLayout;
-    }
-
     // 각 설정의 값 업데이트
-    updateSliderValue(layoutSection, 'cardWidthThreshold', plugin);
-    updateSliderValue(layoutSection, 'gridColumns', plugin);
-    updateSliderValue(layoutSection, 'gridCardHeight', plugin);
-    updateSliderValue(layoutSection, 'masonryColumns', plugin);
-    updateSliderValue(layoutSection, 'cardsPerView', plugin);
+    updateSliderValue(layoutSection, 'cardThresholdWidth', plugin);
+    updateSliderValue(layoutSection, 'fixedCardHeight', plugin);
     updateToggleValue(layoutSection, 'alignCardHeight', plugin);
 }
 
@@ -257,24 +248,47 @@ function addSliderSetting(
         nameEl.appendChild(createSpan({ text: ')' }));
     }
 
+    // 이전 값 저장
+    let previousValue = plugin.settings[key];
+    // 업데이트 중인지 추적하는 플래그
+    let isUpdating = false;
+
     setting.addSlider(slider => slider
         .setLimits(config.min, config.max, config.step)
         .setValue(plugin.settings[key])
         .onChange(async (value) => {
             if (
                 (key === 'bodyLength' && !plugin.settings.bodyLengthLimit) ||
-                (key === 'cardsPerView' && !plugin.settings.alignCardHeight)
+                (key === 'cardsPerColumn' && !plugin.settings.alignCardHeight) ||
+                (key === 'fixedCardHeight' && !plugin.settings.alignCardHeight) ||
+                (key === 'cardsPerColumn' && plugin.settings.useFixedHeight) ||
+                (key === 'fixedCardHeight' && !plugin.settings.useFixedHeight)
             ) {
                 return;
             }
-            // 값 표시 업데이트
-            valueDisplay.textContent = String(value);
-            await settingsManager.updateSetting(key, value);
+            
+            // 이미 업데이트 중이면 무한 루프 방지
+            if (isUpdating) return;
+            isUpdating = true;
+            
+            try {
+                // 값 표시 업데이트
+                valueDisplay.textContent = String(value);
+                
+                // 설정 업데이트
+                await settingsManager.updateSetting(key, value);
+            } finally {
+                isUpdating = false;
+            }
         })
     );
 
     if (key === 'bodyLength') {
         setting.setDisabled(!plugin.settings.bodyLengthLimit);
+    } else if (key === 'fixedCardHeight') {
+        setting.setDisabled(!plugin.settings.alignCardHeight || !plugin.settings.useFixedHeight);
+    } else if (key === 'cardsPerColumn') {
+        setting.setDisabled(!plugin.settings.alignCardHeight || plugin.settings.useFixedHeight);
     }
 
     return setting;
@@ -395,12 +409,10 @@ function refreshAllCardNavigatorViews(plugin: CardNavigatorPlugin, type: Refresh
 
 // 레이아웃 변경
 export async function handleLayoutChange(
-    plugin: CardNavigatorPlugin, 
-    layout: CardNavigatorSettings['defaultLayout']
+    plugin: CardNavigatorPlugin
 ): Promise<void> {
-    plugin.settings.defaultLayout = layout;
     await plugin.saveSettings();
-    plugin.updateLayout(layout);
+    refreshAllCardNavigatorViews(plugin, RefreshType.LAYOUT);
 }
 
 // 팝업 닫기 함수
@@ -436,52 +448,86 @@ function createSettingsContent(plugin: CardNavigatorPlugin, popup: HTMLElement):
     // 레이아웃 섹션 생성
     const layoutSection = createCollapsibleSection(popup, t('LAYOUT_SETTINGS'), 'layout', true);
     
-    const updateLayoutSettings = (layout: CardNavigatorSettings['defaultLayout']) => {
+    const updateLayoutSettings = () => {
         layoutSection.empty();
 
-        addDropdownSetting('defaultLayout', t('DEFAULT_LAYOUT'), layoutSection, plugin, settingsManager, [
-            { value: 'auto', label: t('AUTO') },
-            { value: 'list', label: t('LIST') },
-            { value: 'grid', label: t('GRID') },
-            { value: 'masonry', label: t('MASONRY') }
-        ], (value) => {
-            updateLayoutSettings(value as CardNavigatorSettings['defaultLayout']);
+        // 카드 너비 임계값 설정
+        addSliderSetting('cardThresholdWidth', t('CARD_THRESHOLD_WIDTH'), layoutSection, plugin, settingsManager);
+        
+        // 카드 높이 정렬 설정
+        addToggleSetting('alignCardHeight', t('ALIGN_CARD_HEIGHT'), layoutSection, plugin, settingsManager, () => {
+            updateUseFixedHeightSetting();
+            updateFixedCardHeightSetting();
+            updatecardsPerColumnSetting();
         });
         
-        if (layout === 'auto') {
-            addSliderSetting('cardWidthThreshold', t('CARD_WIDTH_THRESHOLD'), layoutSection, plugin, settingsManager);
-        }
-        if (layout === 'grid') {
-            addSliderSetting('gridColumns', t('GRID_COLUMNS'), layoutSection, plugin, settingsManager);
-        }
-        if (layout === 'auto' || layout === 'grid') {
-            addSliderSetting('gridCardHeight', t('GRID_CARD_HEIGHT'), layoutSection, plugin, settingsManager);
-        }
-        if (layout === 'masonry') {
-            addSliderSetting('masonryColumns', t('MASONRY_COLUMNS'), layoutSection, plugin, settingsManager);
-        }
-        if (layout === 'auto' || layout === 'list') {
-            addToggleSetting('alignCardHeight', t('ALIGN_CARD_HEIGHT'), layoutSection, plugin, settingsManager, () => {
-                updateCardsPerViewSetting();
-            });
-            updateCardsPerViewSetting();
-        }
+        // 높이 계산 방식 선택 토글 추가
+        updateUseFixedHeightSetting();
+        
+        // 고정 카드 높이 설정 추가 (alignCardHeight가 활성화된 경우에만)
+        updateFixedCardHeightSetting();
+        
+        // 뷰당 카드 수 설정 추가 (alignCardHeight가 활성화된 경우에만)
+        updatecardsPerColumnSetting();
 
         popup.addEventListener('click', (e) => e.stopPropagation());
     };
 
-    const updateCardsPerViewSetting = () => {
-        const cardsPerViewSetting = layoutSection.querySelector('.setting-cards-per-view');
-        if (cardsPerViewSetting) {
-            cardsPerViewSetting.remove();
+    const updateUseFixedHeightSetting = () => {
+        const useFixedHeightSetting = layoutSection.querySelector('.setting-use-fixed-height');
+        if (useFixedHeightSetting) {
+            useFixedHeightSetting.remove();
         }
         if (plugin.settings.alignCardHeight) {
-            addSliderSetting('cardsPerView', t('CARDS_PER_VIEW'), layoutSection, plugin, settingsManager)
-                .settingEl.addClass('setting-cards-per-view');
+            const setting = new Setting(layoutSection)
+                .setName(t('USE_FIXED_HEIGHT'))
+                .addToggle(toggle => toggle
+                    .setValue(plugin.settings.useFixedHeight)
+                    .onChange(async (value) => {
+                        await settingsManager.updateBooleanSetting('useFixedHeight', value);
+                        updateFixedCardHeightSetting();
+                        updatecardsPerColumnSetting();
+                    })
+                );
+            setting.settingEl.addClass('setting-use-fixed-height');
         }
     };
 
-    updateLayoutSettings(plugin.settings.defaultLayout);
+    const updateFixedCardHeightSetting = () => {
+        const fixedCardHeightSetting = layoutSection.querySelector('.setting-fixed-card-height');
+        if (fixedCardHeightSetting) {
+            fixedCardHeightSetting.remove();
+        }
+        if (plugin.settings.alignCardHeight) {
+            const setting = addSliderSetting('fixedCardHeight', t('FIXED_CARD_HEIGHT'), layoutSection, plugin, settingsManager);
+            setting.settingEl.addClass('setting-fixed-card-height');
+            
+            // useFixedHeight가 false인 경우 비활성화
+            if (!plugin.settings.useFixedHeight) {
+                setting.setDisabled(true);
+                setting.settingEl.addClass('setting-disabled');
+            }
+        }
+    };
+
+    const updatecardsPerColumnSetting = () => {
+        const cardsPerColumnSetting = layoutSection.querySelector('.setting-cards-per-column');
+        if (cardsPerColumnSetting) {
+            cardsPerColumnSetting.remove();
+        }
+        if (plugin.settings.alignCardHeight) {
+            const setting = addSliderSetting('cardsPerColumn', t('CARDS_PER_COLUMN'), layoutSection, plugin, settingsManager);
+            setting.settingEl.addClass('setting-cards-per-column');
+            
+            // useFixedHeight가 true인 경우 비활성화
+            if (plugin.settings.useFixedHeight) {
+                setting.setDisabled(true);
+                setting.settingEl.addClass('setting-disabled');
+            }
+        }
+    };
+
+    updateLayoutSettings();
 
     // 카드 내용 섹션 생성
     const displaySection = createCollapsibleSection(popup, t('CARD_CONTENT_SETTINGS'), 'display', true);
@@ -513,6 +559,7 @@ function createSettingsContent(plugin: CardNavigatorPlugin, popup: HTMLElement):
     addSliderSetting('fileNameFontSize', t('FILE_NAME_FONT_SIZE'), stylingSection, plugin, settingsManager);
     addSliderSetting('firstHeaderFontSize', t('FIRST_HEADER_FONT_SIZE'), stylingSection, plugin, settingsManager);
     addSliderSetting('bodyFontSize', t('BODY_FONT_SIZE'), stylingSection, plugin, settingsManager);
+    addSliderSetting('tagsFontSize', t('TAGS_FONT_SIZE'), stylingSection, plugin, settingsManager);
 
     // 이벤트 버블링 방지
     popup.addEventListener('click', (e) => e.stopPropagation());
