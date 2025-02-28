@@ -185,14 +185,15 @@ export class KeyboardNavigator {
         if (totalCards === 0) return;
 
         // 레이아웃 방향 확인
-        const isVertical = this.cardContainer.layoutManager.getLayout().getScrollDirection() === 'vertical';
+        const isVertical = this.cardContainer.layoutManager.getLayoutDirection() === 'vertical';
+        const columnsCount = this.cardContainer.layoutManager.getColumnsCount();
 
         // 그리드 레이아웃인 경우 (열 수가 1보다 큰 경우)
-        if (!isVertical || this.cardContainer.layoutManager.getLayout().getColumnsCount() > 1) {
+        if (columnsCount > 1) {
             this.moveInGrid(direction, totalCards);
         } else {
             // 리스트 레이아웃인 경우 (열 수가 1인 경우)
-            this.moveInList(direction, totalCards);
+            this.moveInList(direction, totalCards, isVertical);
         }
 
         this.updateFocusedCardImmediate();
@@ -237,7 +238,7 @@ export class KeyboardNavigator {
     private moveInGrid(direction: 'up' | 'down' | 'left' | 'right', totalCards: number): void {
         if (this.focusedCardIndex === null) return;
         
-        const columns = this.cardContainer.layoutManager.getLayout().getColumnsCount();
+        const columns = this.cardContainer.layoutManager.getLayoutConfig().getColumns();
         const currentRow = Math.floor(this.focusedCardIndex / columns);
         const currentCol = this.focusedCardIndex % columns;
         
@@ -264,18 +265,33 @@ export class KeyboardNavigator {
     }
     
     // 리스트 레이아웃에서 포커스 이동
-    private moveInList(direction: 'up' | 'down' | 'left' | 'right', totalCards: number): void {
+    private moveInList(direction: 'up' | 'down' | 'left' | 'right', totalCards: number, isVertical: boolean): void {
         if (this.focusedCardIndex === null) return;
         
-        switch (direction) {
-            case 'up':
-            case 'left':
-                this.focusedCardIndex = this.ensureValidIndex(this.focusedCardIndex - 1);
-                break;
-            case 'down':
-            case 'right':
-                this.focusedCardIndex = this.ensureValidIndex(this.focusedCardIndex + 1);
-                break;
+        if (isVertical) {
+            // 수직 레이아웃에서는 위/아래가 주 이동 방향
+            switch (direction) {
+                case 'up':
+                case 'left':
+                    this.focusedCardIndex = this.ensureValidIndex(this.focusedCardIndex - 1);
+                    break;
+                case 'down':
+                case 'right':
+                    this.focusedCardIndex = this.ensureValidIndex(this.focusedCardIndex + 1);
+                    break;
+            }
+        } else {
+            // 수평 레이아웃에서는 좌/우가 주 이동 방향
+            switch (direction) {
+                case 'up':
+                case 'left':
+                    this.focusedCardIndex = this.ensureValidIndex(this.focusedCardIndex - 1);
+                    break;
+                case 'down':
+                case 'right':
+                    this.focusedCardIndex = this.ensureValidIndex(this.focusedCardIndex + 1);
+                    break;
+            }
         }
     }
     //#endregion
@@ -283,7 +299,7 @@ export class KeyboardNavigator {
     //#region 유틸리티 메서드
     // 그리드 레이아웃의 인덱스 계산
     private calculateGridIndex(rowDelta: number, colDelta: number, totalCards: number): number {
-        const columns = this.cardContainer.layoutManager.getLayout().getColumnsCount();
+        const columns = this.cardContainer.layoutManager.getLayoutConfig().getColumns();
         
         // 열 수가 1이면 리스트 방식으로 계산
         if (columns <= 1) {

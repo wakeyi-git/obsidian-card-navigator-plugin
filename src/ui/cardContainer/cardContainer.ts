@@ -64,22 +64,96 @@ export class CardContainer {
     async initialize(): Promise<void> {
         const layoutConfig = new LayoutConfig(this.settings);
         this.layoutManager = new LayoutManager(this.settings, this.cardMaker);
-        this.cardRenderer = new CardRenderer(
-            this.containerEl,
-            this.cardMaker,
-            this.layoutManager,
-            this.plugin
-        );
         
         this.cardInteractionManager = new CardInteractionManager(
             (file: TFile) => this.app.workspace.openLinkText(file.path, '', false),
             (cardEl: HTMLElement, card: Card, event: MouseEvent) => {
                 const menu = new Menu();
+                
+                // 기본 Obsidian 컨텍스트 메뉴 항목 추가
+                this.app.workspace.trigger('file-menu', menu, card.file, 'more-options');
+                
+                // 구분선 추가
+                menu.addSeparator();
+                
+                // 링크 복사 메뉴 항목 추가
+                menu.addItem((item) => {
+                    item
+                        .setTitle(t('COPY_AS_LINK'))
+                        .setIcon('link')
+                        .onClick(() => {
+                            if (card.file) {
+                                this.cardMaker.copyLink(card.file);
+                            }
+                        });
+                });
+                
+                // 내용 복사 메뉴 항목 추가
+                menu.addItem((item) => {
+                    item
+                        .setTitle(t('COPY_CARD_CONTENT'))
+                        .setIcon('file-text')
+                        .onClick(async () => {
+                            if (card.file) {
+                                await this.cardMaker.copyCardContent(card.file);
+                            }
+                        });
+                });
+                
                 menu.showAtMouseEvent(event);
             },
-            (event: DragEvent, card: Card) => {},
-            (event: DragEvent) => {},
-            (event: DragEvent, targetCard: Card) => {}
+            (event: DragEvent, card: Card) => {
+                // 드래그 시작 시 데이터 설정
+                if (card.file) {
+                    // CardMaker의 setupDragData 메서드 사용
+                    this.cardMaker.setupDragData(event, card);
+                }
+            },
+            (event: DragEvent) => {
+                // 드래그 오버 시 기본 동작 방지
+                event.preventDefault();
+                event.dataTransfer!.dropEffect = 'copy';
+                
+                // 드래그 오버 스타일 적용
+                const target = event.target as HTMLElement;
+                const cardEl = target.closest('.card-navigator-card');
+                if (cardEl) {
+                    cardEl.classList.add('drag-over');
+                    
+                    // 이전에 드래그 오버된 다른 카드의 스타일 제거
+                    const allCards = this.containerEl.querySelectorAll('.card-navigator-card');
+                    allCards.forEach(card => {
+                        if (card !== cardEl) {
+                            card.classList.remove('drag-over');
+                        }
+                    });
+                    
+                    // 드래그 리브 이벤트 리스너 추가
+                    const dragLeaveHandler = () => {
+                        cardEl.classList.remove('drag-over');
+                        cardEl.removeEventListener('dragleave', dragLeaveHandler);
+                    };
+                    cardEl.addEventListener('dragleave', dragLeaveHandler, { once: true });
+                }
+            },
+            (event: DragEvent, targetCard: Card) => {
+                // 드롭 처리 (필요한 경우 구현)
+                event.preventDefault();
+                
+                // 드래그 오버 스타일 제거
+                const allCards = this.containerEl.querySelectorAll('.card-navigator-card');
+                allCards.forEach(card => {
+                    card.classList.remove('drag-over');
+                });
+            }
+        );
+        
+        this.cardRenderer = new CardRenderer(
+            this.containerEl,
+            this.cardMaker,
+            this.layoutManager,
+            this.plugin,
+            this.cardInteractionManager
         );
         
         this.keyboardNavigator = new KeyboardNavigator(
@@ -100,30 +174,6 @@ export class CardContainer {
         this.setupResizeObserver();
         this.isInitialized = true;
     }
-
-    /**
-     * 컨테이너 크기와 방향을 초기화합니다.
-     */
-    // private initializeContainerSizeAndOrientation(): void {
-    //     if (!this.containerEl) return;
-        
-    //     this.containerEl.style.setProperty('--container-width', `${this.lastWidth}px`);
-    //     this.containerEl.style.setProperty('--container-height', `${this.lastHeight}px`);
-        
-    //     if (this.layoutManager) {
-    //         const { isVertical } = this.layoutManager.getLayoutConfig().calculateContainerOrientation();
-    //         this.isVertical = isVertical;
-            
-    //         this.containerEl.classList.toggle('vertical-layout', this.isVertical);
-    //         this.containerEl.classList.toggle('horizontal-layout', !this.isVertical);
-            
-    //         this.layoutManager.updateLayout(this.lastWidth, this.lastHeight);
-    //     } else {
-    //         this.isVertical = true;
-    //         this.containerEl.classList.add('vertical-layout');
-    //         this.containerEl.classList.remove('horizontal-layout');
-    //     }
-    // }
 
     /**
      * 파일을 로드하여 카드로 변환합니다.
@@ -158,10 +208,22 @@ export class CardContainer {
             this.cardRenderer.cleanup?.();
             this.cardRenderer = null;
         }
+        
+        if (this.cardInteractionManager) {
+            // 모든 카드의 상호작용 제거
+            this.cards.forEach(card => {
+                if (card && card.id) {
+                    this.cardInteractionManager?.removeInteractions(card.id);
+                }
+            });
+            this.cardInteractionManager = null;
+        }
+        
         if (this.keyboardNavigator) {
             this.keyboardNavigator.cleanup?.();
             this.keyboardNavigator = null;
         }
+        
         if (this.containerEl) {
             this.containerEl.empty();
         }
@@ -222,7 +284,7 @@ export class CardContainer {
         if (!this.containerEl) return;
         
         if (this.layoutManager) {
-            this.isVertical = this.layoutManager.getIsVertical();
+            this.isVertical = this.layoutManager.getLayoutDirection() === 'vertical';
         }
         
         this.containerEl.classList.toggle('vertical-layout', this.isVertical);
@@ -301,12 +363,12 @@ export class CardContainer {
             if (this.layoutManager) {
                 const layoutConfig = this.layoutManager.getLayoutConfig();
                 if (layoutConfig) {
-                    const { isVertical } = layoutConfig.calculateContainerOrientation();
-                    this.isVertical = isVertical;
+                    const direction = layoutConfig.getLayoutDirection();
+                    this.isVertical = direction === 'vertical';
                     
-                    this.containerEl.classList.toggle('vertical', isVertical);
-                    this.containerEl.classList.toggle('horizontal', !isVertical);
-                    this.containerEl.style.setProperty('--is-vertical', isVertical ? '1' : '0');
+                    this.containerEl.classList.toggle('vertical', this.isVertical);
+                    this.containerEl.classList.toggle('horizontal', !this.isVertical);
+                    this.containerEl.style.setProperty('--is-vertical', this.isVertical ? '1' : '0');
                 }
                 
                 this.layoutManager.updateLayout(width, height);
@@ -369,9 +431,9 @@ export class CardContainer {
                 this.focusedCardId = activeCardId;
             }
             
-            requestAnimationFrame(() => {
-                this.cardRenderer?.renderCards(cards, this.focusedCardId, activeFile);
-            });
+            if (this.cardRenderer) {
+                await this.cardRenderer.renderCards(cards, this.focusedCardId, activeFile);
+            }
         } catch (error) {
             console.error('카드 표시 중 오류 발생:', error);
             this.showEmptyState(t('ERROR_DISPLAYING_CARDS'));

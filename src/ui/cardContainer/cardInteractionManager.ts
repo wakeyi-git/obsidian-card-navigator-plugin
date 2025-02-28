@@ -1,4 +1,4 @@
-import { TFile, Menu, Notice } from 'obsidian';
+import { TFile, Notice } from 'obsidian';
 import { Card } from '../../common/types';
 import { DEFAULT_SETTINGS } from '../../common/types';
 
@@ -8,7 +8,6 @@ import { DEFAULT_SETTINGS } from '../../common/types';
 export class CardInteractionManager {
     private settings: any;
     private interactionCache: Set<string> = new Set();
-    private dragStartTimeout: number | null = null;
     private longPressTimeout: number | null = null;
     private isLongPressing: boolean = false;
     private isDragging: boolean = false;
@@ -69,26 +68,29 @@ export class CardInteractionManager {
         cardEl.addEventListener('contextmenu', contextMenuHandler);
         handlers.push({ element: cardEl, type: 'contextmenu', handler: contextMenuHandler });
         
-        // 드래그 앤 드롭 이벤트 핸들러 (설정에서 활성화된 경우)
-        if (this.settings?.enableDragAndDrop) {
-            // 드래그 시작 이벤트 핸들러
-            const dragStartHandler = this.createDragStartHandler(card);
-            cardEl.addEventListener('dragstart', dragStartHandler);
-            handlers.push({ element: cardEl, type: 'dragstart', handler: dragStartHandler });
-            
-            // 드래그 오버 이벤트 핸들러
-            const dragOverHandler = this.createDragOverHandler();
-            cardEl.addEventListener('dragover', dragOverHandler);
-            handlers.push({ element: cardEl, type: 'dragover', handler: dragOverHandler });
-            
-            // 드롭 이벤트 핸들러
-            const dropHandler = this.createDropHandler(card);
-            cardEl.addEventListener('drop', dropHandler);
-            handlers.push({ element: cardEl, type: 'drop', handler: dropHandler });
-            
-            // 드래그 가능 속성 설정
-            cardEl.setAttribute('draggable', 'true');
-        }
+        // 드래그 앤 드롭 이벤트 핸들러 (항상 활성화)
+        // 드래그 시작 이벤트 핸들러
+        const dragStartHandler = this.createDragStartHandler(card);
+        cardEl.addEventListener('dragstart', dragStartHandler);
+        handlers.push({ element: cardEl, type: 'dragstart', handler: dragStartHandler });
+        
+        // 드래그 종료 이벤트 핸들러
+        const dragEndHandler = this.createDragEndHandler();
+        cardEl.addEventListener('dragend', dragEndHandler);
+        handlers.push({ element: cardEl, type: 'dragend', handler: dragEndHandler });
+        
+        // 드래그 오버 이벤트 핸들러
+        const dragOverHandler = this.createDragOverHandler();
+        cardEl.addEventListener('dragover', dragOverHandler);
+        handlers.push({ element: cardEl, type: 'dragover', handler: dragOverHandler });
+        
+        // 드롭 이벤트 핸들러
+        const dropHandler = this.createDropHandler(card);
+        cardEl.addEventListener('drop', dropHandler);
+        handlers.push({ element: cardEl, type: 'drop', handler: dropHandler });
+        
+        // 드래그 가능 속성 설정
+        cardEl.setAttribute('draggable', 'true');
         
         // 모바일 터치 이벤트 핸들러 (설정에서 활성화된 경우)
         if (this.settings?.enableMobileInteractions) {
@@ -174,6 +176,21 @@ export class CardInteractionManager {
             
             // 드래그 이벤트 처리
             this.handleDragStart(event as DragEvent, card);
+        };
+    }
+
+    /**
+     * 드래그 종료 이벤트 핸들러 생성
+     */
+    private createDragEndHandler(): EventListener {
+        return (event: Event) => {
+            // 드래그 상태 초기화
+            this.isDragging = false;
+            
+            // 약간의 지연 후 상태 초기화 (클릭 이벤트와 충돌 방지)
+            setTimeout(() => {
+                this.isDragging = false;
+            }, 50);
         };
     }
 

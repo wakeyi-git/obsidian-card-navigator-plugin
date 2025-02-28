@@ -4,6 +4,7 @@ import { CardMaker } from './cardMaker';
 import { LayoutManager } from 'layouts/layoutManager';
 import CardNavigatorPlugin from 'main';
 import { CardPosition } from 'layouts/layoutStrategy';
+import { CardInteractionManager } from './cardInteractionManager';
 
 /**
  * 카드 렌더러 클래스
@@ -12,14 +13,21 @@ export class CardRenderer {
     private renderedCards: Set<string> = new Set();
     private cardElements: Map<string, HTMLElement> = new Map();
     private isInitialized: boolean = false;
+    private cardInteractionManager: CardInteractionManager | null = null;
 
     constructor(
         private containerEl: HTMLElement,
         private cardMaker: CardMaker,
         private layoutManager: LayoutManager,
-        private plugin: CardNavigatorPlugin
+        private plugin: CardNavigatorPlugin,
+        cardInteractionManager?: CardInteractionManager
     ) {
         this.isInitialized = true;
+        this.cardInteractionManager = cardInteractionManager || null;
+    }
+
+    public setCardInteractionManager(cardInteractionManager: CardInteractionManager): void {
+        this.cardInteractionManager = cardInteractionManager;
     }
 
     public updateCardSettings(alignCardHeight: boolean, cardsPerColumn: number): void {
@@ -49,44 +57,42 @@ export class CardRenderer {
         }
     }
 
-    public renderCards(cards: Card[], focusedCardId?: string | null, activeFile?: TFile): void {
-        if (!this.isInitialized) {
-            this.isInitialized = true;
-        }
-        
-        if (!this.containerEl || !document.body.contains(this.containerEl)) {
+    /**
+     * 카드 목록을 렌더링합니다.
+     * @param cards 렌더링할 카드 목록
+     * @param focusedCardId 포커스된 카드 ID
+     * @param activeFile 활성화된 파일
+     */
+    public async renderCards(cards: Card[], focusedCardId?: string | null, activeFile?: TFile): Promise<void> {
+        if (!this.containerEl || !this.isInitialized) {
             return;
         }
         
-        if (!cards || cards.length === 0) {
-            this.containerEl.empty();
-            this.cardElements.clear();
-            this.renderedCards.clear();
-            return;
-        }
-        
-        requestAnimationFrame(() => {
-            this.updateCardElementsMap(cards);
+        try {
+            // 레이아웃 계산이 필요한지 확인
+            const needsLayoutCalculation = this.checkIfLayoutCalculationNeeded(cards);
             
-            if (this.checkIfLayoutCalculationNeeded(cards)) {
-                requestAnimationFrame(async () => {
-                    try {
-                        await this.layoutManager.calculateLayout(cards);
-                        requestAnimationFrame(() => {
-                            this.renderCardsBatched(cards, 0, 30, focusedCardId, activeFile);
-                        });
-                    } catch (error) {
-                        this.renderCardsWithDefaultLayout(cards, focusedCardId?.toString(), activeFile);
-                    }
-                });
-            } else {
-                requestAnimationFrame(() => {
-                    this.renderCardsBatched(cards, 0, 30, focusedCardId, activeFile);
-                });
+            if (needsLayoutCalculation) {
+                // 레이아웃 계산
+                this.layoutManager.calculateLayout(cards);
             }
             
-            cards.forEach(card => this.renderedCards.add(card.id));
-        });
+            // 카드 렌더링
+            const batchSize = 10;
+            await this.renderCardsBatched(cards, 0, batchSize, focusedCardId, activeFile);
+            
+            // 컨테이너 크기 업데이트
+            const containerSize = this.layoutManager.getLayoutConfig().getContainerSize();
+            if (containerSize) {
+                this.containerEl.style.height = `${containerSize.height}px`;
+                this.containerEl.style.width = `${containerSize.width}px`;
+            }
+            
+            // 더 이상 표시되지 않는 카드 제거
+            this.removeUnusedCards(cards);
+        } catch (error) {
+            console.error('카드 렌더링 중 오류 발생:', error);
+        }
     }
     
     private checkIfLayoutCalculationNeeded(cards: Card[]): boolean {
@@ -103,32 +109,40 @@ export class CardRenderer {
         return false;
     }
     
-    private renderCardsBatched(
+    private async renderCardsBatched(
         cards: Card[], 
         startIndex: number, 
         batchSize: number, 
         focusedCardId?: string | null, 
         activeFile?: TFile
-    ): void {
+    ): Promise<void> {
         const endIndex = Math.min(startIndex + batchSize, cards.length);
         const batch = cards.slice(startIndex, endIndex);
         
-        batch.forEach((card) => {
+        for (const card of batch) {
             try {
                 const position = this.layoutManager.getCardPosition(card.id);
                 if (position) {
-                    const cardElement = this.getOrCreateCardElement(card);
+                    const cardElement = await this.getOrCreateCardElement(card);
                     this.applyCardPosition(cardElement, position);
                     this.updateCardActiveState(cardElement, card, activeFile, focusedCardId?.toString());
+                    
+                    // 카드 상호작용 설정
+                    if (this.cardInteractionManager) {
+                        this.cardInteractionManager.setupInteractions(cardElement, card);
+                    }
+                    
+                    this.renderedCards.add(card.id);
                 }
             } catch (error) {
                 // 오류 무시하고 계속 진행
+                console.error('카드 렌더링 중 오류:', error);
             }
-        });
+        }
         
         if (endIndex < cards.length) {
-            requestAnimationFrame(() => {
-                this.renderCardsBatched(cards, endIndex, batchSize, focusedCardId, activeFile);
+            requestAnimationFrame(async () => {
+                await this.renderCardsBatched(cards, endIndex, batchSize, focusedCardId, activeFile);
             });
         }
     }
@@ -150,96 +164,42 @@ export class CardRenderer {
         cardEl.style.transition = 'left 0.3s ease, top 0.3s ease, opacity 0.3s ease';
     }
 
-    private renderCardsWithDefaultLayout(cards: Card[], focusedCardId?: string, activeFile?: TFile): void {
-        if (!this.containerEl) return;
-        
-        const containerWidth = this.containerEl.offsetWidth;
-        const cardWidth = Math.min(300, containerWidth * 0.8);
-        const cardHeight = 200;
-        const cardMargin = 10;
-        const cardsPerRow = Math.max(1, Math.floor(containerWidth / (cardWidth + cardMargin)));
-        
-        const batchSize = 20;
-        const totalCards = cards.length;
-        let processedCards = 0;
-        
-        const processBatch = () => {
-            const endIdx = Math.min(processedCards + batchSize, totalCards);
-            
-            for (let i = processedCards; i < endIdx; i++) {
-                const card = cards[i];
-                const cardEl = this.getOrCreateCardElement(card);
-                
-                const row = Math.floor(i / cardsPerRow);
-                const col = i % cardsPerRow;
-                
-                const left = col * (cardWidth + cardMargin);
-                const top = row * (cardHeight + cardMargin);
-                
-                cardEl.style.position = 'absolute';
-                cardEl.style.left = `${left}px`;
-                cardEl.style.top = `${top}px`;
-                cardEl.style.width = `${cardWidth}px`;
-                cardEl.style.height = `${cardHeight}px`;
-                cardEl.style.visibility = 'visible';
-                cardEl.style.opacity = '1';
-                
-                this.updateCardActiveState(cardEl, card, activeFile, focusedCardId);
-            }
-            
-            processedCards = endIdx;
-            
-            if (processedCards < totalCards) {
-                requestAnimationFrame(processBatch);
-            }
-        };
-        
-        processBatch();
-    }
 
-    private getOrCreateCardElement(card: Card): HTMLElement {
-        let cardEl = this.cardElements.get(card.id);
-        
-        if (!cardEl) {
-            cardEl = this.createCardElement(card);
-            this.cardElements.set(card.id, cardEl);
-            this.containerEl.appendChild(cardEl);
+    private async getOrCreateCardElement(card: Card): Promise<HTMLElement> {
+        if (this.cardElements.has(card.id)) {
+            const existingElement = this.cardElements.get(card.id);
+            if (existingElement) {
+                await this.updateCardContent(existingElement, card);
+                return existingElement;
+            }
         }
         
-        this.renderedCards.add(card.id);
-        
-        return cardEl;
-    }
-    
-    private createCardElement(card: Card): HTMLElement {
         const cardEl = document.createElement('div');
         cardEl.className = 'card-navigator-card';
-        
         cardEl.dataset.cardId = card.id;
+        cardEl.draggable = true;
         
-        const safeId = card.id.replace(/[^\w-]/g, '_');
-        cardEl.setAttribute('data-safe-id', safeId);
+        this.containerEl.appendChild(cardEl);
+        this.cardElements.set(card.id, cardEl);
         
-        if (card.file && card.file.path) {
-            cardEl.dataset.originalPath = card.file.path;
-        }
-        
-        if (card.fileName) {
-            cardEl.dataset.fileName = card.fileName;
-        } else if (card.file && card.file.basename) {
-            cardEl.dataset.fileName = card.file.basename;
-        }
-        
+        // 제목 요소 추가
         const titleEl = document.createElement('div');
         titleEl.className = 'card-navigator-card-title';
         titleEl.textContent = card.fileName || card.file?.basename || '제목 없음';
         cardEl.appendChild(titleEl);
         
+        // 내용 요소 추가
         const contentEl = document.createElement('div');
         contentEl.className = 'card-navigator-body';
         cardEl.appendChild(contentEl);
         
-        this.updateCardContent(cardEl, card);
+        // 태그 컨테이너 추가 (내용 요소 다음에 추가하여 하단에 표시)
+        const tagsEl = document.createElement('div');
+        tagsEl.className = 'card-navigator-card-tags';
+        tagsEl.style.marginTop = 'auto'; // 자동 마진으로 하단에 배치
+        cardEl.appendChild(tagsEl);
+        
+        await this.updateCardContent(cardEl, card);
         
         cardEl.style.position = 'absolute';
         cardEl.style.visibility = 'hidden';
@@ -248,7 +208,7 @@ export class CardRenderer {
         return cardEl;
     }
     
-    private updateCardContent(cardEl: HTMLElement, card: Card): void {
+    private async updateCardContent(cardEl: HTMLElement, card: Card): Promise<void> {
         const currentContent = cardEl.getAttribute('data-content-hash');
         const newContent = this.getContentHash(card);
         
@@ -267,8 +227,19 @@ export class CardRenderer {
         // 내용 업데이트
         const contentEl = cardEl.querySelector('.card-navigator-body');
         if (contentEl && card.body) {
+            // 마크다운 내용 준비
+            let markdownContent = '';
+            
+            // 첫 번째 헤더가 있으면 추가
+            if (card.firstHeader && card.firstHeader.trim() !== '') {
+                markdownContent += `## ${card.firstHeader}\n\n`;
+            }
+            
+            // 본문 추가
+            markdownContent += card.body;
+            
             // 내용 저장
-            cardEl.dataset.content = card.body;
+            cardEl.dataset.content = markdownContent;
             
             if (this.plugin?.settings?.renderContentAsHtml) {
                 let markdownContainer = contentEl.querySelector('.markdown-rendered');
@@ -279,38 +250,97 @@ export class CardRenderer {
                 }
                 
                 // 비동기 렌더링은 cardMaker.ensureCardRendered에서 처리
+                await this.cardMaker.ensureCardRendered(cardEl);
             } else {
-                contentEl.textContent = card.body;
+                contentEl.textContent = markdownContent;
             }
         }
         
         // 태그 업데이트
-        let tagsContainer = cardEl.querySelector('.card-navigator-card-tags');
-        if (!tagsContainer) {
-            tagsContainer = document.createElement('div');
-            tagsContainer.className = 'card-navigator-card-tags';
-            cardEl.appendChild(tagsContainer);
-        } else {
-            tagsContainer.innerHTML = '';
-        }
-        
-        let tags: string[] = [];
-        if (card.tags && card.tags.length > 0) {
-            tags = card.tags;
-        } else if (card.file && this.plugin.app.metadataCache) {
+        const tagsEl = cardEl.querySelector('.card-navigator-card-tags');
+        if (tagsEl && card.file) {
+            tagsEl.innerHTML = '';
+            
             const fileCache = this.plugin.app.metadataCache.getFileCache(card.file);
-            if (fileCache && fileCache.tags) {
-                tags = fileCache.tags.map(tag => tag.tag);
+            if (fileCache) {
+                // 태그 목록 초기화
+                let tags: { tag: string }[] = [];
+                
+                // 인라인 태그 추출 (#태그)
+                if (fileCache.tags) {
+                    tags = [...fileCache.tags];
+                }
+                
+                // frontmatter에서 태그 추출
+                if (fileCache.frontmatter) {
+                    // tags 배열 형태로 정의된 태그 추출
+                    const frontmatterTags = fileCache.frontmatter.tags;
+                    if (frontmatterTags) {
+                        if (Array.isArray(frontmatterTags)) {
+                            // 배열인 경우 각 항목을 태그로 추가
+                            frontmatterTags.forEach(tag => {
+                                // 태그가 문자열인지 확인
+                                if (typeof tag === 'string') {
+                                    // '#' 접두사가 없으면 추가
+                                    const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
+                                    // 중복 확인
+                                    if (!tags.some(t => t.tag === formattedTag)) {
+                                        tags.push({ tag: formattedTag });
+                                    }
+                                }
+                            });
+                        } else if (typeof frontmatterTags === 'string') {
+                            // 쉼표로 구분된 문자열인 경우 분리하여 추가
+                            const tagArray = frontmatterTags.split(',').map(t => t.trim());
+                            tagArray.forEach(tag => {
+                                if (tag) {
+                                    const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
+                                    if (!tags.some(t => t.tag === formattedTag)) {
+                                        tags.push({ tag: formattedTag });
+                                    }
+                                }
+                            });
+                        }
+                    }
+                    
+                    // tag 단일 값으로 정의된 태그 추출
+                    const frontmatterTag = fileCache.frontmatter.tag;
+                    if (frontmatterTag && typeof frontmatterTag === 'string') {
+                        // 쉼표로 구분된 문자열인 경우 분리하여 추가
+                        const tagArray = frontmatterTag.split(',').map(t => t.trim());
+                        tagArray.forEach(tag => {
+                            if (tag) {
+                                const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
+                                if (!tags.some(t => t.tag === formattedTag)) {
+                                    tags.push({ tag: formattedTag });
+                                }
+                            }
+                        });
+                    }
+                }
+                
+                // 태그 렌더링
+                tags.forEach(tag => {
+                    const tagEl = document.createElement('span');
+                    tagEl.className = 'card-navigator-card-tag';
+                    tagEl.textContent = tag.tag;
+                    
+                    // 태그 클릭 이벤트 추가
+                    tagEl.addEventListener('click', (event) => {
+                        // 이벤트 버블링 방지
+                        event.stopPropagation();
+                        event.preventDefault();
+                        
+                        // 태그 이름에서 '#' 제거
+                        const tagName = tag.tag.replace('#', '');
+                        
+                        // 검색 이벤트 발생
+                        this.triggerTagSearch(tagName);
+                    });
+                    
+                    tagsEl.appendChild(tagEl);
+                });
             }
-        }
-        
-        if (tags.length > 0) {
-            tags.forEach((tag: string) => {
-                const tagEl = document.createElement('span');
-                tagEl.className = 'card-navigator-card-tag';
-                tagEl.textContent = tag;
-                tagsContainer.appendChild(tagEl);
-            });
         }
     }
     
@@ -341,18 +371,7 @@ export class CardRenderer {
             cardEl.classList.remove('card-active');
         }
     }
-    
-    private updateCardElementsMap(cards: Card[]): void {
-        const currentCardIds = new Set(cards.map(card => card.id));
-        
-        for (const [cardId, cardEl] of this.cardElements.entries()) {
-            if (!currentCardIds.has(cardId)) {
-                cardEl.remove();
-                this.cardElements.delete(cardId);
-                this.renderedCards.delete(cardId);
-            }
-        }
-    }
+
 
     public getCardElement(cardId: string): HTMLElement | undefined {
         return this.cardElements.get(cardId);
@@ -378,49 +397,33 @@ export class CardRenderer {
         return this.layoutManager.getCardSize();
     }
 
-    private convertMarkdownToHtml(markdown: string): string {
-        if (!markdown) return '';
+    /**
+     * 더 이상 표시되지 않는 카드를 제거합니다.
+     */
+    private removeUnusedCards(cards: Card[]): void {
+        const currentCardIds = new Set(cards.map(card => card.id));
         
-        let html = markdown;
-        
-        html = html.replace(/\n/g, '<br>');
-        html = html.replace(/#{1,6}\s+([^\n]+)/g, (match, text) => {
-            const level = match.trim().indexOf(' ');
-            return `<h${level}>${text.trim()}</h${level}>`;
-        });
-        
-        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-        html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-        html = html.replace(/>\s+([^\n]+)/g, '<blockquote>$1</blockquote>');
-        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-        html = html.replace(/^\s*-\s+([^\n]+)/gm, '<li>$1</li>');
-        html = html.replace(/<li>([^<]+)<\/li>/g, '<ul><li>$1</li></ul>');
-        
-        return html;
+        // 현재 표시된 카드 중 더 이상 필요하지 않은 카드 제거
+        for (const [cardId, cardEl] of this.cardElements.entries()) {
+            if (!currentCardIds.has(cardId)) {
+                cardEl.remove();
+                this.cardElements.delete(cardId);
+                this.renderedCards.delete(cardId);
+            }
+        }
     }
 
-    private processLinks(container: HTMLElement, filePath: string): void {
-        container.querySelectorAll('a').forEach((link) => {
-            if (link.href.startsWith('http')) {
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                return;
-            }
-            
-            link.addEventListener('click', (event) => {
-                event.preventDefault();
-                
-                const href = link.getAttribute('href');
-                if (!href) return;
-                
-                const basePath = filePath.substring(0, filePath.lastIndexOf('/') + 1);
-                const targetPath = href.startsWith('/') ? href.substring(1) : basePath + href;
-                
-                const targetFile = this.plugin.app.vault.getAbstractFileByPath(targetPath);
-                if (targetFile && targetFile instanceof TFile) {
-                    this.plugin.app.workspace.openLinkText(targetPath, filePath);
-                }
-            });
+    /**
+     * 태그 검색 트리거 메서드
+     * @param tagName 태그 이름
+     */
+    private triggerTagSearch(tagName: string): void {
+        // 커스텀 이벤트 생성
+        const event = new CustomEvent('card-navigator-tag-search', {
+            detail: { tagName }
         });
+        
+        // 이벤트 발생
+        document.dispatchEvent(event);
     }
 } 

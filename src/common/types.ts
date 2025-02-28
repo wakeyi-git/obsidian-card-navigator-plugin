@@ -10,6 +10,7 @@ export interface Card {
     fileName?: string;
     firstHeader?: string;
     body?: string;
+    originalBody?: string;
     tags?: string[];
 }
 

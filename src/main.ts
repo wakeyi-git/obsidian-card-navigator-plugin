@@ -150,7 +150,7 @@ export default class CardNavigatorPlugin extends Plugin {
         leaves.forEach(leaf => {
             if (leaf.view instanceof CardNavigatorView) {
                 const { cardContainer } = leaf.view;
-                const isVertical = cardContainer.layoutManager.getIsVertical();
+                const isVertical = cardContainer.layoutManager.getLayoutDirection() === 'vertical';
 
                 // 방향에 따라 적절한 스크롤 메서드 호출
                 switch (direction) {

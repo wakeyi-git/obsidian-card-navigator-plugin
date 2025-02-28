@@ -1,4 +1,5 @@
 import { CardNavigatorSettings } from 'common/types';
+import { LAYOUT_CLASSES, LayoutDirection } from './layoutStrategy';
 
 /**
  * 레이아웃 스타일을 관리하는 클래스
@@ -30,9 +31,9 @@ export class LayoutStyleManager {
 
     /**
      * 컨테이너 스타일을 적용합니다.
-     * @param isVertical 수직 방향 여부
+     * @param direction 레이아웃 방향
      */
-    public applyContainerStyle(isVertical: boolean): void {
+    public applyContainerStyle(direction: LayoutDirection): void {
         if (!this.container) {
             console.warn('[LayoutStyleManager] 컨테이너가 없어 스타일을 적용할 수 없습니다.');
             return;
@@ -47,13 +48,13 @@ export class LayoutStyleManager {
         this.container.style.setProperty('--card-gap', `${gap}px`);
         
         // 컨테이너 방향 설정
-        if (isVertical) {
-            this.container.classList.add('vertical-layout');
-            this.container.classList.remove('horizontal-layout');
-        } else {
-            this.container.classList.add('horizontal-layout');
-            this.container.classList.remove('vertical-layout');
-        }
+        const isVertical = direction === 'vertical';
+        this.container.classList.toggle(LAYOUT_CLASSES.VERTICAL, isVertical);
+        this.container.classList.toggle(LAYOUT_CLASSES.HORIZONTAL, !isVertical);
+        
+        // 카드 높이 정렬 설정
+        this.container.classList.toggle(LAYOUT_CLASSES.ALIGN_HEIGHT, this.settings.alignCardHeight);
+        this.container.classList.toggle(LAYOUT_CLASSES.FLEXIBLE_HEIGHT, !this.settings.alignCardHeight);
         
         // 컨테이너 패딩 CSS 변수 설정 (다른 컴포넌트에서 참조할 수 있도록)
         this.container.style.setProperty('--container-padding', `${padding}px`);
@@ -61,10 +62,10 @@ export class LayoutStyleManager {
 
     /**
      * 컨테이너 스타일을 가져옵니다.
-     * @param isVertical 수직 방향 여부
+     * @param direction 레이아웃 방향
      * @returns 컨테이너 스타일 객체
      */
-    public getContainerStyle(isVertical: boolean): Partial<CSSStyleDeclaration> {
+    public getContainerStyle(direction: LayoutDirection): Partial<CSSStyleDeclaration> {
         // 기본 컨테이너 스타일 설정
         const style: Partial<CSSStyleDeclaration> = {
             position: 'relative',
@@ -98,28 +99,26 @@ export class LayoutStyleManager {
 
     /**
      * 레이아웃 스타일을 업데이트합니다.
-     * @param isVertical 수직 방향 여부
+     * @param direction 레이아웃 방향
      * @param columns 열 수
      * @param cardWidth 카드 너비
      */
-    public updateLayoutStyles(isVertical: boolean, columns: number, cardWidth: number): void {
+    public updateLayoutStyles(direction: LayoutDirection, columns: number, cardWidth: number): void {
         if (!this.container) {
             console.warn('[LayoutStyleManager] 컨테이너가 없어 레이아웃 스타일을 업데이트할 수 없습니다.');
             return;
         }
         
         // 컨테이너 스타일 적용
-        this.applyContainerStyle(isVertical);
+        this.applyContainerStyle(direction);
         
         // 레이아웃 관련 CSS 변수 설정
+        // 정확한 카드 너비를 설정하여 모든 카드가 동일한 너비를 갖도록 합니다.
         this.container.style.setProperty('--card-width', `${cardWidth}px`);
         this.container.style.setProperty('--columns', `${columns}`);
         
         // 레이아웃 방향에 따른 추가 스타일 설정
-        if (isVertical) {
-            this.container.style.setProperty('--layout-direction', 'column');
-        } else {
-            this.container.style.setProperty('--layout-direction', 'row');
-        }
+        const isVertical = direction === 'vertical';
+        this.container.style.setProperty('--layout-direction', isVertical ? 'column' : 'row');
     }
 } 

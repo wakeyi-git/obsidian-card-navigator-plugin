@@ -60,6 +60,9 @@ export class SearchInput {
         this.setupEventListeners();
 
         this.searchSuggest = new SearchSuggest(this.plugin);
+        
+        // 태그 검색 이벤트 리스너 등록
+        this.registerTagSearchEventListener();
     }
 
     private initializeSearchOptions() {
@@ -514,5 +517,24 @@ export class SearchInput {
 
     public focus() {
         this.input.focus();
+    }
+
+    /**
+     * 태그 검색 이벤트 리스너 등록
+     */
+    private registerTagSearchEventListener(): void {
+        document.addEventListener('card-navigator-tag-search', ((event: CustomEvent) => {
+            const { tagName } = event.detail;
+            
+            // 검색어 설정
+            const searchTerm = `tag:${tagName}`;
+            this.setSearchTerm(searchTerm);
+            
+            // 검색 실행
+            this.executeSearch(searchTerm);
+            
+            // 검색 입력 필드에 포커스
+            this.focus();
+        }) as EventListener);
     }
 } 

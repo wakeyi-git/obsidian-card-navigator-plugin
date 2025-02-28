@@ -402,6 +402,10 @@ export class CardMaker extends Component {
     private initCardTemplate(): void {
         this.cardTemplateEl = document.createElement('div');
         this.cardTemplateEl.className = 'card-navigator-card';
+        // 카드 컨테이너에 flex 레이아웃 적용
+        this.cardTemplateEl.style.display = 'flex';
+        this.cardTemplateEl.style.flexDirection = 'column';
+        this.cardTemplateEl.style.height = '100%';
         
         // 제목 요소
         const titleEl = document.createElement('div');
@@ -411,11 +415,15 @@ export class CardMaker extends Component {
         // 내용 요소
         const contentEl = document.createElement('div');
         contentEl.className = 'card-navigator-card-content';
+        contentEl.style.flex = '1';
         this.cardTemplateEl.appendChild(contentEl);
         
         // 태그 컨테이너
         const tagsEl = document.createElement('div');
         tagsEl.className = 'card-navigator-card-tags';
+        // 태그가 항상 카드 하단에 위치하도록 스타일 설정
+        tagsEl.style.marginTop = 'auto';
+        tagsEl.style.paddingTop = '8px';
         this.cardTemplateEl.appendChild(tagsEl);
     }
 
@@ -432,7 +440,7 @@ export class CardMaker extends Component {
      * @param card 카드 데이터
      * @returns 생성된 카드 요소
      */
-    public createCardElement(card: Card): HTMLElement {
+    public async createCardElement(card: Card): Promise<HTMLElement> {
         // 템플릿이 없으면 생성
         if (!this.cardTemplateEl) {
             this.initCardTemplate();
@@ -443,7 +451,7 @@ export class CardMaker extends Component {
         cardEl.dataset.cardId = card.id;
         
         // 카드 내용 설정
-        this.updateCardContent(cardEl, card);
+        await this.updateCardContent(cardEl, card);
         
         return cardEl;
     }
@@ -453,7 +461,7 @@ export class CardMaker extends Component {
      * @param cardEl 카드 요소
      * @param card 카드 데이터
      */
-    public updateCardContent(cardEl: HTMLElement, card: Card): void {
+    public async updateCardContent(cardEl: HTMLElement, card: Card): Promise<void> {
         // 캐시 키 생성
         const cacheKey = this.getContentCacheKey(card);
         
@@ -522,18 +530,100 @@ export class CardMaker extends Component {
                 tags = card.tags;
             } else if (card.file && this.plugin.app.metadataCache) {
                 const fileCache = this.plugin.app.metadataCache.getFileCache(card.file);
-                if (fileCache && fileCache.tags) {
-                    tags = fileCache.tags.map(tag => tag.tag);
+                if (fileCache) {
+                    // 인라인 태그 추출 (#태그)
+                    if (fileCache.tags) {
+                        tags = fileCache.tags.map(tag => tag.tag);
+                    }
+                    
+                    // frontmatter에서 태그 추출
+                    if (fileCache.frontmatter) {
+                        // tags 배열 형태로 정의된 태그 추출
+                        const frontmatterTags = fileCache.frontmatter.tags;
+                        if (frontmatterTags) {
+                            if (Array.isArray(frontmatterTags)) {
+                                // 배열인 경우 각 항목을 태그로 추가
+                                frontmatterTags.forEach(tag => {
+                                    // 태그가 문자열인지 확인
+                                    if (typeof tag === 'string') {
+                                        // '#' 접두사가 없으면 추가
+                                        const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
+                                        if (!tags.includes(formattedTag)) {
+                                            tags.push(formattedTag);
+                                        }
+                                    }
+                                });
+                            } else if (typeof frontmatterTags === 'string') {
+                                // 쉼표로 구분된 문자열인 경우 분리하여 추가
+                                const tagArray = frontmatterTags.split(',').map(t => t.trim());
+                                tagArray.forEach(tag => {
+                                    if (tag) {
+                                        const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
+                                        if (!tags.includes(formattedTag)) {
+                                            tags.push(formattedTag);
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                        
+                        // tag 단일 값으로 정의된 태그 추출
+                        const frontmatterTag = fileCache.frontmatter.tag;
+                        if (frontmatterTag && typeof frontmatterTag === 'string') {
+                            // 쉼표로 구분된 문자열인 경우 분리하여 추가
+                            const tagArray = frontmatterTag.split(',').map(t => t.trim());
+                            tagArray.forEach(tag => {
+                                if (tag) {
+                                    const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
+                                    if (!tags.includes(formattedTag)) {
+                                        tags.push(formattedTag);
+                                    }
+                                }
+                            });
+                        }
+                    }
                 }
             }
             
             if (tags.length > 0) {
-                tags.forEach((tag: string) => {
-                    const tagEl = document.createElement('span');
-                    tagEl.className = 'card-navigator-card-tag';
-                    tagEl.textContent = tag;
-                    tagsEl.appendChild(tagEl);
-                });
+                // HTML로 태그 렌더링
+                for (const tag of tags) {
+                    const tagContainer = document.createElement('div');
+                    tagContainer.className = 'card-navigator-card-tag-container';
+                    
+                    // 마크다운 형식의 태그 생성
+                    const tagMarkdown = `[[${tag}]]`;
+                    
+                    // 마크다운을 HTML로 렌더링
+                    await MarkdownRenderer.render(
+                        this.plugin.app,
+                        tagMarkdown,
+                        tagContainer,
+                        card.file.path,
+                        this
+                    );
+                    
+                    // 렌더링된 태그 컨테이너에 클래스 추가
+                    const renderedTag = tagContainer.querySelector('a');
+                    if (renderedTag) {
+                        renderedTag.classList.add('card-navigator-card-tag');
+                        
+                        // 태그 클릭 이벤트 추가
+                        renderedTag.addEventListener('click', (event) => {
+                            // 이벤트 버블링 방지
+                            event.stopPropagation();
+                            event.preventDefault();
+                            
+                            // 태그 이름에서 '#' 제거
+                            const tagName = tag.replace('#', '');
+                            
+                            // 검색 이벤트 발생
+                            this.triggerTagSearch(tagName);
+                        });
+                    }
+                    
+                    tagsEl.appendChild(tagContainer);
+                }
                 
                 // 태그 글꼴 크기 설정
                 if (this.settings?.tagsFontSize) {
@@ -555,8 +645,66 @@ export class CardMaker extends Component {
             tagString = card.tags.join(',');
         } else if (card.file && this.plugin.app.metadataCache) {
             const fileCache = this.plugin.app.metadataCache.getFileCache(card.file);
-            if (fileCache && fileCache.tags) {
-                tagString = fileCache.tags.map(tag => tag.tag).join(',');
+            if (fileCache) {
+                // 태그 목록 초기화
+                let tags: string[] = [];
+                
+                // 인라인 태그 추출 (#태그)
+                if (fileCache.tags) {
+                    tags = fileCache.tags.map(tag => tag.tag);
+                }
+                
+                // frontmatter에서 태그 추출
+                if (fileCache.frontmatter) {
+                    // tags 배열 형태로 정의된 태그 추출
+                    const frontmatterTags = fileCache.frontmatter.tags;
+                    if (frontmatterTags) {
+                        if (Array.isArray(frontmatterTags)) {
+                            // 배열인 경우 각 항목을 태그로 추가
+                            frontmatterTags.forEach(tag => {
+                                // 태그가 문자열인지 확인
+                                if (typeof tag === 'string') {
+                                    // '#' 접두사가 없으면 추가
+                                    const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
+                                    if (!tags.includes(formattedTag)) {
+                                        tags.push(formattedTag);
+                                    }
+                                }
+                            });
+                        } else if (typeof frontmatterTags === 'string') {
+                            // 쉼표로 구분된 문자열인 경우 분리하여 추가
+                            const tagArray = frontmatterTags.split(',').map(t => t.trim());
+                            tagArray.forEach(tag => {
+                                if (tag) {
+                                    const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
+                                    if (!tags.includes(formattedTag)) {
+                                        tags.push(formattedTag);
+                                    }
+                                }
+                            });
+                        }
+                    }
+                    
+                    // tag 단일 값으로 정의된 태그 추출
+                    const frontmatterTag = fileCache.frontmatter.tag;
+                    if (frontmatterTag && typeof frontmatterTag === 'string') {
+                        // 쉼표로 구분된 문자열인 경우 분리하여 추가
+                        const tagArray = frontmatterTag.split(',').map(t => t.trim());
+                        tagArray.forEach(tag => {
+                            if (tag) {
+                                const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
+                                if (!tags.includes(formattedTag)) {
+                                    tags.push(formattedTag);
+                                }
+                            }
+                        });
+                    }
+                }
+                
+                // 태그 배열을 문자열로 변환
+                if (tags.length > 0) {
+                    tagString = tags.join(',');
+                }
             }
         }
         
@@ -717,5 +865,96 @@ export class CardMaker extends Component {
                 cardElement.removeAttribute('data-rendering');
             }
         }
+    }
+
+    /**
+     * 드래그 데이터 설정 메서드
+     * @param event 드래그 이벤트
+     * @param card 카드 데이터
+     */
+    public async setupDragData(event: DragEvent, card: Card): Promise<void> {
+        if (!card.file) return;
+        
+        // 드래그 이미지 설정
+        const dragIcon = document.createElement('div');
+        dragIcon.classList.add('card-navigator-drag-icon');
+        dragIcon.textContent = card.fileName || card.file.basename;
+        document.body.appendChild(dragIcon);
+        event.dataTransfer?.setDragImage(dragIcon, 0, 0);
+        setTimeout(() => {
+            dragIcon.remove();
+        }, 0);
+        
+        // 드래그 데이터 설정
+        if (this.settings.dragDropContent) {
+            // 내용 드래그: 카드 내용 직접 생성
+            const plainContent = this.formatPlainContent(card);
+            event.dataTransfer?.setData('text/plain', plainContent);
+        } else {
+            // 링크 드래그: 위키링크 형식 사용
+            const linkText = this.createWikiLink(card.file);
+            event.dataTransfer?.setData('text/plain', linkText);
+        }
+        
+        // 드래그 종료 시 이벤트 추가 (클릭 이벤트와 충돌 방지)
+        const dragEndHandler = () => {
+            // 드래그 종료 후 클릭 이벤트가 작동하도록 지연 설정
+            setTimeout(() => {
+                // 클릭 이벤트가 정상 작동하도록 상태 초기화
+            }, 50);
+        };
+        
+        // 일회성 이벤트 리스너 추가
+        const target = event.target as HTMLElement;
+        target.addEventListener('dragend', dragEndHandler, { once: true });
+    }
+
+    /**
+     * 위키링크 형식의 텍스트를 생성합니다.
+     * @param file 파일
+     * @returns 위키링크 형식의 텍스트
+     */
+    private createWikiLink(file: TFile): string {
+        return `[[${file.basename}]]`;
+    }
+
+    /**
+     * 카드 내용을 일반 텍스트로 포맷팅합니다.
+     * @param card 카드 데이터
+     * @returns 포맷팅된 일반 텍스트
+     */
+    private formatPlainContent(card: Card): string {
+        let plainContent = '';
+        
+        // 파일 이름을 표시하는 경우 헤더로 추가
+        if (this.settings.showFileName && card.fileName) {
+            plainContent += `# ${card.fileName}\n\n`;
+        }
+        
+        // 첫 번째 헤더가 있고 표시하는 경우 추가
+        if (this.settings.showFirstHeader && card.firstHeader && card.firstHeader.trim() !== '') {
+            plainContent += `## ${card.firstHeader}\n\n`;
+        }
+        
+        // 본문 추가 (본문을 표시하는 경우)
+        if (this.settings.showBody && card.body) {
+            plainContent += card.body;
+        }
+        
+        return plainContent;
+    }
+
+    /**
+     * 태그 검색 트리거 메서드
+     * @param tagName 태그 이름
+     */
+    private triggerTagSearch(tagName: string): void {
+        // 커스텀 이벤트 생성
+        const event = new CustomEvent('card-navigator-tag-search', {
+            detail: { tagName }
+        });
+        
+        // 이벤트 발생
+        document.dispatchEvent(event);
     }
 }

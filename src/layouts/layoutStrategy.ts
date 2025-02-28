@@ -15,6 +15,21 @@ export interface CardPosition {
 }
 
 /**
+ * 레이아웃 방향 타입
+ */
+export type LayoutDirection = 'vertical' | 'horizontal';
+
+/**
+ * 레이아웃 관련 CSS 클래스 상수
+ */
+export const LAYOUT_CLASSES = {
+    VERTICAL: 'vertical-layout',
+    HORIZONTAL: 'horizontal-layout',
+    ALIGN_HEIGHT: 'align-height',
+    FLEXIBLE_HEIGHT: 'flexible-height'
+};
+
+/**
  * 레이아웃 전략 인터페이스
  * 
  * 이 인터페이스는 다양한 레이아웃 전략을 구현하는 클래스에서 사용됩니다.
@@ -26,7 +41,7 @@ export interface LayoutStrategy {
     /**
      * 컨테이너를 설정합니다.
      */
-    setContainer(container: HTMLElement): void;
+    setContainer(container: HTMLElement): Promise<void>;
     
     /**
      * 설정을 업데이트합니다.
@@ -44,9 +59,9 @@ export interface LayoutStrategy {
     arrange(cards: Card[], containerWidth?: number, containerHeight?: number): CardPosition[];
     
     /**
-     * 스크롤 방향을 가져옵니다.
+     * 레이아웃 방향을 가져옵니다.
      */
-    getScrollDirection(): 'vertical' | 'horizontal';
+    getLayoutDirection(): LayoutDirection;
     
     /**
      * 열 수를 가져옵니다.
@@ -67,4 +82,14 @@ export interface LayoutStrategy {
      * 레이아웃을 새로고침합니다.
      */
     refreshLayout(): void;
+    
+    /**
+     * 카드 위치를 가져옵니다.
+     */
+    getCardPosition(cardId: string): CardPosition | null;
+    
+    /**
+     * 카드 요소를 등록합니다.
+     */
+    registerCardElement(cardId: string, cardElement: HTMLElement): void;
 }

@@ -444,6 +444,7 @@
     padding: var(--size-4-4);
     display: flex;
     flex-direction: column;
+    height: 100%;
     overflow: auto;
     border-radius: var(--radius-m);
     border: var(--border-width) solid var(--background-modifier-border);
@@ -488,14 +489,8 @@
 .card-navigator-body {
     flex: 1;
     font-size: var(--font-ui-smaller);
-    line-height: 1.5;
-    color: var(--text-normal);
-    word-break: break-word;
     overflow: auto;
-    display: -webkit-box;
-    -webkit-line-clamp: 10;
-    line-clamp: 10;
-    -webkit-box-orient: vertical;
+    margin-bottom: var(--size-2-2);
 }
 
 .card-navigator-body.html-content {
@@ -933,4 +928,69 @@
 .card-navigator-suggestion-item:hover,
 .card-navigator-suggestion-item.is-selected {
     background-color: var(--background-modifier-hover);
+}
+
+/* 드래그 아이콘 스타일 */
+.card-navigator-drag-icon {
+    position: absolute;
+    top: -1000px;
+    left: -1000px;
+    z-index: 9999;
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+    box-shadow: var(--shadow-s);
+    padding: 8px 12px;
+    font-size: var(--font-ui-small);
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    opacity: 0.9;
+}
+
+/* 드래그 중인 카드 스타일 */
+.card-navigator-card[draggable="true"]:active {
+    cursor: grabbing;
+    opacity: 0.7;
+    box-shadow: var(--shadow-l);
+    transform: scale(0.98);
+    transition: transform 0.1s ease, opacity 0.1s ease, box-shadow 0.1s ease;
+}
+
+/* 드래그 오버 스타일 */
+.card-navigator-card.drag-over {
+    border: 2px dashed var(--interactive-accent);
+    background-color: var(--background-modifier-hover);
+}
+
+/* 태그 컨테이너 스타일 */
+.card-navigator-card-tags {
+    margin-top: auto;
+    padding-top: var(--size-2-2);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--size-2-1);
+}
+
+.card-navigator-card-tag-container {
+    display: inline-block;
+}
+
+.card-navigator-card-tag {
+    font-size: var(--font-ui-smaller);
+    padding: 2px 6px;
+    border-radius: var(--radius-s);
+    background-color: var(--background-modifier-hover);
+    color: var(--text-muted);
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.card-navigator-card-tag:hover {
+    background-color: var(--background-modifier-active);
+    color: var(--text-normal);
+    text-decoration: underline;
 }

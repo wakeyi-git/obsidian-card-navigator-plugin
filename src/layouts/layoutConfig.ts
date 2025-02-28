@@ -1,5 +1,6 @@
 import { App } from 'obsidian';
 import { CardNavigatorSettings, Card } from 'common/types';
+import { LayoutDirection } from './layoutStrategy';
 
 /**
  * 레이아웃 설정을 관리하는 클래스
@@ -82,11 +83,11 @@ export class LayoutConfig {
     }
 
     /**
-     * 컨테이너가 수직 방향인지 확인합니다.
+     * 레이아웃 방향을 가져옵니다.
      */
-    public isVerticalContainer(): boolean {
+    public getLayoutDirection(): LayoutDirection {
         const { isVertical } = this.calculateContainerOrientation();
-        return isVertical;
+        return isVertical ? 'vertical' : 'horizontal';
     }
 
     /**
@@ -235,13 +236,13 @@ export class LayoutConfig {
         const cardGap = this.getCardGap();
         const totalGapWidth = cardGap * (columns - 1);
         
-        return Math.floor((availableWidth - totalGapWidth) / columns);
+        return (availableWidth - totalGapWidth) / columns;
     }
 
     /**
      * 카드 높이를 계산합니다.
      */
-    public calculateCardHeight(isVertical: boolean, card?: Card, cardWidth?: number): number | 'auto' {
+    public calculateCardHeight(direction: LayoutDirection, card?: Card, cardWidth?: number): number | 'auto' {
         if (!this.settings.alignCardHeight) {
             return 'auto';
         }
@@ -273,7 +274,7 @@ export class LayoutConfig {
     public getCardSize(): { width: number, height: number } {
         const columns = this.getColumns();
         const cardWidth = this.calculateCardWidth(columns);
-        const cardHeight = this.calculateCardHeight(this.isVerticalContainer());
+        const cardHeight = this.calculateCardHeight(this.getLayoutDirection());
         
         return {
             width: cardWidth,

@@ -1,7 +1,7 @@
 import { CardNavigatorSettings } from 'common/types';
 import { Card } from 'common/types';
 import { CardMaker } from 'ui/cardContainer/cardMaker';
-import { CardPosition, LayoutStrategy } from './layoutStrategy';
+import { CardPosition, LayoutDirection, LayoutStrategy, LAYOUT_CLASSES } from './layoutStrategy';
 import { LayoutConfig } from './layoutConfig';
 import { LayoutStyleManager } from './layoutStyleManager';
 
@@ -19,14 +19,14 @@ export class LayoutManager implements LayoutStrategy {
     // 레이아웃 관련 속성들
     private cardWidth: number = 0;
     private columns: number = 1;
-    private isVertical: boolean = true;
+    private layoutDirection: LayoutDirection = 'vertical';
     private cardElements: Map<string, HTMLElement> = new Map();
     private cardPositionsCache: Map<string, CardPosition> = new Map();
     
     constructor(private settings: CardNavigatorSettings, private cardMaker: CardMaker) {
         this.layoutConfig = new LayoutConfig(settings);
         this.layoutStyleManager = new LayoutStyleManager(settings);
-        this.isVertical = true;
+        this.layoutDirection = 'vertical';
         this.cardWidth = this.calculateCardWidth();
     }
 
@@ -46,11 +46,11 @@ export class LayoutManager implements LayoutStrategy {
         // layoutConfig에 컨테이너 설정 (비동기 처리)
         await this.layoutConfig.setContainer(container);
         
-        // 컨테이너 크기 및 방향 업데이트
-        this.updateContainerSizeAndOrientation();
+        // layoutStyleManager에 컨테이너 설정
+        this.layoutStyleManager.setContainer(container);
         
-        // 컨테이너 스타일 업데이트
-        this.updateContainerStyle();
+        // 레이아웃 새로고침
+        this.refreshLayout();
     }
 
     /**
@@ -83,16 +83,16 @@ export class LayoutManager implements LayoutStrategy {
         this.container.style.setProperty('--container-height', `${height}px`);
         
         // 방향 계산
-        this.isVertical = this.layoutConfig.isVerticalContainer();
+        this.layoutDirection = this.layoutConfig.getLayoutDirection();
         
         // 열 수 계산
         this.columns = this.layoutConfig.getColumns();
         
-        // 카드 너비 계산
+        // 카드 너비 계산 - 가용한 너비를 열 수만큼 똑같이 배분
         this.cardWidth = this.layoutConfig.calculateCardWidth(this.columns);
         
         // 레이아웃 스타일 업데이트
-        this.layoutStyleManager.updateLayoutStyles(this.isVertical, this.columns, this.cardWidth);
+        this.layoutStyleManager.updateLayoutStyles(this.layoutDirection, this.columns, this.cardWidth);
         
         // 레이아웃 새로고침
         this.refreshLayout();
@@ -114,24 +114,17 @@ export class LayoutManager implements LayoutStrategy {
     }
 
     /**
-     * 컨테이너가 수직 방향인지 확인합니다.
+     * 레이아웃 방향을 가져옵니다.
      */
-    getIsVertical(): boolean {
-        return this.layoutConfig.isVerticalContainer();
-    }
-
-    /**
-     * 스크롤 방향을 가져옵니다.
-     */
-    getScrollDirection(): 'vertical' | 'horizontal' {
-        return this.getIsVertical() ? 'vertical' : 'horizontal';
+    getLayoutDirection(): LayoutDirection {
+        return this.layoutConfig.getLayoutDirection();
     }
 
     /**
      * 컨테이너 스타일을 가져옵니다.
      */
     getContainerStyle(): Partial<CSSStyleDeclaration> {
-        return this.layoutStyleManager.getContainerStyle(this.isVertical);
+        return this.layoutStyleManager.getContainerStyle(this.layoutDirection);
     }
 
     /**
@@ -273,15 +266,13 @@ export class LayoutManager implements LayoutStrategy {
 
     /**
      * 카드 설정을 업데이트합니다.
-     * 이 메서드는 CardRenderer와의 호환성을 위해 추가되었습니다.
+     * @param alignCardHeight 카드 높이 정렬 여부
+     * @param cardsPerColumn 열당 카드 수
      */
     updateCardSettings(alignCardHeight: boolean, cardsPerColumn: number): void {
-        // 설정 업데이트 후 레이아웃 새로고침
         if (this.settings) {
             this.settings.alignCardHeight = alignCardHeight;
             this.settings.cardsPerColumn = cardsPerColumn;
-            this.layoutConfig.updateSettings(this.settings);
-            this.layoutStyleManager.updateSettings(this.settings);
             this.refreshLayout();
         }
     }
@@ -315,60 +306,30 @@ export class LayoutManager implements LayoutStrategy {
     }
 
     /**
-     * 컨테이너 스타일을 업데이트합니다.
-     */
-    private updateContainerStyle(): void {
-        if (!this.container) return;
-        
-        // 레이아웃 스타일 매니저에 컨테이너 설정
-        this.layoutStyleManager.setContainer(this.container);
-        
-        // 레이아웃 새로고침
-        this.refreshLayout();
-    }
-    
-    /**
-     * 컨테이너 크기 및 방향을 업데이트합니다.
-     */
-    private updateContainerSizeAndOrientation(): void {
-        if (!this.container) return;
-        
-        // 방향 업데이트
-        if (this.layoutConfig) {
-            const { isVertical } = this.layoutConfig.calculateContainerOrientation();
-            this.isVertical = isVertical;
-            
-            // 컨테이너에 방향 클래스 설정
-            this.container.classList.toggle('vertical', isVertical);
-            this.container.classList.toggle('horizontal', !isVertical);
-        }
-    }
-
-    /**
-     * 카드 너비를 계산합니다.
-     */
-    private calculateCardWidth(): number {
-        return this.layoutConfig.calculateCardWidth(this.columns);
-    }
-    
-    /**
      * 레이아웃을 새로고침합니다.
      */
     public refreshLayout(): void {
         if (!this.container) return;
         
-        // 새 값 계산
-        const { isVertical } = this.layoutConfig.calculateContainerOrientation();
-        this.isVertical = isVertical;
+        // 레이아웃 방향 업데이트
+        this.layoutDirection = this.layoutConfig.getLayoutDirection();
         
-        // 열 수 계산
+        // 열 수 업데이트
         this.columns = this.layoutConfig.getColumns();
         
-        // 카드 너비 계산
-        this.cardWidth = this.calculateCardWidth();
+        // 카드 너비 업데이트
+        this.cardWidth = this.layoutConfig.calculateCardWidth(this.columns);
+        
+        // 레이아웃 스타일 업데이트
+        this.layoutStyleManager.updateLayoutStyles(this.layoutDirection, this.columns, this.cardWidth);
         
         // 컨테이너 스타일 적용
-        this.layoutStyleManager.applyContainerStyle(this.isVertical);
+        const containerStyle = this.getContainerStyle();
+        Object.entries(containerStyle).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                this.container!.style[key as any] = String(value);
+            }
+        });
         
         // 카드 위치 캐시 초기화
         this.cardPositionsCache.clear();
@@ -459,5 +420,13 @@ export class LayoutManager implements LayoutStrategy {
         
         this.cardPositionsCache.set(cardId, position);
         return position;
+    }
+
+    /**
+     * 카드 너비를 계산합니다.
+     */
+    private calculateCardWidth(): number {
+        // 가용한 너비를 열 수만큼 똑같이 배분
+        return this.layoutConfig.calculateCardWidth(this.columns);
     }
 } 
