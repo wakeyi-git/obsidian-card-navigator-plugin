@@ -14,12 +14,56 @@
     padding-right: 0;
 }
 
-.card-navigator {
-    position: relative;
-    height: 100%;
+/* 카드 네비게이터 뷰 */
+.card-navigator-view {
     display: flex;
     flex-direction: column;
-    /* overflow: hidden; */
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+/* 카드 네비게이터 메인 컨테이너 */
+.card-navigator {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+/* 카드 컨테이너 */
+.card-navigator-container {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    padding: var(--container-padding);
+}
+
+/* 툴바 컨테이너 */
+.card-navigator-toolbar {
+    width: 100%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: var(--size-4-2);
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* 카드 네비게이터가 로드 중일 때 표시할 스타일 */
+.card-navigator-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+    font-size: 1.2em;
+    color: var(--text-muted);
 }
 
 .setting-disabled {
@@ -28,13 +72,6 @@
 }
 
 /* Toolbar styles */
-.card-navigator-toolbar {
-    display: flex;
-    align-items: center;
-    padding: var(--size-4-2);
-    border-bottom: 1px solid var(--background-modifier-border);
-}
-
 .card-navigator-toolbar-container {
     display: flex;
     flex-direction: row;

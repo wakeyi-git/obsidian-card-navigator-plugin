@@ -91,8 +91,12 @@ export async function executeSearch(
         // 검색어 전처리
         const processedTerm = preprocessSearchTerm(searchTerm);
         
-        // 검색어가 유효하지 않으면 종료
+        // 검색어가 유효하지 않으면 검색 모드 종료 및 일반 카드 로드
         if (!isValidSearchTerm(processedTerm)) {
+            // 검색 결과 초기화 및 일반 카드 로드 경로로 복귀
+            cardContainer.setSearchResults(null);
+            await cardContainer.loadCards();
+            
             if (updateLoadingCallback) {
                 updateLoadingCallback(false);
             } else {

@@ -95,12 +95,8 @@ export class SearchInput {
         this.input.value = '';
         this.clearButton.style.display = 'none';
         
-        debouncedSearch(
-            this.plugin,
-            this.cardContainer,
-            '',
-            (isLoading) => this.updateLoadingState(isLoading)
-        );
+        this.cardContainer.setSearchResults(null);
+        this.cardContainer.loadCards();
         
         this.input.focus();
         this.initializeSearchOptions();
@@ -375,7 +371,12 @@ export class SearchInput {
                 this.inputChanged = true;
                 
                 setTimeout(() => {
-                    this.executeSearch(this.input.value);
+                    if (!this.input.value) {
+                        this.cardContainer.setSearchResults(null);
+                        this.cardContainer.loadCards();
+                    } else {
+                        this.executeSearch(this.input.value);
+                    }
                 }, 10);
             }
             

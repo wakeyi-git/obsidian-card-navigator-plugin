@@ -598,34 +598,28 @@ export class CardMaker extends Component {
     }
 
     public async ensureCardRendered(cardElement: HTMLElement): Promise<void> {
-        if (!cardElement) {
-            console.warn('[CardMaker] 카드 요소가 없어 렌더링을 건너뜁니다.');
-            return;
-        }
+        if (!cardElement) return;
 
         // 카드가 DOM에 있는지 확인
-        if (!document.body.contains(cardElement)) {
-            console.warn('[CardMaker] 카드가 DOM에 없어 렌더링을 건너뜁니다.');
-            return;
-        }
+        if (!document.body.contains(cardElement)) return;
 
-        // 카드 ID를 일관되게 가져오기
+        // 카드 ID를 가져오기
         const filePath = cardElement.getAttribute('data-card-id') || cardElement.getAttribute('data-original-path');
-        if (!filePath) {
-            console.warn('[CardMaker] 카드 파일 경로를 찾을 수 없습니다.');
-            return;
-        }
+        if (!filePath) return;
 
-        const contentEl = cardElement.querySelector('.card-navigator-body') as HTMLElement;
+        // 카드 내용 요소 찾기
+        let contentEl = cardElement.querySelector('.card-navigator-body') as HTMLElement;
+        
+        // 내용 요소가 없으면 생성
         if (!contentEl) {
-            console.warn(`[CardMaker] 카드 내용 요소를 찾을 수 없습니다. - ${filePath}`);
-            return;
+            contentEl = document.createElement('div');
+            contentEl.className = 'card-navigator-body';
+            cardElement.appendChild(contentEl);
         }
 
         // 마크다운 컨테이너 확인
         let markdownContainer = contentEl.querySelector('.markdown-rendered') as HTMLElement;
         if (!markdownContainer) {
-            console.log(`[CardMaker] 마크다운 컨테이너가 없어 새로 생성합니다. - ${filePath}`);
             markdownContainer = contentEl.createDiv({
                 cls: 'markdown-rendered loading'
             });

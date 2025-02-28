@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, Menu, TFile, TFolder, debounce } from "obsidian";
+import { ItemView, WorkspaceLeaf, Menu, TFile } from "obsidian";
 import CardNavigatorPlugin from '../main';
 import { Toolbar } from './toolbar/toolbar';
 import { CardContainer } from './cardContainer/cardContainer';
@@ -20,14 +20,15 @@ export class CardNavigatorView extends ItemView {
     //#region 클래스 속성
     public toolbar!: Toolbar;
     public cardContainer: CardContainer;
-    private refreshDebounceTimers: Map<RefreshType, NodeJS.Timeout> = new Map();
     private isRefreshInProgress = false;
     private pendingRefreshTypes = new Set<RefreshType>();
-    private refreshTimeout: NodeJS.Timeout | null = null;
+    private refreshTimeout: number | null = null;
     private lastRefreshTime: number = 0;
     private readonly REFRESH_COOLDOWN = 50; // 50ms 쿨다운
     private resizeObserver: ResizeObserver | null = null;
     private lastContainerHeight: number | null = null;
+    private toolbarContainerEl!: HTMLElement;
+    private cardContainerEl!: HTMLElement;
     //#endregion
 
     //#region 초기화 및 기본 메서드
@@ -54,48 +55,153 @@ export class CardNavigatorView extends ItemView {
     }
 
     /**
-     * 뷰가 열릴 때 호출되는 메서드
+     * 뷰가 열릴 때 호출됩니다.
      */
-    async onOpen() {
+    async onOpen(): Promise<void> {
         try {
-            // 기본 컨테이너 설정
             const { contentEl } = this;
             contentEl.empty();
-            contentEl.addClass('card-navigator-view');
             
-            // 네비게이터 컨테이너 생성
-            const navigatorEl = contentEl.createDiv({ cls: 'card-navigator' });
+            const navigatorEl = contentEl.createDiv('card-navigator');
+            this.toolbarContainerEl = navigatorEl.createDiv('card-navigator-toolbar');
+            this.cardContainerEl = navigatorEl.createDiv('card-navigator-container');
             
-            // 툴바 초기화
-            const toolbarEl = navigatorEl.createDiv({ cls: 'card-navigator-toolbar' });
-            const toolbarContainerEl = toolbarEl.createDiv({ cls: 'card-navigator-toolbar-container' });
-            this.toolbar = new Toolbar(this.plugin, this, this.cardContainer);
-            await this.toolbar.initialize(toolbarContainerEl);
+            this.cardContainer = new CardContainer(
+                this.plugin,
+                this.leaf
+            );
             
-            // 카드 컨테이너 초기화
-            const cardContainerEl = navigatorEl.createDiv({ cls: 'card-navigator-container' });
-            this.cardContainer = new CardContainer(this.plugin, this.leaf);
-            await this.cardContainer.initialize(cardContainerEl);
+            this.cardContainer.containerEl = this.cardContainerEl;
+            await this.cardContainer.initialize();
             
-            // 리사이즈 옵저버 설정
+            this.toolbar = new Toolbar(
+                this.plugin,
+                this,
+                this.cardContainer
+            );
+            
+            // 툴바 초기화 추가
+            await this.toolbar.initialize(this.toolbarContainerEl);
+            
+            await this.loadCards();
             this.setupResizeObserver();
-            
-            // 컨테이너 높이 계산 및 설정 - 지연 실행
-            requestAnimationFrame(() => {
-                // DOM이 완전히 렌더링된 후 높이 계산
-                this.updateContainerHeight();
-                
-                // 카드 로드
-                this.loadCards();
-            });
-            
-            // 이벤트 리스너 등록
             this.registerEvents();
-            
-            console.log('[CardNavigator] 뷰 초기화 완료');
         } catch (error) {
-            console.error('[CardNavigator] 뷰 초기화 중 오류 발생:', error);
+            console.error('뷰 열기 중 오류 발생:', error);
         }
+    }
+
+    /**
+     * DOM 요소가 준비될 때까지 기다리는 메서드
+     * @param element 기다릴 DOM 요소
+     * @param callback 요소가 준비되면 실행할 콜백 함수
+     */
+    private waitForElementReady(element: HTMLElement, callback: () => void) {
+        const startTime = Date.now();
+        const timeout = 20000; // 20초로 타임아웃 증가
+        let checkCount = 0;
+        
+        // 요소가 준비되었는지 확인하는 함수
+        const checkElementReady = () => {
+            checkCount++;
+            
+            // 요소가 DOM에 있고 크기가 유효한지 확인
+            if (document.body.contains(element)) {
+                const rect = element.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) {
+                    console.log(`[CardNavigator] 요소가 준비되었습니다. 소요 시간: ${Date.now() - startTime}ms, 크기: ${rect.width}x${rect.height}`);
+                    callback();
+                    return;
+                }
+                
+                // 요소가 DOM에 있지만 크기가 아직 계산되지 않은 경우 로그 출력 (100번마다)
+                if (checkCount % 100 === 0) {
+                    console.log(`[CardNavigator] 요소가 DOM에 있지만 크기가 아직 계산되지 않았습니다. 대기 중... (${Date.now() - startTime}ms 경과)`);
+                }
+            } else if (checkCount % 100 === 0) {
+                // 요소가 DOM에 없는 경우 로그 출력 (100번마다)
+                console.log(`[CardNavigator] 요소가 아직 DOM에 추가되지 않았습니다. 대기 중... (${Date.now() - startTime}ms 경과)`);
+            }
+            
+            // 타임아웃 확인
+            if (Date.now() - startTime > timeout) {
+                console.warn(`[CardNavigator] 요소 준비 타임아웃: ${timeout}ms 초과.`);
+                
+                // 타임아웃 시에도 요소가 DOM에 있는지 확인
+                if (document.body.contains(element)) {
+                    console.log(`[CardNavigator] 요소가 DOM에 있으므로 계속 진행합니다.`);
+                    callback();
+                } else {
+                    console.error(`[CardNavigator] 요소가 DOM에 없습니다. 강제로 계속 진행합니다.`);
+                    callback();
+                }
+                return;
+            }
+            
+            // 다음 프레임에서 다시 확인
+            requestAnimationFrame(checkElementReady);
+        };
+        
+        // 첫 번째 확인 시작
+        requestAnimationFrame(checkElementReady);
+    }
+
+    /**
+     * 이벤트 리스너를 등록합니다.
+     */
+    private registerEvents(): void {
+        this.plugin.registerEvent(
+            this.plugin.app.workspace.on('file-open', async () => {
+                if (this.cardContainer && this.cardContainer.isInitialized) {
+                    await this.refresh(RefreshType.CONTENT);
+                }
+            })
+        );
+        
+        this.plugin.registerEvent(
+            this.plugin.app.vault.on('modify', async (file) => {
+                if (file instanceof TFile && file.extension === 'md') {
+                    await this.refresh(RefreshType.CONTENT);
+                }
+            })
+        );
+        
+        this.plugin.registerEvent(
+            this.plugin.app.vault.on('create', async (file) => {
+                if (file instanceof TFile && file.extension === 'md') {
+                    await this.refresh(RefreshType.CONTENT);
+                }
+            })
+        );
+        
+        this.plugin.registerEvent(
+            this.plugin.app.vault.on('delete', async (file) => {
+                if (file instanceof TFile && file.extension === 'md') {
+                    await this.refresh(RefreshType.CONTENT);
+                }
+            })
+        );
+    }
+    
+    /**
+     * 리사이즈 옵저버를 설정합니다.
+     */
+    private setupResizeObserver(): void {
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+        }
+        
+        const navigatorEl = this.containerEl.querySelector('.card-navigator');
+        if (!navigatorEl) {
+            return;
+        }
+        
+        this.resizeObserver = new ResizeObserver(() => {
+            this.updateContainerSizeAndOrientation();
+            this.refresh(RefreshType.LAYOUT);
+        });
+        
+        this.resizeObserver.observe(navigatorEl);
     }
 
     // 뷰 닫기 메서드
@@ -133,16 +239,11 @@ export class CardNavigatorView extends ItemView {
     /**
      * 카드를 로드합니다.
      */
-    private async loadCards() {
+    async loadCards(): Promise<void> {
         try {
-            if (!this.cardContainer || !this.cardContainer.isInitialized) {
-                console.debug('[CardNavigator] 카드 로드 무시: 카드 컨테이너가 초기화되지 않음');
-                return;
-            }
-            
             await this.cardContainer.loadCards();
         } catch (error) {
-            console.error('[CardNavigator] 카드 로드 중 오류 발생:', error);
+            console.error('카드 로드 중 오류 발생:', error);
         }
     }
     //#endregion
@@ -200,32 +301,30 @@ export class CardNavigatorView extends ItemView {
     public async refreshBatch(types: RefreshType[]) {
         if (!this.cardContainer) return;
         
-        // 현재 시간과 마지막 리프레시 시간을 비교
         const now = Date.now();
         if (now - this.lastRefreshTime < this.REFRESH_COOLDOWN) {
-            // 쿨다운 중이면 타입을 병합하고 대기
+            // 쿨다운 중이면 타입을 큐에 추가하고 나중에 처리
             types.forEach(type => this.pendingRefreshTypes.add(type));
             
-            // 이미 대기 중인 타이머가 있다면 취소
             if (this.refreshTimeout) {
-                clearTimeout(this.refreshTimeout);
+                cancelAnimationFrame(this.refreshTimeout);
             }
             
-            // 새로운 타이머 설정
-            this.refreshTimeout = setTimeout(() => {
+            // 다음 프레임에서 처리 예약
+            this.refreshTimeout = requestAnimationFrame(() => {
                 this.refreshTimeout = null;
                 const pendingTypes = Array.from(this.pendingRefreshTypes);
                 this.pendingRefreshTypes.clear();
                 if (pendingTypes.length > 0) {
                     this.refreshBatch(pendingTypes);
                 }
-            }, this.REFRESH_COOLDOWN);
+            });
             
             return;
         }
 
-        // 이미 진행 중인 리프레시가 있으면 타입을 병합하고 대기
         if (this.isRefreshInProgress) {
+            // 이미 리프레시 중이면 타입을 큐에 추가
             types.forEach(type => this.pendingRefreshTypes.add(type));
             return;
         }
@@ -234,11 +333,11 @@ export class CardNavigatorView extends ItemView {
             this.isRefreshInProgress = true;
             this.lastRefreshTime = now;
             
-            // 컨테이너 요소 가져오기
+            // 컨테이너 요소 확인
             const containerEl = this.cardContainer.getContainerElement();
             if (!containerEl) return;
 
-            // 가장 높은 우선순위의 리프레시 타입 결정
+            // 가장 우선순위가 높은 리프레시 타입 결정
             let refreshType = RefreshType.CONTENT;
             if (types.includes(RefreshType.ALL)) {
                 refreshType = RefreshType.ALL;
@@ -248,23 +347,30 @@ export class CardNavigatorView extends ItemView {
                 refreshType = RefreshType.LAYOUT;
             }
 
-            try {
-                // 단일 통합 업데이트 실행
-                await this.refreshByType(refreshType);
-            } catch (error) {
-                console.error(`[CardNavigator] 리프레시 중 오류 발생:`, error);
-            }
-        } finally {
+            // 다음 프레임에서 실제 리프레시 수행
+            requestAnimationFrame(async () => {
+                try {
+                    await this.refreshByType(refreshType);
+                } catch (error) {
+                    console.error('리프레시 중 오류 발생:', error);
+                } finally {
+                    this.isRefreshInProgress = false;
+                    
+                    // 대기 중인 리프레시가 있으면 처리
+                    if (this.pendingRefreshTypes.size > 0) {
+                        const pendingTypes = Array.from(this.pendingRefreshTypes);
+                        this.pendingRefreshTypes.clear();
+                        
+                        // 다음 프레임에서 처리
+                        requestAnimationFrame(() => {
+                            this.refreshBatch(pendingTypes);
+                        });
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('리프레시 준비 중 오류 발생:', error);
             this.isRefreshInProgress = false;
-            
-            // 대기 중인 리프레시가 있으면 처리
-            if (this.pendingRefreshTypes.size > 0) {
-                const pendingTypes = Array.from(this.pendingRefreshTypes);
-                this.pendingRefreshTypes.clear();
-                setTimeout(() => {
-                    this.refreshBatch(pendingTypes);
-                }, this.REFRESH_COOLDOWN);
-            }
         }
     }
 
@@ -277,38 +383,48 @@ export class CardNavigatorView extends ItemView {
         if (!this.cardContainer) return;
 
         try {
-            // 컨테이너 요소 가져오기
             const containerEl = this.cardContainer.getContainerElement();
             if (!containerEl) return;
             
-            // 컨테이너 크기 확인
+            // 컨테이너 크기가 유효한지 확인
             const width = containerEl.offsetWidth;
             const height = containerEl.offsetHeight;
             
-            // 컨테이너 크기가 0인 경우 지연 후 재시도 (최대 1회)
             if (width === 0 || height === 0) {
-                setTimeout(() => this.refreshByType(type), 100);
+                // 크기가 유효하지 않으면 다음 프레임에서 다시 시도
+                requestAnimationFrame(() => this.refreshByType(type));
                 return;
             }
             
-            // 타입에 따라 적절한 리프레시 수행
+            // 리프레시 타입에 따라 적절한 작업 수행
             switch (type) {
                 case RefreshType.ALL:
+                    // 모든 카드 다시 로드
                     await this.cardContainer.loadCards();
                     break;
                 case RefreshType.SETTINGS:
+                    // 설정 업데이트 후 카드 다시 로드
                     this.cardContainer.updateSettings(this.plugin.settings);
-                    await this.cardContainer.loadCards();
+                    // 설정 변경 후 카드 로드는 다음 프레임에서 수행
+                    requestAnimationFrame(async () => {
+                        await this.cardContainer.loadCards();
+                    });
                     break;
                 case RefreshType.LAYOUT:
-                    this.cardContainer.handleResize();
+                    // 레이아웃만 업데이트
+                    requestAnimationFrame(() => {
+                        this.cardContainer.handleResize();
+                    });
                     break;
                 case RefreshType.CONTENT:
-                    await this.cardContainer.loadCards();
+                    // 카드 내용 업데이트
+                    requestAnimationFrame(async () => {
+                        await this.cardContainer.loadCards();
+                    });
                     break;
             }
         } catch (error) {
-            console.error(`[CardNavigator] ${type} 리프레시 중 오류 발생:`, error);
+            console.error(`${type} 리프레시 중 오류 발생:`, error);
         }
     }
     //#endregion
@@ -324,155 +440,80 @@ export class CardNavigatorView extends ItemView {
     }
 
     /**
-     * 컨테이너 높이를 업데이트합니다.
+     * 컨테이너 크기와 방향을 업데이트합니다.
      */
-    private updateContainerHeight() {
-        // 카드 컨테이너가 초기화되지 않았으면 무시
+    private updateContainerSizeAndOrientation() {
         if (!this.cardContainer || !this.cardContainer.isInitialized) {
-            console.debug('[CardNavigator] 높이 업데이트 무시: 카드 컨테이너가 초기화되지 않음');
             return;
         }
         
-        // 네비게이터 요소 가져오기
         const navigatorEl = this.containerEl.querySelector('.card-navigator');
         if (!navigatorEl || !document.body.contains(navigatorEl)) {
-            console.debug('[CardNavigator] 높이 업데이트 무시: 네비게이터 요소가 없거나 DOM에 없음');
             return;
         }
         
         try {
-            // 네비게이터 크기 계산
             const navigatorRect = navigatorEl.getBoundingClientRect();
+            const navigatorWidth = navigatorRect.width;
             const navigatorHeight = navigatorRect.height;
-            const viewportHeight = window.innerHeight;
-            const navigatorTop = navigatorRect.top;
             
-            // 뷰포트 내에서 실제 사용 가능한 네비게이터 높이 계산
-            const visibleNavigatorHeight = Math.min(navigatorHeight, viewportHeight - navigatorTop);
-            
-            // 툴바 높이 계산
             const toolbarEl = this.containerEl.querySelector('.card-navigator-toolbar');
             const toolbarHeight = toolbarEl ? toolbarEl.getBoundingClientRect().height : 0;
             
-            // 컨테이너 높이 계산 (툴바 높이 제외)
-            const containerHeight = Math.max(0, visibleNavigatorHeight - toolbarHeight);
+            const containerHeight = Math.max(300, navigatorHeight - toolbarHeight);
             
-            // 로그 출력 빈도 줄이기 - 정적 변수 사용
+            const containerEl = this.cardContainer.getContainerElement();
+            if (!containerEl) {
+                return;
+            }
+            
             if (!this.lastContainerHeight || Math.abs(this.lastContainerHeight - containerHeight) > 10) {
-                console.debug(`[CardNavigator] 컨테이너 높이 업데이트:`);
-                console.debug(`  - 네비게이터 높이: ${navigatorHeight}px`);
-                console.debug(`  - 뷰포트 높이: ${viewportHeight}px`);
-                console.debug(`  - 네비게이터 상단 위치: ${navigatorTop}px`);
-                console.debug(`  - 가시 네비게이터 높이: ${visibleNavigatorHeight}px`);
-                console.debug(`  - 툴바 높이: ${toolbarHeight}px`);
-                console.debug(`  - 계산된 컨테이너 높이: ${Math.max(containerHeight, 100)}px`);
-                
                 this.lastContainerHeight = containerHeight;
-            }
-            
-            // 컨테이너 높이 설정 (최소 100px)
-            this.cardContainer.setContainerHeight(Math.max(containerHeight, 100));
-        } catch (error) {
-            console.error('[CardNavigator] 컨테이너 높이 계산 중 오류 발생:', error);
-        }
-    }
-    
-    // 리사이즈 옵저버 설정
-    private setupResizeObserver() {
-        // 기존 옵저버 정리
-        if (this.resizeObserver) {
-            this.resizeObserver.disconnect();
-        }
-        
-        // 새 옵저버 생성 - 디바운스 시간 증가 (100ms → 150ms)
-        this.resizeObserver = new ResizeObserver(debounce(() => {
-            // 이미 리사이즈 처리 중이면 무시
-            if (this.isRefreshInProgress) {
-                return;
-            }
-            
-            // 현재 시간과 마지막 리프레시 시간을 비교
-            const now = Date.now();
-            if (now - this.lastRefreshTime < this.REFRESH_COOLDOWN) {
-                // 쿨다운 중이면 타이머 설정
-                if (this.refreshTimeout) {
-                    clearTimeout(this.refreshTimeout);
+                
+                // 스타일 변경을 한 번에 모아서 처리
+                const styleUpdates = {
+                    height: `${containerHeight}px`,
+                    minHeight: `${Math.min(containerHeight, 300)}px`,
+                    '--container-width': `${navigatorWidth}px`,
+                    '--container-height': `${containerHeight}px`
+                };
+                
+                // 스타일 일괄 적용
+                Object.entries(styleUpdates).forEach(([prop, value]) => {
+                    if (prop.startsWith('--')) {
+                        containerEl.style.setProperty(prop, value);
+                    } else {
+                        containerEl.style[prop as any] = value;
+                    }
+                });
+                
+                // 레이아웃 매니저 업데이트
+                if (this.cardContainer.layoutManager) {
+                    this.cardContainer.layoutManager.setContainer(containerEl).catch(e => {
+                        console.error('레이아웃 매니저 컨테이너 설정 중 오류:', e);
+                    });
+                    
+                    const layoutConfig = this.cardContainer.layoutManager.getLayoutConfig();
+                    if (layoutConfig) {
+                        const { isVertical } = layoutConfig.calculateContainerOrientation();
+                        
+                        // classList 변경을 한 번에 처리
+                        containerEl.classList.toggle('vertical', isVertical);
+                        containerEl.classList.toggle('horizontal', !isVertical);
+                        
+                        containerEl.style.setProperty('--is-vertical', isVertical ? '1' : '0');
+                        
+                        // 레이아웃 업데이트는 다음 프레임에서 수행
+                        requestAnimationFrame(() => {
+                            this.cardContainer.layoutManager.updateLayout(navigatorWidth, containerHeight);
+                        });
+                    }
                 }
                 
-                this.refreshTimeout = setTimeout(() => {
-                    this.updateContainerHeight();
-                }, this.REFRESH_COOLDOWN);
-                return;
+                this.cardContainer.setContainerHeight(containerHeight);
             }
-            
-            this.lastRefreshTime = now;
-            this.updateContainerHeight();
-        }, 150));
-        
-        // 네비게이터 요소 관찰
-        const navigatorEl = this.containerEl.querySelector('.card-navigator');
-        if (navigatorEl) {
-            this.resizeObserver.observe(navigatorEl);
+        } catch (error) {
+            console.error('컨테이너 높이 업데이트 중 오류 발생:', error);
         }
-    }
-
-    /**
-     * 폴더 변경 이벤트를 등록합니다.
-     * CardContainer에서 폴더가 변경될 때 toolbar의 폴더 경로 표시를 업데이트합니다.
-     */
-    private registerFolderChangeEvent(): void {
-        // 폴더 변경 이벤트 구독
-        this.plugin.app.workspace.on('file-open', async () => {
-            if (this.plugin.settings.cardSetType === 'activeFolder') {
-                const folder = await this.cardContainer.getCurrentFolder();
-                if (folder) {
-                    this.toolbar.updateFolderPathDisplay(folder);
-                }
-            }
-        });
-    }
-
-    /**
-     * 이벤트 리스너를 등록합니다.
-     */
-    private registerEvents() {
-        // 폴더 변경 이벤트 구독
-        this.registerFolderChangeEvent();
-        
-        // 파일 변경 이벤트 구독
-        this.registerEvent(
-            this.plugin.app.vault.on('modify', (file) => {
-                if (file instanceof TFile && file.extension === 'md') {
-                    this.refresh(RefreshType.CONTENT);
-                }
-            })
-        );
-        
-        // 파일 생성 이벤트 구독
-        this.registerEvent(
-            this.plugin.app.vault.on('create', (file) => {
-                if (file instanceof TFile && file.extension === 'md') {
-                    this.refresh(RefreshType.CONTENT);
-                }
-            })
-        );
-        
-        // 파일 삭제 이벤트 구독
-        this.registerEvent(
-            this.plugin.app.vault.on('delete', (file) => {
-                if (file instanceof TFile && file.extension === 'md') {
-                    this.refresh(RefreshType.CONTENT);
-                }
-            })
-        );
-        
-        // 파일 이름 변경 이벤트 구독
-        this.registerEvent(
-            this.plugin.app.vault.on('rename', (file) => {
-                if (file instanceof TFile && file.extension === 'md') {
-                    this.refresh(RefreshType.CONTENT);
-                }
-            })
-        );
     }
 }

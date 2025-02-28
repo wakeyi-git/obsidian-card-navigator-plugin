@@ -1,7 +1,5 @@
-import { Card } from 'common/types';
-import CardNavigatorPlugin from 'main';
+import { CardNavigatorSettings } from 'common/types';
 import { LayoutConfig } from 'layouts/layoutConfig';
-import { LayoutManager } from 'layouts/layoutManager';
 
 export class Scroller {
     private layoutConfig: LayoutConfig;
@@ -9,11 +7,11 @@ export class Scroller {
 
     constructor(
         private containerEl: HTMLElement,
-        private plugin: CardNavigatorPlugin,
-        private layoutManager: LayoutManager,
-        private getCardSize: () => { width: number, height: number }
+        private settings: CardNavigatorSettings,
+        private isVerticalGetter: () => boolean,
+        private getCardsCount: () => number
     ) {
-        this.layoutConfig = new LayoutConfig(plugin.settings);
+        this.layoutConfig = new LayoutConfig(settings);
         this.layoutConfig.setContainer(containerEl);
     }
 
@@ -24,11 +22,11 @@ export class Scroller {
         if (!activeCard) return;
 
         // enableScrollAnimation 설정을 고려하여 애니메이션 적용 여부 결정
-        const shouldAnimate = animate && this.plugin.settings.enableScrollAnimation;
+        const shouldAnimate = animate && this.settings.enableScrollAnimation;
         
         // 카드가 완전히 렌더링될 때까지 약간 지연 후 중앙 정렬 시도
         // 특히 HTML 렌더링이 활성화된 경우 중요
-        if (this.plugin.settings.renderContentAsHtml) {
+        if (this.settings.renderContentAsHtml) {
             // 즉시 한 번 중앙 정렬 시도
             this.centerCard(activeCard, shouldAnimate);
             
@@ -58,7 +56,7 @@ export class Scroller {
 
             let offset = 0;
             let scrollProperty: 'scrollTop' | 'scrollLeft';
-            const isVertical = this.layoutManager.getLayout().getScrollDirection() === 'vertical';
+            const isVertical = this.isVerticalGetter();
             
             // 컨테이너 패딩 가져오기
             const containerPadding = this.layoutConfig.getContainerPadding();
@@ -90,7 +88,7 @@ export class Scroller {
             const newScrollPosition = this.containerEl[scrollProperty] + offset;
 
             // enableScrollAnimation 설정을 고려하여 애니메이션 적용 여부 결정
-            if (animate && this.plugin.settings.enableScrollAnimation) {
+            if (animate && this.settings.enableScrollAnimation) {
                 this.smoothScroll(scrollProperty, newScrollPosition);
             } else {
                 this.containerEl[scrollProperty] = newScrollPosition;
@@ -101,7 +99,7 @@ export class Scroller {
         adjustScroll();
 
         // HTML 렌더링이 활성화되고 높이가 가변적인 경우에만 추가 보정
-        if (this.plugin.settings.renderContentAsHtml && !this.plugin.settings.alignCardHeight) {
+        if (this.settings.renderContentAsHtml && !this.settings.alignCardHeight) {
             let lastOffset = 0;
             let stabilityCount = 0;
             const MAX_STABILITY_COUNT = 3;  // 3프레임 동안 안정적이면 완료로 간주
@@ -121,7 +119,7 @@ export class Scroller {
                 const containerPadding = this.layoutConfig.getContainerPadding();
                 
                 // 스크롤 방향에 따라 중앙 위치 계산
-                const isVertical = this.layoutManager.getLayout().getScrollDirection() === 'vertical';
+                const isVertical = this.isVerticalGetter();
                 const containerCenter = isVertical 
                     ? containerRect.top + containerPadding + (containerRect.height - containerPadding * 2) / 2
                     : containerRect.left + containerPadding + (containerRect.width - containerPadding * 2) / 2;
@@ -191,15 +189,16 @@ export class Scroller {
     }
 
     // 방향별 스크롤 메서드
-    private scrollInDirection(direction: 'up' | 'down' | 'left' | 'right', count = 1, totalCards: number) {
+    private scrollInDirection(direction: 'up' | 'down' | 'left' | 'right', count = 1) {
         if (!this.containerEl) return;
-        const { width, height } = this.getCardSize();
-        const cardsPerColumn = this.plugin.settings.cardsPerColumn;
-        const isVertical = this.layoutManager.getLayout().getScrollDirection() === 'vertical';
+        const { width, height } = this.layoutConfig.getCardSize();
+        const cardsPerColumn = this.settings.cardsPerColumn;
+        const isVertical = this.isVerticalGetter();
         const cardGap = this.layoutConfig.getCardGap();
         
         const cardSize = (isVertical ? height : width) + cardGap;
         const currentScroll = isVertical ? this.containerEl.scrollTop : this.containerEl.scrollLeft;
+        const totalCards = this.getCardsCount();
         const totalSize = totalCards * cardSize;
         const containerSize = isVertical ? this.containerEl.clientHeight : this.containerEl.clientWidth;
         
@@ -230,7 +229,7 @@ export class Scroller {
 
         // enableScrollAnimation 설정에 따라 스크롤 방식 결정
         const scrollProperty = isVertical ? 'scrollTop' : 'scrollLeft';
-        if (this.plugin.settings.enableScrollAnimation) {
+        if (this.settings.enableScrollAnimation) {
             this.smoothScroll(scrollProperty, targetScroll);
         } else {
             this.containerEl[scrollProperty] = targetScroll;
@@ -238,22 +237,22 @@ export class Scroller {
     }
 
     // 위로 스크롤 메서드
-    public scrollUp(count = 1, totalCards: number) {
-        this.scrollInDirection('up', count, totalCards);
+    public scrollUp(count = 1) {
+        this.scrollInDirection('up', count);
     }
 
     // 아래로 스크롤 메서드
-    public scrollDown(count = 1, totalCards: number) {
-        this.scrollInDirection('down', count, totalCards);
+    public scrollDown(count = 1) {
+        this.scrollInDirection('down', count);
     }
 
     // 왼쪽으로 스크롤 메서드
-    public scrollLeft(count = 1, totalCards: number) {
-        this.scrollInDirection('left', count, totalCards);
+    public scrollLeft(count = 1) {
+        this.scrollInDirection('left', count);
     }
 
     // 오른쪽으로 스크롤 메서드
-    public scrollRight(count = 1, totalCards: number) {
-        this.scrollInDirection('right', count, totalCards);
+    public scrollRight(count = 1) {
+        this.scrollInDirection('right', count);
     }
 } 

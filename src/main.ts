@@ -1,7 +1,7 @@
-import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf  } from 'obsidian';
+import { Plugin, Events, TFile, debounce, moment  } from 'obsidian';
 import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR, RefreshType } from './ui/cardNavigatorView';
 import { SettingTab } from './ui/settings/settingsTab';
-import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS } from './common/types';
+import { CardNavigatorSettings, ScrollDirection, DEFAULT_SETTINGS } from './common/types';
 import { SettingsManager } from './ui/settings/settingsManager';
 import { PresetManager } from './ui/settings/PresetManager';
 import i18next from 'i18next';

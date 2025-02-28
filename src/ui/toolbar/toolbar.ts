@@ -1,7 +1,6 @@
-import { setIcon, TFolder, FuzzySuggestModal, Menu, MenuItem, debounce } from 'obsidian';
+import { setIcon, TFolder, FuzzySuggestModal, Menu } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
 import { CardNavigatorView } from '../cardNavigatorView';
-import { SearchInput } from 'ui/toolbar/search/SearchInput';
 import { toggleSort } from './sort';
 import { toggleSettings, closePopup } from './settings';
 import { t } from 'i18next';
@@ -12,7 +11,6 @@ import { SearchBar } from 'ui/toolbar/search/SearchBar';
 export class Toolbar {
     //#region 클래스 속성
     private containerEl: HTMLElement | null = null;
-    private settingsPopupOpen = false;
     private settingsIcon: HTMLElement | null = null;
     private popupObserver: MutationObserver | null = null;
     private searchBar: SearchBar | null = null;
@@ -315,7 +313,6 @@ export class Toolbar {
                     mutation.removedNodes.forEach((node) => {
                         if (node instanceof HTMLElement) {
                             if (node.classList.contains('card-navigator-settings-popup')) {
-                                this.settingsPopupOpen = false;
                                 this.updateIconStates();
                             }
                         }
@@ -486,7 +483,8 @@ export class Toolbar {
      * @param targetEl 메뉴를 열 대상 요소
      */
     private openSortMenu(targetEl: HTMLElement): void {
-        toggleSort(this.plugin, targetEl);
+        // 전체 툴바 컨테이너를 전달
+        toggleSort(this.plugin, this.containerEl);
     }
 
     /**

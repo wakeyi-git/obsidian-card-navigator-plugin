@@ -28,7 +28,10 @@ export class CardListManager {
         this.providers.set('activeFolder', {
             getCardList: async (app: App) => {
                 const activeFile = app.workspace.getActiveFile();
-                if (!activeFile?.parent) return [];
+                if (!activeFile?.parent) {
+                    console.log('[CardListManager] 활성 파일이 없거나 부모 폴더가 없습니다.');
+                    return [];
+                }
                 return this.getAllMarkdownFiles(activeFile.parent);
             },
             getName: () => '활성 폴더'
@@ -83,6 +86,16 @@ export class CardListManager {
 
         // 현재 설정된 카드 세트 타입에 따라 제공자 선택
         const cardSetType = this.plugin.settings.cardSetType;
+        
+        // activeFolder인 경우 활성 파일 확인
+        if (cardSetType === 'activeFolder') {
+            const activeFile = this.app.workspace.getActiveFile();
+            if (!activeFile?.parent) {
+                console.log('[CardListManager] 활성 파일이 없거나 부모 폴더가 없습니다.');
+                return [];
+            }
+        }
+        
         const provider = this.providers.get(cardSetType);
         
         if (!provider) {
@@ -121,6 +134,10 @@ export class CardListManager {
         switch (this.plugin.settings.cardSetType) {
             case 'activeFolder':
                 const activeFile = this.app.workspace.getActiveFile();
+                if (!activeFile) {
+                    console.log('[CardListManager] 활성 파일이 없습니다.');
+                    return null;
+                }
                 return activeFile?.parent || null;
                 
             case 'selectedFolder':

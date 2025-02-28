@@ -4,6 +4,7 @@ import { SortCriterion, SortOrder } from 'common/types';
 import { getTranslatedSortOptions } from 'common/types';
 import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 import { getSearchService } from 'ui/toolbar/search';
+import { t } from 'i18next';
 
 // 정렬 메뉴 토글
 export function toggleSort(plugin: CardNavigatorPlugin, containerEl: HTMLElement | null) {
@@ -66,10 +67,30 @@ export function toggleSort(plugin: CardNavigatorPlugin, containerEl: HTMLElement
         );
     });
 
-    const buttonEl = containerEl.querySelector('.card-navigator-sort-button');
+    // 정렬 버튼 요소 찾기
+    let buttonEl = null;
+    
+    // 액션 아이콘 컨테이너에서 정렬 버튼 찾기 (두 번째 아이콘)
+    const actionIconsContainer = containerEl.querySelector('.card-navigator-action-icons-container');
+    if (actionIconsContainer) {
+        const icons = actionIconsContainer.querySelectorAll('.clickable-icon');
+        if (icons.length >= 2) {
+            buttonEl = icons[1]; // 두 번째 아이콘이 정렬 버튼
+        }
+    }
+    
+    // 버튼을 찾지 못한 경우 클래스로 찾기 시도
+    if (!buttonEl) {
+        buttonEl = containerEl.querySelector('.card-navigator-sort-button');
+    }
+
     if (buttonEl instanceof HTMLElement) {
         const rect = buttonEl.getBoundingClientRect();
         menu.showAtPosition({ x: rect.left, y: rect.bottom });
+    } else {
+        // 버튼을 찾을 수 없는 경우 컨테이너 요소 기준으로 표시
+        const rect = containerEl.getBoundingClientRect();
+        menu.showAtPosition({ x: rect.right - 100, y: rect.top + 40 });
     }
 }
 
@@ -80,6 +101,7 @@ async function updateSortSettings(
     order: SortOrder, 
     containerEl: HTMLElement
 ) {
+    // 설정 업데이트
     plugin.settings.sortCriterion = criterion;
     plugin.settings.sortOrder = order;
     await plugin.saveSettings();
@@ -90,45 +112,59 @@ async function updateSortSettings(
         if (leaf.view instanceof CardNavigatorView) {
             const view = leaf.view;
             const searchService = getSearchService(plugin);
-            const resortedResults = searchService.resortLastResults((a, b) => {
-                let comparison = 0;
-                switch (plugin.settings.sortCriterion) {
-                    case 'fileName':
-                        comparison = a.basename.localeCompare(b.basename, undefined, { numeric: true, sensitivity: 'base' });
-                        break;
-                    case 'lastModified':
-                        comparison = a.stat.mtime - b.stat.mtime;
-                        break;
-                    case 'created':
-                        comparison = a.stat.ctime - b.stat.ctime;
-                        break;
+            
+            // 카드 컨테이너 초기화 및 강제 새로고침
+            if (view.cardContainer) {
+                // 검색 모드인 경우 검색 결과 재정렬
+                if (view.cardContainer.isSearchMode && view.cardContainer.getSearchResults()) {
+                    // 검색 모드: 검색 결과 재정렬
+                    const resortedResults = searchService.resortLastResults((a, b) => {
+                        let comparison = 0;
+                        switch (plugin.settings.sortCriterion) {
+                            case 'fileName':
+                                comparison = a.basename.localeCompare(b.basename, undefined, { numeric: true, sensitivity: 'base' });
+                                break;
+                            case 'lastModified':
+                                comparison = a.stat.mtime - b.stat.mtime;
+                                break;
+                            case 'created':
+                                comparison = a.stat.ctime - b.stat.ctime;
+                                break;
+                        }
+                        return plugin.settings.sortOrder === 'asc' ? comparison : -comparison;
+                    });
+                    
+                    if (resortedResults) {
+                        // 카드 배열 초기화
+                        view.cardContainer.cards = [];
+                        
+                        // 카드 렌더러 초기화 (DOM 요소 제거)
+                        const cardRenderer = view.cardContainer.cardRenderer;
+                        if (cardRenderer) {
+                            cardRenderer.resetCardElements();
+                        }
+                        
+                        // 재정렬된 결과를 검색 결과로 설정하고 카드 업데이트
+                        view.cardContainer.setSearchResults(resortedResults);
+                        await view.cardContainer.displayFilesAsCards(resortedResults);
+                    }
+                } else {
+                    // 일반 모드: 검색 결과가 없는 경우 전체 카드 목록 새로고침
+                    view.cardContainer.setSearchResults(null);
+                    
+                    // 카드 배열 초기화
+                    view.cardContainer.cards = [];
+                    
+                    // 카드 렌더러 초기화 (DOM 요소 제거)
+                    const cardRenderer = view.cardContainer.cardRenderer;
+                    if (cardRenderer) {
+                        cardRenderer.resetCardElements();
+                    }
+                    
+                    // 강제로 카드 다시 로드 - 이 과정에서 새로운 정렬 설정이 적용됨
+                    await view.cardContainer.loadCards();
                 }
-                return plugin.settings.sortOrder === 'asc' ? comparison : -comparison;
-            });
-            if (resortedResults) {
-                // 재정렬된 결과를 검색 결과로 설정하고 카드 업데이트
-                view.cardContainer.setSearchResults(resortedResults);
-                
-                // 강제로 카드 다시 렌더링을 위해 cards 배열 초기화
-                view.cardContainer.cards = [];
-                
-                await view.cardContainer.displayFilesAsCards(resortedResults);
-            } else {
-                // 검색 결과가 없다면 일반 새로고침
-                view.cardContainer.setSearchResults(null);
-                await view.refresh(RefreshType.CONTENT);
             }
         }
     }
 }
-
-// 모든 Card Navigator 뷰 새로고침
-async function refreshAllCardNavigatorViews(plugin: CardNavigatorPlugin, type: RefreshType) {
-    const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-    for (const leaf of leaves) {
-        if (leaf.view instanceof CardNavigatorView) {
-            await leaf.view.refresh(type);
-        }
-    }
-}
-

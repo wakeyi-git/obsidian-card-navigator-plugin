@@ -1,4 +1,5 @@
 import { Card, CardNavigatorSettings } from 'common/types';
+import { TFile } from 'obsidian';
 
 /**
  * 카드 위치 정보 인터페이스
@@ -9,6 +10,8 @@ export interface CardPosition {
     top: number;
     width: number;
     height: number | 'auto';
+    activeFile?: TFile;
+    focusedCardId?: string;
 }
 
 /**
