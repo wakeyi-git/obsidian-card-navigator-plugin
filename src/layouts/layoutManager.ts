@@ -370,6 +370,35 @@ export class LayoutManager implements LayoutStrategy {
         // 컨테이너 스타일 적용
         this.layoutStyleManager.applyContainerStyle(this.isVertical);
         
+        // 카드 위치 캐시 초기화
+        this.cardPositionsCache.clear();
+        
+        // 컨테이너에 있는 모든 카드 요소 가져오기
+        const cardElementsList = this.container.querySelectorAll('.card-navigator-card');
+        const cardElements = Array.from(cardElementsList).filter(el => el instanceof HTMLElement) as HTMLElement[];
+        
+        // 카드 요소 맵 업데이트
+        cardElements.forEach(element => {
+            const cardId = element.getAttribute('data-card-id');
+            if (cardId && !this.cardElements.has(cardId)) {
+                this.cardElements.set(cardId, element);
+            }
+        });
+        
+        // 카드 요소가 있는 경우 위치 재계산
+        if (cardElements.length > 0) {
+            // 카드 ID 배열 생성
+            const cardIds = cardElements.map(el => el.getAttribute('data-card-id') || '').filter(id => id);
+            
+            // 각 카드 ID에 대한 위치 생성
+            const positions: CardPosition[] = cardIds.map((id, index) => {
+                return this.generateDefaultPosition(id, index);
+            });
+            
+            // 위치 등록
+            this.registerCardPositionsWithCache(positions);
+        }
+        
         // 카드 스타일 적용
         this.applyCardStyles();
     }

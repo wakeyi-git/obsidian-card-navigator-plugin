@@ -111,58 +111,69 @@ async function updateSortSettings(
     for (const leaf of leaves) {
         if (leaf.view instanceof CardNavigatorView) {
             const view = leaf.view;
-            const searchService = getSearchService(plugin);
             
-            // 카드 컨테이너 초기화 및 강제 새로고침
             if (view.cardContainer) {
-                // 검색 모드인 경우 검색 결과 재정렬
-                if (view.cardContainer.isSearchMode && view.cardContainer.getSearchResults()) {
-                    // 검색 모드: 검색 결과 재정렬
-                    const resortedResults = searchService.resortLastResults((a, b) => {
-                        let comparison = 0;
-                        switch (plugin.settings.sortCriterion) {
-                            case 'fileName':
-                                comparison = a.basename.localeCompare(b.basename, undefined, { numeric: true, sensitivity: 'base' });
-                                break;
-                            case 'lastModified':
-                                comparison = a.stat.mtime - b.stat.mtime;
-                                break;
-                            case 'created':
-                                comparison = a.stat.ctime - b.stat.ctime;
-                                break;
-                        }
-                        return plugin.settings.sortOrder === 'asc' ? comparison : -comparison;
-                    });
-                    
-                    if (resortedResults) {
-                        // 카드 배열 초기화
-                        view.cardContainer.cards = [];
-                        
-                        // 카드 렌더러 초기화 (DOM 요소 제거)
-                        const cardRenderer = view.cardContainer.cardRenderer;
-                        if (cardRenderer) {
-                            cardRenderer.resetCardElements();
-                        }
-                        
-                        // 재정렬된 결과를 검색 결과로 설정하고 카드 업데이트
-                        view.cardContainer.setSearchResults(resortedResults);
-                        await view.cardContainer.displayFilesAsCards(resortedResults);
+                try {
+                    // 카드 렌더러 초기화 (DOM 요소 제거)
+                    if (view.cardContainer.cardRenderer) {
+                        view.cardContainer.cardRenderer.resetCardElements();
                     }
-                } else {
-                    // 일반 모드: 검색 결과가 없는 경우 전체 카드 목록 새로고침
-                    view.cardContainer.setSearchResults(null);
                     
                     // 카드 배열 초기화
                     view.cardContainer.cards = [];
                     
-                    // 카드 렌더러 초기화 (DOM 요소 제거)
-                    const cardRenderer = view.cardContainer.cardRenderer;
-                    if (cardRenderer) {
-                        cardRenderer.resetCardElements();
+                    // 검색 모드인 경우 검색 결과 재정렬
+                    if (view.cardContainer.isSearchMode && view.cardContainer.getSearchResults()) {
+                        const searchService = getSearchService(plugin);
+                        const resortedResults = searchService.resortLastResults((a, b) => {
+                            let comparison = 0;
+                            switch (plugin.settings.sortCriterion) {
+                                case 'fileName':
+                                    comparison = a.basename.localeCompare(b.basename, undefined, { numeric: true, sensitivity: 'base' });
+                                    break;
+                                case 'lastModified':
+                                    comparison = a.stat.mtime - b.stat.mtime;
+                                    break;
+                                case 'created':
+                                    comparison = a.stat.ctime - b.stat.ctime;
+                                    break;
+                            }
+                            return plugin.settings.sortOrder === 'asc' ? comparison : -comparison;
+                        });
+                        
+                        if (resortedResults) {
+                            view.cardContainer.setSearchResults(resortedResults);
+                            await view.cardContainer.displayFilesAsCards(resortedResults);
+                        }
+                    } else {
+                        view.cardContainer.setSearchResults(null);
+                        await view.cardContainer.loadCards();
                     }
                     
-                    // 강제로 카드 다시 로드 - 이 과정에서 새로운 정렬 설정이 적용됨
-                    await view.cardContainer.loadCards();
+                    // 전체 뷰 새로고침
+                    await view.refresh(RefreshType.ALL);
+                    
+                    // 즉시 레이아웃 새로고침
+                    if (view.cardContainer.layoutManager) {
+                        view.cardContainer.layoutManager.refreshLayout();
+                    }
+                    
+                    // 지연된 레이아웃 새로고침 (DOM 업데이트 완료 보장)
+                    setTimeout(() => {
+                        if (view.cardContainer.layoutManager) {
+                            view.cardContainer.layoutManager.refreshLayout();
+                            view.cardContainer.handleResize();
+                        }
+                    }, 100);
+                    
+                    // 추가 지연 새로고침 (DOM과 레이아웃 동기화 보장)
+                    setTimeout(() => {
+                        if (view.cardContainer.layoutManager) {
+                            view.cardContainer.layoutManager.refreshLayout();
+                        }
+                    }, 300);
+                } catch (error) {
+                    console.error("정렬 설정 변경 중 오류 발생:", error);
                 }
             }
         }
