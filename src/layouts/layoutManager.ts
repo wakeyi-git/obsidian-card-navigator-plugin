@@ -244,11 +244,28 @@ export class LayoutManager {
 
     /**
      * 레이아웃 계산이 필요한지 확인합니다.
+     * @returns 레이아웃 계산이 필요하면 true, 아니면 false
      */
-    isLayoutCalculationNeeded(): boolean {
-        if (!this.container || !this.layoutStrategy) return false;
+    public isLayoutCalculationNeeded(): boolean {
+        // 레이아웃 전략이 없으면 계산 필요
+        if (!this.layoutStrategy) {
+            return true;
+        }
         
+        // 컨테이너가 없으면 계산 필요
+        if (!this.container) {
+            return true;
+        }
+        
+        // 카드 위치가 없으면 계산 필요
+        if (Object.keys(this.cardPositions).length === 0) {
+            return true;
+        }
+        
+        // 카드 목록 해시 계산
         const currentCardsHash = this.calculateCardsHash(this.cards);
+        
+        // 컨테이너 크기 가져오기
         const containerWidth = this.container.clientWidth;
         const containerHeight = this.container.clientHeight;
         

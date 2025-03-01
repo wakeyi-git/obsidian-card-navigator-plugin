@@ -194,26 +194,37 @@ export default class CardNavigatorPlugin extends Plugin {
         );
 
         // 활성 폴더 변경 이벤트 처리
-        this.events.on('active-folder-changed', (...data) => {
+        this.events.on('active-folder-changed', async (...data) => {
             const folderPath = data[0] as string;
-            console.log(`[CardNavigatorPlugin] 활성 폴더 변경 감지: ${folderPath}`);
+            const previousFolderPath = data[1] as string;
+            console.log(`[CardNavigatorPlugin] 활성 폴더 변경 감지: ${previousFolderPath} -> ${folderPath}`);
+            
             if (this.settings.cardSetType === 'activeFolder') {
                 // 모든 카드 네비게이터 뷰 강제 새로고침
-                this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)
-                    .forEach(leaf => {
-                        if (leaf.view instanceof CardNavigatorView) {
-                            console.log(`[CardNavigatorPlugin] 뷰 강제 새로고침 (활성 폴더 변경: ${folderPath})`);
-                            // 레이아웃과 컨텐츠 모두 새로고침
-                            leaf.view.refreshBatch([RefreshType.LAYOUT, RefreshType.CONTENT]);
+                const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+                
+                // 모든 뷰에 대해 병렬로 처리
+                await Promise.all(leaves.map(async (leaf) => {
+                    if (leaf.view instanceof CardNavigatorView) {
+                        console.log(`[CardNavigatorPlugin] 뷰 강제 새로고침 (활성 폴더 변경: ${folderPath})`);
+                        
+                        try {
+                            // 먼저 카드 컨테이너의 카드를 모두 제거
+                            leaf.view.cardContainer.clearCards();
                             
-                            // 새로고침 후 활성 카드 강조 (약간의 지연 필요)
-                            setTimeout(() => {
-                                if (leaf.view instanceof CardNavigatorView) {
-                                    leaf.view.cardContainer.highlightActiveCard();
-                                }
-                            }, 300);
+                            // 즉시 새 카드 로드 (비동기 처리)
+                            await leaf.view.cardContainer.loadCards();
+                            
+                            // 새로고침 후 활성 카드 강조
+                            leaf.view.cardContainer.highlightActiveCard();
+                            
+                            // 레이아웃 새로고침
+                            leaf.view.cardContainer.refreshLayout();
+                        } catch (error) {
+                            console.error('[CardNavigatorPlugin] 폴더 변경 처리 중 오류:', error);
                         }
-                    });
+                    }
+                }));
             }
         });
 

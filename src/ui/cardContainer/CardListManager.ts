@@ -88,13 +88,18 @@ export class CardListManager {
         // 활성 폴더가 변경된 경우에만 처리
         if (currentFolder && currentFolder !== this.lastActiveFolder) {
             console.log(`[CardListManager] 활성 폴더 변경: ${this.lastActiveFolder} -> ${currentFolder}`);
+            
+            // 이전 폴더 경로 저장
+            const previousFolder = this.lastActiveFolder;
+            
+            // 현재 폴더 경로 업데이트
             this.lastActiveFolder = currentFolder;
             
             // 캐시 초기화
             this.clearCache();
             
-            // 이벤트 발생 - 폴더 변경 알림
-            this.plugin.events.trigger('active-folder-changed', currentFolder);
+            // 이벤트 발생 - 폴더 변경 알림 (이전 폴더와 현재 폴더 모두 전달)
+            this.plugin.events.trigger('active-folder-changed', currentFolder, previousFolder);
         }
     }
 
@@ -118,6 +123,8 @@ export class CardListManager {
      * @returns 카드 목록(TFile 배열)
      */
     public async getCardList(searchTerm?: string): Promise<TFile[]> {
+        console.log('[CardListManager] getCardList 호출됨');
+        
         // 검색어가 제공되면 검색 결과 반환
         if (searchTerm) {
             this.currentSearchTerm = searchTerm;
@@ -143,8 +150,8 @@ export class CardListManager {
             // 활성 폴더 경로 업데이트
             const currentFolder = activeFile.parent.path;
             if (this.lastActiveFolder !== currentFolder) {
+                console.log(`[CardListManager] getCardList에서 활성 폴더 변경 감지: ${this.lastActiveFolder} -> ${currentFolder}`);
                 this.lastActiveFolder = currentFolder;
-                console.log(`[CardListManager] getCardList에서 활성 폴더 업데이트: ${currentFolder}`);
             }
         }
         
@@ -155,8 +162,11 @@ export class CardListManager {
             return [];
         }
 
+        console.log(`[CardListManager] 카드 목록 제공자 '${cardSetType}'에서 카드 목록 가져오기`);
+        
         // 카드 목록 가져오기
         const files = await provider.getCardList(this.app);
+        console.log(`[CardListManager] 카드 목록 가져옴: ${files.length}개 파일`);
         
         // 설정된 정렬 기준과 순서에 따라 파일 정렬
         return this.sortFiles(files);

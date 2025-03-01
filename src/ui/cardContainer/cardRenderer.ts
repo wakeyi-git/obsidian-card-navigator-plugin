@@ -62,15 +62,28 @@ export class CardRenderer {
      * @param activeFile 활성화된 파일
      */
     async renderCards(cards?: Card[], focusedCardId?: string | null, activeFile?: TFile): Promise<void> {
-        if (this.isRendering) return;
+        if (this.isRendering) {
+            console.log('[CardRenderer] 이미 렌더링 중입니다. 요청 무시');
+            return;
+        }
         
         try {
             this.isRendering = true;
+            console.log('[CardRenderer] 카드 렌더링 시작');
+            const startTime = performance.now();
             
             // 카드 목록 설정
             if (cards) {
                 this.cards = cards;
             }
+            
+            // 카드가 없으면 빠르게 종료
+            if (!this.cards.length) {
+                console.log('[CardRenderer] 렌더링할 카드가 없습니다.');
+                return;
+            }
+            
+            console.log(`[CardRenderer] 렌더링할 카드 수: ${this.cards.length}`);
             
             // 포커스된 카드 ID 설정
             if (focusedCardId !== undefined) {
@@ -94,13 +107,18 @@ export class CardRenderer {
             }
             
             // 레이아웃 계산이 필요한지 확인
-            const needsLayoutCalculation = this.checkIfLayoutCalculationNeeded(this.cards);
+            const needsLayoutCalculation = this.layoutManager.isLayoutCalculationNeeded();
             
             if (needsLayoutCalculation) {
+                console.log('[CardRenderer] 레이아웃 계산 시작');
+                const layoutStartTime = performance.now();
+                
                 // 레이아웃 계산
                 await new Promise<void>((resolve) => {
                     this.layoutManager.arrangeAsync(resolve);
                 });
+                
+                console.log(`[CardRenderer] 레이아웃 계산 완료 (${Math.round(performance.now() - layoutStartTime)}ms)`);
             }
             
             // 기존 카드 ID 목록 생성
@@ -109,35 +127,47 @@ export class CardRenderer {
                 existingCardIds.add(cardId);
             });
             
-            // 카드 렌더링
-            await Promise.all(this.cards.map(async (card) => {
-                existingCardIds.delete(card.id);
+            // 카드 렌더링 - 배치 처리로 성능 최적화
+            const BATCH_SIZE = 10; // 한 번에 처리할 카드 수
+            
+            for (let i = 0; i < this.cards.length; i += BATCH_SIZE) {
+                const batch = this.cards.slice(i, i + BATCH_SIZE);
                 
-                let cardElement = this.cardElements.get(card.id);
-                
-                if (!cardElement) {
-                    // 새 카드 요소 생성
-                    cardElement = await this.createCardElement(card);
-                    if (cardElement) {
-                        this.cardElements.set(card.id, cardElement);
-                        this.container.appendChild(cardElement);
-                    }
-                } else {
-                    // 기존 카드 요소 업데이트
-                    await this.updateCardContent(cardElement, card);
-                }
-                
-                if (cardElement) {
-                    // 카드 위치 적용
-                    const position = this.layoutManager.getCardPosition(card.id);
-                    if (position) {
-                        this.applyCardPosition(cardElement, position);
+                // 각 배치를 병렬로 처리
+                await Promise.all(batch.map(async (card) => {
+                    existingCardIds.delete(card.id);
+                    
+                    let cardElement = this.cardElements.get(card.id);
+                    
+                    if (!cardElement) {
+                        // 새 카드 요소 생성
+                        cardElement = await this.createCardElement(card);
+                        if (cardElement) {
+                            this.cardElements.set(card.id, cardElement);
+                            this.container.appendChild(cardElement);
+                        }
+                    } else {
+                        // 기존 카드 요소 업데이트
+                        await this.updateCardContent(cardElement, card);
                     }
                     
-                    // 활성/포커스 상태 업데이트
-                    this.updateCardActiveState(cardElement, card, activeFile, this.focusedCardId);
+                    if (cardElement) {
+                        // 카드 위치 적용
+                        const position = this.layoutManager.getCardPosition(card.id);
+                        if (position) {
+                            this.applyCardPosition(cardElement, position);
+                        }
+                        
+                        // 활성/포커스 상태 업데이트
+                        this.updateCardActiveState(cardElement, card, activeFile, this.focusedCardId);
+                    }
+                }));
+                
+                // 배치 처리 사이에 UI 업데이트를 위한 짧은 지연
+                if (i + BATCH_SIZE < this.cards.length) {
+                    await new Promise(resolve => setTimeout(resolve, 0));
                 }
-            }));
+            }
             
             // 제거된 카드 정리
             existingCardIds.forEach(cardId => {
@@ -147,6 +177,8 @@ export class CardRenderer {
                 }
                 this.cardElements.delete(cardId);
             });
+            
+            console.log(`[CardRenderer] 카드 렌더링 완료 (${Math.round(performance.now() - startTime)}ms)`);
         } catch (error) {
             console.error('카드 렌더링 중 오류 발생:', error);
         } finally {
@@ -464,13 +496,6 @@ export class CardRenderer {
     }
 
     /**
-     * 레이아웃 계산이 필요한지 확인합니다.
-     */
-    private checkIfLayoutCalculationNeeded(cards: Card[]): boolean {
-        return this.layoutManager.isLayoutCalculationNeeded();
-    }
-
-    /**
      * 카드 위치를 적용합니다.
      */
     private applyCardPosition(cardEl: HTMLElement, position: CardPosition): void {
@@ -533,5 +558,26 @@ export class CardRenderer {
         } finally {
             this.isRendering = false;
         }
+    }
+
+    /**
+     * 모든 카드 요소를 제거합니다.
+     * 활성 폴더 변경 시 이전 카드를 즉시 제거하기 위해 사용됩니다.
+     */
+    public clearAllCards(): void {
+        console.log('[CardRenderer] 모든 카드 요소 제거');
+        
+        // 컨테이너 요소가 있으면 카드 요소만 제거
+        if (this.container) {
+            const cardElements = this.container.querySelectorAll('.card-navigator-card');
+            cardElements.forEach(el => el.remove());
+        }
+        
+        // 카드 요소 맵 초기화
+        this.cardElements.clear();
+        
+        // 활성 카드와 포커스된 카드 초기화
+        this.activeCardId = null;
+        this.focusedCardId = null;
     }
 } 

@@ -225,6 +225,44 @@ export class CardContainer implements KeyboardNavigationHost {
     }
 
     /**
+     * 카드를 로드합니다.
+     * @returns 로드된 카드 목록
+     */
+    async loadCards(): Promise<Card[]> {
+        try {
+            console.log('[CardContainer] 카드 로드 시작');
+            
+            // 현재 폴더 가져오기
+            const folder = await this.getCurrentFolder();
+            
+            // 폴더가 없으면 빈 배열 반환
+            if (!folder) {
+                console.log('[CardContainer] 현재 폴더를 찾을 수 없습니다.');
+                return [];
+            }
+            
+            console.log(`[CardContainer] 현재 폴더: ${folder.path}`);
+            
+            // 카드 목록 관리자를 통해 파일 목록 가져오기
+            console.log('[CardContainer] 카드 목록 관리자에서 파일 목록 가져오기');
+            const files = await this.cardListManager.getCardList();
+            console.log(`[CardContainer] 로드된 파일 수: ${files.length}`);
+            
+            // 파일을 카드로 변환하여 표시
+            console.log('[CardContainer] 파일을 카드로 변환하여 표시');
+            await this.displayFilesAsCards(files);
+            
+            // 활성 파일 확인 및 해당 카드 강조
+            this.highlightActiveCard();
+            
+            return this.cards;
+        } catch (error) {
+            console.error('카드 로드 중 오류 발생:', error);
+            return [];
+        }
+    }
+
+    /**
      * 파일을 카드로 로드합니다.
      * @param files 로드할 파일 목록
      */
@@ -278,7 +316,36 @@ export class CardContainer implements KeyboardNavigationHost {
      * @param files 표시할 파일 목록
      */
     public async displayFilesAsCards(files: TFile[]): Promise<void> {
-        await this.loadFiles(files);
+        try {
+            console.log(`[CardContainer] 파일을 카드로 표시: ${files.length}개 파일`);
+            
+            // 카드 생성 시작 시간 기록
+            const startTime = performance.now();
+            
+            // 카드 생성
+            const cards = await Promise.all(
+                files.map(file => this.cardMaker.createCard(file))
+            );
+            
+            // null 값 제거
+            this.cards = cards.filter(card => card !== null) as Card[];
+            
+            console.log(`[CardContainer] 카드 생성 완료: ${this.cards.length}개 카드 (${Math.round(performance.now() - startTime)}ms)`);
+            
+            // 카드 렌더러에 카드 설정
+            if (this.cardRenderer) {
+                console.log('[CardContainer] 카드 렌더러에 카드 설정');
+                this.cardRenderer.setCards(this.cards);
+                
+                // 카드 렌더링
+                console.log('[CardContainer] 카드 렌더링 시작');
+                const renderStartTime = performance.now();
+                await this.cardRenderer.renderCards();
+                console.log(`[CardContainer] 카드 렌더링 완료 (${Math.round(performance.now() - renderStartTime)}ms)`);
+            }
+        } catch (error) {
+            console.error('파일을 카드로 표시하는 중 오류 발생:', error);
+        }
     }
 
     /**
@@ -435,42 +502,6 @@ export class CardContainer implements KeyboardNavigationHost {
         
         return card?.file || null;
     }
-
-    /**
-     * 카드를 로드합니다.
-     * @returns 로드된 카드 목록
-     */
-    async loadCards(): Promise<Card[]> {
-        try {
-            console.log('[CardContainer] 카드 로드 시작');
-            
-            // 현재 폴더 가져오기
-            const folder = await this.getCurrentFolder();
-            
-            // 폴더가 없으면 빈 배열 반환
-            if (!folder) {
-                console.log('[CardContainer] 현재 폴더를 찾을 수 없습니다.');
-                return [];
-            }
-            
-            console.log(`[CardContainer] 현재 폴더: ${folder.path}`);
-            
-            // 카드 목록 관리자를 통해 파일 목록 가져오기
-            const files = await this.cardListManager.getCardList();
-            console.log(`[CardContainer] 로드된 파일 수: ${files.length}`);
-            
-            // 파일을 카드로 변환하여 표시
-            await this.displayFilesAsCards(files);
-            
-            // 활성 파일 확인 및 해당 카드 강조
-            this.highlightActiveCard();
-            
-            return this.cards;
-        } catch (error) {
-            console.error('카드 로드 중 오류 발생:', error);
-            return [];
-        }
-    }
     
     /**
      * 현재 폴더를 가져옵니다.
@@ -504,15 +535,15 @@ export class CardContainer implements KeyboardNavigationHost {
     }
     
     /**
-     * 카드를 중앙에 배치합니다.
+     * 특정 카드를 중앙에 배치합니다.
      * @param cardElement 중앙에 배치할 카드 요소
      * @param smooth 부드러운 스크롤 여부
      */
     centerCard(cardElement: HTMLElement, smooth: boolean = true): void {
-        if (!cardElement || !this.containerEl || !this.scroller) return;
+        if (!this.scroller || !cardElement) return;
         
-        // Scroller 클래스의 scrollToCard 메서드를 활용
-        this.scroller.scrollToCard(cardElement, smooth);
+        // 스크롤러를 사용하여 카드를 중앙에 배치
+        this.scroller.scrollToCard(cardElement, this.settings.enableScrollAnimation);
     }
     
     /**
@@ -722,6 +753,33 @@ export class CardContainer implements KeyboardNavigationHost {
         setTimeout(() => {
             this.centerCard(cardElement, true);
         }, 100); // 약간의 지연을 두어 렌더링이 완료된 후 스크롤
+    }
+
+    /**
+     * 모든 카드를 제거합니다.
+     * 활성 폴더 변경 시 이전 카드를 즉시 제거하기 위해 사용됩니다.
+     */
+    public clearCards(): void {
+        console.log('[CardContainer] 모든 카드 제거');
+        
+        // 카드 배열 초기화
+        this.cards = [];
+        
+        // 카드 렌더러가 있으면 카드 제거
+        if (this.cardRenderer) {
+            this.cardRenderer.setCards([]);
+            this.cardRenderer.clearAllCards();
+        }
+        
+        // 컨테이너 요소가 있으면 비우기
+        if (this.containerEl) {
+            // 카드 요소만 제거하고 컨테이너 자체는 유지
+            const cardElements = this.containerEl.querySelectorAll('.card-navigator-card');
+            cardElements.forEach(el => el.remove());
+        }
+        
+        // 포커스된 카드 ID 초기화
+        this.focusedCardId = null;
     }
 }
 

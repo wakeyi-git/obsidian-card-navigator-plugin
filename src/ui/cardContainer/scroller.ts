@@ -172,7 +172,7 @@ export class Scroller extends Component {
         this.container.scrollTo({
             left: targetLeft,
             top: targetTop,
-            behavior: smooth ? 'smooth' : 'auto'
+            behavior: this.settings.enableScrollAnimation ? 'smooth' : 'auto'
         });
     }
 

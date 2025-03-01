@@ -481,7 +481,7 @@
 /* 활성 카드 스타일 */
 .card-navigator-card.card-active .markdown-rendered,
 .card-navigator-card.card-active .card-navigator-card-title,
-.card-navigator-card.card-active .card-navigator-first-header,
+.card-navigator-card.card-active .card-navigator-card-header,
 .card-navigator-card.card-active .card-navigator-body {
     color: var(--interactive-accent);
 }
