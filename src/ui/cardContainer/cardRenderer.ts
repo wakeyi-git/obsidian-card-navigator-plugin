@@ -25,6 +25,17 @@ export class CardRenderer {
     private renderedCards: Set<string> = new Set();
     private cardInteractionManager: CardInteractionManager | null = null;
     private plugin: CardNavigatorPlugin;
+    
+    // 가상 스크롤링을 위한 속성 추가
+    private visibleCardIds: Set<string> = new Set();
+    private scrollHandler: () => void;
+    private resizeObserver: ResizeObserver | null = null;
+    private renderThrottleTimeout: NodeJS.Timeout | null = null;
+    private lastScrollPosition: { top: number, left: number } = { top: 0, left: 0 };
+    private isScrolling: boolean = false;
+    private scrollEndTimeout: NodeJS.Timeout | null = null;
+    private cardPositionCache: Map<string, CardPosition> = new Map();
+    private visibilityMargin: number = 200; // 화면 밖에서도 미리 로드할 여백 픽셀
 
     constructor(
         container: HTMLElement,
@@ -39,6 +50,17 @@ export class CardRenderer {
         this.cardMaker = cardMaker;
         this.cardInteractionManager = cardInteractionManager || null;
         this.plugin = this.cardMaker.getPlugin();
+        
+        // 스크롤 이벤트 핸들러 정의
+        this.scrollHandler = this.throttle(() => {
+            this.handleScroll();
+        }, 100);
+        
+        // 스크롤 이벤트 리스너 등록
+        this.container.addEventListener('scroll', this.scrollHandler);
+        
+        // ResizeObserver 설정
+        this.setupResizeObserver();
     }
 
     /**
@@ -75,6 +97,8 @@ export class CardRenderer {
             // 카드 목록 설정
             if (cards) {
                 this.cards = cards;
+                // 카드 목록이 변경되면 캐시 초기화
+                this.cardPositionCache.clear();
             }
             
             // 카드가 없으면 빠르게 종료
@@ -118,8 +142,19 @@ export class CardRenderer {
                     this.layoutManager.arrangeAsync(resolve);
                 });
                 
+                // 레이아웃 계산 후 카드 위치 캐시 업데이트
+                this.cards.forEach(card => {
+                    const position = this.layoutManager.getCardPosition(card.id);
+                    if (position) {
+                        this.cardPositionCache.set(card.id, position);
+                    }
+                });
+                
                 console.log(`[CardRenderer] 레이아웃 계산 완료 (${Math.round(performance.now() - layoutStartTime)}ms)`);
             }
+            
+            // 가상 스크롤링 사용 - 화면에 보이는 카드만 렌더링
+            this.calculateVisibleCards();
             
             // 기존 카드 ID 목록 생성
             const existingCardIds = new Set<string>();
@@ -129,9 +164,12 @@ export class CardRenderer {
             
             // 카드 렌더링 - 배치 처리로 성능 최적화
             const BATCH_SIZE = 10; // 한 번에 처리할 카드 수
+            const visibleCards = this.cards.filter(card => this.visibleCardIds.has(card.id));
             
-            for (let i = 0; i < this.cards.length; i += BATCH_SIZE) {
-                const batch = this.cards.slice(i, i + BATCH_SIZE);
+            console.log(`[CardRenderer] 화면에 보이는 카드 수: ${visibleCards.length}`);
+            
+            for (let i = 0; i < visibleCards.length; i += BATCH_SIZE) {
+                const batch = visibleCards.slice(i, i + BATCH_SIZE);
                 
                 // 각 배치를 병렬로 처리
                 await Promise.all(batch.map(async (card) => {
@@ -147,15 +185,18 @@ export class CardRenderer {
                             this.container.appendChild(cardElement);
                         }
                     } else {
-                        // 기존 카드 요소 업데이트
-                        await this.updateCardContent(cardElement, card);
+                        // 기존 카드 요소 업데이트 - 스크롤 중에는 최소한의 업데이트만 수행
+                        if (!this.isScrolling) {
+                            await this.updateCardContent(cardElement, card);
+                        }
                     }
                     
                     if (cardElement) {
-                        // 카드 위치 적용
-                        const position = this.layoutManager.getCardPosition(card.id);
+                        // 카드 위치 적용 - 캐시된 위치 사용
+                        const position = this.cardPositionCache.get(card.id) || this.layoutManager.getCardPosition(card.id);
                         if (position) {
                             this.applyCardPosition(cardElement, position);
+                            cardElement.style.visibility = 'visible';
                         }
                         
                         // 활성/포커스 상태 업데이트
@@ -164,21 +205,43 @@ export class CardRenderer {
                 }));
                 
                 // 배치 처리 사이에 UI 업데이트를 위한 짧은 지연
-                if (i + BATCH_SIZE < this.cards.length) {
+                if (i + BATCH_SIZE < visibleCards.length) {
                     await new Promise(resolve => setTimeout(resolve, 0));
                 }
             }
             
-            // 제거된 카드 정리
+            // 화면에 보이지 않는 카드는 숨김 처리
+            this.cardElements.forEach((element, cardId) => {
+                if (!this.visibleCardIds.has(cardId) && !existingCardIds.has(cardId)) {
+                    element.style.visibility = 'hidden';
+                }
+            });
+            
+            // 제거된 카드 정리 - 실제 DOM에서 제거하지 않고 숨김 처리
             existingCardIds.forEach(cardId => {
                 const element = this.cardElements.get(cardId);
-                if (element && element.parentNode === this.container) {
-                    this.container.removeChild(element);
+                if (element) {
+                    // DOM에서 완전히 제거하는 대신 숨김 처리
+                    element.style.visibility = 'hidden';
+                    
+                    // 카드가 더 이상 존재하지 않는 경우에만 제거
+                    if (!this.cards.some(card => card.id === cardId)) {
+                        if (element.parentNode === this.container) {
+                            this.container.removeChild(element);
+                        }
+                        this.cardElements.delete(cardId);
+                    }
                 }
-                this.cardElements.delete(cardId);
             });
             
             console.log(`[CardRenderer] 카드 렌더링 완료 (${Math.round(performance.now() - startTime)}ms)`);
+            
+            // 스크롤 중이 아닐 때 고품질 렌더링 수행
+            if (!this.isScrolling) {
+                setTimeout(() => {
+                    this.renderVisibleCardsHighQuality();
+                }, 100);
+            }
         } catch (error) {
             console.error('카드 렌더링 중 오류 발생:', error);
         } finally {
@@ -370,6 +433,26 @@ export class CardRenderer {
      */
     public cleanup(): void {
         if (this.container) {
+            // 스크롤 이벤트 리스너 제거
+            this.container.removeEventListener('scroll', this.scrollHandler);
+            
+            // ResizeObserver 정리
+            if (this.resizeObserver) {
+                this.resizeObserver.disconnect();
+                this.resizeObserver = null;
+            }
+            
+            // 타임아웃 정리
+            if (this.renderThrottleTimeout) {
+                clearTimeout(this.renderThrottleTimeout);
+                this.renderThrottleTimeout = null;
+            }
+            
+            if (this.scrollEndTimeout) {
+                clearTimeout(this.scrollEndTimeout);
+                this.scrollEndTimeout = null;
+            }
+            
             this.container.empty();
             this.resetCardElements();
         }
@@ -430,41 +513,42 @@ export class CardRenderer {
     /**
      * 카드의 활성 상태를 업데이트합니다.
      */
-    private updateCardActiveState(cardEl: HTMLElement, card: Card, activeFile?: TFile, focusedCardId?: string | null): void {
-        const isActive = activeFile !== undefined && card.file !== null && card.file !== undefined && card.file.path === activeFile.path;
-        const isFocused = focusedCardId !== undefined && focusedCardId !== null && card.id === focusedCardId;
+    private updateCardActiveState(cardEl: HTMLElement, card: Card, activeFile?: TFile | null, focusedCardId?: string | null): void {
+        // 카드 ID 가져오기
+        const cardId = card.id;
         
-        // 포커스 상태 업데이트
-        if (isFocused) {
-            cardEl.classList.add('card-focused');
-            cardEl.classList.add('card-navigator-focused');
-        } else {
-            cardEl.classList.remove('card-focused');
-            cardEl.classList.remove('card-navigator-focused');
+        // 활성 카드 여부 확인
+        let isActive = false;
+        if (activeFile && card.file) {
+            isActive = activeFile.path === card.file.path;
         }
         
-        // 활성 상태 업데이트
-        if (isActive) {
-            cardEl.classList.add('card-active');
-            cardEl.classList.add('card-navigator-active');
-            
-            // 활성 카드에 특별한 스타일 적용
-            cardEl.style.boxShadow = '0 0 0 2px var(--interactive-accent)';
-            cardEl.style.zIndex = '10';
-        } else {
-            cardEl.classList.remove('card-active');
-            cardEl.classList.remove('card-navigator-active');
-            
-            // 활성 카드가 아닌 경우 스타일 속성 초기화
-            cardEl.style.removeProperty('box-shadow');
-            cardEl.style.removeProperty('z-index');
+        // 포커스된 카드 여부 확인
+        const isFocused = focusedCardId === cardId;
+        
+        // 활성 카드 클래스 토글
+        cardEl.toggleClass('is-active', isActive);
+        
+        // 포커스된 카드 클래스 토글
+        cardEl.toggleClass('is-focused', isFocused);
+        
+        // 활성 카드 ID 업데이트
+        if (isActive && this.activeCardId !== cardId) {
+            this.activeCardId = cardId;
+        } else if (!isActive && this.activeCardId === cardId) {
+            this.activeCardId = null;
         }
         
-        // 레이아웃 스타일 적용
-        if (this.layoutManager) {
-            this.layoutManager.applyCardActiveStyle(cardEl, isActive === true);
-            this.layoutManager.applyCardFocusStyle(cardEl, isFocused === true);
+        // 포커스된 카드 ID 업데이트
+        if (isFocused && this.focusedCardId !== cardId) {
+            this.focusedCardId = cardId;
+        } else if (!isFocused && this.focusedCardId === cardId) {
+            this.focusedCardId = null;
         }
+        
+        // 레이아웃 매니저를 통해 스타일 적용
+        this.layoutManager.applyCardActiveStyle(cardEl, isActive);
+        this.layoutManager.applyCardFocusStyle(cardEl, isFocused);
     }
 
     /**
@@ -520,44 +604,8 @@ export class CardRenderer {
      * 성능 최적화를 위해 사용됩니다.
      */
     async renderVisibleCards(): Promise<void> {
-        if (this.isRendering) return;
-        
-        try {
-            this.isRendering = true;
-            
-            // 컨테이너의 뷰포트 영역 계산
-            const containerRect = this.container.getBoundingClientRect();
-            
-            // 화면에 보이는 카드만 렌더링
-            await Promise.all(this.cards.map(async (card) => {
-                const cardElement = this.cardElements.get(card.id);
-                if (!cardElement) return;
-                
-                // 카드가 화면에 보이는지 확인
-                const cardRect = cardElement.getBoundingClientRect();
-                const isVisible = (
-                    cardRect.top < containerRect.bottom &&
-                    cardRect.bottom > containerRect.top &&
-                    cardRect.left < containerRect.right &&
-                    cardRect.right > containerRect.left
-                );
-                
-                // 화면에 보이는 카드만 업데이트
-                if (isVisible) {
-                    await this.updateCardContent(cardElement, card);
-                    
-                    // 카드 위치 적용
-                    const position = this.layoutManager.getCardPosition(card.id);
-                    if (position) {
-                        this.applyCardPosition(cardElement, position);
-                    }
-                }
-            }));
-        } catch (error) {
-            console.error('화면에 보이는 카드 렌더링 중 오류 발생:', error);
-        } finally {
-            this.isRendering = false;
-        }
+        // 새로운 가상 스크롤링 메서드 사용
+        this.updateVisibleCards();
     }
 
     /**
@@ -580,4 +628,236 @@ export class CardRenderer {
         this.activeCardId = null;
         this.focusedCardId = null;
     }
-} 
+
+    /**
+     * 스로틀 함수 - 짧은 시간 내에 여러 번 호출되는 함수의 실행 빈도를 제한합니다.
+     */
+    private throttle(func: Function, delay: number): () => void {
+        let lastCall = 0;
+        return () => {
+            const now = Date.now();
+            if (now - lastCall >= delay) {
+                lastCall = now;
+                func();
+            }
+        };
+    }
+
+    /**
+     * ResizeObserver를 설정합니다.
+     */
+    private setupResizeObserver(): void {
+        if (typeof ResizeObserver !== 'undefined') {
+            this.resizeObserver = new ResizeObserver(this.throttle(() => {
+                this.updateVisibleCards();
+            }, 200));
+            
+            this.resizeObserver.observe(this.container);
+        }
+    }
+
+    /**
+     * 스크롤 이벤트를 처리합니다.
+     */
+    private handleScroll(): void {
+        // 현재 스크롤 위치 저장
+        const currentScrollTop = this.container.scrollTop;
+        const currentScrollLeft = this.container.scrollLeft;
+        
+        // 스크롤 위치가 변경되었는지 확인
+        if (currentScrollTop !== this.lastScrollPosition.top || 
+            currentScrollLeft !== this.lastScrollPosition.left) {
+            
+            // 스크롤 위치 업데이트
+            this.lastScrollPosition = { 
+                top: currentScrollTop, 
+                left: currentScrollLeft 
+            };
+            
+            // 스크롤 중 플래그 설정
+            this.isScrolling = true;
+            
+            // 가시성 업데이트
+            this.updateVisibleCards();
+            
+            // 스크롤 종료 감지를 위한 타임아웃 설정
+            if (this.scrollEndTimeout) {
+                clearTimeout(this.scrollEndTimeout);
+            }
+            
+            this.scrollEndTimeout = setTimeout(() => {
+                this.isScrolling = false;
+                this.onScrollEnd();
+            }, 150);
+        }
+    }
+
+    /**
+     * 스크롤이 끝났을 때 호출됩니다.
+     */
+    private onScrollEnd(): void {
+        // 스크롤이 끝나면 보이는 카드의 내용을 더 높은 품질로 렌더링
+        this.renderVisibleCardsHighQuality();
+    }
+
+    /**
+     * 화면에 보이는 카드를 고품질로 렌더링합니다.
+     */
+    private async renderVisibleCardsHighQuality(): Promise<void> {
+        if (this.isRendering) return;
+        
+        try {
+            this.isRendering = true;
+            
+            // 보이는 카드만 고품질로 렌더링
+            const promises = Array.from(this.visibleCardIds).map(async (cardId) => {
+                const card = this.cards.find(c => c.id === cardId);
+                const cardElement = this.cardElements.get(cardId);
+                
+                if (card && cardElement) {
+                    // 카드 내용 업데이트 (고품질 렌더링)
+                    await this.updateCardContent(cardElement, card);
+                }
+            });
+            
+            await Promise.all(promises);
+        } catch (error) {
+            console.error('고품질 카드 렌더링 중 오류 발생:', error);
+        } finally {
+            this.isRendering = false;
+        }
+    }
+
+    /**
+     * 화면에 보이는 카드를 업데이트합니다.
+     */
+    private updateVisibleCards(): void {
+        if (this.isRendering) return;
+        
+        // 렌더링 스로틀링
+        if (this.renderThrottleTimeout) {
+            clearTimeout(this.renderThrottleTimeout);
+        }
+        
+        this.renderThrottleTimeout = setTimeout(() => {
+            this.calculateVisibleCards();
+            this.renderOnlyVisibleCards();
+        }, this.isScrolling ? 100 : 0); // 스크롤 중이면 지연 적용
+    }
+
+    /**
+     * 화면에 보이는 카드를 계산합니다.
+     */
+    private calculateVisibleCards(): void {
+        // 이전 가시성 상태 저장
+        const prevVisibleCardIds = new Set(this.visibleCardIds);
+        this.visibleCardIds.clear();
+        
+        // 컨테이너의 뷰포트 영역 계산
+        const containerRect = this.container.getBoundingClientRect();
+        const extendedRect = {
+            top: containerRect.top - this.visibilityMargin,
+            bottom: containerRect.bottom + this.visibilityMargin,
+            left: containerRect.left - this.visibilityMargin,
+            right: containerRect.right + this.visibilityMargin
+        };
+        
+        // 각 카드의 가시성 확인
+        this.cards.forEach(card => {
+            const position = this.layoutManager.getCardPosition(card.id);
+            if (!position) return;
+            
+            // 카드 위치 캐싱
+            this.cardPositionCache.set(card.id, position);
+            
+            // 카드의 화면상 위치 계산
+            const cardRect = {
+                top: containerRect.top + position.top - this.container.scrollTop,
+                bottom: containerRect.top + position.top + (typeof position.height === 'number' ? position.height : 0) - this.container.scrollTop,
+                left: containerRect.left + position.left - this.container.scrollLeft,
+                right: containerRect.left + position.left + position.width - this.container.scrollLeft
+            };
+            
+            // 카드가 화면에 보이는지 확인
+            const isVisible = (
+                cardRect.bottom >= extendedRect.top &&
+                cardRect.top <= extendedRect.bottom &&
+                cardRect.right >= extendedRect.left &&
+                cardRect.left <= extendedRect.right
+            );
+            
+            if (isVisible) {
+                this.visibleCardIds.add(card.id);
+            }
+        });
+        
+        // 가시성 변경 로깅
+        const newlyVisible = Array.from(this.visibleCardIds).filter(id => !prevVisibleCardIds.has(id));
+        const newlyHidden = Array.from(prevVisibleCardIds).filter(id => !this.visibleCardIds.has(id));
+        
+        if (newlyVisible.length > 0 || newlyHidden.length > 0) {
+            console.log(`[CardRenderer] 가시성 변경: ${this.visibleCardIds.size}개 카드 보임, ${newlyVisible.length}개 새로 보임, ${newlyHidden.length}개 숨겨짐`);
+        }
+    }
+
+    /**
+     * 화면에 보이는 카드만 렌더링합니다.
+     */
+    private async renderOnlyVisibleCards(): Promise<void> {
+        if (this.isRendering) return;
+        
+        try {
+            this.isRendering = true;
+            
+            // 화면에 보이는 카드만 처리
+            for (const cardId of this.visibleCardIds) {
+                const card = this.cards.find(c => c.id === cardId);
+                if (!card) continue;
+                
+                let cardElement = this.cardElements.get(cardId);
+                
+                if (!cardElement) {
+                    // 새 카드 요소 생성
+                    cardElement = await this.createCardElement(card);
+                    if (cardElement) {
+                        this.cardElements.set(cardId, cardElement);
+                        this.container.appendChild(cardElement);
+                        
+                        // 카드 위치 적용
+                        const position = this.cardPositionCache.get(cardId) || this.layoutManager.getCardPosition(cardId);
+                        if (position) {
+                            this.applyCardPosition(cardElement, position);
+                        }
+                        
+                        // 활성/포커스 상태 업데이트
+                        const activeFile = this.plugin.app.workspace.getActiveFile();
+                        this.updateCardActiveState(cardElement, card, activeFile, this.focusedCardId);
+                    }
+                } else {
+                    // 카드가 이미 존재하면 위치만 업데이트
+                    const position = this.cardPositionCache.get(cardId) || this.layoutManager.getCardPosition(cardId);
+                    if (position) {
+                        this.applyCardPosition(cardElement, position);
+                    }
+                }
+            }
+            
+            // 스크롤 중이 아닐 때만 화면 밖 카드 처리
+            if (!this.isScrolling) {
+                // 화면에 보이지 않는 카드는 DOM에서 제거하지 않고 숨김 처리
+                this.cardElements.forEach((element, cardId) => {
+                    if (!this.visibleCardIds.has(cardId)) {
+                        // 화면 밖으로 이동시키는 대신 visibility 속성 사용
+                        element.style.visibility = 'hidden';
+                    } else {
+                        element.style.visibility = 'visible';
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('가시 카드 렌더링 중 오류 발생:', error);
+        } finally {
+            this.isRendering = false;
+        }
+    }
+}

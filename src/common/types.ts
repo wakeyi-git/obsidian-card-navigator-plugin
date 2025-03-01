@@ -81,6 +81,7 @@ export interface CardNavigatorSettings {
     
     // 기타 설정
     enableScrollAnimation: boolean;
+    enableSnapToCard: boolean; // 스크롤 종료 시 카드에 스냅 기능 활성화 여부
     
     // 디버그 모드 활성화 여부
     debug: boolean;
@@ -130,6 +131,7 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     folderPresets: {},
     activeFolderPresets: {},
     enableScrollAnimation: true,
+    enableSnapToCard: false,
     // 디버그 모드 기본값
     debug: false,
 };

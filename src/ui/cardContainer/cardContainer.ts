@@ -320,6 +320,7 @@ export class CardContainer implements KeyboardNavigationHost {
     async loadCards(): Promise<Card[]> {
         try {
             console.log('[CardContainer] 카드 로드 시작');
+            const startTime = performance.now();
             
             // 현재 폴더 가져오기
             const folder = await this.getCurrentFolder();
@@ -337,13 +338,14 @@ export class CardContainer implements KeyboardNavigationHost {
             const files = await this.cardListManager.getCardList();
             console.log(`[CardContainer] 로드된 파일 수: ${files.length}`);
             
-            // 파일을 카드로 변환하여 표시
+            // 파일을 카드로 변환하여 표시 - 성능 최적화를 위해 배치 처리
             console.log('[CardContainer] 파일을 카드로 변환하여 표시');
             await this.displayFilesAsCards(files);
             
             // 활성 파일 확인 및 해당 카드 강조
             this.highlightActiveCard();
             
+            console.log(`[CardContainer] 카드 로드 완료 (${Math.round(performance.now() - startTime)}ms)`);
             return this.cards;
         } catch (error) {
             console.error('카드 로드 중 오류 발생:', error);
@@ -411,13 +413,32 @@ export class CardContainer implements KeyboardNavigationHost {
             // 카드 생성 시작 시간 기록
             const startTime = performance.now();
             
-            // 카드 생성
-            const cards = await Promise.all(
-                files.map(file => this.cardMaker.createCard(file))
-            );
+            // 이전 카드 목록 저장
+            const prevCardIds = new Set(this.cards.map(card => card.id));
             
-            // null 값 제거
-            this.cards = cards.filter(card => card !== null) as Card[];
+            // 배치 처리로 카드 생성 최적화
+            const BATCH_SIZE = 50; // 한 번에 처리할 파일 수
+            const allCards: Card[] = [];
+            
+            for (let i = 0; i < files.length; i += BATCH_SIZE) {
+                const batch = files.slice(i, i + BATCH_SIZE);
+                
+                // 각 배치를 병렬로 처리
+                const batchCards = await Promise.all(
+                    batch.map(file => this.cardMaker.createCard(file))
+                );
+                
+                // null 값 제거하고 결과 배열에 추가
+                allCards.push(...batchCards.filter(card => card !== null) as Card[]);
+                
+                // 배치 처리 사이에 UI 업데이트를 위한 짧은 지연
+                if (i + BATCH_SIZE < files.length) {
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+            }
+            
+            // 카드 목록 업데이트
+            this.cards = allCards;
             
             console.log(`[CardContainer] 카드 생성 완료: ${this.cards.length}개 카드 (${Math.round(performance.now() - startTime)}ms)`);
             
@@ -429,7 +450,10 @@ export class CardContainer implements KeyboardNavigationHost {
                 // 카드 렌더링
                 console.log('[CardContainer] 카드 렌더링 시작');
                 const renderStartTime = performance.now();
+                
+                // 카드 렌더링 - 화면에 보이는 카드만 먼저 렌더링
                 await this.cardRenderer.renderCards();
+                
                 console.log(`[CardContainer] 카드 렌더링 완료 (${Math.round(performance.now() - renderStartTime)}ms)`);
             }
         } catch (error) {

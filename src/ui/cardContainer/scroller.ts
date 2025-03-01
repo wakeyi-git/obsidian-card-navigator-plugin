@@ -19,6 +19,14 @@ export class Scroller extends Component {
     private lastScrollPosition: { left: number, top: number } = { left: 0, top: 0 };
     private scrollDirection: 'horizontal' | 'vertical' | null = null;
     private layoutManager: LayoutManager;
+    
+    // 성능 최적화를 위한 추가 속성
+    private scrollThrottleTimeout: NodeJS.Timeout | null = null;
+    private scrollEndTimeout: NodeJS.Timeout | null = null;
+    private scrollListeners: Set<() => void> = new Set();
+    private scrollEndListeners: Set<() => void> = new Set();
+    private isPassiveSupported: boolean = false;
+    private scrollThrottleDelay: number = 16; // 약 60fps에 해당하는 지연 시간
 
     constructor(container: HTMLElement, settings: CardNavigatorSettings, layoutConfig: LayoutConfig, layoutManager: LayoutManager) {
         super();
@@ -26,7 +34,50 @@ export class Scroller extends Component {
         this.settings = settings;
         this.layoutConfig = layoutConfig;
         this.layoutManager = layoutManager;
+        
+        // passive 이벤트 지원 여부 확인
+        this.checkPassiveSupport();
+        
         this.initScrollListeners();
+    }
+    
+    /**
+     * passive 이벤트 지원 여부를 확인합니다.
+     */
+    private checkPassiveSupport(): void {
+        try {
+            let isSupported = false;
+            const options = {
+                get passive(): boolean {
+                    isSupported = true;
+                    return true;
+                }
+            };
+            
+            // 테스트용 이벤트 리스너 등록 및 제거
+            window.addEventListener('testpassive' as keyof WindowEventMap, null as any, options as EventListenerOptions);
+            window.removeEventListener('testpassive' as keyof WindowEventMap, null as any, options as EventListenerOptions);
+            
+            this.isPassiveSupported = isSupported;
+        } catch (e) {
+            this.isPassiveSupported = false;
+        }
+    }
+
+    /**
+     * 스크롤 이벤트 리스너를 초기화합니다.
+     */
+    private initScrollListeners(): void {
+        // 기존 이벤트 리스너 제거
+        this.container.removeEventListener('scroll', this.handleScrollEvent);
+        this.container.removeEventListener('wheel', this.handleWheel);
+        
+        // 새 이벤트 리스너 등록 - passive 옵션 사용
+        const scrollOptions = this.isPassiveSupported ? { passive: true } : undefined;
+        const wheelOptions = this.isPassiveSupported ? { passive: false } : undefined;
+        
+        this.container.addEventListener('scroll', this.handleScrollEvent, scrollOptions);
+        this.container.addEventListener('wheel', this.handleWheel, wheelOptions);
     }
 
     /**
@@ -44,37 +95,88 @@ export class Scroller extends Component {
     }
 
     /**
-     * 스크롤 리스너를 초기화합니다.
+     * 스크롤 이벤트 핸들러를 등록합니다.
      */
-    private initScrollListeners(): void {
-        this.container.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
-        this.container.addEventListener('scroll', this.handleScroll.bind(this));
+    addScrollListener(listener: () => void): void {
+        this.scrollListeners.add(listener);
+    }
+
+    /**
+     * 스크롤 이벤트 핸들러를 제거합니다.
+     */
+    removeScrollListener(listener: () => void): void {
+        this.scrollListeners.delete(listener);
+    }
+
+    /**
+     * 스크롤 종료 이벤트 핸들러를 등록합니다.
+     */
+    addScrollEndListener(listener: () => void): void {
+        this.scrollEndListeners.add(listener);
+    }
+
+    /**
+     * 스크롤 종료 이벤트 핸들러를 제거합니다.
+     */
+    removeScrollEndListener(listener: () => void): void {
+        this.scrollEndListeners.delete(listener);
     }
 
     /**
      * 스크롤 이벤트를 처리합니다.
      */
-    private handleScroll(): void {
-        const currentPosition = {
-            left: this.container.scrollLeft,
-            top: this.container.scrollTop
-        };
-
-        // 스크롤 방향 감지
-        if (currentPosition.left !== this.lastScrollPosition.left) {
+    private handleScrollEvent = (): void => {
+        // 현재 스크롤 위치
+        const scrollLeft = this.container.scrollLeft;
+        const scrollTop = this.container.scrollTop;
+        
+        // 스크롤 방향 결정
+        if (scrollLeft !== this.lastScrollPosition.left) {
             this.scrollDirection = 'horizontal';
-        } else if (currentPosition.top !== this.lastScrollPosition.top) {
+        } else if (scrollTop !== this.lastScrollPosition.top) {
             this.scrollDirection = 'vertical';
         }
-
-        this.lastScrollPosition = currentPosition;
-    }
+        
+        // 스크롤 중 플래그 설정
+        this.isScrolling = true;
+        
+        // 스로틀링 적용 - 성능 최적화
+        if (this.scrollThrottleTimeout === null) {
+            this.scrollThrottleTimeout = setTimeout(() => {
+                // 스크롤 위치 업데이트
+                this.lastScrollPosition = { left: scrollLeft, top: scrollTop };
+                
+                // 등록된 스크롤 리스너 호출
+                this.scrollListeners.forEach(listener => listener());
+                
+                this.scrollThrottleTimeout = null;
+            }, this.scrollThrottleDelay);
+        }
+        
+        // 스크롤 종료 감지
+        if (this.scrollEndTimeout) {
+            clearTimeout(this.scrollEndTimeout);
+        }
+        
+        this.scrollEndTimeout = setTimeout(() => {
+            this.isScrolling = false;
+            this.scrollDirection = null;
+            
+            // 스크롤이 끝나면 스냅 기능 적용
+            if (this.settings.enableSnapToCard) {
+                this.snapToCard();
+            }
+            
+            // 등록된 스크롤 종료 리스너 호출
+            this.scrollEndListeners.forEach(listener => listener());
+        }, 150);
+    };
 
     /**
      * 휠 이벤트를 처리합니다.
      * @param event 휠 이벤트
      */
-    private handleWheel(event: WheelEvent): void {
+    private handleWheel = (event: WheelEvent): void => {
         // 스크롤 방향 결정
         const isHorizontal = this.layoutConfig.getLayoutDirection() === 'horizontal';
         
@@ -86,7 +188,7 @@ export class Scroller extends Component {
             event.preventDefault();
             this.container.scrollLeft += delta;
         }
-    }
+    };
 
     /**
      * 가장 가까운 카드로 스냅합니다.
@@ -108,24 +210,30 @@ export class Scroller extends Component {
      * 가로 방향으로 스냅합니다.
      */
     private snapHorizontal(cardWidth: number, cardGap: number): void {
-        const { scrollLeft } = this.container;
-        const itemWidth = cardWidth + cardGap;
-        const index = Math.round(scrollLeft / itemWidth);
-        const targetScrollLeft = index * itemWidth;
+        const scrollLeft = this.container.scrollLeft;
+        const cardUnit = cardWidth + cardGap;
         
-        this.setScrollPosition(targetScrollLeft, this.container.scrollTop, true);
+        // 가장 가까운 카드 위치 계산
+        const cardIndex = Math.round(scrollLeft / cardUnit);
+        const targetScrollLeft = cardIndex * cardUnit;
+        
+        // 부드러운 스크롤 적용
+        this.setScrollPosition(targetScrollLeft, this.container.scrollTop, this.settings.enableScrollAnimation);
     }
 
     /**
      * 세로 방향으로 스냅합니다.
      */
     private snapVertical(cardHeight: number, cardGap: number): void {
-        const { scrollTop } = this.container;
-        const itemHeight = cardHeight + cardGap;
-        const index = Math.round(scrollTop / itemHeight);
-        const targetScrollTop = index * itemHeight;
+        const scrollTop = this.container.scrollTop;
+        const cardUnit = cardHeight + cardGap;
         
-        this.setScrollPosition(this.container.scrollLeft, targetScrollTop, true);
+        // 가장 가까운 카드 위치 계산
+        const cardIndex = Math.round(scrollTop / cardUnit);
+        const targetScrollTop = cardIndex * cardUnit;
+        
+        // 부드러운 스크롤 적용
+        this.setScrollPosition(this.container.scrollLeft, targetScrollTop, this.settings.enableScrollAnimation);
     }
 
     /**
@@ -167,48 +275,53 @@ export class Scroller extends Component {
         targetLeft = Math.max(0, targetLeft);
         targetTop = Math.max(0, targetTop);
         
-        console.log(`[Scroller] 최종 스크롤 위치: left=${targetLeft}px, top=${targetTop}px`);
+        // 스크롤 적용
+        this.setScrollPosition(targetLeft, targetTop, smooth);
+    }
+
+    /**
+     * 스크롤 위치를 설정합니다.
+     * @param left 왼쪽 스크롤 위치
+     * @param top 위쪽 스크롤 위치
+     * @param smooth 부드러운 스크롤 여부
+     */
+    setScrollPosition(left: number, top: number, smooth: boolean = true): void {
+        if (!this.container) return;
         
-        this.container.scrollTo({
-            left: targetLeft,
-            top: targetTop,
-            behavior: this.settings.enableScrollAnimation ? 'smooth' : 'auto'
-        });
+        try {
+            // 스크롤 동작 설정
+            if (smooth && 'scrollBehavior' in document.documentElement.style) {
+                this.container.style.scrollBehavior = 'smooth';
+            } else {
+                this.container.style.scrollBehavior = 'auto';
+            }
+            
+            // 스크롤 위치 설정
+            this.container.scrollTo({
+                left,
+                top,
+                behavior: smooth ? 'smooth' : 'auto'
+            });
+            
+            // 스크롤 위치 업데이트
+            this.lastScrollPosition = { left, top };
+        } catch (error) {
+            console.error('스크롤 위치 설정 중 오류 발생:', error);
+            
+            // 폴백: 기본 스크롤 메서드 사용
+            this.container.scrollLeft = left;
+            this.container.scrollTop = top;
+        }
     }
 
     /**
-     * 스크롤 방향을 가져옵니다.
-     */
-    getScrollDirection(): 'horizontal' | 'vertical' | null {
-        return this.scrollDirection;
-    }
-
-    /**
-     * 현재 스크롤 중인지 여부를 반환합니다.
-     */
-    isCurrentlyScrolling(): boolean {
-        return this.isScrolling;
-    }
-
-    /**
-     * 스크롤 위치를 가져옵니다.
+     * 현재 스크롤 위치를 가져옵니다.
      */
     getScrollPosition(): { left: number, top: number } {
         return {
             left: this.container.scrollLeft,
             top: this.container.scrollTop
         };
-    }
-
-    /**
-     * 스크롤 위치를 설정합니다.
-     */
-    setScrollPosition(left: number, top: number, smooth: boolean = false): void {
-        this.container.scrollTo({
-            left,
-            top,
-            behavior: smooth ? 'smooth' : 'auto'
-        });
     }
 
     /**
@@ -286,21 +399,59 @@ export class Scroller extends Component {
     }
 
     /**
-     * 스크롤 이벤트 리스너를 등록합니다.
+     * 페이지 단위로 위로 스크롤합니다.
      */
-    registerScrollEvents(): void {
-        this.container.addEventListener('wheel', this.handleWheel.bind(this));
+    pageUp(): void {
+        const containerHeight = this.container.clientHeight;
+        const currentPosition = this.getScrollPosition();
+        
+        this.setScrollPosition(
+            currentPosition.left,
+            Math.max(0, currentPosition.top - containerHeight),
+            this.settings.enableScrollAnimation
+        );
     }
 
     /**
-     * 스크롤 이벤트 리스너를 제거합니다.
+     * 페이지 단위로 아래로 스크롤합니다.
      */
-    unregisterScrollEvents(): void {
-        this.container.removeEventListener('wheel', this.handleWheel.bind(this));
+    pageDown(): void {
+        const containerHeight = this.container.clientHeight;
+        const currentPosition = this.getScrollPosition();
+        
+        this.setScrollPosition(
+            currentPosition.left,
+            currentPosition.top + containerHeight,
+            this.settings.enableScrollAnimation
+        );
     }
 
-    public cleanup() {
-        this.container.removeEventListener('wheel', this.handleWheel.bind(this));
-        this.container.removeEventListener('scroll', this.handleScroll.bind(this));
+    /**
+     * 리소스를 정리합니다.
+     */
+    onunload(): void {
+        // 이벤트 리스너 제거
+        this.container.removeEventListener('scroll', this.handleScrollEvent);
+        this.container.removeEventListener('wheel', this.handleWheel);
+        
+        // 타임아웃 정리
+        if (this.scrollTimeout) {
+            clearTimeout(this.scrollTimeout);
+            this.scrollTimeout = null;
+        }
+        
+        if (this.scrollThrottleTimeout) {
+            clearTimeout(this.scrollThrottleTimeout);
+            this.scrollThrottleTimeout = null;
+        }
+        
+        if (this.scrollEndTimeout) {
+            clearTimeout(this.scrollEndTimeout);
+            this.scrollEndTimeout = null;
+        }
+        
+        // 리스너 목록 정리
+        this.scrollListeners.clear();
+        this.scrollEndListeners.clear();
     }
-} 
+}

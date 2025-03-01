@@ -30,6 +30,14 @@ export class LayoutManager {
     private containerId: string = '';
     private resizeService: ResizeService;
     private isInitialized: boolean = false;
+    
+    // 성능 최적화를 위한 추가 속성
+    private positionCache: Map<string, CardPosition> = new Map();
+    private cardSizeCache: { width: number, height: number | 'auto' } = { width: 0, height: 0 };
+    private layoutCalculationTimeout: NodeJS.Timeout | null = null;
+    private isLayoutDirty: boolean = true;
+    private lastCalculationTime: number = 0;
+    private calculationThrottleTime: number = 100; // ms
 
     constructor(settings: CardNavigatorSettings) {
         this.settings = settings;
@@ -75,6 +83,10 @@ export class LayoutManager {
         this.layoutConfig.updateSettings(settings);
         this.layoutStyleManager.updateSettings(settings);
         
+        // 캐시 초기화
+        this.positionCache.clear();
+        this.isLayoutDirty = true;
+        
         // 설정이 변경되면 레이아웃 다시 계산
         if (this.container && this.cards.length > 0) {
             this.refreshLayout();
@@ -109,22 +121,28 @@ export class LayoutManager {
             // 레이아웃 설정 업데이트
             this.layoutConfig.updateContainerSize(containerWidth, containerHeight);
             
+            // 카드 크기 캐시 업데이트
+            this.updateCardSizeCache();
+            
             // 레이아웃 계산이 필요한지 확인
             if (this.isLayoutCalculationNeeded()) {
-                // 레이아웃 계산 및 적용
-                this.calculateLayout();
-                this.arrange();
-                
-                // 마지막 계산 정보 업데이트
-                this.lastCardsHash = this.calculateCardsHash(this.cards);
-                this.lastContainerWidth = containerWidth;
-                this.lastContainerHeight = containerHeight;
-                
-                this.logDebug('레이아웃 업데이트 완료', {
-                    containerWidth,
-                    containerHeight,
-                    cardCount: cards.length
-                });
+                // 스로틀링 적용 - 짧은 시간 내에 여러 번 호출되는 것 방지
+                const now = Date.now();
+                if (now - this.lastCalculationTime < this.calculationThrottleTime) {
+                    // 이전 타임아웃 취소
+                    if (this.layoutCalculationTimeout) {
+                        clearTimeout(this.layoutCalculationTimeout);
+                    }
+                    
+                    // 새 타임아웃 설정
+                    this.layoutCalculationTimeout = setTimeout(() => {
+                        this.performLayoutCalculation();
+                    }, this.calculationThrottleTime);
+                } else {
+                    // 바로 계산 수행
+                    this.performLayoutCalculation();
+                    this.lastCalculationTime = now;
+                }
             } else {
                 this.logDebug('레이아웃 계산이 필요하지 않음');
             }
@@ -132,6 +150,41 @@ export class LayoutManager {
             console.error('[LayoutManager] 레이아웃 업데이트 중 오류 발생:', error);
         } finally {
             this.isUpdating = false;
+        }
+    }
+    
+    /**
+     * 레이아웃 계산을 수행합니다.
+     */
+    private performLayoutCalculation(): void {
+        // 레이아웃 계산 및 적용
+        this.calculateLayout();
+        this.arrange();
+        
+        // 마지막 계산 정보 업데이트
+        this.lastCardsHash = this.calculateCardsHash(this.cards);
+        this.lastContainerWidth = this.containerWidth;
+        this.lastContainerHeight = this.containerHeight;
+        this.isLayoutDirty = false;
+        
+        this.logDebug('레이아웃 업데이트 완료', {
+            containerWidth: this.containerWidth,
+            containerHeight: this.containerHeight,
+            cardCount: this.cards.length
+        });
+    }
+
+    /**
+     * 카드 크기 캐시를 업데이트합니다.
+     */
+    private updateCardSizeCache(): void {
+        const width = this.layoutConfig.getCardWidth();
+        const height = this.layoutConfig.getCardHeight();
+        
+        // 카드 크기가 변경되었는지 확인
+        if (width !== this.cardSizeCache.width || height !== this.cardSizeCache.height) {
+            this.cardSizeCache = { width, height };
+            this.isLayoutDirty = true;
         }
     }
 
@@ -169,6 +222,9 @@ export class LayoutManager {
             // ResizeService에 컨테이너 등록
             this.resizeService.observe(this.containerId, container);
             
+            // 레이아웃 다시 계산 필요 표시
+            this.isLayoutDirty = true;
+            
             this.logDebug('컨테이너 설정됨', {
                 width: this.containerWidth,
                 height: this.containerHeight
@@ -182,11 +238,18 @@ export class LayoutManager {
      * @param cards 카드 배열
      */
     setCards(cards: Card[]): void {
-        this.cards = [...cards];
+        // 카드 목록이 변경되었는지 확인
+        const newCardsHash = this.calculateCardsHash(cards);
+        const cardsChanged = newCardsHash !== this.lastCardsHash;
         
-        // 카드가 변경되면 레이아웃 다시 계산
-        if (this.container) {
-            this.refreshLayout();
+        if (cardsChanged) {
+            this.cards = [...cards];
+            this.isLayoutDirty = true;
+            
+            // 카드가 변경되면 레이아웃 다시 계산
+            if (this.container) {
+                this.refreshLayout();
+            }
         }
     }
 
@@ -197,6 +260,10 @@ export class LayoutManager {
      */
     setStrategy(strategy: LayoutStrategy): void {
         this.layoutStrategy = strategy;
+        
+        // 캐시 초기화
+        this.positionCache.clear();
+        this.isLayoutDirty = true;
         
         // 전략이 변경되면 레이아웃 다시 계산
         if (this.container && this.cards.length > 0) {
@@ -210,7 +277,21 @@ export class LayoutManager {
      * @param cardId 카드 ID
      */
     getCardPosition(cardId: string): CardPosition | undefined {
-        return this.cardPositions.get(cardId);
+        // 캐시된 위치가 있으면 사용
+        const cachedPosition = this.positionCache.get(cardId);
+        if (cachedPosition) {
+            return cachedPosition;
+        }
+        
+        // 캐시된 위치가 없으면 계산된 위치 사용
+        const position = this.cardPositions.get(cardId);
+        
+        // 위치가 있으면 캐시에 저장
+        if (position) {
+            this.positionCache.set(cardId, position);
+        }
+        
+        return position;
     }
 
     /**
@@ -231,14 +312,14 @@ export class LayoutManager {
      * 카드 너비를 가져옵니다.
      */
     getCardWidth(): number {
-        return this.layoutConfig.getCardWidth();
+        return this.cardSizeCache.width || this.layoutConfig.getCardWidth();
     }
 
     /**
      * 카드 높이를 가져옵니다.
      */
     getCardHeight(): number | 'auto' {
-        return this.layoutConfig.getCardHeight();
+        return this.cardSizeCache.height || this.layoutConfig.getCardHeight();
     }
 
     /**
@@ -252,6 +333,11 @@ export class LayoutManager {
      * 레이아웃 계산이 필요한지 확인합니다.
      */
     public isLayoutCalculationNeeded(): boolean {
+        // 레이아웃이 더티 상태면 계산 필요
+        if (this.isLayoutDirty) {
+            return true;
+        }
+        
         // 카드가 없으면 계산 필요 없음
         if (this.cards.length === 0) {
             return false;
@@ -263,7 +349,7 @@ export class LayoutManager {
         }
         
         // 카드 위치가 없으면 계산 필요
-        if (Object.keys(this.cardPositions).length === 0) {
+        if (this.cardPositions.size === 0) {
             return true;
         }
         
@@ -277,17 +363,19 @@ export class LayoutManager {
         // 카드 목록, 컨테이너 크기, 설정이 변경되었는지 확인
         const isChanged = 
             currentCardsHash !== this.lastCardsHash ||
-            containerWidth !== this.lastContainerWidth ||
-            containerHeight !== this.lastContainerHeight;
+            Math.abs(containerWidth - this.lastContainerWidth) > 1 ||
+            Math.abs(containerHeight - this.lastContainerHeight) > 1;
             
         if (isChanged) {
             this.logDebug('레이아웃 계산 필요', {
                 cardsHashChanged: currentCardsHash !== this.lastCardsHash,
-                widthChanged: containerWidth !== this.lastContainerWidth,
-                heightChanged: containerHeight !== this.lastContainerHeight,
+                widthChanged: Math.abs(containerWidth - this.lastContainerWidth) > 1,
+                heightChanged: Math.abs(containerHeight - this.lastContainerHeight) > 1,
                 currentWidth: containerWidth,
                 currentHeight: containerHeight
             });
+            
+            this.isLayoutDirty = true;
         }
             
         return isChanged;
@@ -305,7 +393,18 @@ export class LayoutManager {
      */
     calculateLayout(): void {
         if (this.layoutStrategy) {
+            const startTime = performance.now();
+            
+            // 레이아웃 계산
             this.cardPositions = this.layoutStrategy.calculatePositions(this.cards, this.layoutConfig);
+            
+            // 계산된 위치를 캐시에 저장
+            this.positionCache.clear();
+            this.cardPositions.forEach((position, cardId) => {
+                this.positionCache.set(cardId, position);
+            });
+            
+            this.logDebug(`레이아웃 계산 완료 (${Math.round(performance.now() - startTime)}ms)`);
         }
     }
 
@@ -538,6 +637,12 @@ export class LayoutManager {
      * 리소스를 정리합니다.
      */
     public dispose(): void {
+        // 타임아웃 정리
+        if (this.layoutCalculationTimeout) {
+            clearTimeout(this.layoutCalculationTimeout);
+            this.layoutCalculationTimeout = null;
+        }
+        
         // ResizeService에서 컨테이너 제거
         if (this.containerId) {
             this.resizeService.unobserve(this.containerId);
@@ -545,6 +650,9 @@ export class LayoutManager {
         
         // 이벤트 리스너 제거
         this.resizeService.events.off('resize', null as any);
+        
+        // 캐시 정리
+        this.positionCache.clear();
         
         this.container = null;
         this.cards = [];
@@ -577,11 +685,26 @@ export class LayoutManager {
                     newHeight: containerHeight
                 });
                 
-                // 레이아웃 업데이트
-                this.updateLayout(this.cards, containerWidth, containerHeight);
+                // 레이아웃 업데이트 - 스로틀링 적용
+                const now = Date.now();
+                if (now - this.lastCalculationTime < this.calculationThrottleTime) {
+                    // 이전 타임아웃 취소
+                    if (this.layoutCalculationTimeout) {
+                        clearTimeout(this.layoutCalculationTimeout);
+                    }
+                    
+                    // 새 타임아웃 설정
+                    this.layoutCalculationTimeout = setTimeout(() => {
+                        this.updateLayout(this.cards, containerWidth, containerHeight);
+                    }, this.calculationThrottleTime);
+                } else {
+                    // 바로 업데이트 수행
+                    this.updateLayout(this.cards, containerWidth, containerHeight);
+                    this.lastCalculationTime = now;
+                }
             }
         } catch (error) {
             console.error('[LayoutManager] 컨테이너 크기 변경 처리 중 오류 발생:', error);
         }
     };
-} 
+}
