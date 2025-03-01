@@ -4,6 +4,7 @@ import { Toolbar } from './toolbar/toolbar';
 import { CardContainer } from './cardContainer/cardContainer';
 import { sortFiles } from 'common/utils';
 import { t } from 'i18next';
+import { ResizeService } from 'common/ResizeService';
 
 // 카드 네비게이터 뷰의 고유 식별자
 export const VIEW_TYPE_CARD_NAVIGATOR = "card-navigator-view";
@@ -31,10 +32,12 @@ export class CardNavigatorView extends ItemView {
     private refreshTimeout: number | null = null;
     private lastRefreshTime: number = 0;
     private readonly REFRESH_COOLDOWN = 50; // 50ms 쿨다운
-    private resizeObserver: ResizeObserver | null = null;
     private lastContainerHeight: number | null = null;
     private toolbarContainerEl!: HTMLElement;
     private cardContainerEl!: HTMLElement;
+    private navigatorEl!: HTMLElement;
+    private resizeService: ResizeService;
+    private navigatorId: string = '';
     //#endregion
 
     //#region 초기화 및 기본 메서드
@@ -42,6 +45,7 @@ export class CardNavigatorView extends ItemView {
     constructor(leaf: WorkspaceLeaf, private plugin: CardNavigatorPlugin) {
         super(leaf);
         this.cardContainer = new CardContainer(this.plugin, this.leaf);
+        this.resizeService = ResizeService.getInstance();
         // 툴바는 onOpen에서 초기화됩니다.
     }
 
@@ -68,29 +72,40 @@ export class CardNavigatorView extends ItemView {
             const { contentEl } = this;
             contentEl.empty();
             
-            const navigatorEl = contentEl.createDiv('card-navigator');
-            this.toolbarContainerEl = navigatorEl.createDiv('card-navigator-toolbar');
-            this.cardContainerEl = navigatorEl.createDiv('card-navigator-container');
+            // DOM 요소 생성
+            this.navigatorEl = contentEl.createDiv('card-navigator');
+            this.toolbarContainerEl = this.navigatorEl.createDiv('card-navigator-toolbar');
+            this.cardContainerEl = this.navigatorEl.createDiv('card-navigator-container');
             
+            // 고유 ID 생성
+            this.navigatorId = `card-navigator-${Date.now()}`;
+            
+            // 카드 컨테이너 초기화 (DOM 비의존적 초기화)
             this.cardContainer = new CardContainer(
                 this.plugin,
                 this.leaf
             );
             
+            // DOM 요소 설정 및 초기화 (DOM 의존적 초기화)
             this.cardContainer.containerEl = this.cardContainerEl;
             await this.cardContainer.initialize(this.cardContainerEl);
             
+            // 툴바 초기화
             this.toolbar = new Toolbar(
                 this.plugin,
                 this,
                 this.cardContainer
             );
             
-            // 툴바 초기화 추가
             await this.toolbar.initialize(this.toolbarContainerEl);
             
+            // 카드 로드
             await this.loadCards();
+            
+            // ResizeService 설정
             this.setupResizeObserver();
+            
+            // 이벤트 등록
             this.registerEvents();
         } catch (error) {
             console.error('뷰 열기 중 오류 발생:', error);
@@ -137,40 +152,46 @@ export class CardNavigatorView extends ItemView {
     }
     
     /**
-     * 리사이즈 옵저버를 설정합니다.
+     * ResizeService를 설정합니다.
      */
     private setupResizeObserver(): void {
-        if (this.resizeObserver) {
-            this.resizeObserver.disconnect();
-        }
-        
-        const navigatorEl = this.containerEl.querySelector('.card-navigator');
-        if (!navigatorEl) {
+        if (!this.navigatorEl || !document.body.contains(this.navigatorEl)) {
             return;
         }
         
-        // 디바운스된 리사이즈 핸들러 생성
-        const debouncedResize = debounce(() => {
-            this.updateContainerSizeAndOrientation();
-            this.refresh(RefreshType.LAYOUT);
-        }, 100); // 100ms 디바운스 적용
+        // ResizeService에 등록
+        this.resizeService.observe(this.navigatorId, this.navigatorEl);
         
-        this.resizeObserver = new ResizeObserver(() => {
-            debouncedResize();
+        // 크기 변경 이벤트 구독
+        this.resizeService.events.on('resize', (elementId: any, size: any) => {
+            if (elementId === this.navigatorId) {
+                this.updateContainerSizeAndOrientation();
+            }
         });
-        
-        this.resizeObserver.observe(navigatorEl);
     }
 
     // 뷰 닫기 메서드
     async onClose() {
-        this.toolbar.onClose();
-        this.cardContainer.onClose();
-        
-        // 리사이즈 옵저버 정리
-        if (this.resizeObserver) {
-            this.resizeObserver.disconnect();
+        // 툴바 정리
+        if (this.toolbar) {
+            this.toolbar.onClose();
         }
+        
+        // 카드 컨테이너 정리
+        if (this.cardContainer) {
+            this.cardContainer.cleanup();
+        }
+        
+        // ResizeService에서 제거
+        if (this.navigatorId) {
+            this.resizeService.unobserve(this.navigatorId);
+        }
+        
+        // 이벤트 리스너 제거
+        this.resizeService.events.off('resize', null as any);
+        
+        // 컨텐츠 요소 비우기
+        this.contentEl.empty();
     }
     //#endregion
 
@@ -423,69 +444,69 @@ export class CardNavigatorView extends ItemView {
         if (!this.cardContainer || !this.cardContainer.isInitialized) {
             return;
         }
-        
-        const navigatorEl = this.containerEl.querySelector('.card-navigator');
-        if (!navigatorEl || !document.body.contains(navigatorEl)) {
+
+        if (!this.navigatorEl || !document.body.contains(this.navigatorEl)) {
             return;
         }
-        
+
         try {
-            const navigatorRect = navigatorEl.getBoundingClientRect();
-            const navigatorWidth = navigatorRect.width;
-            const navigatorHeight = navigatorRect.height;
+            // ResizeService에서 크기 가져오기
+            const navigatorSize = this.resizeService.getElementSize(this.navigatorId);
+            if (!navigatorSize) return;
             
-            const toolbarEl = this.containerEl.querySelector('.card-navigator-toolbar');
-            const toolbarHeight = toolbarEl ? toolbarEl.getBoundingClientRect().height : 0;
-            
+            const navigatorWidth = navigatorSize.width;
+            const navigatorHeight = navigatorSize.height;
+
+            const toolbarEl = this.toolbarContainerEl;
+            const toolbarHeight = toolbarEl ? toolbarEl.offsetHeight : 0;
+
             const containerHeight = Math.max(300, navigatorHeight - toolbarHeight);
-            
             const containerEl = this.cardContainer.getContainerElement();
             if (!containerEl) {
                 return;
             }
-            
-            // 크기 변경이 충분히 큰 경우에만 업데이트 (10px 이상 차이)
-            if (!this.lastContainerHeight || Math.abs(this.lastContainerHeight - containerHeight) > 10) {
+
+            // 크기 변경이 충분히 큰 경우에만 업데이트 (30px 이상 차이만 반응)
+            if (!this.lastContainerHeight || Math.abs(this.lastContainerHeight - containerHeight) > 30) {
                 console.log(`[CardNavigatorView] 컨테이너 높이 업데이트: ${this.lastContainerHeight || 0}px -> ${containerHeight}px`);
                 this.lastContainerHeight = containerHeight;
-                
-                // 스타일 변경을 한 번에 모아서 처리
-                containerEl.style.cssText = `
-                    height: ${containerHeight}px;
-                    min-height: ${Math.min(containerHeight, 300)}px;
-                `;
-                containerEl.style.setProperty('--container-width', `${navigatorWidth}px`);
-                containerEl.style.setProperty('--container-height', `${containerHeight}px`);
-                
+
+                // CSS 업데이트 (스타일 변경 최소화)
+                requestAnimationFrame(() => {
+                    containerEl.style.height = `${containerHeight}px`;
+                    containerEl.style.minHeight = `${Math.min(containerHeight, 300)}px`;
+                    containerEl.style.setProperty('--container-width', `${navigatorWidth}px`);
+                    containerEl.style.setProperty('--container-height', `${containerHeight}px`);
+                });
+
                 // 레이아웃 매니저 업데이트
-                if (this.cardContainer.layoutManager) {
-                    this.cardContainer.layoutManager.setContainer(containerEl);
-                    
-                    const layoutConfig = this.cardContainer.layoutManager.getLayoutConfig();
-                    if (layoutConfig) {
-                        const { isVertical } = layoutConfig.calculateContainerOrientation();
-                        
-                        // classList 변경을 한 번에 처리
-                        if (isVertical) {
-                            containerEl.classList.add('vertical');
-                            containerEl.classList.remove('horizontal');
-                        } else {
-                            containerEl.classList.add('horizontal');
-                            containerEl.classList.remove('vertical');
+                requestAnimationFrame(() => {
+                    if (this.cardContainer.layoutManager) {
+                        this.cardContainer.layoutManager.setContainer(containerEl);
+
+                        const layoutConfig = this.cardContainer.layoutManager.getLayoutConfig();
+                        if (layoutConfig) {
+                            const { isVertical } = layoutConfig.calculateContainerOrientation();
+
+                            // classList 변경 최소화
+                            if (isVertical !== (containerEl.classList.contains('vertical'))) {
+                                containerEl.classList.toggle('vertical', isVertical);
+                                containerEl.classList.toggle('horizontal', !isVertical);
+                                containerEl.style.setProperty('--is-vertical', isVertical ? '1' : '0');
+                            }
+
+                            // 레이아웃 업데이트 (최적화)
+                            this.cardContainer.layoutManager.updateLayout(
+                                this.cardContainer.cards,
+                                navigatorWidth,
+                                containerHeight
+                            );
                         }
-                        
-                        containerEl.style.setProperty('--is-vertical', isVertical ? '1' : '0');
-                        
-                        // 레이아웃 업데이트 직접 수행
-                        this.cardContainer.layoutManager.updateLayout(
-                            this.cardContainer.cards,
-                            navigatorWidth, 
-                            containerHeight
-                        );
                     }
-                }
-                
-                this.cardContainer.setContainerHeight(containerHeight);
+
+                    // 컨테이너 높이 설정
+                    this.cardContainer.setContainerHeight(containerHeight);
+                });
             }
         } catch (error) {
             console.error('컨테이너 높이 업데이트 중 오류 발생:', error);

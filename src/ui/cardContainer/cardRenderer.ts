@@ -3,7 +3,7 @@ import { Card, CardNavigatorSettings } from 'common/types';
 import { CardMaker } from './cardMaker';
 import { LayoutManager } from 'layouts/layoutManager';
 import CardNavigatorPlugin from 'main';
-import { CardPosition } from 'layouts/layoutStrategy';
+import { CardPosition } from 'common/interface';
 import { CardInteractionManager } from './cardInteractionManager';
 
 /**

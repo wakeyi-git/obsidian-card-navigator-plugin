@@ -15,7 +15,8 @@ export class LayoutConfig {
     private containerWidth: number;
     private containerHeight: number;
     private cardWidth: number;
-    private cardGap: number;
+    private cardGap: number = 10; // 기본 카드 간격 설정
+    private containerPadding: number = 10; // 기본 컨테이너 패딩 설정
     private isVerticalContainer: boolean = true;
     private debugMode: boolean = true; // 디버그 모드 활성화
     private previousCardWidth: number = 0; // 이전 카드 너비 저장
@@ -25,6 +26,7 @@ export class LayoutConfig {
     private stableCardWidth: number = 0; // 안정적인 카드 너비 저장
     private previousColumns: number = 0;
     private previousContainerWidth: number = 0; // 이전 컨테이너 너비 저장
+    private cssVariablesLoaded: boolean = false; // CSS 변수 로드 여부
 
     constructor(settings: CardNavigatorSettings) {
         this.settings = settings;
@@ -36,7 +38,6 @@ export class LayoutConfig {
         this.cardWidth = settings.cardThresholdWidth || 200;
         this.previousCardWidth = this.cardWidth; // 초기값 설정
         this.stableCardWidth = this.cardWidth; // 초기 안정적인 너비 설정
-        this.cardGap = 10; // 기본 카드 간격 설정
         
         // 초기 열 수 계산
         this.cachedColumns = this.calculateAutoColumns();
@@ -65,6 +66,9 @@ export class LayoutConfig {
      */
     updateSettings(settings: CardNavigatorSettings): void {
         this.settings = settings;
+        // 설정이 변경되면 카드 너비 재계산
+        this.cardWidth = settings.cardThresholdWidth || 200;
+        this.stableCardWidth = this.cardWidth;
     }
 
     /**
@@ -81,6 +85,37 @@ export class LayoutConfig {
         // 컨테이너 크기에 따라 방향 결정
         const direction = this.isVerticalContainer ? 'vertical' : 'horizontal';
         return direction;
+    }
+
+    /**
+     * CSS 변수를 로드합니다. DOM이 준비된 후 호출해야 합니다.
+     */
+    loadCssVariables(): void {
+        if (document.body) {
+            // CSS 변수에서 값을 가져오기
+            const cardGapValue = getComputedStyle(document.documentElement).getPropertyValue('--card-gap');
+            const containerPaddingValue = getComputedStyle(document.documentElement).getPropertyValue('--container-padding');
+            
+            if (cardGapValue) {
+                const value = parseInt(cardGapValue);
+                if (!isNaN(value)) {
+                    this.cardGap = value;
+                }
+            }
+            
+            if (containerPaddingValue) {
+                const value = parseInt(containerPaddingValue);
+                if (!isNaN(value)) {
+                    this.containerPadding = value;
+                }
+            }
+            
+            this.cssVariablesLoaded = true;
+            this.logDebug('CSS 변수 로드됨', {
+                cardGap: this.cardGap,
+                containerPadding: this.containerPadding
+            });
+        }
     }
 
     /**
@@ -153,8 +188,6 @@ export class LayoutConfig {
             }
         }
         
-        this.cardGap = this.getCardGap();
-        
         // 중요한 변경사항만 로깅
         if (prevDirection !== this.layoutDirection || 
             prevColumns !== this.cachedColumns || 
@@ -199,40 +232,26 @@ export class LayoutConfig {
 
     /**
      * 컨테이너 패딩을 가져옵니다.
-     * CSS 변수에서 값을 가져오거나 기본값을 사용합니다.
+     * 설정된 값을 사용하거나 CSS 변수에서 값을 가져옵니다.
      */
     getContainerPadding(): number {
-        // CSS 변수에서 값을 가져오기
-        const cssValue = getComputedStyle(document.documentElement).getPropertyValue('--container-padding');
-        let padding = 10; // 기본값
-        
-        if (cssValue) {
-            const value = parseInt(cssValue);
-            if (!isNaN(value)) {
-                padding = value;
-            }
+        // CSS 변수가 로드되지 않았으면 기본값 사용
+        if (!this.cssVariablesLoaded) {
+            return this.containerPadding;
         }
-        
-        return padding;
+        return this.containerPadding;
     }
 
     /**
      * 카드 간격을 가져옵니다.
-     * CSS 변수에서 값을 가져오거나 기본값을 사용합니다.
+     * 설정된 값을 사용하거나 CSS 변수에서 값을 가져옵니다.
      */
     getCardGap(): number {
-        // CSS 변수에서 값을 가져오기
-        const cssValue = getComputedStyle(document.documentElement).getPropertyValue('--card-gap');
-        let gap = 10; // 기본값
-        
-        if (cssValue) {
-            const value = parseInt(cssValue);
-            if (!isNaN(value)) {
-                gap = value;
-            }
+        // CSS 변수가 로드되지 않았으면 기본값 사용
+        if (!this.cssVariablesLoaded) {
+            return this.cardGap;
         }
-        
-        return gap;
+        return this.cardGap;
     }
 
     /**

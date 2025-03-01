@@ -1,20 +1,7 @@
 import { Card } from 'common/types';
 import { TFile } from 'obsidian';
-
-/**
- * 카드 위치 정보 인터페이스
- * 
- * 이 인터페이스는 카드의 위치와 크기 정보를 정의합니다.
- */
-export interface CardPosition {
-    cardId: string;
-    left: number;
-    top: number;
-    width: number;
-    height: number | 'auto';
-    activeFile?: TFile;
-    focusedCardId?: string;
-}
+import { LayoutConfig } from './layoutConfig';
+import { CardPosition } from 'common/interface';
 
 /**
  * 레이아웃 방향을 정의하는 타입
@@ -58,7 +45,16 @@ export interface LayoutStrategy {
      * @param options 레이아웃 옵션
      * @returns 카드 위치 배열
      */
-    arrange(options: LayoutOptions): CardPosition[];
+    arrange(options: LayoutOptions): Array<CardPosition & { cardId: string }>;
+
+    /**
+     * 카드 위치를 계산합니다.
+     * 
+     * @param cards 카드 배열
+     * @param layoutConfig 레이아웃 설정
+     * @returns 카드 ID를 키로 하고 위치 정보를 값으로 하는 맵
+     */
+    calculatePositions(cards: Card[], layoutConfig: LayoutConfig): Map<string, CardPosition>;
 }
 
 /**
@@ -74,9 +70,9 @@ export class MasonryLayoutStrategy implements LayoutStrategy {
      * @param options 레이아웃 옵션
      * @returns 카드 위치 배열
      */
-    arrange(options: LayoutOptions): CardPosition[] {
+    arrange(options: LayoutOptions): Array<CardPosition & { cardId: string }> {
         const { cards, direction, cardWidth, cardHeight, columns, cardGap, containerPadding } = options;
-        const positions: CardPosition[] = [];
+        const positions: Array<CardPosition & { cardId: string }> = [];
         
         if (direction === 'horizontal') {
             // 가로 방향 레이아웃 - 단일 행에 카드 배치
@@ -133,6 +129,86 @@ export class MasonryLayoutStrategy implements LayoutStrategy {
                     
                     positions.push({
                         cardId: card.id,
+                        left,
+                        top,
+                        width: cardWidth,
+                        height: cardHeight
+                    });
+                }
+            }
+        }
+        
+        return positions;
+    }
+
+    /**
+     * 카드 위치를 계산합니다.
+     * 
+     * @param cards 카드 배열
+     * @param layoutConfig 레이아웃 설정
+     * @returns 카드 ID를 키로 하고 위치 정보를 값으로 하는 맵
+     */
+    calculatePositions(cards: Card[], layoutConfig: LayoutConfig): Map<string, CardPosition> {
+        const positions = new Map<string, CardPosition>();
+        const direction = layoutConfig.getLayoutDirection();
+        const cardWidth = layoutConfig.getCardWidth();
+        const cardHeight = layoutConfig.getCardHeight();
+        const columns = layoutConfig.getColumns();
+        const cardGap = layoutConfig.getCardGap();
+        const containerPadding = layoutConfig.getContainerPadding();
+        
+        if (direction === 'horizontal') {
+            // 가로 방향 레이아웃 - 단일 행에 카드 배치
+            let currentLeft = containerPadding;
+            
+            cards.forEach((card) => {
+                positions.set(card.id, {
+                    left: currentLeft,
+                    top: containerPadding,
+                    width: cardWidth,
+                    height: cardHeight
+                });
+                
+                currentLeft += cardWidth + cardGap;
+            });
+        } else {
+            // 세로 방향 레이아웃
+            if (cardHeight === 'auto') {
+                // 메이슨리 레이아웃 (가변 높이) - 높이가 가장 낮은 열에 카드 추가
+                const columnHeights = Array(columns).fill(containerPadding);
+                
+                cards.forEach((card) => {
+                    // 가장 높이가 낮은 열 찾기
+                    const minHeightColumn = columnHeights.indexOf(Math.min(...columnHeights));
+                    
+                    // 컨테이너 패딩을 고려하여 왼쪽 위치 계산
+                    const left = containerPadding + minHeightColumn * (cardWidth + cardGap);
+                    const top = columnHeights[minHeightColumn];
+                    
+                    // 카드 높이는 자동으로 설정
+                    positions.set(card.id, {
+                        left,
+                        top,
+                        width: cardWidth,
+                        height: 'auto'
+                    });
+                    
+                    // 해당 열의 높이 업데이트 (예상 높이 사용)
+                    const estimatedHeight = cardWidth * 1.2; // 임시 예상 높이
+                    columnHeights[minHeightColumn] += estimatedHeight + cardGap;
+                });
+            } else {
+                // 그리드 레이아웃 (고정 높이) - 균일한 그리드에 카드 배치
+                for (let i = 0; i < cards.length; i++) {
+                    const card = cards[i];
+                    const row = Math.floor(i / columns);
+                    const col = i % columns;
+                    
+                    // 컨테이너 패딩을 고려하여 왼쪽 위치 계산
+                    const left = containerPadding + col * (cardWidth + cardGap);
+                    const top = containerPadding + row * (cardHeight as number + cardGap);
+                    
+                    positions.set(card.id, {
                         left,
                         top,
                         width: cardWidth,

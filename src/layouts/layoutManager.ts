@@ -1,13 +1,15 @@
-import { Card, CardNavigatorSettings } from 'common/types';
+import { CardNavigatorSettings, Card } from 'common/types';
 import { LayoutConfig } from './layoutConfig';
+import { LayoutDirection, LayoutStrategy } from './layoutStrategy';
 import { LayoutStyleManager } from './layoutStyleManager';
-import { CardPosition, LayoutDirection, LayoutOptions, LayoutStrategy } from './layoutStrategy';
+import { CardPosition } from 'common/interface';
+import { ResizeService } from 'common/ResizeService';
 
 /**
  * 레이아웃 관리 클래스
  * 
- * 이 클래스는 레이아웃 전략을 구현하고 카드 위치를 관리합니다.
- * LayoutConfig와 LayoutStyleManager 사이의 중재자 역할을 합니다.
+ * 이 클래스는 카드 레이아웃을 관리하고 계산하는 역할을 담당합니다.
+ * 레이아웃 전략을 사용하여 카드 위치를 계산하고 적용합니다.
  */
 export class LayoutManager {
     private settings: CardNavigatorSettings;
@@ -22,37 +24,38 @@ export class LayoutManager {
     private lastContainerHeight: number = 0;
     private containerSize: { width: number, height: number } | null = null;
     private debugMode: boolean = true; // 디버그 모드 활성화
-    private resizeObserver: ResizeObserver | null = null; // 컨테이너 크기 변경 감지를 위한 ResizeObserver
-    private resizeDebounceTimeout: NodeJS.Timeout | null = null;
-    private resizeDebounceDelay: number = 50; // 디바운스 지연 시간 (ms)
     private isUpdating: boolean = false; // 업데이트 중복 방지 플래그
     private containerWidth: number = 0;
     private containerHeight: number = 0;
-    private resizeTimeout: NodeJS.Timeout | null = null;
+    private containerId: string = '';
+    private resizeService: ResizeService;
+    private isInitialized: boolean = false;
 
     constructor(settings: CardNavigatorSettings) {
         this.settings = settings;
         this.layoutConfig = new LayoutConfig(settings);
         this.layoutStyleManager = new LayoutStyleManager(settings, this.layoutConfig);
-        this.logDebug('LayoutManager 초기화');
+        this.resizeService = ResizeService.getInstance();
         
-        // ResizeObserver 초기화
-        this.initResizeObserver();
+        // 디버그 로그
+        this.logDebug('LayoutManager 초기화');
     }
 
     /**
-     * ResizeObserver를 초기화합니다.
+     * 초기화 메서드 - DOM 의존적인 초기화를 분리
      */
-    private initResizeObserver(): void {
-        // 이미 존재하는 경우 제거
-        if (this.resizeObserver) {
-            this.resizeObserver.disconnect();
-        }
+    public initialize(): void {
+        if (this.isInitialized) return;
         
-        // 새 ResizeObserver 생성
-        this.resizeObserver = new ResizeObserver(this.handleResize.bind(this));
+        // ResizeService 이벤트 구독
+        this.resizeService.events.on('resize', (elementId: any, size: any) => {
+            if (elementId === this.containerId && this.container) {
+                this.handleContainerResize();
+            }
+        });
         
-        this.logDebug('ResizeObserver 초기화 완료');
+        this.isInitialized = true;
+        this.logDebug('LayoutManager 초기화 완료');
     }
 
     /**
@@ -71,6 +74,11 @@ export class LayoutManager {
         this.settings = settings;
         this.layoutConfig.updateSettings(settings);
         this.layoutStyleManager.updateSettings(settings);
+        
+        // 설정이 변경되면 레이아웃 다시 계산
+        if (this.container && this.cards.length > 0) {
+            this.refreshLayout();
+        }
     }
 
     /**
@@ -81,65 +89,47 @@ export class LayoutManager {
      * @param containerHeight 컨테이너 높이
      */
     updateLayout(cards: Card[], containerWidth: number, containerHeight: number): void {
-        // 업데이트 중복 방지
+        // 이미 업데이트 중이면 중복 실행 방지
         if (this.isUpdating) {
-            this.logDebug('이미 업데이트 중, 요청 무시');
+            this.logDebug('이미 업데이트 중이므로 중복 실행 방지');
             return;
         }
         
-        this.isUpdating = true;
-        this.logDebug('레이아웃 업데이트 시작', { 
-            cardsCount: cards.length, 
-            containerWidth, 
-            containerHeight 
-        });
-        
         try {
-            // 카드 저장
-            this.cards = cards;
+            this.isUpdating = true;
             
             // 컨테이너 크기 업데이트
+            this.containerWidth = containerWidth;
+            this.containerHeight = containerHeight;
+            this.containerSize = { width: containerWidth, height: containerHeight };
+            
+            // 카드 배열 업데이트
+            this.cards = [...cards];
+            
+            // 레이아웃 설정 업데이트
             this.layoutConfig.updateContainerSize(containerWidth, containerHeight);
             
-            // 레이아웃 옵션 설정
-            const layoutOptions: LayoutOptions = {
-                container: this.container || document.createElement('div'), // null 방지를 위한 기본값 제공
-                cards,
-                direction: this.layoutConfig.getLayoutDirection(),
-                cardWidth: this.layoutConfig.getCardWidth(),
-                cardHeight: this.layoutConfig.getCardHeight(),
-                columns: this.layoutConfig.getColumns(),
-                cardGap: this.layoutConfig.getCardGap(),
-                containerPadding: this.layoutConfig.getContainerPadding()
-            };
-            
-            this.logDebug('레이아웃 옵션', layoutOptions);
-            
-            // 레이아웃 전략을 사용하여 카드 위치 계산
-            if (this.layoutStrategy) {
-                const positions = this.layoutStrategy.arrange(layoutOptions);
+            // 레이아웃 계산이 필요한지 확인
+            if (this.isLayoutCalculationNeeded()) {
+                // 레이아웃 계산 및 적용
+                this.calculateLayout();
+                this.arrange();
                 
-                // 카드 위치 맵 업데이트
-                this.cardPositions.clear();
-                positions.forEach(position => {
-                    this.cardPositions.set(position.cardId, position);
+                // 마지막 계산 정보 업데이트
+                this.lastCardsHash = this.calculateCardsHash(this.cards);
+                this.lastContainerWidth = containerWidth;
+                this.lastContainerHeight = containerHeight;
+                
+                this.logDebug('레이아웃 업데이트 완료', {
+                    containerWidth,
+                    containerHeight,
+                    cardCount: cards.length
                 });
-                
-                this.logDebug('카드 위치 계산 완료', { positionsCount: positions.length });
             } else {
-                this.logDebug('레이아웃 전략이 설정되지 않음');
+                this.logDebug('레이아웃 계산이 필요하지 않음');
             }
-            
-            // 컨테이너 크기 계산
-            this.calculateContainerSize();
-            
-            this.logDebug('레이아웃 업데이트 완료', { 
-                containerSize: this.containerSize,
-                cardPositionsCount: this.cardPositions.size
-            });
         } catch (error) {
-            console.error('레이아웃 업데이트 중 오류 발생:', error);
-            this.logDebug('레이아웃 업데이트 오류', { error });
+            console.error('[LayoutManager] 레이아웃 업데이트 중 오류 발생:', error);
         } finally {
             this.isUpdating = false;
         }
@@ -147,41 +137,54 @@ export class LayoutManager {
 
     /**
      * 컨테이너를 설정합니다.
+     * 
+     * @param container 컨테이너 요소
      */
     setContainer(container: HTMLElement): void {
-        // 이전 컨테이너에서 ResizeObserver 제거
-        if (this.container && this.resizeObserver) {
-            this.resizeObserver.unobserve(this.container);
+        // 이전 컨테이너가 있으면 ResizeService에서 제거
+        if (this.containerId && this.container) {
+            this.resizeService.unobserve(this.containerId);
         }
         
         this.container = container;
         
-        // 새 컨테이너에 ResizeObserver 추가
-        if (this.resizeObserver) {
-            this.resizeObserver.observe(container);
+        if (container) {
+            // 고유 ID 생성
+            this.containerId = `layout-container-${Date.now()}`;
+            
+            // 컨테이너 크기 초기화
+            this.containerWidth = container.offsetWidth;
+            this.containerHeight = container.offsetHeight;
+            this.containerSize = { width: this.containerWidth, height: this.containerHeight };
+            
+            // 레이아웃 설정 업데이트
+            this.layoutConfig.updateContainerSize(this.containerWidth, this.containerHeight);
+            
+            // CSS 변수 로드 (DOM이 준비된 후)
+            this.layoutConfig.loadCssVariables();
+            
+            // 레이아웃 스타일 업데이트
+            this.layoutStyleManager.updateLayoutStyles(container);
+            
+            // ResizeService에 컨테이너 등록
+            this.resizeService.observe(this.containerId, container);
+            
+            this.logDebug('컨테이너 설정됨', {
+                width: this.containerWidth,
+                height: this.containerHeight
+            });
         }
-        
-        this.logDebug('컨테이너 설정', { 
-            containerId: container.id, 
-            containerClass: container.className,
-            containerSize: { 
-                width: container.clientWidth, 
-                height: container.clientHeight 
-            } 
-        });
-        
-        // 초기 레이아웃 계산을 위해 컨테이너 크기 업데이트
-        this.layoutConfig.updateContainerSize(container.clientWidth, container.clientHeight);
     }
 
     /**
-     * 카드 목록을 설정합니다.
+     * 카드 배열을 설정합니다.
+     * 
+     * @param cards 카드 배열
      */
     setCards(cards: Card[]): void {
-        this.cards = cards;
-        this.logDebug('카드 목록 설정', { cardsCount: cards.length });
+        this.cards = [...cards];
         
-        // 카드 목록이 변경되면 레이아웃 재계산
+        // 카드가 변경되면 레이아웃 다시 계산
         if (this.container) {
             this.refreshLayout();
         }
@@ -189,12 +192,13 @@ export class LayoutManager {
 
     /**
      * 레이아웃 전략을 설정합니다.
+     * 
+     * @param strategy 레이아웃 전략
      */
     setStrategy(strategy: LayoutStrategy): void {
         this.layoutStrategy = strategy;
-        this.logDebug('레이아웃 전략 설정', { strategyName: strategy.constructor.name });
         
-        // 전략이 변경되면 레이아웃 재계산
+        // 전략이 변경되면 레이아웃 다시 계산
         if (this.container && this.cards.length > 0) {
             this.refreshLayout();
         }
@@ -202,6 +206,8 @@ export class LayoutManager {
 
     /**
      * 카드 위치를 가져옵니다.
+     * 
+     * @param cardId 카드 ID
      */
     getCardPosition(cardId: string): CardPosition | undefined {
         return this.cardPositions.get(cardId);
@@ -236,7 +242,7 @@ export class LayoutManager {
     }
 
     /**
-     * 컬럼 수를 가져옵니다.
+     * 열 수를 가져옵니다.
      */
     getColumns(): number {
         return this.layoutConfig.getColumns();
@@ -244,12 +250,11 @@ export class LayoutManager {
 
     /**
      * 레이아웃 계산이 필요한지 확인합니다.
-     * @returns 레이아웃 계산이 필요하면 true, 아니면 false
      */
     public isLayoutCalculationNeeded(): boolean {
-        // 레이아웃 전략이 없으면 계산 필요
-        if (!this.layoutStrategy) {
-            return true;
+        // 카드가 없으면 계산 필요 없음
+        if (this.cards.length === 0) {
+            return false;
         }
         
         // 컨테이너가 없으면 계산 필요
@@ -266,8 +271,8 @@ export class LayoutManager {
         const currentCardsHash = this.calculateCardsHash(this.cards);
         
         // 컨테이너 크기 가져오기
-        const containerWidth = this.container.clientWidth;
-        const containerHeight = this.container.clientHeight;
+        const containerWidth = this.containerWidth;
+        const containerHeight = this.containerHeight;
         
         // 카드 목록, 컨테이너 크기, 설정이 변경되었는지 확인
         const isChanged = 
@@ -289,180 +294,98 @@ export class LayoutManager {
     }
 
     /**
-     * 카드 목록의 해시를 계산합니다.
+     * 카드 배열의 해시를 계산합니다.
      */
     private calculateCardsHash(cards: Card[]): string {
         return cards.map(card => card.id).join(',');
     }
 
     /**
-     * 레이아웃 계산합니다.
+     * 레이아웃을 계산합니다.
      */
     calculateLayout(): void {
-        this.arrange();
+        if (this.layoutStrategy) {
+            this.cardPositions = this.layoutStrategy.calculatePositions(this.cards, this.layoutConfig);
+        }
     }
 
     /**
      * 카드를 배치합니다.
      */
     arrange(): void {
-        if (!this.container || !this.layoutStrategy) {
-            this.logDebug('카드 배치 실패: 컨테이너 또는 레이아웃 전략이 없음');
-            return;
-        }
+        if (!this.container) return;
         
-        try {
-            this.logDebug('카드 배치 시작', { 
-                cardsCount: this.cards.length,
-                containerWidth: this.container.clientWidth,
-                containerHeight: this.container.clientHeight
-            });
+        // 카드 요소 가져오기
+        const cardElements = this.container.querySelectorAll('.card-navigator-card');
+        
+        // 카드 위치 적용
+        Array.from(cardElements).forEach((cardEl) => {
+            const htmlCardEl = cardEl as HTMLElement;
+            const cardId = htmlCardEl.dataset.cardId;
+            if (!cardId) return;
             
-            // 현재 상태 저장
-            const currentCardsHash = this.calculateCardsHash(this.cards);
-            this.lastCardsHash = currentCardsHash;
-            this.lastContainerWidth = this.container.clientWidth;
-            this.lastContainerHeight = this.container.clientHeight;
+            const position = this.cardPositions.get(cardId);
+            if (!position) return;
             
-            // 컨테이너 크기 업데이트
-            this.layoutConfig.updateContainerSize(this.container.clientWidth, this.container.clientHeight);
+            // 카드 위치 스타일 적용
+            this.applyCardStyle(htmlCardEl, cardId);
+        });
+        
+        // 컨테이너 크기 계산
+        this.calculateContainerSize();
+        
+        // 컨테이너 크기 적용
+        if (this.container) {
+            const containerHeight = this.containerHeight;
             
-            // 레이아웃 방향 및 카드 크기 계산
-            const direction = this.layoutConfig.getLayoutDirection();
-            const cardWidth = this.layoutConfig.getCardWidth();
-            const cardHeight = this.layoutConfig.getCardHeight();
-            const columns = this.layoutConfig.getColumns();
-            
-            // 레이아웃 스타일 업데이트
-            this.layoutStyleManager.updateLayoutStyles(this.container);
-            
-            // 레이아웃 옵션 생성
-            const options: LayoutOptions = {
-                container: this.container,
-                cards: this.cards,
-                direction: direction,
-                cardWidth: cardWidth,
-                cardHeight: cardHeight,
-                columns: columns,
-                cardGap: this.layoutConfig.getCardGap(),
-                containerPadding: this.layoutConfig.getContainerPadding()
-            };
-            
-            this.logDebug('레이아웃 옵션', options);
-            
-            // 전략 패턴을 사용하여 카드 위치 계산
-            const positions = this.layoutStrategy.arrange(options);
-            
-            // 카드 위치 맵 업데이트
-            this.cardPositions.clear();
-            positions.forEach(position => {
-                this.cardPositions.set(position.cardId, position);
-            });
-            
-            this.logDebug('카드 배치 완료', { 
-                positionsCount: positions.length,
-                firstCardPosition: positions.length > 0 ? positions[0] : null,
-                lastCardPosition: positions.length > 0 ? positions[positions.length - 1] : null
-            });
-        } catch (error) {
-            console.error('레이아웃 계산 중 오류 발생:', error);
-            this.logDebug('레이아웃 계산 오류', { error });
+            // 컨테이너 높이 설정
+            if (this.getLayoutDirection() === 'vertical') {
+                // 세로 레이아웃의 경우 컨테이너 높이 자동 조정
+                const maxCardBottom = Math.max(...Array.from(this.cardPositions.values())
+                    .map(pos => pos.top + (typeof pos.height === 'number' ? pos.height : 0)));
+                
+                // 패딩 추가
+                const containerPadding = this.layoutConfig.getContainerPadding();
+                const totalHeight = maxCardBottom + containerPadding;
+                
+                // 컨테이너 높이 설정 (최소 높이 보장)
+                this.container.style.minHeight = `${Math.max(300, totalHeight)}px`;
+            } else {
+                // 가로 레이아웃의 경우 컨테이너 높이 고정
+                this.container.style.height = `${containerHeight}px`;
+            }
         }
     }
 
     /**
      * 카드를 비동기적으로 배치합니다.
+     * 
+     * @param callback 배치 완료 후 호출할 콜백 함수
      */
     arrangeAsync(callback?: () => void): void {
-        // 로컬 변수에 현재 값 저장
-        const strategy = this.layoutStrategy;
-        const container = this.container;
-        const cards = [...this.cards];
-        
-        if (!this.isLayoutCalculationNeeded()) {
+        if (!this.container) {
             if (callback) callback();
             return;
         }
         
-        this.logDebug('비동기 카드 배치 시작');
-        
-        setTimeout(() => {
-            if (!strategy || !container) {
-                this.logDebug('비동기 카드 배치 실패: 전략 또는 컨테이너 없음');
-                if (callback) callback();
-                return;
-            }
-            
-            try {
-                // 현재 상태 저장
-                const currentCardsHash = this.calculateCardsHash(cards);
-                this.lastCardsHash = currentCardsHash;
-                this.lastContainerWidth = container.clientWidth;
-                this.lastContainerHeight = container.clientHeight;
-                
-                // 컨테이너 크기 업데이트
-                this.layoutConfig.updateContainerSize(container.clientWidth, container.clientHeight);
-                
-                // 레이아웃 방향 및 카드 크기 계산
-                const direction = this.layoutConfig.getLayoutDirection();
-                const cardWidth = this.layoutConfig.getCardWidth();
-                const cardHeight = this.layoutConfig.getCardHeight();
-                const columns = this.layoutConfig.getColumns();
-                
-                // 레이아웃 스타일 업데이트
-                this.layoutStyleManager.updateLayoutStyles(container);
-                
-                // 레이아웃 옵션 생성
-                const options: LayoutOptions = {
-                    container: container,
-                    cards: cards,
-                    direction: direction,
-                    cardWidth: cardWidth,
-                    cardHeight: cardHeight,
-                    columns: columns,
-                    cardGap: this.layoutConfig.getCardGap(),
-                    containerPadding: this.layoutConfig.getContainerPadding()
-                };
-                
-                this.logDebug('비동기 레이아웃 옵션', {
-                    direction,
-                    cardWidth,
-                    cardHeight,
-                    columns,
-                    cardGap: this.layoutConfig.getCardGap(),
-                    containerPadding: this.layoutConfig.getContainerPadding()
-                });
-                
-                // 전략 패턴을 사용하여 카드 위치 계산
-                const positions = strategy.arrange(options);
-                
-                // 카드 위치 맵 업데이트
-                this.cardPositions.clear();
-                positions.forEach(position => {
-                    this.cardPositions.set(position.cardId, position);
-                });
-                
-                this.logDebug('비동기 카드 배치 완료', { positionsCount: positions.length });
-                
-                if (callback) callback();
-            } catch (error) {
-                console.error('비동기 레이아웃 계산 중 오류 발생:', error);
-                this.logDebug('비동기 레이아웃 계산 오류', { error });
-                if (callback) callback();
-            }
-        }, 0);
+        // requestAnimationFrame을 사용하여 다음 프레임에서 배치
+        requestAnimationFrame(() => {
+            this.arrange();
+            if (callback) callback();
+        });
     }
 
     /**
      * 카드 스타일을 적용합니다.
+     * 
+     * @param cardElement 카드 요소
+     * @param cardId 카드 ID
      */
     applyCardStyle(cardElement: HTMLElement, cardId: string): void {
         const position = this.cardPositions.get(cardId);
-        if (!position) {
-            this.logDebug('카드 스타일 적용 실패: 위치 정보 없음', { cardId });
-            return;
-        }
+        if (!position) return;
         
+        // 카드 위치 스타일 적용
         this.layoutStyleManager.applyCardPositionStyle(
             cardElement,
             position.left,
@@ -474,6 +397,9 @@ export class LayoutManager {
 
     /**
      * 카드 포커스 스타일을 적용합니다.
+     * 
+     * @param cardElement 카드 요소
+     * @param isFocused 포커스 여부
      */
     applyCardFocusStyle(cardElement: HTMLElement, isFocused: boolean): void {
         this.layoutStyleManager.applyCardFocusStyle(cardElement, isFocused);
@@ -481,20 +407,23 @@ export class LayoutManager {
 
     /**
      * 카드 활성화 스타일을 적용합니다.
+     * 
+     * @param cardElement 카드 요소
+     * @param isActive 활성화 여부
      */
     applyCardActiveStyle(cardElement: HTMLElement, isActive: boolean): void {
         this.layoutStyleManager.applyCardActiveStyle(cardElement, isActive);
     }
 
     /**
-     * LayoutStyleManager를 가져옵니다.
+     * 레이아웃 스타일 매니저를 가져옵니다.
      */
     getLayoutStyleManager(): LayoutStyleManager {
         return this.layoutStyleManager;
     }
 
     /**
-     * LayoutConfig를 가져옵니다.
+     * 레이아웃 설정을 가져옵니다.
      */
     getLayoutConfig(): LayoutConfig {
         return this.layoutConfig;
@@ -504,211 +433,155 @@ export class LayoutManager {
      * 카드 크기를 가져옵니다.
      */
     public getCardSize(): { width: number, height: number | 'auto' } {
-        const width = this.layoutConfig.getCardWidth();
-        const height = this.layoutConfig.getCardHeight();
-        
-        return { width, height };
+        return {
+            width: this.getCardWidth(),
+            height: this.getCardHeight()
+        };
     }
-    
+
     /**
      * 컨테이너 크기를 가져옵니다.
      */
     public getContainerSize(): { width: number, height: number } | null {
-        if (!this.container) return null;
-        
-        const { width, height } = this.container.getBoundingClientRect();
-        return { width, height };
+        return this.containerSize;
     }
 
     /**
      * 카드 설정을 업데이트합니다.
+     * 
+     * @param alignCardHeight 카드 높이 정렬 여부
+     * @param cardsPerColumn 열당 카드 수
      */
     public updateCardSettings(alignCardHeight: boolean, cardsPerColumn: number): void {
-        const settings = this.layoutConfig.getSettings();
-        settings.alignCardHeight = alignCardHeight;
-        settings.cardsPerColumn = cardsPerColumn;
-        this.layoutConfig.updateSettings(settings);
-        this.logDebug('카드 설정 업데이트', { alignCardHeight, cardsPerColumn });
+        // 설정 업데이트
+        this.settings.alignCardHeight = alignCardHeight;
+        this.settings.cardsPerColumn = cardsPerColumn;
         
-        // 설정이 변경되면 레이아웃 재계산
-        this.refreshLayout();
+        // 레이아웃 설정 업데이트
+        this.layoutConfig.updateSettings(this.settings);
+        
+        // 레이아웃 다시 계산
+        if (this.container && this.cards.length > 0) {
+            this.refreshLayout();
+        }
     }
 
     /**
      * 레이아웃을 새로고침합니다.
      */
     public refreshLayout(): void {
-        if (!this.container || !this.layoutStrategy) {
-            this.logDebug('레이아웃 새로고침 실패: 컨테이너 또는 레이아웃 전략이 없음');
-            return;
+        if (!this.container || this.cards.length === 0) return;
+        
+        try {
+            // 컨테이너 크기 가져오기
+            const containerWidth = this.container.offsetWidth;
+            const containerHeight = this.container.offsetHeight;
+            
+            // 레이아웃 업데이트
+            this.updateLayout(this.cards, containerWidth, containerHeight);
+        } catch (error) {
+            console.error('[LayoutManager] 레이아웃 새로고침 중 오류 발생:', error);
         }
-        
-        this.logDebug('레이아웃 새로고침 시작');
-        
-        // 현재 컨테이너 크기 가져오기
-        const containerWidth = this.container.clientWidth;
-        const containerHeight = this.container.clientHeight;
-        
-        // 레이아웃 업데이트
-        this.updateLayout(this.cards, containerWidth, containerHeight);
-        
-        this.logDebug('레이아웃 새로고침 완료');
     }
 
     /**
      * 컨테이너 크기를 계산합니다.
      */
     private calculateContainerSize(): void {
-        if (!this.cardPositions.size) {
-            this.logDebug('컨테이너 크기 계산 실패: 카드 위치 정보 없음');
-            return;
-        }
+        if (!this.container) return;
         
-        // 모든 카드 위치를 기반으로 컨테이너 크기 계산
-        let maxWidth = 0;
-        let maxHeight = 0;
-        
-        this.cardPositions.forEach(position => {
-            // 소수점 때문에 흔들리는 문제를 해결하기 위해 Math.floor 사용
-            const cardRight = Math.floor(position.left + position.width);
-            const cardHeight = position.height === 'auto' ? 0 : Math.floor(position.height);
-            const cardBottom = Math.floor(position.top + cardHeight);
+        try {
+            // 모든 카드 위치 가져오기
+            const positions = Array.from(this.cardPositions.values());
             
-            maxWidth = Math.max(maxWidth, cardRight);
-            maxHeight = Math.max(maxHeight, cardBottom);
-        });
-        
-        // 컨테이너 패딩 가져오기
-        const containerPadding = this.layoutConfig.getContainerPadding();
-        
-        // 컨테이너 크기 설정 (오른쪽과 아래쪽에 패딩 추가)
-        this.containerSize = {
-            width: Math.floor(maxWidth + containerPadding),
-            height: Math.floor(maxHeight + containerPadding)
-        };
-        
-        this.logDebug('컨테이너 크기 계산', { 
-            maxWidth, 
-            maxHeight, 
-            containerPadding,
-            containerSize: this.containerSize 
-        });
-        
-        // 컨테이너 DOM 요소가 있는 경우 크기 업데이트
-        if (this.container) {
-            // 컨테이너 너비를 고정된 값으로 설정
-            this.container.style.width = `${this.containerSize.width}px`;
-            this.container.style.height = `${this.containerSize.height}px`;
+            if (positions.length === 0) return;
             
-            this.logDebug('컨테이너 DOM 크기 업데이트', { 
-                width: this.containerSize.width, 
-                height: this.containerSize.height 
+            // 최대 위치 계산
+            let maxRight = 0;
+            let maxBottom = 0;
+            
+            positions.forEach(pos => {
+                const right = pos.left + (typeof pos.width === 'number' ? pos.width : 0);
+                const bottom = pos.top + (typeof pos.height === 'number' ? pos.height : 0);
+                
+                maxRight = Math.max(maxRight, right);
+                maxBottom = Math.max(maxBottom, bottom);
             });
+            
+            // 패딩 추가
+            const containerPadding = this.layoutConfig.getContainerPadding();
+            const totalWidth = maxRight + containerPadding;
+            const totalHeight = maxBottom + containerPadding;
+            
+            // 컨테이너 크기 설정
+            if (this.getLayoutDirection() === 'vertical') {
+                // 세로 레이아웃의 경우 너비는 컨테이너 너비, 높이는 계산된 높이
+                this.containerSize = {
+                    width: this.containerWidth,
+                    height: Math.max(300, totalHeight) // 최소 높이 300px
+                };
+            } else {
+                // 가로 레이아웃의 경우 너비는 계산된 너비, 높이는 컨테이너 높이
+                this.containerSize = {
+                    width: Math.max(300, totalWidth), // 최소 너비 300px
+                    height: this.containerHeight
+                };
+            }
+            
+            this.logDebug('컨테이너 크기 계산됨', this.containerSize);
+        } catch (error) {
+            console.error('[LayoutManager] 컨테이너 크기 계산 중 오류 발생:', error);
         }
     }
-    
+
     /**
      * 리소스를 정리합니다.
      */
     public dispose(): void {
-        // ResizeObserver 정리
-        if (this.resizeObserver) {
-            this.resizeObserver.disconnect();
-            this.resizeObserver = null;
+        // ResizeService에서 컨테이너 제거
+        if (this.containerId) {
+            this.resizeService.unobserve(this.containerId);
         }
         
-        this.logDebug('LayoutManager 리소스 정리 완료');
+        // 이벤트 리스너 제거
+        this.resizeService.events.off('resize', null as any);
+        
+        this.container = null;
+        this.cards = [];
+        this.cardPositions.clear();
+        this.isInitialized = false;
+        
+        this.logDebug('LayoutManager 정리됨');
     }
 
     /**
-     * 리사이즈 이벤트 핸들러
-     */
-    private handleResize(entries: ResizeObserverEntry[]): void {
-        // 이미 업데이트 중이면 무시
-        if (this.isUpdating) return;
-        
-        // 디바운스 처리
-        if (this.resizeDebounceTimeout) {
-            clearTimeout(this.resizeDebounceTimeout);
-        }
-        
-        this.resizeDebounceTimeout = setTimeout(() => {
-            const entry = entries[0];
-            if (entry && this.container) {
-                // 소수점 때문에 흔들리는 문제를 해결하기 위해 Math.floor 사용
-                const width = Math.floor(entry.contentRect.width);
-                const height = Math.floor(entry.contentRect.height);
-                
-                // 너비나 높이가 변경된 경우에만 레이아웃 업데이트
-                // 임계값을 높여 작은 변화에 반응하지 않도록 함
-                const widthDiff = Math.abs(width - this.lastContainerWidth);
-                const heightDiff = Math.abs(height - this.lastContainerHeight);
-                
-                // 너비/높이 변화율 계산 (%)
-                const widthChangePercent = this.lastContainerWidth > 0 ? 
-                    (widthDiff / this.lastContainerWidth) * 100 : 0;
-                const heightChangePercent = this.lastContainerHeight > 0 ? 
-                    (heightDiff / this.lastContainerHeight) * 100 : 0;
-                
-                // 절대적 변화(20px 이상) 또는 상대적 변화(5% 이상)가 있을 때만 업데이트
-                if (widthDiff > 20 || heightDiff > 20 || 
-                    widthChangePercent > 5 || heightChangePercent > 5) {
-                    
-                    this.logDebug('컨테이너 크기 변경 감지', { 
-                        prevWidth: this.lastContainerWidth, 
-                        newWidth: width,
-                        prevHeight: this.lastContainerHeight,
-                        newHeight: height,
-                        widthDiff,
-                        heightDiff,
-                        widthChangePercent: widthChangePercent.toFixed(2) + '%',
-                        heightChangePercent: heightChangePercent.toFixed(2) + '%'
-                    });
-                    
-                    // 마지막 크기 업데이트
-                    this.lastContainerWidth = width;
-                    this.lastContainerHeight = height;
-                    
-                    // 레이아웃 업데이트
-                    this.updateLayout(this.cards, width, height);
-                }
-            }
-        }, 300); // 디바운스 지연 시간 증가 (150ms → 300ms)
-    }
-
-    /**
-     * 컨테이너 크기 변경을 감지하고 처리합니다.
+     * 컨테이너 크기 변경 처리 메서드
      */
     private handleContainerResize = (): void => {
-        if (!this.container) return;
+        if (!this.container || !document.body.contains(this.container)) return;
         
-        const rect = this.container.getBoundingClientRect();
-        const newWidth = rect.width;
-        const newHeight = rect.height;
-        
-        // 크기 변경이 충분히 큰 경우에만 레이아웃 업데이트 (작은 변화는 무시)
-        const widthChanged = Math.abs(newWidth - this.containerWidth) > 30; // 30px 이상 변경 시에만 업데이트
-        const heightChanged = Math.abs(newHeight - this.containerHeight) > 30;
-        
-        if (widthChanged || heightChanged) {
-            this.containerWidth = newWidth;
-            this.containerHeight = newHeight;
+        try {
+            // 컨테이너 크기 가져오기
+            const containerWidth = this.container.offsetWidth;
+            const containerHeight = this.container.offsetHeight;
             
-            this.logDebug('컨테이너 크기 변경 감지', {
-                newWidth,
-                newHeight,
-                widthDiff: newWidth - this.containerWidth,
-                heightDiff: newHeight - this.containerHeight
-            });
+            // 크기가 변경되었는지 확인
+            const isWidthChanged = Math.abs(this.containerWidth - containerWidth) > 1;
+            const isHeightChanged = Math.abs(this.containerHeight - containerHeight) > 1;
             
-            // 디바운스 처리로 빈번한 업데이트 방지
-            if (this.resizeTimeout) {
-                clearTimeout(this.resizeTimeout);
+            if (isWidthChanged || isHeightChanged) {
+                this.logDebug('컨테이너 크기 변경 감지', {
+                    prevWidth: this.containerWidth,
+                    newWidth: containerWidth,
+                    prevHeight: this.containerHeight,
+                    newHeight: containerHeight
+                });
+                
+                // 레이아웃 업데이트
+                this.updateLayout(this.cards, containerWidth, containerHeight);
             }
-            
-            this.resizeTimeout = setTimeout(() => {
-                this.updateLayout(this.cards, this.containerWidth, this.containerHeight);
-            }, 200); // 200ms 디바운스 (더 안정적인 업데이트를 위해 지연 시간 증가)
+        } catch (error) {
+            console.error('[LayoutManager] 컨테이너 크기 변경 처리 중 오류 발생:', error);
         }
     };
 } 

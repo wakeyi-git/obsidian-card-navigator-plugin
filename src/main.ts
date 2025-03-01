@@ -7,6 +7,7 @@ import { PresetManager } from './ui/settings/PresetManager';
 import i18next from 'i18next';
 import { t } from 'i18next';
 import { SearchService } from 'ui/toolbar/search/';
+import { ResizeService } from './common/ResizeService';
 
 // 다국어 지원을 위한 언어 리소스 정의
 export const languageResources = {
@@ -27,12 +28,18 @@ export default class CardNavigatorPlugin extends Plugin {
     settingTab!: SettingTab;
     private ribbonIconEl: HTMLElement | null = null;
     public events: Events = new Events();
+    private resizeService!: ResizeService;
     //#endregion
 
     //#region 초기화 및 설정 관리
     // 플러그인 로드 시 실행되는 메서드
     async onload() {
         await this.loadSettings();
+        
+        // ResizeService 초기화
+        this.resizeService = ResizeService.getInstance();
+        this.resizeService.setDebug(this.settings.debug);
+        
         this.presetManager = new PresetManager(this.app, this, this.settings);
         this.settingsManager = new SettingsManager(this, this.presetManager);
         this.searchService = new SearchService(this);
@@ -47,6 +54,11 @@ export default class CardNavigatorPlugin extends Plugin {
 
     // 플러그인 언로드 시 실행되는 메서드
     async onunload() {
+        // ResizeService 정리
+        if (this.resizeService) {
+            this.resizeService.disconnect();
+        }
+        
         // 모든 CardNavigatorView 인스턴스 닫기
         this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR).forEach(leaf => {
             if (leaf.view instanceof CardNavigatorView) {

@@ -81,6 +81,9 @@ export interface CardNavigatorSettings {
     
     // 기타 설정
     enableScrollAnimation: boolean;
+    
+    // 디버그 모드 활성화 여부
+    debug: boolean;
 }
 
 // 전역 설정 키 정의
@@ -126,7 +129,9 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     autoApplyFolderPresets: false,
     folderPresets: {},
     activeFolderPresets: {},
-    enableScrollAnimation: true
+    enableScrollAnimation: true,
+    // 디버그 모드 기본값
+    debug: false,
 };
 //#endregion
 

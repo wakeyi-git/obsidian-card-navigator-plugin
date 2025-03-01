@@ -31,3 +31,14 @@ export interface IPresetManager {
 	toggleAutoApplyFolderPresets: (value: boolean) => Promise<void>;
 	applyFolderPreset: (folderPath: string) => Promise<void>;
 }
+
+/**
+ * 카드 위치 인터페이스
+ * 카드의 위치와 크기 정보를 정의합니다.
+ */
+export interface CardPosition {
+    left: number;
+    top: number;
+    width: number;
+    height: number | 'auto';
+}

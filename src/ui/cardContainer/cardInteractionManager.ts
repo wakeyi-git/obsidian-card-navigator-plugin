@@ -292,4 +292,35 @@ export class CardInteractionManager {
     public clearCache(): void {
         this.interactionCache.clear();
     }
+
+    /**
+     * 모든 리소스를 정리합니다.
+     * 이벤트 핸들러 제거 및 캐시 정리를 수행합니다.
+     */
+    public cleanup(): void {
+        // 모든 이벤트 핸들러 제거
+        this.eventHandlers.forEach((handlers, cardId) => {
+            handlers.forEach(({ element, type, handler }) => {
+                if (element && document.body.contains(element)) {
+                    element.removeEventListener(type, handler);
+                }
+            });
+        });
+        
+        // 이벤트 핸들러 맵 초기화
+        this.eventHandlers.clear();
+        
+        // 캐시 정리
+        this.clearCache();
+        
+        // 롱 프레스 타임아웃 정리
+        if (this.longPressTimeout !== null) {
+            window.clearTimeout(this.longPressTimeout);
+            this.longPressTimeout = null;
+        }
+        
+        // 상태 초기화
+        this.isLongPressing = false;
+        this.isDragging = false;
+    }
 }

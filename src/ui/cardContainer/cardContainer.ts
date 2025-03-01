@@ -13,6 +13,7 @@ import { CardListManager } from './cardListManager';
 import { CardInteractionManager } from './cardInteractionManager';
 import { MasonryLayoutStrategy } from 'layouts/layoutStrategy';
 import { sortFiles } from 'common/utils';
+import { ResizeService } from 'common/ResizeService';
 
 /**
  * 카드 컨테이너 클래스
@@ -29,7 +30,6 @@ export class CardContainer implements KeyboardNavigationHost {
     private keyboardNavigator: KeyboardNavigator | null = null;
     private scroller!: Scroller;
     public cards: Card[] = [];
-    private resizeObserver: ResizeObserver;
     private focusedCardId: string | null = null;
     private searchResults: TFile[] | null = null;
     private isResizing = false;
@@ -39,19 +39,45 @@ export class CardContainer implements KeyboardNavigationHost {
     private cardListManager: CardListManager;
     private settings: CardNavigatorSettings;
     public isInitialized: boolean = false;
+    public isInitializedCore: boolean = false;
     public isSearchMode = false;
     private eventListeners: Record<string, Array<() => void>> = {};
     private cardInteractionManager: CardInteractionManager | null = null;
     private app: App;
+    private resizeService: ResizeService;
+    private containerId: string;
 
     constructor(private plugin: CardNavigatorPlugin, private leaf: WorkspaceLeaf) {
         this.app = this.plugin.app;
         this.cardMaker = new CardMaker(this.plugin);
         this.cardListManager = new CardListManager(this.plugin);
         this.settings = this.plugin.settings;
+        this.resizeService = ResizeService.getInstance();
+        this.containerId = `card-container-${Date.now()}`;
         
-        // ResizeObserver 초기화
-        this.resizeObserver = new ResizeObserver(this.handleResize.bind(this));
+        // 코어 초기화 (DOM에 의존하지 않는 부분)
+        this.initializeCore();
+    }
+
+    /**
+     * 코어 구성 요소를 초기화합니다 (DOM에 의존하지 않는 부분).
+     * 이 메서드는 DOM 요소가 준비되기 전에 호출될 수 있습니다.
+     */
+    private initializeCore(): void {
+        if (this.isInitializedCore) return;
+        
+        // 레이아웃 설정 초기화
+        this.layoutConfig = new LayoutConfig(this.settings);
+        
+        // 레이아웃 매니저 초기화 (DOM에 의존하지 않는 부분)
+        this.layoutManager = new LayoutManager(this.settings);
+        
+        // 메이슨리 레이아웃 전략 설정
+        const layoutStrategy = new MasonryLayoutStrategy();
+        this.layoutManager.setStrategy(layoutStrategy);
+        
+        // 코어 초기화 완료
+        this.isInitializedCore = true;
     }
 
     /**
@@ -63,15 +89,21 @@ export class CardContainer implements KeyboardNavigationHost {
             this.cleanup();
         }
         
+        // 코어 초기화가 되지 않았다면 먼저 초기화
+        if (!this.isInitializedCore) {
+            this.initializeCore();
+        }
+        
         this.containerEl = containerEl;
         this.containerEl.empty();
         this.containerEl.classList.add('card-navigator-container');
+        this.containerEl.setAttribute('data-container-id', this.containerId);
         
-        // 레이아웃 설정 초기화
-        this.layoutConfig = new LayoutConfig(this.settings);
+        // 레이아웃 설정의 CSS 변수 로드
+        this.layoutConfig.loadCssVariables();
         
-        // 레이아웃 매니저 초기화
-        this.initLayoutManager();
+        // 레이아웃 매니저에 컨테이너 설정 (DOM 의존적인 부분)
+        this.layoutManager.setContainer(this.containerEl);
         
         // 스크롤러 초기화
         this.scroller = new Scroller(
@@ -104,8 +136,8 @@ export class CardContainer implements KeyboardNavigationHost {
             this.containerEl
         );
         
-        // ResizeObserver 설정
-        this.resizeObserver.observe(this.containerEl);
+        // ResizeService를 사용하여 컨테이너 크기 변경 감지
+        this.setupResizeObserver();
         
         // 초기화 완료
         this.isInitialized = true;
@@ -115,19 +147,53 @@ export class CardContainer implements KeyboardNavigationHost {
     }
 
     /**
-     * 레이아웃 매니저를 초기화합니다.
+     * ResizeService를 사용하여 컨테이너 크기 변경을 감지합니다.
      */
-    private initLayoutManager(): void {
-        // 레이아웃 설정 초기화
-        this.layoutConfig = new LayoutConfig(this.settings);
+    private setupResizeObserver(): void {
+        if (!this.containerEl || !document.body.contains(this.containerEl)) {
+            return;
+        }
         
-        // 레이아웃 매니저 초기화
-        this.layoutManager = new LayoutManager(this.settings);
-        this.layoutManager.setContainer(this.containerEl);
+        // 컨테이너 ID 설정
+        this.containerId = `card-container-${Date.now()}`;
         
-        // 메이슨리 레이아웃 전략 설정
-        const layoutStrategy = new MasonryLayoutStrategy();
-        this.layoutManager.setStrategy(layoutStrategy);
+        // ResizeService에 등록
+        this.resizeService.observe(this.containerId, this.containerEl);
+        
+        // 이벤트 리스너 등록
+        this.resizeService.events.on('resize', (elementId: any, size: any) => {
+            if (elementId === this.containerId) {
+                this.handleContainerResize(size.width, size.height);
+            }
+        });
+    }
+
+    /**
+     * 컨테이너 크기 변경 이벤트를 처리합니다.
+     */
+    private handleContainerResize(width: number, height: number): void {
+        if (this.isResizing) return;
+        
+        // 크기가 변경되지 않았으면 무시
+        if (width === this.lastWidth && height === this.lastHeight) {
+            return;
+        }
+        
+        this.lastWidth = width;
+        this.lastHeight = height;
+        
+        // 리사이즈 중 플래그 설정
+        this.isResizing = true;
+        
+        // 이전 프레임 취소
+        if (this.pendingResizeFrame !== null) {
+            cancelAnimationFrame(this.pendingResizeFrame);
+            this.pendingResizeFrame = null;
+        }
+        
+        // 직접 레이아웃 업데이트 수행
+        this.refreshLayout();
+        this.isResizing = false;
     }
 
     /**
@@ -171,36 +237,61 @@ export class CardContainer implements KeyboardNavigationHost {
     }
 
     /**
-     * 리사이즈 이벤트를 처리합니다.
+     * 리소스를 정리합니다.
      */
-    private handleResize(entries: ResizeObserverEntry[]): void {
-        if (this.isResizing) return;
-        
-        const entry = entries[0];
-        if (!entry) return;
-        
-        const { width, height } = entry.contentRect;
-        
-        // 크기가 변경되지 않았으면 무시
-        if (width === this.lastWidth && height === this.lastHeight) {
+    public cleanup(): void {
+        // 이미 정리되었으면 무시
+        if (!this.isInitialized) {
             return;
         }
         
-        this.lastWidth = width;
-        this.lastHeight = height;
+        // 카드 컨테이너 초기화 상태 변경
+        this.isInitialized = false;
+        this.isInitializedCore = false;
         
-        // 리사이즈 중 플래그 설정
-        this.isResizing = true;
+        // 이벤트 리스너 제거
+        this.resizeService.events.off('resize', null as any);
         
-        // 이전 프레임 취소
+        if (this.layoutManager) {
+            this.layoutManager.dispose();
+        }
+        
+        // 키보드 내비게이터 정리
+        if (this.keyboardNavigator) {
+            this.keyboardNavigator.cleanup();
+            this.keyboardNavigator = null;
+        }
+        
+        // 카드 렌더러 정리
+        if (this.cardRenderer) {
+            this.cardRenderer.cleanup();
+            this.cardRenderer = null;
+        }
+        
+        // 카드 인터랙션 매니저 정리
+        if (this.cardInteractionManager) {
+            this.cardInteractionManager.cleanup();
+            this.cardInteractionManager = null;
+        }
+        
+        // ResizeService에서 제거
+        this.resizeService.unobserve(this.containerId);
+        
+        // 컨테이너 요소 비우기
+        if (this.containerEl) {
+            this.containerEl.empty();
+        }
+        
+        // 카드 목록 초기화
+        this.cards = [];
+        this.searchResults = null;
+        this.focusedCardId = null;
+        
+        // 애니메이션 프레임 취소
         if (this.pendingResizeFrame !== null) {
             cancelAnimationFrame(this.pendingResizeFrame);
             this.pendingResizeFrame = null;
         }
-        
-        // 직접 레이아웃 업데이트 수행
-        this.refreshLayout();
-        this.isResizing = false;
     }
 
     /**
@@ -344,54 +435,6 @@ export class CardContainer implements KeyboardNavigationHost {
         } catch (error) {
             console.error('파일을 카드로 표시하는 중 오류 발생:', error);
         }
-    }
-
-    /**
-     * 리소스를 정리합니다.
-     */
-    public cleanup(): void {
-        if (this.resizeObserver) {
-            this.resizeObserver.disconnect();
-        }
-        
-        if (this.layoutManager) {
-            this.layoutManager.dispose();
-        }
-        
-        if (this.cardRenderer) {
-            this.cardRenderer.cleanup();
-            this.cardRenderer = null;
-        }
-        
-        if (this.cardInteractionManager) {
-            // 이벤트 리스너 제거
-            this.cards.forEach(card => {
-                if (card.id) {
-                    this.cardInteractionManager?.removeInteractions(card.id);
-                }
-            });
-            this.cardInteractionManager = null;
-        }
-        
-        if (this.keyboardNavigator) {
-            this.keyboardNavigator.cleanup?.();
-            this.keyboardNavigator = null;
-        }
-        
-        if (this.containerEl) {
-            this.containerEl.empty();
-        }
-
-        this.cards = [];
-        this.focusedCardId = null;
-        this.isInitialized = false;
-    }
-
-    /**
-     * 컨테이너를 닫습니다.
-     */
-    onClose(): void {
-        this.cleanup();
     }
 
     /**
@@ -616,9 +659,8 @@ export class CardContainer implements KeyboardNavigationHost {
         if (!this.layoutManager || !this.containerEl) return;
         
         // 컨테이너 크기 가져오기
-        const containerRect = this.containerEl.getBoundingClientRect();
-        const containerWidth = containerRect.width;
-        const containerHeight = containerRect.height;
+        const containerWidth = this.containerEl.clientWidth;
+        const containerHeight = this.containerEl.clientHeight;
         
         // 카드 목록 가져오기
         const files = await this.cardListManager.getCardList();
