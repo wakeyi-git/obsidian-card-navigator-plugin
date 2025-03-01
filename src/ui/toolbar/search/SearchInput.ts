@@ -2,7 +2,8 @@ import { debounce } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { CardNavigatorView } from 'ui/cardNavigatorView';
 import { SearchSuggest } from './SearchSuggest';
-import { executeSearch, createDebouncedSearch, getSearchHistory } from './index';
+import { SearchService } from './SearchService';
+import { getSearchService } from './index';
 import { t } from 'i18next';
 import { SearchSuggestion } from 'common/types';
 import { setIcon } from 'obsidian';
@@ -26,6 +27,7 @@ export class SearchInput {
     private inputChanged: boolean = false; // 입력 변경 여부 추적
     private isLoading: boolean = false;
     private debouncedSearch: ((searchTerm: string) => void) | null = null;
+    private searchService: SearchService;
 
     constructor(
         private plugin: CardNavigatorPlugin,
@@ -61,6 +63,10 @@ export class SearchInput {
         this.setupEventListeners();
 
         this.searchSuggest = new SearchSuggest(this.plugin);
+        this.searchService = getSearchService(this.plugin);
+        
+        // 디바운스된 검색 함수 생성
+        this.debouncedSearch = this.searchService.createDebouncedSearch(this.cardContainer);
         
         // 태그 검색 이벤트 리스너 등록
         this.registerTagSearchEventListener();
@@ -277,7 +283,8 @@ export class SearchInput {
         if (!this.cardContainer) return;
         
         if (!searchTerm || searchTerm.trim() === '') {
-            this.cardContainer.loadFiles(this.plugin.app.vault.getMarkdownFiles());
+            this.cardContainer.setSearchResults(null);
+            this.cardContainer.loadCards();
             return;
         }
         
@@ -285,23 +292,13 @@ export class SearchInput {
         if (this.debouncedSearch) {
             this.debouncedSearch(searchTerm);
         } else {
-            executeSearch(this.plugin, searchTerm, this.cardContainer);
+            this.searchService.executeSearch(searchTerm, this.cardContainer);
         }
     }
 
     private executeSearch(inputValue: string) {
-        // 디바운스된 검색 함수 생성
-        if (!this.debouncedSearch) {
-            this.debouncedSearch = createDebouncedSearch(
-                this.plugin,
-                this.cardContainer
-            );
-        }
-        
         // 검색 실행
-        if (this.debouncedSearch) {
-            this.debouncedSearch(inputValue);
-        }
+        this.performSearch(inputValue);
         
         this.debouncedUpdateSuggestions();
         this.updateClearButtonVisibility();

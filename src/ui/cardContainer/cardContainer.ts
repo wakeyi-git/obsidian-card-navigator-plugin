@@ -12,6 +12,7 @@ import { LayoutConfig } from 'layouts/layoutConfig';
 import { CardListManager } from './cardListManager';
 import { CardInteractionManager } from './cardInteractionManager';
 import { MasonryLayoutStrategy } from 'layouts/layoutStrategy';
+import { sortFiles } from 'common/utils';
 
 /**
  * 카드 컨테이너 클래스
@@ -430,18 +431,20 @@ export class CardContainer implements KeyboardNavigationHost {
      */
     async loadCards(): Promise<Card[]> {
         try {
+            // 현재 폴더 가져오기
             const folder = await this.getCurrentFolder();
-            if (!folder) return [];
             
-            const files = this.plugin.app.vault.getMarkdownFiles().filter(file => {
-                return file.path.startsWith(folder.path);
-            });
+            // 폴더가 없으면 빈 배열 반환
+            if (!folder) {
+                console.log('[CardContainer] 현재 폴더를 찾을 수 없습니다.');
+                return [];
+            }
             
-            // 정렬 기준에 따라 파일 정렬
-            const sortedFiles = this.sortFiles(files);
+            // 카드 목록 관리자를 통해 파일 목록 가져오기
+            const files = await this.cardListManager.getCardList();
             
-            // 파일을 카드로 변환
-            await this.loadFiles(sortedFiles);
+            // 파일을 카드로 변환하여 표시
+            await this.displayFilesAsCards(files);
             
             return this.cards;
         } catch (error) {
@@ -455,53 +458,7 @@ export class CardContainer implements KeyboardNavigationHost {
      * @returns 현재 폴더
      */
     async getCurrentFolder(): Promise<TFolder | null> {
-        // 설정에 따라 폴더 결정
-        if (this.settings.cardSetType === 'selectedFolder' && this.settings.selectedFolder) {
-            return this.plugin.app.vault.getAbstractFileByPath(this.settings.selectedFolder) as TFolder;
-        }
-        
-        // 현재 파일의 폴더 사용
-        const activeFile = this.app.workspace.getActiveFile();
-        if (activeFile) {
-            const folderPath = activeFile.parent?.path || '';
-            return this.app.vault.getAbstractFileByPath(folderPath) as TFolder;
-        }
-        
-        // 기본 폴더 사용
-        return this.app.vault.getRoot();
-    }
-    
-    /**
-     * 파일을 정렬합니다.
-     * @param files 정렬할 파일 목록
-     * @returns 정렬된 파일 목록
-     */
-    private sortFiles(files: TFile[]): TFile[] {
-        const sortCriterion = this.settings.sortCriterion;
-        const sortOrder = this.settings.sortOrder;
-        
-        // 파일 정렬 로직 직접 구현
-        return files.sort((a, b) => {
-            let result = 0;
-            
-            // 정렬 기준에 따라 비교
-            switch (sortCriterion) {
-                case 'fileName':
-                    result = a.basename.localeCompare(b.basename);
-                    break;
-                case 'created':
-                    result = a.stat.ctime - b.stat.ctime;
-                    break;
-                case 'lastModified':
-                    result = a.stat.mtime - b.stat.mtime;
-                    break;
-                default:
-                    result = a.basename.localeCompare(b.basename);
-            }
-            
-            // 정렬 방향 적용
-            return sortOrder === 'asc' ? result : -result;
-        });
+        return this.cardListManager.getCurrentFolder();
     }
     
     /**

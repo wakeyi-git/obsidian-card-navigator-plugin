@@ -1,6 +1,8 @@
-import { App, TFile, TFolder, CachedMetadata, TAbstractFile, Vault } from 'obsidian';
+import { App, TFile, TFolder, CachedMetadata, TAbstractFile, Vault, debounce } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { SearchOptions, DEFAULT_SEARCH_OPTIONS, BATCH_SIZE } from 'common/types';
+import { sortFiles, createSortFunction } from 'common/utils';
+import { CardContainer } from 'ui/cardContainer/cardContainer';
 
 export class SearchService {
     private app: App;
@@ -12,6 +14,8 @@ export class SearchService {
     };
     private lastSearchResults: TFile[] | null = null;
     private searchCache: Map<string, TFile[]> = new Map();
+    private searchHistory: string[] = [];
+    private isSearching: boolean = false;
 
     constructor(private plugin: CardNavigatorPlugin) {
         this.app = this.plugin.app;
@@ -37,12 +41,23 @@ export class SearchService {
     }
 
     // 마지막 검색 결과 재정렬
-    public resortLastResults(sortFn: (a: TFile, b: TFile) => number): TFile[] | null {
+    public resortLastResults(sortFn?: (a: TFile, b: TFile) => number): TFile[] | null {
         if (!this.lastSearchResults) return null;
         
-        const sorted = [...this.lastSearchResults].sort(sortFn);
-        this.lastSearchResults = sorted;
-        return sorted;
+        if (sortFn) {
+            const sorted = [...this.lastSearchResults].sort(sortFn);
+            this.lastSearchResults = sorted;
+            return sorted;
+        } else {
+            // 기본 정렬 함수 사용
+            const sorted = sortFiles(
+                this.lastSearchResults, 
+                this.plugin.settings.sortCriterion, 
+                this.plugin.settings.sortOrder
+            );
+            this.lastSearchResults = sorted;
+            return sorted;
+        }
     }
 
     // 캐시에서 검색 결과 가져오기
@@ -74,11 +89,97 @@ export class SearchService {
         return files;
     }
 
+    /**
+     * 검색 기능을 실행합니다.
+     * @param searchTerm 검색어
+     * @param cardContainer 카드 컨테이너
+     */
+    public async executeSearch(searchTerm: string, cardContainer: CardContainer): Promise<void> {
+        if (!searchTerm || searchTerm.trim() === '') {
+            cardContainer.setSearchResults(null);
+            await cardContainer.loadCards();
+            return;
+        }
+
+        // 검색어를 검색 기록에 추가
+        this.addToSearchHistory(searchTerm);
+        
+        // 검색 상태 업데이트
+        this.isSearching = true;
+        
+        try {
+            const files = this.app.vault.getMarkdownFiles();
+            const filteredFiles = await this.searchFiles(files, searchTerm);
+            
+            // 검색 결과 설정
+            cardContainer.setSearchResults(filteredFiles);
+        } catch (error) {
+            console.error('검색 중 오류 발생:', error);
+            cardContainer.setSearchResults(null);
+            await cardContainer.loadCards();
+        } finally {
+            // 검색 상태 업데이트
+            this.isSearching = false;
+        }
+    }
+
+    /**
+     * 디바운스된 검색 함수를 생성합니다.
+     * @param cardContainer 카드 컨테이너
+     * @returns 디바운스된 검색 함수
+     */
+    public createDebouncedSearch(cardContainer: CardContainer): (searchTerm: string) => void {
+        return debounce(
+            (searchTerm: string) => {
+                this.executeSearch(searchTerm, cardContainer);
+            },
+            300,
+            true
+        );
+    }
+
+    /**
+     * 검색 기록에 검색어를 추가합니다.
+     * @param searchTerm 검색어
+     */
+    private addToSearchHistory(searchTerm: string): void {
+        if (searchTerm && !this.searchHistory.includes(searchTerm)) {
+            this.searchHistory.unshift(searchTerm);
+            // 최대 10개 항목 유지
+            if (this.searchHistory.length > 10) {
+                this.searchHistory.pop();
+            }
+        }
+    }
+
+    /**
+     * 검색 기록을 가져옵니다.
+     * @returns 검색 기록 배열
+     */
+    public getSearchHistory(): string[] {
+        return [...this.searchHistory];
+    }
+
+    /**
+     * 검색 기록을 초기화합니다.
+     */
+    public clearSearchHistory(): void {
+        this.searchHistory = [];
+    }
+
+    /**
+     * 현재 검색 중인지 여부를 반환합니다.
+     * @returns 검색 중인지 여부
+     */
+    public isCurrentlySearching(): boolean {
+        return this.isSearching;
+    }
+
     // 파일 검색 메서드
     async searchFiles(files: TFile[], searchTerm: string): Promise<TFile[]> {
         if (!searchTerm) {
             this.clearCache();
-            return this.sortFiles(files);
+            return sortFiles(files, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
         }
 
         let filteredFiles = files;
@@ -121,7 +222,7 @@ export class SearchService {
         this.lastSearchResults = filteredFiles;
         
         // 플러그인의 정렬 설정에 따라 결과 정렬
-        return this.sortFiles(filteredFiles);
+        return sortFiles(filteredFiles, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
     }
 
     // 검색어 파싱
@@ -339,24 +440,6 @@ export class SearchService {
 
     // 파일 정렬 메서드
     private sortFiles(files: TFile[]): TFile[] {
-        const { sortCriterion, sortOrder } = this.plugin.settings;
-        
-        return files.sort((a, b) => {
-            let comparison = 0;
-            
-            switch (sortCriterion) {
-                case 'fileName':
-                    comparison = a.basename.localeCompare(b.basename);
-                    break;
-                case 'lastModified':
-                    comparison = a.stat.mtime - b.stat.mtime;
-                    break;
-                case 'created':
-                    comparison = a.stat.ctime - b.stat.ctime;
-                    break;
-            }
-            
-            return sortOrder === 'asc' ? comparison : -comparison;
-        });
+        return sortFiles(files, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
     }
 } 

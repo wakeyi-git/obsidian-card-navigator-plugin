@@ -174,10 +174,20 @@ export class CardNavigatorView extends ItemView {
         return folder?.path || null;
     }
 
-    // 파일 정렬 메서드
-    private sortFiles(files: TFile[]): TFile[] {
-        const mdFiles = files.filter(file => file.extension === 'md');
-        return sortFiles(mdFiles, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
+    /**
+     * 정렬된 파일 목록을 가져옵니다.
+     */
+    private async getSortedFiles(): Promise<TFile[]> {
+        const folder = await this.cardContainer.getCurrentFolder();
+        if (!folder) return [];
+        
+        // 마크다운 파일만 필터링
+        const files = this.plugin.app.vault.getMarkdownFiles().filter(file => {
+            return file.path.startsWith(folder.path);
+        });
+        
+        // utils.ts의 sortFiles 함수 직접 사용
+        return sortFiles(files, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
     }
     //#endregion
 
@@ -196,20 +206,6 @@ export class CardNavigatorView extends ItemView {
         } catch (error) {
             console.error('카드 로드 중 오류 발생:', error);
         }
-    }
-
-    /**
-     * 정렬된 파일 목록을 가져옵니다.
-     */
-    private async getSortedFiles(): Promise<TFile[]> {
-        const folder = await this.cardContainer.getCurrentFolder();
-        if (!folder) return [];
-        
-        const files = this.plugin.app.vault.getMarkdownFiles().filter(file => {
-            return file.path.startsWith(folder.path);
-        });
-        
-        return this.sortFiles(files);
     }
     //#endregion
 

@@ -5,6 +5,7 @@ import { getTranslatedSortOptions } from 'common/types';
 import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from 'ui/cardNavigatorView';
 import { getSearchService } from 'ui/toolbar/search';
 import { t } from 'i18next';
+import { createSortFunction } from 'common/utils';
 
 // 정렬 메뉴 토글
 export function toggleSort(plugin: CardNavigatorPlugin, containerEl: HTMLElement | null) {
@@ -125,21 +126,8 @@ async function updateSortSettings(
                     // 검색 모드인 경우 검색 결과 재정렬
                     if (view.cardContainer.isSearchMode && view.cardContainer.getSearchResults()) {
                         const searchService = getSearchService(plugin);
-                        const resortedResults = searchService.resortLastResults((a, b) => {
-                            let comparison = 0;
-                            switch (plugin.settings.sortCriterion) {
-                                case 'fileName':
-                                    comparison = a.basename.localeCompare(b.basename, undefined, { numeric: true, sensitivity: 'base' });
-                                    break;
-                                case 'lastModified':
-                                    comparison = a.stat.mtime - b.stat.mtime;
-                                    break;
-                                case 'created':
-                                    comparison = a.stat.ctime - b.stat.ctime;
-                                    break;
-                            }
-                            return plugin.settings.sortOrder === 'asc' ? comparison : -comparison;
-                        });
+                        const sortFn = createSortFunction(criterion, order);
+                        const resortedResults = searchService.resortLastResults(sortFn);
                         
                         if (resortedResults) {
                             view.cardContainer.setSearchResults(resortedResults);

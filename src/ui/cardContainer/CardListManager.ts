@@ -2,6 +2,7 @@ import { App, TFile, TFolder, TAbstractFile, Vault } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { CardListProvider, CardSetType, CardListProviderType } from 'common/types';
 import { getSearchService } from 'ui/toolbar/search';
+import { sortFiles } from 'common/utils';
 
 /**
  * 카드 목록 관리자 클래스
@@ -190,10 +191,20 @@ export class CardListManager {
             return cachedResults;
         }
 
-        // 검색은 항상 볼트 전체를 대상으로 수행
-        const filesToSearch = searchService.getAllMarkdownFiles(this.app.vault.getRoot());
+        // 검색 대상 파일 결정
+        let filesToSearch: TFile[];
+        if (folder) {
+            // 현재 폴더 내의 파일만 검색
+            filesToSearch = this.getAllMarkdownFiles(folder);
+        } else {
+            // 전체 볼트 검색
+            filesToSearch = this.plugin.app.vault.getMarkdownFiles();
+        }
+        
+        // 검색 실행
         const filteredFiles = await searchService.searchFiles(filesToSearch, searchTerm);
         
+        // 결과 캐싱
         searchService.addToCache(cacheKey, filteredFiles);
         return filteredFiles;
     }
@@ -204,25 +215,7 @@ export class CardListManager {
      * @returns 정렬된 파일 목록
      */
     private sortFiles(files: TFile[]): TFile[] {
-        const { sortCriterion, sortOrder } = this.plugin.settings;
-        
-        return files.sort((a, b) => {
-            let comparison = 0;
-            
-            switch (sortCriterion) {
-                case 'fileName':
-                    comparison = a.basename.localeCompare(b.basename, undefined, { numeric: true, sensitivity: 'base' });
-                    break;
-                case 'lastModified':
-                    comparison = a.stat.mtime - b.stat.mtime;
-                    break;
-                case 'created':
-                    comparison = a.stat.ctime - b.stat.ctime;
-                    break;
-            }
-            
-            return sortOrder === 'asc' ? comparison : -comparison;
-        });
+        return sortFiles(files, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
     }
 
     /**
