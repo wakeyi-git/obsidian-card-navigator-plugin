@@ -92,61 +92,6 @@ export class CardNavigatorView extends ItemView {
     }
 
     /**
-     * DOM 요소가 준비될 때까지 기다리는 메서드
-     * @param element 기다릴 DOM 요소
-     * @param callback 요소가 준비되면 실행할 콜백 함수
-     */
-    private waitForElementReady(element: HTMLElement, callback: () => void) {
-        const startTime = Date.now();
-        const timeout = 20000; // 20초로 타임아웃 증가
-        let checkCount = 0;
-        
-        // 요소가 준비되었는지 확인하는 함수
-        const checkElementReady = () => {
-            checkCount++;
-            
-            // 요소가 DOM에 있고 크기가 유효한지 확인
-            if (document.body.contains(element)) {
-                const rect = element.getBoundingClientRect();
-                if (rect.width > 0 && rect.height > 0) {
-                    console.log(`[CardNavigator] 요소가 준비되었습니다. 소요 시간: ${Date.now() - startTime}ms, 크기: ${rect.width}x${rect.height}`);
-                    callback();
-                    return;
-                }
-                
-                // 요소가 DOM에 있지만 크기가 아직 계산되지 않은 경우 로그 출력 (100번마다)
-                if (checkCount % 100 === 0) {
-                    console.log(`[CardNavigator] 요소가 DOM에 있지만 크기가 아직 계산되지 않았습니다. 대기 중... (${Date.now() - startTime}ms 경과)`);
-                }
-            } else if (checkCount % 100 === 0) {
-                // 요소가 DOM에 없는 경우 로그 출력 (100번마다)
-                console.log(`[CardNavigator] 요소가 아직 DOM에 추가되지 않았습니다. 대기 중... (${Date.now() - startTime}ms 경과)`);
-            }
-            
-            // 타임아웃 확인
-            if (Date.now() - startTime > timeout) {
-                console.warn(`[CardNavigator] 요소 준비 타임아웃: ${timeout}ms 초과.`);
-                
-                // 타임아웃 시에도 요소가 DOM에 있는지 확인
-                if (document.body.contains(element)) {
-                    console.log(`[CardNavigator] 요소가 DOM에 있으므로 계속 진행합니다.`);
-                    callback();
-                } else {
-                    console.error(`[CardNavigator] 요소가 DOM에 없습니다. 강제로 계속 진행합니다.`);
-                    callback();
-                }
-                return;
-            }
-            
-            // 다음 프레임에서 다시 확인
-            requestAnimationFrame(checkElementReady);
-        };
-        
-        // 첫 번째 확인 시작
-        requestAnimationFrame(checkElementReady);
-    }
-
-    /**
      * 이벤트 리스너를 등록합니다.
      */
     private registerEvents(): void {

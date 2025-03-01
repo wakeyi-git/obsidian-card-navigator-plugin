@@ -24,55 +24,8 @@ export class LayoutConfig {
     async setContainer(container: HTMLElement): Promise<void> {
         this.container = container;
         if (container) {
-            await this.waitForContainerReady(container);
             this.isInitialized = true;
         }
-    }
-
-    /**
-     * 컨테이너가 DOM에 추가되고 크기가 계산될 때까지 기다립니다.
-     */
-    private async waitForContainerReady(container: HTMLElement): Promise<void> {
-        if (document.body.contains(container)) {
-            const rect = container.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) {
-                return;
-            }
-        }
-        
-        const maxWaitTime = 2000;
-        const startTime = Date.now();
-        
-        return new Promise<void>((resolve) => {
-            const checkContainerReady = () => {
-                if (Date.now() - startTime > maxWaitTime) {
-                    resolve();
-                    return;
-                }
-                
-                if (!document.body.contains(container)) {
-                    requestAnimationFrame(checkContainerReady);
-                    return;
-                }
-                
-                const rect = container.getBoundingClientRect();
-                if (rect.width <= 0 || rect.height <= 0) {
-                    const offsetWidth = container.offsetWidth;
-                    const offsetHeight = container.offsetHeight;
-                    
-                    if (offsetWidth > 0 && offsetHeight > 0) {
-                        resolve();
-                        return;
-                    }
-                    
-                    requestAnimationFrame(checkContainerReady);
-                } else {
-                    resolve();
-                }
-            };
-            
-            requestAnimationFrame(checkContainerReady);
-        });
     }
 
     /**
