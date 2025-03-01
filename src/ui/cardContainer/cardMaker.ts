@@ -1,4 +1,4 @@
-import { Component, TFile, setIcon, MarkdownRenderer, MarkdownView, Notice } from 'obsidian';
+import { Component, TFile, MarkdownRenderer, MarkdownView, Notice } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { Card } from 'common/types';
 import { t } from 'i18next';
@@ -201,11 +201,12 @@ export class CardMaker extends Component {
     private async renderMarkdown(markdown: string, element: HTMLElement): Promise<void> {
         try {
             element.empty();
-            await MarkdownRenderer.renderMarkdown(
+            await MarkdownRenderer.render(
+                this.plugin.app,
                 markdown,
                 element,
                 '',
-                null as unknown as MarkdownView
+                this
             );
             
             // 링크 클릭 이벤트 처리

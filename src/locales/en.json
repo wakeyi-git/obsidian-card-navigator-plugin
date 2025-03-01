@@ -2,8 +2,11 @@
     "OPEN_CARD_NAVIGATOR": "Open Card Navigator",
 
     "CARD_NAVIGATOR": "Card Navigator",
-    "COPY_AS_LINK": "Copy as Link",
-    "COPY_CARD_CONTENT": "Copy Card Content",
+    "OPEN_FILE": "Open File",
+    "OPEN_IN_NEW_TAB": "Open in New Tab",
+    "OPEN_IN_SPLIT": "Open in Split",
+    "COPY_LINK": "Copy as Link",
+    "COPY_CONTENT": "Copy Card Content",
 
 	"LINK_COPIED_TO_CLIPBOARD": "Link copied to clipboard",
     "CARD_CONTENT_COPIED_TO_CLIPBOARD": "Card content copied to clipboard",

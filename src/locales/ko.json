@@ -2,9 +2,12 @@
     "OPEN_CARD_NAVIGATOR": "카드 네비게이터 열기",
 
     "CARD_NAVIGATOR": "카드 네비게이터",
-    "COPY_AS_LINK": "링크로 복사",
-    "COPY_CARD_CONTENT": "카드 내용 복사",
 
+    "COPY_LINK": "링크로 복사",
+    "COPY_CONTENT": "카드 내용 복사",
+    "OPEN_FILE": "파일 열기",
+    "OPEN_IN_NEW_TAB": "새 탭에서 열기",
+    "OPEN_IN_SPLIT": "분할 뷰에서 열기",
     "LINK_COPIED_TO_CLIPBOARD": "링크가 클립보드에 복사되었습니다",
     "CARD_CONTENT_COPIED_TO_CLIPBOARD": "카드 내용이 클립보드에 복사되었습니다",
     "LINK_COPIED": "링크 복사됨",

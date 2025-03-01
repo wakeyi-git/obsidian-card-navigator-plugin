@@ -360,6 +360,13 @@ export class CardContainer implements KeyboardNavigationHost {
         
         const menu = new Menu();
         
+        // 옵시디언 기본 컨텍스트 메뉴 표시
+        this.app.workspace.trigger('file-menu', menu, card.file, 'card-navigator-context-menu', null);
+        
+        // 구분선 추가
+        menu.addSeparator();
+        
+        // 플러그인 컨텍스트 메뉴 추가
         // 파일 열기
         menu.addItem((item) => {
             item.setTitle(t('OPEN_FILE'))
