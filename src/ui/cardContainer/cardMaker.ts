@@ -3,6 +3,7 @@ import CardNavigatorPlugin from 'main';
 import { Card } from 'common/types';
 import { t } from 'i18next';
 import { CardNavigatorSettings } from 'common/types';
+import { separateFrontmatterAndBody } from 'common/utils';
 
 /**
  * 카드 생성 클래스
@@ -151,27 +152,45 @@ export class CardMaker extends Component {
         if (tagsEl) {
             tagsEl.innerHTML = '';
             
-            if (card.tags && card.tags.length > 0) {
+            if (settings.showTags && card.tags && card.tags.length > 0) {
                 tagsEl.style.display = 'flex';
+                tagsEl.style.flexWrap = 'wrap';
+                tagsEl.style.gap = '4px';
                 
-                card.tags.forEach(tag => {
-                    const tagEl = document.createElement('span');
-                    tagEl.className = 'card-navigator-tag';
-                    tagEl.textContent = tag;
-                    tagEl.style.fontSize = `${settings.tagsFontSize}px`;
-                    
-                    // 태그 클릭 이벤트 추가
-                    tagEl.addEventListener('click', (event) => {
-                        event.stopPropagation();
-                        this.triggerTagSearch(tag);
-                    });
-                    
-                    tagsEl.appendChild(tagEl);
-                });
+                // 태그 렌더링 (항상 HTML로 렌더링)
+                this.renderTags(card.tags, tagsEl, settings.tagsFontSize);
             } else {
                 tagsEl.style.display = 'none';
             }
         }
+    }
+
+    /**
+     * 태그를 HTML로 렌더링합니다.
+     * @param tags 태그 배열
+     * @param container 렌더링할 컨테이너 요소
+     * @param fontSize 태그 폰트 크기
+     */
+    private renderTags(tags: string[], container: HTMLElement, fontSize: number): void {
+        tags.forEach(tag => {
+            const tagEl = document.createElement('span');
+            tagEl.className = 'card-navigator-tag';
+            tagEl.textContent = tag;
+            tagEl.style.fontSize = `${fontSize}px`;
+            tagEl.style.backgroundColor = 'var(--tag-background)';
+            tagEl.style.color = 'var(--tag-color)';
+            tagEl.style.padding = '2px 6px';
+            tagEl.style.borderRadius = '4px';
+            tagEl.style.cursor = 'pointer';
+            
+            // 태그 클릭 이벤트 추가
+            tagEl.addEventListener('click', (event) => {
+                event.stopPropagation();
+                this.triggerTagSearch(tag);
+            });
+            
+            container.appendChild(tagEl);
+        });
     }
 
     /**
@@ -217,13 +236,13 @@ export class CardMaker extends Component {
      * @returns 추출된 본문
      */
     private extractBody(content: string): string {
-        // 프론트매터 제거
-        let body = content.replace(/^---\n[\s\S]*?\n---\n/, '');
+        // 프론트매터와 본문 분리
+        const { cleanBody } = separateFrontmatterAndBody(content);
         
         // 첫 번째 헤더 제거
-        body = body.replace(/^#\s+.+$/m, '');
+        const bodyWithoutHeader = cleanBody.replace(/^#\s+.+$/m, '');
         
-        return body.trim();
+        return bodyWithoutHeader.trim();
     }
 
     /**
@@ -233,7 +252,9 @@ export class CardMaker extends Component {
      */
     private extractTags(content: string): string[] {
         const tags: string[] = [];
-        const tagRegex = /#([a-zA-Z0-9_\-/]+)/g;
+        
+        // 본문에서 #태그 형식 추출 (#상위태그/하위태그 포함)
+        const tagRegex = /#([a-zA-Z0-9가-힣_\-/]+)/g;
         let match;
         
         while ((match = tagRegex.exec(content)) !== null) {
@@ -241,18 +262,46 @@ export class CardMaker extends Component {
         }
         
         // 프론트매터에서 태그 추출
-        const frontMatterMatch = content.match(/^---\n([\s\S]*?)\n---\n/);
-        if (frontMatterMatch) {
-            const frontMatter = frontMatterMatch[1];
-            const tagMatch = frontMatter.match(/tags:\s*\[(.*?)\]/);
-            
-            if (tagMatch) {
-                const tagList = tagMatch[1].split(',').map(tag => tag.trim().replace(/["']/g, ''));
+        const { frontmatter } = separateFrontmatterAndBody(content);
+        if (frontmatter) {
+            // tags: [태그1, 태그2] 형식 처리
+            const tagsArrayMatch = frontmatter.match(/tags\s*:\s*\[([\s\S]*?)\]/);
+            if (tagsArrayMatch) {
+                const tagList = tagsArrayMatch[1]
+                    .split(',')
+                    .map(tag => tag.trim().replace(/["']/g, ''))
+                    .filter(tag => tag.length > 0);
                 tags.push(...tagList);
+            }
+            
+            // tags: 
+            // - 태그1
+            // - 태그2
+            // 형식 처리
+            const tagsListMatch = frontmatter.match(/tags\s*:\s*\n([\s\S]*?)(?:\n\w|$)/);
+            if (tagsListMatch) {
+                const tagsList = tagsListMatch[1]
+                    .split('\n')
+                    .map(line => {
+                        const match = line.match(/\s*-\s*(.*)/);
+                        return match ? match[1].trim().replace(/["']/g, '') : '';
+                    })
+                    .filter(tag => tag.length > 0);
+                tags.push(...tagsList);
+            }
+            
+            // tag: 태그 형식 처리 (단일 태그)
+            const tagMatch = frontmatter.match(/tag\s*:\s*(.*?)(?:\n|$)/);
+            if (tagMatch) {
+                const tag = tagMatch[1].trim().replace(/["']/g, '');
+                if (tag.length > 0) {
+                    tags.push(tag);
+                }
             }
         }
         
-        return [...new Set(tags)]; // 중복 제거
+        // 중복 제거 및 반환
+        return [...new Set(tags)];
     }
 
     /**

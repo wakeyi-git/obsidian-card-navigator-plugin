@@ -400,6 +400,13 @@ export class SearchInput {
                 }
             }
             
+            // ESC 키를 눌렀을 때 검색 모드 중단
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                this.cancelSearch();
+                return;
+            }
+            
             if (!this.isComposing) {
                 if (this.suggestionsContainer.isShown()) {
                     switch (e.key) {
@@ -540,5 +547,29 @@ export class SearchInput {
             // 검색 입력 필드에 포커스
             this.focus();
         }) as EventListener);
+    }
+
+    /**
+     * 검색 모드를 취소하고 초기 상태로 돌아갑니다.
+     */
+    private cancelSearch(): void {
+        // 검색어 초기화
+        this.input.value = '';
+        this.clearButton.style.display = 'none';
+        
+        // 검색 결과 초기화
+        this.cardContainer.setSearchResults(null);
+        this.cardContainer.loadCards();
+        
+        // UI 요소 숨기기
+        this.suggestionsContainer.hide();
+        this.searchOptionsContainer.hide();
+        this.containerEl.removeClass('focused');
+        
+        // 로딩 상태 초기화
+        this.updateLoadingState(false);
+        
+        // 입력 필드에서 포커스 제거
+        this.input.blur();
     }
 } 

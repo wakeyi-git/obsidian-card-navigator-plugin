@@ -409,6 +409,11 @@ export class CardNavigatorView extends ItemView {
         this.toolbar.focusSearch();
     }
 
+    // 검색 입력 필드에 포커스 설정 (명령어용)
+    public focusSearchInput(): void {
+        this.focusSearch();
+    }
+
     // 검색어 설정
     public setSearchTerm(searchTerm: string): void {
         this.toolbar.setSearchTerm(searchTerm);

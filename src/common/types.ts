@@ -61,6 +61,7 @@ export interface CardNavigatorSettings {
     showFirstHeader: boolean;
     showBody: boolean;
     bodyLengthLimit: boolean;
+    showTags: boolean;
     bodyLength: number;
     
     // 폰트 크기 설정
@@ -112,10 +113,11 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     showFirstHeader: true,
     showBody: true,
     bodyLengthLimit: true,
-    bodyLength: 501,
+    showTags: true,
     fileNameFontSize: 17,
     firstHeaderFontSize: 17,
     bodyFontSize: 15,
+    bodyLength: 501,
     tagsFontSize: 13,
     presetFolderPath: 'CardNavigatorPresets',
     GlobalPreset: 'default',
@@ -190,6 +192,7 @@ export const contentSettings: Array<{ name: string, key: keyof CardNavigatorSett
     { name: 'SHOW_FILE_NAME', key: 'showFileName', description: 'TOGGLE_FILE_NAME_DISPLAY' },
     { name: 'SHOW_FIRST_HEADER', key: 'showFirstHeader', description: 'TOGGLE_FIRST_HEADER_DISPLAY' },
     { name: 'SHOW_BODY', key: 'showBody', description: 'TOGGLE_BODY_DISPLAY' },
+    { name: 'SHOW_TAGS', key: 'showTags', description: 'TOGGLE_TAGS_DISPLAY' },
 ];
 
 // 폰트 크기 설정 정의
@@ -210,7 +213,8 @@ export const keyboardShortcuts: Array<{ name: string, description: string }> = [
     { name: 'SCROLL_DOWN_RIGHT_ONE_PAGE', description: 'MOVE_DOWN_RIGHT_ONE_PAGE' },
     { name: 'CENTER_ACTIVE_CARD', description: 'CENTER_CURRENTLY_ACTIVE_CARD' },
     { name: 'MOVE_FOCUS_TO_CARD_NAVIGATOR', description: 'SET_FOCUS_TO_CARD_NAVIGATOR' },
-    { name: 'OPEN_CARD_CONTEXT_MENU', description: 'OPEN_CONTEXT_MENU_FOR_FOCUSED_CARD' }
+    { name: 'OPEN_CARD_CONTEXT_MENU', description: 'OPEN_CONTEXT_MENU_FOR_FOCUSED_CARD' },
+    { name: 'MOVE_FOCUS_TO_SEARCH_INPUT', description: 'MOVE_FOCUS_TO_SEARCH_INPUT' },
 ];
 //#endregion
 

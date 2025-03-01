@@ -292,6 +292,48 @@ export default class CardNavigatorPlugin extends Plugin {
                         await new Promise(resolve => setTimeout(resolve, 0));
                         cardNavigator.focusNavigator();
                     }
+                } else {
+                    // 카드 네비게이터가 없으면 먼저 열고 포커스 설정
+                    this.activateView().then(async () => {
+                        const newCardNavigator = this.getFirstCardNavigator();
+                        if (newCardNavigator) {
+                            const leaf = this.app.workspace.getLeaf();
+                            if (leaf) {
+                                leaf.view.containerEl.focus();
+                                await new Promise(resolve => setTimeout(resolve, 100)); // 뷰가 완전히 로드될 시간을 주기 위한 지연
+                                newCardNavigator.focusNavigator();
+                            }
+                        }
+                    });
+                }
+            }
+        });
+
+        this.addCommand({
+            id: 'focus-search-input',
+            name: t('MOVE_FOCUS_TO_SEARCH_INPUT'),
+            callback: async () => {
+                const cardNavigator = this.getFirstCardNavigator();
+                if (cardNavigator) {
+                    const leaf = this.app.workspace.getLeaf();
+                    if (leaf) {
+                        leaf.view.containerEl.focus();
+                        await new Promise(resolve => setTimeout(resolve, 0));
+                        cardNavigator.focusSearchInput();
+                    }
+                } else {
+                    // 카드 네비게이터가 없으면 먼저 열고 포커스 설정
+                    this.activateView().then(async () => {
+                        const newCardNavigator = this.getFirstCardNavigator();
+                        if (newCardNavigator) {
+                            const leaf = this.app.workspace.getLeaf();
+                            if (leaf) {
+                                leaf.view.containerEl.focus();
+                                await new Promise(resolve => setTimeout(resolve, 100)); // 뷰가 완전히 로드될 시간을 주기 위한 지연
+                                newCardNavigator.focusSearchInput();
+                            }
+                        }
+                    });
                 }
             }
         });

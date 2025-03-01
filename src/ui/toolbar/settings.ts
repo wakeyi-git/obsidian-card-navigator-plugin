@@ -536,6 +536,7 @@ function createSettingsContent(plugin: CardNavigatorPlugin, popup: HTMLElement):
     addToggleSetting('showFileName', t('SHOW_FILE_NAME'), displaySection, plugin, settingsManager);
     addToggleSetting('showFirstHeader', t('SHOW_FIRST_HEADER'), displaySection, plugin, settingsManager);
     addToggleSetting('showBody', t('SHOW_BODY'), displaySection, plugin, settingsManager);
+    addToggleSetting('showTags', t('SHOW_TAGS'), displaySection, plugin, settingsManager);
 
     const updateBodyLengthSetting = () => {
         const bodyLengthSetting = displaySection.querySelector('.setting-body-length');

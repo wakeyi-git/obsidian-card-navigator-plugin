@@ -30,46 +30,6 @@ export function separateFrontmatterAndBody(body: string): { frontmatter: string 
 
 //#region 파일 정렬
 /**
- * 지정된 기준과 순서에 따라 파일 배열을 정렬합니다.
- * 원본 배열을 수정하지 않고 새로운 정렬된 배열을 생성합니다.
- * @param files - 정렬할 파일 배열
- * @param criterion - 정렬 기준 ('fileName', 'lastModified', 'created')
- * @param order - 정렬 순서 ('asc': 오름차순, 'desc': 내림차순)
- * @param options - 추가 정렬 옵션
- * @returns 정렬된 파일 배열
- */
-export function sortFiles(
-    files: TFile[], 
-    criterion: SortCriterion, 
-    order: SortOrder,
-    options: { numeric?: boolean; sensitivity?: string } = { numeric: true, sensitivity: 'base' }
-): TFile[] {
-    return [...files].sort((a, b) => {
-        let comparison = 0;
-        switch (criterion) {
-            case 'fileName':
-                // 파일 이름의 자연스러운 정렬을 위해 localeCompare 사용
-                comparison = a.basename.localeCompare(
-                    b.basename, 
-                    undefined, 
-                    { 
-                        numeric: options.numeric, 
-                        sensitivity: options.sensitivity as 'base' | 'accent' | 'case' | 'variant' | undefined 
-                    }
-                );
-                break;
-            case 'lastModified':
-                comparison = a.stat.mtime - b.stat.mtime;
-                break;
-            case 'created':
-                comparison = a.stat.ctime - b.stat.ctime;
-                break;
-        }
-        return order === 'asc' ? comparison : -comparison;
-    });
-}
-
-/**
  * 정렬 함수를 생성합니다.
  * 이 함수는 정렬 기준과 순서를 받아 파일을 비교하는 함수를 반환합니다.
  * @param criterion - 정렬 기준
@@ -104,6 +64,27 @@ export function createSortFunction(
         }
         return order === 'asc' ? comparison : -comparison;
     };
+}
+
+/**
+ * 지정된 기준과 순서에 따라 파일 배열을 정렬합니다.
+ * 원본 배열을 수정하지 않고 새로운 정렬된 배열을 생성합니다.
+ * @param files - 정렬할 파일 배열
+ * @param criterion - 정렬 기준 ('fileName', 'lastModified', 'created')
+ * @param order - 정렬 순서 ('asc': 오름차순, 'desc': 내림차순)
+ * @param options - 추가 정렬 옵션
+ * @returns 정렬된 파일 배열
+ */
+export function sortFiles(
+    files: TFile[], 
+    criterion: SortCriterion, 
+    order: SortOrder,
+    options: { numeric?: boolean; sensitivity?: string } = { numeric: true, sensitivity: 'base' }
+): TFile[] {
+    // createSortFunction을 활용하여 정렬 함수 생성
+    const sortFn = createSortFunction(criterion, order, options);
+    // 원본 배열을 복사하여 정렬
+    return [...files].sort(sortFn);
 }
 //#endregion
 
