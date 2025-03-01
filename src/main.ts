@@ -47,6 +47,13 @@ export default class CardNavigatorPlugin extends Plugin {
 
     // 플러그인 언로드 시 실행되는 메서드
     async onunload() {
+        // 모든 CardNavigatorView 인스턴스 닫기
+        this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR).forEach(leaf => {
+            if (leaf.view instanceof CardNavigatorView) {
+                leaf.view.onClose();
+            }
+        });
+        
         if (this.ribbonIconEl) {
             this.ribbonIconEl.detach();
         }
@@ -185,6 +192,30 @@ export default class CardNavigatorPlugin extends Plugin {
                 this.handleFileChange(file);
             })
         );
+
+        // 활성 폴더 변경 이벤트 처리
+        this.events.on('active-folder-changed', (...data) => {
+            const folderPath = data[0] as string;
+            console.log(`[CardNavigatorPlugin] 활성 폴더 변경 감지: ${folderPath}`);
+            if (this.settings.cardSetType === 'activeFolder') {
+                // 모든 카드 네비게이터 뷰 강제 새로고침
+                this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)
+                    .forEach(leaf => {
+                        if (leaf.view instanceof CardNavigatorView) {
+                            console.log(`[CardNavigatorPlugin] 뷰 강제 새로고침 (활성 폴더 변경: ${folderPath})`);
+                            // 레이아웃과 컨텐츠 모두 새로고침
+                            leaf.view.refreshBatch([RefreshType.LAYOUT, RefreshType.CONTENT]);
+                            
+                            // 새로고침 후 활성 카드 강조 (약간의 지연 필요)
+                            setTimeout(() => {
+                                if (leaf.view instanceof CardNavigatorView) {
+                                    leaf.view.cardContainer.highlightActiveCard();
+                                }
+                            }, 300);
+                        }
+                    });
+            }
+        });
 
         // 설정 업데이트 이벤트 처리를 디바운스
         const processSettingsUpdate = debounce(() => {

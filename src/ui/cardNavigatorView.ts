@@ -104,7 +104,9 @@ export class CardNavigatorView extends ItemView {
         this.plugin.registerEvent(
             this.plugin.app.workspace.on('file-open', async () => {
                 if (this.cardContainer && this.cardContainer.isInitialized) {
-                    await this.refresh(RefreshType.CONTENT);
+                    // 활성 파일이 변경되면 해당 카드를 강조하고 중앙에 표시
+                    this.cardContainer.highlightActiveCard();
+                    // 컨텐츠 새로고침은 필요하지 않음 - 활성 카드만 강조하면 됨
                 }
             })
         );
@@ -383,19 +385,17 @@ export class CardNavigatorView extends ItemView {
                     });
                     break;
                 case RefreshType.CONTENT:
-                    // 현재 활성화된 파일 가져오기
-                    const activeFile = this.plugin.app.workspace.getActiveFile();
-                    if (activeFile) {
-                        // 활성 파일에 해당하는 카드만 업데이트
-                        requestAnimationFrame(() => {
-                            this.cardContainer.updateCardContent(activeFile.path);
-                        });
-                    } else {
-                        // 활성 파일이 없으면 모든 카드 다시 로드
-                        requestAnimationFrame(async () => {
-                            await this.cardContainer.loadCards();
-                        });
-                    }
+                    // 카드 목록을 완전히 새로고침
+                    console.log('[CardNavigatorView] 컨텐츠 새로고침 - 카드 목록 다시 로드');
+                    requestAnimationFrame(async () => {
+                        // 카드 목록 관리자의 캐시를 초기화하고 카드 다시 로드
+                        await this.cardContainer.loadCards();
+                        
+                        // 카드 로드 후 활성 카드 강조 및 중앙 정렬
+                        setTimeout(() => {
+                            this.cardContainer.highlightActiveCard();
+                        }, 100);
+                    });
                     break;
             }
         } catch (error) {

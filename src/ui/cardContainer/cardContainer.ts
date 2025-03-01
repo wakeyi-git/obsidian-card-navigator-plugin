@@ -289,6 +289,10 @@ export class CardContainer implements KeyboardNavigationHost {
             this.resizeObserver.disconnect();
         }
         
+        if (this.layoutManager) {
+            this.layoutManager.dispose();
+        }
+        
         if (this.cardRenderer) {
             this.cardRenderer.cleanup();
             this.cardRenderer = null;
@@ -438,6 +442,8 @@ export class CardContainer implements KeyboardNavigationHost {
      */
     async loadCards(): Promise<Card[]> {
         try {
+            console.log('[CardContainer] 카드 로드 시작');
+            
             // 현재 폴더 가져오기
             const folder = await this.getCurrentFolder();
             
@@ -447,11 +453,17 @@ export class CardContainer implements KeyboardNavigationHost {
                 return [];
             }
             
+            console.log(`[CardContainer] 현재 폴더: ${folder.path}`);
+            
             // 카드 목록 관리자를 통해 파일 목록 가져오기
             const files = await this.cardListManager.getCardList();
+            console.log(`[CardContainer] 로드된 파일 수: ${files.length}`);
             
             // 파일을 카드로 변환하여 표시
             await this.displayFilesAsCards(files);
+            
+            // 활성 파일 확인 및 해당 카드 강조
+            this.highlightActiveCard();
             
             return this.cards;
         } catch (error) {
@@ -657,6 +669,59 @@ export class CardContainer implements KeyboardNavigationHost {
         if (cardElement && card) {
             this.cardMaker.updateCardContent(cardElement, card);
         }
+    }
+
+    /**
+     * 활성 파일에 해당하는 카드를 강조하고 중앙에 표시합니다.
+     */
+    public highlightActiveCard(): void {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (!activeFile) return;
+        
+        console.log(`[CardContainer] 활성 파일 강조: ${activeFile.path}`);
+        
+        // 모든 카드에서 활성 상태 제거
+        if (this.cardRenderer) {
+            this.cards.forEach(card => {
+                const cardElement = this.cardRenderer?.getCardElement(card.id);
+                if (cardElement && card.file?.path !== activeFile.path) {
+                    // 모든 활성 클래스 제거
+                    cardElement.classList.remove('card-active');
+                    cardElement.classList.remove('card-navigator-active');
+                    
+                    // 스타일 속성 초기화
+                    cardElement.style.removeProperty('box-shadow');
+                    cardElement.style.removeProperty('z-index');
+                    cardElement.style.removeProperty('transform');
+                    cardElement.style.removeProperty('transition');
+                    
+                    // 내부 요소들의 색상 초기화
+                    const elements = cardElement.querySelectorAll('.card-navigator-filename, .card-navigator-first-header, .card-navigator-body, .markdown-rendered');
+                    elements.forEach(el => {
+                        (el as HTMLElement).style.removeProperty('color');
+                    });
+                    
+                    // 레이아웃 매니저를 통한 스타일 초기화
+                    this.layoutManager.applyCardActiveStyle(cardElement, false);
+                }
+            });
+        }
+        
+        // 활성 파일에 해당하는 카드 찾기
+        const activeCard = this.cards.find(card => card.file?.path === activeFile.path);
+        if (!activeCard) return;
+        
+        // 활성 카드 설정
+        this.setActiveCard(activeCard.id);
+        
+        // 카드 요소 가져오기
+        const cardElement = this.cardRenderer?.getCardElement(activeCard.id);
+        if (!cardElement) return;
+        
+        // 카드를 중앙에 표시
+        setTimeout(() => {
+            this.centerCard(cardElement, true);
+        }, 100); // 약간의 지연을 두어 렌더링이 완료된 후 스크롤
     }
 }
 

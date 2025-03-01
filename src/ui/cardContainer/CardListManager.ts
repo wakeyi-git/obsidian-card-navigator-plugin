@@ -10,15 +10,24 @@ import { sortFiles } from 'common/utils';
  */
 export class CardListManager {
     private app: App;
-    private providers: Map<CardListProviderType, CardListProvider>;
+    private plugin: CardNavigatorPlugin;
+    private providers: Map<CardListProviderType, CardListProvider> = new Map();
     private currentSearchTerm: string | null = null;
+    private lastActiveFolder: string | null = null; // 마지막 활성 폴더 경로 저장
 
-    constructor(private plugin: CardNavigatorPlugin) {
-        this.app = this.plugin.app;
-        this.providers = new Map();
-
-        // 기본 제공자 등록
+    constructor(plugin: CardNavigatorPlugin) {
+        this.plugin = plugin;
+        this.app = plugin.app;
         this.registerDefaultProviders();
+        
+        // 활성 파일 변경 이벤트 감지
+        this.plugin.registerEvent(
+            this.app.workspace.on('file-open', (file) => {
+                if (this.plugin.settings.cardSetType === 'activeFolder') {
+                    this.handleActiveFileChange(file);
+                }
+            })
+        );
     }
 
     /**
@@ -68,6 +77,41 @@ export class CardListManager {
     }
 
     /**
+     * 활성 파일 변경 처리
+     * @param file 활성 파일
+     */
+    private handleActiveFileChange(file: TFile | null): void {
+        if (!file) return;
+        
+        const currentFolder = file.parent?.path;
+        
+        // 활성 폴더가 변경된 경우에만 처리
+        if (currentFolder && currentFolder !== this.lastActiveFolder) {
+            console.log(`[CardListManager] 활성 폴더 변경: ${this.lastActiveFolder} -> ${currentFolder}`);
+            this.lastActiveFolder = currentFolder;
+            
+            // 캐시 초기화
+            this.clearCache();
+            
+            // 이벤트 발생 - 폴더 변경 알림
+            this.plugin.events.trigger('active-folder-changed', currentFolder);
+        }
+    }
+
+    /**
+     * 캐시를 초기화합니다.
+     */
+    public clearCache(): void {
+        console.log('[CardListManager] 캐시 초기화');
+        // 검색 서비스 캐시 초기화
+        const searchService = getSearchService(this.plugin);
+        searchService.clearCache();
+        
+        // 현재 검색어 초기화
+        this.currentSearchTerm = null;
+    }
+
+    /**
      * 현재 설정된 카드 세트 타입에 따라 카드 목록을 가져옵니다.
      * 검색어가 제공되면 검색 결과를 반환합니다.
      * @param searchTerm 선택적 검색어
@@ -94,6 +138,13 @@ export class CardListManager {
             if (!activeFile?.parent) {
                 console.log('[CardListManager] 활성 파일이 없거나 부모 폴더가 없습니다.');
                 return [];
+            }
+            
+            // 활성 폴더 경로 업데이트
+            const currentFolder = activeFile.parent.path;
+            if (this.lastActiveFolder !== currentFolder) {
+                this.lastActiveFolder = currentFolder;
+                console.log(`[CardListManager] getCardList에서 활성 폴더 업데이트: ${currentFolder}`);
             }
         }
         

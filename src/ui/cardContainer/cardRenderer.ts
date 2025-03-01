@@ -77,6 +77,22 @@ export class CardRenderer {
                 this.focusedCardId = focusedCardId;
             }
             
+            // 활성 파일이 제공되지 않은 경우 현재 활성 파일 가져오기
+            if (!activeFile) {
+                const currentActiveFile = this.plugin.app.workspace.getActiveFile();
+                if (currentActiveFile) {
+                    activeFile = currentActiveFile;
+                }
+            }
+            
+            // 활성 파일에 해당하는 카드 ID 찾기
+            if (activeFile) {
+                const activeCard = this.cards.find(card => card.file?.path === activeFile?.path);
+                if (activeCard && activeCard.id !== this.activeCardId) {
+                    this.setActiveCard(activeCard.id);
+                }
+            }
+            
             // 레이아웃 계산이 필요한지 확인
             const needsLayoutCalculation = this.checkIfLayoutCalculationNeeded(this.cards);
             
@@ -120,12 +136,6 @@ export class CardRenderer {
                     
                     // 활성/포커스 상태 업데이트
                     this.updateCardActiveState(cardElement, card, activeFile, this.focusedCardId);
-                    
-                    // 레이아웃 스타일 적용
-                    if (this.layoutManager) {
-                        this.layoutManager.applyCardActiveStyle(cardElement, card.id === this.activeCardId);
-                        this.layoutManager.applyCardFocusStyle(cardElement, card.id === this.focusedCardId);
-                    }
                 }
             }));
             
@@ -189,11 +199,30 @@ export class CardRenderer {
     setActiveCard(cardId: string | null): void {
         if (this.activeCardId === cardId) return;
         
+        console.log(`[CardRenderer] 활성 카드 설정: ${cardId}`);
+        
         // 이전 활성 카드 비활성화
         if (this.activeCardId) {
             const prevActiveElement = this.cardElements.get(this.activeCardId);
             if (prevActiveElement) {
+                // 모든 활성 클래스 제거
+                prevActiveElement.classList.remove('card-active');
+                prevActiveElement.classList.remove('card-navigator-active');
+                
+                // 레이아웃 스타일 비활성화
                 this.layoutManager.applyCardActiveStyle(prevActiveElement, false);
+                
+                // 이전 활성 카드의 스타일 속성 초기화
+                prevActiveElement.style.removeProperty('box-shadow');
+                prevActiveElement.style.removeProperty('z-index');
+                prevActiveElement.style.removeProperty('transform');
+                prevActiveElement.style.removeProperty('transition');
+                
+                // 내부 요소들의 색상 초기화
+                const elements = prevActiveElement.querySelectorAll('.card-navigator-filename, .card-navigator-first-header, .card-navigator-body, .markdown-rendered');
+                elements.forEach(el => {
+                    (el as HTMLElement).style.removeProperty('color');
+                });
             }
         }
         
@@ -203,7 +232,16 @@ export class CardRenderer {
         if (cardId) {
             const newActiveElement = this.cardElements.get(cardId);
             if (newActiveElement) {
+                // 활성 클래스 추가
+                newActiveElement.classList.add('card-active');
+                newActiveElement.classList.add('card-navigator-active');
+                
+                // 레이아웃 스타일 활성화
                 this.layoutManager.applyCardActiveStyle(newActiveElement, true);
+                
+                // 활성 카드에 특별한 스타일 적용
+                newActiveElement.style.boxShadow = '0 0 0 2px var(--interactive-accent)';
+                newActiveElement.style.zIndex = '10'; // 다른 카드보다 위에 표시
             }
         }
     }
@@ -361,16 +399,39 @@ export class CardRenderer {
      * 카드의 활성 상태를 업데이트합니다.
      */
     private updateCardActiveState(cardEl: HTMLElement, card: Card, activeFile?: TFile, focusedCardId?: string | null): void {
-        if (focusedCardId && card.id === focusedCardId) {
+        const isActive = activeFile !== undefined && card.file !== null && card.file !== undefined && card.file.path === activeFile.path;
+        const isFocused = focusedCardId !== undefined && focusedCardId !== null && card.id === focusedCardId;
+        
+        // 포커스 상태 업데이트
+        if (isFocused) {
             cardEl.classList.add('card-focused');
+            cardEl.classList.add('card-navigator-focused');
         } else {
             cardEl.classList.remove('card-focused');
+            cardEl.classList.remove('card-navigator-focused');
         }
         
-        if (activeFile && card.file && card.file.path === activeFile.path) {
+        // 활성 상태 업데이트
+        if (isActive) {
             cardEl.classList.add('card-active');
+            cardEl.classList.add('card-navigator-active');
+            
+            // 활성 카드에 특별한 스타일 적용
+            cardEl.style.boxShadow = '0 0 0 2px var(--interactive-accent)';
+            cardEl.style.zIndex = '10';
         } else {
             cardEl.classList.remove('card-active');
+            cardEl.classList.remove('card-navigator-active');
+            
+            // 활성 카드가 아닌 경우 스타일 속성 초기화
+            cardEl.style.removeProperty('box-shadow');
+            cardEl.style.removeProperty('z-index');
+        }
+        
+        // 레이아웃 스타일 적용
+        if (this.layoutManager) {
+            this.layoutManager.applyCardActiveStyle(cardEl, isActive === true);
+            this.layoutManager.applyCardFocusStyle(cardEl, isFocused === true);
         }
     }
 

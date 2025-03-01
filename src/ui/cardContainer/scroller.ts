@@ -136,6 +136,8 @@ export class Scroller extends Component {
     scrollToCard(cardElement: HTMLElement, smooth: boolean = true): void {
         if (!cardElement) return;
         
+        console.log('[Scroller] 카드로 스크롤 시작');
+        
         const direction = this.layoutConfig.getLayoutDirection();
         const containerRect = this.container.getBoundingClientRect();
         const cardRect = cardElement.getBoundingClientRect();
@@ -144,14 +146,28 @@ export class Scroller extends Component {
         let targetTop = this.container.scrollTop;
         
         if (direction === 'horizontal') {
-            // 가로 스크롤 계산
+            // 가로 스크롤 계산 - 카드를 정확히 중앙에 배치
             const cardLeft = cardRect.left - containerRect.left + this.container.scrollLeft;
-            targetLeft = cardLeft - (containerRect.width - cardRect.width) / 2;
+            const cardCenter = cardLeft + (cardRect.width / 2);
+            const containerCenter = containerRect.width / 2;
+            targetLeft = cardCenter - containerCenter;
+            
+            console.log(`[Scroller] 가로 스크롤: ${targetLeft}px (카드 중앙: ${cardCenter}px, 컨테이너 중앙: ${containerCenter}px)`);
         } else {
-            // 세로 스크롤 계산
+            // 세로 스크롤 계산 - 카드를 정확히 중앙에 배치
             const cardTop = cardRect.top - containerRect.top + this.container.scrollTop;
-            targetTop = cardTop - (containerRect.height - cardRect.height) / 2;
+            const cardCenter = cardTop + (cardRect.height / 2);
+            const containerCenter = containerRect.height / 2;
+            targetTop = cardCenter - containerCenter;
+            
+            console.log(`[Scroller] 세로 스크롤: ${targetTop}px (카드 중앙: ${cardCenter}px, 컨테이너 중앙: ${containerCenter}px)`);
         }
+        
+        // 스크롤 위치가 음수가 되지 않도록 보정
+        targetLeft = Math.max(0, targetLeft);
+        targetTop = Math.max(0, targetTop);
+        
+        console.log(`[Scroller] 최종 스크롤 위치: left=${targetLeft}px, top=${targetTop}px`);
         
         this.container.scrollTo({
             left: targetLeft,

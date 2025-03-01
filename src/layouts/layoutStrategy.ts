@@ -1,4 +1,4 @@
-import { Card, CardNavigatorSettings } from 'common/types';
+import { Card } from 'common/types';
 import { TFile } from 'obsidian';
 
 /**
@@ -75,18 +75,18 @@ export class MasonryLayoutStrategy implements LayoutStrategy {
      * @returns 카드 위치 배열
      */
     arrange(options: LayoutOptions): CardPosition[] {
-        const { cards, direction, cardWidth, cardHeight, columns, cardGap } = options;
+        const { cards, direction, cardWidth, cardHeight, columns, cardGap, containerPadding } = options;
         const positions: CardPosition[] = [];
         
         if (direction === 'horizontal') {
             // 가로 방향 레이아웃 - 단일 행에 카드 배치
-            let currentLeft = 0;
+            let currentLeft = containerPadding;
             
             cards.forEach((card) => {
                 positions.push({
                     cardId: card.id,
                     left: currentLeft,
-                    top: 0,
+                    top: containerPadding,
                     width: cardWidth,
                     height: cardHeight
                 });
@@ -97,13 +97,14 @@ export class MasonryLayoutStrategy implements LayoutStrategy {
             // 세로 방향 레이아웃
             if (cardHeight === 'auto') {
                 // 메이슨리 레이아웃 (가변 높이) - 높이가 가장 낮은 열에 카드 추가
-                const columnHeights = Array(columns).fill(0);
+                const columnHeights = Array(columns).fill(containerPadding);
                 
                 cards.forEach((card) => {
                     // 가장 높이가 낮은 열 찾기
                     const minHeightColumn = columnHeights.indexOf(Math.min(...columnHeights));
                     
-                    const left = minHeightColumn * (cardWidth + cardGap);
+                    // 컨테이너 패딩을 고려하여 왼쪽 위치 계산
+                    const left = containerPadding + minHeightColumn * (cardWidth + cardGap);
                     const top = columnHeights[minHeightColumn];
                     
                     // 카드 높이는 자동으로 설정
@@ -126,8 +127,9 @@ export class MasonryLayoutStrategy implements LayoutStrategy {
                     const row = Math.floor(i / columns);
                     const col = i % columns;
                     
-                    const left = col * (cardWidth + cardGap);
-                    const top = row * (cardHeight as number + cardGap);
+                    // 컨테이너 패딩을 고려하여 왼쪽 위치 계산
+                    const left = containerPadding + col * (cardWidth + cardGap);
+                    const top = containerPadding + row * (cardHeight as number + cardGap);
                     
                     positions.push({
                         cardId: card.id,

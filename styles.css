@@ -14,16 +14,6 @@
     padding-right: 0;
 }
 
-/* 카드 네비게이터 뷰 */
-.card-navigator-view {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-    position: relative;
-}
-
 /* 카드 네비게이터 메인 컨테이너 */
 .card-navigator {
     display: flex;
@@ -82,12 +72,6 @@
     width: 100%; /* 전체 너비 사용 */
 }
 
-/* 검색 래퍼 스타일 */
-.card-navigator-search-wrapper {
-    position: relative;
-    flex-grow: 1;
-}
-
 .toolbar-separator {
     flex: 0 0 1px;
     height: 28px;
@@ -141,41 +125,6 @@
     align-items: center;
 }
 
-.card-navigator-search-input {
-    width: 100%;
-    padding: var(--size-2-2) var(--size-4-2);
-    padding-right: var(--size-4-4);
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--radius-s);
-    background-color: var(--background-primary);
-    color: var(--text-normal);
-}
-
-.card-navigator-search-input:focus {
-    border-color: var(--interactive-accent);
-    outline: none;
-}
-
-/* 검색어 삭제 버튼 스타일 수정 */
-.card-navigator-search-clear-button,
-.card-navigator-search-clear {
-    position: absolute;
-    right: var(--size-2-2);
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.card-navigator-search-clear-button:hover,
-.card-navigator-search-clear:hover {
-    color: var(--text-normal);
-}
 
 /* 검색 옵션 컨테이너 스타일 */
 .search-options-container {
@@ -414,11 +363,11 @@
 .card-navigator-container {
     position: relative;
     width: 100%;
-    height: 100%; /* 명시적 높이 설정 */
+    height: 100%;
     flex: 1;
     box-sizing: border-box;
     padding: var(--container-padding);
-    overflow: auto !important; /* 스크롤 강제 활성화 */
+    overflow: auto !important;
 }
 
 /* 방향에 따른 스타일 */
@@ -453,19 +402,18 @@
                 width 0.35s cubic-bezier(0.25, 0.1, 0.25, 1), 
                 height 0.3s ease;
     will-change: transform, width;
+    /* 기본 상태에서 명시적으로 transform 없음 */
+    transform: none !important;
+    z-index: 1;
+    box-shadow: none !important;
 }
 
-.card-navigator-card:hover {
-    border-color: var(--interactive-accent);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px);
-    z-index: 10;
-}
-
-.card-navigator-focused {
-    border-color: var(--text-accent);
-    box-shadow: 0 0 0 2px var(--text-accent);
-    z-index: 30;
+/* 비활성 카드 내부 요소 스타일 */
+.card-navigator-card:not(.card-active):not(.card-navigator-active) .card-navigator-filename,
+.card-navigator-card:not(.card-active):not(.card-navigator-active) .card-navigator-first-header,
+.card-navigator-card:not(.card-active):not(.card-navigator-active) .card-navigator-body,
+.card-navigator-card:not(.card-active):not(.card-navigator-active) .markdown-rendered {
+    color: var(--text-normal);
 }
 
 .card-navigator-filename {
@@ -520,19 +468,29 @@
     padding-left: 0;
 }
 
-/* 마크다운 렌더링 스타일 통합 */
-.card-navigator-card.card-navigator-active .markdown-rendered,
-.card-navigator-card.card-navigator-active .card-navigator-filename,
-.card-navigator-card.card-navigator-active .card-navigator-first-header,
-.card-navigator-card.card-navigator-active .card-navigator-body {
+/* 포커스된 카드 스타일 */
+.card-navigator-card:hover {
+    border: 1.5px solid var(--text-accent) !important;
+}
+
+.card-navigator-card.card-focused,
+.card-navigator-card.card-navigator-focused {
+    border: 1.5px solid var(--text-accent) !important;
+}
+
+/* 활성 카드 스타일 */
+.card-navigator-card.card-active .markdown-rendered,
+.card-navigator-card.card-active .card-navigator-card-title,
+.card-navigator-card.card-active .card-navigator-first-header,
+.card-navigator-card.card-active .card-navigator-body {
     color: var(--interactive-accent);
 }
 
-.card-navigator-card.card-navigator-active .markdown-rendered .cm-header {
+.card-navigator-card.card-active .markdown-rendered .cm-header {
     color: var(--text-accent);
 }
 
-.card-navigator-card.card-navigator-active .markdown-rendered .list-bullet {
+.card-navigator-card.card-active .markdown-rendered .list-bullet {
     color: var(--text-accent);
 }
 
@@ -690,11 +648,6 @@
 		min-width: 0; /* Allow container to shrink below content size */
 	}
 
-	.card-navigator-search-input {
-		width: 100%;
-		min-width: 0; /* Allow input to shrink */
-	}
-
 	.card-navigator-action-icons-container {
 		flex-shrink: 0; /* Prevent icons from shrinking */
 	}
@@ -723,18 +676,6 @@
 
 .card-navigator-settings-active {
     color: var(--interactive-accent);
-}
-
-/* 카드 상태 스타일 */
-.card-navigator-card.card-navigator-active .card-navigator-filename,
-.card-navigator-card.card-navigator-active .card-navigator-first-header,
-.card-navigator-card.card-navigator-active .card-navigator-body {
-    color: var(--interactive-accent);
-}
-
-.card-navigator-card.card-navigator-focused {
-    border: 2px solid var(--interactive-accent);
-    box-shadow: 0 0 5px rgba(var(--interactive-accent-rgb), 0.5);
 }
 
 .card-navigator-card:hover {
@@ -883,6 +824,8 @@
     outline: none;
 }
 
+/* 검색어 삭제 버튼 스타일 수정 */
+.card-navigator-search-clear-button,
 .card-navigator-search-clear {
     position: absolute;
     right: var(--size-2-2);
@@ -994,3 +937,4 @@
     color: var(--text-normal);
     text-decoration: underline;
 }
+
