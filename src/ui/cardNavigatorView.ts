@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, Menu, TFile } from "obsidian";
+import { ItemView, WorkspaceLeaf, Menu, TFile, debounce } from "obsidian";
 import CardNavigatorPlugin from '../main';
 import { Toolbar } from './toolbar/toolbar';
 import { CardContainer } from './cardContainer/cardContainer';
@@ -149,9 +149,14 @@ export class CardNavigatorView extends ItemView {
             return;
         }
         
-        this.resizeObserver = new ResizeObserver(() => {
+        // 디바운스된 리사이즈 핸들러 생성
+        const debouncedResize = debounce(() => {
             this.updateContainerSizeAndOrientation();
             this.refresh(RefreshType.LAYOUT);
+        }, 100); // 100ms 디바운스 적용
+        
+        this.resizeObserver = new ResizeObserver(() => {
+            debouncedResize();
         });
         
         this.resizeObserver.observe(navigatorEl);
@@ -263,45 +268,51 @@ export class CardNavigatorView extends ItemView {
     //#endregion
 
     //#region 리프레시 관리
-    // 배치 리프레시 실행 메서드
-    public async refreshBatch(types: RefreshType[]) {
-        if (!this.cardContainer) return;
+    /**
+     * 여러 리프레시 타입을 배치로 처리하는 메서드
+     * @param types 리프레시 타입 배열
+     */
+    public async refreshBatch(types: RefreshType[]): Promise<void> {
+        if (types.length === 0) return;
         
-        const now = Date.now();
-        if (now - this.lastRefreshTime < this.REFRESH_COOLDOWN) {
-            // 쿨다운 중이면 타입을 큐에 추가하고 나중에 처리
-            types.forEach(type => this.pendingRefreshTypes.add(type));
-            
-            if (this.refreshTimeout) {
-                cancelAnimationFrame(this.refreshTimeout);
+        try {
+            // 이미 리프레시가 진행 중이면 대기 큐에 추가
+            if (this.isRefreshInProgress) {
+                types.forEach(type => this.pendingRefreshTypes.add(type));
+                return;
             }
             
-            // 다음 프레임에서 처리 예약
-            this.refreshTimeout = requestAnimationFrame(() => {
-                this.refreshTimeout = null;
-                const pendingTypes = Array.from(this.pendingRefreshTypes);
-                this.pendingRefreshTypes.clear();
-                if (pendingTypes.length > 0) {
-                    this.refreshBatch(pendingTypes);
-                }
-            });
-            
-            return;
-        }
-
-        if (this.isRefreshInProgress) {
-            // 이미 리프레시 중이면 타입을 큐에 추가
-            types.forEach(type => this.pendingRefreshTypes.add(type));
-            return;
-        }
-
-        try {
             this.isRefreshInProgress = true;
+            
+            // 쿨다운 체크
+            const now = Date.now();
+            const timeSinceLastRefresh = now - this.lastRefreshTime;
+            
+            if (timeSinceLastRefresh < this.REFRESH_COOLDOWN) {
+                // 쿨다운 시간이 지나지 않았으면 대기 큐에 추가하고 타임아웃 설정
+                types.forEach(type => this.pendingRefreshTypes.add(type));
+                
+                if (this.refreshTimeout === null) {
+                    this.refreshTimeout = window.setTimeout(() => {
+                        this.refreshTimeout = null;
+                        const pendingTypes = Array.from(this.pendingRefreshTypes);
+                        this.pendingRefreshTypes.clear();
+                        this.refreshBatch(pendingTypes);
+                    }, this.REFRESH_COOLDOWN - timeSinceLastRefresh);
+                }
+                
+                this.isRefreshInProgress = false;
+                return;
+            }
+            
             this.lastRefreshTime = now;
             
             // 컨테이너 요소 확인
             const containerEl = this.cardContainer.getContainerElement();
-            if (!containerEl) return;
+            if (!containerEl) {
+                this.isRefreshInProgress = false;
+                return;
+            }
 
             // 가장 우선순위가 높은 리프레시 타입 결정
             let refreshType = RefreshType.CONTENT;
@@ -313,27 +324,21 @@ export class CardNavigatorView extends ItemView {
                 refreshType = RefreshType.LAYOUT;
             }
 
-            // 다음 프레임에서 실제 리프레시 수행
-            requestAnimationFrame(async () => {
-                try {
-                    await this.refreshByType(refreshType);
-                } catch (error) {
-                    console.error('리프레시 중 오류 발생:', error);
-                } finally {
-                    this.isRefreshInProgress = false;
-                    
-                    // 대기 중인 리프레시가 있으면 처리
-                    if (this.pendingRefreshTypes.size > 0) {
-                        const pendingTypes = Array.from(this.pendingRefreshTypes);
-                        this.pendingRefreshTypes.clear();
-                        
-                        // 다음 프레임에서 처리
-                        requestAnimationFrame(() => {
-                            this.refreshBatch(pendingTypes);
-                        });
-                    }
+            try {
+                // 리프레시 타입에 따라 직접 처리
+                await this.refreshByType(refreshType);
+            } catch (error) {
+                console.error('리프레시 중 오류 발생:', error);
+            } finally {
+                this.isRefreshInProgress = false;
+                
+                // 대기 중인 리프레시가 있으면 처리
+                if (this.pendingRefreshTypes.size > 0) {
+                    const pendingTypes = Array.from(this.pendingRefreshTypes);
+                    this.pendingRefreshTypes.clear();
+                    this.refreshBatch(pendingTypes);
                 }
-            });
+            }
         } catch (error) {
             console.error('리프레시 준비 중 오류 발생:', error);
             this.isRefreshInProgress = false;
@@ -357,8 +362,8 @@ export class CardNavigatorView extends ItemView {
             const height = containerEl.offsetHeight;
             
             if (width === 0 || height === 0) {
-                // 크기가 유효하지 않으면 다음 프레임에서 다시 시도
-                requestAnimationFrame(() => this.refreshByType(type));
+                // 크기가 유효하지 않으면 로그 출력 후 종료
+                console.log('[CardNavigatorView] 컨테이너 크기가 유효하지 않아 리프레시를 건너뜁니다.');
                 return;
             }
             
@@ -370,32 +375,24 @@ export class CardNavigatorView extends ItemView {
                     break;
                 case RefreshType.SETTINGS:
                     // 설정 업데이트 후 카드 다시 로드
-                    // this.cardContainer.updateSettings(this.plugin.settings);
                     this.cardContainer.updateSettings(this.plugin.settings);
-                    // 설정 변경 후 카드 로드는 다음 프레임에서 수행
-                    requestAnimationFrame(async () => {
-                        await this.cardContainer.loadCards();
-                    });
+                    
+                    // 설정 변경 후 카드 로드 (직접 호출)
+                    await this.cardContainer.loadCards();
                     break;
                 case RefreshType.LAYOUT:
-                    // 레이아웃만 업데이트
-                    requestAnimationFrame(() => {
-                        // this.cardContainer.handleResize();
-                        this.cardContainer.refreshLayout();
-                    });
+                    // 레이아웃만 업데이트 (직접 호출)
+                    this.cardContainer.refreshLayout();
                     break;
                 case RefreshType.CONTENT:
                     // 카드 목록을 완전히 새로고침
                     console.log('[CardNavigatorView] 컨텐츠 새로고침 - 카드 목록 다시 로드');
-                    requestAnimationFrame(async () => {
-                        // 카드 목록 관리자의 캐시를 초기화하고 카드 다시 로드
-                        await this.cardContainer.loadCards();
-                        
-                        // 카드 로드 후 활성 카드 강조 및 중앙 정렬
-                        setTimeout(() => {
-                            this.cardContainer.highlightActiveCard();
-                        }, 100);
-                    });
+                    
+                    // 카드 목록 관리자의 캐시를 초기화하고 카드 다시 로드 (직접 호출)
+                    await this.cardContainer.loadCards();
+                    
+                    // 카드 로드 후 활성 카드 강조 (즉시 실행)
+                    this.cardContainer.highlightActiveCard();
                     break;
             }
         } catch (error) {
@@ -447,25 +444,18 @@ export class CardNavigatorView extends ItemView {
                 return;
             }
             
+            // 크기 변경이 충분히 큰 경우에만 업데이트 (10px 이상 차이)
             if (!this.lastContainerHeight || Math.abs(this.lastContainerHeight - containerHeight) > 10) {
+                console.log(`[CardNavigatorView] 컨테이너 높이 업데이트: ${this.lastContainerHeight || 0}px -> ${containerHeight}px`);
                 this.lastContainerHeight = containerHeight;
                 
                 // 스타일 변경을 한 번에 모아서 처리
-                const styleUpdates = {
-                    height: `${containerHeight}px`,
-                    minHeight: `${Math.min(containerHeight, 300)}px`,
-                    '--container-width': `${navigatorWidth}px`,
-                    '--container-height': `${containerHeight}px`
-                };
-                
-                // 스타일 일괄 적용
-                Object.entries(styleUpdates).forEach(([prop, value]) => {
-                    if (prop.startsWith('--')) {
-                        containerEl.style.setProperty(prop, value);
-                    } else {
-                        containerEl.style[prop as any] = value;
-                    }
-                });
+                containerEl.style.cssText = `
+                    height: ${containerHeight}px;
+                    min-height: ${Math.min(containerHeight, 300)}px;
+                `;
+                containerEl.style.setProperty('--container-width', `${navigatorWidth}px`);
+                containerEl.style.setProperty('--container-height', `${containerHeight}px`);
                 
                 // 레이아웃 매니저 업데이트
                 if (this.cardContainer.layoutManager) {
@@ -476,23 +466,25 @@ export class CardNavigatorView extends ItemView {
                         const { isVertical } = layoutConfig.calculateContainerOrientation();
                         
                         // classList 변경을 한 번에 처리
-                        containerEl.classList.toggle('vertical', isVertical);
-                        containerEl.classList.toggle('horizontal', !isVertical);
+                        if (isVertical) {
+                            containerEl.classList.add('vertical');
+                            containerEl.classList.remove('horizontal');
+                        } else {
+                            containerEl.classList.add('horizontal');
+                            containerEl.classList.remove('vertical');
+                        }
                         
                         containerEl.style.setProperty('--is-vertical', isVertical ? '1' : '0');
                         
-                        // 레이아웃 업데이트는 다음 프레임에서 수행
-                        requestAnimationFrame(() => {
-                            this.cardContainer.layoutManager.updateLayout(
-                                this.cardContainer.cards,
-                                navigatorWidth, 
-                                containerHeight
-                            );
-                        });
+                        // 레이아웃 업데이트 직접 수행
+                        this.cardContainer.layoutManager.updateLayout(
+                            this.cardContainer.cards,
+                            navigatorWidth, 
+                            containerHeight
+                        );
                     }
                 }
                 
-                // this.cardContainer.setContainerHeight(containerHeight);
                 this.cardContainer.setContainerHeight(containerHeight);
             }
         } catch (error) {
@@ -507,9 +499,7 @@ export class CardNavigatorView extends ItemView {
     public refreshFileContent(file: TFile): void {
         if (!this.cardContainer || !file) return;
         
-        // 파일 경로를 카드 ID로 사용하여 해당 카드만 업데이트
-        requestAnimationFrame(() => {
-            this.cardContainer.updateCardContent(file.path);
-        });
+        // 파일 경로를 카드 ID로 사용하여 해당 카드만 업데이트 (직접 호출)
+        this.cardContainer.updateCardContent(file.path);
     }
 }

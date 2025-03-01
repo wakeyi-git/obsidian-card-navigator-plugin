@@ -131,10 +131,10 @@ export class LayoutConfig {
                 newWidth: this.cardWidth
             });
         } else {
-            // 컨테이너 너비 변화가 크면 (50px 이상) 카드 너비 재계산
+            // 컨테이너 너비 변화가 크면 (100px 이상) 카드 너비 재계산
             const containerWidthChange = Math.abs(this.containerWidth - this.previousContainerWidth);
             
-            if (containerWidthChange > 50) {
+            if (containerWidthChange > 100) {
                 this.cardWidth = this.calculateCardWidthInternal();
                 this.stableCardWidth = this.cardWidth;
                 this.previousContainerWidth = this.containerWidth;

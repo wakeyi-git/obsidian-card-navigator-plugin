@@ -640,8 +640,7 @@ export class LayoutManager {
                 const height = Math.floor(entry.contentRect.height);
                 
                 // 너비나 높이가 변경된 경우에만 레이아웃 업데이트
-                // 작은 변화에도 반응하도록 임계값 조정 (30px → 10px)
-                // 하지만 너무 작은 변화(2px 미만)는 무시
+                // 임계값을 높여 작은 변화에 반응하지 않도록 함
                 const widthDiff = Math.abs(width - this.lastContainerWidth);
                 const heightDiff = Math.abs(height - this.lastContainerHeight);
                 
@@ -651,9 +650,9 @@ export class LayoutManager {
                 const heightChangePercent = this.lastContainerHeight > 0 ? 
                     (heightDiff / this.lastContainerHeight) * 100 : 0;
                 
-                // 절대적 변화(10px 이상) 또는 상대적 변화(2% 이상)가 있을 때만 업데이트
-                if (widthDiff > 10 || heightDiff > 10 || 
-                    widthChangePercent > 2 || heightChangePercent > 2) {
+                // 절대적 변화(20px 이상) 또는 상대적 변화(5% 이상)가 있을 때만 업데이트
+                if (widthDiff > 20 || heightDiff > 20 || 
+                    widthChangePercent > 5 || heightChangePercent > 5) {
                     
                     this.logDebug('컨테이너 크기 변경 감지', { 
                         prevWidth: this.lastContainerWidth, 
@@ -674,7 +673,7 @@ export class LayoutManager {
                     this.updateLayout(this.cards, width, height);
                 }
             }
-        }, 150); // 디바운스 지연 시간 조정 (200ms → 150ms)
+        }, 300); // 디바운스 지연 시간 증가 (150ms → 300ms)
     }
 
     /**

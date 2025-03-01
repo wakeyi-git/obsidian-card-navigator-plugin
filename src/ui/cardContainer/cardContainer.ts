@@ -195,14 +195,12 @@ export class CardContainer implements KeyboardNavigationHost {
         // 이전 프레임 취소
         if (this.pendingResizeFrame !== null) {
             cancelAnimationFrame(this.pendingResizeFrame);
+            this.pendingResizeFrame = null;
         }
         
-        // 새 프레임 요청
-        this.pendingResizeFrame = requestAnimationFrame(() => {
-            this.refreshLayout();
-            this.isResizing = false;
-            this.pendingResizeFrame = null;
-        });
+        // 직접 레이아웃 업데이트 수행
+        this.refreshLayout();
+        this.isResizing = false;
     }
 
     /**
