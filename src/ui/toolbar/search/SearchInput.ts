@@ -2,7 +2,7 @@ import { debounce } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { CardNavigatorView } from 'ui/cardNavigatorView';
 import { SearchSuggest } from './SearchSuggest';
-import { debouncedSearch, getSearchHistory } from './index';
+import { executeSearch, createDebouncedSearch, getSearchHistory } from './index';
 import { t } from 'i18next';
 import { SearchSuggestion } from 'common/types';
 import { setIcon } from 'obsidian';
@@ -25,6 +25,7 @@ export class SearchInput {
     private searchTimer: NodeJS.Timeout | null = null; // 검색 타이머
     private inputChanged: boolean = false; // 입력 변경 여부 추적
     private isLoading: boolean = false;
+    private debouncedSearch: ((searchTerm: string) => void) | null = null;
 
     constructor(
         private plugin: CardNavigatorPlugin,
@@ -162,7 +163,8 @@ export class SearchInput {
             const view = this.plugin.app.workspace.getActiveViewOfType(CardNavigatorView);
             if (!view) return;
 
-            const filteredFiles = await view.cardContainer.getFilteredFiles();
+            // 현재 표시된 파일 목록 가져오기
+            const filteredFiles = this.plugin.app.vault.getMarkdownFiles();
             const suggestions = await this.searchSuggest.getSuggestions(lastTerm, filteredFiles);
             this.currentSuggestions = suggestions;
             this.selectedSuggestionIndex = -1;
@@ -271,31 +273,36 @@ export class SearchInput {
         }
     }
 
-    private performSearch(inputValue: string) {
-        if (this.isComposing) return;
+    private performSearch(searchTerm: string): void {
+        if (!this.cardContainer) return;
         
-        if (this.searchTimer) {
-            clearTimeout(this.searchTimer);
-            this.searchTimer = null;
+        if (!searchTerm || searchTerm.trim() === '') {
+            this.cardContainer.loadFiles(this.plugin.app.vault.getMarkdownFiles());
+            return;
         }
         
-        this.inputChanged = true;
-        
-        this.searchTimer = setTimeout(() => {
-            if (this.inputChanged) {
-                this.executeSearch(inputValue);
-                this.inputChanged = false;
-            }
-        }, 300);
+        // 디바운스된 검색 실행
+        if (this.debouncedSearch) {
+            this.debouncedSearch(searchTerm);
+        } else {
+            executeSearch(this.plugin, searchTerm, this.cardContainer);
+        }
     }
 
     private executeSearch(inputValue: string) {
-        debouncedSearch(
-            this.plugin,
-            this.cardContainer,
-            inputValue,
-            (isLoading) => this.updateLoadingState(isLoading)
-        );
+        // 디바운스된 검색 함수 생성
+        if (!this.debouncedSearch) {
+            this.debouncedSearch = createDebouncedSearch(
+                this.plugin,
+                this.cardContainer
+            );
+        }
+        
+        // 검색 실행
+        if (this.debouncedSearch) {
+            this.debouncedSearch(inputValue);
+        }
+        
         this.debouncedUpdateSuggestions();
         this.updateClearButtonVisibility();
     }

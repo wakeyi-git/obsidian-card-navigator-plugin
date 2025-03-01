@@ -1,4 +1,4 @@
-import { Plugin, Events, TFile, debounce, moment  } from 'obsidian';
+import { Plugin, Events, TFile, TAbstractFile, debounce, moment  } from 'obsidian';
 import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR, RefreshType } from './ui/cardNavigatorView';
 import { SettingTab } from './ui/settings/settingsTab';
 import { CardNavigatorSettings, ScrollDirection, DEFAULT_SETTINGS } from './common/types';
@@ -194,8 +194,16 @@ export default class CardNavigatorPlugin extends Plugin {
         this.events.on('settings-updated', processSettingsUpdate);
 
         // 파일 수정 이벤트를 디바운스
-        const processFileModify = debounce(() => {
-            this.refreshAllViews(RefreshType.CONTENT);
+        const processFileModify = debounce((file: TAbstractFile) => {
+            if (file instanceof TFile) {
+                this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)
+                    .forEach(leaf => {
+                        if (leaf.view instanceof CardNavigatorView) {
+                            // 파일 정보를 전달하여 해당 카드만 업데이트
+                            leaf.view.refreshFileContent(file);
+                        }
+                    });
+            }
         }, 300);
 
         this.registerEvent(

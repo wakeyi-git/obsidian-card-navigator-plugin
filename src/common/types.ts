@@ -55,9 +55,7 @@ export interface CardNavigatorSettings {
     useFixedHeight: boolean;
     fixedCardHeight: number;
     cardsPerColumn: number;
-    cardGap: number;
-    containerPadding: number;
-
+    
     // 카드 내용 표시 설정
     showFileName: boolean;
     showFirstHeader: boolean;
@@ -82,11 +80,6 @@ export interface CardNavigatorSettings {
     
     // 기타 설정
     enableScrollAnimation: boolean;
-    useCssGridMode: boolean;
-    isVerticalContainer: boolean;
-
-    // 레이아웃 방향 설정
-    layoutDirection: 'auto' | 'horizontal' | 'vertical';
 }
 
 // 전역 설정 키 정의
@@ -131,12 +124,7 @@ export const DEFAULT_SETTINGS: CardNavigatorSettings = {
     autoApplyFolderPresets: false,
     folderPresets: {},
     activeFolderPresets: {},
-    enableScrollAnimation: true,
-    useCssGridMode: false,
-    cardGap: 10,
-    containerPadding: 10,
-    isVerticalContainer: true,
-    layoutDirection: 'auto'
+    enableScrollAnimation: true
 };
 //#endregion
 
@@ -162,9 +150,7 @@ export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> =
     firstHeaderFontSize: { min: 10, max: 25, step: 1 },
     bodyFontSize: { min: 10, max: 25, step: 1 },
     tagsFontSize: { min: 10, max: 25, step: 1 },
-    bodyLength: { min: 1, max: 1001, step: 50 },
-    cardGap: { min: 0, max: 50, step: 1 },
-    containerPadding: { min: 0, max: 50, step: 1 }
+    bodyLength: { min: 1, max: 1001, step: 50 }
 };
 //#endregion
 

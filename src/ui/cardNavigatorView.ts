@@ -16,6 +16,12 @@ export enum RefreshType {
     ALL = 'all'           // 전체 업데이트
 }
 
+/**
+ * 카드 네비게이터 뷰 클래스
+ * 
+ * 이 클래스는 Obsidian의 ItemView를 확장하여 카드 네비게이터 기능을 제공합니다.
+ * 툴바와 카드 컨테이너를 관리하고 뷰의 생명주기를 처리합니다.
+ */
 export class CardNavigatorView extends ItemView {
     //#region 클래스 속성
     public toolbar!: Toolbar;
@@ -72,7 +78,7 @@ export class CardNavigatorView extends ItemView {
             );
             
             this.cardContainer.containerEl = this.cardContainerEl;
-            await this.cardContainer.initialize();
+            await this.cardContainer.initialize(this.cardContainerEl);
             
             this.toolbar = new Toolbar(
                 this.plugin,
@@ -186,10 +192,24 @@ export class CardNavigatorView extends ItemView {
      */
     async loadCards(): Promise<void> {
         try {
-            await this.cardContainer.loadCards();
+            await this.cardContainer.loadFiles(await this.getSortedFiles());
         } catch (error) {
             console.error('카드 로드 중 오류 발생:', error);
         }
+    }
+
+    /**
+     * 정렬된 파일 목록을 가져옵니다.
+     */
+    private async getSortedFiles(): Promise<TFile[]> {
+        const folder = await this.cardContainer.getCurrentFolder();
+        if (!folder) return [];
+        
+        const files = this.plugin.app.vault.getMarkdownFiles().filter(file => {
+            return file.path.startsWith(folder.path);
+        });
+        
+        return this.sortFiles(files);
     }
     //#endregion
 
@@ -199,12 +219,15 @@ export class CardNavigatorView extends ItemView {
         const focusedCard = this.getFocusedCard();
         if (!focusedCard) return;
 
-        const file = this.cardContainer.getFileFromCard(focusedCard);
-        if (!file) return;
+        const cardId = focusedCard.dataset.cardId;
+        if (!cardId) return;
+        
+        const card = this.cardContainer.cards.find(c => c.id === cardId);
+        if (!card || !card.file) return;
 
         const menu = new Menu();
 
-        this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
+        this.plugin.app.workspace.trigger('file-menu', menu, card.file, 'more-options');
 
         menu.addSeparator();
 
@@ -213,7 +236,7 @@ export class CardNavigatorView extends ItemView {
                 .setTitle(t('COPY_AS_LINK'))
                 .setIcon('link')
                 .onClick(() => {
-                    this.cardContainer.cardMaker.copyLink(file);
+                    this.cardContainer.cardMaker.copyLink(card.file);
                 });
         });
 
@@ -222,7 +245,7 @@ export class CardNavigatorView extends ItemView {
                 .setTitle(t('COPY_CARD_CONTENT'))
                 .setIcon('file-text')
                 .onClick(async () => {
-                    await this.cardContainer.cardMaker.copyCardContent(file);
+                    await this.cardContainer.cardMaker.copyCardContent(card.file);
                 });
         });
 
@@ -232,12 +255,12 @@ export class CardNavigatorView extends ItemView {
 
     // 키보드 네비게이터 포커스 메서드
     public focusNavigator() {
-        this.cardContainer.focusNavigator();
+        this.cardContainer.focusKeyboardNavigator();
     }
 
     // 포커스된 카드 요소 반환 메서드
     private getFocusedCard(): HTMLElement | null {
-        return this.containerEl.querySelector('.card-navigator-card.card-navigator-focused');
+        return this.containerEl.querySelector('.card-navigator-card.card-focused');
     }
     //#endregion
 
@@ -349,6 +372,7 @@ export class CardNavigatorView extends ItemView {
                     break;
                 case RefreshType.SETTINGS:
                     // 설정 업데이트 후 카드 다시 로드
+                    // this.cardContainer.updateSettings(this.plugin.settings);
                     this.cardContainer.updateSettings(this.plugin.settings);
                     // 설정 변경 후 카드 로드는 다음 프레임에서 수행
                     requestAnimationFrame(async () => {
@@ -358,14 +382,24 @@ export class CardNavigatorView extends ItemView {
                 case RefreshType.LAYOUT:
                     // 레이아웃만 업데이트
                     requestAnimationFrame(() => {
-                        this.cardContainer.handleResize();
+                        // this.cardContainer.handleResize();
+                        this.cardContainer.refreshLayout();
                     });
                     break;
                 case RefreshType.CONTENT:
-                    // 카드 내용 업데이트
-                    requestAnimationFrame(async () => {
-                        await this.cardContainer.loadCards();
-                    });
+                    // 현재 활성화된 파일 가져오기
+                    const activeFile = this.plugin.app.workspace.getActiveFile();
+                    if (activeFile) {
+                        // 활성 파일에 해당하는 카드만 업데이트
+                        requestAnimationFrame(() => {
+                            this.cardContainer.updateCardContent(activeFile.path);
+                        });
+                    } else {
+                        // 활성 파일이 없으면 모든 카드 다시 로드
+                        requestAnimationFrame(async () => {
+                            await this.cardContainer.loadCards();
+                        });
+                    }
                     break;
             }
         } catch (error) {
@@ -434,9 +468,7 @@ export class CardNavigatorView extends ItemView {
                 
                 // 레이아웃 매니저 업데이트
                 if (this.cardContainer.layoutManager) {
-                    this.cardContainer.layoutManager.setContainer(containerEl).catch(e => {
-                        console.error('레이아웃 매니저 컨테이너 설정 중 오류:', e);
-                    });
+                    this.cardContainer.layoutManager.setContainer(containerEl);
                     
                     const layoutConfig = this.cardContainer.layoutManager.getLayoutConfig();
                     if (layoutConfig) {
@@ -450,15 +482,33 @@ export class CardNavigatorView extends ItemView {
                         
                         // 레이아웃 업데이트는 다음 프레임에서 수행
                         requestAnimationFrame(() => {
-                            this.cardContainer.layoutManager.updateLayout(navigatorWidth, containerHeight);
+                            this.cardContainer.layoutManager.updateLayout(
+                                this.cardContainer.cards,
+                                navigatorWidth, 
+                                containerHeight
+                            );
                         });
                     }
                 }
                 
+                // this.cardContainer.setContainerHeight(containerHeight);
                 this.cardContainer.setContainerHeight(containerHeight);
             }
         } catch (error) {
             console.error('컨테이너 높이 업데이트 중 오류 발생:', error);
         }
+    }
+
+    /**
+     * 특정 파일의 내용이 변경되었을 때 해당 카드만 업데이트합니다.
+     * @param file 변경된 파일
+     */
+    public refreshFileContent(file: TFile): void {
+        if (!this.cardContainer || !file) return;
+        
+        // 파일 경로를 카드 ID로 사용하여 해당 카드만 업데이트
+        requestAnimationFrame(() => {
+            this.cardContainer.updateCardContent(file.path);
+        });
     }
 }

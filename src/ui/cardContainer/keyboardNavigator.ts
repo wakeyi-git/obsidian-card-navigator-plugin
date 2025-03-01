@@ -1,9 +1,17 @@
 import { Menu, MenuItem, debounce } from 'obsidian';
 import CardNavigatorPlugin from 'main';
-import { CardContainer } from './cardContainer';
 import { t } from 'i18next';
 import { LayoutManager } from 'layouts/layoutManager';
 import { TFile } from 'obsidian';
+
+// 키보드 내비게이션에 필요한 인터페이스 정의
+export interface KeyboardNavigationHost {
+    getLayoutManager(): LayoutManager;
+    getContainerElement(): HTMLElement;
+    getFileFromCard(cardElement: HTMLElement): TFile | null;
+    centerCard(cardElement: HTMLElement, smooth: boolean): void;
+    openFile(file: TFile): void;
+}
 
 // KeyboardNavigator class to handle keyboard navigation for the card container
 export class KeyboardNavigator {
@@ -12,15 +20,20 @@ export class KeyboardNavigator {
     private previousFocusedCardIndex: number | null = null;
     private isFocused = false;
     private mutationObserver: MutationObserver | null = null;
+    private containerEl: HTMLElement;
+    private plugin: CardNavigatorPlugin;
+    private navigationHost: KeyboardNavigationHost;
     //#endregion
 
     //#region 초기화 및 정리
     // 생성자: 키보드 네비게이터 초기화
     constructor(
-        private plugin: CardNavigatorPlugin,
-        private cardContainer: CardContainer,
-        private containerEl: HTMLElement
+        plugin: CardNavigatorPlugin,
+        navigationHost: KeyboardNavigationHost,
+        containerEl: HTMLElement
     ) {
+        this.plugin = plugin;
+        this.navigationHost = navigationHost;
         this.containerEl = containerEl;
         this.setupKeyboardEvents();
     }
@@ -185,8 +198,9 @@ export class KeyboardNavigator {
         if (totalCards === 0) return;
 
         // 레이아웃 방향 확인
-        const isVertical = this.cardContainer.layoutManager.getLayoutDirection() === 'vertical';
-        const columnsCount = this.cardContainer.layoutManager.getColumnsCount();
+        const layoutManager = this.getLayoutManager();
+        const isVertical = layoutManager.getLayoutDirection() === 'vertical';
+        const columnsCount = layoutManager.getColumns();
 
         // 그리드 레이아웃인 경우 (열 수가 1보다 큰 경우)
         if (columnsCount > 1) {
@@ -237,186 +251,229 @@ export class KeyboardNavigator {
     // 그리드 레이아웃에서 포커스 이동
     private moveInGrid(direction: 'up' | 'down' | 'left' | 'right', totalCards: number): void {
         if (this.focusedCardIndex === null) return;
-        
-        const columns = this.cardContainer.layoutManager.getLayoutConfig().getColumns();
-        const currentRow = Math.floor(this.focusedCardIndex / columns);
-        const currentCol = this.focusedCardIndex % columns;
-        
-        let newRow = currentRow;
-        let newCol = currentCol;
-        
+
+        const layoutManager = this.getLayoutManager();
+        const columnsCount = layoutManager.getColumns();
+        const rowsCount = Math.ceil(totalCards / columnsCount);
+
+        // 현재 행과 열 계산
+        const currentRow = Math.floor(this.focusedCardIndex / columnsCount);
+        const currentCol = this.focusedCardIndex % columnsCount;
+
+        let rowDelta = 0;
+        let colDelta = 0;
+
         switch (direction) {
             case 'up':
-                newRow = Math.max(0, currentRow - 1);
+                rowDelta = -1;
                 break;
             case 'down':
-                newRow = Math.min(Math.floor((totalCards - 1) / columns), currentRow + 1);
+                rowDelta = 1;
                 break;
             case 'left':
-                newCol = Math.max(0, currentCol - 1);
+                colDelta = -1;
                 break;
             case 'right':
-                newCol = Math.min(columns - 1, currentCol + 1);
+                colDelta = 1;
                 break;
         }
-        
-        const newIndex = newRow * columns + newCol;
-        this.focusedCardIndex = this.ensureValidIndex(newIndex);
+
+        this.focusedCardIndex = this.calculateGridIndex(rowDelta, colDelta, totalCards);
     }
-    
+
     // 리스트 레이아웃에서 포커스 이동
     private moveInList(direction: 'up' | 'down' | 'left' | 'right', totalCards: number, isVertical: boolean): void {
         if (this.focusedCardIndex === null) return;
-        
+
+        let delta = 0;
+
         if (isVertical) {
-            // 수직 레이아웃에서는 위/아래가 주 이동 방향
+            // 세로 레이아웃
             switch (direction) {
                 case 'up':
-                case 'left':
-                    this.focusedCardIndex = this.ensureValidIndex(this.focusedCardIndex - 1);
+                    delta = -1;
                     break;
                 case 'down':
-                case 'right':
-                    this.focusedCardIndex = this.ensureValidIndex(this.focusedCardIndex + 1);
+                    delta = 1;
                     break;
+                // 가로 방향 키는 무시
+                case 'left':
+                case 'right':
+                    return;
             }
         } else {
-            // 수평 레이아웃에서는 좌/우가 주 이동 방향
+            // 가로 레이아웃
             switch (direction) {
-                case 'up':
                 case 'left':
-                    this.focusedCardIndex = this.ensureValidIndex(this.focusedCardIndex - 1);
+                    delta = -1;
                     break;
-                case 'down':
                 case 'right':
-                    this.focusedCardIndex = this.ensureValidIndex(this.focusedCardIndex + 1);
+                    delta = 1;
                     break;
+                // 세로 방향 키는 무시
+                case 'up':
+                case 'down':
+                    return;
+            }
+        }
+
+        this.focusedCardIndex = this.calculateListIndex(0, delta, totalCards);
+    }
+
+    // 그리드 인덱스 계산
+    private calculateGridIndex(rowDelta: number, colDelta: number, totalCards: number): number {
+        if (this.focusedCardIndex === null) return 0;
+
+        const layoutManager = this.getLayoutManager();
+        const columnsCount = layoutManager.getColumns();
+        const rowsCount = Math.ceil(totalCards / columnsCount);
+
+        // 현재 행과 열 계산
+        const currentRow = Math.floor(this.focusedCardIndex / columnsCount);
+        const currentCol = this.focusedCardIndex % columnsCount;
+
+        // 새 행과 열 계산
+        let newRow = currentRow + rowDelta;
+        let newCol = currentCol + colDelta;
+
+        // 범위 검사
+        newRow = Math.max(0, Math.min(rowsCount - 1, newRow));
+        newCol = Math.max(0, Math.min(columnsCount - 1, newCol));
+
+        // 새 인덱스 계산
+        let newIndex = newRow * columnsCount + newCol;
+
+        // 마지막 행의 경우 열 범위 추가 검사
+        if (newRow === rowsCount - 1) {
+            const lastRowCols = totalCards % columnsCount || columnsCount;
+            if (newCol >= lastRowCols) {
+                newCol = lastRowCols - 1;
+                newIndex = newRow * columnsCount + newCol;
+            }
+        }
+
+        // 유효 범위 확인
+        return this.ensureValidIndex(newIndex);
+    }
+
+    // 리스트 인덱스 계산
+    private calculateListIndex(rowDelta: number, colDelta: number, totalCards: number): number {
+        if (this.focusedCardIndex === null) return 0;
+        const newIndex = this.focusedCardIndex + colDelta + rowDelta;
+        return this.ensureValidIndex(newIndex);
+    }
+
+    // 유효한 인덱스 확인
+    private ensureValidIndex(index: number): number {
+        const totalCards = this.containerEl.children.length;
+        return Math.max(0, Math.min(totalCards - 1, index));
+    }
+
+    // 포커스된 카드로 스크롤
+    private scrollToFocusedCard(immediate = false) {
+        if (this.focusedCardIndex === null) return;
+        
+        const cardElement = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
+        if (cardElement) {
+            // immediate 파라미터를 활용하여 부드러운 스크롤 여부 결정
+            this.navigationHost.centerCard(cardElement, !immediate);
+        }
+    }
+
+    // 포커스된 카드 열기
+    private openFocusedCard() {
+        if (this.focusedCardIndex === null) return;
+        const cardElement = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
+        if (cardElement) {
+            const file = this.getFileFromCard(cardElement);
+            if (file) {
+                this.openFile(file);
             }
         }
     }
     //#endregion
 
     //#region 유틸리티 메서드
-    // 그리드 레이아웃의 인덱스 계산
-    private calculateGridIndex(rowDelta: number, colDelta: number, totalCards: number): number {
-        const columns = this.cardContainer.layoutManager.getLayoutConfig().getColumns();
-        
-        // 열 수가 1이면 리스트 방식으로 계산
-        if (columns <= 1) {
-            return this.calculateListIndex(rowDelta, colDelta, totalCards);
-        }
-        
-        const currentRow = Math.floor((this.focusedCardIndex ?? 0) / columns);
-        const currentCol = (this.focusedCardIndex ?? 0) % columns;
-
-        let newRow = currentRow + rowDelta;
-        let newCol = currentCol + colDelta;
-
-        if (newCol < 0) {
-            newRow--;
-            newCol = columns - 1;
-        } else if (newCol >= columns) {
-            newRow++;
-            newCol = 0;
-        }
-
-        const newIndex = newRow * columns + newCol;
-        return newIndex >= 0 && newIndex < totalCards ? newIndex : this.focusedCardIndex ?? 0;
-    }
-
-    // 리스트 레이아웃의 인덱스 계산
-    private calculateListIndex(rowDelta: number, colDelta: number, totalCards: number): number {
-        const newIndex = (this.focusedCardIndex ?? 0) + rowDelta + colDelta;
-        return newIndex >= 0 && newIndex < totalCards ? newIndex : this.focusedCardIndex ?? 0;
-    }
-
-    // 유효한 인덱스 범위 확인
-    private ensureValidIndex(index: number): number {
-        const totalCards = this.containerEl.children.length;
-        return Math.max(0, Math.min(index, totalCards - 1));
-    }
-
-    // 포커스된 카드로 스크롤
-    private scrollToFocusedCard(immediate = false) {
-        if (this.focusedCardIndex === null || !this.containerEl) return;
-
-        const focusedCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
-        this.cardContainer.centerCard(focusedCard, !immediate);
-    }
-
-    // 포커스된 카드 열기
-    private openFocusedCard() {
-        try {
-            if (!this.containerEl || this.focusedCardIndex === null) return;
-            const focusedCard = this.containerEl.children[this.focusedCardIndex] as HTMLElement;
-            if (!focusedCard) return;
-            
-            const file = this.cardContainer.getFileFromCard(focusedCard);
-            if (file) {
-                this.plugin.app.workspace.getLeaf().openFile(file);
-            }
-        } catch (error) {
-            console.error('An error occurred while opening the card:', error);
-        }
-    }
-
-    // 활성 카드의 인덱스 찾기
+    // 활성 카드 인덱스 찾기
     private findActiveCardIndex(): number {
-        if (!this.containerEl) return -1;
-        return Array.from(this.containerEl.children).findIndex(
-            child => child instanceof HTMLElement && child.classList?.contains('card-navigator-active')
-        );
+        const activeCard = this.containerEl.querySelector('.card-active');
+        if (activeCard) {
+            return Array.from(this.containerEl.children).indexOf(activeCard);
+        }
+        return -1;
     }
 
-    // 첫 번째 보이는 카드의 인덱스 찾기
+    // 첫 번째 보이는 카드 인덱스 찾기
     private findFirstVisibleCardIndex(): number | null {
-        if (!this.containerEl) return null;
         const containerRect = this.containerEl.getBoundingClientRect();
+        
         for (let i = 0; i < this.containerEl.children.length; i++) {
-            const card = this.containerEl.children[i] as HTMLElement;
-            if (card) {
-                const cardRect = card.getBoundingClientRect();
-                if (this.isCardVisible(cardRect, containerRect)) {
-                    return i;
-                }
+            const cardElement = this.containerEl.children[i] as HTMLElement;
+            const cardRect = cardElement.getBoundingClientRect();
+            
+            if (this.isCardVisible(cardRect, containerRect)) {
+                return i;
             }
         }
+        
         return null;
     }
 
-    // 카드가 컨테이너 내에서 보이는지 확인
+    // 카드가 보이는지 확인
     private isCardVisible(cardRect: DOMRect, containerRect: DOMRect): boolean {
-        return (
-            cardRect.top >= containerRect.top &&
-            cardRect.bottom <= containerRect.bottom &&
-            cardRect.left >= containerRect.left &&
-            cardRect.right <= containerRect.right
+        const isVisible = (
+            cardRect.top < containerRect.bottom &&
+            cardRect.bottom > containerRect.top &&
+            cardRect.left < containerRect.right &&
+            cardRect.right > containerRect.left
         );
+        
+        return isVisible;
     }
 
-    // DOM 변경 감지를 위한 MutationObserver 설정
+    // 뮤테이션 옵저버 설정
     private setupMutationObserver() {
         if (this.mutationObserver) {
             this.mutationObserver.disconnect();
         }
-
+        
         this.mutationObserver = new MutationObserver((mutations) => {
+            let needsUpdate = false;
+            
             for (const mutation of mutations) {
-                if (mutation.type === 'childList' && this.isFocused) {
-                    requestAnimationFrame(() => {
-                        this.updateFocusedCardImmediate();
-                    });
+                if (mutation.type === 'childList' || 
+                    (mutation.type === 'attributes' && mutation.attributeName === 'class')) {
+                    needsUpdate = true;
                     break;
                 }
             }
+            
+            if (needsUpdate) {
+                this.updateFocusedCard();
+            }
         });
+        
+        this.mutationObserver.observe(this.containerEl, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class']
+        });
+    }
 
-        if (this.containerEl) {
-            this.mutationObserver.observe(this.containerEl, {
-                childList: true,
-                subtree: false
-            });
-        }
+    // 레이아웃 매니저 가져오기
+    private getLayoutManager(): LayoutManager {
+        return this.navigationHost.getLayoutManager();
+    }
+
+    // 카드에서 파일 가져오기
+    private getFileFromCard(cardElement: HTMLElement): TFile | null {
+        return this.navigationHost.getFileFromCard(cardElement);
+    }
+
+    // 파일 열기
+    private openFile(file: TFile): void {
+        this.navigationHost.openFile(file);
     }
     //#endregion
 }

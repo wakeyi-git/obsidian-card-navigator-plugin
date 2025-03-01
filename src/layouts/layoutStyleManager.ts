@@ -1,25 +1,20 @@
 import { CardNavigatorSettings } from 'common/types';
-import { LAYOUT_CLASSES, LayoutDirection } from './layoutStrategy';
+import { LayoutDirection } from './layoutStrategy';
+import { LayoutConfig } from './layoutConfig';
 
 /**
- * 레이아웃 스타일을 관리하는 클래스
+ * 레이아웃 관련 스타일을 적용하고 관리하는 클래스
  * 
- * 이 클래스는 레이아웃 관련 스타일을 적용하고 관리합니다.
- * 컨테이너와 카드 요소의 스타일을 설정합니다.
+ * 이 클래스는 레이아웃 관련 스타일을 생성하고 적용하는 역할을 담당합니다.
+ * 컨테이너와 카드의 스타일을 관리합니다.
  */
 export class LayoutStyleManager {
-    private container: HTMLElement | null = null;
     private settings: CardNavigatorSettings;
+    private layoutConfig: LayoutConfig;
 
-    constructor(settings: CardNavigatorSettings) {
+    constructor(settings: CardNavigatorSettings, layoutConfig: LayoutConfig) {
         this.settings = settings;
-    }
-
-    /**
-     * 컨테이너를 설정합니다.
-     */
-    setContainer(container: HTMLElement): void {
-        this.container = container;
+        this.layoutConfig = layoutConfig;
     }
 
     /**
@@ -30,95 +25,117 @@ export class LayoutStyleManager {
     }
 
     /**
-     * 컨테이너 스타일을 적용합니다.
-     * @param direction 레이아웃 방향
+     * LayoutConfig를 설정합니다.
      */
-    public applyContainerStyle(direction: LayoutDirection): void {
-        if (!this.container) {
-            console.warn('[LayoutStyleManager] 컨테이너가 없어 스타일을 적용할 수 없습니다.');
-            return;
-        }
+    setLayoutConfig(layoutConfig: LayoutConfig): void {
+        this.layoutConfig = layoutConfig;
+    }
+
+    /**
+     * 컨테이너 스타일을 적용합니다.
+     */
+    applyContainerStyle(container: HTMLElement, direction: LayoutDirection, columns: number, cardWidth: number): void {
+        const style = this.getContainerStyle();
         
-        // 컨테이너 패딩 설정
-        const padding = this.settings.containerPadding;
-        this.container.style.padding = `${padding}px`;
+        Object.entries(style).forEach(([key, value]) => {
+            container.style.setProperty(key, value);
+        });
         
-        // 카드 간격 설정
-        const gap = this.settings.cardGap;
-        this.container.style.setProperty('--card-gap', `${gap}px`);
+        // 방향에 따른 클래스 설정
+        container.classList.toggle('is-vertical', direction === 'vertical');
+        container.classList.toggle('is-horizontal', direction === 'horizontal');
         
-        // 컨테이너 방향 설정
-        const isVertical = direction === 'vertical';
-        this.container.classList.toggle(LAYOUT_CLASSES.VERTICAL, isVertical);
-        this.container.classList.toggle(LAYOUT_CLASSES.HORIZONTAL, !isVertical);
+        // CSS 변수 설정
+        container.style.setProperty('--columns', columns.toString());
+        container.style.setProperty('--card-width', `${cardWidth}px`);
         
-        // 카드 높이 정렬 설정
-        this.container.classList.toggle(LAYOUT_CLASSES.ALIGN_HEIGHT, this.settings.alignCardHeight);
-        this.container.classList.toggle(LAYOUT_CLASSES.FLEXIBLE_HEIGHT, !this.settings.alignCardHeight);
+        // 이미 :root에 정의된 CSS 변수를 사용하므로 여기서는 설정하지 않음
+        // container.style.setProperty('--card-gap', `${this.layoutConfig.getCardGap()}px`);
+        // container.style.setProperty('--container-padding', `${this.layoutConfig.getContainerPadding()}px`);
         
-        // 컨테이너 패딩 CSS 변수 설정 (다른 컴포넌트에서 참조할 수 있도록)
-        this.container.style.setProperty('--container-padding', `${padding}px`);
+        container.style.setProperty('--is-vertical', direction === 'vertical' ? '1' : '0');
     }
 
     /**
      * 컨테이너 스타일을 가져옵니다.
-     * @param direction 레이아웃 방향
-     * @returns 컨테이너 스타일 객체
      */
-    public getContainerStyle(direction: LayoutDirection): Partial<CSSStyleDeclaration> {
-        // 기본 컨테이너 스타일 설정
-        const style: Partial<CSSStyleDeclaration> = {
-            position: 'relative',
-            overflow: 'auto',
-            padding: `${this.settings.containerPadding}px`,
+    getContainerStyle(): Record<string, string> {
+        return {
+            'display': 'grid',
+            'grid-gap': 'var(--card-gap, 10px)',
+            'padding': 'var(--container-padding, 10px)',
+            'box-sizing': 'border-box',
+            'width': '100%',
+            'height': '100%',
+            'overflow': 'auto'
         };
-        
-        return style;
     }
 
     /**
      * 카드 스타일을 가져옵니다.
      */
-    getCardStyle(): Partial<CSSStyleDeclaration> {
-        return {
-            boxSizing: 'border-box',
-            padding: 'var(--size-4-4)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            borderRadius: 'var(--radius-m)',
-            border: 'var(--border-width) solid var(--background-modifier-border)',
-            backgroundColor: 'var(--background-primary)',
-            position: 'absolute',
-            left: '0',
-            top: '0',
-            transition: 'transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1), width 0.35s cubic-bezier(0.25, 0.1, 0.25, 1), height 0.3s ease',
-            willChange: 'transform, width'
+    getCardStyle(cardWidth: number, cardHeight: number | 'auto'): Record<string, string> {
+        const style: Record<string, string> = {
+            'width': `${cardWidth}px`,
+            'min-width': `${cardWidth}px`,
+            'max-width': `${cardWidth}px`,
         };
+        
+        if (cardHeight !== 'auto') {
+            style['height'] = `${cardHeight}px`;
+            style['min-height'] = `${cardHeight}px`;
+            style['max-height'] = `${cardHeight}px`;
+        }
+        
+        return style;
     }
 
     /**
      * 레이아웃 스타일을 업데이트합니다.
-     * @param direction 레이아웃 방향
-     * @param columns 열 수
-     * @param cardWidth 카드 너비
      */
-    public updateLayoutStyles(direction: LayoutDirection, columns: number, cardWidth: number): void {
-        if (!this.container) {
-            console.warn('[LayoutStyleManager] 컨테이너가 없어 레이아웃 스타일을 업데이트할 수 없습니다.');
-            return;
+    updateLayoutStyles(container: HTMLElement, direction: LayoutDirection, columns: number, cardWidth: number): void {
+        this.applyContainerStyle(container, direction, columns, cardWidth);
+    }
+
+    /**
+     * 카드 포커스 스타일을 적용합니다.
+     */
+    applyCardFocusStyle(cardElement: HTMLElement, isFocused: boolean): void {
+        if (isFocused) {
+            cardElement.classList.add('card-focused');
+        } else {
+            cardElement.classList.remove('card-focused');
+        }
+    }
+
+    /**
+     * 카드 활성화 스타일을 적용합니다.
+     */
+    applyCardActiveStyle(cardElement: HTMLElement, isActive: boolean): void {
+        if (isActive) {
+            cardElement.classList.add('card-active');
+        } else {
+            cardElement.classList.remove('card-active');
+        }
+    }
+
+    /**
+     * 카드 위치 스타일을 적용합니다.
+     */
+    applyCardPositionStyle(cardElement: HTMLElement, left: number, top: number, width: number, height: number | 'auto'): void {
+        cardElement.style.position = 'absolute';
+        cardElement.style.left = `${left}px`;
+        cardElement.style.top = `${top}px`;
+        cardElement.style.width = `${width}px`;
+        
+        if (height === 'auto') {
+            cardElement.style.height = 'auto';
+        } else {
+            cardElement.style.height = `${height}px`;
         }
         
-        // 컨테이너 스타일 적용
-        this.applyContainerStyle(direction);
-        
-        // 레이아웃 관련 CSS 변수 설정
-        // 정확한 카드 너비를 설정하여 모든 카드가 동일한 너비를 갖도록 합니다.
-        this.container.style.setProperty('--card-width', `${cardWidth}px`);
-        this.container.style.setProperty('--columns', `${columns}`);
-        
-        // 레이아웃 방향에 따른 추가 스타일 설정
-        const isVertical = direction === 'vertical';
-        this.container.style.setProperty('--layout-direction', isVertical ? 'column' : 'row');
+        cardElement.style.visibility = 'visible';
+        cardElement.style.opacity = '1';
+        cardElement.style.transition = 'left 0.3s ease, top 0.3s ease, opacity 0.3s ease';
     }
 } 

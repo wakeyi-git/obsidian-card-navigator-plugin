@@ -98,7 +98,11 @@ export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavig
                         // 강제로 카드 다시 렌더링을 위해 cards 배열 초기화
                         view.cardContainer.cards = [];
                         
-                        await view.cardContainer.displayFilesAsCards(resortedResults);
+                        if (view.cardContainer.displayFilesAsCards) {
+                            await view.cardContainer.displayFilesAsCards(resortedResults);
+                        } else {
+                            await view.cardContainer.loadFiles(resortedResults);
+                        }
                     } else {
                         // 검색 결과가 없다면 일반 새로고침
                         await view.refresh(RefreshType.CONTENT);

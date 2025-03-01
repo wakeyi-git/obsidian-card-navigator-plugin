@@ -1,258 +1,290 @@
 import { CardNavigatorSettings } from 'common/types';
 import { LayoutConfig } from 'layouts/layoutConfig';
+import { LayoutDirection } from 'layouts/layoutStrategy';
+import { Component } from 'obsidian';
+import { LayoutManager } from 'layouts/layoutManager';
 
-export class Scroller {
+/**
+ * 스크롤 관련 기능을 제공하는 클래스
+ * 
+ * 이 클래스는 카드 컨테이너의 스크롤 동작을 관리합니다.
+ * 스크롤 방향, 속도, 스냅 등의 기능을 제공합니다.
+ */
+export class Scroller extends Component {
+    private container: HTMLElement;
+    private settings: CardNavigatorSettings;
     private layoutConfig: LayoutConfig;
-    private currentAnimationFrame: number | null = null;
+    private isScrolling: boolean = false;
+    private scrollTimeout: NodeJS.Timeout | null = null;
+    private lastScrollPosition: { left: number, top: number } = { left: 0, top: 0 };
+    private scrollDirection: 'horizontal' | 'vertical' | null = null;
+    private layoutManager: LayoutManager;
 
-    constructor(
-        private containerEl: HTMLElement,
-        private settings: CardNavigatorSettings,
-        private isVerticalGetter: () => boolean,
-        private getCardsCount: () => number
-    ) {
-        this.layoutConfig = new LayoutConfig(settings);
-        this.layoutConfig.setContainer(containerEl);
+    constructor(container: HTMLElement, settings: CardNavigatorSettings, layoutConfig: LayoutConfig, layoutManager: LayoutManager) {
+        super();
+        this.container = container;
+        this.settings = settings;
+        this.layoutConfig = layoutConfig;
+        this.layoutManager = layoutManager;
+        this.initScrollListeners();
     }
 
-    // 활성 카드로 스크롤 메서드
-    public scrollToActiveCard(animate = true) {
-        if (!this.containerEl) return;
-        const activeCard = this.containerEl.querySelector('.card-navigator-active') as HTMLElement | null;
-        if (!activeCard) return;
+    /**
+     * 설정을 업데이트합니다.
+     */
+    updateSettings(settings: CardNavigatorSettings): void {
+        this.settings = settings;
+    }
 
-        // enableScrollAnimation 설정을 고려하여 애니메이션 적용 여부 결정
-        const shouldAnimate = animate && this.settings.enableScrollAnimation;
+    /**
+     * 레이아웃 설정을 업데이트합니다.
+     */
+    setLayoutConfig(layoutConfig: LayoutConfig): void {
+        this.layoutConfig = layoutConfig;
+    }
+
+    /**
+     * 스크롤 리스너를 초기화합니다.
+     */
+    private initScrollListeners(): void {
+        this.container.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
+        this.container.addEventListener('scroll', this.handleScroll.bind(this));
+    }
+
+    /**
+     * 스크롤 이벤트를 처리합니다.
+     */
+    private handleScroll(): void {
+        const currentPosition = {
+            left: this.container.scrollLeft,
+            top: this.container.scrollTop
+        };
+
+        // 스크롤 방향 감지
+        if (currentPosition.left !== this.lastScrollPosition.left) {
+            this.scrollDirection = 'horizontal';
+        } else if (currentPosition.top !== this.lastScrollPosition.top) {
+            this.scrollDirection = 'vertical';
+        }
+
+        this.lastScrollPosition = currentPosition;
+    }
+
+    /**
+     * 휠 이벤트를 처리합니다.
+     * @param event 휠 이벤트
+     */
+    private handleWheel(event: WheelEvent): void {
+        // 스크롤 방향 결정
+        const isHorizontal = this.layoutConfig.getLayoutDirection() === 'horizontal';
         
-        // 카드가 완전히 렌더링될 때까지 약간 지연 후 중앙 정렬 시도
-        // 특히 HTML 렌더링이 활성화된 경우 중요
-        if (this.settings.renderContentAsHtml) {
-            // 즉시 한 번 중앙 정렬 시도
-            this.centerCard(activeCard, shouldAnimate);
-            
-            // 약간의 지연 후 다시 중앙 정렬 시도 (렌더링 완료 후)
-            setTimeout(() => {
-                this.centerCard(activeCard, shouldAnimate);
-                
-                // 추가 보정을 위한 두 번째 시도 (특히 이미지가 있는 경우)
-                setTimeout(() => {
-                    this.centerCard(activeCard, shouldAnimate);
-                }, 100);
-            }, 50);
-        } else {
-            // HTML 렌더링이 비활성화된 경우 즉시 중앙 정렬
-            this.centerCard(activeCard, shouldAnimate);
+        // 스크롤 델타 계산
+        const delta = event.deltaY || event.deltaX;
+        
+        // 스크롤 방향에 따라 처리
+        if (isHorizontal) {
+            event.preventDefault();
+            this.container.scrollLeft += delta;
         }
     }
 
-    // 카드 중앙 정렬 메서드
-    public centerCard(card: HTMLElement, animate = true) {
-        if (!this.containerEl) return;
-
-        // 스크롤 조정 함수
-        const adjustScroll = () => {
-            const containerRect = this.containerEl.getBoundingClientRect();
-            const cardRect = card.getBoundingClientRect();
-
-            let offset = 0;
-            let scrollProperty: 'scrollTop' | 'scrollLeft';
-            const isVertical = this.isVerticalGetter();
-            
-            // 컨테이너 패딩 가져오기
-            const containerPadding = this.layoutConfig.getContainerPadding();
-
-            if (isVertical) {
-                // 컨테이너의 실제 가시 영역 높이 (패딩 제외)
-                const containerVisibleHeight = containerRect.height - (containerPadding * 2);
-                
-                // 카드의 중앙이 컨테이너의 중앙에 오도록 계산
-                // 컨테이너 상단 + 패딩 + (가시 영역 높이 - 카드 높이) / 2 = 카드가 위치해야 할 곳
-                const targetCardTop = containerRect.top + containerPadding + (containerVisibleHeight - cardRect.height) / 2;
-                
-                // 현재 카드 위치와 목표 위치의 차이 계산
-                offset = cardRect.top - targetCardTop;
-                scrollProperty = 'scrollTop';
-            } else {
-                // 컨테이너의 실제 가시 영역 너비 (패딩 제외)
-                const containerVisibleWidth = containerRect.width - (containerPadding * 2);
-                
-                // 카드의 중앙이 컨테이너의 중앙에 오도록 계산
-                // 컨테이너 좌측 + 패딩 + (가시 영역 너비 - 카드 너비) / 2 = 카드가 위치해야 할 곳
-                const targetCardLeft = containerRect.left + containerPadding + (containerVisibleWidth - cardRect.width) / 2;
-                
-                // 현재 카드 위치와 목표 위치의 차이 계산
-                offset = cardRect.left - targetCardLeft;
-                scrollProperty = 'scrollLeft';
-            }
-
-            const newScrollPosition = this.containerEl[scrollProperty] + offset;
-
-            // enableScrollAnimation 설정을 고려하여 애니메이션 적용 여부 결정
-            if (animate && this.settings.enableScrollAnimation) {
-                this.smoothScroll(scrollProperty, newScrollPosition);
-            } else {
-                this.containerEl[scrollProperty] = newScrollPosition;
-            }
-        };
-
-        // 초기 스크롤 조정
-        adjustScroll();
-
-        // HTML 렌더링이 활성화되고 높이가 가변적인 경우에만 추가 보정
-        if (this.settings.renderContentAsHtml && !this.settings.alignCardHeight) {
-            let lastOffset = 0;
-            let stabilityCount = 0;
-            const MAX_STABILITY_COUNT = 3;  // 3프레임 동안 안정적이면 완료로 간주
-            const MAX_ADJUSTMENT_TIME = 2000;  // 최대 2초 동안만 조정
-            const startTime = Date.now();
-
-            const recheckPosition = () => {
-                const currentTime = Date.now();
-                if (currentTime - startTime > MAX_ADJUSTMENT_TIME) {
-                    return; // 최대 시간 초과
-                }
-
-                const containerRect = this.containerEl.getBoundingClientRect();
-                const cardRect = card.getBoundingClientRect();
-                
-                // 컨테이너 패딩 가져오기
-                const containerPadding = this.layoutConfig.getContainerPadding();
-                
-                // 스크롤 방향에 따라 중앙 위치 계산
-                const isVertical = this.isVerticalGetter();
-                const containerCenter = isVertical 
-                    ? containerRect.top + containerPadding + (containerRect.height - containerPadding * 2) / 2
-                    : containerRect.left + containerPadding + (containerRect.width - containerPadding * 2) / 2;
-                
-                const cardCenter = isVertical
-                    ? cardRect.top + cardRect.height / 2
-                    : cardRect.left + cardRect.width / 2;
-                
-                const currentOffset = cardCenter - containerCenter;
-
-                // 오차 범위 내에서 위치가 안정적인지 확인
-                if (Math.abs(currentOffset - lastOffset) < 1) {
-                    stabilityCount++;
-                    if (stabilityCount >= MAX_STABILITY_COUNT) {
-                        return; // 안정화 완료
-                    }
-                } else {
-                    stabilityCount = 0;
-                }
-
-                lastOffset = currentOffset;
-                adjustScroll();
-                requestAnimationFrame(recheckPosition);
-            };
-
-            // 다음 프레임에서 위치 재확인 시작
-            requestAnimationFrame(recheckPosition);
-        }
-    }
-
-    // 부드러운 스크롤 메서드
-    private smoothScroll(scrollProperty: 'scrollTop' | 'scrollLeft', targetPosition: number) {
-        if (!this.containerEl) return;
-
-        // 이전 애니메이션이 있다면 취소
-        if (this.currentAnimationFrame !== null) {
-            cancelAnimationFrame(this.currentAnimationFrame);
-        }
-
-        const startPosition = this.containerEl[scrollProperty];
-        const distance = targetPosition - startPosition;
-        const duration = 300; // ms
-        let startTime: number | null = null;
-
-        const animation = (currentTime: number) => {
-            if (startTime === null) startTime = currentTime;
-            const timeElapsed = currentTime - startTime;
-            const progress = Math.min(timeElapsed / duration, 1);
-
-            // easeInOutCubic 이징 함수 사용
-            const easeProgress = progress < 0.5
-                ? 4 * progress * progress * progress
-                : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-            if (this.containerEl) {
-                this.containerEl[scrollProperty] = startPosition + distance * easeProgress;
-            }
-
-            if (progress < 1 && this.containerEl) {
-                this.currentAnimationFrame = requestAnimationFrame(animation);
-            } else {
-                this.currentAnimationFrame = null;
-            }
-        };
-
-        this.currentAnimationFrame = requestAnimationFrame(animation);
-    }
-
-    // 방향별 스크롤 메서드
-    private scrollInDirection(direction: 'up' | 'down' | 'left' | 'right', count = 1) {
-        if (!this.containerEl) return;
-        const { width, height } = this.layoutConfig.getCardSize();
-        const cardsPerColumn = this.settings.cardsPerColumn;
-        const isVertical = this.isVerticalGetter();
+    /**
+     * 가장 가까운 카드로 스냅합니다.
+     */
+    private snapToCard(): void {
+        const direction = this.layoutConfig.getLayoutDirection();
+        const cardWidth = this.layoutConfig.getCardWidth();
+        const cardHeight = this.layoutConfig.getCardHeight();
         const cardGap = this.layoutConfig.getCardGap();
         
-        const cardSize = (isVertical ? height : width) + cardGap;
-        const currentScroll = isVertical ? this.containerEl.scrollTop : this.containerEl.scrollLeft;
-        const totalCards = this.getCardsCount();
-        const totalSize = totalCards * cardSize;
-        const containerSize = isVertical ? this.containerEl.clientHeight : this.containerEl.clientWidth;
+        if (direction === 'horizontal') {
+            this.snapHorizontal(cardWidth, cardGap);
+        } else {
+            this.snapVertical(typeof cardHeight === 'number' ? cardHeight : cardWidth, cardGap);
+        }
+    }
+
+    /**
+     * 가로 방향으로 스냅합니다.
+     */
+    private snapHorizontal(cardWidth: number, cardGap: number): void {
+        const { scrollLeft } = this.container;
+        const itemWidth = cardWidth + cardGap;
+        const index = Math.round(scrollLeft / itemWidth);
+        const targetScrollLeft = index * itemWidth;
         
-        let targetScroll;
-        if (count === cardsPerColumn) { // Page Up/Left or Page Down/Right
-            const currentEdgeCard = Math.floor((currentScroll + (direction === 'down' || direction === 'right' ? containerSize : 0)) / cardSize);
-            if (direction === 'up' || direction === 'left') {
-                if (currentEdgeCard < cardsPerColumn) {
-                    targetScroll = 0; // Scroll to the very start
-                } else {
-                    targetScroll = Math.max(0, (currentEdgeCard - cardsPerColumn) * cardSize);
-                }
-            } else { // down or right
-                if (totalCards - currentEdgeCard < cardsPerColumn) {
-                    targetScroll = totalSize - containerSize; // Scroll to the very end
-                } else {
-                    targetScroll = currentEdgeCard * cardSize;
-                }
-            }
+        this.setScrollPosition(targetScrollLeft, this.container.scrollTop, true);
+    }
+
+    /**
+     * 세로 방향으로 스냅합니다.
+     */
+    private snapVertical(cardHeight: number, cardGap: number): void {
+        const { scrollTop } = this.container;
+        const itemHeight = cardHeight + cardGap;
+        const index = Math.round(scrollTop / itemHeight);
+        const targetScrollTop = index * itemHeight;
+        
+        this.setScrollPosition(this.container.scrollLeft, targetScrollTop, true);
+    }
+
+    /**
+     * 특정 카드로 스크롤합니다.
+     * @param cardElement 스크롤할 카드 요소
+     * @param smooth 부드러운 스크롤 여부
+     */
+    scrollToCard(cardElement: HTMLElement, smooth: boolean = true): void {
+        if (!cardElement) return;
+        
+        const direction = this.layoutConfig.getLayoutDirection();
+        const containerRect = this.container.getBoundingClientRect();
+        const cardRect = cardElement.getBoundingClientRect();
+        
+        let targetLeft = this.container.scrollLeft;
+        let targetTop = this.container.scrollTop;
+        
+        if (direction === 'horizontal') {
+            // 가로 스크롤 계산
+            const cardLeft = cardRect.left - containerRect.left + this.container.scrollLeft;
+            targetLeft = cardLeft - (containerRect.width - cardRect.width) / 2;
         } else {
-            const scrollAmount = cardSize * count;
-            if (direction === 'up' || direction === 'left') {
-                targetScroll = Math.max(0, currentScroll - scrollAmount);
-            } else {
-                targetScroll = Math.min(totalSize - containerSize, currentScroll + scrollAmount);
-            }
+            // 세로 스크롤 계산
+            const cardTop = cardRect.top - containerRect.top + this.container.scrollTop;
+            targetTop = cardTop - (containerRect.height - cardRect.height) / 2;
         }
-
-        // enableScrollAnimation 설정에 따라 스크롤 방식 결정
-        const scrollProperty = isVertical ? 'scrollTop' : 'scrollLeft';
-        if (this.settings.enableScrollAnimation) {
-            this.smoothScroll(scrollProperty, targetScroll);
-        } else {
-            this.containerEl[scrollProperty] = targetScroll;
-        }
+        
+        this.container.scrollTo({
+            left: targetLeft,
+            top: targetTop,
+            behavior: smooth ? 'smooth' : 'auto'
+        });
     }
 
-    // 위로 스크롤 메서드
-    public scrollUp(count = 1) {
-        this.scrollInDirection('up', count);
+    /**
+     * 스크롤 방향을 가져옵니다.
+     */
+    getScrollDirection(): 'horizontal' | 'vertical' | null {
+        return this.scrollDirection;
     }
 
-    // 아래로 스크롤 메서드
-    public scrollDown(count = 1) {
-        this.scrollInDirection('down', count);
+    /**
+     * 현재 스크롤 중인지 여부를 반환합니다.
+     */
+    isCurrentlyScrolling(): boolean {
+        return this.isScrolling;
     }
 
-    // 왼쪽으로 스크롤 메서드
-    public scrollLeft(count = 1) {
-        this.scrollInDirection('left', count);
+    /**
+     * 스크롤 위치를 가져옵니다.
+     */
+    getScrollPosition(): { left: number, top: number } {
+        return {
+            left: this.container.scrollLeft,
+            top: this.container.scrollTop
+        };
     }
 
-    // 오른쪽으로 스크롤 메서드
-    public scrollRight(count = 1) {
-        this.scrollInDirection('right', count);
+    /**
+     * 스크롤 위치를 설정합니다.
+     */
+    setScrollPosition(left: number, top: number, smooth: boolean = false): void {
+        this.container.scrollTo({
+            left,
+            top,
+            behavior: smooth ? 'smooth' : 'auto'
+        });
+    }
+
+    /**
+     * 위로 스크롤합니다.
+     * @param count 스크롤할 단위 수
+     */
+    scrollUp(count: number = 1): void {
+        const direction = this.layoutConfig.getLayoutDirection();
+        const cardHeight = this.layoutConfig.getCardHeight();
+        const cardGap = this.layoutConfig.getCardGap();
+        
+        const scrollUnit = (typeof cardHeight === 'number' ? cardHeight : 200) + cardGap;
+        const currentPosition = this.getScrollPosition();
+        
+        this.setScrollPosition(
+            currentPosition.left,
+            Math.max(0, currentPosition.top - scrollUnit * count),
+            this.settings.enableScrollAnimation
+        );
+    }
+
+    /**
+     * 아래로 스크롤합니다.
+     * @param count 스크롤할 단위 수
+     */
+    scrollDown(count: number = 1): void {
+        const direction = this.layoutConfig.getLayoutDirection();
+        const cardHeight = this.layoutConfig.getCardHeight();
+        const cardGap = this.layoutConfig.getCardGap();
+        
+        const scrollUnit = (typeof cardHeight === 'number' ? cardHeight : 200) + cardGap;
+        const currentPosition = this.getScrollPosition();
+        
+        this.setScrollPosition(
+            currentPosition.left,
+            currentPosition.top + scrollUnit * count,
+            this.settings.enableScrollAnimation
+        );
+    }
+
+    /**
+     * 왼쪽으로 스크롤합니다.
+     * @param count 스크롤할 단위 수
+     */
+    scrollLeft(count: number = 1): void {
+        const cardWidth = this.layoutConfig.getCardWidth();
+        const cardGap = this.layoutConfig.getCardGap();
+        
+        const scrollUnit = cardWidth + cardGap;
+        const currentPosition = this.getScrollPosition();
+        
+        this.setScrollPosition(
+            Math.max(0, currentPosition.left - scrollUnit * count),
+            currentPosition.top,
+            this.settings.enableScrollAnimation
+        );
+    }
+
+    /**
+     * 오른쪽으로 스크롤합니다.
+     * @param count 스크롤할 단위 수
+     */
+    scrollRight(count: number = 1): void {
+        const cardWidth = this.layoutConfig.getCardWidth();
+        const cardGap = this.layoutConfig.getCardGap();
+        
+        const scrollUnit = cardWidth + cardGap;
+        const currentPosition = this.getScrollPosition();
+        
+        this.setScrollPosition(
+            currentPosition.left + scrollUnit * count,
+            currentPosition.top,
+            this.settings.enableScrollAnimation
+        );
+    }
+
+    /**
+     * 스크롤 이벤트 리스너를 등록합니다.
+     */
+    registerScrollEvents(): void {
+        this.container.addEventListener('wheel', this.handleWheel.bind(this));
+    }
+
+    /**
+     * 스크롤 이벤트 리스너를 제거합니다.
+     */
+    unregisterScrollEvents(): void {
+        this.container.removeEventListener('wheel', this.handleWheel.bind(this));
+    }
+
+    public cleanup() {
+        this.container.removeEventListener('wheel', this.handleWheel.bind(this));
+        this.container.removeEventListener('scroll', this.handleScroll.bind(this));
     }
 } 

@@ -1,5 +1,5 @@
 import { TFile } from 'obsidian';
-import { Card } from 'common/types';
+import { Card, CardNavigatorSettings } from 'common/types';
 import { CardMaker } from './cardMaker';
 import { LayoutManager } from 'layouts/layoutManager';
 import CardNavigatorPlugin from 'main';
@@ -8,39 +8,306 @@ import { CardInteractionManager } from './cardInteractionManager';
 
 /**
  * 카드 렌더러 클래스
+ * 
+ * 이 클래스는 카드 렌더링을 담당합니다.
+ * 카드 요소 생성, 업데이트, 배치 등의 기능을 제공합니다.
  */
 export class CardRenderer {
-    private renderedCards: Set<string> = new Set();
+    private container: HTMLElement;
+    private settings: CardNavigatorSettings;
+    private layoutManager: LayoutManager;
+    private cardMaker: CardMaker;
+    private cards: Card[] = [];
     private cardElements: Map<string, HTMLElement> = new Map();
-    private isInitialized: boolean = false;
+    private activeCardId: string | null = null;
+    private focusedCardId: string | null = null;
+    private isRendering: boolean = false;
+    private renderedCards: Set<string> = new Set();
     private cardInteractionManager: CardInteractionManager | null = null;
+    private plugin: CardNavigatorPlugin;
 
     constructor(
-        private containerEl: HTMLElement,
-        private cardMaker: CardMaker,
-        private layoutManager: LayoutManager,
-        private plugin: CardNavigatorPlugin,
+        container: HTMLElement,
+        settings: CardNavigatorSettings,
+        layoutManager: LayoutManager,
+        cardMaker: CardMaker,
         cardInteractionManager?: CardInteractionManager
     ) {
-        this.isInitialized = true;
+        this.container = container;
+        this.settings = settings;
+        this.layoutManager = layoutManager;
+        this.cardMaker = cardMaker;
         this.cardInteractionManager = cardInteractionManager || null;
+        this.plugin = this.cardMaker.getPlugin();
     }
 
+    /**
+     * 설정을 업데이트합니다.
+     */
+    updateSettings(settings: CardNavigatorSettings): void {
+        this.settings = settings;
+    }
+
+    /**
+     * 카드 목록을 설정합니다.
+     */
+    setCards(cards: Card[]): void {
+        this.cards = cards;
+    }
+
+    /**
+     * 카드를 렌더링합니다.
+     * @param cards 렌더링할 카드 목록 (제공되지 않으면 현재 카드 목록 사용)
+     * @param focusedCardId 포커스된 카드 ID
+     * @param activeFile 활성화된 파일
+     */
+    async renderCards(cards?: Card[], focusedCardId?: string | null, activeFile?: TFile): Promise<void> {
+        if (this.isRendering) return;
+        
+        try {
+            this.isRendering = true;
+            
+            // 카드 목록 설정
+            if (cards) {
+                this.cards = cards;
+            }
+            
+            // 포커스된 카드 ID 설정
+            if (focusedCardId !== undefined) {
+                this.focusedCardId = focusedCardId;
+            }
+            
+            // 레이아웃 계산이 필요한지 확인
+            const needsLayoutCalculation = this.checkIfLayoutCalculationNeeded(this.cards);
+            
+            if (needsLayoutCalculation) {
+                // 레이아웃 계산
+                await new Promise<void>((resolve) => {
+                    this.layoutManager.arrangeAsync(resolve);
+                });
+            }
+            
+            // 기존 카드 ID 목록 생성
+            const existingCardIds = new Set<string>();
+            this.cardElements.forEach((_, cardId) => {
+                existingCardIds.add(cardId);
+            });
+            
+            // 카드 렌더링
+            await Promise.all(this.cards.map(async (card) => {
+                existingCardIds.delete(card.id);
+                
+                let cardElement = this.cardElements.get(card.id);
+                
+                if (!cardElement) {
+                    // 새 카드 요소 생성
+                    cardElement = await this.createCardElement(card);
+                    if (cardElement) {
+                        this.cardElements.set(card.id, cardElement);
+                        this.container.appendChild(cardElement);
+                    }
+                } else {
+                    // 기존 카드 요소 업데이트
+                    await this.updateCardContent(cardElement, card);
+                }
+                
+                if (cardElement) {
+                    // 카드 위치 적용
+                    const position = this.layoutManager.getCardPosition(card.id);
+                    if (position) {
+                        this.applyCardPosition(cardElement, position);
+                    }
+                    
+                    // 활성/포커스 상태 업데이트
+                    this.updateCardActiveState(cardElement, card, activeFile, this.focusedCardId);
+                    
+                    // 레이아웃 스타일 적용
+                    if (this.layoutManager) {
+                        this.layoutManager.applyCardActiveStyle(cardElement, card.id === this.activeCardId);
+                        this.layoutManager.applyCardFocusStyle(cardElement, card.id === this.focusedCardId);
+                    }
+                }
+            }));
+            
+            // 제거된 카드 정리
+            existingCardIds.forEach(cardId => {
+                const element = this.cardElements.get(cardId);
+                if (element && element.parentNode === this.container) {
+                    this.container.removeChild(element);
+                }
+                this.cardElements.delete(cardId);
+            });
+        } catch (error) {
+            console.error('카드 렌더링 중 오류 발생:', error);
+        } finally {
+            this.isRendering = false;
+        }
+    }
+
+    /**
+     * 카드 요소를 생성합니다.
+     */
+    private async createCardElement(card: Card): Promise<HTMLElement> {
+        const cardElement = await this.cardMaker.createCardElement(card);
+        
+        // 카드 클릭 이벤트 처리
+        cardElement.addEventListener('click', (event) => {
+            this.handleCardClick(card.id, event);
+        });
+        
+        // 카드 상호작용 설정
+        if (this.cardInteractionManager) {
+            this.cardInteractionManager.setupInteractions(cardElement, card);
+        }
+        
+        return cardElement;
+    }
+
+    /**
+     * 카드 내용을 업데이트합니다.
+     */
+    private async updateCardContent(cardEl: HTMLElement, card: Card): Promise<void> {
+        await this.cardMaker.updateCardContent(cardEl, card);
+    }
+
+    /**
+     * 카드 클릭 이벤트를 처리합니다.
+     */
+    private handleCardClick(cardId: string, event: MouseEvent): void {
+        this.setActiveCard(cardId);
+        
+        // 클릭 이벤트 발생
+        const clickEvent = new CustomEvent('cardClick', {
+            detail: { cardId, originalEvent: event }
+        });
+        this.container.dispatchEvent(clickEvent);
+    }
+
+    /**
+     * 활성 카드를 설정합니다.
+     */
+    setActiveCard(cardId: string | null): void {
+        if (this.activeCardId === cardId) return;
+        
+        // 이전 활성 카드 비활성화
+        if (this.activeCardId) {
+            const prevActiveElement = this.cardElements.get(this.activeCardId);
+            if (prevActiveElement) {
+                this.layoutManager.applyCardActiveStyle(prevActiveElement, false);
+            }
+        }
+        
+        this.activeCardId = cardId;
+        
+        // 새 활성 카드 활성화
+        if (cardId) {
+            const newActiveElement = this.cardElements.get(cardId);
+            if (newActiveElement) {
+                this.layoutManager.applyCardActiveStyle(newActiveElement, true);
+            }
+        }
+    }
+
+    /**
+     * 포커스 카드를 설정합니다.
+     */
+    setFocusedCard(cardId: string | null): void {
+        if (this.focusedCardId === cardId) return;
+        
+        // 이전 포커스 카드 포커스 해제
+        if (this.focusedCardId) {
+            const prevFocusedElement = this.cardElements.get(this.focusedCardId);
+            if (prevFocusedElement) {
+                this.layoutManager.applyCardFocusStyle(prevFocusedElement, false);
+            }
+        }
+        
+        this.focusedCardId = cardId;
+        
+        // 새 포커스 카드 포커스 설정
+        if (cardId) {
+            const newFocusedElement = this.cardElements.get(cardId);
+            if (newFocusedElement) {
+                this.layoutManager.applyCardFocusStyle(newFocusedElement, true);
+            }
+        }
+    }
+
+    /**
+     * 카드 요소를 가져옵니다.
+     */
+    public getCardElement(cardId: string): HTMLElement | undefined {
+        return this.cardElements.get(cardId);
+    }
+
+    /**
+     * 모든 카드 요소를 가져옵니다.
+     */
+    getAllCardElements(): Map<string, HTMLElement> {
+        return this.cardElements;
+    }
+
+    /**
+     * 활성 카드 ID를 가져옵니다.
+     * @returns 활성 카드 ID 또는 null
+     */
+    getActiveCardId(): string | null {
+        return this.activeCardId;
+    }
+
+    /**
+     * 포커스된 카드 ID를 가져옵니다.
+     */
+    getFocusedCardId(): string | null {
+        return this.focusedCardId;
+    }
+
+    /**
+     * 카드 요소를 새로고침합니다.
+     */
+    async refreshCardElement(cardId: string): Promise<void> {
+        const card = this.cards.find(c => c.id === cardId);
+        const cardElement = this.cardElements.get(cardId);
+        
+        if (card && cardElement) {
+            await this.updateCardContent(cardElement, card);
+        }
+    }
+
+    /**
+     * 모든 카드를 새로고침합니다.
+     */
+    async refreshAllCards(): Promise<void> {
+        await this.renderCards();
+    }
+
+    /**
+     * 카드 상호작용 관리자를 설정합니다.
+     */
     public setCardInteractionManager(cardInteractionManager: CardInteractionManager): void {
         this.cardInteractionManager = cardInteractionManager;
     }
 
+    /**
+     * 카드 설정을 업데이트합니다.
+     */
     public updateCardSettings(alignCardHeight: boolean, cardsPerColumn: number): void {
         this.layoutManager.updateCardSettings(alignCardHeight, cardsPerColumn);
     }
 
+    /**
+     * 리소스를 정리합니다.
+     */
     public cleanup(): void {
-        if (this.containerEl) {
-            this.containerEl.empty();
+        if (this.container) {
+            this.container.empty();
             this.resetCardElements();
         }
     }
 
+    /**
+     * 카드 요소를 초기화합니다.
+     */
     public resetCardElements(): void {
         this.cardElements.forEach((element) => {
             if (element && element.parentNode) {
@@ -51,102 +318,100 @@ export class CardRenderer {
         this.cardElements.clear();
         this.renderedCards.clear();
         
-        if (this.containerEl) {
-            const remainingCards = this.containerEl.querySelectorAll('.card-navigator-card');
+        if (this.container) {
+            const remainingCards = this.container.querySelectorAll('.card-navigator-card');
             remainingCards.forEach(card => card.remove());
         }
     }
 
     /**
-     * 카드 목록을 렌더링합니다.
-     * @param cards 렌더링할 카드 목록
-     * @param focusedCardId 포커스된 카드 ID
-     * @param activeFile 활성화된 파일
+     * 포커스된 카드를 초기화합니다.
      */
-    public async renderCards(cards: Card[], focusedCardId?: string | null, activeFile?: TFile): Promise<void> {
-        if (!this.containerEl || !this.isInitialized) {
-            return;
+    public clearFocusedCards() {
+        if (!this.container) return;
+        Array.from(this.container.children).forEach((card) => {
+            card.classList.remove('card-navigator-focused');
+        });
+    }
+
+    /**
+     * 카드 요소에서 파일을 가져옵니다.
+     */
+    public getFileFromCard(cardElement: HTMLElement, cards: Card[]): TFile | null {
+        if (!this.container) return null;
+        const cardIndex = Array.from(this.container.children).indexOf(cardElement);
+        if (cardIndex !== -1 && cardIndex < cards.length) {
+            return cards[cardIndex].file;
+        }
+        return null;
+    }
+
+    /**
+     * 카드 크기를 가져옵니다.
+     */
+    public getCardSize(): { width: number, height: number } {
+        const size = this.layoutManager.getCardSize();
+        return { 
+            width: size.width, 
+            height: typeof size.height === 'number' ? size.height : 0 
+        };
+    }
+
+    /**
+     * 카드의 활성 상태를 업데이트합니다.
+     */
+    private updateCardActiveState(cardEl: HTMLElement, card: Card, activeFile?: TFile, focusedCardId?: string | null): void {
+        if (focusedCardId && card.id === focusedCardId) {
+            cardEl.classList.add('card-focused');
+        } else {
+            cardEl.classList.remove('card-focused');
         }
         
+        if (activeFile && card.file && card.file.path === activeFile.path) {
+            cardEl.classList.add('card-active');
+        } else {
+            cardEl.classList.remove('card-active');
+        }
+    }
+
+    /**
+     * 마크다운 내용을 렌더링합니다.
+     */
+    private async renderMarkdownContent(container: Element, content: string): Promise<void> {
         try {
-            // 레이아웃 계산이 필요한지 확인
-            const needsLayoutCalculation = this.checkIfLayoutCalculationNeeded(cards);
-            
-            if (needsLayoutCalculation) {
-                // 레이아웃 계산
-                this.layoutManager.calculateLayout(cards);
-            }
-            
-            // 카드 렌더링
-            const batchSize = 10;
-            await this.renderCardsBatched(cards, 0, batchSize, focusedCardId, activeFile);
-            
-            // 컨테이너 크기 업데이트
-            const containerSize = this.layoutManager.getLayoutConfig().getContainerSize();
-            if (containerSize) {
-                this.containerEl.style.height = `${containerSize.height}px`;
-                this.containerEl.style.width = `${containerSize.width}px`;
-            }
-            
-            // 더 이상 표시되지 않는 카드 제거
-            this.removeUnusedCards(cards);
+            container.empty();
+            // Obsidian API를 사용하여 마크다운 렌더링
+            await this.plugin.app.workspace.trigger('markdown:render', content, container, '', this.plugin);
         } catch (error) {
-            console.error('카드 렌더링 중 오류 발생:', error);
+            console.error('마크다운 렌더링 중 오류 발생:', error);
+            container.textContent = content;
         }
     }
-    
+
+    /**
+     * 태그 검색 트리거 메서드
+     * @param tagName 태그 이름
+     */
+    private triggerTagSearch(tagName: string): void {
+        // 커스텀 이벤트 생성
+        const event = new CustomEvent('card-navigator-tag-search', {
+            detail: { tagName }
+        });
+        
+        // 이벤트 발생
+        document.dispatchEvent(event);
+    }
+
+    /**
+     * 레이아웃 계산이 필요한지 확인합니다.
+     */
     private checkIfLayoutCalculationNeeded(cards: Card[]): boolean {
-        if (this.renderedCards.size !== cards.length) {
-            return true;
-        }
-        
-        for (const card of cards) {
-            if (!this.renderedCards.has(card.id)) {
-                return true;
-            }
-        }
-        
-        return false;
+        return this.layoutManager.isLayoutCalculationNeeded();
     }
-    
-    private async renderCardsBatched(
-        cards: Card[], 
-        startIndex: number, 
-        batchSize: number, 
-        focusedCardId?: string | null, 
-        activeFile?: TFile
-    ): Promise<void> {
-        const endIndex = Math.min(startIndex + batchSize, cards.length);
-        const batch = cards.slice(startIndex, endIndex);
-        
-        for (const card of batch) {
-            try {
-                const position = this.layoutManager.getCardPosition(card.id);
-                if (position) {
-                    const cardElement = await this.getOrCreateCardElement(card);
-                    this.applyCardPosition(cardElement, position);
-                    this.updateCardActiveState(cardElement, card, activeFile, focusedCardId?.toString());
-                    
-                    // 카드 상호작용 설정
-                    if (this.cardInteractionManager) {
-                        this.cardInteractionManager.setupInteractions(cardElement, card);
-                    }
-                    
-                    this.renderedCards.add(card.id);
-                }
-            } catch (error) {
-                // 오류 무시하고 계속 진행
-                console.error('카드 렌더링 중 오류:', error);
-            }
-        }
-        
-        if (endIndex < cards.length) {
-            requestAnimationFrame(async () => {
-                await this.renderCardsBatched(cards, endIndex, batchSize, focusedCardId, activeFile);
-            });
-        }
-    }
-    
+
+    /**
+     * 카드 위치를 적용합니다.
+     */
     private applyCardPosition(cardEl: HTMLElement, position: CardPosition): void {
         cardEl.style.width = `${position.width}px`;
         
@@ -164,266 +429,48 @@ export class CardRenderer {
         cardEl.style.transition = 'left 0.3s ease, top 0.3s ease, opacity 0.3s ease';
     }
 
-
-    private async getOrCreateCardElement(card: Card): Promise<HTMLElement> {
-        if (this.cardElements.has(card.id)) {
-            const existingElement = this.cardElements.get(card.id);
-            if (existingElement) {
-                await this.updateCardContent(existingElement, card);
-                return existingElement;
-            }
-        }
+    /**
+     * 화면에 보이는 카드만 렌더링합니다.
+     * 성능 최적화를 위해 사용됩니다.
+     */
+    async renderVisibleCards(): Promise<void> {
+        if (this.isRendering) return;
         
-        const cardEl = document.createElement('div');
-        cardEl.className = 'card-navigator-card';
-        cardEl.dataset.cardId = card.id;
-        cardEl.draggable = true;
-        
-        this.containerEl.appendChild(cardEl);
-        this.cardElements.set(card.id, cardEl);
-        
-        // 제목 요소 추가
-        const titleEl = document.createElement('div');
-        titleEl.className = 'card-navigator-card-title';
-        titleEl.textContent = card.fileName || card.file?.basename || '제목 없음';
-        cardEl.appendChild(titleEl);
-        
-        // 내용 요소 추가
-        const contentEl = document.createElement('div');
-        contentEl.className = 'card-navigator-body';
-        cardEl.appendChild(contentEl);
-        
-        // 태그 컨테이너 추가 (내용 요소 다음에 추가하여 하단에 표시)
-        const tagsEl = document.createElement('div');
-        tagsEl.className = 'card-navigator-card-tags';
-        tagsEl.style.marginTop = 'auto'; // 자동 마진으로 하단에 배치
-        cardEl.appendChild(tagsEl);
-        
-        await this.updateCardContent(cardEl, card);
-        
-        cardEl.style.position = 'absolute';
-        cardEl.style.visibility = 'hidden';
-        cardEl.style.opacity = '0';
-        
-        return cardEl;
-    }
-    
-    private async updateCardContent(cardEl: HTMLElement, card: Card): Promise<void> {
-        const currentContent = cardEl.getAttribute('data-content-hash');
-        const newContent = this.getContentHash(card);
-        
-        if (currentContent === newContent) {
-            return;
-        }
-        
-        cardEl.setAttribute('data-content-hash', newContent);
-        
-        // 제목 업데이트
-        const titleEl = cardEl.querySelector('.card-navigator-card-title');
-        if (titleEl) {
-            titleEl.textContent = card.fileName || card.file?.basename || '제목 없음';
-        }
-        
-        // 내용 업데이트
-        const contentEl = cardEl.querySelector('.card-navigator-body');
-        if (contentEl && card.body) {
-            // 마크다운 내용 준비
-            let markdownContent = '';
+        try {
+            this.isRendering = true;
             
-            // 첫 번째 헤더가 있으면 추가
-            if (card.firstHeader && card.firstHeader.trim() !== '') {
-                markdownContent += `## ${card.firstHeader}\n\n`;
-            }
+            // 컨테이너의 뷰포트 영역 계산
+            const containerRect = this.container.getBoundingClientRect();
             
-            // 본문 추가
-            markdownContent += card.body;
-            
-            // 내용 저장
-            cardEl.dataset.content = markdownContent;
-            
-            if (this.plugin?.settings?.renderContentAsHtml) {
-                let markdownContainer = contentEl.querySelector('.markdown-rendered');
-                if (!markdownContainer) {
-                    markdownContainer = document.createElement('div');
-                    markdownContainer.className = 'markdown-rendered';
-                    contentEl.appendChild(markdownContainer);
-                }
+            // 화면에 보이는 카드만 렌더링
+            await Promise.all(this.cards.map(async (card) => {
+                const cardElement = this.cardElements.get(card.id);
+                if (!cardElement) return;
                 
-                // 비동기 렌더링은 cardMaker.ensureCardRendered에서 처리
-                await this.cardMaker.ensureCardRendered(cardEl);
-            } else {
-                contentEl.textContent = markdownContent;
-            }
-        }
-        
-        // 태그 업데이트
-        const tagsEl = cardEl.querySelector('.card-navigator-card-tags');
-        if (tagsEl && card.file) {
-            tagsEl.innerHTML = '';
-            
-            const fileCache = this.plugin.app.metadataCache.getFileCache(card.file);
-            if (fileCache) {
-                // 태그 목록 초기화
-                let tags: { tag: string }[] = [];
+                // 카드가 화면에 보이는지 확인
+                const cardRect = cardElement.getBoundingClientRect();
+                const isVisible = (
+                    cardRect.top < containerRect.bottom &&
+                    cardRect.bottom > containerRect.top &&
+                    cardRect.left < containerRect.right &&
+                    cardRect.right > containerRect.left
+                );
                 
-                // 인라인 태그 추출 (#태그)
-                if (fileCache.tags) {
-                    tags = [...fileCache.tags];
-                }
-                
-                // frontmatter에서 태그 추출
-                if (fileCache.frontmatter) {
-                    // tags 배열 형태로 정의된 태그 추출
-                    const frontmatterTags = fileCache.frontmatter.tags;
-                    if (frontmatterTags) {
-                        if (Array.isArray(frontmatterTags)) {
-                            // 배열인 경우 각 항목을 태그로 추가
-                            frontmatterTags.forEach(tag => {
-                                // 태그가 문자열인지 확인
-                                if (typeof tag === 'string') {
-                                    // '#' 접두사가 없으면 추가
-                                    const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
-                                    // 중복 확인
-                                    if (!tags.some(t => t.tag === formattedTag)) {
-                                        tags.push({ tag: formattedTag });
-                                    }
-                                }
-                            });
-                        } else if (typeof frontmatterTags === 'string') {
-                            // 쉼표로 구분된 문자열인 경우 분리하여 추가
-                            const tagArray = frontmatterTags.split(',').map(t => t.trim());
-                            tagArray.forEach(tag => {
-                                if (tag) {
-                                    const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
-                                    if (!tags.some(t => t.tag === formattedTag)) {
-                                        tags.push({ tag: formattedTag });
-                                    }
-                                }
-                            });
-                        }
-                    }
+                // 화면에 보이는 카드만 업데이트
+                if (isVisible) {
+                    await this.updateCardContent(cardElement, card);
                     
-                    // tag 단일 값으로 정의된 태그 추출
-                    const frontmatterTag = fileCache.frontmatter.tag;
-                    if (frontmatterTag && typeof frontmatterTag === 'string') {
-                        // 쉼표로 구분된 문자열인 경우 분리하여 추가
-                        const tagArray = frontmatterTag.split(',').map(t => t.trim());
-                        tagArray.forEach(tag => {
-                            if (tag) {
-                                const formattedTag = tag.startsWith('#') ? tag : `#${tag}`;
-                                if (!tags.some(t => t.tag === formattedTag)) {
-                                    tags.push({ tag: formattedTag });
-                                }
-                            }
-                        });
+                    // 카드 위치 적용
+                    const position = this.layoutManager.getCardPosition(card.id);
+                    if (position) {
+                        this.applyCardPosition(cardElement, position);
                     }
                 }
-                
-                // 태그 렌더링
-                tags.forEach(tag => {
-                    const tagEl = document.createElement('span');
-                    tagEl.className = 'card-navigator-card-tag';
-                    tagEl.textContent = tag.tag;
-                    
-                    // 태그 클릭 이벤트 추가
-                    tagEl.addEventListener('click', (event) => {
-                        // 이벤트 버블링 방지
-                        event.stopPropagation();
-                        event.preventDefault();
-                        
-                        // 태그 이름에서 '#' 제거
-                        const tagName = tag.tag.replace('#', '');
-                        
-                        // 검색 이벤트 발생
-                        this.triggerTagSearch(tagName);
-                    });
-                    
-                    tagsEl.appendChild(tagEl);
-                });
-            }
+            }));
+        } catch (error) {
+            console.error('화면에 보이는 카드 렌더링 중 오류 발생:', error);
+        } finally {
+            this.isRendering = false;
         }
-    }
-    
-    private getContentHash(card: Card): string {
-        let tagString = '';
-        if (card.tags && card.tags.length > 0) {
-            tagString = card.tags.join(',');
-        } else if (card.file && this.plugin.app.metadataCache) {
-            const fileCache = this.plugin.app.metadataCache.getFileCache(card.file);
-            if (fileCache && fileCache.tags) {
-                tagString = fileCache.tags.map(tag => tag.tag).join(',');
-            }
-        }
-        
-        return `${card.id}-${card.fileName}-${card.body?.substring(0, 100)}-${tagString}`;
-    }
-    
-    private updateCardActiveState(cardEl: HTMLElement, card: Card, activeFile?: TFile, focusedCardId?: string): void {
-        if (focusedCardId && card.id === focusedCardId) {
-            cardEl.classList.add('card-focused');
-        } else {
-            cardEl.classList.remove('card-focused');
-        }
-        
-        if (activeFile && card.file && card.file.path === activeFile.path) {
-            cardEl.classList.add('card-active');
-        } else {
-            cardEl.classList.remove('card-active');
-        }
-    }
-
-
-    public getCardElement(cardId: string): HTMLElement | undefined {
-        return this.cardElements.get(cardId);
-    }
-
-    public clearFocusedCards() {
-        if (!this.containerEl) return;
-        Array.from(this.containerEl.children).forEach((card) => {
-            card.classList.remove('card-navigator-focused');
-        });
-    }
-
-    public getFileFromCard(cardElement: HTMLElement, cards: Card[]): TFile | null {
-        if (!this.containerEl) return null;
-        const cardIndex = Array.from(this.containerEl.children).indexOf(cardElement);
-        if (cardIndex !== -1 && cardIndex < cards.length) {
-            return cards[cardIndex].file;
-        }
-        return null;
-    }
-
-    public getCardSize(): { width: number, height: number } {
-        return this.layoutManager.getCardSize();
-    }
-
-    /**
-     * 더 이상 표시되지 않는 카드를 제거합니다.
-     */
-    private removeUnusedCards(cards: Card[]): void {
-        const currentCardIds = new Set(cards.map(card => card.id));
-        
-        // 현재 표시된 카드 중 더 이상 필요하지 않은 카드 제거
-        for (const [cardId, cardEl] of this.cardElements.entries()) {
-            if (!currentCardIds.has(cardId)) {
-                cardEl.remove();
-                this.cardElements.delete(cardId);
-                this.renderedCards.delete(cardId);
-            }
-        }
-    }
-
-    /**
-     * 태그 검색 트리거 메서드
-     * @param tagName 태그 이름
-     */
-    private triggerTagSearch(tagName: string): void {
-        // 커스텀 이벤트 생성
-        const event = new CustomEvent('card-navigator-tag-search', {
-            detail: { tagName }
-        });
-        
-        // 이벤트 발생
-        document.dispatchEvent(event);
     }
 } 

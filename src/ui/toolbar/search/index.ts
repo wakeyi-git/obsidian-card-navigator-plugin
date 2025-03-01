@@ -1,4 +1,4 @@
-import { debounce } from 'obsidian';
+import { debounce, TFile } from 'obsidian';
 import CardNavigatorPlugin from 'main';
 import { SearchHistory } from './SearchHistory';
 import { SearchService } from './SearchService';
@@ -71,81 +71,71 @@ function setLoadingState(containerElOrIsLoading: HTMLElement | null | boolean, i
     searchContainer.toggleClass('is-searching', isLoading as boolean);
 }
 
-// 검색 실행 함수
-export async function executeSearch(
-    cardContainer: CardContainer,
-    searchTerm: string,
-    updateLoadingCallback?: (isLoading: boolean) => void
-) {
+/**
+ * 검색 기능을 실행합니다.
+ * @param plugin 플러그인 인스턴스
+ * @param searchTerm 검색어
+ * @param cardContainer 카드 컨테이너
+ */
+export async function executeSearch(plugin: CardNavigatorPlugin, searchTerm: string, cardContainer: any): Promise<void> {
+    if (!searchTerm || searchTerm.trim() === '') {
+        cardContainer.loadFiles();
+        return;
+    }
+
+    const normalizedSearchTerm = searchTerm.toLowerCase().trim();
+    const files = plugin.app.vault.getMarkdownFiles();
+    
     try {
-        // 로딩 상태 업데이트
-        if (updateLoadingCallback) {
-            updateLoadingCallback(true);
-        } else {
-            const containerEl = cardContainer.getContainerElement();
-            if (containerEl) {
-                setLoadingState(containerEl, true);
+        // 파일 이름과 내용을 모두 검색하여 필터링
+        const filePromises = files.map(async (file) => {
+            // 파일 이름 검색
+            if (file.basename.toLowerCase().includes(normalizedSearchTerm)) {
+                return file;
             }
-        }
-        
-        // 검색어 전처리
-        const processedTerm = preprocessSearchTerm(searchTerm);
-        
-        // 검색어가 유효하지 않으면 검색 모드 종료 및 일반 카드 로드
-        if (!isValidSearchTerm(processedTerm)) {
-            // 검색 결과 초기화 및 일반 카드 로드 경로로 복귀
-            cardContainer.setSearchResults(null);
-            await cardContainer.loadCards();
             
-            if (updateLoadingCallback) {
-                updateLoadingCallback(false);
-            } else {
-                const containerEl = cardContainer.getContainerElement();
-                if (containerEl) {
-                    setLoadingState(containerEl, false);
+            // 파일 내용 검색
+            try {
+                const content = await plugin.app.vault.read(file);
+                if (content.toLowerCase().includes(normalizedSearchTerm)) {
+                    return file;
                 }
+            } catch (error) {
+                console.error(`파일 읽기 오류 (${file.path}):`, error);
             }
-            return;
-        }
+            
+            return null;
+        });
         
-        // 검색 상태 업데이트
-        updateSearchState(processedTerm, true);
+        // 모든 비동기 작업이 완료될 때까지 대기
+        const filteredFiles = await Promise.all(filePromises);
         
-        // 검색 실행 - 새로운 API 사용
-        await cardContainer.loadCards({ searchTerm: processedTerm });
+        // null 값 제거하여 유효한 파일만 선택
+        const validFiles = filteredFiles.filter((file): file is TFile => file !== null);
         
-        // 검색 완료 상태 업데이트
-        updateSearchState(processedTerm, false);
-        
-        // 검색 기록에 추가
-        addToSearchHistory(processedTerm);
+        // 검색 결과 설정
+        cardContainer.setSearchResults(validFiles);
     } catch (error) {
         console.error('검색 중 오류 발생:', error);
-    } finally {
-        // 로딩 상태 해제
-        if (updateLoadingCallback) {
-            updateLoadingCallback(false);
-        } else {
-            const containerEl = cardContainer.getContainerElement();
-            if (containerEl) {
-                setLoadingState(containerEl, false);
-            }
-        }
+        cardContainer.loadFiles(); // 오류 발생 시 모든 파일 로드
     }
 }
 
-// 디바운스된 검색 함수 (입력 지연 후 검색 실행)
-export const debouncedSearch = debounce(
-    async (
-        plugin: CardNavigatorPlugin,
-        cardContainer: CardContainer,
-        searchTerm: string,
-        updateLoadingCallback?: (isLoading: boolean) => void
-    ) => {
-        await executeSearch(cardContainer, searchTerm, updateLoadingCallback);
-    },
-    300
-);
+/**
+ * 디바운스된 검색 함수를 생성합니다.
+ * @param plugin 플러그인 인스턴스
+ * @param cardContainer 카드 컨테이너
+ * @returns 디바운스된 검색 함수
+ */
+export function createDebouncedSearch(plugin: CardNavigatorPlugin, cardContainer: any): (searchTerm: string) => void {
+    return debounce(
+        (searchTerm: string) => {
+            executeSearch(plugin, searchTerm, cardContainer);
+        },
+        300,
+        true
+    );
+}
 
 // 검색 기록 가져오기
 export function getSearchHistory(): string[] {

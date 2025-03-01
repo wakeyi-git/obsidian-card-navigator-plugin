@@ -162,7 +162,7 @@ async function updateSortSettings(
                     setTimeout(() => {
                         if (view.cardContainer.layoutManager) {
                             view.cardContainer.layoutManager.refreshLayout();
-                            view.cardContainer.handleResize();
+                            view.cardContainer.refreshLayout();
                         }
                     }, 100);
                     
