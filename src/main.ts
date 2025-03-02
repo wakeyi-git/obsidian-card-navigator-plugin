@@ -1,448 +1,569 @@
-import { Plugin, Events, TFile, TAbstractFile, debounce, moment  } from 'obsidian';
-import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR, RefreshType } from './ui/cardNavigatorView';
-import { SettingTab } from './ui/settings/settingsTab';
-import { CardNavigatorSettings, ScrollDirection, DEFAULT_SETTINGS } from './common/types';
-import { SettingsManager } from './ui/settings/settingsManager';
-import { PresetManager } from './ui/settings/PresetManager';
-import i18next from 'i18next';
-import { t } from 'i18next';
-import { SearchService } from 'ui/toolbar/search/';
-import { ResizeService } from './common/ResizeService';
+import { Plugin, TFile, TAbstractFile, debounce, Events, addIcon, WorkspaceLeaf, Notice } from 'obsidian';
+import { CardNavigatorView } from './ui/views/CardNavigatorView';
+import { SettingsTab } from './ui/views/SettingsTab';
+import { CardNavigatorSettings } from './core/types/settings.types';
+import { DEFAULT_SETTINGS } from './core/constants/settings.constants';
+import { SettingsManager } from './managers/settings/SettingsManager';
+import { PresetManager } from './managers/preset/PresetManager';
+import { CardSetManager } from './managers/cardset/CardSetManager';
+import { LayoutManager } from './managers/layout/LayoutManager';
+import { SearchService } from './services/search/SearchService';
+import { CardService } from './services/card/CardService';
+import { ScrollDirection } from './core/types/layout.types';
+import { ErrorHandler } from './utils/error/ErrorHandler';
+import { Log } from './utils/log/Log';
+import { initializeTranslations } from './i18n';
 
-// 다국어 지원을 위한 언어 리소스 정의
-export const languageResources = {
-    en: () => import('./locales/en.json'),
-    ko: () => import('./locales/ko.json'),
-} as const;
-
-// 사용자 로케일에 기반한 번역 언어 설정 (기본값: 영어)
-export const translationLanguage = Object.keys(languageResources).includes(moment.locale()) ? moment.locale() : "en";
-
-export default class CardNavigatorPlugin extends Plugin {
-    //#region 클래스 속성
-    public settings: CardNavigatorSettings = DEFAULT_SETTINGS;
-    public settingsManager!: SettingsManager;
-    public searchService!: SearchService;
-    selectedFolder: string | null = null;
-    presetManager!: PresetManager;
-    settingTab!: SettingTab;
-    private ribbonIconEl: HTMLElement | null = null;
-    public events: Events = new Events();
-    private resizeService!: ResizeService;
-    //#endregion
-
-    //#region 초기화 및 설정 관리
-    // 플러그인 로드 시 실행되는 메서드
-    async onload() {
-        await this.loadSettings();
-        
-        // ResizeService 초기화
-        this.resizeService = ResizeService.getInstance();
-        this.resizeService.setDebug(this.settings.debug);
-        
-        this.presetManager = new PresetManager(this.app, this, this.settings);
-        this.settingsManager = new SettingsManager(this, this.presetManager);
-        this.searchService = new SearchService(this);
-        await this.presetManager.initialize();
-        
-        await this.initializePlugin();
+/**
+ * 카드 네비게이터 플러그인 클래스
+ * Obsidian의 Plugin 클래스를 확장하여 카드 네비게이터 플러그인을 구현합니다.
+ */
+export class CardNavigatorPlugin extends Plugin {
+  /**
+   * 플러그인 설정
+   */
+  public settings: CardNavigatorSettings = DEFAULT_SETTINGS;
+  
+  /**
+   * 설정 관리자
+   */
+  public settingsManager: SettingsManager;
+  
+  /**
+   * 프리셋 관리자
+   */
+  public presetManager: PresetManager;
+  
+  /**
+   * 카드셋 관리자
+   */
+  public cardSetManager: CardSetManager;
+  
+  /**
+   * 레이아웃 관리자
+   */
+  public layoutManager: LayoutManager;
+  
+  /**
+   * 검색 서비스
+   */
+  public searchService: SearchService;
+  
+  /**
+   * 카드 서비스
+   */
+  public cardService: CardService;
+  
+  /**
+   * 설정 탭
+   */
+  private settingTab: SettingsTab;
+  
+  /**
+   * 리본 아이콘 요소
+   */
+  private ribbonIconEl: HTMLElement | null = null;
+  
+  /**
+   * 이벤트 관리자
+   */
+  public events: Events = new Events();
+  
+  /**
+   * 플러그인 로드 시 실행되는 메서드
+   */
+  async onload() {
+    try {
+      Log.info('카드 네비게이터 플러그인 로드 중...');
+      
+      // 설정 로드
+      await this.loadSettings();
+      
+      // 매니저 및 서비스 초기화
+      this.initializeManagers();
+      
+      // 다국어 지원 초기화
+      const locale = this.settings.language.useSystemLanguage 
+        ? this.getSystemLocale() 
+        : this.settings.language.locale;
+      initializeTranslations(locale);
+      
+      // 플러그인 초기화
+      await this.initializePlugin();
+      
+      Log.info('카드 네비게이터 플러그인 로드 완료');
+    } catch (error) {
+      ErrorHandler.handleError('플러그인 로드 중 오류 발생', error);
+    }
+  }
+  
+  /**
+   * 플러그인 언로드 시 실행되는 메서드
+   */
+  async onunload() {
+    try {
+      Log.info('카드 네비게이터 플러그인 언로드 중...');
+      
+      // 이벤트 리스너 제거
+      this.unregisterEvents();
+      
+      // 리본 아이콘 제거
+      if (this.ribbonIconEl) {
+        this.ribbonIconEl.detach();
+      }
+      
+      Log.info('카드 네비게이터 플러그인 언로드 완료');
+    } catch (error) {
+      ErrorHandler.handleError('플러그인 언로드 중 오류 발생', error);
+    }
+  }
+  
+  /**
+   * 매니저 및 서비스 초기화
+   */
+  private initializeManagers() {
+    // 매니저 초기화
+    this.settingsManager = new SettingsManager(this);
+    this.presetManager = new PresetManager(this.app, this, this.settingsManager);
+    this.layoutManager = new LayoutManager(this.app, this.settingsManager);
+    this.cardSetManager = new CardSetManager(this.app, this.settingsManager);
     
-        this.addRibbonIcon('layers-3', t('OPEN_CARD_NAVIGATOR'), () => {
-            this.activateView();
-        });
+    // 서비스 초기화
+    this.searchService = new SearchService(this.app, this.settingsManager);
+    this.cardService = new CardService(this.app, this.settingsManager);
+    
+    // 설정 탭 초기화
+    this.settingTab = new SettingsTab(
+      this.app,
+      this,
+      this.settingsManager,
+      this.presetManager
+    );
+    
+    // 설정 탭 등록
+    this.addSettingTab(this.settingTab);
+  }
+  
+  /**
+   * 플러그인 초기화
+   */
+  private async initializePlugin() {
+    try {
+      // 프리셋 초기화
+      await this.presetManager.initialize();
+      
+      // 리본 아이콘 추가
+      this.addRibbonIcon('cards', '카드 네비게이터 열기', () => {
+        this.activateView();
+      });
+      
+      // 이벤트 리스너 등록
+      this.registerEvents();
+      
+      // 명령어 등록
+      this.addCommands();
+    } catch (error) {
+      ErrorHandler.handleError('플러그인 초기화 중 오류 발생', error);
     }
-
-    // 플러그인 언로드 시 실행되는 메서드
-    async onunload() {
-        // ResizeService 정리
-        if (this.resizeService) {
-            this.resizeService.disconnect();
-        }
+  }
+  
+  /**
+   * 이벤트 리스너 등록
+   */
+  private registerEvents() {
+    // 파일 변경 이벤트 리스너
+    this.registerEvent(
+      this.app.workspace.on('file-open', this.handleFileOpen.bind(this))
+    );
+    
+    // 파일 생성 이벤트 리스너
+    this.registerEvent(
+      this.app.vault.on('create', this.handleFileCreate.bind(this))
+    );
+    
+    // 파일 수정 이벤트 리스너
+    this.registerEvent(
+      this.app.vault.on('modify', this.handleFileModify.bind(this))
+    );
+    
+    // 파일 삭제 이벤트 리스너
+    this.registerEvent(
+      this.app.vault.on('delete', this.handleFileDelete.bind(this))
+    );
+    
+    // 파일 이름 변경 이벤트 리스너
+    this.registerEvent(
+      this.app.vault.on('rename', this.handleFileRename.bind(this))
+    );
+    
+    // 레이아웃 변경 이벤트 리스너
+    this.registerEvent(
+      this.app.workspace.on('layout-change', this.handleLayoutChange.bind(this))
+    );
+    
+    // 설정 변경 이벤트 리스너
+    this.events.on('settings-changed', this.handleSettingsChanged.bind(this));
+    
+    // 프리셋 변경 이벤트 리스너
+    this.events.on('preset-changed', this.handlePresetChanged.bind(this));
+  }
+  
+  /**
+   * 이벤트 리스너 제거
+   */
+  private unregisterEvents() {
+    this.events.off('settings-changed', this.handleSettingsChanged.bind(this));
+    this.events.off('preset-changed', this.handlePresetChanged.bind(this));
+  }
+  
+  /**
+   * 파일 열기 이벤트 핸들러
+   */
+  private async handleFileOpen(file: TFile | null) {
+    if (file) {
+      const activeView = this.getActiveCardNavigator();
+      if (activeView) {
+        await this.updateViewForFile(activeView, file);
+      }
+    }
+  }
+  
+  /**
+   * 파일 생성 이벤트 핸들러
+   */
+  private handleFileCreate(file: TAbstractFile) {
+    if (file instanceof TFile && file.extension === 'md') {
+      this.refreshAllViews('cardset');
+    }
+  }
+  
+  /**
+   * 파일 수정 이벤트 핸들러
+   */
+  private handleFileModify(file: TAbstractFile) {
+    if (file instanceof TFile && file.extension === 'md') {
+      this.refreshAllViews('card');
+    }
+  }
+  
+  /**
+   * 파일 삭제 이벤트 핸들러
+   */
+  private handleFileDelete(file: TAbstractFile) {
+    if (file instanceof TFile && file.extension === 'md') {
+      this.refreshAllViews('cardset');
+    }
+  }
+  
+  /**
+   * 파일 이름 변경 이벤트 핸들러
+   */
+  private handleFileRename(file: TAbstractFile) {
+    if (file instanceof TFile && file.extension === 'md') {
+      this.refreshAllViews('cardset');
+    }
+  }
+  
+  /**
+   * 레이아웃 변경 이벤트 핸들러
+   */
+  private handleLayoutChange() {
+    const debounceRefresh = debounce(() => {
+      this.refreshAllViews('layout');
+    }, 300);
+    
+    debounceRefresh();
+  }
+  
+  /**
+   * 설정 변경 이벤트 핸들러
+   */
+  private handleSettingsChanged() {
+    // 디버그 모드 설정
+    Log.setDebugMode(this.settings.debug);
+    
+    // 언어 설정 적용
+    const locale = this.settings.language.useSystemLanguage 
+      ? this.getSystemLocale() 
+      : this.settings.language.locale;
+    initializeTranslations(locale);
+    
+    // 모든 뷰 새로고침
+    this.refreshAllViews('settings');
+  }
+  
+  /**
+   * 프리셋 변경 이벤트 핸들러
+   */
+  private handlePresetChanged() {
+    this.refreshAllViews('preset');
+    this.saveSettings();
+  }
+  
+  /**
+   * 모든 카드 네비게이터 뷰 새로고침
+   */
+  private refreshAllViews(type: 'cardset' | 'card' | 'layout' | 'settings' | 'preset') {
+    const views = this.getCardNavigatorViews();
+    
+    views.forEach(view => {
+      switch (type) {
+        case 'cardset':
+          view.refreshCardSet();
+          break;
+        case 'card':
+          view.refreshCards();
+          break;
+        case 'layout':
+          view.updateLayout();
+          break;
+        case 'settings':
+        case 'preset':
+          view.applySettings();
+          break;
+      }
+    });
+  }
+  
+  /**
+   * 파일에 맞게 뷰 업데이트
+   */
+  private async updateViewForFile(view: CardNavigatorView, file: TFile) {
+    // 현재 파일에 맞는 프리셋 선택 및 적용
+    await this.selectAndApplyPreset(file);
+    
+    // 카드셋 업데이트
+    view.updateForFile(file);
+  }
+  
+  /**
+   * 파일에 맞는 프리셋 선택 및 적용
+   */
+  private async selectAndApplyPreset(file: TFile) {
+    if (this.settings.autoApplyPresets) {
+      await this.presetManager.selectAndApplyPresetForFile(file);
+    }
+  }
+  
+  /**
+   * 카드 네비게이터 뷰 활성화
+   */
+  async activateView() {
+    const leaf = this.app.workspace.getRightLeaf(false);
+    
+    if (leaf) {
+      await leaf.setViewState({
+        type: CardNavigatorView.VIEW_TYPE,
+        active: true,
+      });
+      
+      this.app.workspace.revealLeaf(leaf);
+    }
+  }
+  
+  /**
+   * 활성화된 카드 네비게이터 뷰 가져오기
+   */
+  private getActiveCardNavigator(): CardNavigatorView | null {
+    const leaves = this.app.workspace.getLeavesOfType(CardNavigatorView.VIEW_TYPE);
+    
+    if (leaves.length === 0) {
+      return null;
+    }
+    
+    const leaf = leaves[0];
+    return leaf.view as CardNavigatorView;
+  }
+  
+  /**
+   * 모든 카드 네비게이터 뷰 가져오기
+   */
+  private getCardNavigatorViews(): CardNavigatorView[] {
+    const leaves = this.app.workspace.getLeavesOfType(CardNavigatorView.VIEW_TYPE);
+    
+    return leaves.map(leaf => leaf.view as CardNavigatorView);
+  }
+  
+  /**
+   * 카드 스크롤
+   */
+  scrollCards(direction: ScrollDirection, count: number) {
+    const view = this.getActiveCardNavigator();
+    
+    if (view) {
+      view.scrollCards(direction, count);
+    }
+  }
+  
+  /**
+   * 명령어 등록
+   */
+  private addCommands() {
+    // 카드 네비게이터 열기 명령어
+    this.addCommand({
+      id: 'open-card-navigator',
+      name: '카드 네비게이터 열기',
+      callback: () => {
+        this.activateView();
+      },
+    });
+    
+    // 현재 파일을 카드로 표시 명령어
+    this.addCommand({
+      id: 'show-current-file-as-card',
+      name: '현재 파일을 카드로 표시',
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
         
-        // 모든 CardNavigatorView 인스턴스 닫기
-        this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR).forEach(leaf => {
-            if (leaf.view instanceof CardNavigatorView) {
-                leaf.view.onClose();
-            }
-        });
-        
-        if (this.ribbonIconEl) {
-            this.ribbonIconEl.detach();
-        }
-    }
-
-    // 플러그인 초기화 메서드
-    private async initializePlugin() {
-        await this.initializeI18n();
-
-        this.settingTab = new SettingTab(this.app, this);
-        this.addSettingTab(this.settingTab);
-
-        this.registerView(
-            VIEW_TYPE_CARD_NAVIGATOR,
-            (leaf) => new CardNavigatorView(leaf, this)
-        );
-
-        this.addCommands();
-        this.addScrollCommands();
-        this.registerCentralizedEvents();
-    }
-
-    // i18n 초기화 메서드
-    private async initializeI18n() {
-        const resources = await this.loadLanguageResources();
-        await i18next.init({
-            lng: translationLanguage,
-            fallbackLng: "en",
-            resources,
-        });
-    }
-
-    // 언어 리소스 로드 메서드
-    private async loadLanguageResources() {
-        const [en, ko] = await Promise.all([
-            languageResources.en(),
-            languageResources.ko()
-        ]);
-        return {
-            en: { translation: en.default },
-            ko: { translation: ko.default },
-        };
-    }
-
-    // 설정 로드 메서드
-    async loadSettings() {
-        const loadedData = await this.loadData();
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
-    }
-
-    // 설정 저장 메서드
-    async saveSettings() {
-        await this.saveData(this.settings);
-        // 여기서는 이벤트를 트리거하지 않음
-    }
-    //#endregion
-
-    //#region 뷰 관리
-    // 카드 네비게이터 뷰 활성화 메서드
-    async activateView() {
-        const { workspace } = this.app;
-        
-        // 기존 뷰가 있으면 해당 뷰를 활성화
-        const existingLeaf = workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0];
-        
-        if (existingLeaf) {
-            workspace.revealLeaf(existingLeaf);
-            return;
-        }
-        
-        // 기존 뷰가 없으면 새 뷰 생성
-        const leaf = workspace.getRightLeaf(false);
-        if (leaf) {
-            await leaf.setViewState({ type: VIEW_TYPE_CARD_NAVIGATOR, active: true });
-            workspace.revealLeaf(leaf);
-        }
-    }
-
-    // 첫 번째 카드 네비게이터 뷰 반환 메서드
-    private getFirstCardNavigator(): CardNavigatorView | null {
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        for (const leaf of leaves) {
-            if (leaf.view instanceof CardNavigatorView) {
-                return leaf.view;
-            }
-        }
-        return null;
-    }
-
-    // 활성화된 카드 네비게이터 뷰 반환 메서드
-    private getActiveCardNavigator(): CardNavigatorView | null {
-        return this.app.workspace.getActiveViewOfType(CardNavigatorView);
-    }
-    //#endregion
-
-    //#region 카드 조작
-    // 카드 스크롤 메서드
-    scrollCards(direction: ScrollDirection, count: number) {
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        
-        leaves.forEach(leaf => {
-            if (leaf.view instanceof CardNavigatorView) {
-                const { cardContainer } = leaf.view;
-                const isVertical = cardContainer.layoutManager.getLayoutDirection() === 'vertical';
-
-                // 방향에 따라 적절한 스크롤 메서드 호출
-                switch (direction) {
-                    case 'up':
-                    case 'down':
-                        const method = direction === 'up' ? 'scrollUp' : 'scrollDown';
-                        isVertical ? cardContainer[method](count) : cardContainer[direction === 'up' ? 'scrollLeft' : 'scrollRight'](count);
-                        break;
-                    case 'left':
-                    case 'right':
-                        cardContainer[direction === 'left' ? 'scrollLeft' : 'scrollRight'](count);
-                        break;
-                }
-            }
-        });
-    }
-    //#endregion
-
-    //#region 이벤트 처리
-    // 중앙 이벤트 등록 메서드
-    private registerCentralizedEvents() {
-        // 레이아웃 변경 이벤트
-        this.registerEvent(
-            this.app.workspace.on('layout-change', () => {
-                this.refreshAllViews(RefreshType.LAYOUT);
-            })
-        );
-
-        // 파일 열기 이벤트
-        this.registerEvent(
-            this.app.workspace.on('file-open', (file) => {
-                this.handleFileChange(file);
-            })
-        );
-
-        // 활성 폴더 변경 이벤트 처리
-        this.events.on('active-folder-changed', async (...data) => {
-            const folderPath = data[0] as string;
-            const previousFolderPath = data[1] as string;
-            console.log(`[CardNavigatorPlugin] 활성 폴더 변경 감지: ${previousFolderPath} -> ${folderPath}`);
-            
-            if (this.settings.cardSetType === 'activeFolder') {
-                // 모든 카드 네비게이터 뷰 강제 새로고침
-                const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-                
-                // 모든 뷰에 대해 병렬로 처리
-                await Promise.all(leaves.map(async (leaf) => {
-                    if (leaf.view instanceof CardNavigatorView) {
-                        console.log(`[CardNavigatorPlugin] 뷰 강제 새로고침 (활성 폴더 변경: ${folderPath})`);
-                        
-                        try {
-                            // 먼저 카드 컨테이너의 카드를 모두 제거
-                            leaf.view.cardContainer.clearCards();
-                            
-                            // 즉시 새 카드 로드 (비동기 처리)
-                            await leaf.view.cardContainer.loadCards();
-                            
-                            // 새로고침 후 활성 카드 강조
-                            leaf.view.cardContainer.highlightActiveCard();
-                            
-                            // 레이아웃 새로고침
-                            leaf.view.cardContainer.refreshLayout();
-                        } catch (error) {
-                            console.error('[CardNavigatorPlugin] 폴더 변경 처리 중 오류:', error);
-                        }
-                    }
-                }));
-            }
-        });
-
-        // 설정 업데이트 이벤트 처리를 디바운스
-        const processSettingsUpdate = debounce(() => {
-            this.refreshAllViews(RefreshType.SETTINGS);
-        }, 300); // 디바운스 시간 증가
-
-        this.events.on('settings-updated', processSettingsUpdate);
-
-        // 파일 수정 이벤트를 디바운스
-        const processFileModify = debounce((file: TAbstractFile) => {
-            if (file instanceof TFile) {
-                this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)
-                    .forEach(leaf => {
-                        if (leaf.view instanceof CardNavigatorView) {
-                            // 파일 정보를 전달하여 해당 카드만 업데이트
-                            leaf.view.refreshFileContent(file);
-                        }
-                    });
-            }
-        }, 300);
-
-        this.registerEvent(
-            this.app.vault.on('modify', processFileModify)
-        );
-    }
-
-    // 모든 뷰 새로고침 메서드
-    private refreshAllViews(type: RefreshType) {
-        this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)
-            .forEach(leaf => {
-                if (leaf.view instanceof CardNavigatorView) {
-                    leaf.view.refreshBatch([type]);
-                }
+        if (file && file.extension === 'md') {
+          if (!checking) {
+            this.activateView().then(() => {
+              const view = this.getActiveCardNavigator();
+              if (view) {
+                view.focusOnFile(file);
+              }
             });
-    }
-
-    // 파일 변경 처리 메서드
-    private async handleFileChange(file: TFile | null) {
-        // 프리셋 적용
-        if (file instanceof TFile) {
-            await this.selectAndApplyPreset(file);
+          }
+          
+          return true;
         }
-
-        // 폴더 기반 카드 표시 처리
-        if (this.settings.cardSetType !== 'activeFolder' || 
-            !file || 
-            !(file instanceof TFile) || 
-            file.extension !== 'md') return;
-
-        // 모든 카드 네비게이터 뷰 업데이트
-        this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)
-            .forEach(async leaf => {
-                if (leaf.view instanceof CardNavigatorView) {
-                    try {
-                        await this.updateViewForFile(leaf.view, file);
-                    } catch (error) {
-                        console.error('[카드 네비게이터] 뷰 업데이트 실패:', error);
-                    }
-                }
-            });
-    }
-
-    // 파일에 따른 뷰 업데이트 메서드
-    private async updateViewForFile(view: CardNavigatorView, file: TFile) {
-        const currentFolderPath = await view.getCurrentFolderPath();
-        if (!currentFolderPath || !file.parent) return;
-
-        // 현재 폴더와 파일의 부모 폴더가 같은 경우에만 내용 새로고침
-        // 다른 경우에는 레이아웃, 설정, 내용을 모두 새로고침
-        if (currentFolderPath === file.parent.path) {
-            view.refresh(RefreshType.CONTENT);
+        
+        return false;
+      },
+    });
+    
+    // 카드 검색 명령어
+    this.addCommand({
+      id: 'search-cards',
+      name: '카드 검색',
+      callback: () => {
+        const view = this.getActiveCardNavigator();
+        
+        if (view) {
+          view.focusSearch();
         } else {
-            view.refreshBatch([RefreshType.LAYOUT, RefreshType.CONTENT]);
+          this.activateView().then(() => {
+            const newView = this.getActiveCardNavigator();
+            if (newView) {
+              setTimeout(() => {
+                newView.focusSearch();
+              }, 300);
+            }
+          });
         }
-    }
-    //#endregion
-
-    //#region 레이아웃 관리
-    // 설정 탭 새로고침 메서드
-    refreshSettingsTab() {
-        if (this.settingTab instanceof SettingTab) {
-            this.settingTab.display();
-        }
-    }
-    //#endregion
-
-    //#region 명령어 관리
-    // 기본 명령어 추가 메서드
-    private addCommands() {
-        this.addCommand({
-            id: 'open-card-navigator',
-            name: t('OPEN_CARD_NAVIGATOR'),
-            callback: () => this.activateView(),
-        });
-
-        this.addCommand({
-            id: 'focus-card-navigator',
-            name: t('MOVE_FOCUS_TO_CARD_NAVIGATOR'),
-            callback: async () => {
-                const cardNavigator = this.getFirstCardNavigator();
-                if (cardNavigator) {
-                    const leaf = this.app.workspace.getLeaf();
-                    if (leaf) {
-                        leaf.view.containerEl.focus();
-                        await new Promise(resolve => setTimeout(resolve, 0));
-                        cardNavigator.focusNavigator();
-                    }
-                } else {
-                    // 카드 네비게이터가 없으면 먼저 열고 포커스 설정
-                    this.activateView().then(async () => {
-                        const newCardNavigator = this.getFirstCardNavigator();
-                        if (newCardNavigator) {
-                            const leaf = this.app.workspace.getLeaf();
-                            if (leaf) {
-                                leaf.view.containerEl.focus();
-                                await new Promise(resolve => setTimeout(resolve, 100)); // 뷰가 완전히 로드될 시간을 주기 위한 지연
-                                newCardNavigator.focusNavigator();
-                            }
-                        }
-                    });
-                }
-            }
-        });
-
-        this.addCommand({
-            id: 'focus-search-input',
-            name: t('MOVE_FOCUS_TO_SEARCH_INPUT'),
-            callback: async () => {
-                const cardNavigator = this.getFirstCardNavigator();
-                if (cardNavigator) {
-                    const leaf = this.app.workspace.getLeaf();
-                    if (leaf) {
-                        leaf.view.containerEl.focus();
-                        await new Promise(resolve => setTimeout(resolve, 0));
-                        cardNavigator.focusSearchInput();
-                    }
-                } else {
-                    // 카드 네비게이터가 없으면 먼저 열고 포커스 설정
-                    this.activateView().then(async () => {
-                        const newCardNavigator = this.getFirstCardNavigator();
-                        if (newCardNavigator) {
-                            const leaf = this.app.workspace.getLeaf();
-                            if (leaf) {
-                                leaf.view.containerEl.focus();
-                                await new Promise(resolve => setTimeout(resolve, 100)); // 뷰가 완전히 로드될 시간을 주기 위한 지연
-                                newCardNavigator.focusSearchInput();
-                            }
-                        }
-                    });
-                }
-            }
-        });
-
-        this.addCommand({
-            id: 'open-card-context-menu',
-            name: t('OPEN_CARD_CONTEXT_MENU'),
-            callback: () => {
-                const cardNavigator = this.getActiveCardNavigator();
-                if (cardNavigator) {
-                    cardNavigator.openContextMenu();
-                }
-            }
-        });
-    }
-
-    // 스크롤 명령어 추가 메서드
-    private addScrollCommands() {
-        const scrollCommands = [
-            { id: 'scroll-up-one-card', name: t('SCROLL_UP_ONE_CARD'), direction: 'up', count: 1 },
-            { id: 'scroll-down-one-card', name: t('SCROLL_DOWN_ONE_CARD'), direction: 'down', count: 1 },
-            { id: 'scroll-left-one-card', name: t('SCROLL_LEFT_ONE_CARD'), direction: 'left', count: 1 },
-            { id: 'scroll-right-one-card', name: t('SCROLL_RIGHT_ONE_CARD'), direction: 'right', count: 1 },
-            { id: 'scroll-up-page', name: t('SCROLL_UP_LEFT_ONE_PAGE'), direction: 'up', count: this.settings.cardsPerColumn },
-            { id: 'scroll-down-page', name: t('SCROLL_DOWN_RIGHT_ONE_PAGE'), direction: 'down', count: this.settings.cardsPerColumn }
-        ];
-
-        scrollCommands.forEach(({ id, name, direction, count }) => {
-            this.addCommand({
-                id,
-                name,
-                callback: () => this.scrollCards(direction as ScrollDirection, count)
-            });
-        });
-    }
-    //#endregion
-
-    //#region 프리셋 관리
-    // 프리셋 선택 및 적용 메서드
-    private async selectAndApplyPreset(file: TFile) {
-        if (!this.settings.autoApplyPresets) return;
+      },
+    });
+    
+    // 스크롤 명령어 추가
+    this.addScrollCommands();
+  }
+  
+  /**
+   * 스크롤 명령어 등록
+   */
+  private addScrollCommands() {
+    // 위로 스크롤 명령어
+    this.addCommand({
+      id: 'scroll-cards-up',
+      name: '카드 위로 스크롤',
+      checkCallback: (checking) => {
+        const view = this.getActiveCardNavigator();
         
-        if (this.settings.autoApplyFolderPresets && file.parent) {
-            await this.presetManager.applyFolderPreset(file.parent.path);
-        } else {
-            await this.presetManager.applyGlobalPreset(this.settings.GlobalPreset);
+        if (view) {
+          if (!checking) {
+            this.scrollCards('vertical', -1);
+          }
+          
+          return true;
         }
-    }
-
-    // 현재 파일에 대한 프리셋 선택 및 적용 메서드
-    async selectAndApplyPresetForCurrentFile() {
-        const currentFile = this.app.workspace.getActiveFile();
-        if (currentFile) {
-            await this.selectAndApplyPreset(currentFile);
+        
+        return false;
+      },
+    });
+    
+    // 아래로 스크롤 명령어
+    this.addCommand({
+      id: 'scroll-cards-down',
+      name: '카드 아래로 스크롤',
+      checkCallback: (checking) => {
+        const view = this.getActiveCardNavigator();
+        
+        if (view) {
+          if (!checking) {
+            this.scrollCards('vertical', 1);
+          }
+          
+          return true;
         }
-    }
-    //#endregion
+        
+        return false;
+      },
+    });
+    
+    // 왼쪽으로 스크롤 명령어
+    this.addCommand({
+      id: 'scroll-cards-left',
+      name: '카드 왼쪽으로 스크롤',
+      checkCallback: (checking) => {
+        const view = this.getActiveCardNavigator();
+        
+        if (view) {
+          if (!checking) {
+            this.scrollCards('horizontal', -1);
+          }
+          
+          return true;
+        }
+        
+        return false;
+      },
+    });
+    
+    // 오른쪽으로 스크롤 명령어
+    this.addCommand({
+      id: 'scroll-cards-right',
+      name: '카드 오른쪽으로 스크롤',
+      checkCallback: (checking) => {
+        const view = this.getActiveCardNavigator();
+        
+        if (view) {
+          if (!checking) {
+            this.scrollCards('horizontal', 1);
+          }
+          
+          return true;
+        }
+        
+        return false;
+      },
+    });
+  }
+  
+  /**
+   * 설정 로드
+   */
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+  
+  /**
+   * 설정 저장
+   */
+  async saveSettings() {
+    await this.saveData(this.settings);
+  }
+  
+  /**
+   * 시스템 로케일 가져오기
+   * Obsidian의 현재 언어 설정을 가져옵니다.
+   * @returns 시스템 로케일 코드 (기본값: 'en')
+   */
+  private getSystemLocale(): string {
+    // @ts-ignore - moment는 Obsidian 내부 API이므로 타입 정의가 없을 수 있음
+    const locale = window.moment?.locale?.() || 'en';
+    return locale.substring(0, 2); // 언어 코드만 추출 (예: 'ko-KR' -> 'ko')
+  }
 }
+
+// 플러그인 등록
+export default class CardNavigator extends CardNavigatorPlugin {} 

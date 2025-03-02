@@ -1,0 +1,411 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+You are developed as a generative AI. Because of this, you tend to add more content when generating text, as if driven by an instinct similar to that of living organisms. However, overcoming this instinct and focusing on implementing error-free functionality also requires eliminating unnecessary elements. Do not modify models, types, constants, variables, or interfaces unless absolutely necessary. If modifications are necessary, please get my approval first.
+
+Card Navigator Development Rules
+
+Code Writing Principles
+	1.	Type Safety as a Top Priority: All code must pass TypeScript’s strict type checking. Minimize the use of the any type and provide clear interface and type definitions.
+	2.	Single Responsibility Principle: Each class and function should have only one responsibility. Separate any code that combines multiple functionalities.
+	3.	Dependency Injection: Inject dependencies through constructors to improve testability and flexibility.
+	4.	Maintain Immutability: Minimize object state changes whenever possible and prefer immutable data structures.
+	5.	Explicit Error Handling: Implement explicit handling for all exceptional cases and provide appropriate feedback to users.
+
+Code Style
+	1.	Consistent Naming:
+	•	Classes: PascalCase (e.g., CardManager)
+	•	Interfaces: I prefix + PascalCase (e.g., ICardService)
+	•	Variables/Functions: camelCase (e.g., getCardById)
+	•	Constants: UPPER_SNAKE_CASE (e.g., DEFAULT_CARD_WIDTH)
+	2.	Commenting: Write JSDoc comments in Korean for all classes, interfaces, and methods.
+	3.	Code Structuring: Group related functionalities within the same file or directory.
+
+Performance Optimization
+	1.	Memory Management: Avoid unnecessary object creation and consider lazy loading for large data structures.
+	2.	Event Optimization: Properly register and unregister event listeners to prevent memory leaks.
+	3.	Rendering Optimization: Minimize direct DOM manipulation and use virtual DOM techniques where possible.
+
+Testing and Debugging
+	1.	Utilize Logging: Implement appropriate logging for critical operations and error situations.
+	2.	Defensive Programming: Ensure thorough input validation and exception handling to prevent unexpected errors.
+
+Obsidian Integration
+	1.	Leverage API: Utilize Obsidian’s API as much as possible to enhance plugin integration.
+	2.	Ensure UI Consistency: Follow Obsidian’s design patterns and styles to maintain a consistent user experience.
+	3.	Minimize Performance Impact: Optimize resource usage to prevent any negative impact on Obsidian’s core functionality.
+	4.	Key Implementation Guidelines:
+	•	Inherit and extend core Obsidian classes such as Plugin, PluginSettingTab, and ItemView.
+	•	Use core Obsidian APIs like Workspace, MetadataCache, and Vault to access files and metadata.
+	•	Utilize UI components such as Notice, Modal, and Menu for enhanced interactions.
+	•	Implement efficient event handling using Obsidian’s event system.
+	•	Maintain compatibility with Obsidian’s theme and style system by using built-in CSS variables for seamless light/dark mode integration.
+	•	Integrate with Obsidian’s internationalization (i18n) system.
+
+Refactoring Guidelines
+	1.	Remove Redundant Code: Extract repeated or similar code into shared functions or classes.
+	2.	Reduce Complexity: Break down complex logic into smaller, more manageable units.
+	3.	Interface Segregation: Divide large interfaces into smaller, more focused interfaces.
+	4.	Improve Code Reusability: Leverage utility functions and common components to maximize code reuse.
+
+Card Navigator
+
+Card Navigator is an Obsidian plugin that provides a unique way to visualize and navigate notes. It displays notes as scrollable cards, either horizontally or vertically, making it easier to explore and manage content.
+
+Features
+
+1. Card Content & Style Customization
+	•	Card Information Display Options:
+	•	File Name: Displays the note’s filename at the top of the card.
+	•	First Header: Displays the first header (H1) of the note as the card title.
+	•	Body Content: Displays the body content of the note on the card (configurable length limit).
+	•	Tags: Displays the note’s tags at the bottom of the card.
+	•	Created/Modified Date: Displays the creation or modification date of the note on the card.
+	•	Card Style Customization:
+	•	Adjust font size for the card title, body, and tags.
+	•	Customize padding for content density control.
+	•	Modify card border thickness, color, and corner rounding.
+	•	Enable and adjust shadow effects.
+	•	Set a default background color or automatically assign colors based on tags.
+	•	Auto-detect and apply light/dark themes.
+	•	Rendering Options:
+	•	Markdown Rendering: Renders card content as HTML to display formatting.
+	•	Code Block Highlighting: Highlights syntax in code blocks.
+	•	Math Formula Rendering: Displays math formulas using MathJax.
+	•	Image Display: Shows thumbnails for images included in notes.
+
+2. Sorting & Filtering
+	•	Sorting Options:
+	•	Alphabetically by filename (ascending/descending).
+	•	By creation date (newest/oldest first).
+	•	By modification date (newest/oldest first).
+	•	By file size (ascending/descending).
+	•	Custom sorting based on YAML front matter fields.
+	•	Filtering Options:
+	•	Filter by tag: Display only notes containing specific tags.
+	•	Filter by folder: Display only notes from specific folders.
+	•	Filter by YAML front matter: Display notes matching specific metadata values.
+	•	Grouping Options:
+	•	Group by folder.
+	•	Group by tags.
+	•	Group by creation/modification date.
+
+3. Card Interactions
+	•	Basic Interactions:
+	•	Click to open the note.
+	•	Right-click for context menu (edit, delete, duplicate, etc.).
+	•	Drag and drop to create links between notes.
+	•	Multi-select cards using Shift/Ctrl for batch operations.
+	•	Advanced Interactions:
+	•	Expand/collapse cards to show more content on click/hover.
+	•	Edit note content inline within the card.
+	•	Pin important cards to the top.
+	•	Assign custom colors to cards for better organization.
+	•	Copy card content to clipboard or share externally.
+
+4. Layout System
+	•	Integrated Layout System:
+	•	All layouts are managed within a unified masonry-based system.
+	•	The optimal layout is determined automatically based on user settings and container size.
+	•	Users can adjust settings instead of manually switching between layout modes.
+	•	Key Layout Parameters:
+	•	Card Width Threshold: Determines the minimum width for a card.
+	•	Align Card Height: Unifies card height when enabled or allows dynamic height adjustment based on content.
+	•	Fixed Card Height: Sets a specific pixel height for all cards.
+	•	Cards Per View: Specifies the number of cards displayed per viewport (alternative to fixed height).
+	•	Vertical/Horizontal Scrolling: Automatically determined based on container dimensions.
+	•	Layout Behavior:
+	•	Automatically calculates column/row count based on container size and card width threshold.
+	•	Switches scrolling direction dynamically based on container aspect ratio.
+	•	Optimizes layout in real-time when container size changes.
+	•	User Experience Modes:
+	•	List Mode: Single-column layout, adjusting card width to match the container.
+	•	Grid Mode: Multi-column layout with uniform card height.
+	•	Masonry Mode: Multi-column layout with varying card heights based on content.
+	•	Horizontal Scroll Mode: Automatically applied when the container is wide and short.
+
+5. Keyboard Shortcuts
+	•	Customizable Shortcuts:
+	•	Configure all shortcuts within the Obsidian settings panel.
+	•	Differentiate between global shortcuts and Card Navigator view-specific shortcuts.
+	•	Detect and notify conflicts with existing shortcuts.
+	•	Global Shortcuts:
+	•	Open/close the Card Navigator view.
+	•	Display the current note as a card.
+	•	Start a quick search for cards.
+	•	Switch between presets quickly.
+	•	In-View Shortcuts:
+	•	Navigate cards: Arrow keys, Home/End, Page Up/Page Down.
+	•	Select cards: Enter, Space, Shift + Arrow (multi-selection).
+	•	Perform card actions: Edit (E), Delete (Delete), Duplicate (D), Copy Link (C).
+	•	Search: Start search (Ctrl/Cmd + F), Toggle filters (Tab).
+	•	Sorting: Change sort criteria (S), Toggle sort direction (R).
+	•	Accessibility Features:
+	•	ARIA attributes for screen reader compatibility.
+	•	Full keyboard navigation support.
+	•	Keyboard shortcut help overlay (Shift + ?).
+
+Here’s the continuation from 6. Presets in English:
+
+6. Presets
+Card Navigator now supports presets, allowing users to save and switch between different configurations quickly. This feature enhances workflow flexibility by adjusting how notes are displayed and interacted with.
+	•	Create Custom Presets: Save the current Card Navigator settings as a named preset for future use.
+	•	Global Presets: Set a default preset that applies to all folders (unless overridden by folder-specific settings).
+	•	Folder-Specific Presets: Assign different presets to specific folders to customize views based on the folder structure.
+	•	Auto-Apply Presets: Automatically switch to the appropriate preset when navigating between folders.
+	•	Import/Export Presets: Save presets to a file and share or back them up.
+	•	Preset Management: Edit, duplicate, or delete existing presets directly from the settings panel.
+
+How to Use Presets:
+	•	Creating a Preset:
+	1.	Navigate to the Card Navigator Settings.
+	2.	Configure the desired settings.
+	3.	Click the ”+” button in the Preset Management section.
+	4.	Name the preset and optionally add a description.
+	•	Applying a Preset:
+	•	Global Preset: Toggle a preset as the default for all folders.
+	•	Folder-Specific Preset: Assign a preset to a folder in the Folder Presets section.
+	•	Auto-Applying Presets:
+	•	Enable “Auto-Apply Presets” in the settings.
+	•	Card Navigator will automatically switch to the appropriate preset when changing folders.
+	•	Importing/Exporting Presets:
+	•	Use the Import/Export buttons in the Preset Management section.
+	•	Exported presets are saved as JSON files for easy sharing or backup.
+
+By using presets, users can fine-tune Card Navigator’s behavior based on different note structures or workflows, enhancing productivity and note management experience.
+
+7. Multi-Language Support
+Card Navigator now supports multiple languages:
+	•	English
+	•	Korean
+
+The plugin automatically adapts to the Obsidian interface language when available.
+
+8. Advanced Search Features
+Card Navigator includes a powerful search functionality, enabling users to quickly find specific notes within their card collection.
+	•	Real-Time Search: Results update instantly as you type.
+	•	Multi-Field Search: Search by filename, headers, content, and more.
+	•	Tag-Based Search: Filter notes containing specific tags.
+	•	Regex Support: Use regular expressions for complex pattern matching.
+	•	Search History: Store recent searches for quick access.
+	•	Highlighted Search Results: Matches are visually emphasized within cards.
+	•	Keyboard Shortcuts:
+	•	Open search bar: Ctrl+F (Windows/Linux) or Cmd+F (Mac)
+	•	Toggle search filters: Tab
+	•	Save Search Filters: Frequently used search settings can be stored as part of a preset.
+
+9. Card Set Management
+A Card Set represents a collection of note files displayed within Card Navigator. Users can manage card sets using various modes:
+	•	Active Folder Mode:
+	•	Displays all notes from the currently active file’s folder.
+	•	Automatically updates when switching to a different folder.
+	•	Best for context-based note exploration.
+	•	Selected Folder Mode:
+	•	Displays notes only from a specific user-defined folder.
+	•	The displayed card set remains fixed, even when switching files.
+	•	Useful for project-based workflows.
+	•	Vault-Wide Mode:
+	•	Displays all notes from the entire Obsidian vault.
+	•	Ideal for browsing the entire knowledge base.
+	•	Search Results Mode:
+	•	Displays notes that match a search query.
+	•	The search results remain active until manually cleared or switched to another card set mode.
+	•	When exiting search, the previously selected card set mode (Active Folder, Selected Folder, or Vault-Wide) is restored.
+
+Switching Between Card Set Modes:
+	•	Use the toolbar dropdown menu to switch between different card set modes.
+	•	Each mode retains its own sorting and filtering preferences.
+	•	Presets can include card set mode configurations for quicker switching.
+
+Automatic Card Set Updates:
+	•	Active Folder Mode: Updates when a new file is opened.
+	•	Selected Folder Mode: Updates when files are added or removed from the chosen folder.
+	•	Vault-Wide Mode: Updates dynamically when files are added or removed.
+	•	Search Results Mode: Updates in real-time as the search query changes.
+
+10. Hotkeys and Navigation
+Card Navigator includes extensive keyboard shortcuts for efficient navigation and interaction.
+
+Customizable Shortcuts
+	•	Configure all Card Navigator-related shortcuts within Obsidian settings.
+	•	Distinguish between global shortcuts and view-specific shortcuts.
+	•	Detect shortcut conflicts and receive alerts.
+
+Global Shortcuts
+	•	Toggle Card Navigator View: Open/close the Card Navigator.
+	•	Display Current Note as a Card: Quickly add the current note to the Card Navigator.
+	•	Quick Search: Open search and start typing.
+	•	Switch Between Presets: Quickly swap between saved configurations.
+
+In-View Shortcuts
+	•	Card Navigation:
+	•	Arrow Keys → Move between cards.
+	•	Home/End → Jump to the first/last card.
+	•	Page Up/Page Down → Scroll through cards.
+	•	Card Selection:
+	•	Enter → Open the selected card.
+	•	Space → Preview the card.
+	•	Shift + Arrow → Multi-select cards.
+	•	Card Actions:
+	•	E → Edit the note.
+	•	Delete → Remove the card.
+	•	D → Duplicate the note.
+	•	C → Copy card link.
+	•	Search & Sorting:
+	•	Ctrl/Cmd + F → Open search.
+	•	Tab → Toggle search filters.
+	•	S → Change sorting method.
+	•	R → Reverse sort order.
+
+Accessibility Features
+	•	ARIA support ensures compatibility with screen readers.
+	•	Full keyboard navigation allows users to interact without a mouse.
+	•	Keyboard Shortcut Overlay (Shift + ?) provides a quick reference guide.
+
+Folder and file structure
+Card Navigator/
+├── src/
+│   ├── core/
+│   │   ├── interfaces/
+│   │   │   ├── ICardContainerManager.ts # 카드 컨테이너 관리자 인터페이스 정의
+│   │   │   ├── ICardInteractionService.ts # 카드 상호작용 서비스 인터페이스 정의
+│   │   │   ├── ICardManager.ts          # 카드 관리자 인터페이스 정의
+│   │   │   ├── ICardRenderService.ts    # 카드 렌더링 서비스 인터페이스 정의
+│   │   │   ├── ICardService.ts          # 카드 서비스 인터페이스 정의
+│   │   │   ├── ICardSetManager.ts       # 카드셋 관리자 인터페이스 정의
+│   │   │   ├── ICardSetProvider.ts      # 카드셋 제공자 인터페이스 정의
+│   │   │   ├── ICardSetService.ts       # 카드셋 서비스 인터페이스 정의
+│   │   │   ├── ILayoutManager.ts        # 레이아웃 관리자 인터페이스 정의
+│   │   │   ├── IPresetManager.ts        # 프리셋 관리자 인터페이스 정의
+│   │   │   ├── ISearchService.ts        # 검색 서비스 인터페이스 정의
+│   │   │   └── ISettingsManager.ts      # 설정 관리자 인터페이스 정의
+│   │   ├── types/
+│   │   │   ├── card.types.ts            # 카드 관련 타입 정의
+│   │   │   ├── common.types.ts          # 공통 타입 정의
+│   │   │   ├── layout.types.ts          # 레이아웃 관련 타입 정의
+│   │   │   ├── preset.types.ts          # 프리셋 관련 타입 정의
+│   │   │   ├── search.types.ts          # 검색 관련 타입 정의
+│   │   │   ├── settings.types.ts        # 설정 관련 타입 정의
+│   │   │   └── cardset.types.ts         # 카드셋 관련 타입 정의
+│   │   ├── models/
+│   │   │   ├── Card.ts                  # 카드 모델 클래스
+│   │   │   ├── CardPosition.ts          # 카드 위치 모델 클래스
+│   │   │   ├── Preset.ts                # 프리셋 모델 클래스
+│   │   │   ├── SearchResult.ts          # 검색 결과 모델 클래스
+│   │   │   └── CardSet.ts               # 카드셋 모델 클래스
+│   │   └── constants/
+│   │       ├── settings.constants.ts    # 설정 관련 상수
+│   │       ├── layout.constants.ts      # 레이아웃 관련 상수
+│   │       ├── search.constants.ts      # 검색 관련 상수
+│   │       ├── keyboard.constants.ts    # 키보드 단축키 관련 상수
+│   │       └── error.constants.ts       # 오류 관련 상수
+│   │
+│   ├── managers/
+│   │   ├── card/
+│   │   │   ├── CardManager.ts           # 개별 카드 관리 클래스
+│   │   │   └── CardContainerManager.ts  # 카드 컨테이너 관리 클래스
+│   │   ├── layout/
+│   │   │   ├── LayoutManager.ts         # 레이아웃 관리 클래스
+│   │   │   ├── LayoutStyleManager.ts    # 레이아웃 스타일 관리 클래스
+│   │   │   └── ResizeManager.ts         # 크기 조정 관리 클래스
+│   │   ├── preset/
+│   │   │   ├── PresetManager.ts         # 프리셋 관리 클래스
+│   │   │   └── FolderPresetManager.ts   # 폴더별 프리셋 관리 클래스
+│   │   ├── settings/
+│   │   │   ├── SettingsManager.ts       # 설정 관리 클래스
+│   │   │   └── SettingsMigrationManager.ts # 설정 마이그레이션 관리 클래스
+│   │   └── cardset/
+│   │       ├── CardSetManager.ts        # 카드셋 관리 클래스
+│   │       ├── ActiveFolderCardSetProvider.ts # 활성 폴더 카드셋 제공자
+│   │       ├── SelectedFolderCardSetProvider.ts # 선택 폴더 카드셋 제공자
+│   │       ├── VaultCardSetProvider.ts  # 볼트 전체 카드셋 제공자
+│   │       └── SearchResultCardSetProvider.ts # 검색 결과 카드셋 제공자
+│   │
+│   ├── services/
+│   │   ├── card/
+│   │   │   ├── CardService.ts           # 카드 서비스 클래스
+│   │   │   ├── CardRenderService.ts     # 카드 렌더링 서비스 클래스
+│   │   │   └── CardInteractionService.ts # 카드 상호작용 서비스 클래스
+│   │   ├── search/
+│   │   │   ├── SearchService.ts         # 검색 서비스 클래스
+│   │   │   ├── SearchHistoryService.ts  # 검색 기록 서비스 클래스
+│   │   │   └── SearchSuggestionService.ts # 검색 제안 서비스 클래스
+│   │   ├── file/
+│   │   │   ├── FileService.ts           # 파일 서비스 클래스
+│   │   │   ├── MetadataService.ts       # 메타데이터 서비스 클래스
+│   │   │   └── TagService.ts            # 태그 서비스 클래스
+│   │   ├── layout/
+│   │   │   ├── LayoutService.ts         # 레이아웃 서비스 클래스
+│   │   │   ├── MasonryLayoutService.ts  # 메이슨리 레이아웃 서비스 클래스
+│   │   │   └── ScrollService.ts         # 스크롤 서비스 클래스
+│   │   └── cardset/
+│   │       ├── CardSetService.ts        # 카드셋 서비스 클래스
+│   │       └── CardSetFilterService.ts  # 카드셋 필터링 서비스 클래스
+│   │
+│   ├── ui/
+│   │   ├── components/
+│   │   │   ├── card/
+│   │   │   │   ├── Card.ts              # 카드 컴포넌트
+│   │   │   │   ├── CardHeader.ts        # 카드 헤더 컴포넌트
+│   │   │   │   ├── CardBody.ts          # 카드 본문 컴포넌트
+│   │   │   │   ├── CardFooter.ts        # 카드 푸터 컴포넌트
+│   │   │   │   └── CardContextMenu.ts   # 카드 컨텍스트 메뉴 컴포넌트
+│   │   │   ├── toolbar/
+│   │   │   │   ├── Toolbar.ts           # 툴바 컴포넌트
+│   │   │   │   ├── ToolbarButton.ts     # 툴바 버튼 컴포넌트
+│   │   │   │   ├── SortMenu.ts          # 정렬 메뉴 컴포넌트
+│   │   │   │   ├── CardSetMenu.ts       # 카드셋 메뉴 컴포넌트
+│   │   │   │   └── PresetMenu.ts        # 프리셋 메뉴 컴포넌트
+│   │   │   ├── settings/
+│   │   │   │   ├── SettingsTab.ts       # 설정 탭 컴포넌트
+│   │   │   │   ├── CardContentSettings.ts # 카드 내용 설정 컴포넌트
+│   │   │   │   ├── CardStyleSettings.ts # 카드 스타일 설정 컴포넌트
+│   │   │   │   ├── LayoutSettings.ts    # 레이아웃 설정 컴포넌트
+│   │   │   │   ├── PresetSettings.ts    # 프리셋 설정 컴포넌트
+│   │   │   │   └── KeyboardSettings.ts  # 키보드 설정 컴포넌트
+│   │   │   └── search/
+│   │   │       ├── SearchBar.ts         # 검색 바 컴포넌트
+│   │   │       ├── SearchOptions.ts     # 검색 옵션 컴포넌트
+│   │   │       └── SearchSuggestions.ts # 검색 제안 컴포넌트
+│   │   ├── views/
+│   │   │   ├── CardNavigatorView.ts     # 카드 네비게이터 뷰
+│   │   │   └── CardView.ts              # 카드 뷰
+│   │   └── modals/
+│   │       ├── PresetModal.ts           # 프리셋 모달
+│   │       ├── ConfirmModal.ts          # 확인 모달
+│   │       ├── ImportExportModal.ts     # 가져오기/내보내기 모달
+│   │       └── KeyboardHelpModal.ts     # 키보드 도움말 모달
+│   │
+│   ├── styles/
+│   │   ├── components/
+│   │   │   ├── card.styles.ts           # 카드 스타일 상수
+│   │   │   ├── layout.styles.ts         # 레이아웃 스타일 상수
+│   │   │   ├── toolbar.styles.ts        # 툴바 스타일 상수
+│   │   │   ├── search.styles.ts         # 검색 스타일 상수
+│   │   │   └── settings.styles.ts       # 설정 스타일 상수
+│   │   └── variables.ts                 # 전역 스타일 변수 (옵시디언 CSS 변수 참조)
+│   │
+│   ├── i18n/
+│   │   ├── translations.ts              # 번역 유틸리티 및 인터페이스
+│   │   ├── en.ts                        # 영어 번역 리소스
+│   │   └── ko.ts                        # 한국어 번역 리소스
+│   │
+│   ├── utils/
+│   │   ├── error/
+│   │   │   ├── ErrorHandler.ts          # 오류 처리 싱글톤 클래스
+│   │   │   └── CardNavigatorError.ts    # 커스텀 오류 클래스
+│   │   ├── log/
+│   │   │   └── Log.ts                   # 로깅 싱글톤 클래스
+│   │   └── helpers/
+│   │       ├── dom.helper.ts            # DOM 조작 헬퍼 함수
+│   │       ├── file.helper.ts           # 파일 조작 헬퍼 함수
+│   │       ├── string.helper.ts         # 문자열 처리 헬퍼 함수
+│   │       ├── date.helper.ts           # 날짜 처리 헬퍼 함수
+│   │       └── performance.helper.ts    # 성능 측정 헬퍼 함수
+│   │
+│   └── main.ts                          # 플러그인 메인 엔트리 포인트
+│
+└── styles.css                           # 전역 CSS 스타일
+

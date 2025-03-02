@@ -1,0 +1,82 @@
+import { TFile } from 'obsidian';
+import { CardSetMode, CardSetOptions, CardSortOption, ICardSet } from '../types/cardset.types';
+
+/**
+ * 카드셋 관리자 인터페이스
+ * 카드셋 관리를 위한 메서드를 정의합니다.
+ */
+export interface ICardSetManager {
+  /**
+   * 카드셋 초기화
+   * @param options 카드셋 옵션
+   */
+  initialize(options?: Partial<CardSetOptions>): void;
+  
+  /**
+   * 카드셋 모드 설정
+   * @param mode 카드셋 모드
+   * @param options 모드별 옵션
+   */
+  setMode(mode: CardSetMode, options?: Partial<CardSetOptions>): Promise<void>;
+  
+  /**
+   * 현재 카드셋 모드 가져오기
+   * @returns 카드셋 모드
+   */
+  getMode(): CardSetMode;
+  
+  /**
+   * 현재 카드셋 가져오기
+   * @returns 카드셋
+   */
+  getCurrentCardSet(): ICardSet;
+  
+  /**
+   * 카드셋 업데이트
+   * @param forceRefresh 강제 새로고침 여부
+   */
+  updateCardSet(forceRefresh?: boolean): Promise<void>;
+  
+  /**
+   * 카드셋에 파일 추가
+   * @param file 파일
+   * @returns 추가 성공 여부
+   */
+  addFile(file: TFile): Promise<boolean>;
+  
+  /**
+   * 카드셋에서 파일 제거
+   * @param filePath 파일 경로
+   * @returns 제거 성공 여부
+   */
+  removeFile(filePath: string): boolean;
+  
+  /**
+   * 카드셋 정렬
+   * @param sortOption 정렬 옵션
+   */
+  sortCardSet(sortOption: CardSortOption): void;
+  
+  /**
+   * 현재 정렬 옵션 가져오기
+   * @returns 정렬 옵션
+   */
+  getSortOption(): CardSortOption;
+  
+  /**
+   * 카드셋 옵션 가져오기
+   * @returns 카드셋 옵션
+   */
+  getOptions(): CardSetOptions;
+  
+  /**
+   * 카드셋 옵션 설정
+   * @param options 카드셋 옵션
+   */
+  setOptions(options: Partial<CardSetOptions>): void;
+  
+  /**
+   * 카드셋 파괴
+   */
+  destroy(): void;
+} 
