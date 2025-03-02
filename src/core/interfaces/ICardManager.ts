@@ -3,7 +3,7 @@ import { CardEventType, CardState } from '../types/card.types';
 
 /**
  * 카드 관리자 인터페이스
- * 개별 카드의 생명주기와 상호작용을 관리합니다.
+ * 개별 카드의 UI 상태와 상호작용을 관리합니다.
  */
 export interface ICardManager {
   /**
@@ -32,10 +32,10 @@ export interface ICardManager {
   initialize(): void;
   
   /**
-   * 카드 새로고침
-   * 카드 데이터와 UI를 최신 상태로 업데이트합니다.
+   * 카드 UI 새로고침
+   * 카드 UI를 최신 상태로 업데이트합니다.
    */
-  refresh(): void;
+  refreshUI(): void;
   
   /**
    * 카드 데이터 업데이트

@@ -6,15 +6,15 @@ import { EventHandler } from '../types/common.types';
  * 카드 상호작용 이벤트 핸들러 타입
  */
 export interface CardInteractionHandlers {
-  onClick?: (event: MouseEvent) => void;
-  onContextMenu?: (event: MouseEvent) => void;
-  onDragStart?: (event: DragEvent) => void;
-  onDragEnd?: (event: DragEvent) => void;
-  onDragOver?: (event: DragEvent) => void;
-  onDrop?: (event: DragEvent) => void;
-  onHover?: (event: MouseEvent) => void;
-  onLeave?: (event: MouseEvent) => void;
-  onDoubleClick?: (event: MouseEvent) => void;
+  onClick?: (event: MouseEvent, card: Card) => void;
+  onContextMenu?: (event: MouseEvent, card: Card) => void;
+  onDragStart?: (event: DragEvent, card: Card) => void;
+  onDragEnd?: (event: DragEvent, card: Card) => void;
+  onDragOver?: (event: DragEvent, card: Card) => void;
+  onDrop?: (event: DragEvent, card: Card) => void;
+  onHover?: (event: MouseEvent, card: Card) => void;
+  onLeave?: (event: MouseEvent, card: Card) => void;
+  onDoubleClick?: (event: MouseEvent, card: Card) => void;
 }
 
 /**
@@ -55,6 +55,22 @@ export interface ICardInteractionService {
   handleCardDragEnd(card: Card, event: DragEvent): void;
   
   /**
+   * 카드 드래그 오버 처리
+   * 카드 위로 드래그 이벤트를 처리합니다.
+   * @param card 카드 객체
+   * @param event 드래그 이벤트
+   */
+  handleCardDragOver(card: Card, event: DragEvent): void;
+  
+  /**
+   * 카드 드롭 처리
+   * 카드에 드롭 이벤트를 처리합니다.
+   * @param card 카드 객체
+   * @param event 드래그 이벤트
+   */
+  handleCardDrop(card: Card, event: DragEvent): void;
+  
+  /**
    * 카드 호버 처리
    * 카드 마우스 오버 이벤트를 처리합니다.
    * @param card 카드 객체
@@ -69,6 +85,21 @@ export interface ICardInteractionService {
    * @param event 마우스 이벤트
    */
   handleCardLeave(card: Card, event: MouseEvent): void;
+  
+  /**
+   * 카드 더블 클릭 처리
+   * 카드 더블 클릭 이벤트를 처리합니다.
+   * @param card 카드 객체
+   * @param event 마우스 이벤트
+   */
+  handleCardDoubleClick(card: Card, event: MouseEvent): void;
+  
+  /**
+   * 이벤트 핸들러 등록
+   * 모든 카드 이벤트에 대한 핸들러를 등록합니다.
+   * @param handlers 이벤트 핸들러 객체
+   */
+  registerHandlers(handlers: Partial<CardInteractionHandlers>): void;
   
   /**
    * 이벤트 리스너 등록

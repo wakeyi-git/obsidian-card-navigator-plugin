@@ -255,6 +255,7 @@ Card Navigator/
 │   │   │   ├── ICardSetManager.ts       # 카드셋 관리자 인터페이스 정의
 │   │   │   ├── ICardSetProvider.ts      # 카드셋 제공자 인터페이스 정의
 │   │   │   ├── ICardSetService.ts       # 카드셋 서비스 인터페이스 정의
+│   │   │   ├── IFolderPresetManager.ts  # 폴더 프리셋 관리자 인터페이스 정의
 │   │   │   ├── ILayoutManager.ts        # 레이아웃 관리자 인터페이스 정의
 │   │   │   ├── IPresetManager.ts        # 프리셋 관리자 인터페이스 정의
 │   │   │   ├── ISearchService.ts        # 검색 서비스 인터페이스 정의

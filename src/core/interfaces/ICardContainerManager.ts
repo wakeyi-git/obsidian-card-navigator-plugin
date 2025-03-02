@@ -2,7 +2,6 @@ import { Card } from '../models/Card';
 import { ICardManager } from './ICardManager';
 import { CardContainerEventData, CardContainerEventType } from '../types/card.types';
 import { EventHandler } from '../types/common.types';
-import { LayoutOptions } from '../types/layout.types';
 
 /**
  * 카드 컨테이너 관리자 인터페이스
@@ -59,15 +58,10 @@ export interface ICardContainerManager {
   setCards(cards: Card[]): void;
   
   /**
-   * 레이아웃을 업데이트합니다.
+   * 레이아웃 업데이트 요청
+   * 레이아웃 관리자에게 레이아웃 업데이트를 요청합니다.
    */
-  updateLayout(): void;
-  
-  /**
-   * 레이아웃 옵션을 설정합니다.
-   * @param options 레이아웃 옵션
-   */
-  setLayoutOptions(options: Partial<LayoutOptions>): void;
+  requestLayoutUpdate(): void;
   
   /**
    * 카드를 선택합니다.

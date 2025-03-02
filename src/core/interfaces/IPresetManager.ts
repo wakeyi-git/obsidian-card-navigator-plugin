@@ -1,4 +1,4 @@
-import { TFile, TFolder } from 'obsidian';
+import { TFile } from 'obsidian';
 import { Preset } from '../models/Preset';
 import { CardNavigatorSettings } from '../types/settings.types';
 import { PresetData } from '../types/preset.types';
@@ -119,20 +119,6 @@ export interface IPresetManager {
   applyPreset(presetId: string): Promise<Partial<CardNavigatorSettings>>;
 
   /**
-   * 폴더에 프리셋 할당
-   * @param folderPath 폴더 경로
-   * @param presetId 프리셋 ID
-   */
-  assignPresetToFolder(folderPath: string, presetId: string): Promise<void>;
-
-  /**
-   * 폴더에 할당된 프리셋 ID 가져오기
-   * @param folderPath 폴더 경로
-   * @returns 프리셋 ID 또는 null
-   */
-  getPresetForFolder(folderPath: string): string | null;
-
-  /**
    * 프리셋 데이터 가져오기
    * @param presetDataJson 프리셋 데이터 JSON 문자열
    * @returns 가져온 프리셋 배열
@@ -146,9 +132,15 @@ export interface IPresetManager {
   exportPresets(): Promise<string>;
 
   /**
-   * 현재 파일에 적합한 프리셋 ID 선택
-   * @param file 현재 파일
-   * @returns 선택된 프리셋 ID
+   * 프리셋 ID 변경 이벤트 발생
+   * @param oldPresetId 이전 프리셋 ID
+   * @param newPresetId 새 프리셋 ID
    */
-  selectPresetForFile(file: TFile): Promise<string>;
+  notifyPresetIdChanged(oldPresetId: string, newPresetId: string): void;
+
+  /**
+   * 프리셋 삭제 이벤트 발생
+   * @param presetId 삭제된 프리셋 ID
+   */
+  notifyPresetDeleted(presetId: string): void;
 } 

@@ -4,7 +4,7 @@ import { CardData } from '../types/card.types';
 
 /**
  * 카드 서비스 인터페이스
- * 카드 데이터의 생성, 변환, 관리를 담당합니다.
+ * 개별 카드 데이터의 생성, 변환, 관리를 담당합니다.
  */
 export interface ICardService {
   /**
@@ -58,28 +58,4 @@ export interface ICardService {
    * @returns 현재 캐시된 카드 목록
    */
   getCards(): Card[];
-  
-  /**
-   * 카드 정렬
-   * @param cards 정렬할 카드 목록
-   * @param sortBy 정렬 기준
-   * @param sortDirection 정렬 방향
-   * @returns 정렬된 카드 목록
-   */
-  sortCards(
-    cards: Card[],
-    sortBy: string,
-    sortDirection: 'asc' | 'desc'
-  ): Card[];
-  
-  /**
-   * 카드 필터링
-   * @param cards 필터링할 카드 목록
-   * @param filterFn 필터 함수
-   * @returns 필터링된 카드 목록
-   */
-  filterCards(
-    cards: Card[],
-    filterFn: (card: Card) => boolean
-  ): Card[];
 } 

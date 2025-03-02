@@ -1,12 +1,19 @@
 import { TFile } from 'obsidian';
+import { Card } from '../models/Card';
 import { SearchOptions, SearchSuggestion } from '../types/search.types';
 import { SearchResult } from '../models/SearchResult';
 
 /**
  * 검색 서비스 인터페이스
- * 검색 기능과 관련된 기능을 정의합니다.
+ * 파일 및 카드 검색과 검색 관련 기능을 제공합니다.
  */
 export interface ISearchService {
+  /**
+   * 검색 서비스 초기화
+   * @param options 초기 검색 옵션
+   */
+  initialize(options?: Partial<SearchOptions>): void;
+  
   /**
    * 검색 옵션 설정
    * @param options 검색 옵션
@@ -27,6 +34,14 @@ export interface ISearchService {
    * @returns 검색 결과 파일 배열
    */
   searchFiles(files: TFile[], searchTerm: string): Promise<TFile[]>;
+
+  /**
+   * 카드 검색
+   * @param cards 검색할 카드 배열
+   * @param searchTerm 검색어
+   * @returns 검색 결과 카드 배열
+   */
+  searchCards(cards: Card[], searchTerm: string): Promise<Card[]>;
 
   /**
    * 상세 검색 결과 가져오기
@@ -60,4 +75,17 @@ export interface ISearchService {
    * 검색 기록 지우기
    */
   clearHistory(): void;
+  
+  /**
+   * 검색 결과 하이라이트 처리
+   * @param content 원본 콘텐츠
+   * @param searchTerm 검색어
+   * @returns 하이라이트된 콘텐츠
+   */
+  highlightSearchResults(content: string, searchTerm: string): string;
+  
+  /**
+   * 검색 서비스 파괴
+   */
+  destroy(): void;
 } 

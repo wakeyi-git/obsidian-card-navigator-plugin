@@ -1,9 +1,10 @@
 import { TFile } from 'obsidian';
 import { CardSetMode, CardSetOptions, CardSortOption, ICardSet } from '../types/cardset.types';
+import { ICardSetProvider } from './ICardSetProvider';
 
 /**
  * 카드셋 관리자 인터페이스
- * 카드셋 관리를 위한 메서드를 정의합니다.
+ * 카드셋의 상태 관리와 기본 CRUD 작업을 담당합니다.
  */
 export interface ICardSetManager {
   /**
@@ -11,6 +12,12 @@ export interface ICardSetManager {
    * @param options 카드셋 옵션
    */
   initialize(options?: Partial<CardSetOptions>): void;
+  
+  /**
+   * 카드셋 제공자 등록
+   * @param provider 카드셋 제공자
+   */
+  registerProvider(provider: ICardSetProvider): void;
   
   /**
    * 카드셋 모드 설정
@@ -52,10 +59,17 @@ export interface ICardSetManager {
   removeFile(filePath: string): boolean;
   
   /**
-   * 카드셋 정렬
+   * 파일 변경 처리
+   * @param file 변경된 파일
+   * @param changeType 변경 유형
+   */
+  handleFileChange(file: TFile | null, changeType: string): Promise<void>;
+  
+  /**
+   * 카드셋 정렬 옵션 설정
    * @param sortOption 정렬 옵션
    */
-  sortCardSet(sortOption: CardSortOption): void;
+  setSortOption(sortOption: CardSortOption): void;
   
   /**
    * 현재 정렬 옵션 가져오기
@@ -74,6 +88,19 @@ export interface ICardSetManager {
    * @param options 카드셋 옵션
    */
   setOptions(options: Partial<CardSetOptions>): void;
+  
+  /**
+   * 카드셋 변경 이벤트 구독
+   * @param callback 콜백 함수
+   * @returns 구독 ID
+   */
+  subscribeToChanges(callback: (cardSet: ICardSet) => void): string;
+  
+  /**
+   * 카드셋 변경 구독 취소
+   * @param subscriptionId 구독 ID
+   */
+  unsubscribeFromChanges(subscriptionId: string): void;
   
   /**
    * 카드셋 파괴

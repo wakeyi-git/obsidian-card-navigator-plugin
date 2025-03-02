@@ -1,4 +1,5 @@
 import { App } from 'obsidian';
+import { IFolderPresetManager } from '../../core/interfaces/IFolderPresetManager';
 import { Preset } from '../../core/models/Preset';
 import { FolderPresetMapping } from '../../core/types/preset.types';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
@@ -7,7 +8,7 @@ import { ErrorHandler } from '../../utils/error/ErrorHandler';
  * 폴더별 프리셋 관리자 클래스
  * 폴더별 프리셋을 관리하는 클래스입니다.
  */
-export class FolderPresetManager {
+export class FolderPresetManager implements IFolderPresetManager {
   /**
    * Obsidian 앱 인스턴스
    */
@@ -60,8 +61,7 @@ export class FolderPresetManager {
       // 폴더-프리셋 매핑 업데이트
       this.folderPresetMap[normalizedPath] = presetId;
     } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'FolderPresetManager.assignPresetToFolder',
+      ErrorHandler.handleError(
         `폴더에 프리셋 할당 중 오류가 발생했습니다: ${folderPath}`,
         error
       );
@@ -82,8 +82,7 @@ export class FolderPresetManager {
         delete this.folderPresetMap[normalizedPath];
       }
     } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'FolderPresetManager.unassignPresetFromFolder',
+      ErrorHandler.handleError(
         `폴더에서 프리셋 할당 해제 중 오류가 발생했습니다: ${folderPath}`,
         error
       );
@@ -115,8 +114,7 @@ export class FolderPresetManager {
       
       return null;
     } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'FolderPresetManager.getPresetIdForFolder',
+      ErrorHandler.handleError(
         `폴더에 할당된 프리셋 ID 가져오기 중 오류가 발생했습니다: ${folderPath}`,
         error
       );
@@ -161,8 +159,7 @@ export class FolderPresetManager {
       // 폴더에 할당된 프리셋 ID 가져오기
       return this.getPresetIdForFolder(folderPath);
     } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'FolderPresetManager.getPresetIdForActiveFolder',
+      ErrorHandler.handleError(
         '현재 활성 파일의 폴더에 할당된 프리셋 ID 가져오기 중 오류가 발생했습니다.',
         error
       );
@@ -181,8 +178,7 @@ export class FolderPresetManager {
       // 폴더-프리셋 매핑에서 프리셋 ID 검색
       return Object.values(this.folderPresetMap).includes(presetId);
     } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'FolderPresetManager.isPresetInUse',
+      ErrorHandler.handleError(
         `프리셋 ID가 사용 중인지 확인 중 오류가 발생했습니다: ${presetId}`,
         error
       );
@@ -203,8 +199,7 @@ export class FolderPresetManager {
         .filter(([_, id]) => id === presetId)
         .map(([folderPath, _]) => folderPath);
     } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'FolderPresetManager.getFoldersUsingPreset',
+      ErrorHandler.handleError(
         `프리셋 ID를 사용 중인 폴더 경로 목록 가져오기 중 오류가 발생했습니다: ${presetId}`,
         error
       );
@@ -227,8 +222,7 @@ export class FolderPresetManager {
         }
       }
     } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'FolderPresetManager.handlePresetIdChange',
+      ErrorHandler.handleError(
         `프리셋 ID 변경 처리 중 오류가 발생했습니다: ${oldPresetId} -> ${newPresetId}`,
         error
       );
@@ -248,8 +242,7 @@ export class FolderPresetManager {
         }
       }
     } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'FolderPresetManager.handlePresetDeletion',
+      ErrorHandler.handleError(
         `프리셋 삭제 처리 중 오류가 발생했습니다: ${presetId}`,
         error
       );

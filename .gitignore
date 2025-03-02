@@ -22,3 +22,7 @@ data.json
 .DS_Store
 main.js
 old/
+
+# Cursor
+.cursorrules
+.cursor/rules/

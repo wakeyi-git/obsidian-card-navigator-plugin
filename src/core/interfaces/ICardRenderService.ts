@@ -51,16 +51,26 @@ export interface ICardRenderService {
    * 마크다운 렌더링
    * 마크다운 텍스트를 HTML로 렌더링합니다.
    * @param markdown 마크다운 텍스트
+   * @param card 관련 카드 객체 (선택 사항)
    * @returns 렌더링된 HTML
    */
-  renderMarkdown(markdown: string): string;
+  renderMarkdown(markdown: string, card?: Card): string;
+  
+  /**
+   * 카드 콘텐츠 렌더링
+   * 카드의 콘텐츠 부분을 렌더링합니다.
+   * @param card 카드 객체
+   * @param options 렌더링 옵션
+   * @returns 렌더링된 콘텐츠 요소
+   */
+  renderCardContent(card: Card, options?: Partial<CardRenderOptions>): HTMLElement;
   
   /**
    * 서비스 초기화
    * 렌더링 서비스를 초기화합니다.
    * @param options 초기화 옵션
    */
-  initialize(options?: any): void;
+  initialize(options?: Partial<CardRenderOptions>): void;
   
   /**
    * 서비스 정리

@@ -1,12 +1,14 @@
-import { App, TFile, TFolder } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import { ICardService } from '../../core/interfaces/ICardService';
 import { ICardSetManager } from '../../core/interfaces/ICardSetManager';
+import { ISearchService } from '../../core/interfaces/ISearchService';
 import { Card } from '../../core/models/Card';
 import { CardSet } from '../../core/models/CardSet';
 import { CardSetMode, CardSetOptions, CardSortOption } from '../../core/types/cardset.types';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 import { Log } from '../../utils/log/Log';
-import { getDirectoryPath, getMarkdownFilesFromFolder } from '../../utils/helpers/file.helper';
+import { getDirectoryPath, getMarkdownFilesInFolder } from '../../utils/helpers/file.helper';
+import { ErrorCode } from '../../core/constants/error.constants';
 
 /**
  * 카드셋 관리자 클래스
@@ -22,6 +24,11 @@ export class CardSetManager implements ICardSetManager {
    * 카드 서비스
    */
   private cardService: ICardService;
+  
+  /**
+   * 검색 서비스
+   */
+  private searchService: ISearchService;
   
   /**
    * 현재 카드셋
@@ -51,17 +58,19 @@ export class CardSetManager implements ICardSetManager {
   /**
    * 카드셋 관리자 생성자
    * @param app Obsidian 앱 인스턴스
-   * @param cardService 카드 서비스 인스턴스
+   * @param cardService 카드 서비스
+   * @param searchService 검색 서비스
    */
-  constructor(app: App, cardService: ICardService) {
+  constructor(app: App, cardService: ICardService, searchService: ISearchService) {
     try {
       this.app = app;
       this.cardService = cardService;
+      this.searchService = searchService;
       this.cardCache = new Map<string, Card>();
       
       // 기본 옵션 설정
       this.options = {
-        mode: 'active-folder',
+        mode: CardSetMode.ACTIVE_FOLDER,
         selectedFolderPath: '',
         searchQuery: '',
         sortOption: {
@@ -88,7 +97,12 @@ export class CardSetManager implements ICardSetManager {
       
       Log.debug('카드셋 관리자 생성됨');
     } catch (error) {
-      ErrorHandler.handleError('카드셋 관리자 생성 중 오류 발생', error);
+      ErrorHandler.handleError(
+        ErrorCode.INITIALIZATION_ERROR,
+        { component: 'CardSetManager' },
+        '카드셋 관리자 초기화 중 오류 발생'
+      );
+      throw error;
     }
   }
   
@@ -98,26 +112,24 @@ export class CardSetManager implements ICardSetManager {
    */
   initialize(options?: Partial<CardSetOptions>): void {
     try {
-      Log.debug('카드셋 관리자 초기화');
-      
-      // 옵션 병합
+      // 옵션 설정
       if (options) {
-        this.options = {
-          ...this.options,
-          ...options
-        };
+        this.setOptions(options);
       }
       
-      // 정렬 옵션 설정
-      this.sortOption = this.options.sortOption;
-      
-      // 이벤트 리스너 등록
-      this.registerEventListeners();
+      // 이벤트 핸들러 등록
+      this.registerEventHandlers();
       
       // 초기 카드셋 로드
-      this.setMode(this.options.mode);
+      this.updateCardSet(true);
+      
+      Log.debug('카드셋 관리자가 초기화되었습니다.');
     } catch (error) {
-      ErrorHandler.handleError('카드셋 관리자 초기화 중 오류 발생', error);
+      ErrorHandler.handleError(
+        ErrorCode.INITIALIZATION_ERROR,
+        { options },
+        `카드셋 초기화 중 오류 발생: ${error.message}`
+      );
     }
   }
   
@@ -126,29 +138,40 @@ export class CardSetManager implements ICardSetManager {
    * @param mode 카드셋 모드
    * @param options 모드별 옵션
    */
-  async setMode(mode: CardSetMode, options?: any): Promise<void> {
+  async setMode(mode: CardSetMode, options?: Partial<CardSetOptions>): Promise<void> {
     try {
-      Log.debug(`카드셋 모드 설정: ${mode}`);
+      // 이전 모드 저장
+      const previousMode = this.currentMode;
       
+      // 새 모드 설정
       this.currentMode = mode;
-      this.options.mode = mode;
       
-      // 모드별 옵션 처리
+      // 옵션 업데이트
       if (options) {
+        this.options = { ...this.options, ...options };
+        
+        // 모드별 특정 옵션 설정
         switch (mode) {
-          case 'selected-folder':
-            this.options.selectedFolderPath = options.folderPath || this.options.selectedFolderPath;
+          case CardSetMode.SELECTED_FOLDER:
+            this.options.selectedFolderPath = options.selectedFolderPath || this.options.selectedFolderPath;
             break;
-          case 'search-results':
+          case CardSetMode.SEARCH_RESULT:
             this.options.searchQuery = options.searchQuery || this.options.searchQuery;
             break;
         }
       }
       
-      // 카드셋 업데이트
+      // 모드 변경 시 카드셋 업데이트
       await this.updateCardSet(true);
+      
+      Log.debug(`카드셋 모드 변경됨: ${previousMode} -> ${this.currentMode}`);
     } catch (error) {
-      ErrorHandler.handleError(`카드셋 모드 설정 중 오류 발생: ${mode}`, error);
+      ErrorHandler.handleError(
+        ErrorCode.OPERATION_FAILED,
+        { mode },
+        `카드셋 모드 변경 중 오류 발생: ${error.message}`
+      );
+      throw error;
     }
   }
   
@@ -164,7 +187,7 @@ export class CardSetManager implements ICardSetManager {
    * 현재 카드셋 가져오기
    * @returns 카드셋
    */
-  getCurrentCardSet(): CardSet {
+  getCurrentCardSet(): ICardSet {
     return this.currentCardSet;
   }
   
@@ -174,31 +197,25 @@ export class CardSetManager implements ICardSetManager {
    */
   async updateCardSet(forceRefresh: boolean = false): Promise<void> {
     try {
-      Log.debug(`카드셋 업데이트 (강제 새로고침: ${forceRefresh})`);
-      
+      // 모드에 따라 카드셋 로드
       switch (this.currentMode) {
-        case 'active-folder':
+        case CardSetMode.ACTIVE_FOLDER:
           await this.loadActiveFolder();
           break;
-        case 'selected-folder':
-          if (this.options.selectedFolderPath) {
-            await this.loadSelectedFolder(this.options.selectedFolderPath);
-          }
+        case CardSetMode.SELECTED_FOLDER:
+          await this.loadSelectedFolder(this.options.selectedFolderPath);
           break;
-        case 'vault':
+        case CardSetMode.VAULT:
           await this.loadVault();
           break;
-        case 'search-results':
+        case CardSetMode.SEARCH_RESULT:
           if (this.options.searchQuery) {
             await this.loadSearchResults(this.options.searchQuery);
           }
           break;
       }
-      
-      // 정렬 적용
-      this.sortCards(this.sortOption);
-    } catch (error) {
-      ErrorHandler.handleError('카드셋 업데이트 중 오류 발생', error);
+    } catch (error: any) {
+      console.error(`${ErrorCode.CARDSET_REFRESH_ERROR}: ${error.message}`, error);
     }
   }
   
@@ -324,33 +341,93 @@ export class CardSetManager implements ICardSetManager {
   }
   
   /**
-   * 카드 정렬
+   * 카드셋 정렬
    * @param sortOption 정렬 옵션
    */
-  sortCards(sortOption: CardSortOption): void {
+  sortCardSet(sortOption: CardSortOption): void {
     try {
-      Log.debug(`카드 정렬: ${sortOption.by}, ${sortOption.direction}`);
-      
       // 정렬 옵션 저장
       this.sortOption = sortOption;
-      this.options.sortOption = sortOption;
+      
+      // 파일이 없는 경우 무시
+      if (!this.currentCardSet || !this.currentCardSet.files || this.currentCardSet.files.length === 0) {
+        return;
+      }
       
       // 정렬 함수 생성
-      const compareFn = this.createSortFunction(sortOption);
+      const sortFn = this.createSortFunction(sortOption);
       
-      // 카드셋 정렬
-      this.currentCardSet = this.currentCardSet.sortFiles(compareFn);
+      // 파일 정렬
+      const sortedFiles = [...this.currentCardSet.files].sort(sortFn);
+      
+      // 정렬된 파일로 카드셋 업데이트
+      this.currentCardSet.files = sortedFiles;
+      
+      Log.debug(`카드셋 정렬됨: ${sortOption.by}, ${sortOption.direction}`);
     } catch (error) {
-      ErrorHandler.handleError('카드 정렬 중 오류 발생', error);
+      ErrorHandler.handleError(
+        ErrorCode.OPERATION_FAILED,
+        { sortOption },
+        `카드셋 정렬 중 오류 발생: ${error.message}`
+      );
     }
   }
   
   /**
-   * 현재 정렬 옵션 가져오기
-   * @returns 정렬 옵션
+   * 정렬 함수 생성
+   * @param sortOption 정렬 옵션
+   * @returns 정렬 함수
    */
-  getSortOption(): CardSortOption {
-    return this.sortOption;
+  private createSortFunction(sortOption: CardSortOption): (a: TFile, b: TFile) => number {
+    const { by, direction } = sortOption;
+    const directionMultiplier = direction === 'asc' ? 1 : -1;
+    
+    return (a: TFile, b: TFile) => {
+      let result = 0;
+      
+      switch (by) {
+        case 'file-name':
+          result = a.basename.localeCompare(b.basename);
+          break;
+        
+        case 'created-time':
+          result = a.stat.ctime - b.stat.ctime;
+          break;
+        
+        case 'modified-time':
+          result = a.stat.mtime - b.stat.mtime;
+          break;
+        
+        case 'file-size':
+          result = a.stat.size - b.stat.size;
+          break;
+        
+        case 'custom-field':
+          // 사용자 정의 필드 정렬은 메타데이터 캐시를 사용하여 구현
+          if (sortOption.customField) {
+            const fieldName = sortOption.customField;
+            const metadataA = this.app.metadataCache.getFileCache(a)?.frontmatter?.[fieldName];
+            const metadataB = this.app.metadataCache.getFileCache(b)?.frontmatter?.[fieldName];
+            
+            if (metadataA !== undefined && metadataB !== undefined) {
+              if (typeof metadataA === 'string' && typeof metadataB === 'string') {
+                result = metadataA.localeCompare(metadataB);
+              } else if (typeof metadataA === 'number' && typeof metadataB === 'number') {
+                result = metadataA - metadataB;
+              } else if (metadataA instanceof Date && metadataB instanceof Date) {
+                result = metadataA.getTime() - metadataB.getTime();
+              }
+            } else if (metadataA !== undefined) {
+              result = -1;
+            } else if (metadataB !== undefined) {
+              result = 1;
+            }
+          }
+          break;
+      }
+      
+      return result * directionMultiplier;
+    };
   }
   
   /**
@@ -392,7 +469,7 @@ export class CardSetManager implements ICardSetManager {
    * @returns 카드셋 옵션
    */
   getOptions(): CardSetOptions {
-    return this.options;
+    return { ...this.options };
   }
   
   /**
@@ -401,25 +478,31 @@ export class CardSetManager implements ICardSetManager {
    */
   setOptions(options: Partial<CardSetOptions>): void {
     try {
-      Log.debug('카드셋 옵션 설정');
+      // 이전 옵션 저장
+      const previousOptions = { ...this.options };
       
-      // 옵션 병합
-      this.options = {
-        ...this.options,
-        ...options
-      };
+      // 새 옵션으로 업데이트
+      this.options = { ...this.options, ...options };
       
-      // 정렬 옵션 업데이트
-      if (options.sortOption) {
+      // 모드가 변경된 경우 모드 업데이트
+      if (options.mode && options.mode !== previousOptions.mode) {
+        this.currentMode = options.mode;
+      }
+      
+      // 정렬 옵션이 변경된 경우 정렬 업데이트
+      if (options.sortOption && 
+          (options.sortOption.by !== previousOptions.sortOption.by || 
+           options.sortOption.direction !== previousOptions.sortOption.direction)) {
         this.sortOption = options.sortOption;
       }
       
-      // 모드가 변경된 경우 카드셋 업데이트
-      if (options.mode && options.mode !== this.currentMode) {
-        this.setMode(options.mode);
-      }
+      Log.debug('카드셋 옵션이 업데이트되었습니다.');
     } catch (error) {
-      ErrorHandler.handleError('카드셋 옵션 설정 중 오류 발생', error);
+      ErrorHandler.handleError(
+        ErrorCode.OPERATION_FAILED,
+        { options },
+        `카드셋 옵션 설정 중 오류 발생: ${error.message}`
+      );
     }
   }
   
@@ -428,51 +511,23 @@ export class CardSetManager implements ICardSetManager {
    */
   destroy(): void {
     try {
-      Log.debug('카드셋 관리자 파괴');
-      
       // 이벤트 리스너 제거
-      this.unregisterEventListeners();
+      this.unregisterEventHandlers();
       
-      // 캐시 정리
+      // 카드셋 초기화
+      this.currentCardSet = new CardSet(CardSetMode.ACTIVE_FOLDER, null, []);
+      
+      // 카드 캐시 초기화
       this.cardCache.clear();
+      
+      Log.debug('카드셋 관리자가 파괴되었습니다.');
     } catch (error) {
-      ErrorHandler.handleError('카드셋 관리자 파괴 중 오류 발생', error);
+      ErrorHandler.handleError(
+        ErrorCode.OPERATION_FAILED,
+        {},
+        `카드셋 파괴 중 오류 발생: ${error.message}`
+      );
     }
-  }
-  
-  /**
-   * 정렬 함수 생성
-   * @param sortOption 정렬 옵션
-   * @returns 정렬 함수
-   */
-  private createSortFunction(sortOption: CardSortOption): (a: TFile, b: TFile) => number {
-    const { by, direction } = sortOption;
-    const directionMultiplier = direction === 'asc' ? 1 : -1;
-    
-    return (a: TFile, b: TFile) => {
-      let result = 0;
-      
-      switch (by) {
-        case 'file-name':
-          result = a.basename.localeCompare(b.basename);
-          break;
-        case 'created-time':
-          result = a.stat.ctime - b.stat.ctime;
-          break;
-        case 'modified-time':
-          result = a.stat.mtime - b.stat.mtime;
-          break;
-        case 'file-size':
-          result = a.stat.size - b.stat.size;
-          break;
-        case 'custom-field':
-          // 사용자 정의 필드는 추가 구현 필요
-          result = 0;
-          break;
-      }
-      
-      return result * directionMultiplier;
-    };
   }
   
   /**
@@ -493,23 +548,23 @@ export class CardSetManager implements ICardSetManager {
       
       if (!activeFile) {
         // 활성 파일이 없으면 빈 카드셋 생성
-        this.currentCardSet = new CardSet('active-folder', [], null);
+        this.currentCardSet = new CardSet(CardSetMode.ACTIVE_FOLDER, null, []);
         return;
       }
       
       // 활성 파일의 폴더 경로 가져오기
-      const folderPath = this.getFolderPathFromFilePath(activeFile.path);
+      const folderPath = getDirectoryPath(activeFile.path);
       
       // 폴더 내 마크다운 파일 가져오기
       const files = await this.getMarkdownFilesInFolder(folderPath, this.options.includeSubfolders);
       
       // 카드셋 업데이트
-      this.currentCardSet = new CardSet('active-folder', folderPath, files);
-      this.currentMode = 'active-folder';
+      this.currentCardSet = new CardSet(CardSetMode.ACTIVE_FOLDER, folderPath, files);
+      this.currentMode = CardSetMode.ACTIVE_FOLDER;
     } catch (error: any) {
       console.error(`${ErrorCode.CARDSET_LOAD_ERROR}: ${error.message}`, error);
       // 오류 발생 시 빈 카드셋 생성
-      this.currentCardSet = new CardSet('active-folder', [], null);
+      this.currentCardSet = new CardSet(CardSetMode.ACTIVE_FOLDER, null, []);
     }
   }
   
@@ -519,17 +574,21 @@ export class CardSetManager implements ICardSetManager {
    */
   async loadSelectedFolder(folderPath: string): Promise<void> {
     try {
+      if (!folderPath) {
+        throw new Error('폴더 경로가 지정되지 않았습니다.');
+      }
+      
       // 폴더 내 마크다운 파일 가져오기
       const files = await this.getMarkdownFilesInFolder(folderPath, this.options.includeSubfolders);
       
       // 카드셋 업데이트
-      this.currentCardSet = new CardSet('selected-folder', folderPath, files);
-      this.currentMode = 'selected-folder';
+      this.currentCardSet = new CardSet(CardSetMode.SELECTED_FOLDER, folderPath, files);
+      this.currentMode = CardSetMode.SELECTED_FOLDER;
       this.options.selectedFolderPath = folderPath;
     } catch (error: any) {
       console.error(`${ErrorCode.CARDSET_LOAD_ERROR}: ${error.message}`, error);
       // 오류 발생 시 빈 카드셋 생성
-      this.currentCardSet = new CardSet('selected-folder', [], folderPath);
+      this.currentCardSet = new CardSet(CardSetMode.SELECTED_FOLDER, folderPath, []);
     }
   }
   
@@ -539,61 +598,83 @@ export class CardSetManager implements ICardSetManager {
   async loadVault(): Promise<void> {
     try {
       // 볼트 내 모든 마크다운 파일 가져오기
-      const files = this.app.vault.getMarkdownFiles();
+      const allFiles = this.app.vault.getMarkdownFiles();
       
-      // 숨김 파일 필터링
-      const filteredFiles = this.options.includeHiddenFiles
-        ? files
-        : files.filter(file => !file.path.startsWith('.'));
+      // 필터링 옵션에 따라 파일 필터링
+      const filteredFiles = allFiles.filter(file => this.shouldIncludeFile(file));
       
       // 카드셋 업데이트
-      this.currentCardSet = new CardSet('vault', 'vault', filteredFiles);
-      this.currentMode = 'vault';
+      this.currentCardSet = new CardSet(CardSetMode.VAULT, 'vault', filteredFiles);
+      this.currentMode = CardSetMode.VAULT;
     } catch (error: any) {
       console.error(`${ErrorCode.CARDSET_LOAD_ERROR}: ${error.message}`, error);
       // 오류 발생 시 빈 카드셋 생성
-      this.currentCardSet = new CardSet('vault', [], null);
+      this.currentCardSet = new CardSet(CardSetMode.VAULT, null, []);
     }
   }
   
   /**
    * 검색 결과로 카드셋 로드
-   * @param searchTerm 검색어
+   * @param query 검색 쿼리
+   * @returns 로드된 카드셋
    */
-  async loadSearchResults(searchTerm: string): Promise<void> {
+  async loadSearchResults(query: string): Promise<CardSet> {
     try {
-      // 검색 결과 파일 가져오기
-      const files = await this.searchFiles(searchTerm);
+      // 검색 쿼리가 비어있는 경우 빈 카드셋 반환
+      if (!query.trim()) {
+        return new CardSet(`search-${Date.now()}`, CardSetMode.SEARCH_RESULT, query, []);
+      }
       
-      // 카드셋 업데이트
-      this.currentCardSet = new CardSet('search-results', searchTerm, files);
-      this.currentMode = 'search-results';
-      this.options.searchQuery = searchTerm;
-    } catch (error: any) {
-      console.error(`${ErrorCode.CARDSET_SEARCH_ERROR}: ${error.message}`, error);
-      // 오류 발생 시 빈 카드셋 생성
-      this.currentCardSet = new CardSet('search-results', [], searchTerm);
+      // 모든 마크다운 파일 가져오기
+      const allFiles = this.app.vault.getMarkdownFiles();
+      
+      // 검색 서비스를 사용하여 검색 수행
+      const searchResults = await this.searchService.searchFiles(allFiles, query);
+      
+      // 현재 모드를 검색 결과로 설정
+      this.currentMode = CardSetMode.SEARCH_RESULT;
+      
+      // 검색 결과 카드셋 생성
+      const cardSet = new CardSet(
+        `search-${Date.now()}`,
+        CardSetMode.SEARCH_RESULT,
+        query,
+        searchResults
+      );
+      
+      // 현재 카드셋 업데이트
+      this.currentCardSet = cardSet;
+      
+      return cardSet;
+    } catch (error) {
+      ErrorHandler.handleError(
+        ErrorCode.SEARCH_ERROR,
+        { query },
+        `검색 결과 카드셋 로드 중 오류 발생: ${error.message}`
+      );
+      
+      // 오류 발생 시 빈 카드셋 반환
+      return new CardSet(`search-error-${Date.now()}`, CardSetMode.SEARCH_RESULT, query, []);
     }
   }
   
   /**
-   * 현재 카드셋 새로고침
+   * 카드셋 새로고침
    */
   async refreshCardSet(): Promise<void> {
     try {
+      // 모드에 따라 카드셋 새로고침
       switch (this.currentMode) {
-        case 'active-folder':
+        case CardSetMode.ACTIVE_FOLDER:
           await this.loadActiveFolder();
           break;
-        case 'selected-folder':
-          if (this.options.selectedFolderPath) {
-            await this.loadSelectedFolder(this.options.selectedFolderPath);
-          }
+        case CardSetMode.SELECTED_FOLDER:
+          await this.loadSelectedFolder(this.options.selectedFolderPath);
           break;
-        case 'vault':
+        case CardSetMode.VAULT:
           await this.loadVault();
           break;
-        case 'search-results':
+        case CardSetMode.SEARCH_RESULT:
           if (this.options.searchQuery) {
             await this.loadSearchResults(this.options.searchQuery);
           }
@@ -610,7 +691,7 @@ export class CardSetManager implements ICardSetManager {
    */
   async handleFileChange(file: TFile | null): Promise<void> {
     // 활성 폴더 모드이고 파일이 있는 경우에만 처리
-    if (this.currentMode === 'active-folder' && file) {
+    if (this.currentMode === CardSetMode.ACTIVE_FOLDER && file) {
       await this.loadActiveFolder();
     }
   }
@@ -620,62 +701,53 @@ export class CardSetManager implements ICardSetManager {
    * @param filter 필터 함수
    */
   filterCardSet(filter: (file: TFile) => boolean): void {
-    this.currentCardSet.filter(filter);
-  }
-  
-  /**
-   * 카드셋 정렬
-   * @param sortFn 정렬 함수
-   */
-  sortCardSet(sortFn: (a: TFile, b: TFile) => number): void {
-    this.currentCardSet.sort(sortFn);
-  }
-  
-  /**
-   * 이벤트 리스너 등록
-   */
-  private registerEventListeners(): void {
     try {
-      // 파일 생성 이벤트
-      this.app.vault.on('create', this.handleFileCreate);
+      // 파일이 없는 경우 무시
+      if (!this.currentCardSet || !this.currentCardSet.files || this.currentCardSet.files.length === 0) {
+        return;
+      }
       
-      // 파일 수정 이벤트
-      this.app.vault.on('modify', this.handleFileModify);
+      // 필터링 적용
+      const filteredFiles = this.currentCardSet.files.filter(filter);
       
-      // 파일 삭제 이벤트
-      this.app.vault.on('delete', this.handleFileDelete);
+      // 필터링된 파일로 카드셋 업데이트
+      this.currentCardSet.files = filteredFiles;
       
-      // 파일 이름 변경 이벤트
-      this.app.vault.on('rename', this.handleFileRename);
-      
-      // 활성 파일 변경 이벤트 (활성 폴더 모드에서 사용)
-      this.app.workspace.on('file-open', this.handleFileOpen);
+      Log.debug(`카드셋 필터링 적용됨: ${filteredFiles.length}개 파일 남음`);
     } catch (error) {
-      ErrorHandler.handleError('이벤트 리스너 등록 중 오류 발생', error);
+      ErrorHandler.handleError(
+        ErrorCode.OPERATION_FAILED,
+        {},
+        `카드셋 필터링 중 오류 발생: ${error.message}`
+      );
     }
   }
   
   /**
-   * 이벤트 리스너 제거
+   * 이벤트 핸들러 해제
    */
-  private unregisterEventListeners(): void {
+  private unregisterEventHandlers(): void {
     try {
       // 파일 생성 이벤트
-      this.app.vault.off('create', this.handleFileCreate);
+      this.app.vault.off('create', this.handleFileCreate.bind(this));
       
       // 파일 수정 이벤트
-      this.app.vault.off('modify', this.handleFileModify);
+      this.app.vault.off('modify', this.handleFileModify.bind(this));
       
       // 파일 삭제 이벤트
-      this.app.vault.off('delete', this.handleFileDelete);
+      this.app.vault.off('delete', this.handleFileDelete.bind(this));
       
       // 파일 이름 변경 이벤트
-      this.app.vault.off('rename', this.handleFileRename);
+      this.app.vault.off('rename', this.handleFileRename.bind(this));
       
       // 활성 파일 변경 이벤트
-      this.app.workspace.off('file-open', this.handleFileOpen);
+      this.app.workspace.off('file-open', this.handleFileOpen.bind(this));
     } catch (error) {
-      ErrorHandler.handleError('이벤트 리스너 제거 중 오류 발생', error);
+      ErrorHandler.handleError(
+        ErrorCode.EVENT_HANDLER_ERROR,
+        {},
+        `이벤트 리스너 해제 중 오류 발생: ${error.message}`
+      );
     }
   }
   
@@ -785,7 +857,7 @@ export class CardSetManager implements ICardSetManager {
   private handleFileOpen = (file: TFile | null): void => {
     try {
       // 활성 폴더 모드가 아닌 경우 무시
-      if (this.currentMode !== 'active-folder') {
+      if (this.currentMode !== CardSetMode.ACTIVE_FOLDER) {
         return;
       }
       
@@ -809,7 +881,7 @@ export class CardSetManager implements ICardSetManager {
   
   /**
    * 파일이 현재 카드셋에 포함되어야 하는지 확인
-   * @param file 파일
+   * @param file 확인할 파일
    * @returns 포함 여부
    */
   private shouldIncludeFile(file: TFile): boolean {
@@ -819,61 +891,51 @@ export class CardSetManager implements ICardSetManager {
         return false;
       }
       
-      // 숨김 파일이고 숨김 파일 포함 옵션이 비활성화된 경우 제외
-      if (file.path.startsWith('.') && !this.options.includeHiddenFiles) {
+      // 숨김 파일 처리
+      if (!this.options.includeHiddenFiles && file.path.startsWith('.')) {
         return false;
       }
       
-      // 카드셋 모드에 따라 확인
+      // 모드별 처리
       switch (this.currentMode) {
-        case 'active-folder': {
-          // 현재 활성 파일 가져오기
+        case CardSetMode.ACTIVE_FOLDER:
+          // 활성 폴더 모드에서는 활성 파일의 폴더에 있는 파일만 포함
           const activeFile = this.app.workspace.getActiveFile();
+          if (!activeFile) return false;
           
-          // 활성 파일이 없는 경우 제외
-          if (!activeFile) {
-            return false;
-          }
+          const activeFolder = getDirectoryPath(activeFile.path);
+          const fileFolder = getDirectoryPath(file.path);
           
-          // 활성 파일의 폴더 경로 가져오기
-          const folderPath = activeFile.parent?.path || '';
-          
-          // 파일이 활성 폴더에 있는지 확인
-          const isInActiveFolder = file.parent?.path === folderPath;
-          
-          // 하위 폴더 포함 옵션이 활성화된 경우 하위 폴더 확인
-          const isInSubfolder = this.options.includeSubfolders && file.path.startsWith(folderPath + '/');
-          
-          return isInActiveFolder || isInSubfolder;
-        }
+          // 같은 폴더이거나, 하위 폴더 포함 옵션이 켜져 있고 하위 폴더인 경우
+          return fileFolder === activeFolder || 
+                (this.options.includeSubfolders && fileFolder.startsWith(activeFolder + '/'));
         
-        case 'selected-folder': {
-          // 선택된 폴더 경로가 없는 경우 제외
-          if (!this.options.selectedFolderPath) {
-            return false;
-          }
+        case CardSetMode.SELECTED_FOLDER:
+          // 선택된 폴더 모드에서는 선택된 폴더에 있는 파일만 포함
+          const selectedFolder = this.options.selectedFolderPath;
+          if (!selectedFolder) return false;
           
-          // 파일이 선택된 폴더에 있는지 확인
-          const isInSelectedFolder = file.parent?.path === this.options.selectedFolderPath;
+          const filePath = file.path;
+          const fileDir = getDirectoryPath(filePath);
           
-          // 하위 폴더 포함 옵션이 활성화된 경우 하위 폴더 확인
-          const isInSubfolder = this.options.includeSubfolders && 
-            file.path.startsWith(this.options.selectedFolderPath + '/');
-          
-          return isInSelectedFolder || isInSubfolder;
-        }
+          // 같은 폴더이거나, 하위 폴더 포함 옵션이 켜져 있고 하위 폴더인 경우
+          return fileDir === selectedFolder || 
+                (this.options.includeSubfolders && fileDir.startsWith(selectedFolder + '/'));
         
-        case 'vault':
-          // 볼트 모드에서는 모든 마크다운 파일 포함
+        case CardSetMode.VAULT:
+          // 볼트 모드에서는 모든 마크다운 파일 포함 (필터링 옵션에 따라 달라질 수 있음)
           return true;
         
-        case 'search-results':
+        case CardSetMode.SEARCH_RESULT:
           // 검색 결과 모드에서는 검색 쿼리에 일치하는 파일만 포함
           // 이 경우 동적으로 결정되므로 여기서는 false 반환
           return false;
+        
+        default:
+          return false;
       }
     } catch (error) {
-      ErrorHandler.handleError(`파일 포함 여부 확인 중 오류 발생: ${file.path}`, error);
+      console.error('파일 포함 여부 확인 중 오류 발생:', error);
       return false;
     }
   }
@@ -899,18 +961,19 @@ export class CardSetManager implements ICardSetManager {
    */
   private async getMarkdownFilesInFolder(folderPath: string, includeSubfolders: boolean): Promise<TFile[]> {
     try {
-      // 폴더 가져오기
-      const folder = this.app.vault.getAbstractFileByPath(folderPath);
-      
-      // 폴더가 없는 경우 빈 배열 반환
-      if (!folder || !(folder instanceof TFolder)) {
+      // 폴더 경로가 비어있는 경우 빈 배열 반환
+      if (!folderPath) {
         return [];
       }
       
       // 파일 헬퍼 사용하여 마크다운 파일 가져오기
-      return getMarkdownFilesFromFolder(this.app.vault, folder, includeSubfolders);
+      return getMarkdownFilesInFolder(this.app, folderPath, includeSubfolders);
     } catch (error) {
-      ErrorHandler.handleError(`폴더 내 마크다운 파일 가져오기 중 오류 발생: ${folderPath}`, error);
+      ErrorHandler.handleError(
+        ErrorCode.FILE_ACCESS_ERROR,
+        { folderPath },
+        `폴더 내 마크다운 파일 가져오기 중 오류 발생: ${error.message}`
+      );
       return [];
     }
   }
@@ -974,6 +1037,82 @@ export class CardSetManager implements ICardSetManager {
     } catch (error) {
       ErrorHandler.handleError(`파일 검색 중 오류 발생: ${query}`, error);
       return [];
+    }
+  }
+
+  /**
+   * 현재 정렬 옵션 가져오기
+   * @returns 정렬 옵션
+   */
+  getSortOption(): CardSortOption {
+    return { ...this.sortOption };
+  }
+
+  /**
+   * 카드셋에 파일 추가
+   * @param file 파일
+   * @returns 추가 성공 여부
+   */
+  async addFile(file: TFile): Promise<boolean> {
+    try {
+      // 파일이 이미 카드셋에 있는지 확인
+      const isFileAlreadyInCardSet = this.currentCardSet.files.some(f => f.path === file.path);
+      
+      // 이미 있는 경우 무시
+      if (isFileAlreadyInCardSet) {
+        return false;
+      }
+      
+      // 파일이 현재 카드셋에 포함되어야 하는지 확인
+      if (!this.shouldIncludeFile(file)) {
+        return false;
+      }
+      
+      // 파일 추가
+      this.currentCardSet.files.push(file);
+      
+      // 정렬 적용
+      if (this.sortOption) {
+        this.sortCardSet(this.sortOption);
+      }
+      
+      return true;
+    } catch (error) {
+      ErrorHandler.handleError(
+        ErrorCode.OPERATION_FAILED,
+        { filePath: file.path },
+        `카드셋에 파일 추가 중 오류 발생: ${error.message}`
+      );
+      return false;
+    }
+  }
+  
+  /**
+   * 카드셋에서 파일 제거
+   * @param filePath 파일 경로
+   * @returns 제거 성공 여부
+   */
+  removeFile(filePath: string): boolean {
+    try {
+      // 파일 인덱스 찾기
+      const fileIndex = this.currentCardSet.files.findIndex(file => file.path === filePath);
+      
+      // 파일이 없는 경우
+      if (fileIndex === -1) {
+        return false;
+      }
+      
+      // 파일 제거
+      this.currentCardSet.files.splice(fileIndex, 1);
+      
+      return true;
+    } catch (error) {
+      ErrorHandler.handleError(
+        ErrorCode.OPERATION_FAILED,
+        { filePath },
+        `카드셋에서 파일 제거 중 오류 발생: ${error.message}`
+      );
+      return false;
     }
   }
 } 

@@ -1,4 +1,5 @@
 import { LayoutOptions, LayoutType, ICardPosition } from '../types/layout.types';
+import { ICardContainerManager } from './ICardContainerManager';
 
 /**
  * 레이아웃 관리자 인터페이스
@@ -25,9 +26,10 @@ export interface ILayoutManager {
   /**
    * 레이아웃 초기화
    * @param containerElement 컨테이너 요소
+   * @param cardContainer 카드 컨테이너 관리자
    * @param options 레이아웃 옵션
    */
-  initialize(containerElement: HTMLElement, options?: Partial<LayoutOptions>): void;
+  initialize(containerElement: HTMLElement, cardContainer: ICardContainerManager, options?: Partial<LayoutOptions>): void;
   
   /**
    * 레이아웃 업데이트
@@ -60,6 +62,13 @@ export interface ILayoutManager {
    * @param height 새 높이
    */
   handleResize(width: number, height: number): void;
+  
+  /**
+   * 최적 레이아웃 타입 결정
+   * 컨테이너 크기와 설정에 따라 최적의 레이아웃 타입을 결정합니다.
+   * @returns 결정된 레이아웃 타입
+   */
+  determineLayoutType(): LayoutType;
   
   /**
    * 레이아웃 이벤트 리스너 추가
