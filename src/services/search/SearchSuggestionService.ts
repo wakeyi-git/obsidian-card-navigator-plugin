@@ -1,7 +1,6 @@
 import { App, TFile } from 'obsidian';
-import { SearchSettings } from '../../core/types/search.types';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
-import { SearchHistoryService } from './SearchHistoryService';
+import { SearchHistoryService, SearchSettings } from './SearchHistoryService';
 
 /**
  * 검색 제안 서비스 클래스

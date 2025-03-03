@@ -1,20 +1,17 @@
 import { App, CachedMetadata, FrontMatterCache, HeadingCache, LinkCache, TFile } from 'obsidian';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 import { Log } from '../../utils/log/Log';
+import { IMetadataService } from '../../core/interfaces/service/IMetadataService';
 
 /**
  * MetadataService 클래스는 Obsidian의 메타데이터 캐시를 활용하여 파일의 메타데이터를 관리합니다.
  */
-export class MetadataService {
-  private app: App;
-
+export class MetadataService implements IMetadataService {
   /**
    * MetadataService 생성자
    * @param app Obsidian 앱 인스턴스
    */
-  constructor(app: App) {
-    this.app = app;
-    
+  constructor(private readonly app: App) {
     Log.debug('MetadataService', '메타데이터 서비스 초기화 완료');
   }
 

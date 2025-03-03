@@ -1,8 +1,7 @@
-import { LayoutOptions, LayoutDirection } from '../../core/types/layout.types';
+import { LayoutOptions, LayoutDirection, LayoutType, LayoutCalculationResult } from '../../core/types/layout.types';
 import { CardPosition } from '../../core/models/CardPosition';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 import { Log } from '../../utils/log/Log';
-import { measurePerformance } from '../../utils/helpers/performance.helper';
 import { LAYOUT_CLASS_NAMES } from '../../styles/components/layout.styles';
 
 /**
@@ -33,8 +32,9 @@ export class MasonryLayoutService {
    */
   private getDefaultOptions(): LayoutOptions {
     return {
-      type: 'masonry',
+      type: LayoutType.MASONRY,
       direction: 'vertical',
+      isVertical: true,
       cardThresholdWidth: 300,
       alignCardHeight: false,
       fixedCardHeight: 0,
@@ -45,7 +45,12 @@ export class MasonryLayoutService {
       autoDirectionRatio: 1.2,
       useAnimation: true,
       animationDuration: 300,
-      animationEasing: 'ease-out'
+      animationEasing: 'ease-out',
+      cardMinWidth: 200,
+      cardMaxWidth: 500,
+      cardMinHeight: 100,
+      cardMaxHeight: 800,
+      cardHeight: 0
     };
   }
 
@@ -67,8 +72,13 @@ export class MasonryLayoutService {
       this.isInitialized = true;
       
       Log.debug('MasonryLayoutService', '메이슨리 레이아웃 서비스 초기화 완료');
-    } catch (error) {
-      ErrorHandler.handleError('메이슨리 레이아웃 서비스 초기화 실패', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      ErrorHandler.handleError(
+        'MasonryLayoutService.initialize',
+        `메이슨리 레이아웃 서비스 초기화 실패: ${errorMessage}`,
+        true
+      );
     }
   }
 
@@ -135,7 +145,7 @@ export class MasonryLayoutService {
     const shouldUpdate = mutations.some(mutation => {
       if (mutation.type === 'attributes') {
         const target = mutation.target as HTMLElement;
-        return target.classList.contains('card-navigator-card');
+        return target.classList.contains(LAYOUT_CLASS_NAMES.CARD.CONTAINER);
       }
       return false;
     });
@@ -174,8 +184,13 @@ export class MasonryLayoutService {
       this.updateContainerSize();
       
       Log.debug('MasonryLayoutService', `레이아웃 업데이트 완료: ${cardIds.length}개 카드, ${this.columnCount}개 컬럼`);
-    } catch (error) {
-      ErrorHandler.handleError('메이슨리 레이아웃 업데이트 실패', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      ErrorHandler.handleError(
+        'MasonryLayoutService.updateLayout',
+        `메이슨리 레이아웃 업데이트 실패: ${errorMessage}`,
+        true
+      );
     }
   }
 
@@ -341,8 +356,13 @@ export class MasonryLayoutService {
       }
       
       Log.debug('MasonryLayoutService', '레이아웃 옵션 설정 완료');
-    } catch (error) {
-      ErrorHandler.handleError('레이아웃 옵션 설정 실패', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      ErrorHandler.handleError(
+        'MasonryLayoutService.setOptions',
+        `레이아웃 옵션 설정 실패: ${errorMessage}`,
+        true
+      );
     }
   }
 
@@ -392,8 +412,13 @@ export class MasonryLayoutService {
       }
       
       Log.debug('MasonryLayoutService', `카드로 스크롤 완료: ${cardId}`);
-    } catch (error) {
-      ErrorHandler.handleError(`카드로 스크롤 실패: ${cardId}`, error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      ErrorHandler.handleError(
+        'MasonryLayoutService.scrollToCard',
+        `카드로 스크롤 실패: ${cardId}, 오류: ${errorMessage}`,
+        true
+      );
     }
   }
 
@@ -410,7 +435,7 @@ export class MasonryLayoutService {
       const cardElements = new Map<string, HTMLElement>();
       const cardIds: string[] = [];
       
-      const cards = this.container.querySelectorAll('.card-navigator-card');
+      const cards = this.container.querySelectorAll(`.${LAYOUT_CLASS_NAMES.CARD.CONTAINER}`);
       cards.forEach(card => {
         const cardElement = card as HTMLElement;
         const cardId = cardElement.dataset.cardId;
@@ -425,8 +450,13 @@ export class MasonryLayoutService {
       this.updateLayout(cardIds, cardElements);
       
       Log.debug('MasonryLayoutService', '레이아웃 새로고침 완료');
-    } catch (error) {
-      ErrorHandler.handleError('레이아웃 새로고침 실패', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      ErrorHandler.handleError(
+        'MasonryLayoutService.refresh',
+        `레이아웃 새로고침 실패: ${errorMessage}`,
+        true
+      );
     }
   }
 
@@ -456,8 +486,13 @@ export class MasonryLayoutService {
       this.isInitialized = false;
       
       Log.debug('MasonryLayoutService', '메이슨리 레이아웃 서비스 제거 완료');
-    } catch (error) {
-      ErrorHandler.handleError('메이슨리 레이아웃 서비스 제거 실패', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      ErrorHandler.handleError(
+        'MasonryLayoutService.destroy',
+        `메이슨리 레이아웃 서비스 제거 실패: ${errorMessage}`,
+        true
+      );
     }
   }
 
@@ -486,8 +521,8 @@ export class MasonryLayoutService {
   }
 
   /**
-   * 레이아웃 계산
-   * 성능 최적화를 위해 measurePerformance로 래핑
+   * 레이아웃 계산 함수
+   * 주어진 카드 ID와 요소 배열을 기반으로 레이아웃을 계산합니다.
    * @param cardIds 카드 ID 배열
    * @param cardElements 카드 요소 배열
    * @param containerWidth 컨테이너 너비
@@ -495,8 +530,7 @@ export class MasonryLayoutService {
    * @param options 레이아웃 옵션
    * @returns 레이아웃 계산 결과
    */
-  calculateLayout = measurePerformance(function(
-    this: MasonryLayoutService,
+  calculateLayout(
     cardIds: string[],
     cardElements: HTMLElement[],
     containerWidth: number,
@@ -504,6 +538,9 @@ export class MasonryLayoutService {
     options: LayoutOptions
   ): LayoutCalculationResult {
     try {
+      // 성능 측정 시작
+      const startTime = performance.now();
+      
       // 카드 ID와 요소 배열 길이 검증
       if (cardIds.length !== cardElements.length) {
         throw new Error('카드 ID와 요소 배열의 길이가 일치하지 않습니다.');
@@ -515,20 +552,28 @@ export class MasonryLayoutService {
       }
       
       // 레이아웃 방향에 따라 다른 계산 방식 사용
-      return options.direction === LayoutDirection.HORIZONTAL
+      const result = options.direction === LayoutDirection.HORIZONTAL
         ? this.calculateHorizontalLayout(cardIds, cardElements, containerWidth, containerHeight, options)
         : this.calculateVerticalLayout(cardIds, cardElements, containerWidth, containerHeight, options);
-    } catch (error) {
+      
+      // 성능 측정 종료 및 로깅
+      const endTime = performance.now();
+      const duration = endTime - startTime;
+      Log.debug(`성능 측정: MasonryLayoutService.calculateLayout (${duration.toFixed(2)}ms)`);
+      
+      return result;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
       ErrorHandler.handleError(
         'MasonryLayoutService.calculateLayout',
-        `레이아웃 계산 중 오류 발생: ${error.message}`,
-        error
+        `레이아웃 계산 중 오류 발생: ${errorMessage}`,
+        true
       );
       
       // 오류 발생 시 빈 결과 반환
       return this.createEmptyResult(containerWidth, containerHeight);
     }
-  }, 'MasonryLayoutService.calculateLayout');
+  }
   
   /**
    * 빈 레이아웃 계산 결과 생성
@@ -543,8 +588,12 @@ export class MasonryLayoutService {
       containerHeight,
       contentWidth: 0,
       contentHeight: 0,
-      columnCount: 0,
-      rowCount: 0
+      columns: 0,
+      rows: 0,
+      cardWidth: 0,
+      cardHeight: 0,
+      direction: this.options.direction,
+      isVertical: this.options.direction === LayoutDirection.VERTICAL
     };
   }
   
@@ -566,20 +615,20 @@ export class MasonryLayoutService {
   ): LayoutCalculationResult {
     // 카드 너비 계산
     const cardWidth = Math.max(
-      options.cardMinWidth,
-      Math.min(options.cardMaxWidth, options.cardThresholdWidth)
+      options.cardMinWidth || 200,
+      Math.min(options.cardMaxWidth || 500, options.cardThresholdWidth)
     );
     
     // 카드 간격 고려
     const gap = options.cardGap;
     
     // 카드 높이 계산
-    let cardHeight = options.cardHeight;
+    let cardHeight = options.cardHeight || 200;
     if (!options.alignCardHeight) {
       // 카드 높이를 컨테이너 높이의 일정 비율로 설정
       cardHeight = Math.max(
-        options.cardMinHeight,
-        Math.min(options.cardMaxHeight, containerHeight * 0.8)
+        options.cardMinHeight || 100,
+        Math.min(options.cardMaxHeight || 500, containerHeight * 0.8)
       );
     }
     
@@ -615,8 +664,12 @@ export class MasonryLayoutService {
       containerHeight,
       contentWidth,
       contentHeight: containerHeight,
-      columnCount: cardIds.length,
-      rowCount: 1
+      columns: cardIds.length,
+      rows: 1,
+      cardWidth,
+      cardHeight,
+      direction: LayoutDirection.HORIZONTAL,
+      isVertical: false
     };
   }
   
@@ -640,16 +693,16 @@ export class MasonryLayoutService {
     const gap = options.cardGap;
     
     // 열 수 계산
-    const columnCount = Math.max(
+    const columns = Math.max(
       1,
       Math.floor((containerWidth + gap) / (options.cardThresholdWidth + gap))
     );
     
     // 열 너비 계산
-    const columnWidth = (containerWidth - (columnCount + 1) * gap) / columnCount;
+    const cardWidth = (containerWidth - (columns + 1) * gap) / columns;
     
     // 열 높이 배열 초기화
-    const columnHeights = new Array(columnCount).fill(gap);
+    const columnHeights = new Array(columns).fill(gap);
     
     // 카드 위치 계산
     const cardPositions: CardPosition[] = [];
@@ -662,14 +715,14 @@ export class MasonryLayoutService {
       const minColumnIndex = this.findMinColumnIndex(columnHeights);
       
       // 카드 높이 계산
-      let cardHeight = options.cardHeight;
+      let cardHeight = options.cardHeight || 200;
       if (!options.alignCardHeight) {
         // 요소의 실제 높이 또는 콘텐츠 기반 높이 계산
         cardHeight = this.calculateCardHeight(element, options);
       }
       
       // 카드 위치 계산
-      const x = gap + minColumnIndex * (columnWidth + gap);
+      const x = gap + minColumnIndex * (cardWidth + gap);
       const y = columnHeights[minColumnIndex];
       
       // 카드 위치 생성
@@ -677,8 +730,10 @@ export class MasonryLayoutService {
         cardId,
         x,
         y,
-        columnWidth,
-        cardHeight
+        cardWidth,
+        cardHeight,
+        Math.floor(i / columns), // row
+        minColumnIndex // column
       );
       
       cardPositions.push(position);
@@ -691,7 +746,7 @@ export class MasonryLayoutService {
     const contentHeight = Math.max(...columnHeights);
     
     // 행 수 계산 (대략적인 값)
-    const rowCount = Math.ceil(cardIds.length / columnCount);
+    const rows = Math.ceil(cardIds.length / columns);
     
     return {
       cardPositions,
@@ -699,8 +754,12 @@ export class MasonryLayoutService {
       containerHeight,
       contentWidth: containerWidth,
       contentHeight,
-      columnCount,
-      rowCount
+      columns,
+      rows,
+      cardWidth,
+      cardHeight: options.alignCardHeight ? (options.cardHeight || 200) : 0,
+      direction: LayoutDirection.VERTICAL,
+      isVertical: true
     };
   }
   
@@ -743,15 +802,16 @@ export class MasonryLayoutService {
     const contentLength = content.length;
     
     // 기본 높이 + 콘텐츠 길이에 비례한 추가 높이
-    const baseHeight = options.cardMinHeight;
+    const baseHeight = options.cardMinHeight || 100;
+    const maxHeight = options.cardMaxHeight || 500;
     const additionalHeight = Math.min(
-      options.cardMaxHeight - options.cardMinHeight,
+      maxHeight - baseHeight,
       contentLength / 10 * 5 // 10자당 5px 추가 (최대 높이 제한)
     );
     
     return Math.max(
-      options.cardMinHeight,
-      Math.min(options.cardMaxHeight, baseHeight + additionalHeight)
+      baseHeight,
+      Math.min(maxHeight, baseHeight + additionalHeight)
     );
   }
 } 
