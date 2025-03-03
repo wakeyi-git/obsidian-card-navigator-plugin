@@ -80,7 +80,7 @@ export class LayoutStyleManager {
     this.app = app;
     
     // 컨테이너에 기본 클래스 추가
-    this.containerEl.addClass(LAYOUT_CLASS_NAMES.CONTAINER);
+    this.containerEl.addClass(LAYOUT_CLASS_NAMES.CONTAINER.ROOT);
     
     // 초기 스타일 적용
     this.applyStyles();
@@ -231,9 +231,9 @@ export class LayoutStyleManager {
         width: 100%;
         height: 100%;
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(${LAYOUT_STYLES.CARD_MIN_WIDTH}, 1fr));
-        grid-gap: ${LAYOUT_STYLES.CARD_GAP};
-        padding: ${LAYOUT_STYLES.CONTAINER_PADDING};
+        grid-template-columns: repeat(auto-fill, minmax(${LAYOUT_STYLES.CARD.MIN_WIDTH}, 1fr));
+        grid-gap: ${LAYOUT_STYLES.CARD.GAP};
+        padding: ${LAYOUT_STYLES.CONTAINER.PADDING};
         box-sizing: border-box;
       }
       
@@ -281,9 +281,9 @@ export class LayoutStyleManager {
       
       ${containerSelector}.horizontal .card {
         flex: 0 0 auto;
-        width: ${LAYOUT_STYLES.CARD_MIN_WIDTH};
-        max-width: ${LAYOUT_STYLES.CARD_MAX_WIDTH};
-        margin-right: ${LAYOUT_STYLES.CARD_GAP};
+        width: ${LAYOUT_STYLES.CARD.MIN_WIDTH};
+        max-width: ${LAYOUT_STYLES.CARD.MAX_WIDTH};
+        margin-right: ${LAYOUT_STYLES.CARD.GAP};
       }
       
       ${containerSelector}.vertical .card {

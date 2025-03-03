@@ -493,7 +493,7 @@ export class TagPresetManager implements ITagPresetManager {
       }
     } catch (error) {
       ErrorHandler.handleErrorWithCode(
-        ErrorCode.TAG_PRESET_DELETION_ERROR,
+        ErrorCode.TAG_PRESET_DELETE_ERROR,
         { presetId },
         true
       );

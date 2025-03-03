@@ -196,23 +196,31 @@ export enum CardStateEnum {
   /**
    * 드롭 대상 상태
    */
-  DROPPING = 'dropping'
+  DROPPING = 'dropping',
+  
+  /**
+   * 드롭 대상 상태
+   */
+  DROP_TARGET = 'drop-target'
 }
 
 /**
- * 카드 이벤트 타입 열거형
- * 카드와 관련된 이벤트 유형을 정의합니다.
+ * 카드 이벤트 타입
  */
 export enum CardEventType {
   CLICK = 'card:click',
+  DOUBLE_CLICK = 'card:doubleclick',
   CONTEXT_MENU = 'card:contextmenu',
   DRAG_START = 'card:dragstart',
   DRAG_END = 'card:dragend',
+  DRAG_OVER = 'card:dragover',
+  DROP = 'card:drop',
   HOVER = 'card:hover',
   LEAVE = 'card:leave',
-  SELECTION_CHANGE = 'card:selectionchange',
-  CONTENT_UPDATE = 'card:contentupdate',
-  STYLE_UPDATE = 'card:styleupdate'
+  FOCUS = 'card:focus',
+  BLUR = 'card:blur',
+  KEY_DOWN = 'card:keydown',
+  SELECTION_CHANGE = 'card:selectionchange'
 }
 
 /**
@@ -220,15 +228,9 @@ export enum CardEventType {
  * 카드 이벤트 발생 시 전달되는 데이터 구조를 정의합니다.
  */
 export interface CardEventData extends IEventData {
-  /** 이벤트 타입 */
-  type: CardEventType;
-  /** 이벤트와 관련된 카드 */
   card: Card;
-  /** 원본 DOM 이벤트 (있는 경우) */
-  originalEvent?: Event;
-  /** 추가 데이터 (이벤트 타입에 따라 다름) */
-  data?: any;
-  /** 이벤트 발생 시간 */
+  event: Event;
+  type: CardEventType;
   timestamp: number;
 }
 
@@ -328,4 +330,16 @@ export interface CardPosition {
    * 높이 (행 수)
    */
   height: number;
-} 
+}
+
+/**
+ * 카드 상태 클래스 매핑
+ */
+export const CARD_STATE_CLASSES = {
+  NORMAL: 'card-navigator-card-normal',
+  SELECTED: 'card-navigator-card-selected',
+  FOCUSED: 'card-navigator-card-focused',
+  DRAGGING: 'card-navigator-card-dragging',
+  DROP_TARGET: 'card-navigator-card-drop-target',
+  HOVER: 'card-navigator-card-hover'
+}; 

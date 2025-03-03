@@ -7,6 +7,7 @@ import { EventHandler } from '../../types/common.types';
  */
 export interface CardInteractionHandlers {
   onClick?: (event: MouseEvent, card: Card) => void;
+  onDoubleClick?: (event: MouseEvent, card: Card) => void;
   onContextMenu?: (event: MouseEvent, card: Card) => void;
   onDragStart?: (event: DragEvent, card: Card) => void;
   onDragEnd?: (event: DragEvent, card: Card) => void;
@@ -14,7 +15,9 @@ export interface CardInteractionHandlers {
   onDrop?: (event: DragEvent, card: Card) => void;
   onHover?: (event: MouseEvent, card: Card) => void;
   onLeave?: (event: MouseEvent, card: Card) => void;
-  onDoubleClick?: (event: MouseEvent, card: Card) => void;
+  onFocus?: (card: Card) => void;
+  onBlur?: (card: Card) => void;
+  onKeyDown?: (event: KeyboardEvent, card: Card) => void;
 }
 
 /**
