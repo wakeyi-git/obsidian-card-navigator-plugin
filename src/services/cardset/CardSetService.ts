@@ -7,14 +7,15 @@ import { CardSet } from '../../core/models/CardSet';
 import { CardFilterOption, CardGroupOption, CardSetMode, CardSetOptions, CardSortOption } from '../../core/types/cardset.types';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 import { Log } from '../../utils/log/Log';
-import { generateUniqueId } from '../../utils/helpers/string.helper';
 
 /**
  * 카드셋 서비스 클래스
- * 카드셋 관련 고수준 기능을 제공합니다.
+ * 카드셋 관련 기능을 제공합니다.
  */
 export class CardSetService implements ICardSetService {
-  private subscriptions: Map<string, (cardSet: CardSet) => void>;
+  private app: App;
+  private cardService: ICardService;
+  private cardSetManager: ICardSetManager;
   
   /**
    * 카드셋 서비스 생성자
@@ -22,14 +23,12 @@ export class CardSetService implements ICardSetService {
    * @param cardService 카드 서비스 인스턴스
    * @param cardSetManager 카드셋 관리자 인스턴스
    */
-  constructor(
-    private readonly app: App, 
-    private readonly cardService: ICardService, 
-    private readonly cardSetManager: ICardSetManager
-  ) {
-    this.subscriptions = new Map();
-    
+  constructor(app: App, cardService: ICardService, cardSetManager: ICardSetManager) {
     try {
+      this.app = app;
+      this.cardService = cardService;
+      this.cardSetManager = cardSetManager;
+      
       Log.debug('카드셋 서비스 생성됨');
     } catch (error) {
       ErrorHandler.handleError('카드셋 서비스 생성 중 오류 발생', error);
@@ -37,7 +36,7 @@ export class CardSetService implements ICardSetService {
   }
   
   /**
-   * 카드셋 서비스 초기화
+   * 카드셋 초기화
    * @param options 카드셋 옵션
    */
   initialize(options?: Partial<CardSetOptions>): void {
@@ -46,23 +45,6 @@ export class CardSetService implements ICardSetService {
       
       // 카드셋 관리자 초기화
       this.cardSetManager.initialize(options);
-      
-      // 카드셋 변경 이벤트 구독
-      const subscriptionId = this.cardSetManager.subscribeToChanges(cardSet => {
-        // ICardSet을 CardSet으로 변환
-        const convertedCardSet = new CardSet(
-          cardSet.id,
-          cardSet.mode,
-          cardSet.source,
-          cardSet.files,
-          cardSet.lastUpdated
-        );
-        
-        // 구독자에게 알림
-        this.notifySubscribers(convertedCardSet);
-      });
-      
-      Log.debug(`카드셋 변경 이벤트 구독 ID: ${subscriptionId}`);
     } catch (error) {
       ErrorHandler.handleError('카드셋 서비스 초기화 중 오류 발생', error);
     }
@@ -73,7 +55,7 @@ export class CardSetService implements ICardSetService {
    * @param mode 카드셋 모드
    * @param options 모드별 옵션
    */
-  async setMode(mode: CardSetMode, options?: Partial<CardSetOptions>): Promise<void> {
+  async setMode(mode: CardSetMode, options?: any): Promise<void> {
     try {
       Log.debug(`카드셋 모드 설정: ${mode}`);
       
@@ -97,15 +79,7 @@ export class CardSetService implements ICardSetService {
    * @returns 카드셋
    */
   getCurrentCardSet(): CardSet {
-    const cardSet = this.cardSetManager.getCurrentCardSet();
-    // ICardSet을 CardSet으로 변환
-    return new CardSet(
-      cardSet.id,
-      cardSet.mode,
-      cardSet.source,
-      cardSet.files,
-      cardSet.lastUpdated
-    );
+    return this.cardSetManager.getCurrentCardSet();
   }
   
   /**
@@ -130,9 +104,15 @@ export class CardSetService implements ICardSetService {
    */
   async getCard(cardId: string): Promise<Card | null> {
     try {
-      // 카드 서비스를 통해 카드 가져오기
-      const card = this.cardService.getCardByPath(cardId);
-      return card || null;
+      // 카드셋 관리자에서 카드 가져오기
+      const card = this.cardSetManager.getCard(cardId);
+      
+      // 카드가 없는 경우 null 반환
+      if (!card) {
+        return null;
+      }
+      
+      return card;
     } catch (error) {
       ErrorHandler.handleError(`카드 가져오기 중 오류 발생: ${cardId}`, error);
       return null;
@@ -145,18 +125,8 @@ export class CardSetService implements ICardSetService {
    */
   async getAllCards(): Promise<Card[]> {
     try {
-      // 현재 카드셋의 모든 파일에 대해 카드 생성
-      const cardSet = this.getCurrentCardSet();
-      const cards: Card[] = [];
-      
-      for (const file of cardSet.files) {
-        const card = this.cardService.getCardByPath(file.path);
-        if (card) {
-          cards.push(card);
-        }
-      }
-      
-      return cards;
+      // 카드셋 관리자에서 모든 카드 가져오기
+      return this.cardSetManager.getAllCards();
     } catch (error) {
       ErrorHandler.handleError('모든 카드 가져오기 중 오류 발생', error);
       return [];
@@ -169,13 +139,10 @@ export class CardSetService implements ICardSetService {
    */
   async sortCards(sortOption: CardSortOption): Promise<void> {
     try {
-      Log.debug(`카드 정렬: ${sortOption.field}, ${sortOption.direction}`);
+      Log.debug(`카드 정렬: ${sortOption.by}, ${sortOption.direction}`);
       
-      // 카드셋 관리자에 정렬 옵션 설정
-      this.cardSetManager.setSortOption(sortOption);
-      
-      // 카드셋 업데이트
-      await this.updateCardSet(true);
+      // 카드셋 관리자에 정렬 요청
+      this.cardSetManager.sortCards(sortOption);
     } catch (error) {
       ErrorHandler.handleError('카드 정렬 중 오류 발생', error);
     }
@@ -204,7 +171,7 @@ export class CardSetService implements ICardSetService {
       }
       
       // 모든 카드 가져오기
-      const allCards = await this.getAllCards();
+      const allCards = this.cardSetManager.getAllCards();
       
       // 필터 함수 생성
       const filterFn = (card: Card) => {
@@ -213,34 +180,10 @@ export class CardSetService implements ICardSetService {
       };
       
       // 필터 적용
-      return allCards.filter(filterFn);
+      return this.cardSetManager.filterCards(filterFn);
     } catch (error) {
       ErrorHandler.handleError('카드 필터링 중 오류 발생', error);
       return [];
-    }
-  }
-  
-  /**
-   * 필터링된 카드셋 적용
-   * @param filteredCards 필터링된 카드 배열
-   */
-  applyFilteredCards(filteredCards: Card[]): void {
-    try {
-      Log.debug(`필터링된 카드셋 적용: ${filteredCards.length}개 카드`);
-      
-      // 필터링된 카드에 해당하는 파일만 포함하는 새 카드셋 생성
-      const currentCardSet = this.getCurrentCardSet();
-      const filteredFiles = currentCardSet.files.filter(file => 
-        filteredCards.some(card => card.path === file.path)
-      );
-      
-      // 카드셋 업데이트
-      const updatedCardSet = currentCardSet.refresh(filteredFiles);
-      
-      // 구독자에게 알림
-      this.notifySubscribers(updatedCardSet);
-    } catch (error) {
-      ErrorHandler.handleError('필터링된 카드셋 적용 중 오류 발생', error);
     }
   }
   
@@ -302,17 +245,8 @@ export class CardSetService implements ICardSetService {
         return this.getAllCards();
       }
       
-      // 모든 카드 가져오기
-      const allCards = await this.getAllCards();
-      
-      // 검색 쿼리로 필터링
-      return allCards.filter(card => {
-        const title = card.getTitle().toLowerCase();
-        const content = (card.content || '').toLowerCase();
-        const searchQuery = query.toLowerCase();
-        
-        return title.includes(searchQuery) || content.includes(searchQuery);
-      });
+      // 카드셋 관리자에 검색 요청
+      return this.cardSetManager.searchCards(query);
     } catch (error) {
       ErrorHandler.handleError(`카드 검색 중 오류 발생: ${query}`, error);
       return [];
@@ -343,47 +277,11 @@ export class CardSetService implements ICardSetService {
   }
   
   /**
-   * 카드셋 변경 이벤트 구독
-   * @param callback 콜백 함수
-   * @returns 구독 ID
-   */
-  subscribeToChanges(callback: (cardSet: CardSet) => void): string {
-    const subscriptionId = generateUniqueId();
-    this.subscriptions.set(subscriptionId, callback);
-    return subscriptionId;
-  }
-  
-  /**
-   * 카드셋 변경 구독 취소
-   * @param subscriptionId 구독 ID
-   */
-  unsubscribeFromChanges(subscriptionId: string): void {
-    this.subscriptions.delete(subscriptionId);
-  }
-  
-  /**
-   * 구독자에게 알림
-   * @param cardSet 카드셋
-   */
-  private notifySubscribers(cardSet: CardSet): void {
-    this.subscriptions.forEach(callback => {
-      try {
-        callback(cardSet);
-      } catch (error) {
-        ErrorHandler.handleError('카드셋 변경 알림 중 오류 발생', error);
-      }
-    });
-  }
-  
-  /**
    * 카드셋 서비스 파괴
    */
   destroy(): void {
     try {
       Log.debug('카드셋 서비스 파괴');
-      
-      // 구독 정리
-      this.subscriptions.clear();
       
       // 카드셋 관리자 파괴
       this.cardSetManager.destroy();
@@ -407,12 +305,35 @@ export class CardSetService implements ICardSetService {
         
         case 'folder':
           // 폴더 필터
-          return card.path === filterOption.value || 
-                 card.path.startsWith(filterOption.value + '/');
+          return card.folderPath === filterOption.value || 
+                 card.folderPath.startsWith(filterOption.value + '/');
         
         case 'frontmatter':
-          // 프론트매터 필터 (Card 모델에 frontmatter 속성이 없으므로 항상 false 반환)
-          return false;
+          // 프론트매터 필터
+          if (!filterOption.field || !card.frontmatter) {
+            return false;
+          }
+          
+          const fieldValue = card.frontmatter[filterOption.field];
+          
+          // 필드가 없는 경우
+          if (fieldValue === undefined) {
+            return false;
+          }
+          
+          // 연산자에 따라 비교
+          switch (filterOption.operator) {
+            case 'equals':
+              return fieldValue === filterOption.value;
+            case 'contains':
+              return String(fieldValue).includes(String(filterOption.value));
+            case 'greater-than':
+              return Number(fieldValue) > Number(filterOption.value);
+            case 'less-than':
+              return Number(fieldValue) < Number(filterOption.value);
+            default:
+              return String(fieldValue) === String(filterOption.value);
+          }
         
         case 'custom':
           // 사용자 정의 필터 (추가 구현 필요)
@@ -438,8 +359,7 @@ export class CardSetService implements ICardSetService {
       switch (groupOption.by) {
         case 'folder':
           // 폴더 그룹화
-          const folderPath = card.path.split('/').slice(0, -1).join('/');
-          return folderPath || 'root';
+          return card.folderPath || 'root';
         
         case 'tag':
           // 태그 그룹화 (첫 번째 태그 사용)
@@ -447,12 +367,17 @@ export class CardSetService implements ICardSetService {
         
         case 'date':
           // 날짜 그룹화 (수정일 기준)
-          const date = new Date(card.modificationDate);
+          const date = new Date(card.mtime);
           return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         
         case 'custom-field':
-          // 사용자 정의 필드 그룹화 (Card 모델에 frontmatter 속성이 없으므로 'unknown' 반환)
-          return 'unknown';
+          // 사용자 정의 필드 그룹화
+          if (!groupOption.field || !card.frontmatter) {
+            return 'unknown';
+          }
+          
+          const fieldValue = card.frontmatter[groupOption.field];
+          return fieldValue !== undefined ? String(fieldValue) : 'unknown';
         
         case 'none':
         default:

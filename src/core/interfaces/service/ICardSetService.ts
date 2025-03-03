@@ -1,7 +1,6 @@
 import { Card } from '../../models/Card';
 import { CardSet } from '../../models/CardSet';
-import { CardFilterOption, CardGroupOption, CardSetMode, CardSetOptions } from '../../types/cardset.types';
-import { SortOption } from '../../types/common.types';
+import { CardFilterOption, CardGroupOption, CardSetMode, CardSetOptions, CardSortOption } from '../../types/cardset.types';
 import { ICardSetManager } from '../manager/ICardSetManager';
 
 /**
@@ -11,9 +10,10 @@ import { ICardSetManager } from '../manager/ICardSetManager';
 export interface ICardSetService {
   /**
    * 카드셋 서비스 초기화
+   * @param cardSetManager 카드셋 관리자
    * @param options 카드셋 옵션
    */
-  initialize(options?: Partial<CardSetOptions>): void;
+  initialize(cardSetManager: ICardSetManager, options?: Partial<CardSetOptions>): void;
   
   /**
    * 카드셋 모드 설정
@@ -57,13 +57,13 @@ export interface ICardSetService {
    * 카드셋 정렬
    * @param sortOption 정렬 옵션
    */
-  sortCards(sortOption: SortOption): Promise<void>;
+  sortCards(sortOption: CardSortOption): Promise<void>;
   
   /**
    * 현재 정렬 옵션 가져오기
    * @returns 정렬 옵션
    */
-  getSortOption(): SortOption;
+  getSortOption(): CardSortOption;
   
   /**
    * 카드 필터링

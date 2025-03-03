@@ -1,7 +1,6 @@
 import { App, Modal, Setting, TextAreaComponent, TextComponent, Notice } from 'obsidian';
 import { Preset } from '../../core/models/Preset';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
-import { MODAL_CLASS_NAMES } from '../../styles/components/modal.styles';
 
 /**
  * 프리셋 모달 모드
@@ -123,17 +122,17 @@ export class PresetModal extends Modal {
         });
       
       // 고급 모드: JSON 직접 편집 (접을 수 있는 섹션)
-      const advancedSection = contentEl.createDiv({ cls: MODAL_CLASS_NAMES.ADVANCED.SECTION });
-      const advancedHeader = advancedSection.createDiv({ cls: MODAL_CLASS_NAMES.ADVANCED.HEADER });
+      const advancedSection = contentEl.createDiv({ cls: 'card-navigator-advanced-section' });
+      const advancedHeader = advancedSection.createDiv({ cls: 'card-navigator-advanced-header' });
       
       advancedHeader.createEl('h3', { text: '고급 설정 (JSON)' });
       const toggleButton = advancedHeader.createEl('button', { 
-        cls: MODAL_CLASS_NAMES.ADVANCED.TOGGLE,
+        cls: 'card-navigator-toggle-button',
         text: '표시'
       });
       
       const advancedContent = advancedSection.createDiv({ 
-        cls: MODAL_CLASS_NAMES.ADVANCED.CONTENT
+        cls: 'card-navigator-advanced-content'
       });
       advancedContent.style.display = 'none';
       
@@ -151,7 +150,6 @@ export class PresetModal extends Modal {
           // 텍스트 영역 스타일 설정
           text.inputEl.rows = 10;
           text.inputEl.cols = 50;
-          text.inputEl.addClass(MODAL_CLASS_NAMES.TEXTAREA.JSON);
         });
       
       // 고급 섹션 토글 버튼 이벤트
@@ -162,18 +160,18 @@ export class PresetModal extends Modal {
       });
       
       // 버튼 영역
-      const buttonContainer = contentEl.createDiv({ cls: MODAL_CLASS_NAMES.BUTTONS.CONTAINER });
+      const buttonContainer = contentEl.createDiv({ cls: 'card-navigator-modal-buttons' });
       
       // 취소 버튼
       const cancelButton = buttonContainer.createEl('button', {
         text: '취소',
-        cls: `${MODAL_CLASS_NAMES.BUTTONS.BUTTON} ${MODAL_CLASS_NAMES.BUTTONS.CANCEL}`
+        cls: 'card-navigator-button card-navigator-button-cancel'
       });
       
       // 저장 버튼
       const saveButton = buttonContainer.createEl('button', {
         text: '저장',
-        cls: `${MODAL_CLASS_NAMES.BUTTONS.BUTTON} ${MODAL_CLASS_NAMES.BUTTONS.SAVE}`
+        cls: 'card-navigator-button card-navigator-button-save'
       });
       
       // 버튼 이벤트 설정

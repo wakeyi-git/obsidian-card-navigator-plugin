@@ -1,7 +1,6 @@
-import { App, Modal, Notice, Setting, TextAreaComponent } from 'obsidian';
+import { App, Modal, Setting, TextAreaComponent } from 'obsidian';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 import { Preset } from '../../core/models/Preset';
-import { MODAL_CLASS_NAMES } from '../../styles/components/modal.styles';
 
 /**
  * 가져오기/내보내기 모달 모드
@@ -73,7 +72,7 @@ export class ImportExportModal extends Modal {
       });
       
       // 설명 텍스트
-      const descEl = contentEl.createDiv({ cls: MODAL_CLASS_NAMES.DESCRIPTION });
+      const descEl = contentEl.createDiv({ cls: 'card-navigator-modal-description' });
       if (this.mode === ImportExportMode.IMPORT) {
         descEl.setText('가져올 프리셋 데이터를 JSON 형식으로 입력하세요.');
       } else {
@@ -84,32 +83,34 @@ export class ImportExportModal extends Modal {
       new Setting(contentEl)
         .setName('JSON 데이터')
         .then((setting) => {
-          this.textArea = new TextAreaComponent(setting.controlEl);
-          this.textArea
-            .setClass(MODAL_CLASS_NAMES.TEXTAREA.JSON)
-            .setRows(15)
-            .setSpellcheck(false);
+          this.textArea = setting.controlEl.createEl('textarea', {
+            cls: 'card-navigator-json-textarea',
+            attr: {
+              rows: '15',
+              spellcheck: 'false'
+            }
+          });
           
           if (this.mode === ImportExportMode.EXPORT) {
-            this.textArea.setValue(this.jsonData);
+            this.textArea.value = this.jsonData;
           }
           
           return setting;
         });
       
       // 버튼 영역
-      const buttonContainer = contentEl.createDiv({ cls: MODAL_CLASS_NAMES.BUTTONS.CONTAINER });
+      const buttonContainer = contentEl.createDiv({ cls: 'card-navigator-modal-buttons' });
       
       // 취소 버튼
       const cancelButton = buttonContainer.createEl('button', {
         text: '취소',
-        cls: `${MODAL_CLASS_NAMES.BUTTONS.BUTTON} ${MODAL_CLASS_NAMES.BUTTONS.CANCEL}`
+        cls: 'card-navigator-button card-navigator-button-cancel'
       });
       
       // 가져오기/내보내기 버튼
       const actionButton = buttonContainer.createEl('button', {
         text: this.mode === ImportExportMode.IMPORT ? '가져오기' : '복사하기',
-        cls: `${MODAL_CLASS_NAMES.BUTTONS.BUTTON} ${MODAL_CLASS_NAMES.BUTTONS.CONFIRM}`
+        cls: 'card-navigator-button card-navigator-button-confirm'
       });
       
       // 버튼 이벤트 설정
@@ -137,7 +138,7 @@ export class ImportExportModal extends Modal {
    */
   private importPresets(): void {
     try {
-      const jsonText = this.textArea.getValue().trim();
+      const jsonText = this.textArea.value.trim();
       
       if (!jsonText) {
         // 빈 데이터 처리
@@ -182,7 +183,7 @@ export class ImportExportModal extends Modal {
    */
   private copyToClipboard(): void {
     try {
-      navigator.clipboard.writeText(this.textArea.getValue()).then(() => {
+      navigator.clipboard.writeText(this.textArea.value).then(() => {
         new Notice('클립보드에 복사되었습니다.');
       }).catch(() => {
         new Notice('클립보드에 복사하지 못했습니다.');

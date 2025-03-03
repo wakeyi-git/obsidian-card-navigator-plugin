@@ -2,156 +2,130 @@ import { IEventManager } from '../../core/interfaces/manager/IEventManager';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 import { ErrorCode } from '../../core/constants/error.constants';
 import { EventHandler, PresetEvent } from '../../core/types/event.types';
-import { Log } from "src/utils/log/Log";
 
 /**
  * 이벤트 관리자 클래스
- * 컴포넌트 간 이벤트 기반 통신을 관리합니다.
+ * 애플리케이션 내 이벤트 처리를 담당합니다.
  */
 export class EventManager implements IEventManager {
-  private static instance: EventManager;
-  private listeners: Map<string, Set<(data?: any) => void>>;
-  private onceListeners: Map<string, Set<(data?: any) => void>>;
-
-  private constructor() {
-    this.listeners = new Map();
-    this.onceListeners = new Map();
-    Log.debug("EventManager initialized");
-  }
-
   /**
-   * 이벤트 관리자 인스턴스를 가져옵니다.
-   * @returns EventManager 인스턴스
+   * 이벤트 핸들러 맵
+   * 키: 이벤트 이름, 값: 이벤트 핸들러 배열
    */
-  public static getInstance(): EventManager {
-    if (!EventManager.instance) {
-      EventManager.instance = new EventManager();
-    }
-    return EventManager.instance;
-  }
-
+  private eventHandlers: Map<string, EventHandler[]> = new Map();
+  
   /**
-   * 이벤트를 발생시킵니다.
+   * 생성자
+   */
+  constructor() {
+    console.log('EventManager 초기화됨');
+  }
+  
+  /**
+   * 이벤트 리스너 등록
    * @param event 이벤트 이름
-   * @param data 이벤트 데이터 (선택사항)
+   * @param handler 이벤트 핸들러 함수
    */
-  public emit(event: string, data?: any): void {
-    try {
-      Log.debug(`Emitting event: ${event}`, data);
-
-      // 일반 리스너 실행
-      const eventListeners = this.listeners.get(event);
-      if (eventListeners) {
-        eventListeners.forEach(callback => {
-          try {
-            callback(data);
-          } catch (error) {
-            Log.error(`Error in event listener for ${event}:`, error);
-          }
-        });
-      }
-
-      // 일회성 리스너 실행 및 제거
-      const onceEventListeners = this.onceListeners.get(event);
-      if (onceEventListeners) {
-        onceEventListeners.forEach(callback => {
-          try {
-            callback(data);
-          } catch (error) {
-            Log.error(`Error in once event listener for ${event}:`, error);
-          }
-        });
-        this.onceListeners.delete(event);
-      }
-    } catch (error) {
-      Log.error(`Failed to emit event: ${event}`, error);
-      throw error;
+  on(event: string | PresetEvent, handler: EventHandler): void {
+    const eventName = typeof event === 'string' ? event : event;
+    
+    if (!this.eventHandlers.has(eventName)) {
+      this.eventHandlers.set(eventName, []);
+    }
+    
+    const handlers = this.eventHandlers.get(eventName);
+    if (handlers && !handlers.includes(handler)) {
+      handlers.push(handler);
     }
   }
-
+  
   /**
-   * 이벤트 리스너를 등록합니다.
+   * 이벤트 리스너 제거
    * @param event 이벤트 이름
-   * @param callback 이벤트 핸들러 함수
+   * @param handler 이벤트 핸들러 함수
    */
-  public on(event: string, callback: (data?: any) => void): void {
-    try {
-      if (!this.listeners.has(event)) {
-        this.listeners.set(event, new Set());
+  off(event: string | PresetEvent, handler: EventHandler): void {
+    const eventName = typeof event === 'string' ? event : event;
+    
+    if (!this.eventHandlers.has(eventName)) {
+      return;
+    }
+    
+    const handlers = this.eventHandlers.get(eventName);
+    if (handlers) {
+      const index = handlers.indexOf(handler);
+      if (index !== -1) {
+        handlers.splice(index, 1);
       }
-      this.listeners.get(event)!.add(callback);
-      Log.debug(`Event listener added for: ${event}`);
-    } catch (error) {
-      Log.error(`Failed to add event listener: ${event}`, error);
-      throw error;
+      
+      // 핸들러가 없으면 이벤트 제거
+      if (handlers.length === 0) {
+        this.eventHandlers.delete(eventName);
+      }
     }
   }
-
+  
   /**
-   * 이벤트 리스너를 제거합니다.
+   * 이벤트 발생
    * @param event 이벤트 이름
-   * @param callback 제거할 이벤트 핸들러 함수
+   * @param data 이벤트 데이터
    */
-  public off(event: string, callback: (data?: any) => void): void {
-    try {
-      const eventListeners = this.listeners.get(event);
-      if (eventListeners) {
-        eventListeners.delete(callback);
-        if (eventListeners.size === 0) {
-          this.listeners.delete(event);
+  triggerEvent(event: string | PresetEvent, data?: any): void {
+    const eventName = typeof event === 'string' ? event : event;
+    
+    if (!this.eventHandlers.has(eventName)) {
+      return;
+    }
+    
+    const handlers = this.eventHandlers.get(eventName);
+    if (handlers) {
+      handlers.forEach(handler => {
+        try {
+          handler(data);
+        } catch (error) {
+          ErrorHandler.handleErrorWithCode(
+            ErrorCode.EVENT_HANDLER_ERROR,
+            { message: `이벤트 핸들러 실행 중 오류가 발생했습니다: ${error instanceof Error ? error.message : String(error)}`, event: eventName },
+            true
+          );
         }
-        Log.debug(`Event listener removed for: ${event}`);
-      }
-    } catch (error) {
-      Log.error(`Failed to remove event listener: ${event}`, error);
-      throw error;
+      });
     }
   }
-
+  
   /**
-   * 한 번만 실행되는 이벤트 리스너를 등록합니다.
-   * @param event 이벤트 이름
-   * @param callback 이벤트 핸들러 함수
+   * 모든 이벤트 리스너 제거
    */
-  public once(event: string, callback: (data?: any) => void): void {
-    try {
-      if (!this.onceListeners.has(event)) {
-        this.onceListeners.set(event, new Set());
-      }
-      this.onceListeners.get(event)!.add(callback);
-      Log.debug(`Once event listener added for: ${event}`);
-    } catch (error) {
-      Log.error(`Failed to add once event listener: ${event}`, error);
-      throw error;
-    }
+  clearAllEventListeners(): void {
+    this.eventHandlers.clear();
   }
-
+  
   /**
-   * 특정 이벤트의 모든 리스너를 제거합니다.
+   * 특정 이벤트의 모든 리스너 제거
    * @param event 이벤트 이름
    */
-  public removeAllListeners(event: string): void {
-    try {
-      this.listeners.delete(event);
-      this.onceListeners.delete(event);
-      Log.debug(`All listeners removed for event: ${event}`);
-    } catch (error) {
-      Log.error(`Failed to remove all listeners for event: ${event}`, error);
-      throw error;
-    }
+  clearEventListeners(event: string | PresetEvent): void {
+    const eventName = typeof event === 'string' ? event : event;
+    this.eventHandlers.delete(eventName);
   }
-
+  
   /**
-   * 등록된 모든 이벤트 리스너를 제거합니다.
+   * 이벤트 리스너 추가 (addEventListener 별칭)
+   * ICardSetProvider와의 호환성을 위한 메소드입니다.
+   * @param eventName 이벤트 이름
+   * @param listener 리스너 함수
    */
-  public clearAllListeners(): void {
-    try {
-      this.listeners.clear();
-      this.onceListeners.clear();
-      Log.debug("All event listeners cleared");
-    } catch (error) {
-      Log.error("Failed to clear all event listeners", error);
-      throw error;
-    }
+  addEventListener(eventName: string | PresetEvent, listener: EventHandler): void {
+    this.on(eventName, listener);
+  }
+  
+  /**
+   * 이벤트 리스너 제거 (removeEventListener 별칭)
+   * ICardSetProvider와의 호환성을 위한 메소드입니다.
+   * @param eventName 이벤트 이름
+   * @param listener 리스너 함수
+   */
+  removeEventListener(eventName: string | PresetEvent, listener: EventHandler): void {
+    this.off(eventName, listener);
   }
 } 

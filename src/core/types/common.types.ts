@@ -8,7 +8,7 @@
 /**
  * 테마 모드 타입
  */
-export type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = 'light' | 'dark';
 
 /**
  * 크기 값 타입
@@ -78,112 +78,11 @@ export type Direction = 'vertical' | 'horizontal';
 export type ScrollDirection = 'up' | 'down' | 'left' | 'right';
 
 /**
- * 정렬 기준 열거형
- */
-export enum SortBy {
-    /**
-     * 이름순
-     */
-    NAME = 'name',
-
-    /**
-     * 생성일순
-     */
-    CREATED = 'created',
-
-    /**
-     * 수정일순
-     */
-    MODIFIED = 'modified',
-
-    /**
-     * 크기순
-     */
-    SIZE = 'size',
-
-    /**
-     * 사용자 정의
-     */
-    CUSTOM = 'custom'
-}
-
-/**
  * 정렬 방향 열거형
  */
 export enum SortDirection {
-    /**
-     * 오름차순
-     */
-    ASC = 'asc',
-
-    /**
-     * 내림차순
-     */
-    DESC = 'desc'
-}
-
-/**
- * 정렬 옵션 인터페이스
- */
-export interface SortOption {
-    /**
-     * 정렬 기준
-     */
-    field: SortBy;
-
-    /**
-     * 정렬 방향
-     */
-    direction: SortDirection;
-
-    /**
-     * 사용자 정의 정렬 필드 (field가 CUSTOM인 경우 사용)
-     */
-    customField?: string;
-}
-
-/**
- * 크기 인터페이스
- */
-export interface Size {
-    width: number;
-    height: number;
-}
-
-/**
- * 위치 인터페이스
- */
-export interface Position {
-    x: number;
-    y: number;
-}
-
-/**
- * 범위 인터페이스
- */
-export interface Range {
-    start: number;
-    end: number;
-}
-
-/**
- * 여백 인터페이스
- */
-export interface Margin {
-    top: number;
-    right: number;
-    bottom: number;
-    left: number;
-}
-
-/**
- * 패딩 인터페이스
- */
-export interface Padding {
-    top: number;
-    right: number;
-    bottom: number;
-    left: number;
+  ASC = 'asc',  // 오름차순
+  DESC = 'desc' // 내림차순
 }
 
 /**

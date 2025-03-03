@@ -1,20 +1,21 @@
 import { App, TFile, TFolder, Vault, normalizePath } from 'obsidian';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 import { Log } from '../../utils/log/Log';
-import { getMarkdownFilesInFolder } from '../../utils/helpers/file.helper';
-import { IFileService } from '../../core/interfaces/service/IFileService';
+import { getMarkdownFilesFromFolder } from '../../utils/helpers/file.helper';
 
 /**
  * FileService 클래스는 Obsidian의 파일 시스템과 상호작용하는 기능을 제공합니다.
  */
-export class FileService implements IFileService {
+export class FileService {
+  private app: App;
   private vault: Vault;
 
   /**
    * FileService 생성자
    * @param app Obsidian 앱 인스턴스
    */
-  constructor(private readonly app: App) {
+  constructor(app: App) {
+    this.app = app;
     this.vault = app.vault;
     
     Log.debug('FileService', '파일 서비스 초기화 완료');
@@ -78,7 +79,7 @@ export class FileService implements IFileService {
         return [];
       }
       
-      return getMarkdownFilesInFolder(this.app, folderPath, recursive, includeHidden);
+      return getMarkdownFilesFromFolder(folder, recursive, includeHidden);
     } catch (error) {
       ErrorHandler.handleError(`마크다운 파일 가져오기 실패: ${folderPath}`, error);
       return [];
@@ -135,16 +136,16 @@ export class FileService implements IFileService {
   }
 
   /**
-   * 파일의 내용을 가져옵니다.
+   * 파일 내용을 가져옵니다.
    * @param file 파일 객체
-   * @returns 파일 내용
+   * @returns 파일 내용 또는 null
    */
-  public async getFileContent(file: TFile): Promise<string> {
+  public async getFileContent(file: TFile): Promise<string | null> {
     try {
       return await this.vault.read(file);
     } catch (error) {
       ErrorHandler.handleError(`파일 내용 가져오기 실패: ${file.path}`, error);
-      return '';
+      return null;
     }
   }
 
@@ -197,11 +198,13 @@ export class FileService implements IFileService {
   /**
    * 파일을 삭제합니다.
    * @param file 파일 객체
-   * @returns 삭제 성공 여부
+   * @returns 성공 여부
    */
   public async deleteFile(file: TFile): Promise<boolean> {
     try {
       await this.vault.delete(file);
+      Log.debug('FileService', `파일 삭제 완료: ${file.path}`);
+      
       return true;
     } catch (error) {
       ErrorHandler.handleError(`파일 삭제 실패: ${file.path}`, error);

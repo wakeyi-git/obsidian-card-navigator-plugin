@@ -1,11 +1,11 @@
-import { MarkdownRenderer, TFile, Component, App } from 'obsidian';
+import { MarkdownRenderer, TFile } from 'obsidian';
 import { CardRenderOptions } from '../../../core/types/card.types';
 
 /**
  * 카드 본문 컴포넌트 클래스
  * 카드의 본문 부분을 생성하고 관리합니다.
  */
-export class CardBody extends Component {
+export class CardBody {
   /**
    * 본문 요소
    */
@@ -29,7 +29,7 @@ export class CardBody extends Component {
   /**
    * 앱 인스턴스
    */
-  private app: App;
+  private app: any; // Obsidian App 타입
   
   /**
    * 카드 본문 컴포넌트 생성자
@@ -38,8 +38,7 @@ export class CardBody extends Component {
    * @param renderOptions 렌더링 옵션
    * @param app 앱 인스턴스
    */
-  constructor(file: TFile, content: string, renderOptions: CardRenderOptions, app: App) {
-    super();
+  constructor(file: TFile, content: string, renderOptions: CardRenderOptions, app: any) {
     this.file = file;
     this.content = content;
     this.renderOptions = renderOptions;
@@ -90,9 +89,9 @@ export class CardBody extends Component {
   /**
    * 본문 렌더링
    */
-  private render = async (): Promise<void> => {
+  render(): void {
     // 본문 내용 초기화
-    this.element.replaceChildren();
+    this.element.innerHTML = '';
     
     // 내용이 없는 경우 처리
     if (!this.content || this.content.trim() === '') {
@@ -111,11 +110,11 @@ export class CardBody extends Component {
     
     // 마크다운 렌더링 여부에 따라 처리
     if (this.renderOptions.renderMarkdown) {
-      await this.renderMarkdown(displayContent);
+      this.renderMarkdown(displayContent);
     } else {
       this.renderPlainText(displayContent);
     }
-  };
+  }
   
   /**
    * 본문 요소 생성
@@ -149,7 +148,7 @@ export class CardBody extends Component {
         content,
         markdownContainer,
         this.file.path,
-        this
+        this.app.workspace.activeLeaf
       );
       
       // 렌더링된 내용 추가
@@ -196,7 +195,10 @@ export class CardBody extends Component {
       img.style.maxHeight = '150px'; // 최대 높이 제한
       
       // 이미지 클릭 이벤트 (확대 보기 등)
-      img.addEventListener('click', this.handleImageClick);
+      img.addEventListener('click', (event) => {
+        event.stopPropagation(); // 카드 클릭 이벤트 전파 방지
+        // 이미지 확대 보기 로직 (필요시 구현)
+      });
       
       // 이미지 로드 오류 처리
       img.onerror = () => {
@@ -220,83 +222,18 @@ export class CardBody extends Component {
     
     links.forEach(link => {
       // 링크 클릭 이벤트
-      link.addEventListener('click', this.handleLinkClick);
-    });
-  }
-
-  /**
-   * 컴포넌트 언로드
-   * 이벤트 리스너 제거 및 정리 작업 수행
-   */
-  onunload(): void {
-    // 이미지 이벤트 리스너 제거
-    const images = this.element.querySelectorAll('img');
-    images.forEach(img => {
-      img.removeEventListener('click', this.handleImageClick);
-    });
-    
-    // 링크 이벤트 리스너 제거
-    const links = this.element.querySelectorAll('a');
-    links.forEach(link => {
-      link.removeEventListener('click', this.handleLinkClick);
-    });
-    
-    // DOM에서 제거
-    this.element.remove();
-    
-    super.onunload();
-  }
-
-  /**
-   * 이미지 클릭 이벤트 핸들러
-   * @param event 마우스 이벤트
-   */
-  private handleImageClick = (event: MouseEvent): void => {
-    event.stopPropagation(); // 카드 클릭 이벤트 전파 방지
-    
-    const img = event.target as HTMLImageElement;
-    if (!img) return;
-    
-    // 이미지 클릭 시 동작 구현
-    // 예: 이미지 확대 보기, 갤러리 열기 등
-    const customEvent = new CustomEvent('image-click', {
-      detail: {
-        src: img.src,
-        alt: img.alt,
-        originalEvent: event
-      },
-      bubbles: true
-    });
-    
-    this.element.dispatchEvent(customEvent);
-  };
-
-  /**
-   * 링크 클릭 이벤트 핸들러
-   * @param event 마우스 이벤트
-   */
-  private handleLinkClick = (event: MouseEvent): void => {
-    event.stopPropagation(); // 카드 클릭 이벤트 전파 방지
-    
-    const link = event.target as HTMLAnchorElement;
-    if (!link) return;
-    
-    // 내부 링크인 경우 (옵시디언 내부 파일 링크)
-    if (link.hasClass('internal-link')) {
-      // 기본 동작 유지 (옵시디언이 처리)
-    } 
-    // 외부 링크인 경우
-    else {
-      // 외부 링크 처리 (필요시 구현)
-      const customEvent = new CustomEvent('external-link-click', {
-        detail: {
-          href: link.href,
-          originalEvent: event
-        },
-        bubbles: true
+      link.addEventListener('click', (event) => {
+        event.stopPropagation(); // 카드 클릭 이벤트 전파 방지
+        
+        // 내부 링크인 경우 (옵시디언 내부 파일 링크)
+        if (link.hasClass('internal-link')) {
+          // 기본 동작 유지 (옵시디언이 처리)
+        } 
+        // 외부 링크인 경우
+        else {
+          // 외부 링크 처리 (필요시 구현)
+        }
       });
-      
-      this.element.dispatchEvent(customEvent);
-    }
-  };
+    });
+  }
 } 

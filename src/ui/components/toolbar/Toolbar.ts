@@ -6,30 +6,6 @@ import { SortMenu } from './SortMenu';
 import { CardSetMenu } from './CardSetMenu';
 import { PresetMenu } from './PresetMenu';
 import { ErrorHandler } from '../../../utils/error/ErrorHandler';
-import { TOOLBAR_CLASS_NAMES } from '../../../styles/components/toolbar.styles';
-import { IToolbarService } from '../../../core/interfaces/service/IToolbarService';
-import { CardSetMode } from '../../../core/types/cardset.types';
-import { SortBy } from '../../../core/types/common.types';
-import { IPreset } from '../../../core/types/preset.types';
-import { Log } from '../../../utils/log/Log';
-
-/**
- * 툴바 옵션 인터페이스
- */
-export interface ToolbarOptions {
-  sortBy: SortBy;
-  sortDirection: SortDirection;
-  cardSetMode: CardSetMode;
-  selectedFolderPath?: string;
-  currentPreset: IPreset | null;
-  presets: IPreset[];
-  onFolderSelect?: (path: string) => void;
-  onPresetCreate?: () => void;
-  onPresetEdit?: (preset: IPreset) => void;
-  onPresetDelete?: (preset: IPreset) => void;
-  onPresetImport?: () => void;
-  onPresetExport?: (preset: IPreset) => void;
-}
 
 /**
  * 툴바 컴포넌트
@@ -101,20 +77,15 @@ export class Toolbar {
    */
   private callbacks: Record<string, (...args: any[]) => void> = {};
   
-  private toolbarService: IToolbarService;
-  private options: ToolbarOptions;
-  
   /**
    * 생성자
    * @param containerEl 툴바를 추가할 컨테이너 요소
    */
-  constructor(containerEl: HTMLElement, toolbarService: IToolbarService, options: ToolbarOptions) {
+  constructor(containerEl: HTMLElement) {
     try {
       this.containerEl = containerEl;
       this.app = containerEl.app;
       this.presetManager = containerEl.presetManager;
-      this.toolbarService = toolbarService;
-      this.options = options;
       this.initialize();
     } catch (error) {
       ErrorHandler.getInstance().handleError(
@@ -130,14 +101,14 @@ export class Toolbar {
   private initialize(): void {
     try {
       // 기존 툴바가 있으면 제거
-      const existingToolbar = this.containerEl.querySelector(`.${TOOLBAR_CLASS_NAMES.CONTAINER}`);
+      const existingToolbar = this.containerEl.querySelector('.card-navigator-toolbar');
       if (existingToolbar) {
         existingToolbar.remove();
       }
       
       // 툴바 요소 생성
       const toolbarEl = document.createElement('div');
-      toolbarEl.className = TOOLBAR_CLASS_NAMES.CONTAINER;
+      toolbarEl.className = 'card-navigator-toolbar';
       
       // 컨테이너에 툴바 추가
       this.containerEl.prepend(toolbarEl);
@@ -158,36 +129,25 @@ export class Toolbar {
       this.centerSection.appendChild(this.searchInput);
       
       // 정렬 메뉴 생성
-      this.sortMenu = new SortMenu(this.toolbarService, {
-        sortBy: this.options.sortBy,
-        direction: this.options.sortDirection
+      this.sortMenu = new SortMenu();
+      this.sortMenu.onSortChange((field, direction) => {
+        this.triggerCallback('sort', field, direction);
       });
-      this.element.appendChild(this.sortMenu.getElement());
       
       // 카드셋 메뉴 생성
-      this.cardSetMenu = new CardSetMenu(this.toolbarService, {
-        mode: this.options.cardSetMode,
-        selectedFolderPath: this.options.selectedFolderPath,
-        onFolderSelect: this.options.onFolderSelect
+      this.cardSetMenu = new CardSetMenu();
+      this.cardSetMenu.onCardSetTypeChange((type, source) => {
+        this.triggerCallback('cardSetType', type, source);
       });
-      this.element.appendChild(this.cardSetMenu.getElement());
       
       // 프리셋 메뉴 생성
-      this.presetMenu = new PresetMenu(this.toolbarService, {
-        currentPreset: this.options.currentPreset,
-        presets: this.options.presets,
-        onPresetCreate: this.options.onPresetCreate,
-        onPresetEdit: this.options.onPresetEdit,
-        onPresetDelete: this.options.onPresetDelete,
-        onPresetImport: this.options.onPresetImport,
-        onPresetExport: this.options.onPresetExport
+      this.presetMenu = new PresetMenu(this.presetManager);
+      this.presetMenu.onPresetChange((presetName) => {
+        this.triggerCallback('preset', presetName);
       });
-      this.element.appendChild(this.presetMenu.getElement());
       
       // 버튼 추가
       this.addButtons();
-      
-      this.subscribeToEvents();
     } catch (error) {
       ErrorHandler.getInstance().handleError(
         '툴바 요소를 생성하는 중 오류가 발생했습니다.',
@@ -275,7 +235,7 @@ export class Toolbar {
    */
   private createToolbarElement(): HTMLElement {
     const toolbar = document.createElement('div');
-    toolbar.className = TOOLBAR_CLASS_NAMES.CONTAINER;
+    toolbar.className = 'card-navigator-toolbar';
     
     return toolbar;
   }
@@ -286,7 +246,7 @@ export class Toolbar {
    */
   private createLeftSection(): HTMLElement {
     const section = document.createElement('div');
-    section.className = `${TOOLBAR_CLASS_NAMES.SECTION.BASE} ${TOOLBAR_CLASS_NAMES.SECTION.LEFT}`;
+    section.className = 'toolbar-section toolbar-left';
     
     return section;
   }
@@ -297,7 +257,7 @@ export class Toolbar {
    */
   private createCenterSection(): HTMLElement {
     const section = document.createElement('div');
-    section.className = `${TOOLBAR_CLASS_NAMES.SECTION.BASE} ${TOOLBAR_CLASS_NAMES.SECTION.CENTER}`;
+    section.className = 'toolbar-section toolbar-center';
     
     return section;
   }
@@ -308,7 +268,7 @@ export class Toolbar {
    */
   private createRightSection(): HTMLElement {
     const section = document.createElement('div');
-    section.className = `${TOOLBAR_CLASS_NAMES.SECTION.BASE} ${TOOLBAR_CLASS_NAMES.SECTION.RIGHT}`;
+    section.className = 'toolbar-section toolbar-right';
     
     return section;
   }
@@ -319,19 +279,19 @@ export class Toolbar {
    */
   private createSearchInput(): HTMLInputElement {
     const searchContainer = document.createElement('div');
-    searchContainer.className = TOOLBAR_CLASS_NAMES.SEARCH.CONTAINER;
+    searchContainer.className = 'search-container';
     
     const searchIcon = document.createElement('span');
-    searchIcon.className = TOOLBAR_CLASS_NAMES.SEARCH.ICON;
+    searchIcon.className = 'search-icon';
     searchIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`;
     
     const input = document.createElement('input');
     input.type = 'text';
-    input.className = TOOLBAR_CLASS_NAMES.SEARCH.INPUT;
+    input.className = 'search-input';
     input.placeholder = '검색...';
     
     const clearButton = document.createElement('span');
-    clearButton.className = TOOLBAR_CLASS_NAMES.SEARCH.CLEAR;
+    clearButton.className = 'search-clear';
     clearButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
     clearButton.style.display = 'none';
     
@@ -378,7 +338,7 @@ export class Toolbar {
     // 카드셋 타입 버튼
     const cardSetButton = new ToolbarButton({
       icon: 'lucide-layers',
-      title: '카드셋 타입',
+      tooltip: '카드셋 타입',
       onClick: (e) => {
         this.cardSetMenu.show(e.currentTarget as HTMLElement);
       }
@@ -388,7 +348,7 @@ export class Toolbar {
     // 정렬 버튼
     const sortButton = new ToolbarButton({
       icon: 'lucide-arrow-up-down',
-      title: '정렬',
+      tooltip: '정렬',
       onClick: (e) => {
         this.sortMenu.show(e.currentTarget as HTMLElement);
       }
@@ -400,7 +360,7 @@ export class Toolbar {
     // 레이아웃 버튼
     const layoutButton = new ToolbarButton({
       icon: 'lucide-layout-grid',
-      title: '레이아웃',
+      tooltip: '레이아웃',
       onClick: () => {
         this.triggerCallback('toggleLayout');
       }
@@ -410,7 +370,7 @@ export class Toolbar {
     // 프리셋 버튼
     const presetButton = new ToolbarButton({
       icon: 'lucide-bookmark',
-      title: '프리셋',
+      tooltip: '프리셋',
       onClick: (e) => {
         this.presetMenu.show(e.currentTarget as HTMLElement);
       }
@@ -420,7 +380,7 @@ export class Toolbar {
     // 설정 버튼
     const settingsButton = new ToolbarButton({
       icon: 'lucide-settings',
-      title: '설정',
+      tooltip: '설정',
       onClick: () => {
         this.triggerCallback('openSettings');
       }
@@ -523,7 +483,7 @@ export class Toolbar {
   public addSeparator(): HTMLElement {
     try {
       const separator = document.createElement('div');
-      separator.className = TOOLBAR_CLASS_NAMES.SEPARATOR;
+      separator.className = 'card-navigator-toolbar-separator';
       
       this.containerEl.appendChild(separator);
       
@@ -552,7 +512,7 @@ export class Toolbar {
       
       const group = document.createElement('div');
       group.id = id;
-      group.className = TOOLBAR_CLASS_NAMES.GROUP;
+      group.className = 'card-navigator-toolbar-group';
       
       this.containerEl.appendChild(group);
       
@@ -617,44 +577,11 @@ export class Toolbar {
       
       // 툴바 요소 제거
       this.containerEl.remove();
-      
-      this.sortMenu.remove();
-      this.cardSetMenu.remove();
-      this.presetMenu.remove();
-      
-      Log.debug('툴바가 제거되었습니다.');
     } catch (error) {
       ErrorHandler.getInstance().handleError(
         '툴바를 제거하는 중 오류가 발생했습니다.',
         error
       );
-    }
-  }
-  
-  /**
-   * 이벤트 구독
-   */
-  private subscribeToEvents(): void {
-    try {
-      // 정렬 변경 이벤트 구독
-      this.toolbarService.onSortChange((sortBy, direction) => {
-        this.options.sortBy = sortBy;
-        this.options.sortDirection = direction;
-      });
-
-      // 카드셋 모드 변경 이벤트 구독
-      this.toolbarService.onCardSetModeChange((mode) => {
-        this.options.cardSetMode = mode;
-      });
-
-      // 프리셋 변경 이벤트 구독
-      this.toolbarService.onPresetChange((preset) => {
-        this.options.currentPreset = preset;
-      });
-
-      Log.debug('툴바 이벤트 구독이 완료되었습니다.');
-    } catch (error) {
-      ErrorHandler.getInstance().handleError('툴바 이벤트 구독 중 오류가 발생했습니다.', error);
     }
   }
 } 

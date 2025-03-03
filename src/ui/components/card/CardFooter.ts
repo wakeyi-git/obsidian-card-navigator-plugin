@@ -1,11 +1,11 @@
-import { TFile, Component, App } from 'obsidian';
+import { TFile } from 'obsidian';
 import { CardRenderOptions } from '../../../core/types/card.types';
 
 /**
  * 카드 푸터 컴포넌트 클래스
  * 카드의 푸터 부분을 생성하고 관리합니다.
  */
-export class CardFooter extends Component {
+export class CardFooter {
   /**
    * 푸터 요소
    */
@@ -34,12 +34,7 @@ export class CardFooter extends Component {
   /**
    * 앱 인스턴스
    */
-  private app: App;
-  
-  /**
-   * 태그 핸들러 관리를 위한 속성 추가
-   */
-  private tagHandlers: Map<string, { element: HTMLElement; handler: EventListener }> = new Map();
+  private app: any; // Obsidian App 타입
   
   /**
    * 카드 푸터 컴포넌트 생성자
@@ -48,8 +43,7 @@ export class CardFooter extends Component {
    * @param renderOptions 렌더링 옵션
    * @param app 앱 인스턴스
    */
-  constructor(file: TFile, tags: string[], renderOptions: CardRenderOptions, app: App) {
-    super();
+  constructor(file: TFile, tags: string[], renderOptions: CardRenderOptions, app: any) {
     this.file = file;
     this.tags = tags || [];
     this.renderOptions = renderOptions;
@@ -97,7 +91,7 @@ export class CardFooter extends Component {
     this.renderOptions = newOptions;
     
     // 태그 폰트 크기 업데이트
-    this.tagContainer.style.fontSize = `${this.renderOptions.tagsFontSize}px`;
+    this.tagContainer.style.fontSize = `${this.renderOptions.tagFontSize}px`;
     
     // 태그 다시 렌더링
     this.renderTags();
@@ -123,7 +117,7 @@ export class CardFooter extends Component {
     tagContainer.className = 'card-tags';
     
     // 태그 폰트 크기 설정
-    tagContainer.style.fontSize = `${this.renderOptions.tagsFontSize}px`;
+    tagContainer.style.fontSize = `${this.renderOptions.tagFontSize}px`;
     
     return tagContainer;
   }
@@ -132,11 +126,8 @@ export class CardFooter extends Component {
    * 태그 렌더링
    */
   private renderTags(): void {
-    // 기존 태그 핸들러 정리
-    this.clearTagHandlers();
-    
     // 태그 컨테이너 초기화
-    this.tagContainer.replaceChildren();
+    this.tagContainer.innerHTML = '';
     
     // 태그가 없는 경우 처리
     if (!this.tags || this.tags.length === 0) {
@@ -155,10 +146,9 @@ export class CardFooter extends Component {
       : this.tags;
     
     // 태그 요소 생성 및 추가
-    const fragment = document.createDocumentFragment();
     displayTags.forEach(tag => {
       const tagElement = this.createTagElement(tag);
-      fragment.appendChild(tagElement);
+      this.tagContainer.appendChild(tagElement);
     });
     
     // 추가 태그가 있는 경우 표시
@@ -166,10 +156,8 @@ export class CardFooter extends Component {
       const moreTagsElement = document.createElement('span');
       moreTagsElement.className = 'card-tag card-tag-more';
       moreTagsElement.textContent = `+${this.tags.length - this.renderOptions.maxTagCount}`;
-      fragment.appendChild(moreTagsElement);
+      this.tagContainer.appendChild(moreTagsElement);
     }
-    
-    this.tagContainer.appendChild(fragment);
   }
   
   /**
@@ -189,44 +177,19 @@ export class CardFooter extends Component {
     if (this.renderOptions.useTagColors) {
       const tagColor = this.getTagColor(tag);
       tagElement.style.backgroundColor = tagColor;
-      tagElement.style.color = this.getContrastColor(tagColor);
+      
+      // 배경색에 따라 텍스트 색상 자동 조정
+      const textColor = this.getContrastColor(tagColor);
+      tagElement.style.color = textColor;
     }
     
     // 태그 클릭 이벤트
-    const handleClick: EventListener = ((event: Event) => {
-      event.stopPropagation();
-      if (event instanceof MouseEvent) {
-        this.handleTagClick(tag, event);
-      }
+    tagElement.addEventListener('click', (event) => {
+      event.stopPropagation(); // 카드 클릭 이벤트 전파 방지
+      this.handleTagClick(tag, event);
     });
-    
-    tagElement.addEventListener('click', handleClick);
-    
-    // 이벤트 핸들러 참조 저장
-    const handlerId = this.generateHandlerId(tag);
-    this.tagHandlers.set(handlerId, { element: tagElement, handler: handleClick });
-    tagElement.dataset.tagHandler = handlerId;
     
     return tagElement;
-  }
-  
-  /**
-   * 태그 핸들러 ID 생성
-   * @param tag 태그 문자열
-   * @returns 핸들러 ID
-   */
-  private generateHandlerId(tag: string): string {
-    return `tag-handler-${tag}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-  
-  /**
-   * 태그 핸들러 정리
-   */
-  private clearTagHandlers(): void {
-    this.tagHandlers.forEach(({ element, handler }) => {
-      element.removeEventListener('click', handler);
-    });
-    this.tagHandlers.clear();
   }
   
   /**
@@ -235,6 +198,10 @@ export class CardFooter extends Component {
    * @param event 클릭 이벤트
    */
   private handleTagClick(tag: string, event: MouseEvent): void {
+    // 태그 클릭 시 필터링 등의 동작 구현
+    // 이벤트 발생 또는 콜백 호출 등으로 처리
+    
+    // 예: 태그 클릭 시 해당 태그로 필터링하는 이벤트 발생
     const customEvent = new CustomEvent('tag-click', {
       detail: {
         tag: tag,
@@ -295,14 +262,5 @@ export class CardFooter extends Component {
     
     // 명도가 높으면 어두운 텍스트, 낮으면 밝은 텍스트
     return lightness > 60 ? '#000000' : '#ffffff';
-  }
-
-  /**
-   * 컴포넌트 언로드
-   */
-  onunload(): void {
-    this.clearTagHandlers();
-    this.element.remove();
-    super.onunload();
   }
 } 

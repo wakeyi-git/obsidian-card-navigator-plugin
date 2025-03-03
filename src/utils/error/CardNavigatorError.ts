@@ -1,4 +1,4 @@
-import { ErrorCode, ErrorSeverity, ErrorGroup, ERROR_INFO } from '../../core/constants/error.constants';
+import { ErrorCode, ErrorSeverity, ERROR_SEVERITIES, ErrorGroup, ERROR_GROUPS } from '../../core/constants/error.constants';
 
 /**
  * 카드 네비게이터 오류 클래스
@@ -40,8 +40,8 @@ export class CardNavigatorError extends Error {
     super(message);
     this.name = 'CardNavigatorError';
     this.code = code;
-    this.severity = ERROR_INFO[code]?.severity || ErrorSeverity.ERROR;
-    this.group = ERROR_INFO[code]?.group || ErrorGroup.GENERAL;
+    this.severity = ERROR_SEVERITIES[code] || ErrorSeverity.ERROR;
+    this.group = ERROR_GROUPS[code] || ErrorGroup.GENERAL;
     this.details = details;
     this.timestamp = Date.now();
     

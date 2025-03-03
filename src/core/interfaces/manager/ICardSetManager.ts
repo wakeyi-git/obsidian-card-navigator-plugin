@@ -1,6 +1,5 @@
 import { TFile } from 'obsidian';
-import { CardSetMode, CardSetOptions, ICardSet } from '../../types/cardset.types';
-import { SortOption } from '../../types/common.types';
+import { CardSetMode, CardSetOptions, CardSortOption, ICardSet } from '../../types/cardset.types';
 import { ICardSetProvider } from './ICardSetProvider';
 
 /**
@@ -70,13 +69,13 @@ export interface ICardSetManager {
    * 카드셋 정렬 옵션 설정
    * @param sortOption 정렬 옵션
    */
-  setSortOption(sortOption: SortOption): void;
+  setSortOption(sortOption: CardSortOption): void;
   
   /**
    * 현재 정렬 옵션 가져오기
    * @returns 정렬 옵션
    */
-  getSortOption(): SortOption;
+  getSortOption(): CardSortOption;
   
   /**
    * 카드셋 옵션 가져오기

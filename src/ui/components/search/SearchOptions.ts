@@ -2,7 +2,6 @@ import { App, Setting, ToggleComponent } from 'obsidian';
 import { SearchService } from '../../../services/search/SearchService';
 import { SearchOptions as SearchOptionsType } from '../../../core/types/search.types';
 import { ErrorHandler } from '../../../utils/error/ErrorHandler';
-import { SEARCH_CLASS_NAMES } from '../../../styles/components/search.styles';
 
 /**
  * 검색 옵션 컴포넌트
@@ -55,14 +54,13 @@ export class SearchOptions {
   private render(): void {
     try {
       // 컨테이너 클래스 추가
-      this.containerEl.addClass(SEARCH_CLASS_NAMES.OPTIONS.CONTAINER);
+      this.containerEl.addClass('card-navigator-search-options');
       
       // 현재 검색 옵션 가져오기
       const currentOptions = this.searchService.getOptions();
       
       // 제목 검색 옵션
       new Setting(this.containerEl)
-        .setClass(SEARCH_CLASS_NAMES.OPTIONS.SETTING.CONTAINER)
         .setName('제목 검색')
         .setDesc('파일 제목에서 검색합니다.')
         .addToggle(toggle => {
@@ -76,7 +74,6 @@ export class SearchOptions {
       
       // 헤더 검색 옵션
       new Setting(this.containerEl)
-        .setClass(SEARCH_CLASS_NAMES.OPTIONS.SETTING.CONTAINER)
         .setName('헤더 검색')
         .setDesc('헤더에서 검색합니다.')
         .addToggle(toggle => {
@@ -90,7 +87,6 @@ export class SearchOptions {
       
       // 내용 검색 옵션
       new Setting(this.containerEl)
-        .setClass(SEARCH_CLASS_NAMES.OPTIONS.SETTING.CONTAINER)
         .setName('내용 검색')
         .setDesc('파일 내용에서 검색합니다.')
         .addToggle(toggle => {
@@ -104,7 +100,6 @@ export class SearchOptions {
       
       // 태그 검색 옵션
       new Setting(this.containerEl)
-        .setClass(SEARCH_CLASS_NAMES.OPTIONS.SETTING.CONTAINER)
         .setName('태그 검색')
         .setDesc('태그에서 검색합니다.')
         .addToggle(toggle => {
@@ -118,7 +113,6 @@ export class SearchOptions {
       
       // 프론트매터 검색 옵션
       new Setting(this.containerEl)
-        .setClass(SEARCH_CLASS_NAMES.OPTIONS.SETTING.CONTAINER)
         .setName('프론트매터 검색')
         .setDesc('프론트매터에서 검색합니다.')
         .addToggle(toggle => {
@@ -132,7 +126,6 @@ export class SearchOptions {
       
       // 대소문자 구분 옵션
       new Setting(this.containerEl)
-        .setClass(SEARCH_CLASS_NAMES.OPTIONS.SETTING.CONTAINER)
         .setName('대소문자 구분')
         .setDesc('대소문자를 구분하여 검색합니다.')
         .addToggle(toggle => {
@@ -146,7 +139,6 @@ export class SearchOptions {
       
       // 정규식 사용 옵션
       new Setting(this.containerEl)
-        .setClass(SEARCH_CLASS_NAMES.OPTIONS.SETTING.CONTAINER)
         .setName('정규식 사용')
         .setDesc('정규식을 사용하여 검색합니다.')
         .addToggle(toggle => {
@@ -160,7 +152,6 @@ export class SearchOptions {
       
       // 전체 단어 일치 옵션
       new Setting(this.containerEl)
-        .setClass(SEARCH_CLASS_NAMES.OPTIONS.SETTING.CONTAINER)
         .setName('전체 단어 일치')
         .setDesc('전체 단어가 일치하는 경우에만 검색합니다.')
         .addToggle(toggle => {

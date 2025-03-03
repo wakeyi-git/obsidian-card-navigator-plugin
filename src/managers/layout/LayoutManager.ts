@@ -20,6 +20,7 @@ import { getElementSize } from '../../utils/helpers/dom.helper';
 import { MasonryLayoutService } from '../../services/layout/MasonryLayoutService';
 import { ScrollService } from '../../services/layout/ScrollService';
 import { ResizeManager } from './ResizeManager';
+import { measurePerformance } from '../../utils/helpers/performance.helper';
 import { ICardContainerManager } from '../../core/interfaces/manager/ICardContainerManager';
 import { ICardManager } from '../../core/interfaces/manager/ICardManager';
 import { CardContainerEventData } from '../../core/types/card.types';
@@ -81,26 +82,17 @@ export class LayoutManager implements ILayoutManager {
       cardThresholdWidth: 300,
       alignCardHeight: false,
       isVertical: true,
-      cardGap: 10,
+      cardGap: 16,
       fixedCardHeight: 0,
       cardsPerView: 0,
       direction: LayoutDirection.VERTICAL,
       containerPadding: 16,
-      autoDirection: true,
+      autoDirection: false,
       autoDirectionRatio: 1.2,
-      useAnimation: true,
+      useAnimation: false,
       animationDuration: 300,
-      animationEasing: 'ease-in-out',
-      // 추가된 필수 속성들
-      cardMinWidth: 200,
-      cardMaxWidth: 500,
-      cardMinHeight: 100,
-      cardMaxHeight: 500,
-      cardHeight: 200
+      animationEasing: 'ease-in-out'
     };
-    
-    // 이벤트 핸들러 바인딩
-    this.boundEventHandlers = new Map();
   }
   
   /**
@@ -305,13 +297,10 @@ export class LayoutManager implements ILayoutManager {
   
   /**
    * 레이아웃 업데이트
-   * 성능 측정을 포함한 레이아웃 업데이트 메서드
+   * 성능 최적화를 위해 measurePerformance로 래핑
    */
   updateLayout(): void {
     try {
-      // 성능 측정 시작
-      const startTime = performance.now();
-      
       if (!this._containerElement || this.cardElements.length === 0) {
         return;
       }
@@ -333,11 +322,6 @@ export class LayoutManager implements ILayoutManager {
       
       // 레이아웃 업데이트 완료 이벤트 발생
       this.dispatchLayoutUpdatedEvent();
-      
-      // 성능 측정 종료 및 로깅
-      const endTime = performance.now();
-      const duration = endTime - startTime;
-      Log.debug(`성능 측정: LayoutManager.updateLayout (${duration.toFixed(2)}ms)`);
       
       Log.debug('LayoutManager', '레이아웃 업데이트 완료');
     } catch (error) {
@@ -688,9 +672,6 @@ export class LayoutManager implements ILayoutManager {
    */
   private calculateLayout(): void {
     try {
-      // 성능 측정 시작
-      const startTime = performance.now();
-      
       if (!this._containerElement) {
         return;
       }
@@ -763,11 +744,6 @@ export class LayoutManager implements ILayoutManager {
         contentHeight,
         contentWidth
       };
-      
-      // 성능 측정 종료 및 로깅
-      const endTime = performance.now();
-      const duration = endTime - startTime;
-      Log.debug(`성능 측정: LayoutManager.calculateLayout (${duration.toFixed(2)}ms)`);
       
       Log.debug('LayoutManager', `레이아웃 계산 완료: ${columns}열 x ${rows}행, 카드 크기: ${cardWidth}x${cardHeight}`);
     } catch (error) {

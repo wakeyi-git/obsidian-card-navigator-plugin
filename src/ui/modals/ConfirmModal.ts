@@ -1,7 +1,5 @@
 import { App, Modal } from 'obsidian';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
-import { MODAL_CLASS_NAMES } from '../../styles/components/modal.styles';
-import { LAYOUT_CLASS_NAMES } from '../../styles/components/layout.styles';
 
 /**
  * 확인 모달 컴포넌트
@@ -17,11 +15,6 @@ export class ConfirmModal extends Modal {
    * 취소 콜백 함수
    */
   private onCancel: () => void;
-  
-  /**
-   * Promise 해결 함수
-   */
-  private resolvePromise: (value: boolean) => void = () => {};
   
   /**
    * 생성자
@@ -48,17 +41,6 @@ export class ConfirmModal extends Modal {
   }
   
   /**
-   * 모달을 열고 사용자 응답을 기다립니다.
-   * @returns Promise<boolean> - 사용자가 확인 버튼을 클릭하면 true, 취소 버튼을 클릭하면 false
-   */
-  public open(): Promise<boolean> {
-    return new Promise<boolean>((resolve) => {
-      this.resolvePromise = resolve;
-      super.open();
-    });
-  }
-  
-  /**
    * 모달이 열릴 때 호출됩니다.
    */
   onOpen(): void {
@@ -69,41 +51,39 @@ export class ConfirmModal extends Modal {
       contentEl.createEl('h2', { text: this.title });
       
       // 메시지
-      const messageEl = contentEl.createDiv({ cls: MODAL_CLASS_NAMES.CONTENT.MESSAGE });
+      const messageEl = contentEl.createDiv({ cls: 'card-navigator-confirm-message' });
       messageEl.setText(this.message);
       
       // 버튼 영역
-      const buttonContainer = contentEl.createDiv({ cls: MODAL_CLASS_NAMES.BUTTONS.CONTAINER });
+      const buttonContainer = contentEl.createDiv({ cls: 'card-navigator-modal-buttons' });
       
       // 취소 버튼
-      const cancelButton = document.createElement('button');
-      cancelButton.classList.add(LAYOUT_CLASS_NAMES.BUTTON.BASE, LAYOUT_CLASS_NAMES.BUTTON.CANCEL);
-      cancelButton.textContent = this.cancelText;
-      cancelButton.addEventListener('click', () => {
-        this.close();
-        this.onCancel();
-        this.resolvePromise(false);
+      const cancelButton = buttonContainer.createEl('button', {
+        text: this.cancelText,
+        cls: 'card-navigator-button card-navigator-button-cancel'
       });
       
       // 확인 버튼
-      const confirmButton = document.createElement('button');
-      confirmButton.classList.add(LAYOUT_CLASS_NAMES.BUTTON.BASE, LAYOUT_CLASS_NAMES.BUTTON.CONFIRM);
-      confirmButton.textContent = this.confirmText;
+      const confirmButton = buttonContainer.createEl('button', {
+        text: this.confirmText,
+        cls: 'card-navigator-button card-navigator-button-confirm'
+      });
+      
+      // 버튼 이벤트 설정
+      cancelButton.addEventListener('click', () => {
+        this.close();
+        this.onCancel();
+      });
+      
       confirmButton.addEventListener('click', () => {
         this.close();
         this.onConfirm();
-        this.resolvePromise(true);
       });
-      
-      // 버튼 추가
-      buttonContainer.appendChild(cancelButton);
-      buttonContainer.appendChild(confirmButton);
     } catch (error) {
       ErrorHandler.getInstance().handleError(
         '확인 모달을 열 때 오류가 발생했습니다.',
         error
       );
-      this.resolvePromise(false);
     }
   }
   

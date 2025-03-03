@@ -3,8 +3,6 @@ import { SearchService } from '../../../services/search/SearchService';
 import { SearchHistoryService } from '../../../services/search/SearchHistoryService';
 import { SearchSuggestionService } from '../../../services/search/SearchSuggestionService';
 import { ErrorHandler } from '../../../utils/error/ErrorHandler';
-import { SEARCH_CLASS_NAMES, SEARCH_STYLES } from '../../../styles/components/search.styles';
-import { SEARCH_DEFAULTS, SEARCH_EVENTS } from '../../../core/constants/search.constants';
 
 /**
  * 검색 바 컴포넌트
@@ -109,49 +107,44 @@ export class SearchBar {
   private render(): void {
     try {
       // 컨테이너 클래스 추가
-      this.containerEl.addClass(SEARCH_CLASS_NAMES.CONTAINER);
-      this.containerEl.style.padding = SEARCH_STYLES.BAR.PADDING;
+      this.containerEl.addClass('card-navigator-search-bar');
       
       // 검색 입력 필드 생성
       const searchInputContainer = this.containerEl.createDiv({
-        cls: SEARCH_CLASS_NAMES.INPUT_CONTAINER
+        cls: 'card-navigator-search-input-container'
       });
       
       // 검색 아이콘 추가
       const searchIconEl = searchInputContainer.createDiv({
-        cls: SEARCH_CLASS_NAMES.ICON
+        cls: 'card-navigator-search-icon'
       });
       setIcon(searchIconEl, 'search');
       
       // 검색 입력 필드 생성
       this.searchInputEl = searchInputContainer.createEl('input', {
-        cls: SEARCH_CLASS_NAMES.INPUT,
+        cls: 'card-navigator-search-input',
         attr: {
           type: 'text',
           placeholder: '검색어를 입력하세요',
           spellcheck: 'false'
-        },
-        style: {
-          height: SEARCH_STYLES.BAR.HEIGHT,
-          borderRadius: SEARCH_STYLES.BAR.BORDER_RADIUS
         }
       });
       
       // 클리어 버튼 생성
       const clearButtonEl = searchInputContainer.createDiv({
-        cls: SEARCH_CLASS_NAMES.CLEAR_BUTTON
+        cls: 'card-navigator-search-clear-button'
       });
       setIcon(clearButtonEl, 'x');
       clearButtonEl.addEventListener('click', this.clearSearch.bind(this));
       
       // 검색 옵션 컨테이너 생성
       this.searchOptionsEl = this.containerEl.createDiv({
-        cls: SEARCH_CLASS_NAMES.OPTIONS
+        cls: 'card-navigator-search-options'
       });
       
       // 검색 제안 컨테이너 생성
       this.suggestionsEl = this.containerEl.createDiv({
-        cls: SEARCH_CLASS_NAMES.SUGGESTIONS
+        cls: 'card-navigator-search-suggestions'
       });
       this.suggestionsEl.style.display = 'none';
     } catch (error) {
@@ -337,19 +330,19 @@ export class SearchBar {
       
       // 제안 목록 생성
       const suggestionListEl = this.suggestionsEl.createEl('ul', {
-        cls: SEARCH_CLASS_NAMES.SUGGESTION_LIST
+        cls: 'card-navigator-suggestion-list'
       });
       
       // 제안 항목 생성
       this.currentSuggestions.forEach((suggestion, index) => {
         const suggestionItemEl = suggestionListEl.createEl('li', {
-          cls: SEARCH_CLASS_NAMES.SUGGESTION_ITEM,
+          cls: 'card-navigator-suggestion-item',
           text: suggestion
         });
         
         // 선택된 제안 강조
         if (index === this.selectedSuggestionIndex) {
-          suggestionItemEl.addClass(SEARCH_CLASS_NAMES.SELECTED);
+          suggestionItemEl.addClass('selected');
         }
         
         // 클릭 이벤트 추가

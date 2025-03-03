@@ -1,7 +1,5 @@
 import { ColorValue, SizeValue, ThemeMode, ShadowValue } from '../core/types/common.types';
 
-export type { ColorValue, SizeValue };
-
 /**
  * 전역 스타일 변수
  * 

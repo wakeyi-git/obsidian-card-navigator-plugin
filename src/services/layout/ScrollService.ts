@@ -57,12 +57,11 @@ export class ScrollService {
       this.addScrollListener();
       
       Log.debug('ScrollService', `스크롤 서비스 초기화 완료: ${direction}`);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+    } catch (error) {
       ErrorHandler.handleError(
         'ScrollService.initialize',
-        `스크롤 서비스 초기화 중 오류 발생: ${errorMessage}`,
-        true
+        `스크롤 서비스 초기화 중 오류 발생: ${error.message}`,
+        error
       );
     }
   }
@@ -80,12 +79,11 @@ export class ScrollService {
       this.direction = direction;
       
       Log.debug('ScrollService', `스크롤 방향 변경: ${direction}`);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+    } catch (error) {
       ErrorHandler.handleError(
         'ScrollService.setDirection',
-        `스크롤 방향 설정 중 오류 발생: ${errorMessage}`,
-        true
+        `스크롤 방향 설정 중 오류 발생: ${error.message}`,
+        error
       );
     }
   }
@@ -140,12 +138,11 @@ export class ScrollService {
       
       // 스크롤 콜백 호출
       this.scrollCallback(scrollPosition);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+    } catch (error) {
       ErrorHandler.handleError(
         'ScrollService.handleScroll',
-        `스크롤 이벤트 처리 중 오류 발생: ${errorMessage}`,
-        true
+        `스크롤 이벤트 처리 중 오류 발생: ${error.message}`,
+        error
       );
     }
   }
@@ -188,12 +185,11 @@ export class ScrollService {
       this.containerElement.scrollTo(scrollOptions);
       
       Log.debug('ScrollService', `스크롤 위치 설정: ${position}, 부드러움: ${smooth}`);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+    } catch (error) {
       ErrorHandler.handleError(
         'ScrollService.scrollTo',
-        `스크롤 위치 설정 중 오류 발생: ${errorMessage}`,
-        true
+        `스크롤 위치 설정 중 오류 발생: ${error.message}`,
+        error
       );
     }
   }
@@ -226,12 +222,11 @@ export class ScrollService {
       this.scrollTo(position, smooth);
       
       Log.debug('ScrollService', `요소로 스크롤: ${element.id || 'unnamed'}, 위치: ${position}`);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+    } catch (error) {
       ErrorHandler.handleError(
         'ScrollService.scrollToElement',
-        `요소로 스크롤 중 오류 발생: ${errorMessage}`,
-        true
+        `요소로 스크롤 중 오류 발생: ${error.message}`,
+        error
       );
     }
   }
@@ -262,12 +257,11 @@ export class ScrollService {
       this.scrollTo(newPosition, smooth);
       
       Log.debug('ScrollService', `페이지 스크롤: ${direction > 0 ? '다음' : '이전'}, 위치: ${newPosition}`);
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+    } catch (error) {
       ErrorHandler.handleError(
         'ScrollService.scrollPage',
-        `페이지 스크롤 중 오류 발생: ${errorMessage}`,
-        true
+        `페이지 스크롤 중 오류 발생: ${error.message}`,
+        error
       );
     }
   }
@@ -310,12 +304,11 @@ export class ScrollService {
       this.scrollCallback = null;
       
       Log.debug('ScrollService', '스크롤 서비스 정리 완료');
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+    } catch (error) {
       ErrorHandler.handleError(
         'ScrollService.destroy',
-        `스크롤 서비스 정리 중 오류 발생: ${errorMessage}`,
-        true
+        `스크롤 서비스 정리 중 오류 발생: ${error.message}`,
+        error
       );
     }
   }

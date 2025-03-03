@@ -6,7 +6,6 @@ import { Preset } from '../../../core/models/Preset';
 import { TagPresetModal } from '../../modals/TagPresetModal';
 import { PresetTargetModal, PresetTargetType } from '../../modals/PresetTargetModal';
 import { App } from 'obsidian';
-import { PRESET_CLASS_NAMES } from '../../../styles/components/preset.styles';
 
 /**
  * 프리셋 설정 컴포넌트 클래스
@@ -181,11 +180,11 @@ export class PresetSettings {
       });
     
     // 프리셋 자동 적용
-    const autoApplyContainer = containerEl.createDiv({ cls: PRESET_CLASS_NAMES.CONTAINER.SETTING_ITEM });
+    const autoApplyContainer = containerEl.createDiv({ cls: 'card-navigator-setting-item' });
     autoApplyContainer.createEl('h3', { text: '프리셋 자동 적용' });
     
     // 프리셋 자동 적용
-    const autoApplyPresetsSetting = autoApplyContainer.createDiv({ cls: PRESET_CLASS_NAMES.CONTAINER.SETTING_CONTROL_ROW });
+    const autoApplyPresetsSetting = autoApplyContainer.createDiv({ cls: 'card-navigator-setting-control-row' });
     const autoApplyPresetsCheckbox = autoApplyPresetsSetting.createEl('input', {
       type: 'checkbox',
       checked: this.settings.preset.autoApplyPresets
@@ -198,7 +197,7 @@ export class PresetSettings {
     });
     
     // 폴더 프리셋 자동 적용
-    const autoApplyFolderPresetsSetting = autoApplyContainer.createDiv({ cls: PRESET_CLASS_NAMES.CONTAINER.SETTING_CONTROL_ROW });
+    const autoApplyFolderPresetsSetting = autoApplyContainer.createDiv({ cls: 'card-navigator-setting-control-row' });
     const autoApplyFolderPresetsCheckbox = autoApplyFolderPresetsSetting.createEl('input', {
       type: 'checkbox',
       checked: this.settings.preset.autoApplyFolderPresets
@@ -211,7 +210,7 @@ export class PresetSettings {
     });
     
     // 태그 프리셋 자동 적용
-    const autoApplyTagPresetsSetting = autoApplyContainer.createDiv({ cls: PRESET_CLASS_NAMES.CONTAINER.SETTING_CONTROL_ROW });
+    const autoApplyTagPresetsSetting = autoApplyContainer.createDiv({ cls: 'card-navigator-setting-control-row' });
     const autoApplyTagPresetsCheckbox = autoApplyTagPresetsSetting.createEl('input', {
       type: 'checkbox',
       checked: this.settings.preset.autoApplyTagPresets
@@ -236,16 +235,16 @@ export class PresetSettings {
     const presets = this.presetManager.getAllPresets();
     
     // 전역 기본 프리셋 설정
-    const globalPresetContainer = containerEl.createDiv({ cls: PRESET_CLASS_NAMES.CONTAINER.SETTING_ITEM });
+    const globalPresetContainer = containerEl.createDiv({ cls: 'card-navigator-setting-item' });
     globalPresetContainer.createEl('h3', { text: '전역 기본 프리셋' });
     
     const globalPresetDesc = globalPresetContainer.createEl('p', { 
-      cls: PRESET_CLASS_NAMES.CONTAINER.SETTING_DESCRIPTION,
+      cls: 'card-navigator-setting-description',
       text: '모든 노트에 기본적으로 적용되는 프리셋입니다.' 
     });
     
-    const globalPresetDropdownContainer = globalPresetContainer.createDiv({ cls: PRESET_CLASS_NAMES.CONTAINER.SETTING_CONTROL });
-    const globalPresetDropdown = globalPresetDropdownContainer.createEl('select', { cls: PRESET_CLASS_NAMES.DROPDOWN });
+    const globalPresetDropdownContainer = globalPresetContainer.createDiv({ cls: 'card-navigator-setting-control' });
+    const globalPresetDropdown = globalPresetDropdownContainer.createEl('select', { cls: 'dropdown' });
     
     // 기본 옵션 추가
     globalPresetDropdown.createEl('option', {
@@ -271,7 +270,7 @@ export class PresetSettings {
     
     // 설정 버튼 추가
     const globalPresetSettingsButton = globalPresetDropdownContainer.createEl('button', {
-      cls: `${PRESET_CLASS_NAMES.BUTTON.BASE} ${PRESET_CLASS_NAMES.BUTTON.SMALL}`,
+      cls: 'card-navigator-button card-navigator-button-small',
       text: '설정'
     });
     
@@ -296,7 +295,7 @@ export class PresetSettings {
     });
     
     // 폴더별 프리셋 목록
-    const folderPresetList = containerEl.createEl('div', { cls: PRESET_CLASS_NAMES.FOLDER_PRESET.LIST });
+    const folderPresetList = containerEl.createEl('div', { cls: 'folder-preset-list' });
     
     // 폴더별 프리셋 항목 추가
     Object.entries(folderPresets).forEach(([folderPath, presetId]) => {
@@ -360,36 +359,36 @@ export class PresetSettings {
     const folderPresetPriority = this.settings.preset.folderPresetPriorities?.[folderPath] ?? true;
     
     // 폴더 프리셋 항목 컨테이너
-    const itemContainer = containerEl.createDiv({ cls: PRESET_CLASS_NAMES.FOLDER_PRESET.ITEM });
+    const itemContainer = containerEl.createDiv({ cls: 'card-navigator-folder-preset-item' });
     
     // 폴더 경로 표시
-    const folderPathEl = itemContainer.createDiv({ cls: PRESET_CLASS_NAMES.FOLDER_PRESET.PATH });
-    folderPathEl.createSpan({ text: folderPath });
+    const folderPathEl = itemContainer.createDiv({ cls: 'card-navigator-folder-preset-path' });
+    folderPathEl.createSpan({ text: folderPath, cls: 'card-navigator-folder-path' });
     
     // 프리셋 이름 표시
-    const presetEl = itemContainer.createDiv({ cls: PRESET_CLASS_NAMES.FOLDER_PRESET.PRESET });
-    presetEl.createSpan({ text: preset.name });
+    const presetEl = itemContainer.createDiv({ cls: 'card-navigator-folder-preset-preset' });
+    presetEl.createSpan({ text: preset.name, cls: 'card-navigator-preset-name' });
     
     // 우선순위 표시
-    const priorityEl = itemContainer.createDiv({ cls: PRESET_CLASS_NAMES.FOLDER_PRESET.PRIORITY });
+    const priorityEl = itemContainer.createDiv({ cls: 'card-navigator-folder-preset-priority' });
     priorityEl.createSpan({ 
       text: folderPresetPriority ? '폴더 우선' : '전역 우선',
-      cls: `${PRESET_CLASS_NAMES.TAG_PRESET.PRIORITY.LABEL} ${folderPresetPriority ? PRESET_CLASS_NAMES.TAG_PRESET.PRIORITY.FOLDER : PRESET_CLASS_NAMES.TAG_PRESET.PRIORITY.GLOBAL}`
+      cls: `card-navigator-priority ${folderPresetPriority ? 'priority-folder' : 'priority-global'}`
     });
     
     // 작업 버튼 표시
-    const actionEl = itemContainer.createDiv({ cls: PRESET_CLASS_NAMES.FOLDER_PRESET.ACTION });
+    const actionEl = itemContainer.createDiv({ cls: 'card-navigator-folder-preset-action' });
     
     // 편집 버튼
     const editButton = actionEl.createEl('button', {
       text: '편집',
-      cls: `${PRESET_CLASS_NAMES.BUTTON.BASE} ${PRESET_CLASS_NAMES.BUTTON.SMALL}`
+      cls: 'card-navigator-button card-navigator-button-small'
     });
     
     // 삭제 버튼
     const deleteButton = actionEl.createEl('button', {
       text: '삭제',
-      cls: `${PRESET_CLASS_NAMES.BUTTON.BASE} ${PRESET_CLASS_NAMES.BUTTON.SMALL} ${PRESET_CLASS_NAMES.BUTTON.DANGER}`
+      cls: 'card-navigator-button card-navigator-button-small card-navigator-button-danger'
     });
     
     // 편집 버튼 클릭 이벤트
@@ -472,16 +471,16 @@ export class PresetSettings {
       containerEl.createEl('h3', { text: '프리셋 우선순위 설정' });
       
       // 우선순위 설정
-      const priorityContainer = containerEl.createDiv({ cls: PRESET_CLASS_NAMES.CONTAINER.SETTING_ITEM });
+      const priorityContainer = containerEl.createDiv({ cls: 'card-navigator-setting-item' });
       priorityContainer.createEl('h3', { text: '프리셋 우선순위 설정' });
       
       const priorityDesc = priorityContainer.createEl('p', { 
-        cls: PRESET_CLASS_NAMES.CONTAINER.SETTING_DESCRIPTION,
+        cls: 'card-navigator-setting-description',
         text: '여러 프리셋이 적용 가능한 경우 우선순위를 결정합니다.' 
       });
       
       // 기본 우선순위 순서
-      const priorityOrderContainer = priorityContainer.createDiv({ cls: PRESET_CLASS_NAMES.CONTAINER.SETTING_CONTROL_ROW });
+      const priorityOrderContainer = priorityContainer.createDiv({ cls: 'card-navigator-setting-control-row' });
       priorityOrderContainer.createEl('label', { text: '기본 우선순위 순서:' });
       const priorityOrderSelect = priorityOrderContainer.createEl('select');
       
@@ -506,7 +505,7 @@ export class PresetSettings {
       });
       
       // 충돌 해결 방식
-      const conflictResolutionContainer = priorityContainer.createDiv({ cls: PRESET_CLASS_NAMES.CONTAINER.SETTING_CONTROL_ROW });
+      const conflictResolutionContainer = priorityContainer.createDiv({ cls: 'card-navigator-setting-control-row' });
       conflictResolutionContainer.createEl('label', { text: '충돌 해결 방식:' });
       const conflictResolutionSelect = conflictResolutionContainer.createEl('select');
       
@@ -705,7 +704,7 @@ export class PresetSettings {
       if (globalPreset) {
         containerEl.createEl('div', {
           text: `현재 전역 프리셋: ${globalPreset.name}`,
-          cls: PRESET_CLASS_NAMES.INFO_TEXT
+          cls: 'card-navigator-info-text'
         });
       }
       
@@ -754,17 +753,17 @@ export class PresetSettings {
       }
       
       // 태그 프리셋 목록 컨테이너
-      const tagPresetListContainer = containerEl.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.LIST });
+      const tagPresetListContainer = containerEl.createDiv({ cls: 'card-navigator-tag-preset-list' });
       
       // 태그 프리셋 헤더
-      const tagPresetHeader = tagPresetListContainer.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.HEADER });
-      tagPresetHeader.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.TAG.HEADER, text: '태그' });
-      tagPresetHeader.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.PRESET.HEADER, text: '프리셋' });
-      tagPresetHeader.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.PRIORITY.HEADER, text: '우선순위' });
-      tagPresetHeader.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.ACTION.HEADER, text: '작업' });
+      const tagPresetHeader = tagPresetListContainer.createDiv({ cls: 'card-navigator-tag-preset-header' });
+      tagPresetHeader.createDiv({ cls: 'card-navigator-tag-preset-tag-header', text: '태그' });
+      tagPresetHeader.createDiv({ cls: 'card-navigator-tag-preset-preset-header', text: '프리셋' });
+      tagPresetHeader.createDiv({ cls: 'card-navigator-tag-preset-priority-header', text: '우선순위' });
+      tagPresetHeader.createDiv({ cls: 'card-navigator-tag-preset-action-header', text: '작업' });
       
       // 태그 프리셋 콘텐츠
-      const tagPresetContent = tagPresetListContainer.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.CONTENT });
+      const tagPresetContent = tagPresetListContainer.createDiv({ cls: 'card-navigator-tag-preset-content' });
       
       // 태그 프리셋 목록 표시
       const tagPresets = this.presetManager.getAllTagPresets();
@@ -772,8 +771,8 @@ export class PresetSettings {
       
       // 태그 프리셋이 없는 경우 안내 메시지 표시
       if (Object.keys(tagPresets).length === 0) {
-        const emptyMessage = tagPresetContent.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.ITEM });
-        emptyMessage.createDiv({ text: '등록된 태그 프리셋이 없습니다.', cls: PRESET_CLASS_NAMES.TAG_PRESET.EMPTY });
+        const emptyMessage = tagPresetContent.createDiv({ cls: 'card-navigator-tag-preset-item' });
+        emptyMessage.createDiv({ text: '등록된 태그 프리셋이 없습니다.', cls: 'card-navigator-tag-preset-empty' });
       } else {
         // 태그 프리셋 목록 표시
         Object.entries(tagPresets).forEach(([tag, presetId]) => {
@@ -783,36 +782,36 @@ export class PresetSettings {
           // 태그 프리셋 우선순위 정보 가져오기
           const tagPresetPriority = this.settings.preset.tagPresetPriorities?.[tag] ?? true;
           
-          const tagPresetItem = tagPresetContent.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.ITEM });
+          const tagPresetItem = tagPresetContent.createDiv({ cls: 'card-navigator-tag-preset-item' });
           
           // 태그 표시
-          const tagEl = tagPresetItem.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.TAG });
-          tagEl.createSpan({ text: `#${tag}`, cls: PRESET_CLASS_NAMES.TAG });
+          const tagEl = tagPresetItem.createDiv({ cls: 'card-navigator-tag-preset-tag' });
+          tagEl.createSpan({ text: `#${tag}`, cls: 'card-navigator-tag' });
           
           // 프리셋 이름 표시
-          const presetEl = tagPresetItem.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.PRESET });
-          presetEl.createSpan({ text: preset.name, cls: PRESET_CLASS_NAMES.PRESET_NAME });
+          const presetEl = tagPresetItem.createDiv({ cls: 'card-navigator-tag-preset-preset' });
+          presetEl.createSpan({ text: preset.name, cls: 'card-navigator-preset-name' });
           
           // 우선순위 표시
-          const priorityEl = tagPresetItem.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.PRIORITY });
+          const priorityEl = tagPresetItem.createDiv({ cls: 'card-navigator-tag-preset-priority' });
           priorityEl.createSpan({ 
             text: tagPresetPriority ? '태그 우선' : '전역 우선',
-            cls: `${PRESET_CLASS_NAMES.TAG_PRESET.PRIORITY.LABEL} ${tagPresetPriority ? PRESET_CLASS_NAMES.TAG_PRESET.PRIORITY.TAG : PRESET_CLASS_NAMES.TAG_PRESET.PRIORITY.GLOBAL}`
+            cls: `card-navigator-priority ${tagPresetPriority ? 'priority-tag' : 'priority-global'}`
           });
           
           // 작업 버튼 표시
-          const actionEl = tagPresetItem.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.ACTION });
+          const actionEl = tagPresetItem.createDiv({ cls: 'card-navigator-tag-preset-action' });
           
           // 편집 버튼
           const editButton = actionEl.createEl('button', {
             text: '편집',
-            cls: `${PRESET_CLASS_NAMES.BUTTON.BASE} ${PRESET_CLASS_NAMES.BUTTON.SMALL}`
+            cls: 'card-navigator-button card-navigator-button-small'
           });
           
           // 삭제 버튼
           const deleteButton = actionEl.createEl('button', {
             text: '삭제',
-            cls: `${PRESET_CLASS_NAMES.BUTTON.BASE} ${PRESET_CLASS_NAMES.BUTTON.SMALL} ${PRESET_CLASS_NAMES.BUTTON.DANGER}`
+            cls: 'card-navigator-button card-navigator-button-small card-navigator-button-danger'
           });
           
           // 편집 버튼 클릭 이벤트
@@ -871,10 +870,10 @@ export class PresetSettings {
       }
       
       // 태그 프리셋 추가 버튼
-      const addTagPresetContainer = containerEl.createDiv({ cls: PRESET_CLASS_NAMES.TAG_PRESET.ADD });
+      const addTagPresetContainer = containerEl.createDiv({ cls: 'card-navigator-add-tag-preset' });
       const addTagPresetButton = addTagPresetContainer.createEl('button', {
         text: '태그 프리셋 추가',
-        cls: PRESET_CLASS_NAMES.BUTTON.BASE
+        cls: 'card-navigator-button'
       });
       
       // 태그 프리셋 추가 버튼 클릭 이벤트

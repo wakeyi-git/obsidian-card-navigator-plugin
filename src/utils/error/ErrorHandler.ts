@@ -1,6 +1,6 @@
 import { Notice } from 'obsidian';
 import { Log } from '../log/Log';
-import { ErrorCode, ErrorSeverity, ErrorGroup, ERROR_INFO, ERROR_NOTICE_DURATION } from '../../core/constants/error.constants';
+import { ERROR_MESSAGES, ErrorCode, ErrorSeverity, ERROR_SEVERITIES, ERROR_NOTICE_DURATION, ErrorGroup, ERROR_GROUPS } from '../../core/constants/error.constants';
 import { CardNavigatorError } from './CardNavigatorError';
 
 /**
@@ -83,7 +83,7 @@ export class ErrorHandler {
    */
   public static handleErrorWithCode(errorCode: ErrorCode, params: Record<string, string> = {}, showNotice: boolean = true): void {
     // 오류 코드에 해당하는 메시지 가져오기
-    let message = ERROR_INFO[errorCode]?.message || '알 수 없는 오류가 발생했습니다.';
+    let message = ERROR_MESSAGES[errorCode] || '알 수 없는 오류가 발생했습니다.';
     
     // 메시지에 매개변수 적용
     Object.keys(params).forEach(key => {
@@ -91,7 +91,7 @@ export class ErrorHandler {
     });
     
     // 오류 심각도 가져오기
-    const severity = ERROR_INFO[errorCode]?.severity || ErrorSeverity.ERROR;
+    const severity = ERROR_SEVERITIES[errorCode] || ErrorSeverity.ERROR;
     
     // 오류 로깅
     Log.error(`오류 코드 ${errorCode} (${severity}): ${message}`);
@@ -125,7 +125,7 @@ export class ErrorHandler {
    */
   public static handleWarningWithCode(warningCode: ErrorCode, params: Record<string, string> = {}, showNotice: boolean = true): void {
     // 경고 코드에 해당하는 메시지 가져오기
-    let message = ERROR_INFO[warningCode]?.message || '알 수 없는 경고가 발생했습니다.';
+    let message = ERROR_MESSAGES[warningCode] || '알 수 없는 경고가 발생했습니다.';
     
     // 메시지에 매개변수 적용
     Object.keys(params).forEach(key => {
@@ -133,7 +133,7 @@ export class ErrorHandler {
     });
     
     // 경고 심각도 가져오기
-    const severity = ERROR_INFO[warningCode]?.severity || ErrorSeverity.WARNING;
+    const severity = ERROR_SEVERITIES[warningCode] || ErrorSeverity.WARNING;
     
     // 경고 로깅
     Log.warn(`경고 코드 ${warningCode} (${severity}): ${message}`);
@@ -167,7 +167,7 @@ export class ErrorHandler {
    */
   public static createError(errorCode: ErrorCode, params: Record<string, string> = {}): CardNavigatorError {
     // 오류 코드에 해당하는 메시지 가져오기
-    let message = ERROR_INFO[errorCode]?.message || '알 수 없는 오류가 발생했습니다.';
+    let message = ERROR_MESSAGES[errorCode] || '알 수 없는 오류가 발생했습니다.';
     
     // 메시지에 매개변수 적용
     Object.keys(params).forEach(key => {
@@ -184,7 +184,7 @@ export class ErrorHandler {
    * @returns 오류 심각도
    */
   public static getSeverity(errorCode: ErrorCode): ErrorSeverity {
-    return ERROR_INFO[errorCode]?.severity || ErrorSeverity.ERROR;
+    return ERROR_SEVERITIES[errorCode] || ErrorSeverity.ERROR;
   }
   
   /**
@@ -193,7 +193,7 @@ export class ErrorHandler {
    * @returns 오류 그룹
    */
   public static getGroup(errorCode: ErrorCode): ErrorGroup {
-    return ERROR_INFO[errorCode]?.group || ErrorGroup.GENERAL;
+    return ERROR_GROUPS[errorCode] || ErrorGroup.GENERAL;
   }
   
   /**
@@ -204,7 +204,7 @@ export class ErrorHandler {
    */
   public static getMessage(errorCode: ErrorCode, params: Record<string, string> = {}): string {
     // 오류 코드에 해당하는 메시지 가져오기
-    let message = ERROR_INFO[errorCode]?.message || '알 수 없는 오류가 발생했습니다.';
+    let message = ERROR_MESSAGES[errorCode] || '알 수 없는 오류가 발생했습니다.';
     
     // 메시지에 매개변수 적용
     Object.keys(params).forEach(key => {
@@ -220,8 +220,8 @@ export class ErrorHandler {
    * @returns 오류 코드 배열
    */
   public static getErrorCodesByGroup(group: ErrorGroup): ErrorCode[] {
-    return Object.entries(ERROR_INFO)
-      .filter(([_, info]) => info.group === group)
+    return Object.entries(ERROR_GROUPS)
+      .filter(([_, g]) => g === group)
       .map(([code]) => code as ErrorCode);
   }
   
@@ -278,14 +278,14 @@ export class ErrorHandler {
   }
   
   /**
-   * 그룹별 오류 처리
+   * 그룹별 오류 처리 메서드
    * @param group 오류 그룹
    * @param error 오류 객체
    * @param params 오류 메시지에 포함될 매개변수
    * @param showNotice 사용자에게 알림 표시 여부
    */
   public static handleErrorByGroup(group: ErrorGroup, error: Error | unknown, params: Record<string, string> = {}, showNotice: boolean = true): void {
-    // 그룹에 맞는 기본 오류 코드 선택
+    // 그룹에 따른 오류 코드 결정
     let errorCode: ErrorCode;
     
     switch (group) {
@@ -317,8 +317,8 @@ export class ErrorHandler {
         errorCode = ErrorCode.UNKNOWN_ERROR;
     }
     
-    // 오류 메시지 가져오기
-    let message = ERROR_INFO[errorCode]?.message || '알 수 없는 오류가 발생했습니다.';
+    // 오류 코드에 해당하는 메시지 가져오기
+    let message = ERROR_MESSAGES[errorCode] || '알 수 없는 오류가 발생했습니다.';
     
     // 메시지에 매개변수 적용
     Object.keys(params).forEach(key => {
@@ -328,9 +328,9 @@ export class ErrorHandler {
     // 오류 처리
     ErrorHandler.handleError(message, error, showNotice);
   }
-  
+
   /**
-   * 인스턴스 메서드: 오류 처리
+   * 오류 처리 메서드 (인스턴스 메서드)
    * @param message 오류 메시지
    * @param error 오류 객체
    * @param showNotice 사용자에게 알림 표시 여부
@@ -340,7 +340,7 @@ export class ErrorHandler {
   }
   
   /**
-   * 인스턴스 메서드: 오류 코드로 오류 처리
+   * 특정 오류 코드에 해당하는 오류 처리 메서드 (인스턴스 메서드)
    * @param errorCode 오류 코드
    * @param params 오류 메시지에 포함될 매개변수
    * @param showNotice 사용자에게 알림 표시 여부
@@ -350,7 +350,7 @@ export class ErrorHandler {
   }
   
   /**
-   * 인스턴스 메서드: 경고 처리
+   * 경고 처리 메서드 (인스턴스 메서드)
    * @param message 경고 메시지
    * @param showNotice 사용자에게 알림 표시 여부
    */
@@ -359,7 +359,7 @@ export class ErrorHandler {
   }
   
   /**
-   * 인스턴스 메서드: 경고 코드로 경고 처리
+   * 특정 경고 코드에 해당하는 경고 처리 메서드 (인스턴스 메서드)
    * @param warningCode 경고 코드
    * @param params 경고 메시지에 포함될 매개변수
    * @param showNotice 사용자에게 알림 표시 여부
@@ -369,7 +369,7 @@ export class ErrorHandler {
   }
   
   /**
-   * 인스턴스 메서드: 정보 메시지 처리
+   * 정보 처리 메서드 (인스턴스 메서드)
    * @param message 정보 메시지
    * @param showNotice 사용자에게 알림 표시 여부
    */
@@ -378,17 +378,17 @@ export class ErrorHandler {
   }
   
   /**
-   * 인스턴스 메서드: 오류 객체 생성
+   * 오류 생성 메서드 (인스턴스 메서드)
    * @param errorCode 오류 코드
    * @param params 오류 메시지에 포함될 매개변수
-   * @returns 오류 객체
+   * @returns CardNavigatorError 인스턴스
    */
   public createError(errorCode: ErrorCode, params: Record<string, string> = {}): CardNavigatorError {
     return ErrorHandler.createError(errorCode, params);
   }
   
   /**
-   * 인스턴스 메서드: 그룹별 오류 처리
+   * 그룹별 오류 처리 메서드 (인스턴스 메서드)
    * @param group 오류 그룹
    * @param error 오류 객체
    * @param params 오류 메시지에 포함될 매개변수

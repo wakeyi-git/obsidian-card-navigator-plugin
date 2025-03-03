@@ -3,13 +3,14 @@
  */
 
 import { 
-  CardContentSettings, 
-  CardStyleSettings, 
-  CardLayoutSettings,
-  CardSetSettings
+  CardContentSettings as GlobalCardContentSettings, 
+  CardStyleSettings as GlobalCardStyleSettings, 
+  CardLayoutSettings, 
+  CardSet as GlobalCardSetSettings,
+  PresetManagerSettings
 } from './settings.types';
-import { CardSetOptions } from './cardset.types';
-import { SortOption } from './common.types';
+import { CardSetMode, CardSortBy } from './cardset.types';
+import { SortDirection } from './common.types';
 
 /**
  * 폴더 프리셋 매핑 타입
@@ -130,52 +131,334 @@ export enum PresetConflictResolution {
 }
 
 /**
- * 프리셋 설정 인터페이스
- */
-export interface PresetSettings {
-  cardContent: CardContentSettings;
-  cardStyle: CardStyleSettings;
-  layout: CardLayoutSettings;
-  sort: SortOption;
-  cardSet: CardSetOptions;
-}
-
-/**
  * 프리셋 인터페이스
  */
 export interface IPreset {
+  /**
+   * 프리셋 ID
+   */
   id: string;
+  
+  /**
+   * 프리셋 이름
+   */
   name: string;
+  
+  /**
+   * 프리셋 설명
+   */
   description?: string;
+  
+  /**
+   * 생성 날짜
+   */
   createdAt: number;
+  
+  /**
+   * 수정 날짜
+   */
   updatedAt: number;
-  settings: PresetSettings;
-  options: PresetOptions;
+  
+  /**
+   * 기본 프리셋 여부
+   */
   isDefault?: boolean;
-  lastModified?: number;
+  
+  /**
+   * 프리셋 설정
+   */
+  settings: PresetSettings;
 }
 
 // 기존 PresetData 인터페이스를 위한 타입 별칭 (하위 호환성 유지)
 export type PresetData = IPreset;
 
 /**
- * 프리셋 옵션 인터페이스
+ * 프리셋 설정 타입
  */
-export interface PresetOptions {
-  cardSet: CardSetOptions;
-  sort: SortOption;
-  layout: {
-    cardWidth: number;
-    cardHeight?: number;
-    spacing: number;
-    columns?: number;
-  };
-  style: {
-    showHeader: boolean;
-    showFooter: boolean;
-    showTags: boolean;
-    darkMode?: boolean;
-  };
+export interface PresetSettings {
+  /**
+   * 카드 내용 설정
+   */
+  cardContent?: GlobalCardContentSettings;
+  
+  /**
+   * 카드 스타일 설정
+   */
+  cardStyle?: GlobalCardStyleSettings;
+  
+  /**
+   * 레이아웃 설정
+   */
+  layout?: CardLayoutSettings;
+  
+  /**
+   * 정렬 설정
+   */
+  sort?: SortSettings;
+  
+  /**
+   * 필터 설정
+   */
+  filter?: FilterSettings;
+  
+  /**
+   * 카드셋 설정
+   */
+  cardSet?: GlobalCardSetSettings;
+}
+
+/**
+ * 카드 내용 설정 타입
+ */
+export interface CardContentSettings {
+  /**
+   * 파일명 표시 여부
+   */
+  showFileName?: boolean;
+  
+  /**
+   * 첫 번째 헤더 표시 여부
+   */
+  showFirstHeader?: boolean;
+  
+  /**
+   * 본문 표시 여부 (settings.types.ts와 호환성 유지)
+   */
+  showBody?: boolean;
+  
+  /**
+   * 본문 길이 (settings.types.ts와 호환성 유지)
+   */
+  bodyLength?: number;
+  
+  /**
+   * 태그 표시 여부
+   */
+  showTags?: boolean;
+  
+  /**
+   * 생성 날짜 표시 여부
+   */
+  showCreationDate?: boolean;
+  
+  /**
+   * 수정 날짜 표시 여부
+   */
+  showModificationDate?: boolean;
+  
+  /**
+   * HTML로 콘텐츠 렌더링 여부 (settings.types.ts와 호환성 유지)
+   */
+  renderContentAsHtml?: boolean;
+  
+  /**
+   * 코드 블록 하이라이팅 여부
+   */
+  highlightCodeBlocks?: boolean;
+  
+  /**
+   * 수학 수식 렌더링 여부
+   */
+  renderMathEquations?: boolean;
+  
+  /**
+   * 이미지 표시 여부
+   */
+  showImages?: boolean;
+}
+
+/**
+ * 카드 스타일 설정 타입
+ */
+export interface CardStyleSettings {
+  /**
+   * 파일명 글꼴 크기 (settings.types.ts와 호환성 유지)
+   */
+  fileNameFontSize?: number | string;
+  
+  /**
+   * 첫 번째 헤더 글꼴 크기 (settings.types.ts와 호환성 유지)
+   */
+  firstHeaderFontSize?: number | string;
+  
+  /**
+   * 본문 글꼴 크기 (settings.types.ts와 호환성 유지)
+   */
+  bodyFontSize?: number | string;
+
+  /**
+   * 태그 글꼴 크기 (settings.types.ts와 호환성 유지)
+   */
+  tagsFontSize?: number | string;
+  
+  /**
+   * 카드 너비
+   */
+  cardWidth?: string;
+  
+  /**
+   * 카드 높이
+   */
+  cardHeight?: string;
+  
+  /**
+   * 카드 패딩
+   */
+  cardPadding?: string;
+  
+  /**
+   * 카드 테두리 두께
+   */
+  cardBorderWidth?: string;
+  
+  /**
+   * 카드 테두리 색상
+   */
+  cardBorderColor?: string;
+  
+  /**
+   * 카드 테두리 모서리 둥글기
+   */
+  cardBorderRadius?: string;
+    
+  /**
+   * 카드 그림자 활성화 여부 (settings.types.ts와 호환성 유지)
+   */
+  cardShadow?: boolean;
+  
+  /**
+   * 카드 그림자 강도
+   */
+  cardShadowIntensity?: number;
+  
+  /**
+   * 카드 배경색
+   */
+  cardBackgroundColor?: string;
+  
+  /**
+   * 태그 기반 자동 색상 지정 여부
+   */
+  enableTagBasedColors?: boolean;
+  
+  /**
+   * 드래그 앤 드롭 콘텐츠 활성화 여부 (settings.types.ts와 호환성 유지)
+   */
+  dragDropContent?: boolean;
+}
+
+/**
+ * 레이아웃 설정 타입
+ */
+export interface LayoutSettings {
+  /**
+   * 카드 너비 임계값
+   */
+  cardThresholdWidth?: number;
+  
+  /**
+   * 카드 높이 정렬 여부
+   */
+  alignCardHeight?: boolean;
+  
+  /**
+   * 고정 카드 높이
+   */
+  fixedCardHeight?: number;
+  
+  /**
+   * 열당 카드 수 (settings.types.ts와 호환성 유지)
+   */
+  cardsPerColumn?: number;
+  
+  /**
+   * 수직 방향 여부
+   */
+  isVertical?: boolean;
+  
+  /**
+   * 카드 간 간격
+   */
+  cardGap?: number;
+  
+  /**
+   * 부드러운 스크롤 활성화 여부
+   */
+  smoothScroll?: boolean;
+}
+
+/**
+ * 정렬 설정 타입
+ */
+export interface SortSettings {
+  /**
+   * 정렬 기준
+   */
+  sortBy?: 'filename' | 'creationDate' | 'modificationDate' | 'fileSize' | 'custom';
+  
+  /**
+   * 정렬 방향
+   */
+  sortDirection?: 'asc' | 'desc';
+  
+  /**
+   * 사용자 정의 정렬 필드
+   */
+  customSortField?: string;
+}
+
+/**
+ * 필터 설정 타입
+ */
+export interface FilterSettings {
+  /**
+   * 태그 필터
+   */
+  tagFilter?: string[];
+  
+  /**
+   * 폴더 필터
+   */
+  folderFilter?: string[];
+  
+  /**
+   * YAML 프론트매터 필터
+   */
+  frontmatterFilter?: {
+    key: string;
+    value: string;
+  }[];
+}
+
+/**
+ * 카드셋 설정 타입
+ */
+export interface CardSetSettings {
+  /**
+   * 카드셋 모드
+   */
+  mode?: CardSetMode | keyof typeof CardSetMode;
+  
+  /**
+   * 선택된 폴더 (settings.types.ts와 호환성 유지)
+   */
+  selectedFolder?: string | null;
+  
+  /**
+   * 그룹화 옵션
+   */
+  groupBy?: 'folder' | 'tag' | 'date' | 'none';
+  
+  /**
+   * 정렬 기준
+   */
+  sortBy?: CardSortBy;
+  
+  /**
+   * 정렬 방향
+   */
+  sortDirection?: SortDirection;
 }
 
 /**
@@ -204,12 +487,39 @@ export type PresetEvent =
  * 프리셋 이벤트 데이터
  */
 export interface PresetEventData {
+  /**
+   * 프리셋 이름
+   */
   presetName?: string;
+  
+  /**
+   * 프리셋 ID
+   */
   presetId?: string;
+  
+  /**
+   * 폴더 경로
+   */
   folderPath?: string;
+  
+  /**
+   * 태그 이름
+   */
   tag?: string;
+
+  /**
+   * 이전 프리셋 ID
+   */
   oldPresetId?: string;
+   
+  /**
+   * 새 프리셋 ID
+   */
   newPresetId?: string;
+   
+  /**
+   * 이벤트 관련 추가 데이터
+   */
   data?: any;
 }
 

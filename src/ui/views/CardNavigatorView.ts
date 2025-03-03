@@ -12,8 +12,6 @@ import { LayoutOptions } from '../../core/types/layout.types';
 import { Toolbar } from '../components/toolbar/Toolbar';
 import { CardSetEvent, CardSetEventData } from '../../core/types/cardset.types';
 import { LAYOUT_CLASS_NAMES } from '../../styles/components/layout.styles';
-import { ICardSetService } from '../../core/interfaces/service/ICardSetService';
-import { CARD_CLASS_NAMES } from '../../styles/components/card.styles';
 
 /**
  * 카드 네비게이터 뷰 클래스
@@ -46,6 +44,31 @@ export class CardNavigatorView extends ItemView {
   private toolbar: Toolbar;
   
   /**
+   * 카드셋 관리자
+   */
+  private cardSetManager: CardSetManager;
+  
+  /**
+   * 레이아웃 관리자
+   */
+  private layoutManager: LayoutManager;
+  
+  /**
+   * 프리셋 관리자
+   */
+  private presetManager: PresetManager;
+  
+  /**
+   * 설정 관리자
+   */
+  private settingsManager: SettingsManager;
+  
+  /**
+   * 검색 서비스
+   */
+  private searchService: SearchService;
+  
+  /**
    * 카드 요소 맵 (카드 ID -> 카드 요소)
    */
   private cardElements: Map<string, HTMLElement> = new Map();
@@ -71,25 +94,29 @@ export class CardNavigatorView extends ItemView {
   private currentSearchTerm: string = '';
   
   /**
-   * CardNavigatorView 생성자
+   * 카드 네비게이터 뷰 생성자
    * @param leaf 워크스페이스 리프
    * @param cardSetManager 카드셋 관리자
    * @param layoutManager 레이아웃 관리자
    * @param presetManager 프리셋 관리자
    * @param settingsManager 설정 관리자
    * @param searchService 검색 서비스
-   * @param cardSetService 카드셋 서비스
    */
   constructor(
     leaf: WorkspaceLeaf,
-    private readonly cardSetManager: CardSetManager,
-    private readonly layoutManager: LayoutManager,
-    private readonly presetManager: PresetManager,
-    private readonly settingsManager: SettingsManager,
-    private readonly searchService: SearchService,
-    private readonly cardSetService: ICardSetService
+    cardSetManager: CardSetManager,
+    layoutManager: LayoutManager,
+    presetManager: PresetManager,
+    settingsManager: SettingsManager,
+    searchService: SearchService
   ) {
     super(leaf);
+    
+    this.cardSetManager = cardSetManager;
+    this.layoutManager = layoutManager;
+    this.presetManager = presetManager;
+    this.settingsManager = settingsManager;
+    this.searchService = searchService;
   }
   
   /**
@@ -123,7 +150,7 @@ export class CardNavigatorView extends ItemView {
   async onload(): Promise<void> {
     // 기본 컨테이너 생성
     this.contentEl.empty();
-    this.contentEl.addClass(CARD_CLASS_NAMES.CONTAINER.ROOT);
+    this.contentEl.addClass('card-navigator-container');
     
     // 툴바 생성
     this.toolbar = new Toolbar(this.app, this.presetManager);
@@ -131,7 +158,7 @@ export class CardNavigatorView extends ItemView {
     
     // 카드 컨테이너 생성
     this.cardContainer = document.createElement('div');
-    this.cardContainer.addClass(CARD_CLASS_NAMES.CONTAINER.CARDS);
+    this.cardContainer.addClass('card-navigator-card-container');
     this.contentEl.appendChild(this.cardContainer);
     
     // 레이아웃 관리자 초기화
@@ -314,13 +341,13 @@ export class CardNavigatorView extends ItemView {
    * @returns 카드 HTML 요소
    */
   private createCardElement(cardModel: Card, renderOptions: CardRenderOptions): HTMLElement {
-    // 카드 UI 컴포넌트 생성
+    // 카드 UI 컴포넌트 생성 (실제 구현에서는 Card 컴포넌트 사용)
     const cardElement = document.createElement('div');
-    cardElement.addClass(CARD_CLASS_NAMES.CARD.CONTAINER);
+    cardElement.addClass('card-navigator-card');
     cardElement.setAttribute('data-card-id', cardModel.id);
     
     // 카드 상태 클래스 추가
-    cardElement.addClass(CARD_CLASS_NAMES.CARD.STATE[cardModel.state.toUpperCase()]);
+    cardElement.addClass(`card-navigator-card-${cardModel.state}`);
     
     // 카드 클릭 이벤트 리스너
     cardElement.addEventListener('click', (event) => {
@@ -332,33 +359,36 @@ export class CardNavigatorView extends ItemView {
       this.handleCardContextMenu(event, cardModel);
     });
     
+    // 카드 내용 렌더링 (실제 구현에서는 CardHeader, CardBody, CardFooter 컴포넌트 사용)
+    // 여기서는 간단한 구현만 제공
+    
     // 헤더 생성
     const header = document.createElement('div');
-    header.addClass(CARD_CLASS_NAMES.CARD.HEADER);
+    header.addClass('card-navigator-card-header');
     
     // 제목 생성
     const title = document.createElement('div');
-    title.addClass(CARD_CLASS_NAMES.CARD.TITLE);
+    title.addClass('card-navigator-card-title');
     title.textContent = renderOptions.showFirstHeader && cardModel.firstHeader
       ? cardModel.firstHeader
-      : cardModel.filename;
+      : cardModel.fileName;
     header.appendChild(title);
     
     // 본문 생성
     const body = document.createElement('div');
-    body.addClass(CARD_CLASS_NAMES.CARD.BODY);
+    body.addClass('card-navigator-card-body');
     
     // 태그 생성
     const footer = document.createElement('div');
-    footer.addClass(CARD_CLASS_NAMES.CARD.FOOTER);
+    footer.addClass('card-navigator-card-footer');
     
     if (renderOptions.showTags && cardModel.tags.length > 0) {
       const tagContainer = document.createElement('div');
-      tagContainer.addClass(CARD_CLASS_NAMES.CARD.TAGS.CONTAINER);
+      tagContainer.addClass('card-navigator-card-tags');
       
       for (const tag of cardModel.tags) {
         const tagElement = document.createElement('span');
-        tagElement.addClass(CARD_CLASS_NAMES.CARD.TAGS.TAG);
+        tagElement.addClass('card-navigator-card-tag');
         tagElement.textContent = tag;
         tagContainer.appendChild(tagElement);
       }
@@ -577,18 +607,16 @@ export class CardNavigatorView extends ItemView {
    */
   private showEmptyState(): void {
     const emptyStateElement = document.createElement('div');
-    emptyStateElement.addClass(CARD_CLASS_NAMES.EMPTY_STATE.CONTAINER);
+    emptyStateElement.addClass('card-navigator-empty-state');
     
     const icon = document.createElement('div');
-    icon.addClass(CARD_CLASS_NAMES.EMPTY_STATE.ICON);
+    icon.addClass('card-navigator-empty-state-icon');
     icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-question"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M10 10.3c.2-.4.5-.8.9-1a2.1 2.1 0 0 1 2.6.4c.3.4.5.8.5 1.3 0 1.3-2 2-2 2"/><path d="M12 17h.01"/></svg>';
     
     const title = document.createElement('h3');
-    title.addClass(CARD_CLASS_NAMES.EMPTY_STATE.TITLE);
     title.textContent = '노트가 없습니다';
     
     const description = document.createElement('p');
-    description.addClass(CARD_CLASS_NAMES.EMPTY_STATE.DESCRIPTION);
     description.textContent = '이 폴더에 마크다운 노트가 없거나 검색 결과가 없습니다.';
     
     emptyStateElement.appendChild(icon);

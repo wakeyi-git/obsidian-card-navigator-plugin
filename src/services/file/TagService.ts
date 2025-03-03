@@ -1,25 +1,28 @@
 import { App, TFile } from 'obsidian';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 import { Log } from '../../utils/log/Log';
-import { IMetadataService } from '../../core/interfaces/service/IMetadataService';
-import { IFileService } from '../../core/interfaces/service/IFileService';
-import { ITagService } from '../../core/interfaces/service/ITagService';
+import { MetadataService } from './MetadataService';
+import { FileService } from './FileService';
 
 /**
  * TagService 클래스는 Obsidian의 태그 관련 기능을 제공합니다.
  */
-export class TagService implements ITagService {
+export class TagService {
+  private app: App;
+  private metadataService: MetadataService;
+  private fileService: FileService;
+
   /**
    * TagService 생성자
    * @param app Obsidian 앱 인스턴스
    * @param metadataService 메타데이터 서비스 인스턴스
    * @param fileService 파일 서비스 인스턴스
    */
-  constructor(
-    private readonly app: App, 
-    private readonly metadataService: IMetadataService, 
-    private readonly fileService: IFileService
-  ) {
+  constructor(app: App, metadataService: MetadataService, fileService: FileService) {
+    this.app = app;
+    this.metadataService = metadataService;
+    this.fileService = fileService;
+    
     Log.debug('TagService', '태그 서비스 초기화 완료');
   }
 
@@ -32,19 +35,13 @@ export class TagService implements ITagService {
       // 메타데이터 캐시에서 모든 태그 가져오기
       const allTags = new Set<string>();
       
-      // 모든 마크다운 파일을 순회하며 태그 수집
-      const files = this.fileService.getMarkdownFiles('/', true, false);
-      
-      for (const file of files) {
-        const cache = this.app.metadataCache.getFileCache(file);
-        if (!cache) continue;
-        
-        // 프론트매터 태그
+      // 프론트매터 태그
+      Object.values(this.app.metadataCache.cache).forEach(cache => {
         if (cache.frontmatter) {
           // tags 필드
           if (cache.frontmatter.tags) {
             if (Array.isArray(cache.frontmatter.tags)) {
-              cache.frontmatter.tags.forEach((tag: any) => allTags.add(String(tag)));
+              cache.frontmatter.tags.forEach(tag => allTags.add(String(tag)));
             } else if (typeof cache.frontmatter.tags === 'string') {
               allTags.add(cache.frontmatter.tags);
             }
@@ -53,7 +50,7 @@ export class TagService implements ITagService {
           // tag 필드
           if (cache.frontmatter.tag) {
             if (Array.isArray(cache.frontmatter.tag)) {
-              cache.frontmatter.tag.forEach((tag: any) => allTags.add(String(tag)));
+              cache.frontmatter.tag.forEach(tag => allTags.add(String(tag)));
             } else if (typeof cache.frontmatter.tag === 'string') {
               allTags.add(cache.frontmatter.tag);
             }
@@ -62,13 +59,13 @@ export class TagService implements ITagService {
         
         // 인라인 태그
         if (cache.tags) {
-          cache.tags.forEach((tagCache: { tag: string }) => {
+          cache.tags.forEach(tagCache => {
             // #tag 형식에서 # 제거
             const tag = tagCache.tag.substring(1);
             allTags.add(tag);
           });
         }
-      }
+      });
       
       return Array.from(allTags).sort();
     } catch (error) {
@@ -313,11 +310,11 @@ export class TagService implements ITagService {
         .slice(0, limit);
       
       // 최대 및 최소 빈도 찾기
-      const maxCount = Math.max(...topTags.map(([_, count]: [string, number]) => count));
-      const minCount = Math.min(...topTags.map(([_, count]: [string, number]) => count));
+      const maxCount = Math.max(...topTags.map(([_, count]) => count));
+      const minCount = Math.min(...topTags.map(([_, count]) => count));
       
       // 태그 클라우드 데이터 생성
-      return topTags.map(([tag, count]: [string, number]) => {
+      return topTags.map(([tag, count]) => {
         // 크기 계산 (1-5 범위)
         const size = minCount === maxCount
           ? 3
@@ -372,8 +369,8 @@ export class TagService implements ITagService {
             
             if (tagLine.includes('[') && tagLine.includes(']')) {
               // 배열 형식 태그
-              const updatedTagLine = tagLine.replace(/\[([^\]]*)\]/, (match: string, p1: string) => {
-                const tags = p1.split(',').map((t: string) => t.trim()).filter((t: string) => t);
+              const updatedTagLine = tagLine.replace(/\[([^\]]*)\]/, (match, p1) => {
+                const tags = p1.split(',').map(t => t.trim()).filter(t => t);
                 if (!tags.includes(tag)) {
                   tags.push(tag);
                 }
@@ -456,13 +453,13 @@ export class TagService implements ITagService {
       if (tagLine.includes('[') && tagLine.includes(']')) {
         // 배열 형식 태그
         updatedTagLine = tagLine.replace(/\[([^\]]*)\]/, (match, p1) => {
-          const tags = p1.split(',').map((t: string) => t.trim()).filter((t: string) => t && t !== tag);
+          const tags = p1.split(',').map(t => t.trim()).filter(t => t && t !== tag);
           return tags.length > 0 ? `[${tags.join(', ')}]` : '[]';
         });
       } else {
         // 단일 태그 또는 쉼표로 구분된 태그
         const tagRegex = new RegExp(`(^|,\\s*)${tag}(\\s*,|$)`, 'g');
-        updatedTagLine = tagLine.replace(tagRegex, (match: string, p1: string, p2: string) => {
+        updatedTagLine = tagLine.replace(tagRegex, (match, p1, p2) => {
           if (p1 === '' && p2 === '') return '';
           if (p1 === '') return p2;
           if (p2 === '') return p1;
@@ -530,44 +527,6 @@ export class TagService implements ITagService {
     } catch (error) {
       ErrorHandler.handleError(`파일 태그 설정 실패: ${file.path}`, error);
       return false;
-    }
-  }
-
-  /**
-   * 태그의 하위 태그를 가져옵니다.
-   * @param tag 상위 태그
-   * @returns 하위 태그 배열
-   */
-  public getChildTags(tag: string): string[] {
-    try {
-      const hierarchy = this.getTagHierarchy();
-      return hierarchy[tag] || [];
-    } catch (error) {
-      ErrorHandler.handleError(`하위 태그 가져오기 실패: ${tag}`, error);
-      return [];
-    }
-  }
-
-  /**
-   * 태그의 상위 태그를 가져옵니다.
-   * @param tag 하위 태그
-   * @returns 상위 태그 또는 null
-   */
-  public getParentTag(tag: string): string | null {
-    try {
-      const hierarchy = this.getTagHierarchy();
-      
-      // 모든 상위 태그를 확인하여 현재 태그가 하위 태그 목록에 있는지 확인
-      for (const [parent, children] of Object.entries(hierarchy)) {
-        if (children.includes(tag)) {
-          return parent;
-        }
-      }
-      
-      return null;
-    } catch (error) {
-      ErrorHandler.handleError(`상위 태그 가져오기 실패: ${tag}`, error);
-      return null;
     }
   }
 } 

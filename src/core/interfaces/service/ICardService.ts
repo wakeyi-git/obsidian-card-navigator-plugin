@@ -8,12 +8,6 @@ import { CardData } from '../../types/card.types';
  */
 export interface ICardService {
   /**
-   * 서비스 초기화
-   * @param options 초기화 옵션
-   */
-  initialize(options?: any): void;
-  
-  /**
    * 파일에서 카드 생성
    * @param file Obsidian 파일
    * @returns 생성된 카드 객체

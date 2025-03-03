@@ -1,6 +1,5 @@
 import { App, Modal } from 'obsidian';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
-import { MODAL_CLASS_NAMES } from '../../styles/components/modal.styles';
 
 /**
  * 키보드 단축키 정보 인터페이스
@@ -91,16 +90,16 @@ export class KeyboardHelpModal extends Modal {
       // 각 섹션 렌더링
       for (const [section, shortcuts] of Object.entries(sections)) {
         // 섹션 제목
-        contentEl.createEl('h3', { text: section, cls: MODAL_CLASS_NAMES.KEYBOARD.SECTION });
+        contentEl.createEl('h3', { text: section, cls: 'card-navigator-keyboard-section' });
         
         // 단축키 테이블
-        const table = contentEl.createEl('table', { cls: MODAL_CLASS_NAMES.KEYBOARD.TABLE });
+        const table = contentEl.createEl('table', { cls: 'card-navigator-keyboard-table' });
         
         // 테이블 헤더
         const thead = table.createEl('thead');
         const headerRow = thead.createEl('tr');
-        headerRow.createEl('th', { text: '키', cls: MODAL_CLASS_NAMES.KEYBOARD.KEY });
-        headerRow.createEl('th', { text: '설명', cls: MODAL_CLASS_NAMES.KEYBOARD.DESCRIPTION });
+        headerRow.createEl('th', { text: '키', cls: 'card-navigator-keyboard-key' });
+        headerRow.createEl('th', { text: '설명', cls: 'card-navigator-keyboard-description' });
         
         // 테이블 본문
         const tbody = table.createEl('tbody');
@@ -108,16 +107,16 @@ export class KeyboardHelpModal extends Modal {
         // 각 단축키 행 추가
         shortcuts.forEach(shortcut => {
           const row = tbody.createEl('tr');
-          row.createEl('td', { text: shortcut.key, cls: MODAL_CLASS_NAMES.KEYBOARD.KEY });
-          row.createEl('td', { text: shortcut.description, cls: MODAL_CLASS_NAMES.KEYBOARD.DESCRIPTION });
+          row.createEl('td', { text: shortcut.key, cls: 'card-navigator-keyboard-key' });
+          row.createEl('td', { text: shortcut.description, cls: 'card-navigator-keyboard-description' });
         });
       }
       
       // 닫기 버튼
-      const buttonContainer = contentEl.createDiv({ cls: MODAL_CLASS_NAMES.BUTTONS.CONTAINER });
+      const buttonContainer = contentEl.createDiv({ cls: 'card-navigator-modal-buttons' });
       const closeButton = buttonContainer.createEl('button', {
         text: '닫기',
-        cls: MODAL_CLASS_NAMES.BUTTONS.BUTTON
+        cls: 'card-navigator-button'
       });
       
       closeButton.addEventListener('click', () => {

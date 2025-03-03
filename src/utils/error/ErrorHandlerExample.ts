@@ -1,6 +1,6 @@
 import { ErrorHandler } from './ErrorHandler';
 import { CardNavigatorError } from './CardNavigatorError';
-import { ErrorCode, ErrorGroup, ErrorSeverity } from '../../core/constants/error.constants';
+import { ErrorGroup, ErrorSeverity } from '../../core/constants/error.constants';
 import { Log } from '../log/Log';
 
 /**
@@ -30,7 +30,7 @@ export class ErrorHandlerExample {
       throw new Error('파일을 찾을 수 없음');
     } catch (error) {
       // 오류 코드와 매개변수를 사용하여 오류 처리
-      ErrorHandler.handleErrorWithCode(ErrorCode.FILE_NOT_FOUND, {
+      ErrorHandler.handleErrorWithCode('FILE_NOT_FOUND', {
         path: '/path/to/file.md'
       });
     }
@@ -42,7 +42,7 @@ export class ErrorHandlerExample {
   public static customErrorHandling(): void {
     try {
       // CardNavigatorError 생성 및 발생
-      throw new CardNavigatorError('프리셋을 찾을 수 없습니다.', ErrorCode.PRESET_NOT_FOUND, {
+      throw new CardNavigatorError('프리셋을 찾을 수 없습니다.', 'PRESET_NOT_FOUND', {
         presetId: 'my-preset'
       });
     } catch (error) {
@@ -74,7 +74,7 @@ export class ErrorHandlerExample {
         // 오류 발생
         throw new Error('비동기 작업 실패');
       },
-      ErrorCode.OPERATION_FAILED,
+      'OPERATION_FAILED',
       { message: '비동기 작업 중 오류 발생' }
     );
     
@@ -93,7 +93,7 @@ export class ErrorHandlerExample {
         // 반환값 (실행되지 않음)
         return 'success';
       },
-      ErrorCode.OPERATION_FAILED,
+      'OPERATION_FAILED',
       { message: '동기 작업 중 오류 발생' }
     );
     
@@ -133,8 +133,7 @@ export class ErrorHandlerExample {
    * 모든 예제 실행
    */
   public static runAllExamples(): void {
-    // 디버그 모드 활성화
-    // Log.setDebugMode(true); // 이 메서드가 없는 경우 주석 처리
+    Log.setDebugMode(true);
     
     Log.info('===== 오류 처리 시스템 예제 시작 =====');
     
