@@ -78,10 +78,12 @@ export type Direction = 'vertical' | 'horizontal';
 export type ScrollDirection = 'up' | 'down' | 'left' | 'right';
 
 /**
- * 정렬 방향 타입
- * 정렬 방향을 정의합니다.
+ * 정렬 방향 열거형
  */
-export type SortDirection = 'asc' | 'desc';
+export enum SortDirection {
+  ASC = 'asc',  // 오름차순
+  DESC = 'desc' // 내림차순
+}
 
 /**
  * 이벤트 데이터 기본 인터페이스

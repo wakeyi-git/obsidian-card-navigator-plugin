@@ -1,199 +1,135 @@
-import { App, TFile, TFolder } from 'obsidian';
+import { App, TFile } from 'obsidian';
+import { AbstractCardSetProvider } from './AbstractCardSetProvider';
 import { CardSet } from '../../core/models/CardSet';
-import { CardSetType } from '../../core/types/cardset.types';
+import { CardSetMode } from '../../core/types/cardset.types';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
-import { getDirectoryPath, getMarkdownFilesFromFolder } from '../../utils/helpers/file.helper';
-import { ICardSetProvider } from '../../core/interfaces/ICardSetProvider';
 
 /**
- * 선택된 폴더 카드셋 제공자 클래스
- * 사용자가 지정한 특정 폴더의 노트만 표시하는 카드셋 제공자입니다.
+ * 사용자가 선택한 특정 폴더의 노트를 기반으로 카드셋을 제공하는 클래스
  */
-export class SelectedFolderCardSetProvider implements ICardSetProvider {
+export class SelectedFolderCardSetProvider extends AbstractCardSetProvider {
   /**
-   * 카드셋 타입
+   * 선택된 폴더 경로
+   * @private
    */
-  public readonly type: CardSetType = CardSetType.SELECTED_FOLDER;
-  
+  private selectedFolderPath: string = '';
+
   /**
-   * Obsidian 앱 인스턴스
-   */
-  private app: App;
-  
-  /**
-   * 하위 폴더 포함 여부
-   */
-  private includeSubfolders: boolean;
-  
-  /**
-   * 생성자
+   * SelectedFolderCardSetProvider 생성자
    * @param app Obsidian 앱 인스턴스
-   * @param includeSubfolders 하위 폴더 포함 여부
    */
-  constructor(app: App, includeSubfolders: boolean = true) {
-    this.app = app;
-    this.includeSubfolders = includeSubfolders;
+  constructor(app: App) {
+    super(app, CardSetMode.SELECTED_FOLDER);
   }
-  
+
+  /**
+   * 선택된 폴더 경로 설정
+   * @param folderPath 폴더 경로
+   */
+  public setSelectedFolder(folderPath: string): void {
+    try {
+      if (this.selectedFolderPath === folderPath) {
+        return;
+      }
+
+      this.selectedFolderPath = folderPath;
+      this.refreshCardSet();
+    } catch (error) {
+      ErrorHandler.handleError('선택된 폴더 설정 중 오류 발생', error);
+    }
+  }
+
+  /**
+   * 현재 선택된 폴더 경로 반환
+   * @returns 선택된 폴더 경로
+   */
+  public getSelectedFolder(): string {
+    return this.selectedFolderPath;
+  }
+
   /**
    * 카드셋 로드
-   * @param folderPath 폴더 경로
    * @returns 로드된 카드셋
    */
-  async loadCardSet(folderPath?: string): Promise<CardSet> {
+  async loadCardSet(): Promise<CardSet> {
     try {
-      // 폴더 경로가 없으면 빈 카드셋 생성
-      if (!folderPath) {
-        return new CardSet(
+      if (!this.selectedFolderPath) {
+        this.currentCardSet = new CardSet(
           `selected-folder-${Date.now()}`,
-          'selected-folder',
-          '',
+          CardSetMode.SELECTED_FOLDER,
+          null,
           []
         );
+        return this.currentCardSet;
       }
+
+      const files = this.getMarkdownFilesInFolder(this.selectedFolderPath);
       
-      // 폴더 존재 여부 확인
-      const folder = this.app.vault.getAbstractFileByPath(folderPath);
-      if (!folder || !(folder instanceof TFolder)) {
-        throw new Error(`폴더를 찾을 수 없습니다: ${folderPath}`);
-      }
-      
-      // 폴더 내 마크다운 파일 가져오기
-      const files = await this.getMarkdownFilesInFolder(folderPath);
-      
-      // 카드셋 생성 및 반환
-      return new CardSet(
+      this.currentCardSet = new CardSet(
         `selected-folder-${Date.now()}`,
-        'selected-folder',
-        folderPath,
+        CardSetMode.SELECTED_FOLDER,
+        this.selectedFolderPath,
         files
       );
+      return this.currentCardSet;
     } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'SelectedFolderCardSetProvider.loadCardSet',
-        '선택 폴더 카드셋 로드 중 오류가 발생했습니다.',
-        error
-      );
-      
-      // 오류 발생 시 빈 카드셋 생성
-      return new CardSet(
-        `selected-folder-${Date.now()}`,
-        'selected-folder',
-        folderPath || '',
+      ErrorHandler.getInstance().handleError('선택된 폴더 카드셋 로드 중 오류 발생', error);
+      this.currentCardSet = new CardSet(
+        `selected-folder-error-${Date.now()}`,
+        CardSetMode.SELECTED_FOLDER,
+        null,
         []
       );
+      return this.currentCardSet;
     }
   }
-  
+
   /**
-   * 카드셋 새로고침
-   * @param cardSet 새로고침할 카드셋
-   * @returns 새로고침된 카드셋
+   * 파일이 현재 카드셋에 포함되는지 확인
+   * @param file 확인할 파일
+   * @returns 포함 여부
    */
-  async refreshCardSet(cardSet: CardSet): Promise<CardSet> {
-    try {
-      // 카드셋 소스(폴더 경로)가 없으면 빈 카드셋 반환
-      if (!cardSet.source) {
-        return cardSet;
-      }
-      
-      // 폴더 존재 여부 확인
-      const folder = this.app.vault.getAbstractFileByPath(cardSet.source);
-      if (!folder || !(folder instanceof TFolder)) {
-        throw new Error(`폴더를 찾을 수 없습니다: ${cardSet.source}`);
-      }
-      
-      // 폴더 내 마크다운 파일 가져오기
-      const files = await this.getMarkdownFilesInFolder(cardSet.source);
-      
-      // 카드셋 새로고침
-      return cardSet.refresh(files);
-    } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'SelectedFolderCardSetProvider.refreshCardSet',
-        '선택 폴더 카드셋 새로고침 중 오류가 발생했습니다.',
-        error
-      );
-      
-      // 오류 발생 시 빈 파일 목록으로 새로고침
-      return cardSet.refresh([]);
+  public isFileIncluded(file: TFile): boolean {
+    if (!this.selectedFolderPath || !file || file.extension !== 'md') {
+      return false;
+    }
+
+    const filePath = file.path;
+    const fileDir = filePath.substring(0, filePath.lastIndexOf('/') + 1);
+
+    if (this.options.includeSubfolders) {
+      return fileDir.startsWith(this.selectedFolderPath);
+    } else {
+      return fileDir === this.selectedFolderPath;
     }
   }
-  
+
   /**
-   * 파일 변경 처리
-   * @param file 변경된 파일
-   * @param cardSet 현재 카드셋
-   * @returns 업데이트된 카드셋
-   */
-  async handleFileChange(file: TFile | null, cardSet: CardSet): Promise<CardSet> {
-    // 파일이 없거나 카드셋 소스(폴더 경로)가 없으면 기존 카드셋 반환
-    if (!file || !cardSet.source) {
-      return cardSet;
-    }
-    
-    try {
-      // 파일의 폴더 경로 가져오기
-      const fileFolderPath = getDirectoryPath(file.path);
-      
-      // 현재 카드셋의 소스 폴더 경로
-      const cardSetFolderPath = cardSet.source;
-      
-      // 파일이 현재 카드셋의 폴더에 속하는지 확인
-      const isInSameFolder = fileFolderPath === cardSetFolderPath;
-      const isInSubfolder = this.includeSubfolders && fileFolderPath.startsWith(cardSetFolderPath + '/');
-      
-      if (isInSameFolder || isInSubfolder) {
-        // 파일이 마크다운 파일인지 확인
-        if (file.extension === 'md') {
-          // 카드셋에 파일이 이미 있는지 확인
-          if (cardSet.containsFile(file.path)) {
-            // 파일 업데이트
-            return cardSet.updateFile(file);
-          } else {
-            // 파일 추가
-            return cardSet.addFile(file);
-          }
-        }
-      }
-      
-      // 파일이 현재 카드셋의 폴더에 속하지 않으면 기존 카드셋 반환
-      return cardSet;
-    } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'SelectedFolderCardSetProvider.handleFileChange',
-        '파일 변경 처리 중 오류가 발생했습니다.',
-        error
-      );
-      
-      // 오류 발생 시 기존 카드셋 반환
-      return cardSet;
-    }
-  }
-  
-  /**
-   * 하위 폴더 포함 여부 설정
-   * @param include 하위 폴더 포함 여부
-   */
-  setIncludeSubfolders(include: boolean): void {
-    this.includeSubfolders = include;
-  }
-  
-  /**
-   * 폴더 내 마크다운 파일 가져오기
+   * 지정된 폴더에서 마크다운 파일 가져오기
    * @param folderPath 폴더 경로
    * @returns 마크다운 파일 배열
+   * @private
    */
-  private async getMarkdownFilesInFolder(folderPath: string): Promise<TFile[]> {
+  private getMarkdownFilesInFolder(folderPath: string): TFile[] {
     try {
-      return await getMarkdownFilesFromFolder(this.app, folderPath, this.includeSubfolders);
-    } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'SelectedFolderCardSetProvider.getMarkdownFilesInFolder',
-        '폴더 내 마크다운 파일을 가져오는 중 오류가 발생했습니다.',
-        error
-      );
+      const files = this.app.vault.getFiles();
       
+      return files.filter(file => {
+        if (file.extension !== 'md') {
+          return false;
+        }
+
+        const filePath = file.path;
+        const fileDir = filePath.substring(0, filePath.lastIndexOf('/') + 1);
+        
+        if (this.options.includeSubfolders) {
+          return fileDir.startsWith(folderPath);
+        } else {
+          return fileDir === folderPath;
+        }
+      });
+    } catch (error) {
+      ErrorHandler.handleError('폴더에서 마크다운 파일 가져오기 중 오류 발생', error);
       return [];
     }
   }

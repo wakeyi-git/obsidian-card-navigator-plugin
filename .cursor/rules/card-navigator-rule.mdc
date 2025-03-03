@@ -7,6 +7,35 @@ You are developed as a generative AI. Because of this, you tend to add more cont
 
 Card Navigator Development Rules
 
+Coding Without Trial and Error
+To minimize trial and error and ensure a structured coding process, follow these steps:
+1. Planning and Requirements Analysis
+	•	Clearly define the problem and expected outcome.
+	•	Identify dependencies, required APIs, and external libraries.
+	•	Outline the data structure, models, and interfaces.
+2. Core Design and Architecture
+	•	Design a modular architecture with separation of concerns.
+	•	Define models, interfaces, and dependency injection structures.
+	•	Ensure type safety and consistency across the codebase.
+3. Implementation in a Layered Approach
+	•	Core Development: Implement foundational logic (e.g., models, services).
+	•	Utility Development: Develop reusable helper functions and common utilities.
+	•	Integration: Connect services and components with well-defined contracts.
+	•	UI & API Implementation: Implement the user interface and integrate APIs.
+4. Verification at Each Stage
+	•	Validate small functional units before moving forward.
+	•	Use TypeScript or static analysis tools to catch type mismatches early.
+	•	Ensure logical correctness through unit tests or quick debugging sessions.
+5. Testing and Optimization
+	•	Perform component/unit testing to verify correctness.
+	•	Optimize performance by analyzing execution time and memory usage.
+	•	Conduct end-to-end testing to check the complete workflow.
+6. Documentation and Final Review
+	•	Document key functions, API usage, and architectural decisions.
+	•	Conduct a final code review to ensure readability and maintainability.
+	•	Refactor if necessary before deployment.
+By following this structured approach, you can write efficient, error-free code while minimizing unnecessary debugging and rework.
+
 Code Writing Principles
 	1.	Type Safety as a Top Priority: All code must pass TypeScript’s strict type checking. Minimize the use of the any type and provide clear interface and type definitions.
 	2.	Single Responsibility Principle: Each class and function should have only one responsibility. Separate any code that combines multiple functionalities.
@@ -49,6 +78,26 @@ Refactoring Guidelines
 	2.	Reduce Complexity: Break down complex logic into smaller, more manageable units.
 	3.	Interface Segregation: Divide large interfaces into smaller, more focused interfaces.
 	4.	Improve Code Reusability: Leverage utility functions and common components to maximize code reuse.
+
+
+Cursor Rule: Error Correction Steps
+Error correction is performed systematically by following these steps:
+1. Core Domain Review and Improvement
+	•	Ensure consistency between model classes and interfaces
+	•	Resolve duplications and discrepancies in type definitions
+2. Administration Domain Review and Improvement
+	•	Verify interface implementations
+	•	Check dependency injection and type compatibility
+3. Service Domain Review and Improvement
+	•	Examine dependencies between services
+	•	Verify interface implementations
+4. UI Domain Review and Improvement
+	•	Validate component properties and event types
+	•	Verify usage of the Obsidian API
+5. Utility Domain Review and Improvement
+	•	Check type definitions for helper functions
+	•	Validate error handling and logging mechanisms
+By following these rules, you can maintain code consistency, systematically resolve errors, and develop reliable software
 
 Card Navigator
 
@@ -150,31 +199,34 @@ Features
 Here’s the continuation from 6. Presets in English:
 
 6. Presets
-Card Navigator now supports presets, allowing users to save and switch between different configurations quickly. This feature enhances workflow flexibility by adjusting how notes are displayed and interacted with.
+
+Card Navigator now supports various presets, allowing you to save and quickly switch between different settings. This feature enhances workflow by providing flexibility in how you view and interact with notes.
 	•	Create Custom Presets: Save the current Card Navigator settings as a named preset for future use.
-	•	Global Presets: Set a default preset that applies to all folders (unless overridden by folder-specific settings).
-	•	Folder-Specific Presets: Assign different presets to specific folders to customize views based on the folder structure.
-	•	Auto-Apply Presets: Automatically switch to the appropriate preset when navigating between folders.
-	•	Import/Export Presets: Save presets to a file and share or back them up.
+	•	Global Preset: Set a default preset that applies to all notes (unless overridden by folder-specific or tag-specific presets).
+	•	Folder-Specific Presets: Assign different presets to specific folders to customize views based on folder structure.
+	•	Tag-Specific Presets: Apply presets to notes containing specific tags, enabling a tag-based workflow.
+	•	Automatic Preset Application: Automatically applies the appropriate preset when switching folders or opening notes with specific tags.
+	•	Import/Export Presets: Import or export presets as files for backup or sharing.
 	•	Preset Management: Edit, duplicate, or delete existing presets directly from the settings panel.
 
-How to Use Presets:
+How to Use Presets
 	•	Creating a Preset:
-	1.	Navigate to the Card Navigator Settings.
-	2.	Configure the desired settings.
-	3.	Click the ”+” button in the Preset Management section.
-	4.	Name the preset and optionally add a description.
+	1.	Go to Card Navigator settings
+	2.	Configure the desired settings
+	3.	Click the + button in the preset management section
+	4.	Name the preset and optionally add a description
 	•	Applying a Preset:
-	•	Global Preset: Toggle a preset as the default for all folders.
-	•	Folder-Specific Preset: Assign a preset to a folder in the Folder Presets section.
-	•	Auto-Applying Presets:
-	•	Enable “Auto-Apply Presets” in the settings.
-	•	Card Navigator will automatically switch to the appropriate preset when changing folders.
+	•	Global Preset: Select a preset to be used as the default for all notes.
+	•	Folder-Specific Preset: Assign a preset to a specific folder so it is applied automatically when switching folders.
+	•	Tag-Specific Preset: Assign a preset to notes with specific tags to support tag-based filtering.
+	•	Automatic Preset Application:
+	1.	Enable "Automatic Preset Application" in the settings
+	2.	Card Navigator will automatically switch to the appropriate preset based on the current folder or note tags
 	•	Importing/Exporting Presets:
-	•	Use the Import/Export buttons in the Preset Management section.
-	•	Exported presets are saved as JSON files for easy sharing or backup.
+	1.	Use the import/export buttons in the preset management section
+	2.	Exported presets are saved as JSON files, making them easy to share or back up
 
-By using presets, users can fine-tune Card Navigator’s behavior based on different note structures or workflows, enhancing productivity and note management experience.
+By utilizing presets, you can effectively integrate folder structures and tag-based systems, optimizing Card Navigator’s behavior to enhance productivity and note management.
 
 7. Multi-Language Support
 Card Navigator now supports multiple languages:
@@ -269,22 +321,28 @@ Card Navigator/
 ├── src/
 │   ├── core/
 │   │   ├── interfaces/
-│   │   │   ├── ICardContainerManager.ts # 카드 컨테이너 관리자 인터페이스 정의
-│   │   │   ├── ICardInteractionService.ts # 카드 상호작용 서비스 인터페이스 정의
-│   │   │   ├── ICardManager.ts          # 카드 관리자 인터페이스 정의
-│   │   │   ├── ICardRenderService.ts    # 카드 렌더링 서비스 인터페이스 정의
-│   │   │   ├── ICardService.ts          # 카드 서비스 인터페이스 정의
-│   │   │   ├── ICardSetManager.ts       # 카드셋 관리자 인터페이스 정의
-│   │   │   ├── ICardSetProvider.ts      # 카드셋 제공자 인터페이스 정의
-│   │   │   ├── ICardSetService.ts       # 카드셋 서비스 인터페이스 정의
-│   │   │   ├── IFolderPresetManager.ts  # 폴더 프리셋 관리자 인터페이스 정의
-│   │   │   ├── ILayoutManager.ts        # 레이아웃 관리자 인터페이스 정의
-│   │   │   ├── IPresetManager.ts        # 프리셋 관리자 인터페이스 정의
-│   │   │   ├── ISearchService.ts        # 검색 서비스 인터페이스 정의
-│   │   │   └── ISettingsManager.ts      # 설정 관리자 인터페이스 정의
+│   │   │   ├── manager/
+│   │   │   │   ├── ICardContainerManager.ts # 카드 컨테이너 관리자 인터페이스 정의
+│   │   │   │   ├── ICardManager.ts          # 카드 관리자 인터페이스 정의
+│   │   │   │   ├── ICardSetManager.ts       # 카드셋 관리자 인터페이스 정의
+│   │   │   │   ├── ICardSetProvider.ts      # 카드셋 제공자 인터페이스 정의
+│   │   │   │   ├── IEventManager.ts         # 이벤트 관리자 인터페이스 정의
+│   │   │   │   ├── IFolderPresetManager.ts  # 폴더 프리셋 관리자 인터페이스 정의
+│   │   │   │   ├── ILayoutManager.ts        # 레이아웃 관리자 인터페이스 정의
+│   │   │   │   ├── IPresetManager.ts        # 프리셋 관리자 인터페이스 정의
+│   │   │   │   ├── IResizeManager.ts        # 리사이즈 관리자 인터페이스 정의
+│   │   │   │   ├── ITagPresetManager.ts     # 태그 프리셋 관리자 인터페이스 정의
+│   │   │   │   └── ISettingsManager.ts      # 설정 관리자 인터페이스 정의
+│   │   │   └── service/
+│   │   │       ├── ICardInteractionService.ts # 카드 상호작용 서비스 인터페이스 정의
+│   │   │       ├── ICardRenderService.ts    # 카드 렌더링 서비스 인터페이스 정의
+│   │   │       ├── ICardService.ts          # 카드 서비스 인터페이스 정의
+│   │   │       ├── ICardSetService.ts       # 카드셋 서비스 인터페이스 정의
+│   │   │       └── ISearchService.ts        # 검색 서비스 인터페이스 정의
 │   │   ├── types/
 │   │   │   ├── card.types.ts            # 카드 관련 타입 정의
 │   │   │   ├── common.types.ts          # 공통 타입 정의
+│   │   │   ├── event.types.ts           # 이벤트 관련 타입 정의
 │   │   │   ├── layout.types.ts          # 레이아웃 관련 타입 정의
 │   │   │   ├── preset.types.ts          # 프리셋 관련 타입 정의
 │   │   │   ├── search.types.ts          # 검색 관련 타입 정의
@@ -307,19 +365,26 @@ Card Navigator/
 │   │   ├── card/
 │   │   │   ├── CardManager.ts           # 개별 카드 관리 클래스
 │   │   │   └── CardContainerManager.ts  # 카드 컨테이너 관리 클래스
+│   │   ├── event/
+│   │   │   └── EventManager.ts          # 이벤트 관리 클래스
 │   │   ├── layout/
 │   │   │   ├── LayoutManager.ts         # 레이아웃 관리 클래스
 │   │   │   ├── LayoutStyleManager.ts    # 레이아웃 스타일 관리 클래스
 │   │   │   └── ResizeManager.ts         # 크기 조정 관리 클래스
 │   │   ├── preset/
 │   │   │   ├── PresetManager.ts         # 프리셋 관리 클래스
-│   │   │   └── FolderPresetManager.ts   # 폴더별 프리셋 관리 클래스
+│   │   │   ├── FolderPresetManager.ts   # 폴더별 프리셋 관리 클래스
+│   │   │   └── TagPresetManager.ts      # 태그별 프리셋 관리 클래스
 │   │   ├── settings/
 │   │   │   ├── SettingsManager.ts       # 설정 관리 클래스
 │   │   │   └── SettingsMigrationManager.ts # 설정 마이그레이션 관리 클래스
 │   │   └── cardset/
+│   │       ├── AbstractCardSetProvider.ts # 추상 카드셋 제공자
 │   │       ├── CardSetManager.ts        # 카드셋 관리 클래스
 │   │       ├── ActiveFolderCardSetProvider.ts # 활성 폴더 카드셋 제공자
+│   │       ├── CardSetProviderFactory.ts # 카드셋 제공자 팩토리
+│   │       ├── CardSetProviderRegistry.ts # 카드셋 제공자 레지스트리
+│   │       ├── CardSetStateManager.ts # 카드셋 상태 관리 클래스
 │   │       ├── SelectedFolderCardSetProvider.ts # 선택 폴더 카드셋 제공자
 │   │       ├── VaultCardSetProvider.ts  # 볼트 전체 카드셋 제공자
 │   │       └── SearchResultCardSetProvider.ts # 검색 결과 카드셋 제공자
@@ -375,6 +440,7 @@ Card Navigator/
 │   │   │   └── CardView.ts              # 카드 뷰
 │   │   └── modals/
 │   │       ├── PresetModal.ts           # 프리셋 모달
+│   │       ├── PresetTargetModal.ts     # 프리셋 대상 모달
 │   │       ├── ConfirmModal.ts          # 확인 모달
 │   │       ├── ImportExportModal.ts     # 가져오기/내보내기 모달
 │   │       └── KeyboardHelpModal.ts     # 키보드 도움말 모달
@@ -409,4 +475,5 @@ Card Navigator/
 │   └── main.ts                          # 플러그인 메인 엔트리 포인트
 │
 └── styles.css                           # 전역 CSS 스타일
+
 

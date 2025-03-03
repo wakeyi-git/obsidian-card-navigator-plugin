@@ -1,254 +1,147 @@
 import { App, TFile } from 'obsidian';
+import { AbstractCardSetProvider } from './AbstractCardSetProvider';
 import { CardSet } from '../../core/models/CardSet';
-import { CardSetType } from '../../core/types/cardset.types';
-import { ICardSetProvider } from '../../core/interfaces/ICardSetProvider';
+import { CardSetMode } from '../../core/types/cardset.types';
+import { SearchQuery, SearchResult } from '../../core/types/search.types';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 
 /**
- * 검색 결과 카드셋 제공자 클래스
- * 검색 쿼리에 일치하는 노트 파일들만 카드로 표시하는 카드셋 제공자입니다.
+ * 검색 결과를 기반으로 카드셋을 제공하는 클래스
  */
-export class SearchResultCardSetProvider implements ICardSetProvider {
+export class SearchResultCardSetProvider extends AbstractCardSetProvider {
   /**
-   * 카드셋 타입
+   * 현재 검색 쿼리
+   * @private
    */
-  public readonly type: CardSetType = CardSetType.SEARCH_RESULT;
-  
+  private currentQuery: SearchQuery | null = null;
+
   /**
-   * Obsidian 앱 인스턴스
+   * 검색 결과
+   * @private
    */
-  private app: App;
-  
+  private searchResults: SearchResult[] = [];
+
   /**
-   * 생성자
+   * SearchResultCardSetProvider 생성자
    * @param app Obsidian 앱 인스턴스
    */
   constructor(app: App) {
-    this.app = app;
+    super(app, CardSetMode.SEARCH_RESULTS);
   }
-  
+
+  /**
+   * 검색 쿼리 설정
+   * @param query 검색 쿼리
+   */
+  public setSearchQuery(query: SearchQuery): void {
+    try {
+      this.currentQuery = query;
+      this.refreshCardSet();
+    } catch (error) {
+      ErrorHandler.getInstance().handleError('검색 쿼리 설정 중 오류 발생', error);
+    }
+  }
+
+  /**
+   * 현재 검색 쿼리 반환
+   * @returns 현재 검색 쿼리
+   */
+  public getSearchQuery(): SearchQuery | null {
+    return this.currentQuery;
+  }
+
+  /**
+   * 검색 결과 설정
+   * @param results 검색 결과
+   */
+  public setSearchResults(results: SearchResult[]): void {
+    try {
+      this.searchResults = results;
+      this.refreshCardSet();
+    } catch (error) {
+      ErrorHandler.getInstance().handleError('검색 결과 설정 중 오류 발생', error);
+    }
+  }
+
+  /**
+   * 현재 검색 결과 반환
+   * @returns 현재 검색 결과
+   */
+  public getSearchResults(): SearchResult[] {
+    return this.searchResults;
+  }
+
   /**
    * 카드셋 로드
-   * @param searchQuery 검색 쿼리
    * @returns 로드된 카드셋
    */
-  async loadCardSet(searchQuery?: string): Promise<CardSet> {
+  async loadCardSet(): Promise<CardSet> {
     try {
-      // 검색 쿼리가 없으면 빈 카드셋 생성
-      if (!searchQuery) {
-        return new CardSet(
-          `search-results-${Date.now()}`,
-          'search-results',
-          '',
+      if (!this.searchResults || this.searchResults.length === 0) {
+        this.currentCardSet = new CardSet(
+          `search-${Date.now()}`,
+          CardSetMode.SEARCH_RESULTS,
+          this.currentQuery ? JSON.stringify(this.currentQuery) : null,
           []
         );
+        return this.currentCardSet;
       }
+
+      // 검색 결과에서 파일 추출
+      const files = this.getFilesFromSearchResults();
       
-      // 검색 결과 파일 가져오기
-      const files = await this.searchFiles(searchQuery);
-      
-      // 카드셋 생성 및 반환
-      return new CardSet(
-        `search-results-${Date.now()}`,
-        'search-results',
-        searchQuery,
+      this.currentCardSet = new CardSet(
+        `search-${Date.now()}`,
+        CardSetMode.SEARCH_RESULTS,
+        this.currentQuery ? JSON.stringify(this.currentQuery) : null,
         files
       );
+      return this.currentCardSet;
     } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'SearchResultCardSetProvider.loadCardSet',
-        '검색 결과 카드셋 로드 중 오류가 발생했습니다.',
-        error
-      );
-      
-      // 오류 발생 시 빈 카드셋 생성
-      return new CardSet(
-        `search-results-${Date.now()}`,
-        'search-results',
-        searchQuery || '',
+      ErrorHandler.getInstance().handleError('검색 결과 카드셋 로드 중 오류 발생', error);
+      this.currentCardSet = new CardSet(
+        `search-error-${Date.now()}`,
+        CardSetMode.SEARCH_RESULTS,
+        null,
         []
       );
+      return this.currentCardSet;
     }
   }
-  
+
   /**
-   * 카드셋 새로고침
-   * @param cardSet 새로고침할 카드셋
-   * @returns 새로고침된 카드셋
+   * 파일이 현재 카드셋에 포함되는지 확인
+   * @param file 확인할 파일
+   * @returns 포함 여부
    */
-  async refreshCardSet(cardSet: CardSet): Promise<CardSet> {
-    try {
-      // 카드셋 소스(검색 쿼리)가 없으면 빈 카드셋 반환
-      if (!cardSet.source) {
-        return cardSet;
-      }
-      
-      // 검색 결과 파일 가져오기
-      const files = await this.searchFiles(cardSet.source);
-      
-      // 카드셋 새로고침
-      return cardSet.refresh(files);
-    } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'SearchResultCardSetProvider.refreshCardSet',
-        '검색 결과 카드셋 새로고침 중 오류가 발생했습니다.',
-        error
-      );
-      
-      // 오류 발생 시 빈 파일 목록으로 새로고침
-      return cardSet.refresh([]);
+  public isFileIncluded(file: TFile): boolean {
+    if (!file || file.extension !== 'md' || !this.searchResults || this.searchResults.length === 0) {
+      return false;
     }
+
+    return this.searchResults.some(result => result.file && result.file.path === file.path);
   }
-  
+
   /**
-   * 파일 변경 처리
-   * @param file 변경된 파일
-   * @param cardSet 현재 카드셋
-   * @returns 업데이트된 카드셋
+   * 검색 결과에서 파일 추출
+   * @returns 파일 배열
+   * @private
    */
-  async handleFileChange(file: TFile | null, cardSet: CardSet): Promise<CardSet> {
-    // 파일이 없거나 카드셋 소스(검색 쿼리)가 없으면 기존 카드셋 반환
-    if (!file || !cardSet.source) {
-      return cardSet;
-    }
-    
+  private getFilesFromSearchResults(): TFile[] {
     try {
-      // 파일이 마크다운 파일인지 확인
-      if (file.extension === 'md') {
-        // 파일이 검색 쿼리와 일치하는지 확인
-        const isMatch = await this.isFileMatchingQuery(file, cardSet.source);
-        
-        if (isMatch) {
-          // 카드셋에 파일이 이미 있는지 확인
-          if (cardSet.containsFile(file.path)) {
-            // 파일 업데이트
-            return cardSet.updateFile(file);
-          } else {
-            // 파일 추가
-            return cardSet.addFile(file);
-          }
-        } else {
-          // 파일이 검색 쿼리와 일치하지 않지만 카드셋에 있으면 제거
-          if (cardSet.containsFile(file.path)) {
-            return cardSet.removeFile(file.path);
-          }
+      // 중복 제거를 위한 Set 사용
+      const fileSet = new Set<TFile>();
+      
+      this.searchResults.forEach(result => {
+        if (result.file && result.file.extension === 'md') {
+          fileSet.add(result.file);
         }
-      }
+      });
       
-      // 마크다운 파일이 아니면 기존 카드셋 반환
-      return cardSet;
+      return Array.from(fileSet);
     } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'SearchResultCardSetProvider.handleFileChange',
-        '파일 변경 처리 중 오류가 발생했습니다.',
-        error
-      );
-      
-      // 오류 발생 시 기존 카드셋 반환
-      return cardSet;
-    }
-  }
-  
-  /**
-   * 검색 쿼리로 파일 검색
-   * @param query 검색 쿼리
-   * @returns 검색 결과 파일 배열
-   */
-  private async searchFiles(query: string): Promise<TFile[]> {
-    try {
-      // 검색 쿼리가 비어있으면 빈 배열 반환
-      if (!query.trim()) {
-        return [];
-      }
-      
-      // 볼트 내 모든 마크다운 파일 가져오기
-      const allFiles = this.app.vault.getMarkdownFiles();
-      
-      // 검색 쿼리와 일치하는 파일 필터링
-      const matchingFiles: TFile[] = [];
-      
-      for (const file of allFiles) {
-        const isMatch = await this.isFileMatchingQuery(file, query);
-        if (isMatch) {
-          matchingFiles.push(file);
-        }
-      }
-      
-      return matchingFiles;
-    } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'SearchResultCardSetProvider.searchFiles',
-        '파일 검색 중 오류가 발생했습니다.',
-        error
-      );
-      
+      ErrorHandler.getInstance().handleError('검색 결과에서 파일 추출 중 오류 발생', error);
       return [];
-    }
-  }
-  
-  /**
-   * 파일이 검색 쿼리와 일치하는지 확인
-   * @param file 파일
-   * @param query 검색 쿼리
-   * @returns 일치 여부
-   */
-  private async isFileMatchingQuery(file: TFile, query: string): Promise<boolean> {
-    try {
-      // 검색 쿼리가 비어있으면 일치하지 않음
-      if (!query.trim()) {
-        return false;
-      }
-      
-      // 파일 경로에서 검색
-      if (file.path.toLowerCase().includes(query.toLowerCase())) {
-        return true;
-      }
-      
-      // 파일 내용에서 검색
-      const content = await this.app.vault.cachedRead(file);
-      if (content.toLowerCase().includes(query.toLowerCase())) {
-        return true;
-      }
-      
-      // 메타데이터에서 검색
-      const cache = this.app.metadataCache.getFileCache(file);
-      if (cache) {
-        // 프론트매터 검색
-        if (cache.frontmatter) {
-          const frontmatterStr = JSON.stringify(cache.frontmatter).toLowerCase();
-          if (frontmatterStr.includes(query.toLowerCase())) {
-            return true;
-          }
-        }
-        
-        // 헤딩 검색
-        if (cache.headings) {
-          for (const heading of cache.headings) {
-            if (heading.heading.toLowerCase().includes(query.toLowerCase())) {
-              return true;
-            }
-          }
-        }
-        
-        // 태그 검색
-        if (cache.tags) {
-          for (const tag of cache.tags) {
-            if (tag.tag.toLowerCase().includes(query.toLowerCase())) {
-              return true;
-            }
-          }
-        }
-      }
-      
-      return false;
-    } catch (error) {
-      ErrorHandler.getInstance().handleError(
-        'SearchResultCardSetProvider.isFileMatchingQuery',
-        '파일 검색 일치 확인 중 오류가 발생했습니다.',
-        error
-      );
-      
-      return false;
     }
   }
 } 

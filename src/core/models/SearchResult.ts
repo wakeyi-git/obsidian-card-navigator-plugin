@@ -1,5 +1,5 @@
 import { TFile } from 'obsidian';
-import { SearchMatch, ISearchResult } from '../types/search.types';
+import { ISearchResult, SearchMatch, SearchField } from '../types/search.types';
 
 /**
  * 검색 결과 모델 클래스
@@ -12,20 +12,19 @@ export class SearchResult implements ISearchResult {
   public readonly file: TFile;
   
   /**
-   * 검색 매치 배열
-   */
-  private _matches: SearchMatch[];
-  
-  /**
    * 검색어
    */
   public readonly searchTerm: string;
   
   /**
-   * 검색 결과 점수
-   * 높을수록 더 관련성이 높음
+   * 일치 항목 배열
    */
-  private _score: number;
+  public matches: SearchMatch[] = [];
+  
+  /**
+   * 검색 결과 점수
+   */
+  public score: number = 0;
   
   /**
    * 검색 결과 생성 시간
@@ -35,44 +34,23 @@ export class SearchResult implements ISearchResult {
   /**
    * 검색 결과 생성자
    * @param file 검색 결과 파일
-   * @param matches 검색 매치 배열
    * @param searchTerm 검색어
-   * @param score 검색 결과 점수
+   * @param score 초기 점수
+   * @param timestamp 타임스탬프
    */
-  constructor(
-    file: TFile,
-    matches: SearchMatch[],
-    searchTerm: string,
-    score: number = 0
-  ) {
+  constructor(file: TFile, searchTerm: string, score: number = 0, timestamp: number = Date.now()) {
     this.file = file;
-    this._matches = [...matches];
     this.searchTerm = searchTerm;
-    this._score = score;
-    this.timestamp = Date.now();
-    this.updateScore();
+    this.score = score;
+    this.timestamp = timestamp;
   }
   
   /**
-   * 매치 배열 가져오기
-   */
-  get matches(): SearchMatch[] {
-    return [...this._matches];
-  }
-  
-  /**
-   * 점수 가져오기
-   */
-  get score(): number {
-    return this._score;
-  }
-  
-  /**
-   * 매치 추가
-   * @param match 추가할 매치
+   * 검색 일치 항목 추가
+   * @param match 검색 일치 항목
    */
   addMatch(match: SearchMatch): void {
-    this._matches.push(match);
+    this.matches.push(match);
     this.updateScore();
   }
   
@@ -81,47 +59,75 @@ export class SearchResult implements ISearchResult {
    * @param index 제거할 매치 인덱스
    */
   removeMatch(index: number): void {
-    if (index >= 0 && index < this._matches.length) {
-      this._matches.splice(index, 1);
+    if (index >= 0 && index < this.matches.length) {
+      this.matches.splice(index, 1);
       this.updateScore();
     }
   }
   
   /**
-   * 점수 업데이트
-   * 매치 타입에 따라 가중치 부여
+   * 검색 결과 점수 업데이트
+   * 매치 타입에 따라 가중치 적용
    */
   private updateScore(): void {
-    // 기본 점수 계산 로직
-    // 타입별 가중치: 제목 > 헤더 > 태그 > 내용 > 프론트매터
+    // 필드별 가중치 설정
     const weights: Record<string, number> = {
-      'title': 5,
-      'header': 4,
-      'tag': 3,
-      'content': 2,
-      'frontmatter': 1
+      [SearchField.FILENAME]: 5,
+      [SearchField.HEADINGS]: 4,
+      [SearchField.TAGS]: 3,
+      [SearchField.FRONTMATTER]: 2,
+      [SearchField.CONTENT]: 1
     };
     
-    this._score = this._matches.reduce((total, match) => {
-      return total + (weights[match.type] || 1);
+    this.score = this.matches.reduce((total, match) => {
+      // field가 없는 경우 type을 사용하거나 기본 가중치 1 적용
+      if (!match.field && match.type) {
+        // 이전 버전 호환을 위한 타입 매핑
+        const typeToField: Record<string, SearchField> = {
+          'title': SearchField.FILENAME,
+          'header': SearchField.HEADINGS,
+          'tag': SearchField.TAGS,
+          'frontmatter': SearchField.FRONTMATTER,
+          'content': SearchField.CONTENT
+        };
+        const mappedField = typeToField[match.type];
+        return total + (mappedField ? weights[mappedField] || 1 : 1);
+      }
+      
+      return total + (match.field ? weights[match.field] || 1 : 1);
     }, 0);
   }
   
   /**
-   * 매치 타입별 개수 가져오기
+   * 타입별 매치 개수 가져오기
    * @returns 타입별 매치 개수
    */
   getMatchCountsByType(): Record<string, number> {
     const counts: Record<string, number> = {
-      title: 0,
-      header: 0,
-      tag: 0,
-      content: 0,
-      frontmatter: 0
+      [SearchField.FILENAME]: 0,
+      [SearchField.HEADINGS]: 0,
+      [SearchField.TAGS]: 0,
+      [SearchField.CONTENT]: 0,
+      [SearchField.FRONTMATTER]: 0
     };
     
-    this._matches.forEach(match => {
-      counts[match.type] = (counts[match.type] || 0) + 1;
+    this.matches.forEach(match => {
+      if (match.field) {
+        counts[match.field] = (counts[match.field] || 0) + 1;
+      } else if (match.type) {
+        // 이전 버전 호환을 위한 타입 매핑
+        const typeToField: Record<string, SearchField> = {
+          'title': SearchField.FILENAME,
+          'header': SearchField.HEADINGS,
+          'tag': SearchField.TAGS,
+          'frontmatter': SearchField.FRONTMATTER,
+          'content': SearchField.CONTENT
+        };
+        const mappedField = typeToField[match.type];
+        if (mappedField) {
+          counts[mappedField] = (counts[mappedField] || 0) + 1;
+        }
+      }
     });
     
     return counts;
@@ -149,9 +155,9 @@ export class SearchResult implements ISearchResult {
   static fromData(data: ISearchResult): SearchResult {
     const result = new SearchResult(
       data.file,
-      data.matches,
       data.searchTerm,
-      data.score
+      data.score,
+      data.timestamp
     );
     
     // timestamp 속성은 생성자에서 현재 시간으로 설정되므로,

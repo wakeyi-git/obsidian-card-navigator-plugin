@@ -1,7 +1,6 @@
-import { TFile } from 'obsidian';
-import { Card } from '../models/Card';
-import { SearchOptions, SearchSuggestion } from '../types/search.types';
-import { SearchResult } from '../models/SearchResult';
+import { App, TFile } from 'obsidian';
+import { Card } from '../../models/Card';
+import { SearchEvent, SearchEventData, SearchEventHandler, SearchOptions, SearchResult, SearchSuggestion } from '../../types/search.types';
 
 /**
  * 검색 서비스 인터페이스
@@ -15,10 +14,29 @@ export interface ISearchService {
   initialize(options?: Partial<SearchOptions>): void;
   
   /**
+   * 검색 수행
+   * @param searchTerm 검색어
+   * @param files 검색할 파일 목록
+   * @returns 검색 결과 배열
+   */
+  search(searchTerm: string, files: TFile[]): Promise<SearchResult[]>;
+  
+  /**
+   * 검색 취소
+   */
+  cancelSearch(): void;
+  
+  /**
    * 검색 옵션 설정
    * @param options 검색 옵션
    */
   setOptions(options: Partial<SearchOptions>): void;
+  
+  /**
+   * 검색 옵션 가져오기
+   * @returns 현재 검색 옵션
+   */
+  getOptions(): SearchOptions;
 
   /**
    * 검색 옵션 가져오기
@@ -52,9 +70,9 @@ export interface ISearchService {
   getDetailedSearchResults(files: TFile[], searchTerm: string): Promise<SearchResult[]>;
 
   /**
-   * 검색어 제안 가져오기
+   * 검색 제안 가져오기
    * @param searchTerm 검색어
-   * @returns 검색어 제안 배열
+   * @returns 검색 제안 배열
    */
   getSuggestions(searchTerm: string): Promise<SearchSuggestion[]>;
 
@@ -66,15 +84,14 @@ export interface ISearchService {
 
   /**
    * 최근 검색어 가져오기
-   * @param limit 가져올 검색어 수
    * @returns 최근 검색어 배열
    */
-  getRecentSearches(limit?: number): string[];
+  getRecentSearchTerms(): string[];
 
   /**
    * 검색 기록 지우기
    */
-  clearHistory(): void;
+  clearSearchHistory(): void;
   
   /**
    * 검색 결과 하이라이트 처리
@@ -88,4 +105,18 @@ export interface ISearchService {
    * 검색 서비스 파괴
    */
   destroy(): void;
+
+  /**
+   * 이벤트 리스너 등록
+   * @param event 이벤트 타입
+   * @param handler 이벤트 핸들러
+   */
+  on(event: SearchEvent, handler: SearchEventHandler): void;
+  
+  /**
+   * 이벤트 리스너 제거
+   * @param event 이벤트 타입
+   * @param handler 이벤트 핸들러
+   */
+  off(event: SearchEvent, handler: SearchEventHandler): void;
 } 

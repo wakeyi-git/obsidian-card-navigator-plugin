@@ -1,5 +1,54 @@
 import { TFile } from 'obsidian';
 import { CardSetMode, ICardSet } from '../types/cardset.types';
+import { generateUniqueId } from '../../utils/helpers/string.helper';
+
+/**
+ * 간단한 카드셋 인터페이스
+ * 기본 카드셋 데이터 구조를 정의합니다.
+ */
+export interface ISimpleCardSet {
+  /**
+   * 카드셋 고유 ID
+   */
+  id: string;
+  
+  /**
+   * 카드셋에 포함된 파일 목록
+   */
+  files: TFile[];
+  
+  /**
+   * 카드셋 생성/업데이트 타임스탬프
+   */
+  timestamp: number;
+}
+
+/**
+ * 간단한 카드셋 생성 함수
+ * @param files 파일 목록
+ * @returns 새로운 간단한 카드셋 객체
+ */
+export function createSimpleCardSet(files: TFile[] = []): ISimpleCardSet {
+  return {
+    id: generateUniqueId(),
+    files,
+    timestamp: Date.now()
+  };
+}
+
+/**
+ * 간단한 카드셋 업데이트 함수
+ * @param cardSet 기존 카드셋
+ * @param files 새 파일 목록
+ * @returns 업데이트된 카드셋
+ */
+export function updateSimpleCardSet(cardSet: ISimpleCardSet, files: TFile[]): ISimpleCardSet {
+  return {
+    ...cardSet,
+    files,
+    timestamp: Date.now()
+  };
+}
 
 /**
  * 카드셋 모델 클래스

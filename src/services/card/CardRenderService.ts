@@ -1,7 +1,7 @@
 import { MarkdownRenderer, TFile } from 'obsidian';
 import { Card } from '../../core/models/Card';
 import { CardRenderOptions } from '../../core/types/card.types';
-import { ICardRenderService } from '../../core/interfaces/ICardRenderService';
+import { ICardRenderService } from '../../core/interfaces/service/ICardRenderService';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 import { Log } from '../../utils/log/Log';
 import { LAYOUT_CLASS_NAMES } from '../../styles/components/layout.styles';

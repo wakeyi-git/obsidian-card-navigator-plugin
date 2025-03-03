@@ -192,7 +192,7 @@ export class PresetMenu {
   private saveNewPreset(presetName: string): void {
     try {
       // 프리셋 관리자를 통해 현재 설정으로 새 프리셋 생성
-      this.presetManager.createPreset(presetName, {
+      this.presetManager.createPresetWithSettings(presetName, {
         description: '사용자 생성 프리셋',
         // 실제 구현에서는 현재 설정을 가져와야 함
         settings: {}

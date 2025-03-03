@@ -1,5 +1,4 @@
 import { Menu, TFolder } from 'obsidian';
-import { CardSetType } from '../../../core/types/cardset.types';
 
 /**
  * 카드셋 메뉴 컴포넌트 클래스
@@ -12,9 +11,9 @@ export class CardSetMenu {
   private menu: Menu;
   
   /**
-   * 현재 카드셋 타입
+   * 현재 카드셋 모드
    */
-  private currentType: CardSetType = 'active-folder';
+  private currentMode: string = 'active-folder';
   
   /**
    * 현재 선택된 폴더 경로 (지정 폴더 모드에서 사용)
@@ -22,14 +21,14 @@ export class CardSetMenu {
   private selectedFolderPath: string | null = null;
   
   /**
-   * 카드셋 타입 변경 콜백
+   * 카드셋 모드 변경 콜백
    */
-  private cardSetTypeChangeCallback: ((type: CardSetType, source?: string) => void) | null = null;
+  private cardSetModeChangeCallback: ((mode: string, source?: string) => void) | null = null;
   
   /**
-   * 카드셋 타입 옵션
+   * 카드셋 모드 옵션
    */
-  private cardSetTypeOptions: { value: CardSetType; label: string; icon: string }[] = [
+  private cardSetModeOptions: { value: string; label: string; icon: string }[] = [
     { value: 'active-folder', label: '활성 폴더', icon: 'lucide-folder-open' },
     { value: 'selected-folder', label: '지정 폴더', icon: 'lucide-folder' },
     { value: 'vault', label: '볼트 전체', icon: 'lucide-database' },
@@ -54,8 +53,8 @@ export class CardSetMenu {
     // 새 메뉴 생성
     this.menu = new Menu();
     
-    // 카드셋 타입 옵션 추가
-    this.addCardSetTypeOptions();
+    // 카드셋 모드 옵션 추가
+    this.addCardSetModeOptions();
     
     // 메뉴 표시
     this.menu.showAtPosition({
@@ -72,11 +71,11 @@ export class CardSetMenu {
   }
   
   /**
-   * 현재 카드셋 타입 설정
-   * @param type 카드셋 타입
+   * 현재 모드 설정
+   * @param mode 카드셋 모드
    */
-  setCurrentType(type: CardSetType): void {
-    this.currentType = type;
+  setCurrentMode(mode: string): void {
+    this.currentMode = mode;
   }
   
   /**
@@ -88,39 +87,30 @@ export class CardSetMenu {
   }
   
   /**
-   * 카드셋 타입 변경 이벤트 리스너 등록
+   * 카드셋 모드 변경 이벤트 구독
    * @param callback 콜백 함수
    */
-  onCardSetTypeChange(callback: (type: CardSetType, source?: string) => void): void {
-    this.cardSetTypeChangeCallback = callback;
+  onCardSetModeChange(callback: (mode: string, source?: string) => void): void {
+    this.cardSetModeChangeCallback = callback;
   }
   
   /**
-   * 카드셋 타입 옵션 추가
+   * 카드셋 모드 옵션 추가
    */
-  private addCardSetTypeOptions(): void {
-    this.menu.addItem(item => {
-      item
-        .setTitle('카드셋 타입')
-        .setDisabled(true);
-    });
+  private addCardSetModeOptions(): void {
+    // 메뉴 초기화
+    this.menu.empty();
     
-    this.cardSetTypeOptions.forEach(option => {
+    // 카드셋 모드 옵션 추가
+    this.cardSetModeOptions.forEach(option => {
       this.menu.addItem(item => {
-        const isSelected = this.currentType === option.value;
-        
         item
           .setTitle(option.label)
           .setIcon(option.icon)
-          .setChecked(isSelected)
+          .setChecked(this.currentMode === option.value)
           .onClick(() => {
-            // 지정 폴더 모드인 경우 폴더 선택 서브메뉴 표시
-            if (option.value === 'selected-folder') {
-              this.showFolderSelectionMenu();
-            } else {
-              this.currentType = option.value;
-              this.notifyCardSetTypeChange();
-            }
+            this.currentMode = option.value;
+            this.notifyCardSetModeChange();
           });
       });
     });
@@ -161,9 +151,9 @@ export class CardSetMenu {
         .setTitle('루트')
         .setIcon('lucide-folder-root')
         .onClick(() => {
-          this.currentType = 'selected-folder';
+          this.currentMode = 'selected-folder';
           this.selectedFolderPath = '/';
-          this.notifyCardSetTypeChange();
+          this.notifyCardSetModeChange();
         });
     });
     
@@ -175,9 +165,9 @@ export class CardSetMenu {
           .setTitle(folder.path)
           .setIcon('lucide-folder')
           .onClick(() => {
-            this.currentType = 'selected-folder';
+            this.currentMode = 'selected-folder';
             this.selectedFolderPath = folder.path;
-            this.notifyCardSetTypeChange();
+            this.notifyCardSetModeChange();
           });
       });
     });
@@ -197,14 +187,14 @@ export class CardSetMenu {
   }
   
   /**
-   * 카드셋 타입 변경 알림
+   * 카드셋 모드 변경 알림
    */
-  private notifyCardSetTypeChange(): void {
-    if (this.cardSetTypeChangeCallback) {
-      if (this.currentType === 'selected-folder' && this.selectedFolderPath) {
-        this.cardSetTypeChangeCallback(this.currentType, this.selectedFolderPath);
+  private notifyCardSetModeChange(): void {
+    if (this.cardSetModeChangeCallback) {
+      if (this.currentMode === 'selected-folder' && this.selectedFolderPath) {
+        this.cardSetModeChangeCallback(this.currentMode, this.selectedFolderPath);
       } else {
-        this.cardSetTypeChangeCallback(this.currentType);
+        this.cardSetModeChangeCallback(this.currentMode);
       }
     }
   }

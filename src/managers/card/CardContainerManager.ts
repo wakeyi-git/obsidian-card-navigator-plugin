@@ -1,17 +1,18 @@
 import { TFile } from 'obsidian';
 import { Card } from '../../core/models/Card';
 import { CardManager } from './CardManager';
-import { ICardManager } from '../../core/interfaces/ICardManager';
-import { ICardContainerManager } from '../../core/interfaces/ICardContainerManager';
-import { ICardService } from '../../core/interfaces/ICardService';
-import { ICardRenderService } from '../../core/interfaces/ICardRenderService';
-import { ICardInteractionService } from '../../core/interfaces/ICardInteractionService';
-import { ILayoutManager } from '../../core/interfaces/ILayoutManager';
+import { ICardManager } from '../../core/interfaces/manager/ICardManager';
+import { ICardContainerManager } from '../../core/interfaces/manager/ICardContainerManager';
+import { ICardService } from '../../core/interfaces/service/ICardService';
+import { ICardRenderService } from '../../core/interfaces/service/ICardRenderService';
+import { ICardInteractionService } from '../../core/interfaces/service/ICardInteractionService';
+import { ILayoutManager } from '../../core/interfaces/manager/ILayoutManager';
 import { LayoutOptions } from '../../core/types/layout.types';
-import { CardContainerEventData, CardContainerEventType } from '../../core/types/card.types';
+import { CardContainerEventData, CardContainerEventType, CardEventType, CardStateEnum } from '../../core/types/card.types';
 import { EventHandler } from '../../core/types/common.types';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 import { Log } from '../../utils/log/Log';
+import { ErrorCode } from '../../core/constants/error.constants';
 
 /**
  * CardContainerManager 클래스는 여러 카드를 관리하는 컨테이너를 담당합니다.
@@ -63,13 +64,13 @@ export class CardContainerManager implements ICardContainerManager {
       this.container.classList.add('card-container');
       
       // 레이아웃 매니저 초기화
-      this.layoutManager.initialize(this.container, this.layoutOptions);
+      this.layoutManager.initialize(this.container, this, this.layoutOptions);
       
       // 레이아웃 이벤트 설정
       this.setupLayoutEvents();
       
       Log.debug('CardContainerManager', '카드 컨테이너 초기화 완료');
-    }, 'CARD_CONTAINER_INITIALIZATION_ERROR', {}, true);
+    }, ErrorCode.INITIALIZATION_ERROR, {}, true);
   }
 
   /**
@@ -83,22 +84,22 @@ export class CardContainerManager implements ICardContainerManager {
 
   /**
    * 레이아웃 변경 이벤트 핸들러
-   * @param event 레이아웃 이벤트 데이터
+   * @param event 이벤트 객체
    */
   private handleLayoutChanged(event: any): void {
     ErrorHandler.captureErrorSync(() => {
-      this.emitEvent('layout-changed', { type: 'layout-changed', timestamp: Date.now() });
-    }, 'LAYOUT_CHANGED_ERROR', {}, false);
+      this.emitEvent('layout-updated', { type: 'layout-updated', timestamp: Date.now() });
+    }, ErrorCode.LAYOUT_UPDATE_ERROR, {}, false);
   }
 
   /**
    * 레이아웃 업데이트 이벤트 핸들러
-   * @param event 레이아웃 이벤트 데이터
+   * @param event 이벤트 객체
    */
   private handleLayoutUpdated(event: any): void {
     ErrorHandler.captureErrorSync(() => {
       this.emitEvent('layout-updated', { type: 'layout-updated', timestamp: Date.now() });
-    }, 'LAYOUT_UPDATED_ERROR', {}, false);
+    }, ErrorCode.LAYOUT_UPDATE_ERROR, {}, false);
   }
 
   /**
@@ -110,7 +111,8 @@ export class CardContainerManager implements ICardContainerManager {
     return ErrorHandler.captureErrorSync(() => {
       // 이미 존재하는 카드인지 확인
       if (this.cardManagers.has(card.id)) {
-        return this.cardManagers.get(card.id) as ICardManager;
+        Log.debug('CardContainerManager', `이미 존재하는 카드: ${card.id}`);
+        return this.cardManagers.get(card.id);
       }
       
       // 카드 매니저 생성
@@ -121,118 +123,117 @@ export class CardContainerManager implements ICardContainerManager {
         this.cardInteractionService
       );
       
+      // 카드 매니저 맵에 추가
+      this.cardManagers.set(card.id, cardManager);
+      
       // 카드 요소 초기화 및 컨테이너에 추가
-      const cardElement = cardManager.initialize();
-      this.container.appendChild(cardElement);
+      cardManager.initialize();
+      if (cardManager.element) {
+        this.container.appendChild(cardManager.element);
+      }
       
       // 카드 이벤트 리스너 설정
       this.setupCardEvents(cardManager);
       
-      // 카드 매니저 맵에 추가
-      this.cardManagers.set(card.id, cardManager);
-      
       // 레이아웃 업데이트
-      this.updateLayout();
+      this.requestLayoutUpdate();
       
       // 이벤트 발생
       this.emitEvent('card-added', { 
         type: 'card-added', 
         timestamp: Date.now(),
         cardId: card.id, 
-        card: card,
-        cardCount: this.cardManagers.size
+        card: card
       });
       
       Log.debug('CardContainerManager', `카드 추가: ${card.id}`);
       
       return cardManager;
-    }, 'CARD_ADD_ERROR', { cardId: card.id }, true) as ICardManager;
+    }, ErrorCode.CARD_CREATION_ERROR, { cardId: card.id }, true) as ICardManager;
   }
 
   /**
-   * 카드 이벤트 리스너를 설정합니다.
+   * 카드 이벤트를 설정합니다.
    * @param cardManager 카드 매니저
    */
   private setupCardEvents(cardManager: ICardManager): void {
     // 카드 클릭 이벤트
-    cardManager.addEventListener('card-click', (event) => {
-      this.handleCardClick(cardManager.getCard().id, event);
+    cardManager.addEventListener(CardEventType.CLICK, (event) => {
+      this.handleCardClick(cardManager.card.id, event);
     });
     
     // 카드 컨텍스트 메뉴 이벤트
-    cardManager.addEventListener('card-contextmenu', (event) => {
-      this.handleCardContextMenu(cardManager.getCard().id, event);
+    cardManager.addEventListener(CardEventType.CONTEXT_MENU, (event) => {
+      this.handleCardContextMenu(cardManager.card.id, event);
     });
     
     // 카드 상태 변경 이벤트
-    cardManager.addEventListener('card-state-changed', (event) => {
-      this.handleCardStateChanged(cardManager.getCard().id, event);
+    cardManager.addEventListener(CardEventType.SELECTION_CHANGE, (event) => {
+      this.handleCardStateChanged(cardManager.card.id, event);
     });
   }
 
   /**
    * 카드 클릭 이벤트 핸들러
    * @param cardId 카드 ID
-   * @param event 이벤트 데이터
+   * @param event 이벤트 객체
    */
   private handleCardClick(cardId: string, event: any): void {
     ErrorHandler.captureErrorSync(() => {
-      // Shift 키를 누른 상태에서 클릭하면 다중 선택
-      if (event.event && event.event.shiftKey) {
+      // 카드 선택 상태 토글
+      if (event.event.ctrlKey || event.event.metaKey) {
         this.toggleCardSelection(cardId);
       } else {
-        // 일반 클릭은 단일 선택
+        // 다른 카드 선택 해제 후 현재 카드 선택
         this.clearSelection();
         this.selectCard(cardId);
       }
       
-      this.emitEvent('card-clicked', { 
-        type: 'card-clicked', 
+      this.emitEvent('card-selected', { 
+        type: 'card-selected', 
         timestamp: Date.now(),
         cardId: cardId, 
         card: event.card
       });
-    }, 'CARD_CLICK_HANDLER_ERROR', { cardId }, false);
+    }, ErrorCode.CARD_CLICK_ERROR, { cardId }, false);
   }
 
   /**
    * 카드 컨텍스트 메뉴 이벤트 핸들러
    * @param cardId 카드 ID
-   * @param event 이벤트 데이터
+   * @param event 이벤트 객체
    */
   private handleCardContextMenu(cardId: string, event: any): void {
     ErrorHandler.captureErrorSync(() => {
-      // 선택되지 않은 카드에서 컨텍스트 메뉴를 열면 해당 카드만 선택
+      // 카드가 선택되지 않은 경우 선택
       if (!this.isCardSelected(cardId)) {
         this.clearSelection();
         this.selectCard(cardId);
       }
       
-      this.emitEvent('card-context-menu', { 
-        type: 'card-context-menu', 
+      this.emitEvent('card-selected', { 
+        type: 'card-selected', 
         timestamp: Date.now(),
-        cardId: cardId, 
-        card: event.card,
-        event: event.event
+        cardId: cardId,
+        card: event.card
       });
-    }, 'CARD_CONTEXT_MENU_HANDLER_ERROR', { cardId }, false);
+    }, ErrorCode.CARD_CONTEXT_MENU_ERROR, { cardId }, false);
   }
 
   /**
    * 카드 상태 변경 이벤트 핸들러
    * @param cardId 카드 ID
-   * @param event 이벤트 데이터
+   * @param event 이벤트 객체
    */
   private handleCardStateChanged(cardId: string, event: any): void {
     ErrorHandler.captureErrorSync(() => {
-      this.emitEvent('card-state-changed', { 
-        type: 'card-state-changed', 
-        timestamp: Date.now(),
-        cardId: cardId, 
-        card: event.card,
-        state: event.state
-      });
-    }, 'CARD_STATE_CHANGED_HANDLER_ERROR', { cardId }, false);
+      // 카드 상태에 따라 선택 상태 업데이트
+      if (event.state === CardStateEnum.SELECTED) {
+        this.selectCard(cardId);
+      } else if (this.isCardSelected(cardId) && event.state !== CardStateEnum.SELECTED) {
+        this.deselectCard(cardId);
+      }
+    }, ErrorCode.EVENT_HANDLER_ERROR, { cardId }, false);
   }
 
   /**
@@ -242,40 +243,44 @@ export class CardContainerManager implements ICardContainerManager {
    */
   public removeCard(cardId: string): boolean {
     return ErrorHandler.captureErrorSync(() => {
+      // 카드 매니저 가져오기
       const cardManager = this.cardManagers.get(cardId);
       
+      // 카드가 존재하지 않으면 false 반환
       if (!cardManager) {
+        Log.debug('CardContainerManager', `존재하지 않는 카드: ${cardId}`);
         return false;
+      }
+      
+      // 선택된 카드인 경우 선택 해제
+      if (this.selectedCardIds.has(cardId)) {
+        this.selectedCardIds.delete(cardId);
       }
       
       // 카드 매니저 정리
       cardManager.destroy();
       
-      // 맵에서 제거
+      // 카드 매니저 맵에서 제거
       this.cardManagers.delete(cardId);
       
-      // 선택 목록에서 제거
-      this.selectedCardIds.delete(cardId);
-      
       // 레이아웃 업데이트
-      this.updateLayout();
+      this.requestLayoutUpdate();
       
       // 이벤트 발생
       this.emitEvent('card-removed', { 
         type: 'card-removed', 
         timestamp: Date.now(),
-        cardId: cardId,
-        cardCount: this.cardManagers.size
+        cardId: cardId
       });
       
       Log.debug('CardContainerManager', `카드 제거: ${cardId}`);
       
       return true;
-    }, 'CARD_REMOVE_ERROR', { cardId }, true) || false;
+    }, ErrorCode.CARD_DELETION_ERROR, { cardId }, true) || false;
   }
 
   /**
-   * 모든 카드를 컨테이너에서 제거합니다.
+   * 모든 카드를 제거합니다.
    */
   public clearCards(): void {
     ErrorHandler.captureErrorSync(() => {
@@ -291,14 +296,14 @@ export class CardContainerManager implements ICardContainerManager {
       this.selectedCardIds.clear();
       
       // 이벤트 발생
-      this.emitEvent('cards-cleared', { 
-        type: 'cards-cleared', 
+      this.emitEvent('cards-set', { 
+        type: 'cards-set', 
         timestamp: Date.now(),
         cardCount: 0
       });
       
       Log.debug('CardContainerManager', '모든 카드 제거');
-    }, 'CARDS_CLEAR_ERROR', {}, true);
+    }, ErrorCode.OPERATION_FAILED, {}, true);
   }
 
   /**
@@ -328,11 +333,11 @@ export class CardContainerManager implements ICardContainerManager {
 
   /**
    * 카드 배열을 설정합니다.
-   * @param cards 카드 배열
+   * @param cards 설정할 카드 배열
    */
   public setCards(cards: Card[]): void {
     ErrorHandler.captureErrorSync(() => {
-      // 기존 카드 제거
+      // 기존 카드 모두 제거
       this.clearCards();
       
       // 새 카드 추가
@@ -340,8 +345,8 @@ export class CardContainerManager implements ICardContainerManager {
         this.addCard(card);
       });
       
-      // 레이아웃 업데이트
-      this.updateLayout();
+      // 레이아웃 업데이트 요청
+      this.requestLayoutUpdate();
       
       // 이벤트 발생
       this.emitEvent('cards-set', { 
@@ -351,50 +356,39 @@ export class CardContainerManager implements ICardContainerManager {
       });
       
       Log.debug('CardContainerManager', `카드 설정: ${cards.length}개`);
-    }, 'CARDS_SET_ERROR', { cardCount: cards.length.toString() }, true);
+    }, ErrorCode.OPERATION_FAILED, { cardCount: cards.length.toString() }, true);
   }
 
   /**
-   * 레이아웃을 업데이트합니다.
+   * 레이아웃 업데이트 요청
+   * 레이아웃 관리자에게 레이아웃 업데이트를 요청합니다.
    */
-  public updateLayout(): void {
+  public requestLayoutUpdate(): void {
     ErrorHandler.captureErrorSync(() => {
-      // 카드 요소 배열 생성
-      const cardElements: HTMLElement[] = [];
-      const cardIds: string[] = [];
-      
-      this.cardManagers.forEach((cardManager, cardId) => {
-        const element = cardManager.getElement();
-        if (element) {
-          cardElements.push(element);
-          cardIds.push(cardId);
-        }
-      });
-      
       // 레이아웃 매니저를 사용하여 레이아웃 업데이트
-      this.layoutManager.updateLayout(cardElements, cardIds);
+      this.layoutManager.updateLayout();
       
       Log.debug('CardContainerManager', '레이아웃 업데이트');
-    }, 'LAYOUT_UPDATE_ERROR', {}, true);
+    }, ErrorCode.LAYOUT_UPDATE_ERROR, {}, true);
   }
 
   /**
    * 레이아웃 옵션을 설정합니다.
-   * @param options 레이아웃 옵션
+   * @param options 설정할 레이아웃 옵션
    */
   public setLayoutOptions(options: Partial<LayoutOptions>): void {
     ErrorHandler.captureErrorSync(() => {
       // 레이아웃 옵션 업데이트
       this.layoutOptions = { ...this.layoutOptions, ...options };
       
-      // 레이아웃 매니저에 옵션 설정
+      // 레이아웃 매니저에 옵션 전달
       this.layoutManager.setOptions(this.layoutOptions);
       
-      // 레이아웃 업데이트
-      this.updateLayout();
+      // 레이아웃 업데이트 요청
+      this.requestLayoutUpdate();
       
       Log.debug('CardContainerManager', '레이아웃 옵션 설정');
-    }, 'LAYOUT_OPTIONS_SET_ERROR', {}, true);
+    }, ErrorCode.LAYOUT_UPDATE_ERROR, {}, true);
   }
 
   /**
@@ -403,28 +397,35 @@ export class CardContainerManager implements ICardContainerManager {
    */
   public selectCard(cardId: string): void {
     ErrorHandler.captureErrorSync(() => {
+      // 이미 선택된 카드인 경우 무시
+      if (this.selectedCardIds.has(cardId)) {
+        return;
+      }
+      
+      // 카드 매니저 가져오기
       const cardManager = this.cardManagers.get(cardId);
       
+      // 카드가 존재하지 않으면 무시
       if (!cardManager) {
         return;
       }
       
-      // 선택 상태로 변경
-      cardManager.setState('selected');
-      
       // 선택 목록에 추가
       this.selectedCardIds.add(cardId);
+      
+      // 카드 상태 변경
+      cardManager.setState(CardStateEnum.SELECTED);
       
       // 이벤트 발생
       this.emitEvent('card-selected', { 
         type: 'card-selected', 
         timestamp: Date.now(),
         cardId: cardId,
-        card: cardManager.getCard()
+        card: cardManager.card
       });
       
       Log.debug('CardContainerManager', `카드 선택: ${cardId}`);
-    }, 'CARD_SELECT_ERROR', { cardId }, false);
+    }, ErrorCode.OPERATION_FAILED, { cardId }, false);
   }
 
   /**
@@ -438,37 +439,44 @@ export class CardContainerManager implements ICardContainerManager {
       } else {
         this.selectCard(cardId);
       }
-    }, 'CARD_TOGGLE_SELECTION_ERROR', { cardId }, false);
+    }, ErrorCode.OPERATION_FAILED, { cardId }, false);
   }
 
   /**
    * 카드 선택을 해제합니다.
-   * @param cardId 선택 해제할 카드 ID
+   * @param cardId 해제할 카드 ID
    */
   public deselectCard(cardId: string): void {
     ErrorHandler.captureErrorSync(() => {
+      // 선택되지 않은 카드인 경우 무시
+      if (!this.selectedCardIds.has(cardId)) {
+        return;
+      }
+      
+      // 카드 매니저 가져오기
       const cardManager = this.cardManagers.get(cardId);
       
+      // 카드가 존재하지 않으면 무시
       if (!cardManager) {
         return;
       }
       
-      // 일반 상태로 변경
-      cardManager.setState('normal');
-      
       // 선택 목록에서 제거
       this.selectedCardIds.delete(cardId);
+      
+      // 카드 상태 변경
+      cardManager.setState(CardStateEnum.NORMAL);
       
       // 이벤트 발생
       this.emitEvent('card-deselected', { 
         type: 'card-deselected', 
         timestamp: Date.now(),
         cardId: cardId,
-        card: cardManager.getCard()
+        card: cardManager.card
       });
       
       Log.debug('CardContainerManager', `카드 선택 해제: ${cardId}`);
-    }, 'CARD_DESELECT_ERROR', { cardId }, false);
+    }, ErrorCode.OPERATION_FAILED, { cardId }, false);
   }
 
   /**
@@ -476,11 +484,17 @@ export class CardContainerManager implements ICardContainerManager {
    */
   public clearSelection(): void {
     ErrorHandler.captureErrorSync(() => {
-      // 선택된 모든 카드 순회
-      this.selectedCardIds.forEach(cardId => {
+      // 선택된 카드가 없으면 무시
+      if (this.selectedCardIds.size === 0) {
+        return;
+      }
+      
+      // 모든 선택된 카드의 상태를 일반 상태로 변경
+      const selectedCardIds = [...this.selectedCardIds];
+      selectedCardIds.forEach(cardId => {
         const cardManager = this.cardManagers.get(cardId);
         if (cardManager) {
-          cardManager.setState('normal');
+          cardManager.setState(CardStateEnum.NORMAL);
         }
       });
       
@@ -494,7 +508,7 @@ export class CardContainerManager implements ICardContainerManager {
       });
       
       Log.debug('CardContainerManager', '모든 카드 선택 해제');
-    }, 'SELECTION_CLEAR_ERROR', {}, false);
+    }, ErrorCode.OPERATION_FAILED, {}, false);
   }
 
   /**
@@ -569,6 +583,7 @@ export class CardContainerManager implements ICardContainerManager {
 
   /**
    * 컨테이너 매니저를 정리합니다.
+   * 이벤트 리스너 등을 정리합니다.
    */
   public destroy(): void {
     ErrorHandler.captureErrorSync(() => {
@@ -582,6 +597,6 @@ export class CardContainerManager implements ICardContainerManager {
       this.eventListeners.clear();
       
       Log.debug('CardContainerManager', '카드 컨테이너 매니저 정리 완료');
-    }, 'CARD_CONTAINER_DESTROY_ERROR', {}, true);
+    }, ErrorCode.OPERATION_FAILED, {}, true);
   }
 } 

@@ -13,6 +13,7 @@ import { ScrollDirection } from './core/types/layout.types';
 import { ErrorHandler } from './utils/error/ErrorHandler';
 import { Log } from './utils/log/Log';
 import { initializeTranslations } from './i18n';
+import { testCardSetManager } from './test/cardset-test';
 
 /**
  * 카드 네비게이터 플러그인 클래스
@@ -90,6 +91,15 @@ export class CardNavigatorPlugin extends Plugin {
       
       // 플러그인 초기화
       await this.initializePlugin();
+      
+      // 개발 모드에서만 테스트 코드 실행
+      if (process.env.NODE_ENV === 'development') {
+        // 플러그인 로드 후 1초 후에 테스트 실행
+        setTimeout(() => {
+          console.log('카드셋 관리자 테스트 시작');
+          testCardSetManager(this.app);
+        }, 1000);
+      }
       
       Log.info('카드 네비게이터 플러그인 로드 완료');
     } catch (error) {

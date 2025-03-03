@@ -1,6 +1,131 @@
 import { TFile } from 'obsidian';
 
 /**
+ * 검색 쿼리 타입
+ */
+export interface SearchQuery {
+  /**
+   * 검색 텍스트
+   */
+  text: string;
+  
+  /**
+   * 검색 대상 필드
+   */
+  fields?: SearchField[];
+  
+  /**
+   * 대소문자 구분 여부
+   */
+  caseSensitive?: boolean;
+  
+  /**
+   * 정규식 사용 여부
+   */
+  useRegex?: boolean;
+  
+  /**
+   * 태그 필터
+   */
+  tags?: string[];
+}
+
+/**
+ * 검색 필드 타입
+ */
+export enum SearchField {
+  /**
+   * 파일 이름
+   */
+  FILENAME = 'filename',
+  
+  /**
+   * 파일 내용
+   */
+  CONTENT = 'content',
+  
+  /**
+   * 파일 경로
+   */
+  PATH = 'path',
+  
+  /**
+   * 프론트매터
+   */
+  FRONTMATTER = 'frontmatter',
+  
+  /**
+   * 태그
+   */
+  TAGS = 'tags',
+  
+  /**
+   * 헤더
+   */
+  HEADINGS = 'headings'
+}
+
+/**
+ * 검색 결과 타입
+ */
+export interface SearchResult {
+  /**
+   * 검색 결과 파일
+   */
+  file: TFile;
+  
+  /**
+   * 일치 항목
+   */
+  matches: SearchMatch[];
+  
+  /**
+   * 점수 (관련성)
+   */
+  score?: number;
+}
+
+/**
+ * 검색 일치 항목 인터페이스
+ */
+export interface SearchMatch {
+  /**
+   * 일치 필드
+   */
+  field?: SearchField;
+  
+  /**
+   * 일치 타입 (이전 버전 호환용)
+   */
+  type?: 'title' | 'header' | 'content' | 'tag' | 'frontmatter';
+  
+  /**
+   * 일치 텍스트
+   */
+  text: string;
+  
+  /**
+   * 일치 위치 (시작)
+   */
+  start?: number;
+  
+  /**
+   * 일치 위치 (끝)
+   */
+  end?: number;
+  
+  /**
+   * 일치 위치 (이전 버전 호환용)
+   */
+  position?: number;
+  
+  /**
+   * 일치 컨텍스트 (주변 텍스트)
+   */
+  context?: string;
+}
+
+/**
  * 검색 옵션
  */
 export interface SearchOptions {
@@ -38,26 +163,11 @@ export interface SearchOptions {
    * 정규식 사용 여부
    */
   useRegex: boolean;
-}
-
-/**
- * 검색 결과 매치 타입
- */
-export interface SearchMatch {
-  /**
-   * 매치 타입
-   */
-  type: 'title' | 'header' | 'tag' | 'content' | 'frontmatter';
   
   /**
-   * 매치된 텍스트
+   * 전체 단어 일치 여부
    */
-  text: string;
-  
-  /**
-   * 매치 위치
-   */
-  position?: number;
+  matchWholeWord?: boolean;
 }
 
 /**
@@ -95,7 +205,7 @@ export interface ISearchResult {
 export type SearchResultData = ISearchResult;
 
 /**
- * 검색 제안 타입
+ * 검색 제안 인터페이스
  */
 export interface SearchSuggestion {
   /**
@@ -106,12 +216,17 @@ export interface SearchSuggestion {
   /**
    * 제안 타입
    */
-  type: 'path' | 'file' | 'tag' | 'property' | 'section';
+  type: 'path' | 'file' | 'tag' | 'property' | 'section' | 'recent';
   
   /**
    * 표시 텍스트
    */
-  display: string;
+  display?: string;
+  
+  /**
+   * 표시 텍스트 (이전 버전 호환용)
+   */
+  displayText?: string;
 }
 
 /**
@@ -181,7 +296,8 @@ export type SearchEvent =
   | 'search-started'
   | 'search-completed'
   | 'search-cancelled'
-  | 'search-options-changed';
+  | 'search-options-changed'
+  | 'search-error';
 
 /**
  * 검색 이벤트 데이터 인터페이스

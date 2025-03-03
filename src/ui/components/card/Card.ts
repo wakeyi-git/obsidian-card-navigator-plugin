@@ -1,7 +1,8 @@
 import { TFile } from 'obsidian';
 import { Card as CardModel } from '../../../core/models/Card';
 import { CardPosition } from '../../../core/models/CardPosition';
-import { CardInteractionEvent, CardInteractionHandler, CardRenderOptions, CardState } from '../../../core/types/card.types';
+import { CardInteractionEvent, CardInteractionHandler, CardRenderOptions, CardStateEnum } from '../../../core/types/card.types';
+import { ErrorHandler } from '../../../utils/error/ErrorHandler';
 
 /**
  * 카드 컴포넌트 클래스
@@ -26,7 +27,7 @@ export class Card {
   /**
    * 카드 상태
    */
-  private state: CardState = 'normal';
+  private state: CardStateEnum = CardStateEnum.NORMAL;
   
   /**
    * 렌더링 옵션
@@ -103,7 +104,7 @@ export class Card {
    * 카드 상태 설정
    * @param state 카드 상태
    */
-  setState(state: CardState): void {
+  setState(state: CardStateEnum): void {
     // 이전 상태 클래스 제거
     this.element.classList.remove(`card-state-${this.state}`);
     
@@ -115,10 +116,10 @@ export class Card {
     
     // 상태에 따른 추가 처리
     switch (state) {
-      case 'active':
+      case CardStateEnum.ACTIVE:
         this.element.setAttribute('aria-selected', 'true');
         break;
-      case 'focused':
+      case CardStateEnum.FOCUSED:
         this.element.focus();
         break;
       default:
@@ -130,7 +131,7 @@ export class Card {
    * 카드 상태 가져오기
    * @returns 카드 상태
    */
-  getState(): CardState {
+  getState(): CardStateEnum {
     return this.state;
   }
   

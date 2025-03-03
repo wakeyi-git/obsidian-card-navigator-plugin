@@ -1,7 +1,7 @@
 import { App } from 'obsidian';
-import { ICardService } from '../../core/interfaces/ICardService';
-import { ICardSetManager } from '../../core/interfaces/ICardSetManager';
-import { ICardSetService } from '../../core/interfaces/ICardSetService';
+import { ICardService } from '../../core/interfaces/service/ICardService';
+import { ICardSetManager } from '../../core/interfaces/manager/ICardSetManager';
+import { ICardSetService } from '../../core/interfaces/service/ICardSetService';
 import { Card } from '../../core/models/Card';
 import { CardSet } from '../../core/models/CardSet';
 import { CardFilterOption, CardGroupOption, CardSetMode, CardSetOptions, CardSortOption } from '../../core/types/cardset.types';

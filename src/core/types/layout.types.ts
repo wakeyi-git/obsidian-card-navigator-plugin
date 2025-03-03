@@ -1,4 +1,5 @@
 import { Direction } from './common.types';
+import { EventHandler, IEventData } from './common.types';
 
 /**
  * 카드 위치 인터페이스
@@ -79,7 +80,13 @@ export enum LayoutType {
    * 리스트 레이아웃
    * 단일 열 레이아웃으로, 카드 너비가 컨테이너 너비에 맞춰집니다.
    */
-  LIST = 'list'
+  LIST = 'list',
+  
+  /**
+   * 수평 스크롤 레이아웃
+   * 카드가 수평으로 배치되고 가로 스크롤로 탐색합니다.
+   */
+  HORIZONTAL = 'horizontal'
 }
 
 /**
@@ -97,6 +104,12 @@ export interface LayoutSettings {
    * vertical: 세로 스크롤, horizontal: 가로 스크롤
    */
   direction?: Direction;
+  
+  /**
+   * 수직 방향 여부
+   * true: 수직 방향, false: 수평 방향
+   */
+  isVertical?: boolean;
   
   /**
    * 카드 너비 임계값 (px)
@@ -268,6 +281,12 @@ export interface LayoutCalculationResult {
   direction: Direction;
   
   /**
+   * 수직 방향 여부
+   * true: 수직 방향, false: 수평 방향
+   */
+  isVertical: boolean;
+  
+  /**
    * 카드 위치 배열
    */
   cardPositions: ICardPosition[];
@@ -316,6 +335,11 @@ export interface LayoutEventData {
   type: LayoutEventType;
   
   /**
+   * 타임스탬프
+   */
+  timestamp?: number;
+  
+  /**
    * 레이아웃 옵션
    */
   options?: LayoutOptions;
@@ -329,4 +353,26 @@ export interface LayoutEventData {
    * 레이아웃 계산 결과
    */
   calculationResult?: LayoutCalculationResult;
-} 
+}
+
+/**
+ * 레이아웃 이벤트 인터페이스
+ * 레이아웃 관련 이벤트를 정의합니다.
+ */
+export interface LayoutEvent extends IEventData {
+  /**
+   * 이벤트 타입
+   */
+  type: LayoutEventType;
+  
+  /**
+   * 이벤트 데이터
+   */
+  data?: LayoutEventData;
+}
+
+/**
+ * 레이아웃 이벤트 핸들러 타입
+ * 레이아웃 이벤트 처리 함수의 타입을 정의합니다.
+ */
+export type LayoutEventHandler = EventHandler<LayoutEvent>; 

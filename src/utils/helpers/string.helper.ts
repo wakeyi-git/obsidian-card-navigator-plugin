@@ -307,4 +307,91 @@ export function extractRegexGroup(str: string, regex: RegExp, groupIndex: number
   }
   
   return null;
+}
+
+/**
+ * 고유 ID 생성 함수
+ * @returns 고유 ID 문자열
+ */
+export function generateUniqueId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+}
+
+/**
+ * 문자열 자르기 함수
+ * 지정된 최대 길이를 초과하는 경우 말줄임표를 추가합니다.
+ * @param text 원본 문자열
+ * @param maxLength 최대 길이
+ * @returns 잘린 문자열
+ */
+export function truncateString(text: string, maxLength: number): string {
+  if (!text || text.length <= maxLength) {
+    return text;
+  }
+  
+  return text.substring(0, maxLength) + '...';
+}
+
+/**
+ * 파일 경로에서 디렉토리 경로 추출 함수
+ * @param filePath 파일 경로
+ * @returns 디렉토리 경로
+ */
+export function getDirectoryPath(filePath: string): string {
+  const lastSlashIndex = filePath.lastIndexOf('/');
+  
+  if (lastSlashIndex === -1) {
+    return '';
+  }
+  
+  return filePath.substring(0, lastSlashIndex);
+}
+
+/**
+ * 파일 경로에서 파일명 추출 함수
+ * @param filePath 파일 경로
+ * @returns 파일명
+ */
+export function getFileName(filePath: string): string {
+  const lastSlashIndex = filePath.lastIndexOf('/');
+  
+  if (lastSlashIndex === -1) {
+    return filePath;
+  }
+  
+  return filePath.substring(lastSlashIndex + 1);
+}
+
+/**
+ * 파일 확장자 추출 함수
+ * @param filePath 파일 경로
+ * @returns 파일 확장자
+ */
+export function getFileExtension(filePath: string): string {
+  const lastDotIndex = filePath.lastIndexOf('.');
+  
+  if (lastDotIndex === -1) {
+    return '';
+  }
+  
+  return filePath.substring(lastDotIndex + 1);
+}
+
+/**
+ * 문자열이 비어있는지 확인하는 함수
+ * @param text 확인할 문자열
+ * @returns 비어있는지 여부
+ */
+export function isEmpty(text: string | null | undefined): boolean {
+  return text === null || text === undefined || text.trim() === '';
+}
+
+/**
+ * 문자열 이스케이프 함수
+ * 정규식에서 사용될 문자열을 이스케이프합니다.
+ * @param text 이스케이프할 문자열
+ * @returns 이스케이프된 문자열
+ */
+export function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 } 

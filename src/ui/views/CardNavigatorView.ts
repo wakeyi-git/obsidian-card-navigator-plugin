@@ -7,8 +7,7 @@ import { LayoutManager } from '../../managers/layout/LayoutManager';
 import { PresetManager } from '../../managers/preset/PresetManager';
 import { SettingsManager } from '../../managers/settings/SettingsManager';
 import { SearchService } from '../../services/search/SearchService';
-import { CardRenderOptions, CardState, SortDirection, SortField } from '../../core/types/card.types';
-import { CardSetType } from '../../core/types/cardset.types';
+import { CardRenderOptions, CardStateEnum, SortDirection, SortField } from '../../core/types/card.types';
 import { LayoutOptions } from '../../core/types/layout.types';
 import { Toolbar } from '../components/toolbar/Toolbar';
 import { CardSetEvent, CardSetEventData } from '../../core/types/cardset.types';
@@ -456,20 +455,20 @@ export class CardNavigatorView extends ItemView {
   }
   
   /**
-   * 카드셋 타입 변경 이벤트 핸들러
-   * @param type 카드셋 타입
+   * 카드셋 모드 변경 처리
+   * @param mode 카드셋 모드 문자열
    * @param source 카드셋 소스 (선택적)
    */
-  private async handleCardSetTypeChange(type: CardSetType, source?: string): Promise<void> {
-    // 카드셋 타입 설정
-    await this.cardSetManager.setCardSetType(type);
+  private async handleCardSetTypeChange(mode: string, source?: string): Promise<void> {
+    // 카드셋 모드 설정
+    await this.cardSetManager.setCardSetType(mode);
     
-    // 카드셋 타입에 따라 카드셋 로드
-    switch (type) {
-      case 'activeFolder':
+    // 카드셋 모드에 따라 카드셋 로드
+    switch (mode) {
+      case 'active-folder':
         await this.cardSetManager.loadActiveFolder();
         break;
-      case 'selectedFolder':
+      case 'selected-folder':
         if (source) {
           await this.cardSetManager.loadSelectedFolder(source);
         }
@@ -477,15 +476,12 @@ export class CardNavigatorView extends ItemView {
       case 'vault':
         await this.cardSetManager.loadVault();
         break;
-      case 'searchResults':
-        if (this.currentSearchTerm) {
-          await this.cardSetManager.loadSearchResults(this.currentSearchTerm);
-        }
+      case 'search-results':
+        // 검색 결과 처리
+        break;
+      default:
         break;
     }
-    
-    // 정렬 적용
-    this.applySorting();
   }
   
   /**

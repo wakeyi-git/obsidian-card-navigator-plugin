@@ -3,9 +3,10 @@ import {
   CardContentSettings, 
   CardStyleSettings, 
   CardLayoutSettings,
-  CardSetSettings 
+  CardSet 
 } from '../types/settings.types';
 import { CardSetMode, CardSortBy } from '../types/cardset.types';
+import { SortDirection } from '../types/common.types';
 
 /**
  * 프리셋 모델 클래스
@@ -46,13 +47,37 @@ export class Preset implements IPreset {
    * 생성자
    * @param data 프리셋 데이터
    */
-  constructor(data: IPreset) {
-    this._id = data.id;
-    this._name = data.name;
-    this._description = data.description || '';
-    this._createdAt = data.createdAt;
-    this._updatedAt = data.updatedAt;
-    this._settings = { ...data.settings };
+  constructor(data: IPreset);
+  
+  /**
+   * 생성자
+   * @param id 프리셋 ID
+   * @param name 프리셋 이름
+   * @param description 프리셋 설명
+   * @param settings 프리셋 설정
+   * @param isDefault 기본 프리셋 여부
+   */
+  constructor(id: string, name: string, description: string, settings: Partial<PresetSettings>, isDefault?: boolean);
+  
+  constructor(dataOrId: IPreset | string, name?: string, description?: string, settings?: Partial<PresetSettings>, isDefault?: boolean) {
+    if (typeof dataOrId === 'string') {
+      // 직접 값을 받는 생성자
+      const now = Date.now();
+      this._id = dataOrId;
+      this._name = name || '새 프리셋';
+      this._description = description || '';
+      this._createdAt = now;
+      this._updatedAt = now;
+      this._settings = settings ? { ...settings } : Preset.getDefaultSettings();
+    } else {
+      // 기존 생성자
+      this._id = dataOrId.id;
+      this._name = dataOrId.name;
+      this._description = dataOrId.description || '';
+      this._createdAt = dataOrId.createdAt;
+      this._updatedAt = dataOrId.updatedAt;
+      this._settings = { ...dataOrId.settings };
+    }
   }
   
   /**
@@ -206,8 +231,12 @@ export class Preset implements IPreset {
           firstHeaderFontSize: '16px',
           bodyFontSize: '14px',
           tagsFontSize: '12px',
+          cardWidth: '250px',
+          cardHeight: '200px',
           cardPadding: '16px',
           cardBorderRadius: '8px',
+          cardBorderWidth: '1px',
+          cardShadow: true,
           dragDropContent: true
         },
         layout: {
@@ -215,19 +244,69 @@ export class Preset implements IPreset {
           alignCardHeight: false,
           useFixedHeight: false,
           fixedCardHeight: 200,
-          cardsPerColumn: 3
+          cardsPerColumn: 3,
+          isVertical: true
         },
         sort: {
           sortBy: 'modificationDate',
           sortDirection: 'desc'
         },
         cardSet: {
-          cardSetMode: CardSetMode.ACTIVE_FOLDER,
+          mode: CardSetMode.ACTIVE_FOLDER,
           selectedFolder: null,
-          sortBy: 'modified-time',
-          sortDirection: 'desc'
+          sortBy: CardSortBy.MODIFIED_TIME,
+          sortDirection: SortDirection.DESC
         }
       }
     });
+  }
+  
+  /**
+   * 기본 설정 가져오기
+   * @returns 기본 프리셋 설정
+   */
+  static getDefaultSettings(): PresetSettings {
+    return {
+      cardContent: {
+        showFileName: true,
+        showFirstHeader: true,
+        showBody: true,
+        bodyLengthLimit: true,
+        showTags: true,
+        bodyLength: 200,
+        renderContentAsHtml: true
+      },
+      cardStyle: {
+        fileNameFontSize: '16px',
+        firstHeaderFontSize: '16px',
+        bodyFontSize: '14px',
+        tagsFontSize: '12px',
+        cardWidth: '250px',
+        cardHeight: '200px',
+        cardPadding: '16px',
+        cardBorderRadius: '8px',
+        cardBorderWidth: '1px',
+        cardShadow: true,
+        dragDropContent: true
+      },
+      layout: {
+        cardThresholdWidth: 300,
+        alignCardHeight: false,
+        useFixedHeight: false,
+        fixedCardHeight: 200,
+        cardsPerColumn: 3,
+        isVertical: true
+      },
+      sort: {
+        sortBy: 'modificationDate',
+        sortDirection: 'desc'
+      },
+      cardSet: {
+        mode: CardSetMode.ACTIVE_FOLDER,
+        selectedFolder: null,
+        sortBy: CardSortBy.MODIFIED_TIME,
+        sortDirection: SortDirection.DESC
+      }
+    };
   }
 } 

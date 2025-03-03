@@ -1,5 +1,5 @@
 import { App } from 'obsidian';
-import { ICardSetService } from '../../core/interfaces/ICardSetService';
+import { ICardSetService } from '../../core/interfaces/service/ICardSetService';
 import { Card } from '../../core/models/Card';
 import { CardFilterOption, CardFilterType } from '../../core/types/cardset.types';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';

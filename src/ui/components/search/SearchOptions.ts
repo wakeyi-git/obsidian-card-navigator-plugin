@@ -57,7 +57,7 @@ export class SearchOptions {
       this.containerEl.addClass('card-navigator-search-options');
       
       // 현재 검색 옵션 가져오기
-      const currentOptions = this.searchService.getSearchOptions();
+      const currentOptions = this.searchService.getOptions();
       
       // 제목 검색 옵션
       new Setting(this.containerEl)
@@ -65,11 +65,11 @@ export class SearchOptions {
         .setDesc('파일 제목에서 검색합니다.')
         .addToggle(toggle => {
           toggle
-            .setValue(currentOptions.searchInTitles)
+            .setValue(currentOptions.searchInTitle)
             .onChange(value => {
-              this.updateOption('searchInTitles', value);
+              this.updateOption('searchInTitle', value);
             });
-          this.toggleComponents.set('searchInTitles', toggle);
+          this.toggleComponents.set('searchInTitle', toggle);
         });
       
       // 헤더 검색 옵션
@@ -156,7 +156,7 @@ export class SearchOptions {
         .setDesc('전체 단어가 일치하는 경우에만 검색합니다.')
         .addToggle(toggle => {
           toggle
-            .setValue(currentOptions.matchWholeWord)
+            .setValue(currentOptions.matchWholeWord || false)
             .onChange(value => {
               this.updateOption('matchWholeWord', value);
             });
@@ -178,7 +178,7 @@ export class SearchOptions {
   private updateOption(key: keyof SearchOptionsType, value: boolean): void {
     try {
       // 현재 검색 옵션 가져오기
-      const currentOptions = this.searchService.getSearchOptions();
+      const currentOptions = this.searchService.getOptions();
       
       // 옵션 업데이트
       const updatedOptions: SearchOptionsType = {
@@ -187,7 +187,7 @@ export class SearchOptions {
       };
       
       // 검색 서비스 업데이트
-      this.searchService.setSearchOptions(updatedOptions);
+      this.searchService.setOptions(updatedOptions);
       
       // 콜백 호출
       this.onOptionsChange(updatedOptions);
@@ -206,7 +206,7 @@ export class SearchOptions {
   public setOptions(options: SearchOptionsType): void {
     try {
       // 검색 서비스 업데이트
-      this.searchService.setSearchOptions(options);
+      this.searchService.setOptions(options);
       
       // 토글 컴포넌트 업데이트
       for (const [key, value] of Object.entries(options)) {
@@ -228,7 +228,7 @@ export class SearchOptions {
    * @returns 현재 검색 옵션
    */
   public getOptions(): SearchOptionsType {
-    return this.searchService.getSearchOptions();
+    return this.searchService.getOptions();
   }
   
   /**

@@ -1,6 +1,6 @@
 import { TFile } from 'obsidian';
-import { Card } from '../models/Card';
-import { CardData } from '../types/card.types';
+import { Card } from '../../models/Card';
+import { CardData } from '../../types/card.types';
 
 /**
  * 카드 서비스 인터페이스

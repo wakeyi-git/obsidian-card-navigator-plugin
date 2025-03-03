@@ -1,9 +1,10 @@
+import { App } from 'obsidian';
 import { LayoutManager } from '../../managers/layout/LayoutManager';
 import { LayoutOptions, LayoutType, LayoutDirection } from '../../core/types/layout.types';
 import { CardPosition } from '../../core/models/CardPosition';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 import { Log } from '../../utils/log/Log';
-import { ILayoutManager } from '../../core/interfaces/ILayoutManager';
+import { ILayoutManager } from '../../core/interfaces/manager/ILayoutManager';
 import { CardPosition as ICardPosition } from '../../core/types/card.types';
 import { LayoutEvent, LayoutEventData, LayoutSettings } from '../../core/types/layout.types';
 import { LAYOUT_CLASS_NAMES } from '../../styles/components/layout.styles';
@@ -12,7 +13,7 @@ import { LAYOUT_CLASS_NAMES } from '../../styles/components/layout.styles';
  * LayoutService 클래스는 카드 레이아웃 관련 기능을 제공합니다.
  */
 export class LayoutService {
-  private layoutManager: LayoutManager;
+  private layoutManager: ILayoutManager;
   private container: HTMLElement | null = null;
   private options: LayoutOptions;
   private isInitialized: boolean = false;
@@ -21,7 +22,7 @@ export class LayoutService {
    * LayoutService 생성자
    * @param layoutManager 레이아웃 매니저 인스턴스
    */
-  constructor(layoutManager: LayoutManager) {
+  constructor(layoutManager: ILayoutManager) {
     this.layoutManager = layoutManager;
     this.options = this.getDefaultOptions();
     
@@ -434,7 +435,7 @@ export class LayoutService {
    * 레이아웃 매니저를 가져옵니다.
    * @returns 레이아웃 매니저
    */
-  public getLayoutManager(): LayoutManager {
+  public getLayoutManager(): ILayoutManager {
     return this.layoutManager;
   }
 

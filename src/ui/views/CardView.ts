@@ -1,6 +1,6 @@
 import { ItemView, TFile, WorkspaceLeaf } from 'obsidian';
 import { Card } from '../../core/models/Card';
-import { CardRenderOptions, CardState } from '../../core/types/card.types';
+import { CardRenderOptions, CardStateEnum } from '../../core/types/card.types';
 import { SettingsManager } from '../../managers/settings/SettingsManager';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 
@@ -47,7 +47,7 @@ export class CardView extends ItemView {
   /**
    * 카드 상태
    */
-  private cardState: CardState = 'normal';
+  private cardState: CardStateEnum = CardStateEnum.NORMAL;
   
   /**
    * 생성자

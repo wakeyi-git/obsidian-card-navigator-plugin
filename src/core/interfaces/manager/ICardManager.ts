@@ -1,5 +1,5 @@
-import { Card } from '../models/Card';
-import { CardEventType, CardState } from '../types/card.types';
+import { Card } from '../../models/Card';
+import { CardEventType, CardStateEnum } from '../../types/card.types';
 
 /**
  * 카드 관리자 인터페이스
@@ -24,7 +24,7 @@ export interface ICardManager {
   /**
    * 카드 상태
    */
-  readonly state: CardState;
+  readonly state: CardStateEnum;
   
   /**
    * 카드 관리자 초기화
@@ -56,7 +56,7 @@ export interface ICardManager {
    * 카드 상태 설정
    * @param state 설정할 카드 상태
    */
-  setState(state: CardState): void;
+  setState(state: CardStateEnum): void;
   
   /**
    * 카드 이벤트 리스너 추가

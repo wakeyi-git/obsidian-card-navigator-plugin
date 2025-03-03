@@ -1,11 +1,11 @@
 import { App, Menu, TFile, WorkspaceLeaf } from 'obsidian';
 import { Card } from '../../core/models/Card';
-import { CardState, CardEventType, CardEventData } from '../../core/types/card.types';
+import { CardStateEnum, CardEventType, CardEventData } from '../../core/types/card.types';
 import { SettingsManager } from '../../managers/settings/SettingsManager';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 import { Log } from '../../utils/log/Log';
 import { toggleClass } from '../../utils/helpers/dom.helper';
-import { ICardInteractionService, CardInteractionHandlers } from '../../core/interfaces/ICardInteractionService';
+import { ICardInteractionService, CardInteractionHandlers } from '../../core/interfaces/service/ICardInteractionService';
 
 /**
  * 카드 상호작용 서비스 클래스
@@ -407,7 +407,7 @@ export class CardInteractionService implements ICardInteractionService {
       }
       
       // 드래그 중인 카드 상태 설정
-      this.setCardState(card.id, cardElement, 'dragging');
+      this.setCardState(card.id, cardElement, CardStateEnum.DRAGGING);
       this.draggingCardId = card.id;
       
       // 카드가 선택되지 않았으면 선택
@@ -489,7 +489,7 @@ export class CardInteractionService implements ICardInteractionService {
         }
         
         // 새 드롭 대상 카드 상태 설정
-        this.setCardState(card.id, cardElement, 'dropping');
+        this.setCardState(card.id, cardElement, CardStateEnum.DROPPING);
         this.dropTargetCardId = card.id;
       }
     } catch (error) {
@@ -611,7 +611,7 @@ export class CardInteractionService implements ICardInteractionService {
       }
       
       // 새 포커스 카드 상태 설정
-      this.setCardState(card.id, cardElement, 'focused');
+      this.setCardState(card.id, cardElement, CardStateEnum.FOCUSED);
       this.focusedCardId = card.id;
     } catch (error) {
       ErrorHandler.handleError(`카드 포커스 처리 중 오류 발생: ${card.id}`, error);
@@ -635,7 +635,7 @@ export class CardInteractionService implements ICardInteractionService {
       
       // 카드가 선택되어 있으면 선택 상태 유지
       if (this.isCardSelected(card.id)) {
-        this.setCardState(card.id, cardElement, 'active');
+        this.setCardState(card.id, cardElement, CardStateEnum.ACTIVE);
       }
       
       if (this.focusedCardId === card.id) {
@@ -658,7 +658,7 @@ export class CardInteractionService implements ICardInteractionService {
       
       // 새 카드 선택
       this.selectedCardIds.add(card.id);
-      this.setCardState(card.id, cardElement, 'active');
+      this.setCardState(card.id, cardElement, CardStateEnum.ACTIVE);
       
       Log.debug(`카드 선택: ${card.id}`);
     } catch (error) {
@@ -681,7 +681,7 @@ export class CardInteractionService implements ICardInteractionService {
       } else {
         // 선택되지 않은 카드면 선택
         this.selectedCardIds.add(card.id);
-        this.setCardState(card.id, cardElement, 'active');
+        this.setCardState(card.id, cardElement, CardStateEnum.ACTIVE);
         Log.debug(`카드 선택: ${card.id}`);
       }
     } catch (error) {
@@ -717,7 +717,7 @@ export class CardInteractionService implements ICardInteractionService {
    * @param cardElement 카드 요소
    * @param state 카드 상태
    */
-  private setCardState(cardId: string, cardElement: HTMLElement, state: CardState): void {
+  private setCardState(cardId: string, cardElement: HTMLElement, state: CardStateEnum): void {
     // 모든 상태 클래스 제거
     cardElement.classList.remove(
       'card-navigator-card-normal',
@@ -929,7 +929,7 @@ export class CardInteractionService implements ICardInteractionService {
       const cardElement = document.querySelector(`[data-card-id="${card.id}"]`);
       if (!cardElement) return;
       
-      const state: CardState = this.getCardState(card.id);
+      const state: CardStateEnum = this.getCardState(card.id);
       
       const customEvent = new CustomEvent<CardEventData>('card-event', {
         bubbles: true,
@@ -950,11 +950,11 @@ export class CardInteractionService implements ICardInteractionService {
    * @param cardId 카드 ID
    * @returns 카드 상태
    */
-  private getCardState(cardId: string): CardState {
-    if (this.draggingCardId === cardId) return 'dragging';
-    if (this.dropTargetCardId === cardId) return 'dropping';
-    if (this.focusedCardId === cardId) return 'focused';
-    if (this.isCardSelected(cardId)) return 'selected';
-    return 'normal';
+  private getCardState(cardId: string): CardStateEnum {
+    if (this.draggingCardId === cardId) return CardStateEnum.DRAGGING;
+    if (this.dropTargetCardId === cardId) return CardStateEnum.DROPPING;
+    if (this.focusedCardId === cardId) return CardStateEnum.FOCUSED;
+    if (this.isCardSelected(cardId)) return CardStateEnum.ACTIVE;
+    return CardStateEnum.NORMAL;
   }
 } 

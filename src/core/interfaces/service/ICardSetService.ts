@@ -1,7 +1,7 @@
-import { Card } from '../models/Card';
-import { CardSet } from '../models/CardSet';
-import { CardFilterOption, CardGroupOption, CardSetMode, CardSetOptions, CardSortOption } from '../types/cardset.types';
-import { ICardSetManager } from './ICardSetManager';
+import { Card } from '../../models/Card';
+import { CardSet } from '../../models/CardSet';
+import { CardFilterOption, CardGroupOption, CardSetMode, CardSetOptions, CardSortOption } from '../../types/cardset.types';
+import { ICardSetManager } from '../manager/ICardSetManager';
 
 /**
  * 카드셋 서비스 인터페이스

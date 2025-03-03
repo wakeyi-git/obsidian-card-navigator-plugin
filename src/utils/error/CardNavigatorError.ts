@@ -28,7 +28,7 @@ export class CardNavigatorError extends Error {
   /**
    * 오류 발생 시간
    */
-  public readonly timestamp: Date;
+  public readonly timestamp: number;
   
   /**
    * 생성자
@@ -36,14 +36,14 @@ export class CardNavigatorError extends Error {
    * @param code 오류 코드
    * @param details 오류 세부 정보
    */
-  constructor(message: string, code: ErrorCode = 'UNKNOWN_ERROR', details?: Record<string, any>) {
+  constructor(message: string, code: ErrorCode = ErrorCode.UNKNOWN_ERROR, details?: Record<string, any>) {
     super(message);
     this.name = 'CardNavigatorError';
     this.code = code;
     this.severity = ERROR_SEVERITIES[code] || ErrorSeverity.ERROR;
     this.group = ERROR_GROUPS[code] || ErrorGroup.GENERAL;
     this.details = details;
-    this.timestamp = new Date();
+    this.timestamp = Date.now();
     
     // Error 객체의 프로토타입 체인 설정
     Object.setPrototypeOf(this, CardNavigatorError.prototype);
@@ -55,7 +55,7 @@ export class CardNavigatorError extends Error {
    */
   public toString(): string {
     const detailsStr = this.details ? `\n세부 정보: ${JSON.stringify(this.details, null, 2)}` : '';
-    const timestampStr = this.timestamp.toISOString();
+    const timestampStr = new Date(this.timestamp).toISOString();
     
     return `[${this.name}] [${this.code}] [${this.group}] [${this.severity}] [${timestampStr}]
 메시지: ${this.message}${detailsStr}
@@ -74,7 +74,7 @@ ${this.stack ? `\n스택 트레이스:\n${this.stack}` : ''}`;
       severity: this.severity,
       message: this.message,
       details: this.details,
-      timestamp: this.timestamp.toISOString(),
+      timestamp: this.timestamp,
       stack: this.stack
     };
   }
@@ -86,7 +86,7 @@ ${this.stack ? `\n스택 트레이스:\n${this.stack}` : ''}`;
    * @param details 오류 세부 정보
    * @returns 카드 네비게이터 오류 객체
    */
-  public static create(message: string, code: ErrorCode = 'UNKNOWN_ERROR', details?: Record<string, any>): CardNavigatorError {
+  public static create(message: string, code: ErrorCode = ErrorCode.UNKNOWN_ERROR, details?: Record<string, any>): CardNavigatorError {
     return new CardNavigatorError(message, code, details);
   }
   
@@ -103,31 +103,31 @@ ${this.stack ? `\n스택 트레이스:\n${this.stack}` : ''}`;
     
     switch (group) {
       case ErrorGroup.FILE:
-        errorCode = 'FILE_NOT_FOUND';
+        errorCode = ErrorCode.FILE_NOT_FOUND;
         break;
       case ErrorGroup.SETTINGS:
-        errorCode = 'SETTINGS_LOAD_ERROR';
+        errorCode = ErrorCode.SETTINGS_LOAD_ERROR;
         break;
       case ErrorGroup.PRESET:
-        errorCode = 'PRESET_LOAD_ERROR';
+        errorCode = ErrorCode.PRESET_LOAD_ERROR;
         break;
       case ErrorGroup.CARDSET:
-        errorCode = 'CARDSET_LOAD_ERROR';
+        errorCode = ErrorCode.CARDSET_LOAD_ERROR;
         break;
       case ErrorGroup.LAYOUT:
-        errorCode = 'LAYOUT_INITIALIZATION_ERROR';
+        errorCode = ErrorCode.LAYOUT_INITIALIZATION_ERROR;
         break;
       case ErrorGroup.SEARCH:
-        errorCode = 'SEARCH_ERROR';
+        errorCode = ErrorCode.SEARCH_ERROR;
         break;
       case ErrorGroup.RENDER:
-        errorCode = 'RENDER_ERROR';
+        errorCode = ErrorCode.RENDER_ERROR;
         break;
       case ErrorGroup.API:
-        errorCode = 'API_ERROR';
+        errorCode = ErrorCode.API_ERROR;
         break;
       default:
-        errorCode = 'UNKNOWN_ERROR';
+        errorCode = ErrorCode.UNKNOWN_ERROR;
     }
     
     return new CardNavigatorError(message, errorCode, details);

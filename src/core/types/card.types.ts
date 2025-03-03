@@ -1,9 +1,15 @@
 import { TFile } from 'obsidian';
-import { ThemeMode, IEventData } from './common.types';
+import { ThemeMode, IEventData, SortDirection } from './common.types';
 import { ICardPosition } from './layout.types';
 
 // Card 클래스 타입 참조를 위한 전방 선언
 import { Card } from '../models/Card';
+
+/**
+ * 정렬 필드 타입
+ * 카드 정렬 기준 필드를 정의합니다.
+ */
+export type SortField = 'name' | 'path' | 'created' | 'modified' | 'size' | 'custom';
 
 /**
  * 카드 렌더링 옵션 인터페이스
@@ -175,14 +181,23 @@ export enum CardStateEnum {
   /**
    * 편집 중인 상태
    */
-  EDITING = 'editing'
+  EDITING = 'editing',
+  
+  /**
+   * 활성화 상태
+   */
+  ACTIVE = 'active',
+  
+  /**
+   * 포커스 상태
+   */
+  FOCUSED = 'focused',
+  
+  /**
+   * 드롭 대상 상태
+   */
+  DROPPING = 'dropping'
 }
-
-/**
- * 카드 상태 타입
- * @deprecated CardStateEnum을 사용하세요.
- */
-export type CardState = 'normal' | 'hover' | 'selected' | 'dragging' | 'editing';
 
 /**
  * 카드 이벤트 타입 열거형
@@ -229,7 +244,8 @@ export type CardContainerEventType =
   | 'card-deselected'
   | 'selection-cleared'
   | 'layout-updated'
-  | 'card-moved';
+  | 'card-moved'
+  | 'cards-cleared';
 
 /**
  * 카드 컨테이너 이벤트 데이터 인터페이스
@@ -252,6 +268,11 @@ export interface CardContainerEventData extends IEventData {
   card?: any; // Card 타입으로 변경 필요 (순환 참조 방지를 위해 any 사용)
   
   /**
+   * 카드 관리자
+   */
+  cardManager?: any; // ICardManager 타입으로 변경 필요 (순환 참조 방지를 위해 any 사용)
+  
+  /**
    * 카드 수
    */
   cardCount?: number;
@@ -266,4 +287,45 @@ export interface CardContainerEventData extends IEventData {
  * 이벤트 핸들러 타입
  * 이벤트 발생 시 호출되는 콜백 함수의 타입을 정의합니다.
  */
-export type CardEventHandler<T> = (data: T) => void; 
+export type CardEventHandler<T> = (data: T) => void;
+
+/**
+ * 카드 위치 인터페이스
+ * 카드의 위치 정보를 정의합니다.
+ */
+export interface CardPosition {
+  /**
+   * 카드 ID
+   */
+  cardId: string;
+  
+  /**
+   * X 좌표
+   */
+  x: number;
+  
+  /**
+   * Y 좌표
+   */
+  y: number;
+  
+  /**
+   * 열 인덱스
+   */
+  column: number;
+  
+  /**
+   * 행 인덱스
+   */
+  row: number;
+  
+  /**
+   * 너비 (열 수)
+   */
+  width: number;
+  
+  /**
+   * 높이 (행 수)
+   */
+  height: number;
+} 

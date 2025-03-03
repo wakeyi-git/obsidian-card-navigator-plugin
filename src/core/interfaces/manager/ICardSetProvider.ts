@@ -1,18 +1,13 @@
 import { TFile } from 'obsidian';
-import { CardSet } from '../models/CardSet';
-import { CardSetMode } from '../types/cardset.types';
+import { CardSet } from '../../models/CardSet';
+import { CardSetMode } from '../../types/cardset.types';
+import { IEventManager } from './IEventManager';
 
 /**
- * 카드셋 제공자 인터페이스
- * 다양한 소스(폴더, 검색 결과 등)에서 카드셋을 로드하고 관리하는 기능을 정의합니다.
+ * 카드셋 로더 인터페이스
+ * 카드셋을 로드하는 기능을 정의합니다.
  */
-export interface ICardSetProvider {
-  /**
-   * 제공자 타입
-   * 카드셋 제공자의 유형을 식별합니다.
-   */
-  readonly type: CardSetMode;
-  
+export interface ICardSetLoader {
   /**
    * 카드셋 로드
    * 제공자 유형에 따라 카드셋을 로드합니다.
@@ -29,7 +24,13 @@ export interface ICardSetProvider {
    * @throws 카드셋 새로고침 중 오류가 발생한 경우
    */
   refreshCardSet(currentCardSet: CardSet): Promise<CardSet>;
-  
+}
+
+/**
+ * 파일 변경 처리 인터페이스
+ * 파일 변경 이벤트를 처리하는 기능을 정의합니다.
+ */
+export interface IFileChangeHandler {
   /**
    * 파일 변경 처리
    * 파일 생성, 수정, 삭제 등의 변경 사항을 처리합니다.
@@ -47,13 +48,13 @@ export interface ICardSetProvider {
    * @returns 포함 여부
    */
   containsFile(file: TFile): boolean;
-  
-  /**
-   * 제공자 옵션 설정
-   * @param options 제공자 옵션
-   */
-  setOptions(options: Record<string, any>): void;
-  
+}
+
+/**
+ * 생명주기 관리 인터페이스
+ * 초기화 및 정리 기능을 정의합니다.
+ */
+export interface ILifecycleManager {
   /**
    * 제공자 초기화
    * 제공자를 초기화하고 필요한 리소스를 설정합니다.
@@ -66,4 +67,22 @@ export interface ICardSetProvider {
    * 제공자가 사용한 리소스를 정리합니다.
    */
   destroy(): void;
+}
+
+/**
+ * 카드셋 제공자 인터페이스
+ * 다양한 소스(폴더, 검색 결과 등)에서 카드셋을 로드하고 관리하는 기능을 정의합니다.
+ */
+export interface ICardSetProvider extends ICardSetLoader, IFileChangeHandler, IEventManager, ILifecycleManager {
+  /**
+   * 제공자 모드
+   * 카드셋 제공자의 유형을 식별합니다.
+   */
+  readonly mode: CardSetMode;
+  
+  /**
+   * 제공자 옵션 설정
+   * @param options 제공자 옵션
+   */
+  setOptions(options: Record<string, any>): void;
 } 

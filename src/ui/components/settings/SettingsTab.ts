@@ -139,7 +139,7 @@ export class SettingsTab extends PluginSettingTab {
             const presetName = await this.promptForPresetName();
             if (presetName) {
               // 현재 설정으로 프리셋 생성
-              await this.presetManager.createPreset(
+              await this.presetManager.createPresetWithSettings(
                 presetName,
                 this.settingsManager.getSettings()
               );
@@ -290,7 +290,7 @@ export class SettingsTab extends PluginSettingTab {
           .onChange(async (value) => {
             // 설정 업데이트
             this.settings.language.useSystemLanguage = value;
-            await this.plugin.saveSettings();
+            await this.settingsManager.saveSettings();
             
             // 언어 설정 섹션 다시 표시
             containerEl.empty();
@@ -316,7 +316,7 @@ export class SettingsTab extends PluginSettingTab {
         dropdown.onChange(async (value) => {
           // 설정 업데이트
           this.settings.language.locale = value;
-          await this.plugin.saveSettings();
+          await this.settingsManager.saveSettings();
           
           // 언어 설정 섹션 다시 표시
           containerEl.empty();

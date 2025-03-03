@@ -1,5 +1,4 @@
 import { App } from 'obsidian';
-import { CardSetType } from '../../../core/types/cardset.types';
 import { SortDirection, SortField } from '../../../core/types/card.types';
 import { PresetManager } from '../../../managers/preset/PresetManager';
 import { ToolbarButton, ToolbarButtonOptions } from './ToolbarButton';

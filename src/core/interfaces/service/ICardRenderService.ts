@@ -1,5 +1,5 @@
-import { Card } from '../models/Card';
-import { CardRenderOptions } from '../types/card.types';
+import { Card } from '../../models/Card';
+import { CardRenderOptions } from '../../types/card.types';
 
 /**
  * 카드 렌더링 서비스 인터페이스

@@ -1,7 +1,7 @@
-import { Card } from '../models/Card';
+import { Card } from '../../models/Card';
 import { ICardManager } from './ICardManager';
-import { CardContainerEventData, CardContainerEventType } from '../types/card.types';
-import { EventHandler } from '../types/common.types';
+import { CardContainerEventData, CardContainerEventType } from '../../types/card.types';
+import { EventHandler } from '../../types/common.types';
 
 /**
  * 카드 컨테이너 관리자 인터페이스

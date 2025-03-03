@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import { ISearchService } from '../../core/interfaces/ISearchService';
+import { ISearchService } from '../../core/interfaces/service/ISearchService';
 import { SearchResult } from '../../core/models/SearchResult';
 import { 
   SearchEvent, 
@@ -9,6 +9,7 @@ import {
   SearchSuggestion 
 } from '../../core/types/search.types';
 import { ErrorCode } from '../../core/constants/error.constants';
+import { Card } from '../../core/models/Card';
 
 /**
  * 검색 서비스 구현 클래스
@@ -56,14 +57,25 @@ export class SearchService implements ISearchService {
     // 기본 옵션과 사용자 옵션 병합
     this.options = {
       searchInTitle: true,
-      searchInHeader: true,
+      searchInHeaders: true,
       searchInTags: true,
       searchInContent: true,
       searchInFrontmatter: false,
       caseSensitive: false,
       useRegex: false,
+      matchWholeWord: false,
       ...options
     };
+  }
+  
+  /**
+   * 검색 서비스 초기화
+   * @param options 검색 옵션
+   */
+  initialize(options?: Partial<SearchOptions>): void {
+    if (options) {
+      this.setOptions(options);
+    }
   }
   
   /**
@@ -305,7 +317,7 @@ export class SearchService implements ISearchService {
     
     if (cache) {
       // 헤더 검색
-      if (this.options.searchInHeader && cache.headings) {
+      if (this.options.searchInHeaders && cache.headings) {
         this.searchInHeadings(cache.headings, searchPattern, result);
       }
       
@@ -443,19 +455,33 @@ export class SearchService implements ISearchService {
    * @returns 정규식 패턴
    */
   private createSearchPattern(searchTerm: string): RegExp {
-    try {
-      if (this.options.useRegex) {
-        // 정규식 검색
-        return new RegExp(searchTerm, this.options.caseSensitive ? 'g' : 'gi');
-      } else {
-        // 일반 텍스트 검색 (정규식 특수문자 이스케이프)
-        const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        return new RegExp(escapedTerm, this.options.caseSensitive ? 'g' : 'gi');
+    if (!searchTerm) {
+      return /(?:)/; // 빈 검색어는 아무것도 매치하지 않음
+    }
+    
+    let pattern = searchTerm;
+    
+    // 정규식이 아닌 경우 특수 문자 이스케이프
+    if (!this.options.useRegex) {
+      pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    
+    // 전체 단어 매치 옵션이 활성화된 경우
+    if (this.options.matchWholeWord) {
+      // 정규식이 아닌 경우에만 단어 경계 추가
+      if (!this.options.useRegex) {
+        pattern = `\\b${pattern}\\b`;
       }
-    } catch (error: any) {
-      console.error(`검색 패턴 생성 오류: ${error.message}`, error);
-      // 오류 발생 시 기본 패턴 사용
-      return new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    }
+    
+    // 대소문자 구분 옵션
+    const flags = this.options.caseSensitive ? 'g' : 'gi';
+    
+    try {
+      return new RegExp(pattern, flags);
+    } catch (error) {
+      // 정규식 생성 오류 시 기본 패턴 반환
+      return new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
     }
   }
   
@@ -487,8 +513,14 @@ export class SearchService implements ISearchService {
     const tagSet = new Set<string>();
     
     // 모든 파일의 캐시 순회
-    this.app.metadataCache.getCachedFiles().forEach(filePath => {
-      const cache = this.app.metadataCache.getCache(filePath);
+    this.app.metadataCache.getFileCache = this.app.metadataCache.getFileCache || (() => null);
+    
+    // 볼트의 모든 마크다운 파일 가져오기
+    const files = this.app.vault.getMarkdownFiles();
+    
+    // 각 파일의 캐시 확인
+    files.forEach(file => {
+      const cache = this.app.metadataCache.getFileCache(file);
       
       if (cache && cache.tags) {
         cache.tags.forEach(tagObj => {
@@ -497,7 +529,7 @@ export class SearchService implements ISearchService {
       }
     });
     
-    return Array.from(tagSet);
+    return Array.from(tagSet).sort();
   }
   
   /**
@@ -509,6 +541,91 @@ export class SearchService implements ISearchService {
     const handlers = this.eventHandlers.get(event);
     if (handlers) {
       handlers.forEach(handler => handler(data));
+    }
+  }
+  
+  /**
+   * 검색 서비스 정리
+   */
+  destroy(): void {
+    // 이벤트 핸들러 정리
+    this.eventHandlers.clear();
+    
+    // 검색 취소
+    this.cancelSearch();
+  }
+  
+  /**
+   * 파일 검색
+   * @param files 검색할 파일 배열
+   * @param searchTerm 검색어
+   * @returns 검색 결과 파일 배열
+   */
+  async searchFiles(files: TFile[], searchTerm: string): Promise<TFile[]> {
+    const results = await this.search(searchTerm, files);
+    return results.map(result => result.file);
+  }
+  
+  /**
+   * 카드 검색
+   * @param cards 검색할 카드 배열
+   * @param searchTerm 검색어
+   * @returns 검색 결과 카드 배열
+   */
+  async searchCards(cards: Card[], searchTerm: string): Promise<Card[]> {
+    // 카드에서 파일 추출
+    const files = cards.map(card => card.file).filter((file): file is TFile => !!file);
+    
+    // 파일 검색 수행
+    const results = await this.search(searchTerm, files);
+    
+    // 검색 결과 파일과 일치하는 카드만 반환
+    const resultFileIds = new Set(results.map(result => result.file.path));
+    return cards.filter(card => card.file && resultFileIds.has(card.file.path));
+  }
+  
+  /**
+   * 검색 옵션 가져오기
+   * @param key 옵션 키
+   * @returns 옵션 값
+   */
+  getOption<K extends keyof SearchOptions>(key: K): SearchOptions[K] {
+    return this.options[key];
+  }
+  
+  /**
+   * 검색 기록에 검색어 추가
+   * @param searchTerm 검색어
+   */
+  addToHistory(searchTerm: string): void {
+    this.addToSearchHistory(searchTerm);
+  }
+  
+  /**
+   * 상세 검색 결과 가져오기
+   * @param files 검색할 파일 배열
+   * @param searchTerm 검색어
+   * @returns 상세 검색 결과 배열
+   */
+  async getDetailedSearchResults(files: TFile[], searchTerm: string): Promise<SearchResult[]> {
+    return this.search(searchTerm, files);
+  }
+  
+  /**
+   * 검색 결과 하이라이트 처리
+   * @param content 원본 콘텐츠
+   * @param searchTerm 검색어
+   * @returns 하이라이트된 콘텐츠
+   */
+  highlightSearchResults(content: string, searchTerm: string): string {
+    if (!searchTerm || !content) return content;
+    
+    try {
+      const pattern = this.createSearchPattern(searchTerm);
+      return content.replace(pattern, match => `<span class="search-highlight">${match}</span>`);
+    } catch (error) {
+      // 정규식 오류 등의 예외 처리
+      return content;
     }
   }
 } 

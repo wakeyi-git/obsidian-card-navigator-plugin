@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import { ICardService } from '../../core/interfaces/ICardService';
+import { ICardService } from '../../core/interfaces/service/ICardService';
 import { Card } from '../../core/models/Card';
 import { CardData } from '../../core/types/card.types';
 import { SettingsManager } from '../../managers/settings/SettingsManager';

@@ -1,5 +1,5 @@
 import { TFile } from 'obsidian';
-import { CardSetMode, CardSetOptions, CardSortOption, ICardSet } from '../types/cardset.types';
+import { CardSetMode, CardSetOptions, CardSortOption, ICardSet } from '../../types/cardset.types';
 import { ICardSetProvider } from './ICardSetProvider';
 
 /**
@@ -11,7 +11,7 @@ export interface ICardSetManager {
    * 카드셋 초기화
    * @param options 카드셋 옵션
    */
-  initialize(options?: Partial<CardSetOptions>): void;
+  initialize(options?: Partial<CardSetOptions>): Promise<void>;
   
   /**
    * 카드셋 제공자 등록
@@ -106,4 +106,10 @@ export interface ICardSetManager {
    * 카드셋 파괴
    */
   destroy(): void;
+  
+  /**
+   * 카드셋 모드 문자열 설정
+   * @param mode 카드셋 모드 문자열 ('ACTIVE_FOLDER', 'SELECTED_FOLDER', 'VAULT', 'SEARCH_RESULTS', 'TAG', 'CUSTOM')
+   */
+  setCardSetType(mode: string): Promise<void>;
 } 

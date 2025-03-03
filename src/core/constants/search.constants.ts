@@ -1,4 +1,5 @@
 import { SearchOptions } from '../types/search.types';
+import { SortDirection } from '../types/common.types';
 
 /**
  * 검색 관련 상수
@@ -27,6 +28,8 @@ export enum SearchField {
   CONTENT = 'content',       // 내용
   TAGS = 'tags',             // 태그
   HEADERS = 'headers',       // 헤더
+  HEADINGS = 'headings',     // 헤딩 (HEADERS와 동일한 용도로 사용)
+  LINKS = 'links',           // 링크
   FRONTMATTER = 'frontmatter', // 프론트매터
   ALL = 'all',               // 모든 필드
 }
@@ -40,14 +43,6 @@ export enum SearchSortBy {
   CREATED = 'created',       // 생성일
   MODIFIED = 'modified',     // 수정일
   SIZE = 'size',             // 크기
-}
-
-/**
- * 검색 정렬 방향 열거형
- */
-export enum SearchSortDirection {
-  ASC = 'asc',               // 오름차순
-  DESC = 'desc',             // 내림차순
 }
 
 /**
@@ -70,7 +65,7 @@ export const DEFAULT_SEARCH_SETTINGS = {
   SORT_BY: SearchSortBy.RELEVANCE,
   
   // 검색 정렬 방향
-  SORT_DIRECTION: SearchSortDirection.DESC,
+  SORT_DIRECTION: SortDirection.DESC,
   
   // 검색 결과 하이라이트 여부
   HIGHLIGHT_RESULTS: true,
@@ -290,6 +285,16 @@ export const DEFAULT_SEARCH_OPTIONS: SearchOptions = {
   caseSensitive: false,
   useRegex: false,
 };
+
+/**
+ * 기본 검색 정렬 기준
+ */
+export const DEFAULT_SEARCH_SORT_BY = SearchSortBy.RELEVANCE;
+
+/**
+ * 기본 검색 정렬 방향
+ */
+export const DEFAULT_SEARCH_SORT_DIRECTION = SortDirection.DESC;
 
 /**
  * 검색 입력 지연 시간 (밀리초)

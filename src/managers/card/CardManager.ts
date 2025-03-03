@@ -1,12 +1,12 @@
 import { TFile } from 'obsidian';
 import { Card } from '../../core/models/Card';
-import { CardData, CardEventData, CardEventType, CardState, CardStateEnum } from '../../core/types/card.types';
+import { CardData, CardEventData, CardEventType, CardStateEnum } from '../../core/types/card.types';
 import { ICardPosition } from '../../core/types/layout.types';
 import { CardPosition } from '../../core/models/CardPosition';
-import { ICardService } from '../../core/interfaces/ICardService';
-import { ICardManager } from '../../core/interfaces/ICardManager';
-import { ICardRenderService } from '../../core/interfaces/ICardRenderService';
-import { ICardInteractionService } from '../../core/interfaces/ICardInteractionService';
+import { ICardService } from '../../core/interfaces/service/ICardService';
+import { ICardManager } from '../../core/interfaces/manager/ICardManager';
+import { ICardRenderService } from '../../core/interfaces/service/ICardRenderService';
+import { ICardInteractionService } from '../../core/interfaces/service/ICardInteractionService';
 import { EventHandler } from '../../core/types/common.types';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
 import { Log } from '../../utils/log/Log';
@@ -16,14 +16,52 @@ import { ErrorCode } from '../../core/constants/error.constants';
  * CardManager 클래스는 개별 카드의 생성, 업데이트, 삭제 및 상태 관리를 담당합니다.
  */
 export class CardManager implements ICardManager {
-  private card: Card;
-  private element: HTMLElement | null = null;
-  private state: CardStateEnum = CardStateEnum.NORMAL;
+  private _card: Card;
+  private _element: HTMLElement | null = null;
+  private _state: CardStateEnum = CardStateEnum.NORMAL;
   private position: ICardPosition | null = null;
   private cardService: ICardService;
   private cardRenderService: ICardRenderService;
   private cardInteractionService: ICardInteractionService;
   private eventListeners: Map<string, EventHandler<CardEventData>[]> = new Map();
+
+  /**
+   * 카드 ID getter
+   */
+  get cardId(): string {
+    return this._card.id;
+  }
+  
+  /**
+   * 카드 객체 getter
+   */
+  get card(): Card {
+    return this._card;
+  }
+  
+  /**
+   * 카드 객체 setter
+   */
+  set card(value: Card) {
+    this._card = value;
+  }
+  
+  /**
+   * 카드 요소 getter
+   */
+  get element(): HTMLElement {
+    if (!this._element) {
+      throw new Error('카드 요소가 초기화되지 않았습니다.');
+    }
+    return this._element;
+  }
+  
+  /**
+   * 카드 상태 getter
+   */
+  get state(): CardStateEnum {
+    return this._state;
+  }
 
   /**
    * CardManager 생성자
@@ -38,7 +76,7 @@ export class CardManager implements ICardManager {
     cardRenderService: ICardRenderService,
     cardInteractionService: ICardInteractionService
   ) {
-    this.card = card;
+    this._card = card;
     this.cardService = cardService;
     this.cardRenderService = cardRenderService;
     this.cardInteractionService = cardInteractionService;
@@ -47,24 +85,22 @@ export class CardManager implements ICardManager {
   }
 
   /**
-   * 카드 요소를 생성하고 초기화합니다.
-   * @returns 생성된 카드 HTML 요소
+   * 카드 관리자 초기화
    */
-  public initialize(): HTMLElement {
-    return ErrorHandler.captureErrorSync(() => {
-      if (this.element) {
-        return this.element;
+  public initialize(): void {
+    ErrorHandler.captureErrorSync(() => {
+      if (this._element) {
+        return;
       }
 
       // 카드 렌더링 서비스를 사용하여 카드 요소 생성
-      this.element = this.cardRenderService.renderCard(this.card);
+      this._element = this.cardRenderService.createCardElement(this._card);
       
       // 카드 상호작용 이벤트 설정
       this.setupInteractions();
       
-      Log.debug('CardManager', `카드 초기화 완료: ${this.card.id}`);
-      return this.element;
-    }, 'CARD_INITIALIZATION_ERROR', { cardId: this.card.id }, true) || this.createErrorElement();
+      Log.debug('CardManager', `카드 초기화 완료: ${this._card.id}`);
+    }, ErrorCode.CARD_INITIALIZATION_ERROR, { cardId: this._card.id }, true) || this.createErrorElement();
   }
 
   /**
@@ -82,16 +118,16 @@ export class CardManager implements ICardManager {
    * 카드 상호작용 이벤트를 설정합니다.
    */
   private setupInteractions(): void {
-    if (!this.element) return;
+    if (!this._element) return;
 
     // 카드 상호작용 서비스를 사용하여 이벤트 설정
-    this.cardInteractionService.setupCardInteractions(this.element, this.card, {
-      onClick: this.handleCardClick.bind(this),
-      onContextMenu: this.handleCardContextMenu.bind(this),
-      onDragStart: this.handleCardDragStart.bind(this),
-      onDragEnd: this.handleCardDragEnd.bind(this),
-      onHover: this.handleCardHover.bind(this),
-      onLeave: this.handleCardLeave.bind(this)
+    this.cardInteractionService.setupCardInteractions(this._card, this._element, {
+      onClick: (event: MouseEvent) => this.handleCardClick(event),
+      onContextMenu: (event: MouseEvent) => this.handleCardContextMenu(event),
+      onDragStart: (event: DragEvent) => this.handleCardDragStart(event),
+      onDragEnd: (event: DragEvent) => this.handleCardDragEnd(event),
+      onHover: (event: MouseEvent) => this.handleCardHover(event),
+      onLeave: (event: MouseEvent) => this.handleCardLeave(event)
     });
   }
 
@@ -101,10 +137,10 @@ export class CardManager implements ICardManager {
    */
   private handleCardClick(event: MouseEvent): void {
     ErrorHandler.captureErrorSync(() => {
-      // 카드 클릭 시 파일 열기
-      this.cardService.openCardFile(this.card);
-      this.emitEvent('card-click', { card: this.card, event });
-    }, 'CARD_CLICK_ERROR', { cardId: this.card.id }, true);
+      // 카드 클릭 시 상호작용 서비스의 핸들러 호출
+      this.cardInteractionService.handleCardClick(this._card, event);
+      this.emitEvent(CardEventType.CLICK, { card: this._card, originalEvent: event });
+    }, ErrorCode.CARD_CLICK_ERROR, { cardId: this._card.id }, true);
   }
 
   /**
@@ -113,8 +149,8 @@ export class CardManager implements ICardManager {
    */
   private handleCardContextMenu(event: MouseEvent): void {
     ErrorHandler.captureErrorSync(() => {
-      this.emitEvent('card-contextmenu', { card: this.card, event });
-    }, 'CARD_CONTEXT_MENU_ERROR', { cardId: this.card.id }, true);
+      this.emitEvent(CardEventType.CONTEXT_MENU, { card: this._card, originalEvent: event });
+    }, ErrorCode.CARD_CONTEXT_MENU_ERROR, { cardId: this._card.id }, true);
   }
 
   /**
@@ -123,9 +159,9 @@ export class CardManager implements ICardManager {
    */
   private handleCardDragStart(event: DragEvent): void {
     ErrorHandler.captureErrorSync(() => {
-      this.setState('dragging');
-      this.emitEvent('card-dragstart', { card: this.card, event });
-    }, 'CARD_DRAG_START_ERROR', { cardId: this.card.id }, true);
+      this.setState(CardStateEnum.DRAGGING);
+      this.emitEvent(CardEventType.DRAG_START, { card: this._card, originalEvent: event });
+    }, ErrorCode.CARD_DRAG_START_ERROR, { cardId: this._card.id }, true);
   }
 
   /**
@@ -134,9 +170,9 @@ export class CardManager implements ICardManager {
    */
   private handleCardDragEnd(event: DragEvent): void {
     ErrorHandler.captureErrorSync(() => {
-      this.setState('normal');
-      this.emitEvent('card-dragend', { card: this.card, event });
-    }, 'CARD_DRAG_END_ERROR', { cardId: this.card.id }, true);
+      this.setState(CardStateEnum.NORMAL);
+      this.emitEvent(CardEventType.DRAG_END, { card: this._card, originalEvent: event });
+    }, ErrorCode.CARD_DRAG_END_ERROR, { cardId: this._card.id }, true);
   }
 
   /**
@@ -145,11 +181,11 @@ export class CardManager implements ICardManager {
    */
   private handleCardHover(event: MouseEvent): void {
     ErrorHandler.captureErrorSync(() => {
-      if (this.state !== 'selected' && this.state !== 'dragging') {
-        this.setState('hover');
+      if (this._state !== CardStateEnum.SELECTED && this._state !== CardStateEnum.DRAGGING) {
+        this.setState(CardStateEnum.HOVER);
       }
-      this.emitEvent('card-hover', { card: this.card, event });
-    }, 'CARD_HOVER_ERROR', { cardId: this.card.id }, false);
+      this.emitEvent(CardEventType.HOVER, { card: this._card, originalEvent: event });
+    }, ErrorCode.CARD_HOVER_ERROR, { cardId: this._card.id }, false);
   }
 
   /**
@@ -158,11 +194,11 @@ export class CardManager implements ICardManager {
    */
   private handleCardLeave(event: MouseEvent): void {
     ErrorHandler.captureErrorSync(() => {
-      if (this.state === 'hover') {
-        this.setState('normal');
+      if (this._state === CardStateEnum.HOVER) {
+        this.setState(CardStateEnum.NORMAL);
       }
-      this.emitEvent('card-leave', { card: this.card, event });
-    }, 'CARD_LEAVE_ERROR', { cardId: this.card.id }, false);
+      this.emitEvent(CardEventType.LEAVE, { card: this._card, originalEvent: event });
+    }, ErrorCode.CARD_LEAVE_ERROR, { cardId: this._card.id }, false);
   }
 
   /**
@@ -176,7 +212,7 @@ export class CardManager implements ICardManager {
     const eventData: CardEventData = {
       type: eventType,
       timestamp: Date.now(),
-      card: this.card,
+      card: this._card,
       ...data
     };
     
@@ -189,9 +225,9 @@ export class CardManager implements ICardManager {
     });
     
     // 커스텀 이벤트 발생
-    if (this.element) {
+    if (this._element) {
       const customEvent = new CustomEvent(eventType, { detail: eventData, bubbles: true });
-      this.element.dispatchEvent(customEvent);
+      this._element.dispatchEvent(customEvent);
     }
   }
 
@@ -200,23 +236,7 @@ export class CardManager implements ICardManager {
    * @returns 카드 객체
    */
   public getCard(): Card {
-    return this.card;
-  }
-
-  /**
-   * 카드 HTML 요소를 반환합니다.
-   * @returns 카드 HTML 요소
-   */
-  public getElement(): HTMLElement | null {
-    return this.element;
-  }
-
-  /**
-   * 카드 상태를 반환합니다.
-   * @returns 카드 상태
-   */
-  public getState(): CardStateEnum {
-    return this.state;
+    return this._card;
   }
 
   /**
@@ -232,23 +252,23 @@ export class CardManager implements ICardManager {
    */
   public refresh(): void {
     ErrorHandler.captureErrorSync(() => {
-      if (!this.element) return;
+      if (!this._element) return;
       
       // 카드 렌더링 서비스를 사용하여 카드 요소 업데이트
       this.cardRenderService.updateCardElement(this.element, this.card);
-    }, 'CARD_REFRESH_ERROR', { cardId: this.card.id }, true);
+    }, ErrorCode.CARD_REFRESH_ERROR, { cardId: this.card.id }, true);
   }
 
   /**
    * 카드 데이터를 업데이트합니다.
-   * @param data 업데이트할 카드 데이터
+   * @param card 업데이트할 카드 데이터
    */
-  public updateCardData(data: Partial<CardData>): void {
+  public updateCardData(card: Card): void {
     ErrorHandler.captureErrorSync(() => {
-      this.card = this.card.update(data);
+      this._card = card;
       this.refresh();
-      this.emitEvent('card-updated', { card: this.card });
-    }, 'CARD_UPDATE_ERROR', { cardId: this.card.id }, true);
+      this.emitEvent(CardEventType.CONTENT_UPDATE, { card: this._card });
+    }, ErrorCode.CARD_UPDATE_ERROR, { cardId: this._card.id }, true);
   }
 
   /**
@@ -256,7 +276,7 @@ export class CardManager implements ICardManager {
    * @param state 설정할 카드 상태
    * @throws 유효하지 않은 카드 상태인 경우
    */
-  public setState(state: CardState): void {
+  public setState(state: CardStateEnum): void {
     try {
       // 상태 유효성 검사
       this.validateCardState(state);
@@ -274,7 +294,7 @@ export class CardManager implements ICardManager {
       }
       
       // 새 상태 설정
-      this.state = state as CardStateEnum;
+      this._state = state;
       
       // 상태에 따른 CSS 클래스 추가
       if (this.element) {
@@ -282,18 +302,17 @@ export class CardManager implements ICardManager {
       }
       
       // 상태 변경 이벤트 발생
-      this.dispatchEvent('card-state-changed', {
-        type: 'card-state-changed',
+      this.emitEvent(CardEventType.SELECTION_CHANGE, {
         card: this.card,
-        state: this.state
+        data: { state: this.state }
       });
       
       Log.debug('CardManager', `카드 상태 변경: ${this.card.id}, ${previousState} -> ${this.state}`);
-    } catch (error) {
+    } catch (error: unknown) {
       ErrorHandler.handleError(
         'CardManager.setState',
-        `카드 상태 설정 중 오류 발생: ${error.message}`,
-        error
+        `카드 상태 설정 중 오류 발생: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
+        false
       );
       throw error;
     }
@@ -304,13 +323,13 @@ export class CardManager implements ICardManager {
    * @param state 검사할 카드 상태
    * @throws 유효하지 않은 카드 상태인 경우
    */
-  private validateCardState(state: CardState): void {
+  private validateCardState(state: CardStateEnum): void {
     const validStates = Object.values(CardStateEnum);
     
-    if (!validStates.includes(state as CardStateEnum)) {
+    if (!validStates.includes(state)) {
       throw ErrorHandler.createError(
         ErrorCode.INVALID_CARD_STATE,
-        `유효하지 않은 카드 상태: ${state}`
+        { state }
       );
     }
   }
@@ -319,7 +338,7 @@ export class CardManager implements ICardManager {
    * 카드 위치를 설정합니다.
    * @param position 설정할 카드 위치
    */
-  public setPosition(position: ICardPosition): void {
+  private setPositionObject(position: ICardPosition): void {
     this.position = position;
     
     if (this.element) {
@@ -336,24 +355,45 @@ export class CardManager implements ICardManager {
   }
 
   /**
+   * 카드 위치를 설정합니다.
+   * @param x X 좌표
+   * @param y Y 좌표
+   * @param width 너비
+   * @param height 높이
+   */
+  public setPosition(x: number, y: number, width: number, height: number): void {
+    const position: ICardPosition = {
+      cardId: this.cardId,
+      x,
+      y,
+      width,
+      height,
+      row: 0,
+      column: 0
+    };
+    
+    this.setPositionObject(position);
+  }
+
+  /**
    * 카드 이벤트 리스너를 추가합니다.
    * @param eventType 이벤트 타입
-   * @param handler 이벤트 핸들러
+   * @param listener 이벤트 리스너
    */
-  public addEventListener(eventType: CardEventType, handler: EventHandler<CardEventData>): void {
+  public addEventListener(eventType: CardEventType, listener: EventListener): void {
     const listeners = this.eventListeners.get(eventType) || [];
-    listeners.push(handler);
+    listeners.push(listener as unknown as EventHandler<CardEventData>);
     this.eventListeners.set(eventType, listeners);
   }
 
   /**
    * 카드 이벤트 리스너를 제거합니다.
    * @param eventType 이벤트 타입
-   * @param handler 이벤트 핸들러
+   * @param listener 이벤트 리스너
    */
-  public removeEventListener(eventType: CardEventType, handler: EventHandler<CardEventData>): void {
+  public removeEventListener(eventType: CardEventType, listener: EventListener): void {
     const listeners = this.eventListeners.get(eventType) || [];
-    const index = listeners.indexOf(handler);
+    const index = listeners.indexOf(listener as unknown as EventHandler<CardEventData>);
     
     if (index !== -1) {
       listeners.splice(index, 1);
@@ -368,21 +408,29 @@ export class CardManager implements ICardManager {
   public destroy(): void {
     ErrorHandler.captureErrorSync(() => {
       // 이벤트 리스너 정리
-      if (this.element) {
-        this.cardInteractionService.removeCardInteractions(this.element);
+      if (this._element) {
+        this.cardInteractionService.removeCardInteractions(this._card, this._element);
         
         // 요소 제거
-        if (this.element.parentNode) {
-          this.element.parentNode.removeChild(this.element);
+        if (this._element.parentNode) {
+          this._element.parentNode.removeChild(this._element);
         }
         
-        this.element = null;
+        this._element = null;
       }
       
       // 이벤트 리스너 맵 정리
       this.eventListeners.clear();
       
       Log.debug('CardManager', `카드 매니저 정리 완료: ${this.card.id}`);
-    }, 'CARD_DESTROY_ERROR', { cardId: this.card.id }, true);
+    }, ErrorCode.CARD_DESTROY_ERROR, { cardId: this.card.id }, true);
+  }
+
+  /**
+   * 카드 UI 새로고침
+   * 카드 UI를 최신 상태로 업데이트합니다.
+   */
+  public refreshUI(): void {
+    this.refresh();
   }
 } 

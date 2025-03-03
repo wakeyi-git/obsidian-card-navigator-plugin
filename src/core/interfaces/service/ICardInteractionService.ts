@@ -1,6 +1,6 @@
-import { Card } from '../models/Card';
-import { CardEventData, CardEventType } from '../types/card.types';
-import { EventHandler } from '../types/common.types';
+import { Card } from '../../models/Card';
+import { CardEventData, CardEventType } from '../../types/card.types';
+import { EventHandler } from '../../types/common.types';
 
 /**
  * 카드 상호작용 이벤트 핸들러 타입
@@ -129,4 +129,21 @@ export interface ICardInteractionService {
    * 상호작용 서비스가 사용한 리소스를 정리합니다.
    */
   destroy(): void;
+  
+  /**
+   * 카드 상호작용 설정
+   * 카드 요소에 이벤트 리스너를 설정합니다.
+   * @param card 카드 객체
+   * @param element 카드 HTML 요소
+   * @param handlers 이벤트 핸들러 객체
+   */
+  setupCardInteractions(card: Card, element: HTMLElement, handlers: Partial<CardInteractionHandlers>): void;
+  
+  /**
+   * 카드 상호작용 제거
+   * 카드 요소에서 이벤트 리스너를 제거합니다.
+   * @param card 카드 객체
+   * @param element 카드 HTML 요소
+   */
+  removeCardInteractions(card: Card, element: HTMLElement): void;
 } 
