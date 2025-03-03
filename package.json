@@ -1,6 +1,6 @@
 {
 	"name": "card-navigator",
-	"version": "1.2.9",
+	"version": "1.2.5",
 	"description": "Navigate your notes visually with card-based interface in Obsidian",
 	"main": "main.js",
 	"scripts": {
@@ -12,19 +12,17 @@
 	"author": "wakeyi",
 	"license": "MIT",
 	"devDependencies": {
-		"@types/masonry-layout": "^4.2.8",
-		"@types/node": "^22.13.5",
-		"@typescript-eslint/eslint-plugin": "^8.25.0",
-		"@typescript-eslint/parser": "^8.25.0",
-		"builtin-modules": "^5.0.0",
-		"esbuild": "^0.25.0",
-		"obsidian": "^1.8.7",
-		"tslib": "^2.8.1",
-		"typescript": "^5.7.3"
+		"@types/node": "^16.11.6",
+		"@typescript-eslint/eslint-plugin": "5.29.0",
+		"@typescript-eslint/parser": "5.29.0",
+		"builtin-modules": "3.3.0",
+		"esbuild": "0.17.3",
+		"obsidian": "^1.7.2",
+		"tslib": "2.4.0",
+		"typescript": "4.7.4"
 	},
 	"dependencies": {
 		"@popperjs/core": "^2.11.8",
-		"i18next": "^24.2.2",
-		"masonry-layout": "^4.2.2"
+		"i18next": "^23.15.1"
 	}
 }
