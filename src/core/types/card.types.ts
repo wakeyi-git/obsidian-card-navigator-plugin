@@ -1,6 +1,7 @@
 import { TFile } from 'obsidian';
 import { ThemeMode, IEventData, SortDirection } from './common.types';
 import { ICardPosition } from './layout.types';
+import { CardEvent } from './event.types';
 
 // Card 클래스 타입 참조를 위한 전방 선언
 import { Card } from '../models/Card';
@@ -33,8 +34,9 @@ export interface CardRenderOptions {
   
   /**
    * 본문 내용 최대 길이
+   * 0이면 제한 없음
    */
-  contentMaxLength: number;
+  maxBodyLength: number;
   
   /**
    * 태그 표시 여부
@@ -55,6 +57,11 @@ export interface CardRenderOptions {
    * 파일명 글꼴 크기
    */
   fileNameFontSize: number;
+  
+  /**
+   * 제목 글꼴 크기
+   */
+  titleFontSize: number;
   
   /**
    * 본문 글꼴 크기
@@ -90,6 +97,14 @@ export interface CardRenderOptions {
    * 태그 모드
    */
   themeMode: ThemeMode;
+  
+  /**
+   * 태그 관련 설정
+   */
+  showEmptyTagsMessage: boolean;  // 태그가 없을 때 메시지 표시 여부
+  maxTagCount: number;            // 최대 표시 태그 수 (0: 제한 없음)
+  useTagColors: boolean;          // 태그 색상 사용 여부
+  tagColorMap: Record<string, string>;  // 태그별 색상 매핑
 }
 
 /**
@@ -105,7 +120,7 @@ export interface CardData {
   /**
    * 파일 객체
    */
-  file: TFile;
+  file?: TFile;
   
   /**
    * 파일 경로
@@ -150,7 +165,12 @@ export interface CardData {
   /**
    * 카드 위치
    */
-  position?: ICardPosition;
+  position?: ICardPosition | null;
+
+  /**
+   * 고정 여부
+   */
+  isPinned?: boolean;
 }
 
 /**
@@ -208,8 +228,14 @@ export enum CardEventType {
   CONTEXT_MENU = 'card:contextmenu',
   DRAG_START = 'card:dragstart',
   DRAG_END = 'card:dragend',
+  DRAG_OVER = 'card:dragover',
+  DROP = 'card:drop',
   HOVER = 'card:hover',
   LEAVE = 'card:leave',
+  KEY_DOWN = 'card:keydown',
+  FOCUS = 'card:focus',
+  BLUR = 'card:blur',
+  DOUBLE_CLICK = 'card:doubleclick',
   SELECTION_CHANGE = 'card:selectionchange',
   CONTENT_UPDATE = 'card:contentupdate',
   STYLE_UPDATE = 'card:styleupdate'
@@ -328,4 +354,40 @@ export interface CardPosition {
    * 높이 (행 수)
    */
   height: number;
+}
+
+/**
+ * 카드 상호작용 이벤트 타입
+ */
+export type CardInteractionEvent = 
+  | 'click' 
+  | 'dblclick' 
+  | 'contextmenu' 
+  | 'mouseenter' 
+  | 'mouseleave' 
+  | 'keydown' 
+  | 'dragstart' 
+  | 'dragend' 
+  | 'dragover' 
+  | 'drop';
+
+/**
+ * 카드 상호작용 핸들러 타입
+ */
+export type CardInteractionHandler = (
+  event: Event,
+  file: TFile,
+  data?: any
+) => void;
+
+/**
+ * 카드 메타데이터 인터페이스
+ */
+export interface CardMetadata {
+  title: string;
+  content: string;
+  tags: string[];
+  created: number;
+  modified: number;
+  frontmatter: any;
 } 

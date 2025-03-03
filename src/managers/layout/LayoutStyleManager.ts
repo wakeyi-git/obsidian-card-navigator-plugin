@@ -80,7 +80,7 @@ export class LayoutStyleManager {
     this.app = app;
     
     // 컨테이너에 기본 클래스 추가
-    this.containerEl.addClass(LAYOUT_CLASS_NAMES.CONTAINER);
+    this.containerEl.addClass(LAYOUT_CLASS_NAMES.CONTAINER.BASE);
     
     // 초기 스타일 적용
     this.applyStyles();
@@ -214,16 +214,31 @@ export class LayoutStyleManager {
     }
     
     const containerSelector = `#${this.containerElement.id}`;
-    const { cardBorderRadius, cardBorderWidth, cardShadowSize, cardPadding, 
-            cardBorderColor, cardShadowColor, cardBackgroundColor } = this.options;
+    const { cardBorderRadius = 8, cardBorderWidth = 1, cardShadowSize = 4, cardPadding = 16, 
+            cardBorderColor = 'var(--background-modifier-border)', 
+            cardShadowColor = 'rgba(0, 0, 0, 0.1)', 
+            cardBackgroundColor = 'var(--background-primary)' } = this.options;
     
     return `
       ${containerSelector} {
-        position: relative;
-        width: 100%;
+        display: flex;
+        flex-direction: column;
+        padding: ${LAYOUT_STYLES.CONTAINER.PADDING};
         height: 100%;
-        overflow: auto;
-        box-sizing: border-box;
+        width: 100%;
+        overflow: hidden;
+      }
+
+      ${containerSelector}.horizontal {
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+
+      ${containerSelector}.vertical {
+        flex-direction: column;
+        overflow-x: hidden;
+        overflow-y: auto;
       }
       
       ${containerSelector} .card-container {
@@ -231,35 +246,24 @@ export class LayoutStyleManager {
         width: 100%;
         height: 100%;
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(${LAYOUT_STYLES.CARD_MIN_WIDTH}, 1fr));
-        grid-gap: ${LAYOUT_STYLES.CARD_GAP};
-        padding: ${LAYOUT_STYLES.CONTAINER_PADDING};
+        grid-template-columns: repeat(auto-fill, minmax(${LAYOUT_STYLES.CARD.MIN_WIDTH}, 1fr));
+        grid-gap: ${LAYOUT_STYLES.CARD.GAP};
+        padding: ${LAYOUT_STYLES.CONTAINER.PADDING};
         box-sizing: border-box;
-      }
-      
-      ${containerSelector}.horizontal .card-container {
-        display: flex;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        overflow-y: hidden;
-        align-items: flex-start;
-        height: auto;
-        min-height: 100%;
       }
       
       ${containerSelector} .card {
         position: relative;
-        background: ${cardBackgroundColor};
-        color: var(--text-normal);
+        min-width: ${LAYOUT_STYLES.CARD.MIN_WIDTH};
+        max-width: ${LAYOUT_STYLES.CARD.MAX_WIDTH};
+        margin: ${LAYOUT_STYLES.CARD.GAP};
+        background-color: ${cardBackgroundColor};
         border: ${cardBorderWidth}px solid ${cardBorderColor};
         border-radius: ${cardBorderRadius}px;
+        box-shadow: 0 ${cardShadowSize}px ${cardShadowSize * 2}px ${cardShadowColor};
         padding: ${cardPadding}px;
-        box-shadow: 0 0 ${cardShadowSize}px ${cardShadowColor};
-        transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
         box-sizing: border-box;
-        overflow: hidden;
-        cursor: pointer;
-        user-select: none;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
       
       ${containerSelector} .card:hover {
@@ -281,13 +285,55 @@ export class LayoutStyleManager {
       
       ${containerSelector}.horizontal .card {
         flex: 0 0 auto;
-        width: ${LAYOUT_STYLES.CARD_MIN_WIDTH};
-        max-width: ${LAYOUT_STYLES.CARD_MAX_WIDTH};
-        margin-right: ${LAYOUT_STYLES.CARD_GAP};
+        width: ${LAYOUT_STYLES.CARD.MIN_WIDTH};
+        max-width: ${LAYOUT_STYLES.CARD.MAX_WIDTH};
+        margin-right: ${LAYOUT_STYLES.CARD.GAP};
       }
       
       ${containerSelector}.vertical .card {
         width: 100%;
+      }
+
+      ${containerSelector}.grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(${LAYOUT_STYLES.GRID.MIN_COLUMN_WIDTH}, 1fr));
+        grid-gap: ${LAYOUT_STYLES.GRID.GAP};
+        align-items: flex-start;
+        padding: ${LAYOUT_STYLES.CONTAINER.PADDING};
+      }
+
+      ${containerSelector}.grid .card {
+        width: 100%;
+        margin: 0;
+        min-width: ${LAYOUT_STYLES.CARD.MIN_WIDTH};
+        max-width: ${LAYOUT_STYLES.CARD.MAX_WIDTH};
+      }
+
+      ${containerSelector}.masonry {
+        column-count: auto;
+        column-width: ${LAYOUT_STYLES.MASONRY.MIN_COLUMN_WIDTH};
+        column-gap: ${LAYOUT_STYLES.MASONRY.COLUMN_GAP};
+        padding: ${LAYOUT_STYLES.CONTAINER.PADDING};
+      }
+
+      ${containerSelector}.masonry .card {
+        break-inside: avoid;
+        margin-bottom: ${LAYOUT_STYLES.MASONRY.ROW_GAP};
+        width: 100%;
+      }
+
+      ${containerSelector}.list {
+        display: flex;
+        flex-direction: column;
+        gap: ${LAYOUT_STYLES.LIST.GAP};
+        padding: ${LAYOUT_STYLES.CONTAINER.PADDING};
+      }
+
+      ${containerSelector}.list .card {
+        width: 100%;
+        min-height: ${LAYOUT_STYLES.LIST.ITEM_MIN_HEIGHT};
+        max-height: ${LAYOUT_STYLES.LIST.ITEM_MAX_HEIGHT};
+        margin: 0;
       }
     `;
   }

@@ -1,12 +1,13 @@
-import { IPreset, PresetSettings } from '../types/preset.types';
+import { IPreset, PresetSettings, PresetOptions } from '../types/preset.types';
 import { 
   CardContentSettings, 
   CardStyleSettings, 
   CardLayoutSettings,
   CardSet 
 } from '../types/settings.types';
-import { CardSetMode, CardSortBy } from '../types/cardset.types';
-import { SortDirection } from '../types/common.types';
+import { CardSetMode, CardSetOptions } from '../types/cardset.types';
+import { SortBy, SortDirection, SortOption } from '../types/common.types';
+import { LayoutType } from '../types/settings.types';
 
 /**
  * 프리셋 모델 클래스
@@ -44,6 +45,21 @@ export class Preset implements IPreset {
   private _settings: PresetSettings;
   
   /**
+   * 프리셋 옵션
+   */
+  private _options: PresetOptions;
+  
+  /**
+   * 기본 프리셋 여부
+   */
+  private _isDefault: boolean;
+  
+  /**
+   * 마지막 수정 날짜
+   */
+  private _lastModified: number;
+  
+  /**
    * 생성자
    * @param data 프리셋 데이터
    */
@@ -61,22 +77,59 @@ export class Preset implements IPreset {
   
   constructor(dataOrId: IPreset | string, name?: string, description?: string, settings?: Partial<PresetSettings>, isDefault?: boolean) {
     if (typeof dataOrId === 'string') {
-      // 직접 값을 받는 생성자
       const now = Date.now();
       this._id = dataOrId;
       this._name = name || '새 프리셋';
       this._description = description || '';
       this._createdAt = now;
       this._updatedAt = now;
-      this._settings = settings ? { ...settings } : Preset.getDefaultSettings();
+      this._settings = settings ? { ...Preset.getDefaultSettings(), ...settings } : Preset.getDefaultSettings();
+      this._options = {
+        cardSet: {
+          mode: CardSetMode.ACTIVE_FOLDER,
+          sortOption: {
+            field: SortBy.MODIFIED,
+            direction: SortDirection.DESC
+          },
+          filterOptions: [],
+          groupOption: {
+            by: 'none'
+          },
+          includeSubfolders: true,
+          autoRefresh: true
+        },
+        sort: {
+          field: SortBy.MODIFIED,
+          direction: SortDirection.DESC
+        },
+        layout: {
+          type: LayoutType.MASONRY,
+          cardThresholdWidth: 250,
+          alignCardHeight: false,
+          useFixedHeight: false,
+          fixedCardHeight: 0,
+          cardsPerColumn: 0,
+          isVertical: true,
+          smoothScroll: true
+        },
+        style: {
+          showHeader: true,
+          showFooter: true,
+          showTags: true
+        }
+      };
+      this._isDefault = isDefault || false;
+      this._lastModified = now;
     } else {
-      // 기존 생성자
       this._id = dataOrId.id;
       this._name = dataOrId.name;
       this._description = dataOrId.description || '';
       this._createdAt = dataOrId.createdAt;
       this._updatedAt = dataOrId.updatedAt;
       this._settings = { ...dataOrId.settings };
+      this._options = { ...dataOrId.options };
+      this._isDefault = dataOrId.isDefault || false;
+      this._lastModified = dataOrId.lastModified || Date.now();
     }
   }
   
@@ -147,6 +200,21 @@ export class Preset implements IPreset {
   }
   
   /**
+   * 프리셋 옵션 가져오기
+   */
+  get options(): PresetOptions {
+    return { ...this._options };
+  }
+  
+  /**
+   * 프리셋 옵션 설정하기
+   */
+  set options(value: PresetOptions) {
+    this._options = { ...value };
+    this._updatedAt = Date.now();
+  }
+  
+  /**
    * 프리셋 설정 업데이트하기
    * @param settings 업데이트할 설정
    */
@@ -169,7 +237,10 @@ export class Preset implements IPreset {
       description: this._description,
       createdAt: this._createdAt,
       updatedAt: this._updatedAt,
-      settings: { ...this._settings }
+      settings: { ...this._settings },
+      options: { ...this._options },
+      isDefault: this._isDefault,
+      lastModified: this._lastModified
     };
   }
   
@@ -188,7 +259,10 @@ export class Preset implements IPreset {
       description: this._description,
       createdAt: now,
       updatedAt: now,
-      settings: { ...this._settings }
+      settings: { ...this._settings },
+      options: { ...this._options },
+      isDefault: false,
+      lastModified: now
     });
   }
   
@@ -216,48 +290,43 @@ export class Preset implements IPreset {
       description: '기본 프리셋',
       createdAt: now,
       updatedAt: now,
-      settings: {
-        cardContent: {
-          showFileName: true,
-          showFirstHeader: true,
-          showBody: true,
-          bodyLengthLimit: true,
-          showTags: true,
-          bodyLength: 200,
-          renderContentAsHtml: true
-        },
-        cardStyle: {
-          fileNameFontSize: '16px',
-          firstHeaderFontSize: '16px',
-          bodyFontSize: '14px',
-          tagsFontSize: '12px',
-          cardWidth: '250px',
-          cardHeight: '200px',
-          cardPadding: '16px',
-          cardBorderRadius: '8px',
-          cardBorderWidth: '1px',
-          cardShadow: true,
-          dragDropContent: true
-        },
-        layout: {
-          cardThresholdWidth: 300,
-          alignCardHeight: false,
-          useFixedHeight: false,
-          fixedCardHeight: 200,
-          cardsPerColumn: 3,
-          isVertical: true
-        },
-        sort: {
-          sortBy: 'modificationDate',
-          sortDirection: 'desc'
-        },
+      settings: Preset.getDefaultSettings(),
+      options: {
         cardSet: {
           mode: CardSetMode.ACTIVE_FOLDER,
-          selectedFolder: null,
-          sortBy: CardSortBy.MODIFIED_TIME,
-          sortDirection: SortDirection.DESC
+          sortOption: {
+            field: SortBy.MODIFIED,
+            direction: SortDirection.DESC
+          },
+          filterOptions: [],
+          groupOption: {
+            by: 'none'
+          },
+          includeSubfolders: true,
+          autoRefresh: true
+        },
+        sort: {
+          field: SortBy.MODIFIED,
+          direction: SortDirection.DESC
+        },
+        layout: {
+          type: LayoutType.MASONRY,
+          cardThresholdWidth: 250,
+          alignCardHeight: false,
+          useFixedHeight: false,
+          fixedCardHeight: 0,
+          cardsPerColumn: 0,
+          isVertical: true,
+          smoothScroll: true
+        },
+        style: {
+          showHeader: true,
+          showFooter: true,
+          showTags: true
         }
-      }
+      },
+      isDefault: true,
+      lastModified: now
     });
   }
   
@@ -267,45 +336,37 @@ export class Preset implements IPreset {
    */
   static getDefaultSettings(): PresetSettings {
     return {
-      cardContent: {
-        showFileName: true,
-        showFirstHeader: true,
-        showBody: true,
-        bodyLengthLimit: true,
-        showTags: true,
-        bodyLength: 200,
-        renderContentAsHtml: true
-      },
-      cardStyle: {
-        fileNameFontSize: '16px',
-        firstHeaderFontSize: '16px',
-        bodyFontSize: '14px',
-        tagsFontSize: '12px',
-        cardWidth: '250px',
-        cardHeight: '200px',
-        cardPadding: '16px',
-        cardBorderRadius: '8px',
-        cardBorderWidth: '1px',
-        cardShadow: true,
-        dragDropContent: true
-      },
-      layout: {
-        cardThresholdWidth: 300,
-        alignCardHeight: false,
-        useFixedHeight: false,
-        fixedCardHeight: 200,
-        cardsPerColumn: 3,
-        isVertical: true
-      },
-      sort: {
-        sortBy: 'modificationDate',
-        sortDirection: 'desc'
-      },
       cardSet: {
         mode: CardSetMode.ACTIVE_FOLDER,
-        selectedFolder: null,
-        sortBy: CardSortBy.MODIFIED_TIME,
-        sortDirection: SortDirection.DESC
+        sortOption: {
+          field: SortBy.MODIFIED,
+          direction: SortDirection.DESC
+        },
+        filterOptions: [],
+        groupOption: {
+          by: 'none'
+        },
+        includeSubfolders: true,
+        autoRefresh: true
+      },
+      sort: {
+        field: SortBy.MODIFIED,
+        direction: SortDirection.DESC
+      },
+      layout: {
+        type: LayoutType.MASONRY,
+        cardThresholdWidth: 250,
+        alignCardHeight: false,
+        useFixedHeight: false,
+        fixedCardHeight: 0,
+        cardsPerColumn: 0,
+        isVertical: true,
+        smoothScroll: true
+      },
+      style: {
+        showHeader: true,
+        showFooter: true,
+        showTags: true
       }
     };
   }

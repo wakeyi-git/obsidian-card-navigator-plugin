@@ -1,6 +1,7 @@
 import { App } from 'obsidian';
 import { SearchSuggestionService } from '../../../services/search/SearchSuggestionService';
 import { ErrorHandler } from '../../../utils/error/ErrorHandler';
+import { SEARCH_CLASS_NAMES } from '../../../styles/components/search.styles';
 
 /**
  * 검색 제안 컴포넌트
@@ -63,11 +64,11 @@ export class SearchSuggestions {
   private render(): void {
     try {
       // 컨테이너 클래스 추가
-      this.containerEl.addClass('card-navigator-search-suggestions');
+      this.containerEl.addClass(SEARCH_CLASS_NAMES.SUGGESTIONS.CONTAINER);
       
       // 제안 목록 요소 생성
       this.suggestionListEl = this.containerEl.createEl('ul', {
-        cls: 'card-navigator-suggestion-list'
+        cls: SEARCH_CLASS_NAMES.SUGGESTIONS.LIST
       });
       
       // 기본적으로 숨김
@@ -126,7 +127,7 @@ export class SearchSuggestions {
       // 제안 항목 생성
       this.currentSuggestions.forEach((suggestion, index) => {
         const suggestionItemEl = this.suggestionListEl.createEl('li', {
-          cls: 'card-navigator-suggestion-item'
+          cls: SEARCH_CLASS_NAMES.SUGGESTIONS.ITEM
         });
         
         // 제안 텍스트 설정
@@ -134,7 +135,7 @@ export class SearchSuggestions {
         
         // 선택된 제안 강조
         if (index === this.selectedIndex) {
-          suggestionItemEl.addClass('selected');
+          suggestionItemEl.addClass(SEARCH_CLASS_NAMES.MATCH.SELECTED);
         }
         
         // 클릭 이벤트 추가

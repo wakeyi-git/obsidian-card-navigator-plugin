@@ -14,6 +14,14 @@ import { ErrorHandler } from './utils/error/ErrorHandler';
 import { Log } from './utils/log/Log';
 import { initializeTranslations } from './i18n';
 import { testCardSetManager } from './test/cardset-test';
+import { FileService } from './services/file/FileService';
+import { MetadataService } from './services/file/MetadataService';
+import { TagService } from './services/file/TagService';
+import { CardRenderService } from './services/card/CardRenderService';
+import { CardInteractionService } from './services/card/CardInteractionService';
+import { CardSetService } from './services/cardset/CardSetService';
+import { CardSetFilterService } from './services/cardset/CardSetFilterService';
+import { ICardSetService } from './core/interfaces/service/ICardSetService';
 
 /**
  * 카드 네비게이터 플러그인 클래스
@@ -54,6 +62,11 @@ export class CardNavigatorPlugin extends Plugin {
    * 카드 서비스
    */
   public cardService: CardService;
+  
+  /**
+   * 카드셋 서비스
+   */
+  public cardSetService: ICardSetService;
   
   /**
    * 설정 탭
@@ -138,9 +151,58 @@ export class CardNavigatorPlugin extends Plugin {
     this.layoutManager = new LayoutManager(this.app, this.settingsManager);
     this.cardSetManager = new CardSetManager(this.app, this.settingsManager);
     
-    // 서비스 초기화
-    this.searchService = new SearchService(this.app, this.settingsManager);
-    this.cardService = new CardService(this.app, this.settingsManager);
+    // 파일 관련 서비스 초기화
+    const fileService = new FileService(this.app);
+    const metadataService = new MetadataService(this.app);
+    const tagService = new TagService(this.app, metadataService, fileService);
+    
+    // 카드 관련 서비스 초기화
+    const cardRenderService = new CardRenderService(this.app);
+    const cardInteractionService = new CardInteractionService(this.app, this.settingsManager, fileService);
+    
+    // 서비스 초기화 - 기본 서비스부터 초기화
+    cardRenderService.initialize();
+    cardInteractionService.initialize();
+    
+    // 검색 서비스 초기화
+    this.searchService = new SearchService(
+      this.app, 
+      this.settingsManager.getSettings().search,
+      fileService,
+      metadataService
+    );
+    this.searchService.initialize();
+    
+    // 카드 서비스 초기화
+    this.cardService = new CardService(
+      this.app, 
+      this.settingsManager,
+      fileService,
+      metadataService,
+      tagService,
+      cardRenderService,
+      cardInteractionService
+    );
+    this.cardService.initialize();
+    
+    // 카드셋 서비스 초기화
+    const cardSetService = new CardSetService(
+      this.app,
+      this.cardService,
+      this.cardSetManager
+    );
+    cardSetService.initialize();
+    
+    // 카드셋 필터 서비스 초기화 (데코레이터 패턴)
+    const cardSetFilterService = new CardSetFilterService(
+      this.app,
+      cardSetService,
+      this.searchService
+    );
+    cardSetFilterService.initialize();
+    
+    // 카드셋 서비스 설정 (필터 서비스를 사용)
+    this.cardSetService = cardSetFilterService;
     
     // 설정 탭 초기화
     this.settingTab = new SettingsTab(
@@ -161,6 +223,20 @@ export class CardNavigatorPlugin extends Plugin {
     try {
       // 프리셋 초기화
       await this.presetManager.initialize();
+      
+      // 뷰 타입 등록
+      this.registerView(
+        CardNavigatorView.VIEW_TYPE,
+        (leaf) => new CardNavigatorView(
+          leaf,
+          this.cardSetManager,
+          this.layoutManager,
+          this.presetManager,
+          this.settingsManager,
+          this.searchService,
+          this.cardSetService
+        )
+      );
       
       // 리본 아이콘 추가
       this.addRibbonIcon('cards', '카드 네비게이터 열기', () => {

@@ -301,6 +301,8 @@ Card Navigator/
 ├── src/
 │   ├── core/
 │   │   ├── interfaces/
+│   │   │   ├──di/
+│   │   │   │   └── Container.ts             # 의존성 주입 컨테이너 클래스
 │   │   │   ├── manager/
 │   │   │   │   ├── ICardContainerManager.ts # 카드 컨테이너 관리자 인터페이스 정의
 │   │   │   │   ├── ICardManager.ts          # 카드 관리자 인터페이스 정의
@@ -311,6 +313,7 @@ Card Navigator/
 │   │   │   │   ├── ILayoutManager.ts        # 레이아웃 관리자 인터페이스 정의
 │   │   │   │   ├── IPresetManager.ts        # 프리셋 관리자 인터페이스 정의
 │   │   │   │   ├── IResizeManager.ts        # 리사이즈 관리자 인터페이스 정의
+│   │   │   │   ├── IStyleManager.ts         # 스타일 관리자 인터페이스 정의
 │   │   │   │   ├── ITagPresetManager.ts     # 태그 프리셋 관리자 인터페이스 정의
 │   │   │   │   └── ISettingsManager.ts      # 설정 관리자 인터페이스 정의
 │   │   │   └── service/
@@ -318,6 +321,10 @@ Card Navigator/
 │   │   │       ├── ICardRenderService.ts    # 카드 렌더링 서비스 인터페이스 정의
 │   │   │       ├── ICardService.ts          # 카드 서비스 인터페이스 정의
 │   │   │       ├── ICardSetService.ts       # 카드셋 서비스 인터페이스 정의
+│   │   │       ├── IFileService.ts          # 파일 서비스 인터페이스 정의
+│   │   │       ├── IMetadataService.ts      # 메타데이터 서비스 인터페이스 정의
+│   │   │       ├── ITagService.ts          # 태그 서비스 인터페이스 정의
+│   │   │       ├── IToolbarService.ts      # 툴바 서비스 인터페이스 정의
 │   │   │       └── ISearchService.ts        # 검색 서비스 인터페이스 정의
 │   │   ├── types/
 │   │   │   ├── card.types.ts            # 카드 관련 타입 정의
@@ -358,6 +365,8 @@ Card Navigator/
 │   │   ├── settings/
 │   │   │   ├── SettingsManager.ts       # 설정 관리 클래스
 │   │   │   └── SettingsMigrationManager.ts # 설정 마이그레이션 관리 클래스
+│   │   ├── style/
+│   │   │   └── StyleManager.ts           # 스타일 관리 클래스
 │   │   └── cardset/
 │   │       ├── AbstractCardSetProvider.ts # 추상 카드셋 제공자
 │   │       ├── CardSetManager.ts        # 카드셋 관리 클래스
@@ -373,10 +382,13 @@ Card Navigator/
 │   │   ├── card/
 │   │   │   ├── CardService.ts           # 카드 서비스 클래스
 │   │   │   ├── CardRenderService.ts     # 카드 렌더링 서비스 클래스
-│   │   │   └── CardInteractionService.ts # 카드 상호작용 서비스 클래스
+│   │   │   ├── CardInteractionService.ts # 카드 상호작용 서비스 클래스
+│   │   │   ├── ParallelCardProcessor.ts # 병렬 카드 처리 서비스 클래스
+│   │   │   └── VirtualScrollService.ts # 가상 스크롤 서비스 클래스
 │   │   ├── search/
 │   │   │   ├── SearchService.ts         # 검색 서비스 클래스
 │   │   │   ├── SearchHistoryService.ts  # 검색 기록 서비스 클래스
+│   │   │   ├── SearchIndexService.ts    # 검색 인덱스 서비스 클래스
 │   │   │   └── SearchSuggestionService.ts # 검색 제안 서비스 클래스
 │   │   ├── file/
 │   │   │   ├── FileService.ts           # 파일 서비스 클래스

@@ -1,6 +1,14 @@
 /**
+ * 오류 관리 상수 및 타입 정의
+ * 
+ * 이 파일은 애플리케이션에서 사용되는 모든 오류 코드와 관련 정보를 정의합니다.
+ * 오류 코드는 단일 소스(ErrorCode 열거형)에서 관리되며, 
+ * 각 오류에 대한 메시지, 심각도, 그룹 정보는 통합된 ERROR_INFO 객체에서 관리됩니다.
+ */
+
+/**
  * 오류 코드 열거형
- * 애플리케이션에서 발생할 수 있는 오류 코드를 정의합니다.
+ * 애플리케이션에서 발생할 수 있는 모든 오류 코드를 정의합니다.
  */
 export enum ErrorCode {
   // 일반 오류
@@ -11,12 +19,29 @@ export enum ErrorCode {
   ALREADY_INITIALIZED = 'ALREADY_INITIALIZED',
   NOT_IMPLEMENTED = 'NOT_IMPLEMENTED',
   OPERATION_FAILED = 'OPERATION_FAILED',
+  TIMEOUT = 'TIMEOUT',
+  INVALID_STATE = 'INVALID_STATE',
+  
+  // 서비스 관련 오류
+  SERVICE_INITIALIZATION_ERROR = 'SERVICE_INITIALIZATION_ERROR',
+  SERVICE_DESTROY_ERROR = 'SERVICE_DESTROY_ERROR',
+  SERVICE_NOT_INITIALIZED = 'SERVICE_NOT_INITIALIZED',
+  SERVICE_ALREADY_INITIALIZED = 'SERVICE_ALREADY_INITIALIZED',
+  SERVICE_DEPENDENCY_ERROR = 'SERVICE_DEPENDENCY_ERROR',
   
   // 파일 관련 오류
   FILE_NOT_FOUND = 'FILE_NOT_FOUND',
   FILE_ACCESS_ERROR = 'FILE_ACCESS_ERROR',
   FILE_READ_ERROR = 'FILE_READ_ERROR',
   FILE_WRITE_ERROR = 'FILE_WRITE_ERROR',
+  FILE_DELETE_ERROR = 'FILE_DELETE_ERROR',
+  FILE_RENAME_ERROR = 'FILE_RENAME_ERROR',
+  FILE_MOVE_ERROR = 'FILE_MOVE_ERROR',
+  FILE_COPY_ERROR = 'FILE_COPY_ERROR',
+  INVALID_FILE_PATH = 'INVALID_FILE_PATH',
+  INVALID_FILE_TYPE = 'INVALID_FILE_TYPE',
+  FILE_ACCESS_DENIED = 'FILE_ACCESS_DENIED',
+  FILE_ALREADY_EXISTS = 'FILE_ALREADY_EXISTS',
   
   // 카드 관련 오류
   CARD_NOT_FOUND = 'CARD_NOT_FOUND',
@@ -28,10 +53,27 @@ export enum ErrorCode {
   CARD_CONTEXT_MENU_ERROR = 'CARD_CONTEXT_MENU_ERROR',
   CARD_DRAG_START_ERROR = 'CARD_DRAG_START_ERROR',
   CARD_DRAG_END_ERROR = 'CARD_DRAG_END_ERROR',
+  CARD_DRAG_OVER_ERROR = 'CARD_DRAG_OVER_ERROR',
+  CARD_DROP_ERROR = 'CARD_DROP_ERROR',
   CARD_HOVER_ERROR = 'CARD_HOVER_ERROR',
   CARD_LEAVE_ERROR = 'CARD_LEAVE_ERROR',
+  CARD_KEY_DOWN_ERROR = 'CARD_KEY_DOWN_ERROR',
+  CARD_FOCUS_ERROR = 'CARD_FOCUS_ERROR',
+  CARD_BLUR_ERROR = 'CARD_BLUR_ERROR',
+  CARD_DOUBLE_CLICK_ERROR = 'CARD_DOUBLE_CLICK_ERROR',
+  CARD_SELECTION_ERROR = 'CARD_SELECTION_ERROR',
+  CARD_STATE_UPDATE_ERROR = 'CARD_STATE_UPDATE_ERROR',
+  CARD_STATE_RESET_ERROR = 'CARD_STATE_RESET_ERROR',
+  CARD_INTERACTION_SETUP_ERROR = 'CARD_INTERACTION_SETUP_ERROR',
+  CARD_INTERACTION_REMOVE_ERROR = 'CARD_INTERACTION_REMOVE_ERROR',
+  CARD_INTERACTION_ERROR = 'CARD_INTERACTION_ERROR',
   CARD_REFRESH_ERROR = 'CARD_REFRESH_ERROR',
   CARD_DESTROY_ERROR = 'CARD_DESTROY_ERROR',
+  SETUP_DRAG_DROP_ERROR = 'SETUP_DRAG_DROP_ERROR',
+  SETUP_HOVER_EFFECTS_ERROR = 'SETUP_HOVER_EFFECTS_ERROR',
+  SETUP_KEYBOARD_INTERACTIONS_ERROR = 'SETUP_KEYBOARD_INTERACTIONS_ERROR',
+  OPEN_CARD_FILE_ERROR = 'OPEN_CARD_FILE_ERROR',
+  EMIT_CARD_EVENT_ERROR = 'EMIT_CARD_EVENT_ERROR',
   INVALID_CARD_STATE = 'INVALID_CARD_STATE',
   
   // 카드셋 관련 오류
@@ -40,6 +82,8 @@ export enum ErrorCode {
   CARDSET_UPDATE_ERROR = 'CARDSET_UPDATE_ERROR',
   CARDSET_LOAD_ERROR = 'CARDSET_LOAD_ERROR',
   CARDSET_REFRESH_ERROR = 'CARDSET_REFRESH_ERROR',
+  CARDSET_EMPTY = 'CARDSET_EMPTY',
+  INVALID_CARDSET_MODE = 'INVALID_CARDSET_MODE',
   INVALID_CARDSET_PROVIDER_TYPE = 'INVALID_CARDSET_PROVIDER_TYPE',
   
   // 레이아웃 관련 오류
@@ -50,21 +94,26 @@ export enum ErrorCode {
   LAYOUT_RESIZE_ERROR = 'LAYOUT_RESIZE_ERROR',
   LAYOUT_OPTIONS_UPDATE_ERROR = 'LAYOUT_OPTIONS_UPDATE_ERROR',
   LAYOUT_DESTROY_ERROR = 'LAYOUT_DESTROY_ERROR',
+  INVALID_LAYOUT_PARAMETERS = 'INVALID_LAYOUT_PARAMETERS',
   
   // 설정 관련 오류
   SETTINGS_LOAD_ERROR = 'SETTINGS_LOAD_ERROR',
   SETTINGS_SAVE_ERROR = 'SETTINGS_SAVE_ERROR',
-  SETTINGS_APPLY_ERROR = 'SETTINGS_APPLY_ERROR',
+  SETTINGS_VALIDATION_ERROR = 'SETTINGS_VALIDATION_ERROR',
   SETTINGS_MIGRATION_ERROR = 'SETTINGS_MIGRATION_ERROR',
+  INVALID_SETTINGS = 'INVALID_SETTINGS',
   SETTINGS_UPDATE_ERROR = 'SETTINGS_UPDATE_ERROR',
   SETTINGS_RESET_ERROR = 'SETTINGS_RESET_ERROR',
   CALLBACK_EXECUTION_ERROR = 'CALLBACK_EXECUTION_ERROR',
+  SETTINGS_APPLY_ERROR = 'SETTINGS_APPLY_ERROR',
   
   // 프리셋 관련 오류
   PRESET_NOT_FOUND = 'PRESET_NOT_FOUND',
+  PRESET_ALREADY_EXISTS = 'PRESET_ALREADY_EXISTS',
   PRESET_CREATION_ERROR = 'PRESET_CREATION_ERROR',
   PRESET_UPDATE_ERROR = 'PRESET_UPDATE_ERROR',
-  PRESET_DELETION_ERROR = 'PRESET_DELETION_ERROR',
+  PRESET_DELETE_ERROR = 'PRESET_DELETE_ERROR',
+  PRESET_APPLY_ERROR = 'PRESET_APPLY_ERROR',
   PRESET_IMPORT_ERROR = 'PRESET_IMPORT_ERROR',
   PRESET_EXPORT_ERROR = 'PRESET_EXPORT_ERROR',
   PRESET_SETTINGS_GET_ERROR = 'PRESET_SETTINGS_GET_ERROR',
@@ -72,37 +121,56 @@ export enum ErrorCode {
   PRESET_AUTO_APPLY_ERROR = 'PRESET_AUTO_APPLY_ERROR',
   PRESET_PRIORITY_ORDER_ERROR = 'PRESET_PRIORITY_ORDER_ERROR',
   PRESET_CONFLICT_RESOLUTION_ERROR = 'PRESET_CONFLICT_RESOLUTION_ERROR',
+  PRESET_LOAD_ERROR = 'PRESET_LOAD_ERROR',
+  PRESET_SAVE_ERROR = 'PRESET_SAVE_ERROR',
+  INVALID_PRESET = 'INVALID_PRESET',
+  PRESET_DELETION_ERROR = 'PRESET_DELETION_ERROR',
+  PRESET_SELECTION_ERROR = 'PRESET_SELECTION_ERROR',
+  PRESET_TARGET_SAVE_ERROR = 'PRESET_TARGET_SAVE_ERROR',
   
   // 검색 관련 오류
   SEARCH_ERROR = 'SEARCH_ERROR',
   SEARCH_QUERY_ERROR = 'SEARCH_QUERY_ERROR',
+  SEARCH_RESULT_ERROR = 'SEARCH_RESULT_ERROR',
+  SEARCH_FILTER_ERROR = 'SEARCH_FILTER_ERROR',
+  SEARCH_SORT_ERROR = 'SEARCH_SORT_ERROR',
+  SEARCH_HIGHLIGHT_ERROR = 'SEARCH_HIGHLIGHT_ERROR',
+  INVALID_SEARCH_QUERY = 'INVALID_SEARCH_QUERY',
   
   // UI 관련 오류
   RENDER_ERROR = 'RENDER_ERROR',
   COMPONENT_INITIALIZATION_ERROR = 'COMPONENT_INITIALIZATION_ERROR',
+  UI_RENDER_ERROR = 'UI_RENDER_ERROR',
+  UI_UPDATE_ERROR = 'UI_UPDATE_ERROR',
+  UI_EVENT_ERROR = 'UI_EVENT_ERROR',
+  MODAL_ERROR = 'MODAL_ERROR',
+  NOTICE_ERROR = 'NOTICE_ERROR',
+  MENU_ERROR = 'MENU_ERROR',
+  MARKDOWN_RENDER_ERROR = 'MARKDOWN_RENDER_ERROR',
+
+  // API 관련 오류
+  API_ERROR = 'API_ERROR',
+  OBSIDIAN_API_ERROR = 'OBSIDIAN_API_ERROR',
   
   // 이벤트 관련 오류
   EVENT_HANDLER_ERROR = 'EVENT_HANDLER_ERROR',
+  EVENT_LISTENER_ERROR = 'EVENT_LISTENER_ERROR',
+  EVENT_DISPATCH_ERROR = 'EVENT_DISPATCH_ERROR',
+  INVALID_EVENT_TYPE = 'INVALID_EVENT_TYPE',
   EVENT_LISTENER_ADD_ERROR = 'EVENT_LISTENER_ADD_ERROR',
   EVENT_LISTENER_REMOVE_ERROR = 'EVENT_LISTENER_REMOVE_ERROR',
   EVENT_LISTENER_EXECUTION_ERROR = 'EVENT_LISTENER_EXECUTION_ERROR',
-  EVENT_DISPATCH_ERROR = 'EVENT_DISPATCH_ERROR',
-  
-  // API 관련 오류
-  API_ERROR = 'API_ERROR',
   
   // 성능 관련 오류
   PERFORMANCE_MEASUREMENT_ERROR = 'PERFORMANCE_MEASUREMENT_ERROR',
-
-  // 프리셋 관련 에러 코드
-  PRESET_ALREADY_EXISTS = 'PRESET_ALREADY_EXISTS',
   
   // 태그 프리셋 관련 에러 코드
   TAG_PRESET_NOT_FOUND = 'TAG_PRESET_NOT_FOUND',
   TAG_PRESET_ALREADY_EXISTS = 'TAG_PRESET_ALREADY_EXISTS',
   TAG_PRESET_CREATION_ERROR = 'TAG_PRESET_CREATION_ERROR',
   TAG_PRESET_UPDATE_ERROR = 'TAG_PRESET_UPDATE_ERROR',
-  TAG_PRESET_DELETION_ERROR = 'TAG_PRESET_DELETION_ERROR',
+  TAG_PRESET_DELETE_ERROR = 'TAG_PRESET_DELETE_ERROR',
+  TAG_PRESET_APPLY_ERROR = 'TAG_PRESET_APPLY_ERROR',
   TAG_PRESET_ASSIGNMENT_ERROR = 'TAG_PRESET_ASSIGNMENT_ERROR',
   TAG_PRESET_UNASSIGNMENT_ERROR = 'TAG_PRESET_UNASSIGNMENT_ERROR',
   TAG_PRESET_RETRIEVAL_ERROR = 'TAG_PRESET_RETRIEVAL_ERROR',
@@ -117,7 +185,6 @@ export enum ErrorCode {
   TAG_PRESET_SET_ERROR = 'TAG_PRESET_SET_ERROR',
   TAG_PRESET_REMOVE_ERROR = 'TAG_PRESET_REMOVE_ERROR',
   FILE_TAGS_RETRIEVAL_ERROR = 'FILE_TAGS_RETRIEVAL_ERROR',
-  PRESET_TARGET_SAVE_ERROR = 'PRESET_TARGET_SAVE_ERROR',
   TAG_PRESET_MANAGER_INITIALIZATION_ERROR = 'TAG_PRESET_MANAGER_INITIALIZATION_ERROR',
   TAG_PRESET_INVALID_TAG = 'TAG_PRESET_INVALID_TAG',
   
@@ -127,6 +194,7 @@ export enum ErrorCode {
   FOLDER_PRESET_CREATION_ERROR = 'FOLDER_PRESET_CREATION_ERROR',
   FOLDER_PRESET_UPDATE_ERROR = 'FOLDER_PRESET_UPDATE_ERROR',
   FOLDER_PRESET_DELETE_ERROR = 'FOLDER_PRESET_DELETE_ERROR',
+  FOLDER_PRESET_APPLY_ERROR = 'FOLDER_PRESET_APPLY_ERROR',
   FOLDER_PRESET_ASSIGNMENT_ERROR = 'FOLDER_PRESET_ASSIGNMENT_ERROR',
   FOLDER_PRESET_UNASSIGNMENT_ERROR = 'FOLDER_PRESET_UNASSIGNMENT_ERROR',
   FOLDER_PRESET_RETRIEVAL_ERROR = 'FOLDER_PRESET_RETRIEVAL_ERROR',
@@ -136,7 +204,6 @@ export enum ErrorCode {
   FOLDER_PRESET_MANAGER_INITIALIZATION_ERROR = 'FOLDER_PRESET_MANAGER_INITIALIZATION_ERROR',
   FOLDER_PRESET_IN_USE_CHECK_ERROR = 'FOLDER_PRESET_IN_USE_CHECK_ERROR',
   FOLDER_PRESET_USAGE_RETRIEVAL_ERROR = 'FOLDER_PRESET_USAGE_RETRIEVAL_ERROR',
-  PRESET_SELECTION_ERROR = 'PRESET_SELECTION_ERROR',
   FOLDER_PRESET_INVALID_PATH = 'FOLDER_PRESET_INVALID_PATH',
   FOLDER_PRESET_SET_ERROR = 'FOLDER_PRESET_SET_ERROR',
   FOLDER_PRESET_REMOVE_ERROR = 'FOLDER_PRESET_REMOVE_ERROR',
@@ -145,329 +212,10 @@ export enum ErrorCode {
 }
 
 /**
- * 오류 코드 타입
- * 플러그인에서 사용되는 모든 오류 코드를 정의합니다.
+ * ErrorCode 열거형에서 타입 추출
+ * 이 방식으로 ErrorCodeType은 항상 ErrorCode와 일치하게 됩니다.
  */
-export type ErrorCodeType =
-  // 일반 오류
-  | 'UNKNOWN_ERROR'
-  | 'INITIALIZATION_ERROR'
-  | 'INVALID_PARAMETER'
-  | 'NOT_INITIALIZED'
-  | 'ALREADY_INITIALIZED'
-  | 'NOT_IMPLEMENTED'
-  | 'OPERATION_FAILED'
-  
-  // 파일 관련 오류
-  | 'FILE_NOT_FOUND'
-  | 'FILE_ACCESS_DENIED'
-  | 'FILE_ALREADY_EXISTS'
-  | 'INVALID_FILE_PATH'
-  | 'INVALID_FILE_TYPE'
-  | 'FILE_ACCESS_ERROR'
-  | 'FILE_READ_ERROR'
-  | 'FILE_WRITE_ERROR'
-  
-  // 설정 관련 오류
-  | 'SETTINGS_LOAD_ERROR'
-  | 'SETTINGS_SAVE_ERROR'
-  | 'SETTINGS_APPLY_ERROR'
-  | 'INVALID_SETTINGS'
-  | 'SETTINGS_MIGRATION_ERROR'
-  | 'SETTINGS_UPDATE_ERROR'
-  | 'SETTINGS_RESET_ERROR'
-  | 'CALLBACK_EXECUTION_ERROR'
-  
-  // 프리셋 관련 오류
-  | 'PRESET_NOT_FOUND'
-  | 'PRESET_ALREADY_EXISTS'
-  | 'PRESET_LOAD_ERROR'
-  | 'PRESET_SAVE_ERROR'
-  | 'INVALID_PRESET'
-  | 'PRESET_CREATION_ERROR'
-  | 'PRESET_UPDATE_ERROR'
-  | 'PRESET_DELETION_ERROR'
-  | 'PRESET_IMPORT_ERROR'
-  | 'PRESET_EXPORT_ERROR'
-  | 'PRESET_SETTINGS_GET_ERROR'
-  | 'PRESET_MANAGER_INITIALIZATION_ERROR'
-  | 'PRESET_AUTO_APPLY_ERROR'
-  | 'PRESET_PRIORITY_ORDER_ERROR'
-  | 'PRESET_CONFLICT_RESOLUTION_ERROR'
-  
-  // 카드셋 관련 오류
-  | 'CARDSET_LOAD_ERROR'
-  | 'CARDSET_EMPTY'
-  | 'INVALID_CARDSET_MODE'
-  | 'CARDSET_NOT_FOUND'
-  | 'CARDSET_CREATION_ERROR'
-  | 'CARDSET_UPDATE_ERROR'
-  | 'CARDSET_REFRESH_ERROR'
-  | 'INVALID_CARDSET_PROVIDER_TYPE'
-  
-  // 카드 관련 오류
-  | 'CARD_NOT_FOUND'
-  | 'CARD_CREATION_ERROR'
-  | 'CARD_UPDATE_ERROR'
-  | 'CARD_DELETION_ERROR'
-  | 'CARD_INITIALIZATION_ERROR'
-  | 'CARD_CLICK_ERROR'
-  | 'CARD_CONTEXT_MENU_ERROR'
-  | 'CARD_DRAG_START_ERROR'
-  | 'CARD_DRAG_END_ERROR'
-  | 'CARD_HOVER_ERROR'
-  | 'CARD_LEAVE_ERROR'
-  | 'CARD_REFRESH_ERROR'
-  | 'CARD_DESTROY_ERROR'
-  | 'INVALID_CARD_STATE'
-  
-  // 레이아웃 관련 오류
-  | 'LAYOUT_INITIALIZATION_ERROR'
-  | 'LAYOUT_UPDATE_ERROR'
-  | 'INVALID_LAYOUT_PARAMETERS'
-  | 'LAYOUT_CALCULATION_ERROR'
-  | 'LAYOUT_TYPE_DETERMINATION_ERROR'
-  | 'LAYOUT_RESIZE_ERROR'
-  | 'LAYOUT_OPTIONS_UPDATE_ERROR'
-  | 'LAYOUT_DESTROY_ERROR'
-  
-  // 검색 관련 오류
-  | 'SEARCH_ERROR'
-  | 'INVALID_SEARCH_QUERY'
-  | 'SEARCH_QUERY_ERROR'
-  
-  // 렌더링 관련 오류
-  | 'RENDER_ERROR'
-  | 'MARKDOWN_RENDER_ERROR'
-  | 'COMPONENT_INITIALIZATION_ERROR'
-  
-  // API 관련 오류
-  | 'API_ERROR'
-  | 'OBSIDIAN_API_ERROR'
-  
-  // 이벤트 관련 오류
-  | 'EVENT_HANDLER_ERROR'
-  | 'EVENT_LISTENER_ADD_ERROR'
-  | 'EVENT_LISTENER_REMOVE_ERROR'
-  | 'EVENT_LISTENER_EXECUTION_ERROR'
-  | 'EVENT_DISPATCH_ERROR'
-  
-  // 성능 관련 오류
-  | 'PERFORMANCE_MEASUREMENT_ERROR'
-
-  // 태그 프리셋 관련 오류
-  | 'TAG_PRESET_NOT_FOUND'
-  | 'TAG_PRESET_ALREADY_EXISTS'
-  | 'TAG_PRESET_CREATION_ERROR'
-  | 'TAG_PRESET_UPDATE_ERROR'
-  | 'TAG_PRESET_DELETION_ERROR'
-  | 'TAG_PRESET_ASSIGNMENT_ERROR'
-  | 'TAG_PRESET_UNASSIGNMENT_ERROR'
-  | 'TAG_PRESET_RETRIEVAL_ERROR'
-  | 'TAG_PRESET_PRIORITY_ERROR'
-  | 'TAG_PRESET_PRIORITY_RETRIEVAL_ERROR'
-  | 'TAG_PRESET_SELECTION_ERROR'
-  | 'TAG_PRESET_ID_CHANGE_ERROR'
-  | 'TAG_PRESET_ACTIVE_FILE_CHANGE_ERROR'
-  | 'TAG_PRESET_CHANGED_ERROR'
-  | 'TAG_PRESET_REMOVED_ERROR'
-  | 'TAG_PRESET_GET_FILE_TAGS_ERROR'
-  | 'TAG_PRESET_SET_ERROR'
-  | 'TAG_PRESET_REMOVE_ERROR'
-  | 'FILE_TAGS_RETRIEVAL_ERROR'
-  | 'PRESET_TARGET_SAVE_ERROR'
-  
-  // 폴더 프리셋 관련 오류
-  | 'FOLDER_PRESET_NOT_FOUND'
-  | 'FOLDER_PRESET_ALREADY_EXISTS'
-  | 'FOLDER_PRESET_CREATION_ERROR'
-  | 'FOLDER_PRESET_UPDATE_ERROR'
-  | 'FOLDER_PRESET_DELETE_ERROR'
-  | 'FOLDER_PRESET_ASSIGNMENT_ERROR'
-  | 'FOLDER_PRESET_UNASSIGNMENT_ERROR'
-  | 'FOLDER_PRESET_RETRIEVAL_ERROR'
-  | 'FOLDER_PRESET_PRIORITY_ERROR'
-  | 'FOLDER_PRESET_PRIORITY_RETRIEVAL_ERROR'
-  | 'FOLDER_PRESET_SELECTION_ERROR'
-  | 'FOLDER_PRESET_MANAGER_INITIALIZATION_ERROR'
-  | 'FOLDER_PRESET_IN_USE_CHECK_ERROR'
-  | 'FOLDER_PRESET_USAGE_RETRIEVAL_ERROR'
-  | 'PRESET_SELECTION_ERROR'
-  | 'FOLDER_PRESET_INVALID_PATH'
-  | 'FOLDER_PRESET_SET_ERROR'
-  | 'FOLDER_PRESET_REMOVE_ERROR'
-  | 'FOLDER_PRESET_AUTO_APPLY_ERROR'
-  | 'FOLDER_PRESET_REMOVED_ERROR'
-  
-  // 태그 프리셋 관련 에러 코드
-  | 'TAG_PRESET_MANAGER_INITIALIZATION_ERROR'
-  | 'TAG_PRESET_INVALID_TAG'
-  
-  // 폴더 프리셋 관련 에러 코드
-  | 'FOLDER_PRESET_MANAGER_INITIALIZATION_ERROR'
-  | 'FOLDER_PRESET_INVALID_PATH'
-  | 'FOLDER_PRESET_SET_ERROR'
-  | 'FOLDER_PRESET_REMOVE_ERROR'
-;
-
-/**
- * 오류 메시지 맵
- * 각 오류 코드에 대한 메시지 템플릿을 정의합니다.
- * 중괄호({})로 둘러싸인 부분은 매개변수로 대체됩니다.
- */
-export const ERROR_MESSAGES: Record<ErrorCodeType, string> = {
-  // 일반 오류
-  UNKNOWN_ERROR: '알 수 없는 오류가 발생했습니다.',
-  INITIALIZATION_ERROR: '플러그인 초기화 중 오류가 발생했습니다: {message}',
-  INVALID_PARAMETER: '잘못된 매개변수: {param}',
-  NOT_INITIALIZED: '초기화되지 않은 상태에서 작업을 시도했습니다.',
-  ALREADY_INITIALIZED: '이미 초기화된 상태에서 초기화를 시도했습니다.',
-  NOT_IMPLEMENTED: '아직 구현되지 않은 기능입니다: {feature}',
-  OPERATION_FAILED: '작업 실패: {message}',
-  
-  // 파일 관련 오류
-  FILE_NOT_FOUND: '파일을 찾을 수 없습니다: {path}',
-  FILE_ACCESS_DENIED: '파일 접근이 거부되었습니다: {path}',
-  FILE_ALREADY_EXISTS: '파일이 이미 존재합니다: {path}',
-  INVALID_FILE_PATH: '잘못된 파일 경로: {path}',
-  INVALID_FILE_TYPE: '지원되지 않는 파일 유형: {type}',
-  FILE_ACCESS_ERROR: '파일 접근 중 오류가 발생했습니다: {path}',
-  FILE_READ_ERROR: '파일 읽기 중 오류가 발생했습니다: {path}',
-  FILE_WRITE_ERROR: '파일 쓰기 중 오류가 발생했습니다: {path}',
-  
-  // 설정 관련 오류
-  SETTINGS_LOAD_ERROR: '설정을 불러오는 중 오류가 발생했습니다: {message}',
-  SETTINGS_SAVE_ERROR: '설정을 저장하는 중 오류가 발생했습니다: {message}',
-  SETTINGS_APPLY_ERROR: '설정 적용 중 오류가 발생했습니다: {message}',
-  INVALID_SETTINGS: '잘못된 설정 값: {setting}',
-  SETTINGS_MIGRATION_ERROR: '설정 마이그레이션 중 오류가 발생했습니다: {message}',
-  SETTINGS_UPDATE_ERROR: '설정 업데이트 중 오류가 발생했습니다: {message}',
-  SETTINGS_RESET_ERROR: '설정 초기화 중 오류가 발생했습니다: {message}',
-  CALLBACK_EXECUTION_ERROR: '콜백 실행 중 오류가 발생했습니다: {message}',
-  
-  // 프리셋 관련 오류
-  PRESET_NOT_FOUND: '프리셋을 찾을 수 없습니다: {presetId}',
-  PRESET_ALREADY_EXISTS: '프리셋이 이미 존재합니다: {presetId}',
-  PRESET_LOAD_ERROR: '프리셋 로드 중 오류가 발생했습니다: {message}',
-  PRESET_SAVE_ERROR: '프리셋 저장 중 오류가 발생했습니다: {message}',
-  INVALID_PRESET: '유효하지 않은 프리셋입니다: {id}',
-  PRESET_CREATION_ERROR: '프리셋 생성 중 오류가 발생했습니다: {message}',
-  PRESET_UPDATE_ERROR: '프리셋 업데이트 중 오류가 발생했습니다: {message}',
-  PRESET_DELETION_ERROR: '프리셋 삭제 중 오류가 발생했습니다: {message}',
-  PRESET_IMPORT_ERROR: '프리셋 가져오기 중 오류가 발생했습니다: {message}',
-  PRESET_EXPORT_ERROR: '프리셋 내보내기 중 오류가 발생했습니다: {message}',
-  PRESET_SETTINGS_GET_ERROR: '프리셋 설정 가져오기 중 오류가 발생했습니다: {message}',
-  PRESET_MANAGER_INITIALIZATION_ERROR: '프리셋 관리자 초기화 중 오류가 발생했습니다: {message}',
-  PRESET_AUTO_APPLY_ERROR: '프리셋 자동 적용 중 오류가 발생했습니다: {message}',
-  PRESET_PRIORITY_ORDER_ERROR: '프리셋 우선순위 순서 처리 중 오류가 발생했습니다: {message}',
-  PRESET_CONFLICT_RESOLUTION_ERROR: '프리셋 충돌 해결 중 오류가 발생했습니다: {message}',
-  
-  // 카드셋 관련 오류
-  CARDSET_LOAD_ERROR: '카드셋을 불러오는 중 오류가 발생했습니다: {message}',
-  CARDSET_EMPTY: '카드셋이 비어 있습니다.',
-  INVALID_CARDSET_MODE: '잘못된 카드셋 모드: {mode}',
-  CARDSET_NOT_FOUND: '카드셋을 찾을 수 없습니다: {id}',
-  CARDSET_CREATION_ERROR: '카드셋 생성 중 오류가 발생했습니다: {message}',
-  CARDSET_UPDATE_ERROR: '카드셋 업데이트 중 오류가 발생했습니다: {message}',
-  CARDSET_REFRESH_ERROR: '카드셋 새로고침 중 오류가 발생했습니다: {message}',
-  INVALID_CARDSET_PROVIDER_TYPE: '잘못된 카드셋 제공자 유형: {type}',
-  
-  // 카드 관련 오류
-  CARD_NOT_FOUND: '카드를 찾을 수 없습니다: {id}',
-  CARD_CREATION_ERROR: '카드 생성 중 오류가 발생했습니다: {message}',
-  CARD_UPDATE_ERROR: '카드 업데이트 중 오류가 발생했습니다: {message}',
-  CARD_DELETION_ERROR: '카드 삭제 중 오류가 발생했습니다: {id}',
-  CARD_INITIALIZATION_ERROR: '카드 초기화 중 오류가 발생했습니다: {message}',
-  CARD_CLICK_ERROR: '카드 클릭 처리 중 오류가 발생했습니다: {message}',
-  CARD_CONTEXT_MENU_ERROR: '카드 컨텍스트 메뉴 처리 중 오류가 발생했습니다: {message}',
-  CARD_DRAG_START_ERROR: '카드 드래그 시작 중 오류가 발생했습니다: {message}',
-  CARD_DRAG_END_ERROR: '카드 드래그 종료 중 오류가 발생했습니다: {message}',
-  CARD_HOVER_ERROR: '카드 호버 처리 중 오류가 발생했습니다: {message}',
-  CARD_LEAVE_ERROR: '카드 리브 처리 중 오류가 발생했습니다: {message}',
-  CARD_REFRESH_ERROR: '카드 새로고침 중 오류가 발생했습니다: {message}',
-  CARD_DESTROY_ERROR: '카드 정리 중 오류가 발생했습니다: {message}',
-  INVALID_CARD_STATE: '잘못된 카드 상태: {state}',
-  
-  // 레이아웃 관련 오류
-  LAYOUT_INITIALIZATION_ERROR: '레이아웃 초기화 중 오류가 발생했습니다: {message}',
-  LAYOUT_UPDATE_ERROR: '레이아웃 업데이트 중 오류가 발생했습니다: {message}',
-  INVALID_LAYOUT_PARAMETERS: '잘못된 레이아웃 매개변수: {param}',
-  LAYOUT_CALCULATION_ERROR: '레이아웃 계산 중 오류가 발생했습니다: {message}',
-  LAYOUT_TYPE_DETERMINATION_ERROR: '레이아웃 유형 결정 중 오류가 발생했습니다: {message}',
-  LAYOUT_RESIZE_ERROR: '레이아웃 리사이즈 중 오류가 발생했습니다: {message}',
-  LAYOUT_OPTIONS_UPDATE_ERROR: '레이아웃 옵션 업데이트 중 오류가 발생했습니다: {message}',
-  LAYOUT_DESTROY_ERROR: '레이아웃 정리 중 오류가 발생했습니다: {message}',
-  
-  // 검색 관련 오류
-  SEARCH_ERROR: '검색 중 오류가 발생했습니다: {message}',
-  INVALID_SEARCH_QUERY: '잘못된 검색 쿼리: {query}',
-  SEARCH_QUERY_ERROR: '검색 쿼리 처리 중 오류가 발생했습니다: {message}',
-  
-  // 렌더링 관련 오류
-  RENDER_ERROR: '렌더링 중 오류가 발생했습니다: {message}',
-  MARKDOWN_RENDER_ERROR: '마크다운 렌더링 중 오류가 발생했습니다: {message}',
-  COMPONENT_INITIALIZATION_ERROR: '컴포넌트 초기화 중 오류가 발생했습니다: {message}',
-  
-  // API 관련 오류
-  API_ERROR: 'API 오류: {message}',
-  OBSIDIAN_API_ERROR: 'Obsidian API 오류: {message}',
-  
-  // 이벤트 관련 오류
-  EVENT_HANDLER_ERROR: '이벤트 핸들러 오류: {message}',
-  EVENT_LISTENER_ADD_ERROR: '이벤트 리스너 추가 중 오류가 발생했습니다: {message}',
-  EVENT_LISTENER_REMOVE_ERROR: '이벤트 리스너 제거 중 오류가 발생했습니다: {message}',
-  EVENT_LISTENER_EXECUTION_ERROR: '이벤트 리스너 실행 중 오류가 발생했습니다: {message}',
-  EVENT_DISPATCH_ERROR: '이벤트 디스패치 중 오류가 발생했습니다: {message}',
-  
-  // 성능 관련 오류
-  PERFORMANCE_MEASUREMENT_ERROR: '성능 측정 중 오류가 발생했습니다: {message}',
-
-  // 태그 프리셋 관련 오류
-  TAG_PRESET_NOT_FOUND: '태그 프리셋을 찾을 수 없습니다: {tag}',
-  TAG_PRESET_ALREADY_EXISTS: '태그 프리셋이 이미 존재합니다: {tag}',
-  TAG_PRESET_CREATION_ERROR: '태그 프리셋 생성 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_UPDATE_ERROR: '태그 프리셋 업데이트 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_DELETION_ERROR: '태그 프리셋 삭제 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_ASSIGNMENT_ERROR: '태그 프리셋 할당 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_UNASSIGNMENT_ERROR: '태그 프리셋 할당 해제 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_RETRIEVAL_ERROR: '태그 프리셋 조회 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_PRIORITY_ERROR: '태그 프리셋 우선순위 설정 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_PRIORITY_RETRIEVAL_ERROR: '태그 프리셋 우선순위 조회 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_SELECTION_ERROR: '태그 프리셋 선택 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_ID_CHANGE_ERROR: '태그 프리셋 ID 변경 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_ACTIVE_FILE_CHANGE_ERROR: '활성 파일 변경에 따른 태그 프리셋 처리 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_CHANGED_ERROR: '태그 프리셋 변경 이벤트 발생 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_REMOVED_ERROR: '태그 프리셋 제거 이벤트 발생 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_GET_FILE_TAGS_ERROR: '파일 태그 조회 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_SET_ERROR: '태그 프리셋 설정 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_REMOVE_ERROR: '태그 프리셋 제거 중 오류가 발생했습니다: {message}',
-  FILE_TAGS_RETRIEVAL_ERROR: '파일의 태그 가져오기 중 오류가 발생했습니다: {message}',
-  PRESET_TARGET_SAVE_ERROR: '프리셋 대상 설정 저장 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_MANAGER_INITIALIZATION_ERROR: '태그 프리셋 매니저 초기화 중 오류가 발생했습니다: {message}',
-  TAG_PRESET_INVALID_TAG: '유효하지 않은 태그입니다: {tag}',
-  
-  // 폴더 프리셋 관련 오류
-  FOLDER_PRESET_NOT_FOUND: '폴더 프리셋을 찾을 수 없습니다: {name}',
-  FOLDER_PRESET_ALREADY_EXISTS: '폴더 프리셋이 이미 존재합니다: {name}',
-  FOLDER_PRESET_CREATION_ERROR: '폴더 프리셋 생성 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_UPDATE_ERROR: '폴더 프리셋 업데이트 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_DELETE_ERROR: '폴더 프리셋 삭제 중 오류가 발생했습니다: {name}',
-  FOLDER_PRESET_ASSIGNMENT_ERROR: '폴더에 프리셋 할당 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_UNASSIGNMENT_ERROR: '폴더에서 프리셋 할당 해제 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_RETRIEVAL_ERROR: '폴더에 할당된 프리셋 가져오기 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_PRIORITY_ERROR: '폴더 프리셋 우선순위 설정 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_PRIORITY_RETRIEVAL_ERROR: '폴더 프리셋 우선순위 가져오기 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_SELECTION_ERROR: '폴더에 적합한 프리셋 선택 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_MANAGER_INITIALIZATION_ERROR: '폴더 프리셋 매니저 초기화 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_IN_USE_CHECK_ERROR: '폴더 프리셋 사용 중 체크 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_USAGE_RETRIEVAL_ERROR: '폴더 프리셋 사용 정보 가져오기 중 오류가 발생했습니다: {message}',
-  PRESET_SELECTION_ERROR: '파일에 적합한 프리셋 선택 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_INVALID_PATH: '유효하지 않은 폴더 경로입니다: {folderPath}',
-  FOLDER_PRESET_SET_ERROR: '폴더 프리셋 설정 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_REMOVE_ERROR: '폴더 프리셋 제거 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_AUTO_APPLY_ERROR: '폴더 프리셋 자동 적용 중 오류가 발생했습니다: {message}',
-  FOLDER_PRESET_REMOVED_ERROR: '폴더 프리셋 제거 이벤트 발생 중 오류가 발생했습니다: {message}',
-};
+export type ErrorCodeType = keyof typeof ErrorCode;
 
 /**
  * 오류 심각도 열거형
@@ -480,161 +228,925 @@ export enum ErrorSeverity {
 }
 
 /**
- * 오류 코드별 심각도
+ * 오류 그룹 열거형
  */
-export const ERROR_SEVERITIES: Record<ErrorCodeType, ErrorSeverity> = {
+export enum ErrorGroup {
+  GENERAL = 'general',
+  FILE = 'file',
+  SETTINGS = 'settings',
+  PRESET = 'preset',
+  CARDSET = 'cardset',
+  LAYOUT = 'layout',
+  SEARCH = 'search',
+  RENDER = 'render',
+  API = 'api'
+}
+
+/**
+ * 오류 정보 인터페이스
+ * 각 오류 코드에 대한 메시지, 심각도, 그룹 정보를 포함합니다.
+ */
+interface ErrorInfo {
+  message: string;
+  severity: ErrorSeverity;
+  group: ErrorGroup;
+}
+
+/**
+ * 모든 오류 정보를 통합 관리하는 객체
+ * 각 오류 코드에 대한 메시지, 심각도, 그룹 정보를 포함합니다.
+ */
+export const ERROR_INFO: Record<ErrorCodeType, ErrorInfo> = {
   // 일반 오류
-  UNKNOWN_ERROR: ErrorSeverity.ERROR,
-  INITIALIZATION_ERROR: ErrorSeverity.CRITICAL,
-  INVALID_PARAMETER: ErrorSeverity.ERROR,
-  NOT_INITIALIZED: ErrorSeverity.ERROR,
-  ALREADY_INITIALIZED: ErrorSeverity.WARNING,
-  NOT_IMPLEMENTED: ErrorSeverity.WARNING,
-  OPERATION_FAILED: ErrorSeverity.ERROR,
+  [ErrorCode.UNKNOWN_ERROR]: {
+    message: '알 수 없는 오류가 발생했습니다.',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.INITIALIZATION_ERROR]: {
+    message: '플러그인 초기화 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.CRITICAL,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.INVALID_PARAMETER]: {
+    message: '잘못된 매개변수: {param}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.NOT_INITIALIZED]: {
+    message: '초기화되지 않은 상태에서 작업을 시도했습니다.',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.ALREADY_INITIALIZED]: {
+    message: '이미 초기화된 상태에서 초기화를 시도했습니다.',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.NOT_IMPLEMENTED]: {
+    message: '아직 구현되지 않은 기능입니다: {feature}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.OPERATION_FAILED]: {
+    message: '작업 실패: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.TIMEOUT]: {
+    message: '작업이 타임아웃되었습니다.',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.INVALID_STATE]: {
+    message: '잘못된 상태에서 작업을 시도했습니다.',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  
+  // 서비스 관련 오류
+  [ErrorCode.SERVICE_INITIALIZATION_ERROR]: {
+    message: '서비스 초기화 중 오류가 발생했습니다: {service}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.SERVICE_DESTROY_ERROR]: {
+    message: '서비스 종료 중 오류가 발생했습니다: {service}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.SERVICE_NOT_INITIALIZED]: {
+    message: '초기화되지 않은 서비스에 접근했습니다: {service}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.SERVICE_ALREADY_INITIALIZED]: {
+    message: '이미 초기화된 서비스를 다시 초기화하려고 했습니다: {service}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.SERVICE_DEPENDENCY_ERROR]: {
+    message: '서비스 의존성 오류: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
   
   // 파일 관련 오류
-  FILE_NOT_FOUND: ErrorSeverity.WARNING,
-  FILE_ACCESS_DENIED: ErrorSeverity.ERROR,
-  FILE_ALREADY_EXISTS: ErrorSeverity.ERROR,
-  INVALID_FILE_PATH: ErrorSeverity.ERROR,
-  INVALID_FILE_TYPE: ErrorSeverity.ERROR,
-  FILE_ACCESS_ERROR: ErrorSeverity.ERROR,
-  FILE_READ_ERROR: ErrorSeverity.ERROR,
-  FILE_WRITE_ERROR: ErrorSeverity.ERROR,
-  
-  // 설정 관련 오류
-  SETTINGS_LOAD_ERROR: ErrorSeverity.ERROR,
-  SETTINGS_SAVE_ERROR: ErrorSeverity.ERROR,
-  SETTINGS_APPLY_ERROR: ErrorSeverity.ERROR,
-  INVALID_SETTINGS: ErrorSeverity.ERROR,
-  SETTINGS_MIGRATION_ERROR: ErrorSeverity.WARNING,
-  SETTINGS_UPDATE_ERROR: ErrorSeverity.ERROR,
-  SETTINGS_RESET_ERROR: ErrorSeverity.ERROR,
-  CALLBACK_EXECUTION_ERROR: ErrorSeverity.WARNING,
-  
-  // 프리셋 관련 오류
-  PRESET_NOT_FOUND: ErrorSeverity.WARNING,
-  PRESET_ALREADY_EXISTS: ErrorSeverity.ERROR,
-  PRESET_LOAD_ERROR: ErrorSeverity.ERROR,
-  PRESET_SAVE_ERROR: ErrorSeverity.ERROR,
-  INVALID_PRESET: ErrorSeverity.ERROR,
-  PRESET_CREATION_ERROR: ErrorSeverity.ERROR,
-  PRESET_UPDATE_ERROR: ErrorSeverity.ERROR,
-  PRESET_DELETION_ERROR: ErrorSeverity.ERROR,
-  PRESET_IMPORT_ERROR: ErrorSeverity.ERROR,
-  PRESET_EXPORT_ERROR: ErrorSeverity.ERROR,
-  PRESET_SETTINGS_GET_ERROR: ErrorSeverity.ERROR,
-  PRESET_MANAGER_INITIALIZATION_ERROR: ErrorSeverity.ERROR,
-  PRESET_AUTO_APPLY_ERROR: ErrorSeverity.ERROR,
-  PRESET_PRIORITY_ORDER_ERROR: ErrorSeverity.ERROR,
-  PRESET_CONFLICT_RESOLUTION_ERROR: ErrorSeverity.ERROR,
-  
-  // 카드셋 관련 오류
-  CARDSET_LOAD_ERROR: ErrorSeverity.ERROR,
-  CARDSET_EMPTY: ErrorSeverity.WARNING,
-  INVALID_CARDSET_MODE: ErrorSeverity.ERROR,
-  CARDSET_NOT_FOUND: ErrorSeverity.WARNING,
-  CARDSET_CREATION_ERROR: ErrorSeverity.ERROR,
-  CARDSET_UPDATE_ERROR: ErrorSeverity.ERROR,
-  CARDSET_REFRESH_ERROR: ErrorSeverity.WARNING,
-  INVALID_CARDSET_PROVIDER_TYPE: ErrorSeverity.ERROR,
+  [ErrorCode.FILE_NOT_FOUND]: {
+    message: '파일을 찾을 수 없습니다: {path}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.FILE
+  },
+  [ErrorCode.FILE_ACCESS_ERROR]: {
+    message: '파일 접근 중 오류가 발생했습니다: {path}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.FILE
+  },
+  [ErrorCode.FILE_READ_ERROR]: {
+    message: '파일 읽기 중 오류가 발생했습니다: {path}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.FILE
+  },
+  [ErrorCode.FILE_WRITE_ERROR]: {
+    message: '파일 쓰기 중 오류가 발생했습니다: {path}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.FILE
+  },
+  [ErrorCode.FILE_DELETE_ERROR]: {
+    message: '파일 삭제 중 오류가 발생했습니다: {path}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.FILE
+  },
+  [ErrorCode.FILE_RENAME_ERROR]: {
+    message: '파일 이름 변경 중 오류가 발생했습니다: {path}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.FILE
+  },
+  [ErrorCode.FILE_MOVE_ERROR]: {
+    message: '파일 이동 중 오류가 발생했습니다: {path}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.FILE
+  },
+  [ErrorCode.FILE_COPY_ERROR]: {
+    message: '파일 복사 중 오류가 발생했습니다: {path}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.FILE
+  },
+  [ErrorCode.INVALID_FILE_PATH]: {
+    message: '잘못된 파일 경로입니다: {path}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.FILE
+  },
+  [ErrorCode.INVALID_FILE_TYPE]: {
+    message: '지원되지 않는 파일 유형입니다: {type}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.FILE
+  },
+  [ErrorCode.FILE_ACCESS_DENIED]: {
+    message: '파일 접근이 거부되었습니다: {path}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.FILE
+  },
+  [ErrorCode.FILE_ALREADY_EXISTS]: {
+    message: '파일이 이미 존재합니다: {path}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.FILE
+  },
   
   // 카드 관련 오류
-  CARD_NOT_FOUND: ErrorSeverity.WARNING,
-  CARD_CREATION_ERROR: ErrorSeverity.ERROR,
-  CARD_UPDATE_ERROR: ErrorSeverity.ERROR,
-  CARD_DELETION_ERROR: ErrorSeverity.ERROR,
-  CARD_INITIALIZATION_ERROR: ErrorSeverity.ERROR,
-  CARD_CLICK_ERROR: ErrorSeverity.WARNING,
-  CARD_CONTEXT_MENU_ERROR: ErrorSeverity.WARNING,
-  CARD_DRAG_START_ERROR: ErrorSeverity.WARNING,
-  CARD_DRAG_END_ERROR: ErrorSeverity.WARNING,
-  CARD_HOVER_ERROR: ErrorSeverity.INFO,
-  CARD_LEAVE_ERROR: ErrorSeverity.INFO,
-  CARD_REFRESH_ERROR: ErrorSeverity.WARNING,
-  CARD_DESTROY_ERROR: ErrorSeverity.ERROR,
-  INVALID_CARD_STATE: ErrorSeverity.ERROR,
+  [ErrorCode.CARD_NOT_FOUND]: {
+    message: '카드를 찾을 수 없습니다: {id}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_CREATION_ERROR]: {
+    message: '카드 생성 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_UPDATE_ERROR]: {
+    message: '카드 업데이트 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_DELETION_ERROR]: {
+    message: '카드 삭제 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_INITIALIZATION_ERROR]: {
+    message: '카드 초기화 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_CLICK_ERROR]: {
+    message: '카드 클릭 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_CONTEXT_MENU_ERROR]: {
+    message: '카드 컨텍스트 메뉴 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_DRAG_START_ERROR]: {
+    message: '카드 드래그 시작 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_DRAG_END_ERROR]: {
+    message: '카드 드래그 종료 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_DRAG_OVER_ERROR]: {
+    message: '카드 드래그 오버 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_DROP_ERROR]: {
+    message: '카드 드롭 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_HOVER_ERROR]: {
+    message: '카드 호버 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_LEAVE_ERROR]: {
+    message: '카드 리브 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_KEY_DOWN_ERROR]: {
+    message: '카드 키 다운 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_FOCUS_ERROR]: {
+    message: '카드 포커스 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_BLUR_ERROR]: {
+    message: '카드 블러 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_DOUBLE_CLICK_ERROR]: {
+    message: '카드 더블 클릭 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_SELECTION_ERROR]: {
+    message: '카드 선택 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_STATE_UPDATE_ERROR]: {
+    message: '카드 상태 업데이트 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_STATE_RESET_ERROR]: {
+    message: '카드 상태 초기화 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_INTERACTION_SETUP_ERROR]: {
+    message: '카드 상호작용 설정 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_INTERACTION_REMOVE_ERROR]: {
+    message: '카드 상호작용 제거 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_INTERACTION_ERROR]: {
+    message: '카드 상호작용 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_REFRESH_ERROR]: {
+    message: '카드 새로고침 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARD_DESTROY_ERROR]: {
+    message: '카드 제거 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.SETUP_DRAG_DROP_ERROR]: {
+    message: '드래그 앤 드롭 설정 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.SETUP_HOVER_EFFECTS_ERROR]: {
+    message: '호버 효과 설정 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.SETUP_KEYBOARD_INTERACTIONS_ERROR]: {
+    message: '키보드 상호작용 설정 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.OPEN_CARD_FILE_ERROR]: {
+    message: '카드 파일 열기 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.EMIT_CARD_EVENT_ERROR]: {
+    message: '카드 이벤트 발생 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.INVALID_CARD_STATE]: {
+    message: '잘못된 카드 상태입니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  
+  // 카드셋 관련 오류
+  [ErrorCode.CARDSET_NOT_FOUND]: {
+    message: '카드셋을 찾을 수 없습니다: {id}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARDSET_CREATION_ERROR]: {
+    message: '카드셋 생성 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARDSET_UPDATE_ERROR]: {
+    message: '카드셋 업데이트 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARDSET_LOAD_ERROR]: {
+    message: '카드셋 로드 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARDSET_REFRESH_ERROR]: {
+    message: '카드셋 새로고침 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.CARDSET_EMPTY]: {
+    message: '카드셋이 비어있습니다.',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.INVALID_CARDSET_MODE]: {
+    message: '잘못된 카드셋 모드입니다: {mode}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
+  [ErrorCode.INVALID_CARDSET_PROVIDER_TYPE]: {
+    message: '지원되지 않는 카드셋 유형입니다: {type}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.CARDSET
+  },
   
   // 레이아웃 관련 오류
-  LAYOUT_INITIALIZATION_ERROR: ErrorSeverity.ERROR,
-  LAYOUT_UPDATE_ERROR: ErrorSeverity.WARNING,
-  INVALID_LAYOUT_PARAMETERS: ErrorSeverity.ERROR,
-  LAYOUT_CALCULATION_ERROR: ErrorSeverity.ERROR,
-  LAYOUT_TYPE_DETERMINATION_ERROR: ErrorSeverity.ERROR,
-  LAYOUT_RESIZE_ERROR: ErrorSeverity.ERROR,
-  LAYOUT_OPTIONS_UPDATE_ERROR: ErrorSeverity.ERROR,
-  LAYOUT_DESTROY_ERROR: ErrorSeverity.ERROR,
+  [ErrorCode.LAYOUT_INITIALIZATION_ERROR]: {
+    message: '레이아웃 초기화 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.LAYOUT
+  },
+  [ErrorCode.LAYOUT_UPDATE_ERROR]: {
+    message: '레이아웃 업데이트 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.LAYOUT
+  },
+  [ErrorCode.LAYOUT_CALCULATION_ERROR]: {
+    message: '레이아웃 계산 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.LAYOUT
+  },
+  [ErrorCode.LAYOUT_TYPE_DETERMINATION_ERROR]: {
+    message: '레이아웃 유형 결정 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.LAYOUT
+  },
+  [ErrorCode.LAYOUT_RESIZE_ERROR]: {
+    message: '레이아웃 리사이즈 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.LAYOUT
+  },
+  [ErrorCode.LAYOUT_OPTIONS_UPDATE_ERROR]: {
+    message: '레이아웃 옵션 업데이트 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.LAYOUT
+  },
+  [ErrorCode.LAYOUT_DESTROY_ERROR]: {
+    message: '레이아웃 제거 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.LAYOUT
+  },
+  [ErrorCode.INVALID_LAYOUT_PARAMETERS]: {
+    message: '잘못된 레이아웃 매개변수입니다: {parameters}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.LAYOUT
+  },
+  
+  // 설정 관련 오류
+  [ErrorCode.SETTINGS_LOAD_ERROR]: {
+    message: '설정을 불러오는 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SETTINGS
+  },
+  [ErrorCode.SETTINGS_SAVE_ERROR]: {
+    message: '설정을 저장하는 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SETTINGS
+  },
+  [ErrorCode.SETTINGS_VALIDATION_ERROR]: {
+    message: '설정 유효성 검사 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SETTINGS
+  },
+  [ErrorCode.SETTINGS_MIGRATION_ERROR]: {
+    message: '설정 마이그레이션 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SETTINGS
+  },
+  [ErrorCode.INVALID_SETTINGS]: {
+    message: '잘못된 설정입니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SETTINGS
+  },
+  [ErrorCode.SETTINGS_UPDATE_ERROR]: {
+    message: '설정 업데이트 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SETTINGS
+  },
+  [ErrorCode.SETTINGS_RESET_ERROR]: {
+    message: '설정 초기화 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SETTINGS
+  },
+  [ErrorCode.CALLBACK_EXECUTION_ERROR]: {
+    message: '콜백 실행 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SETTINGS
+  },
+  [ErrorCode.SETTINGS_APPLY_ERROR]: {
+    message: '설정 적용 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SETTINGS
+  },
+  
+  // 프리셋 관련 오류
+  [ErrorCode.PRESET_NOT_FOUND]: {
+    message: '프리셋을 찾을 수 없습니다: {presetId}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_ALREADY_EXISTS]: {
+    message: '프리셋이 이미 존재합니다: {presetId}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_CREATION_ERROR]: {
+    message: '프리셋 생성 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_UPDATE_ERROR]: {
+    message: '프리셋 업데이트 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_DELETE_ERROR]: {
+    message: '프리셋 삭제 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_APPLY_ERROR]: {
+    message: '프리셋 적용 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_IMPORT_ERROR]: {
+    message: '프리셋 가져오기 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_EXPORT_ERROR]: {
+    message: '프리셋 내보내기 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_SETTINGS_GET_ERROR]: {
+    message: '프리셋 설정 가져오기 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_MANAGER_INITIALIZATION_ERROR]: {
+    message: '프리셋 관리자 초기화 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_AUTO_APPLY_ERROR]: {
+    message: '프리셋 자동 적용 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_PRIORITY_ORDER_ERROR]: {
+    message: '프리셋 우선순위 순서 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_CONFLICT_RESOLUTION_ERROR]: {
+    message: '프리셋 충돌 해결 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_LOAD_ERROR]: {
+    message: '프리셋 로드 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_SAVE_ERROR]: {
+    message: '프리셋 저장 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.INVALID_PRESET]: {
+    message: '잘못된 프리셋입니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_DELETION_ERROR]: {
+    message: '프리셋 삭제 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_SELECTION_ERROR]: {
+    message: '프리셋 선택 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.PRESET_TARGET_SAVE_ERROR]: {
+    message: '프리셋 대상 저장 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
   
   // 검색 관련 오류
-  SEARCH_ERROR: ErrorSeverity.WARNING,
-  INVALID_SEARCH_QUERY: ErrorSeverity.ERROR,
-  SEARCH_QUERY_ERROR: ErrorSeverity.ERROR,
+  [ErrorCode.SEARCH_ERROR]: {
+    message: '검색 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.SEARCH
+  },
+  [ErrorCode.SEARCH_QUERY_ERROR]: {
+    message: '검색 쿼리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SEARCH
+  },
+  [ErrorCode.SEARCH_RESULT_ERROR]: {
+    message: '검색 결과 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SEARCH
+  },
+  [ErrorCode.SEARCH_FILTER_ERROR]: {
+    message: '검색 필터 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SEARCH
+  },
+  [ErrorCode.SEARCH_SORT_ERROR]: {
+    message: '검색 정렬 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SEARCH
+  },
+  [ErrorCode.SEARCH_HIGHLIGHT_ERROR]: {
+    message: '검색 하이라이트 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SEARCH
+  },
+  [ErrorCode.INVALID_SEARCH_QUERY]: {
+    message: '잘못된 검색 쿼리입니다: {query}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.SEARCH
+  },
   
-  // 렌더링 관련 오류
-  RENDER_ERROR: ErrorSeverity.ERROR,
-  MARKDOWN_RENDER_ERROR: ErrorSeverity.ERROR,
-  COMPONENT_INITIALIZATION_ERROR: ErrorSeverity.ERROR,
+  // UI 관련 오류
+  [ErrorCode.RENDER_ERROR]: {
+    message: '렌더링 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.RENDER
+  },
+  [ErrorCode.COMPONENT_INITIALIZATION_ERROR]: {
+    message: '컴포넌트 초기화 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.RENDER
+  },
+  [ErrorCode.UI_RENDER_ERROR]: {
+    message: 'UI 렌더링 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.RENDER
+  },
+  [ErrorCode.UI_UPDATE_ERROR]: {
+    message: 'UI 업데이트 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.RENDER
+  },
+  [ErrorCode.UI_EVENT_ERROR]: {
+    message: 'UI 이벤트 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.RENDER
+  },
+  [ErrorCode.MODAL_ERROR]: {
+    message: '모달 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.RENDER
+  },
+  [ErrorCode.NOTICE_ERROR]: {
+    message: '알림 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.RENDER
+  },
+  [ErrorCode.MENU_ERROR]: {
+    message: '메뉴 처리 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.RENDER
+  },
+  [ErrorCode.MARKDOWN_RENDER_ERROR]: {
+    message: '마크다운 렌더링 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.RENDER
+  },
   
   // API 관련 오류
-  API_ERROR: ErrorSeverity.ERROR,
-  OBSIDIAN_API_ERROR: ErrorSeverity.ERROR,
+  [ErrorCode.API_ERROR]: {
+    message: 'API 오류: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.API
+  },
+  [ErrorCode.OBSIDIAN_API_ERROR]: {
+    message: 'OBSIDIAN API 오류: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.API
+  },
   
   // 이벤트 관련 오류
-  EVENT_HANDLER_ERROR: ErrorSeverity.ERROR,
-  EVENT_LISTENER_ADD_ERROR: ErrorSeverity.ERROR,
-  EVENT_LISTENER_REMOVE_ERROR: ErrorSeverity.ERROR,
-  EVENT_LISTENER_EXECUTION_ERROR: ErrorSeverity.ERROR,
-  EVENT_DISPATCH_ERROR: ErrorSeverity.ERROR,
+  [ErrorCode.EVENT_HANDLER_ERROR]: {
+    message: '이벤트 핸들러 오류: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.EVENT_LISTENER_ERROR]: {
+    message: '이벤트 리스너 오류: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.EVENT_DISPATCH_ERROR]: {
+    message: '이벤트 디스패치 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.INVALID_EVENT_TYPE]: {
+    message: '잘못된 이벤트 유형입니다: {type}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.EVENT_LISTENER_ADD_ERROR]: {
+    message: '이벤트 리스너 추가 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.EVENT_LISTENER_REMOVE_ERROR]: {
+    message: '이벤트 리스너 제거 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
+  [ErrorCode.EVENT_LISTENER_EXECUTION_ERROR]: {
+    message: '이벤트 리스너 실행 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.GENERAL
+  },
   
   // 성능 관련 오류
-  PERFORMANCE_MEASUREMENT_ERROR: ErrorSeverity.WARNING,
-
+  [ErrorCode.PERFORMANCE_MEASUREMENT_ERROR]: {
+    message: '성능 측정 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.GENERAL
+  },
+  
   // 태그 프리셋 관련 오류
-  TAG_PRESET_NOT_FOUND: ErrorSeverity.WARNING,
-  TAG_PRESET_ALREADY_EXISTS: ErrorSeverity.WARNING,
-  TAG_PRESET_CREATION_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_UPDATE_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_DELETION_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_ASSIGNMENT_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_UNASSIGNMENT_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_RETRIEVAL_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_PRIORITY_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_PRIORITY_RETRIEVAL_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_SELECTION_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_ID_CHANGE_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_ACTIVE_FILE_CHANGE_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_CHANGED_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_REMOVED_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_GET_FILE_TAGS_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_SET_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_REMOVE_ERROR: ErrorSeverity.ERROR,
-  FILE_TAGS_RETRIEVAL_ERROR: ErrorSeverity.ERROR,
-  PRESET_TARGET_SAVE_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_MANAGER_INITIALIZATION_ERROR: ErrorSeverity.ERROR,
-  TAG_PRESET_INVALID_TAG: ErrorSeverity.WARNING,
+  [ErrorCode.TAG_PRESET_NOT_FOUND]: {
+    message: '태그 프리셋을 찾을 수 없습니다: {tag}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_ALREADY_EXISTS]: {
+    message: '태그 프리셋이 이미 존재합니다: {tag}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_CREATION_ERROR]: {
+    message: '태그 프리셋 생성 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_UPDATE_ERROR]: {
+    message: '태그 프리셋 업데이트 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_DELETE_ERROR]: {
+    message: '태그 프리셋 삭제 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_APPLY_ERROR]: {
+    message: '태그 프리셋 적용 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_ASSIGNMENT_ERROR]: {
+    message: '태그 프리셋 할당 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_UNASSIGNMENT_ERROR]: {
+    message: '태그 프리셋 해제 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_RETRIEVAL_ERROR]: {
+    message: '태그 프리셋 가져오기 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_PRIORITY_ERROR]: {
+    message: '태그 프리셋 우선순위 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_PRIORITY_RETRIEVAL_ERROR]: {
+    message: '태그 프리셋 우선순위 가져오기 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_SELECTION_ERROR]: {
+    message: '태그 프리셋 선택 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_ID_CHANGE_ERROR]: {
+    message: '태그 프리셋 ID 변경 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_ACTIVE_FILE_CHANGE_ERROR]: {
+    message: '태그 프리셋 활성 파일 변경 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_CHANGED_ERROR]: {
+    message: '태그 프리셋 변경 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_REMOVED_ERROR]: {
+    message: '태그 프리셋 제거 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_GET_FILE_TAGS_ERROR]: {
+    message: '태그 프리셋 파일 태그 가져오기 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_SET_ERROR]: {
+    message: '태그 프리셋 설정 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_REMOVE_ERROR]: {
+    message: '태그 프리셋 제거 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FILE_TAGS_RETRIEVAL_ERROR]: {
+    message: '파일 태그 가져오기 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.FILE
+  },
+  [ErrorCode.TAG_PRESET_MANAGER_INITIALIZATION_ERROR]: {
+    message: '태그 프리셋 관리자 초기화 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.TAG_PRESET_INVALID_TAG]: {
+    message: '잘못된 태그 프리셋입니다: {tag}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
   
   // 폴더 프리셋 관련 오류
-  FOLDER_PRESET_NOT_FOUND: ErrorSeverity.WARNING,
-  FOLDER_PRESET_ALREADY_EXISTS: ErrorSeverity.WARNING,
-  FOLDER_PRESET_CREATION_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_UPDATE_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_DELETE_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_ASSIGNMENT_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_UNASSIGNMENT_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_RETRIEVAL_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_PRIORITY_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_PRIORITY_RETRIEVAL_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_SELECTION_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_MANAGER_INITIALIZATION_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_IN_USE_CHECK_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_USAGE_RETRIEVAL_ERROR: ErrorSeverity.ERROR,
-  PRESET_SELECTION_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_INVALID_PATH: ErrorSeverity.WARNING,
-  FOLDER_PRESET_SET_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_REMOVE_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_AUTO_APPLY_ERROR: ErrorSeverity.ERROR,
-  FOLDER_PRESET_REMOVED_ERROR: ErrorSeverity.ERROR,
+  [ErrorCode.FOLDER_PRESET_NOT_FOUND]: {
+    message: '폴더 프리셋을 찾을 수 없습니다: {name}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_ALREADY_EXISTS]: {
+    message: '폴더 프리셋이 이미 존재합니다: {name}',
+    severity: ErrorSeverity.WARNING,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_CREATION_ERROR]: {
+    message: '폴더 프리셋 생성 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_UPDATE_ERROR]: {
+    message: '폴더 프리셋 업데이트 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_DELETE_ERROR]: {
+    message: '폴더 프리셋 삭제 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_APPLY_ERROR]: {
+    message: '폴더 프리셋 적용 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_ASSIGNMENT_ERROR]: {
+    message: '폴더 프리셋 할당 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_UNASSIGNMENT_ERROR]: {
+    message: '폴더 프리셋 해제 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_RETRIEVAL_ERROR]: {
+    message: '폴더 프리셋 가져오기 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_PRIORITY_ERROR]: {
+    message: '폴더 프리셋 우선순위 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_PRIORITY_RETRIEVAL_ERROR]: {
+    message: '폴더 프리셋 우선순위 가져오기 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_SELECTION_ERROR]: {
+    message: '폴더 프리셋 선택 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_MANAGER_INITIALIZATION_ERROR]: {
+    message: '폴더 프리셋 관리자 초기화 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_IN_USE_CHECK_ERROR]: {
+    message: '폴더 프리셋 사용 중 체크 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_USAGE_RETRIEVAL_ERROR]: {
+    message: '폴더 프리셋 사용 가져오기 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_INVALID_PATH]: {
+    message: '잘못된 폴더 프리셋 경로입니다: {path}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_SET_ERROR]: {
+    message: '폴더 프리셋 설정 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_REMOVE_ERROR]: {
+    message: '폴더 프리셋 제거 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_AUTO_APPLY_ERROR]: {
+    message: '폴더 프리셋 자동 적용 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
+  [ErrorCode.FOLDER_PRESET_REMOVED_ERROR]: {
+    message: '폴더 프리셋 제거 중 오류가 발생했습니다: {message}',
+    severity: ErrorSeverity.ERROR,
+    group: ErrorGroup.PRESET
+  },
 };
+
+/**
+ * 편의 함수: 오류 메시지 가져오기
+ */
+export const getErrorMessage = (code: ErrorCodeType): string => ERROR_INFO[code].message;
+
+/**
+ * 편의 함수: 오류 심각도 가져오기
+ */
+export const getErrorSeverity = (code: ErrorCodeType): ErrorSeverity => ERROR_INFO[code].severity;
+
+/**
+ * 편의 함수: 오류 그룹 가져오기
+ */
+export const getErrorGroup = (code: ErrorCodeType): ErrorGroup => ERROR_INFO[code].group;
 
 /**
  * 오류 표시 지속 시간 (밀리초)
@@ -664,176 +1176,4 @@ export const ERROR_REPORTING_URL = 'https://example.com/error-report';
 /**
  * 오류 보고 최대 시도 횟수
  */
-export const ERROR_REPORTING_MAX_RETRIES = 3;
-
-/**
- * 오류 코드 그룹 타입
- */
-export enum ErrorGroup {
-  GENERAL = 'general',
-  FILE = 'file',
-  SETTINGS = 'settings',
-  PRESET = 'preset',
-  CARDSET = 'cardset',
-  LAYOUT = 'layout',
-  SEARCH = 'search',
-  RENDER = 'render',
-  API = 'api'
-}
-
-/**
- * 오류 코드별 그룹 매핑
- */
-export const ERROR_GROUPS: Record<ErrorCodeType, ErrorGroup> = {
-  // 일반 오류
-  UNKNOWN_ERROR: ErrorGroup.GENERAL,
-  INITIALIZATION_ERROR: ErrorGroup.GENERAL,
-  INVALID_PARAMETER: ErrorGroup.GENERAL,
-  NOT_INITIALIZED: ErrorGroup.GENERAL,
-  ALREADY_INITIALIZED: ErrorGroup.GENERAL,
-  NOT_IMPLEMENTED: ErrorGroup.GENERAL,
-  OPERATION_FAILED: ErrorGroup.GENERAL,
-  
-  // 파일 관련 오류
-  FILE_NOT_FOUND: ErrorGroup.FILE,
-  FILE_ACCESS_DENIED: ErrorGroup.FILE,
-  FILE_ALREADY_EXISTS: ErrorGroup.FILE,
-  INVALID_FILE_PATH: ErrorGroup.FILE,
-  INVALID_FILE_TYPE: ErrorGroup.FILE,
-  FILE_ACCESS_ERROR: ErrorGroup.FILE,
-  FILE_READ_ERROR: ErrorGroup.FILE,
-  FILE_WRITE_ERROR: ErrorGroup.FILE,
-  
-  // 설정 관련 오류
-  SETTINGS_LOAD_ERROR: ErrorGroup.SETTINGS,
-  SETTINGS_SAVE_ERROR: ErrorGroup.SETTINGS,
-  SETTINGS_APPLY_ERROR: ErrorGroup.SETTINGS,
-  INVALID_SETTINGS: ErrorGroup.SETTINGS,
-  SETTINGS_MIGRATION_ERROR: ErrorGroup.SETTINGS,
-  SETTINGS_UPDATE_ERROR: ErrorGroup.SETTINGS,
-  SETTINGS_RESET_ERROR: ErrorGroup.SETTINGS,
-  CALLBACK_EXECUTION_ERROR: ErrorGroup.SETTINGS,
-  
-  // 프리셋 관련 오류
-  PRESET_NOT_FOUND: ErrorGroup.PRESET,
-  PRESET_ALREADY_EXISTS: ErrorGroup.PRESET,
-  PRESET_LOAD_ERROR: ErrorGroup.PRESET,
-  PRESET_SAVE_ERROR: ErrorGroup.PRESET,
-  INVALID_PRESET: ErrorGroup.PRESET,
-  PRESET_CREATION_ERROR: ErrorGroup.PRESET,
-  PRESET_UPDATE_ERROR: ErrorGroup.PRESET,
-  PRESET_DELETION_ERROR: ErrorGroup.PRESET,
-  PRESET_IMPORT_ERROR: ErrorGroup.PRESET,
-  PRESET_EXPORT_ERROR: ErrorGroup.PRESET,
-  PRESET_SETTINGS_GET_ERROR: ErrorGroup.PRESET,
-  PRESET_MANAGER_INITIALIZATION_ERROR: ErrorGroup.PRESET,
-  PRESET_AUTO_APPLY_ERROR: ErrorGroup.PRESET,
-  PRESET_PRIORITY_ORDER_ERROR: ErrorGroup.PRESET,
-  PRESET_CONFLICT_RESOLUTION_ERROR: ErrorGroup.PRESET,
-  
-  // 카드셋 관련 오류
-  CARDSET_LOAD_ERROR: ErrorGroup.CARDSET,
-  CARDSET_EMPTY: ErrorGroup.CARDSET,
-  INVALID_CARDSET_MODE: ErrorGroup.CARDSET,
-  CARDSET_NOT_FOUND: ErrorGroup.CARDSET,
-  CARDSET_CREATION_ERROR: ErrorGroup.CARDSET,
-  CARDSET_UPDATE_ERROR: ErrorGroup.CARDSET,
-  CARDSET_REFRESH_ERROR: ErrorGroup.CARDSET,
-  INVALID_CARDSET_PROVIDER_TYPE: ErrorGroup.CARDSET,
-  
-  // 카드 관련 오류
-  CARD_NOT_FOUND: ErrorGroup.CARDSET,
-  CARD_CREATION_ERROR: ErrorGroup.CARDSET,
-  CARD_UPDATE_ERROR: ErrorGroup.CARDSET,
-  CARD_DELETION_ERROR: ErrorGroup.CARDSET,
-  CARD_INITIALIZATION_ERROR: ErrorGroup.CARDSET,
-  CARD_CLICK_ERROR: ErrorGroup.CARDSET,
-  CARD_CONTEXT_MENU_ERROR: ErrorGroup.CARDSET,
-  CARD_DRAG_START_ERROR: ErrorGroup.CARDSET,
-  CARD_DRAG_END_ERROR: ErrorGroup.CARDSET,
-  CARD_HOVER_ERROR: ErrorGroup.CARDSET,
-  CARD_LEAVE_ERROR: ErrorGroup.CARDSET,
-  CARD_REFRESH_ERROR: ErrorGroup.CARDSET,
-  CARD_DESTROY_ERROR: ErrorGroup.CARDSET,
-  INVALID_CARD_STATE: ErrorGroup.CARDSET,
-  
-  // 레이아웃 관련 오류
-  LAYOUT_INITIALIZATION_ERROR: ErrorGroup.LAYOUT,
-  LAYOUT_UPDATE_ERROR: ErrorGroup.LAYOUT,
-  INVALID_LAYOUT_PARAMETERS: ErrorGroup.LAYOUT,
-  LAYOUT_CALCULATION_ERROR: ErrorGroup.LAYOUT,
-  LAYOUT_TYPE_DETERMINATION_ERROR: ErrorGroup.LAYOUT,
-  LAYOUT_RESIZE_ERROR: ErrorGroup.LAYOUT,
-  LAYOUT_OPTIONS_UPDATE_ERROR: ErrorGroup.LAYOUT,
-  LAYOUT_DESTROY_ERROR: ErrorGroup.LAYOUT,
-  
-  // 검색 관련 오류
-  SEARCH_ERROR: ErrorGroup.SEARCH,
-  INVALID_SEARCH_QUERY: ErrorGroup.SEARCH,
-  SEARCH_QUERY_ERROR: ErrorGroup.SEARCH,
-  
-  // 렌더링 관련 오류
-  RENDER_ERROR: ErrorGroup.RENDER,
-  MARKDOWN_RENDER_ERROR: ErrorGroup.RENDER,
-  COMPONENT_INITIALIZATION_ERROR: ErrorGroup.RENDER,
-  
-  // API 관련 오류
-  API_ERROR: ErrorGroup.API,
-  OBSIDIAN_API_ERROR: ErrorGroup.API,
-  
-  // 이벤트 관련 오류
-  EVENT_HANDLER_ERROR: ErrorGroup.GENERAL,
-  EVENT_LISTENER_ADD_ERROR: ErrorGroup.GENERAL,
-  EVENT_LISTENER_REMOVE_ERROR: ErrorGroup.GENERAL,
-  EVENT_LISTENER_EXECUTION_ERROR: ErrorGroup.GENERAL,
-  EVENT_DISPATCH_ERROR: ErrorGroup.GENERAL,
-  
-  // 성능 관련 오류
-  PERFORMANCE_MEASUREMENT_ERROR: ErrorGroup.GENERAL,
-
-  // 태그 프리셋 관련 오류
-  TAG_PRESET_NOT_FOUND: ErrorGroup.PRESET,
-  TAG_PRESET_ALREADY_EXISTS: ErrorGroup.PRESET,
-  TAG_PRESET_CREATION_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_UPDATE_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_DELETION_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_ASSIGNMENT_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_UNASSIGNMENT_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_RETRIEVAL_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_PRIORITY_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_PRIORITY_RETRIEVAL_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_SELECTION_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_ID_CHANGE_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_ACTIVE_FILE_CHANGE_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_CHANGED_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_REMOVED_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_GET_FILE_TAGS_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_SET_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_REMOVE_ERROR: ErrorGroup.PRESET,
-  FILE_TAGS_RETRIEVAL_ERROR: ErrorGroup.PRESET,
-  PRESET_TARGET_SAVE_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_MANAGER_INITIALIZATION_ERROR: ErrorGroup.PRESET,
-  TAG_PRESET_INVALID_TAG: ErrorGroup.PRESET,
-  
-  // 폴더 프리셋 관련 오류
-  FOLDER_PRESET_NOT_FOUND: ErrorGroup.PRESET,
-  FOLDER_PRESET_ALREADY_EXISTS: ErrorGroup.PRESET,
-  FOLDER_PRESET_CREATION_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_UPDATE_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_DELETE_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_ASSIGNMENT_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_UNASSIGNMENT_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_RETRIEVAL_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_PRIORITY_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_PRIORITY_RETRIEVAL_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_SELECTION_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_MANAGER_INITIALIZATION_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_IN_USE_CHECK_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_USAGE_RETRIEVAL_ERROR: ErrorGroup.PRESET,
-  PRESET_SELECTION_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_INVALID_PATH: ErrorGroup.PRESET,
-  FOLDER_PRESET_SET_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_REMOVE_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_AUTO_APPLY_ERROR: ErrorGroup.PRESET,
-  FOLDER_PRESET_REMOVED_ERROR: ErrorGroup.PRESET,
-}; 
+export const ERROR_REPORTING_MAX_RETRIES = 3; 

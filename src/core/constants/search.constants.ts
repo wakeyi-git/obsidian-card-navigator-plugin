@@ -4,8 +4,8 @@ import { SortDirection } from '../types/common.types';
 /**
  * 검색 관련 상수
  * 
- * 이 파일은 검색 기능과 관련된 모든 상수를 정의합니다.
- * 검색 모드, 필드, 옵션, 기본값 등을 포함합니다.
+ * 이 파일은 검색 기능과 관련된 비즈니스 로직 상수를 정의합니다.
+ * UI/스타일 관련 상수는 styles/components/search.styles.ts에 정의되어 있습니다.
  */
 
 /**
@@ -44,6 +44,66 @@ export enum SearchSortBy {
   MODIFIED = 'modified',     // 수정일
   SIZE = 'size',             // 크기
 }
+
+/**
+ * 검색 기본값
+ */
+export const SEARCH_DEFAULTS = {
+  // 검색 입력 관련
+  MIN_QUERY_LENGTH: 2,
+  DEBOUNCE_DELAY: 300,
+  MAX_RESULTS: 50,
+  
+  // 검색 기록 관련
+  MAX_HISTORY_ITEMS: 10,
+  MAX_SUGGESTIONS: 5,
+  
+  // 검색 범위 관련
+  DEFAULT_SEARCH_SCOPE: 'current',
+  DEFAULT_SEARCH_TYPE: 'content',
+  
+  // 검색 필터 관련
+  DEFAULT_FILTERS: {
+    caseSensitive: false,
+    includeTitle: true,
+    includeHeaders: true,
+    includeTags: true,
+    includeContent: true,
+    includeFrontmatter: false,
+  },
+};
+
+/**
+ * 검색 이벤트 타입
+ */
+export const SEARCH_EVENTS = {
+  QUERY_CHANGE: 'search:query-change',
+  RESULTS_UPDATE: 'search:results-update',
+  FILTER_CHANGE: 'search:filter-change',
+  HISTORY_UPDATE: 'search:history-update',
+  ERROR: 'search:error',
+};
+
+/**
+ * 검색 범위 타입
+ */
+export const SEARCH_SCOPE_TYPES = {
+  CURRENT: 'current',
+  FOLDER: 'folder',
+  VAULT: 'vault',
+  SELECTION: 'selection',
+} as const;
+
+/**
+ * 검색 타입
+ */
+export const SEARCH_TYPES = {
+  TITLE: 'title',
+  HEADER: 'header',
+  TAG: 'tag',
+  CONTENT: 'content',
+  FRONTMATTER: 'frontmatter',
+} as const;
 
 /**
  * 검색 기본 설정값
@@ -91,79 +151,6 @@ export const DEFAULT_SEARCH_SETTINGS = {
 };
 
 /**
- * 검색 결과 하이라이트 관련 상수
- */
-export const SEARCH_HIGHLIGHT = {
-  // 하이라이트 앞 태그
-  PREFIX: '<mark class="card-navigator-search-highlight">',
-  
-  // 하이라이트 뒤 태그
-  SUFFIX: '</mark>',
-  
-  // 컨텍스트 길이 (하이라이트 주변 표시할 문자 수)
-  CONTEXT_LENGTH: 50,
-  
-  // 최대 하이라이트 수
-  MAX_HIGHLIGHTS: 10,
-  
-  // 하이라이트 사이 구분자
-  SEPARATOR: '...',
-  
-  // CSS 클래스
-  CLASS: 'card-navigator-search-highlight',
-};
-
-/**
- * 검색 제안 관련 상수
- */
-export const SEARCH_SUGGESTIONS = {
-  // 최대 제안 수
-  MAX_SUGGESTIONS: 5,
-  
-  // 최소 제안 표시 검색어 길이
-  MIN_LENGTH: 1,
-  
-  // 제안 유형
-  TYPES: {
-    RECENT: 'recent',        // 최근 검색어
-    TAG: 'tag',              // 태그
-    FILENAME: 'filename',    // 파일명
-    CONTENT: 'content',      // 내용
-  },
-  
-  // 제안 표시 순서
-  ORDER: ['recent', 'tag', 'filename', 'content'],
-  
-  // 제안 유형별 최대 수
-  MAX_PER_TYPE: {
-    recent: 3,
-    tag: 5,
-    filename: 5,
-    content: 3,
-  },
-  
-  // 제안 디바운스 시간 (밀리초)
-  DEBOUNCE: 150,
-  
-  // CSS 클래스
-  CLASS: 'card-navigator-search-suggestions',
-};
-
-/**
- * 검색 기록 관련 상수
- */
-export const SEARCH_HISTORY = {
-  // 로컬 스토리지 키
-  STORAGE_KEY: 'card-navigator-search-history',
-  
-  // 최대 저장 항목 수
-  MAX_ITEMS: 10,
-  
-  // 중복 항목 처리 방식
-  DUPLICATE_HANDLING: 'move-to-top', // 'move-to-top' | 'ignore'
-};
-
-/**
  * 검색 필터 관련 상수
  */
 export const SEARCH_FILTERS = {
@@ -187,6 +174,33 @@ export const SEARCH_FILTERS = {
   
   // 필터 값 이스케이프 문자
   ESCAPE: '\\',
+};
+
+/**
+ * 검색 제안 관련 상수
+ */
+export const SEARCH_SUGGESTIONS = {
+  // 제안 유형
+  TYPES: {
+    RECENT: 'recent',        // 최근 검색어
+    TAG: 'tag',              // 태그
+    FILENAME: 'filename',    // 파일명
+    CONTENT: 'content',      // 내용
+  },
+  
+  // 제안 표시 순서
+  ORDER: ['recent', 'tag', 'filename', 'content'],
+};
+
+/**
+ * 검색 기록 관련 상수
+ */
+export const SEARCH_HISTORY = {
+  // 로컬 스토리지 키
+  STORAGE_KEY: 'card-navigator-search-history',
+  
+  // 중복 항목 처리 방식
+  DUPLICATE_HANDLING: 'move-to-top', // 'move-to-top' | 'ignore'
 };
 
 /**
@@ -214,66 +228,6 @@ export const SEARCH_PERFORMANCE = {
 };
 
 /**
- * 검색 UI 관련 상수
- */
-export const SEARCH_UI = {
-  // 검색 입력 필드 ID
-  INPUT_ID: 'card-navigator-search-input',
-  
-  // 검색 결과 컨테이너 ID
-  RESULTS_ID: 'card-navigator-search-results',
-  
-  // 검색 제안 컨테이너 ID
-  SUGGESTIONS_ID: 'card-navigator-search-suggestions',
-  
-  // 검색 옵션 컨테이너 ID
-  OPTIONS_ID: 'card-navigator-search-options',
-  
-  // 검색 필터 컨테이너 ID
-  FILTERS_ID: 'card-navigator-search-filters',
-  
-  // 검색 상태 메시지 ID
-  STATUS_ID: 'card-navigator-search-status',
-  
-  // 검색 로딩 인디케이터 ID
-  LOADING_ID: 'card-navigator-search-loading',
-  
-  // 검색 단축키
-  SHORTCUTS: {
-    FOCUS: 'mod+f',          // 검색 입력 필드 포커스
-    CLEAR: 'escape',         // 검색어 지우기
-    NEXT_RESULT: 'enter',    // 다음 결과로 이동
-    PREV_RESULT: 'shift+enter', // 이전 결과로 이동
-    NEXT_SUGGESTION: 'down', // 다음 제안으로 이동
-    PREV_SUGGESTION: 'up',   // 이전 제안으로 이동
-    SELECT_SUGGESTION: 'tab', // 제안 선택
-  },
-  
-  // CSS 클래스
-  CLASSES: {
-    BAR: 'card-navigator-search-bar',
-    OPTIONS: 'card-navigator-search-options',
-    RESULTS: 'card-navigator-search-results',
-    NO_RESULTS: 'card-navigator-search-no-results',
-    LOADING: 'card-navigator-search-loading',
-    ERROR: 'card-navigator-search-error',
-    MATCH: 'card-navigator-search-match',
-    MATCH_TYPE_PREFIX: 'card-navigator-search-match-',
-  },
-};
-
-/**
- * 검색 결과 일치 타입별 CSS 클래스
- */
-export const SEARCH_MATCH_TYPE_CLASSES = {
-  TITLE: `${SEARCH_UI.CLASSES.MATCH_TYPE_PREFIX}title`,
-  HEADER: `${SEARCH_UI.CLASSES.MATCH_TYPE_PREFIX}header`,
-  TAG: `${SEARCH_UI.CLASSES.MATCH_TYPE_PREFIX}tag`,
-  CONTENT: `${SEARCH_UI.CLASSES.MATCH_TYPE_PREFIX}content`,
-  FRONTMATTER: `${SEARCH_UI.CLASSES.MATCH_TYPE_PREFIX}frontmatter`,
-};
-
-/**
  * 기본 검색 옵션
  */
 export const DEFAULT_SEARCH_OPTIONS: SearchOptions = {
@@ -294,10 +248,4 @@ export const DEFAULT_SEARCH_SORT_BY = SearchSortBy.RELEVANCE;
 /**
  * 기본 검색 정렬 방향
  */
-export const DEFAULT_SEARCH_SORT_DIRECTION = SortDirection.DESC;
-
-/**
- * 검색 입력 지연 시간 (밀리초)
- * 검색 제안 디바운스 시간과 동일하게 설정
- */
-export const SEARCH_INPUT_DELAY = SEARCH_SUGGESTIONS.DEBOUNCE; 
+export const DEFAULT_SEARCH_SORT_DIRECTION = SortDirection.DESC; 

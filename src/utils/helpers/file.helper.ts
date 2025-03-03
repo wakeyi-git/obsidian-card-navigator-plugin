@@ -84,9 +84,10 @@ export function isMarkdownFile(file: TFile): boolean {
  * @param app Obsidian 앱 인스턴스
  * @param folderPath 폴더 경로
  * @param recursive 하위 폴더도 포함할지 여부 (기본값: false)
+ * @param includeHidden 숨김 파일 포함 여부 (기본값: false)
  * @returns 마크다운 파일 배열
  */
-export function getMarkdownFilesInFolder(app: App, folderPath: string, recursive: boolean = false): TFile[] {
+export function getMarkdownFilesInFolder(app: App, folderPath: string, recursive: boolean = false, includeHidden: boolean = false): TFile[] {
   const folder = app.vault.getAbstractFileByPath(normalizePath(folderPath));
   
   if (!folder || !(folder instanceof TFolder)) {
@@ -98,9 +99,15 @@ export function getMarkdownFilesInFolder(app: App, folderPath: string, recursive
   // 폴더 내 파일 처리
   for (const child of folder.children) {
     if (child instanceof TFile && isMarkdownFile(child)) {
-      files.push(child);
+      // 숨김 파일 필터링
+      if (includeHidden || !child.path.startsWith('.')) {
+        files.push(child);
+      }
     } else if (recursive && child instanceof TFolder) {
-      files.push(...getMarkdownFilesInFolder(app, child.path, true));
+      // 숨김 폴더 필터링
+      if (includeHidden || !child.path.split('/').pop()?.startsWith('.')) {
+        files.push(...getMarkdownFilesInFolder(app, child.path, true, includeHidden));
+      }
     }
   }
   
@@ -110,10 +117,11 @@ export function getMarkdownFilesInFolder(app: App, folderPath: string, recursive
 /**
  * 볼트의 모든 마크다운 파일을 가져옵니다.
  * @param app Obsidian 앱 인스턴스
+ * @param includeHidden 숨김 파일 포함 여부 (기본값: false)
  * @returns 마크다운 파일 배열
  */
-export function getAllMarkdownFiles(app: App): TFile[] {
-  return app.vault.getMarkdownFiles();
+export function getAllMarkdownFiles(app: App, includeHidden: boolean = false): TFile[] {
+  return getMarkdownFilesInFolder(app, '/', true, includeHidden);
 }
 
 /**

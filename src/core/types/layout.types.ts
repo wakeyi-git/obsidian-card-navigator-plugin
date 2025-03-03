@@ -2,6 +2,57 @@ import { Direction } from './common.types';
 import { EventHandler, IEventData } from './common.types';
 
 /**
+ * 카드 정렬 방식 열거형
+ */
+export enum CardAlignment {
+  /**
+   * 왼쪽 정렬
+   */
+  LEFT = 'left',
+  
+  /**
+   * 가운데 정렬
+   */
+  CENTER = 'center',
+  
+  /**
+   * 오른쪽 정렬
+   */
+  RIGHT = 'right',
+  
+  /**
+   * 양쪽 정렬
+   */
+  JUSTIFY = 'justify'
+}
+
+/**
+ * 카드 크기 모드 열거형
+ */
+export enum CardSizeMode {
+  /**
+   * 자동 크기 조정
+   */
+  AUTO = 'auto',
+  
+  /**
+   * 고정 크기
+   */
+  FIXED = 'fixed',
+  
+  /**
+   * 최소/최대 크기 제한
+   */
+  CONSTRAINED = 'constrained',
+
+  /**
+   * 적응형 크기 조정
+   * 컨테이너 크기와 콘텐츠에 따라 자동으로 크기가 조정됩니다.
+   */
+  ADAPTIVE = 'adaptive'
+}
+
+/**
  * 카드 위치 인터페이스
  * 카드의 위치 정보를 정의합니다.
  */
@@ -171,6 +222,32 @@ export interface LayoutSettings {
    * 애니메이션 이징 함수
    */
   animationEasing?: string;
+  
+  /**
+   * 카드 최소 너비 (px)
+   */
+  cardMinWidth?: number;
+  
+  /**
+   * 카드 최대 너비 (px)
+   */
+  cardMaxWidth?: number;
+  
+  /**
+   * 카드 최소 높이 (px)
+   */
+  cardMinHeight?: number;
+  
+  /**
+   * 카드 최대 높이 (px)
+   */
+  cardMaxHeight?: number;
+  
+  /**
+   * 카드 높이 (px)
+   * 고정 높이를 사용할 때 지정합니다.
+   */
+  cardHeight?: number;
 }
 
 /**

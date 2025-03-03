@@ -423,7 +423,7 @@ export class CardManager implements ICardManager {
       this.eventListeners.clear();
       
       Log.debug('CardManager', `카드 매니저 정리 완료: ${this.card.id}`);
-    }, ErrorCode.CARD_DESTROY_ERROR, { cardId: this.card.id }, true);
+    }, ErrorCode.CARD_INTERACTION_ERROR, { cardId: this.card.id }, true);
   }
 
   /**

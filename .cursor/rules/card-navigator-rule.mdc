@@ -338,6 +338,9 @@ Card Navigator/
 │   │   │       ├── ICardRenderService.ts    # 카드 렌더링 서비스 인터페이스 정의
 │   │   │       ├── ICardService.ts          # 카드 서비스 인터페이스 정의
 │   │   │       ├── ICardSetService.ts       # 카드셋 서비스 인터페이스 정의
+│   │   │       ├── IFileService.ts          # 파일 서비스 인터페이스 정의
+│   │   │       ├── IMetadataService.ts      # 메타데이터 서비스 인터페이스 정의
+│   │   │       ├── ITagService.ts          # 태그 서비스 인터페이스 정의
 │   │   │       └── ISearchService.ts        # 검색 서비스 인터페이스 정의
 │   │   ├── types/
 │   │   │   ├── card.types.ts            # 카드 관련 타입 정의

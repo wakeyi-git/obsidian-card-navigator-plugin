@@ -1,5 +1,5 @@
 import { TFile } from 'obsidian';
-import { IEventData, SortDirection } from './common.types';
+import { IEventData, SortBy, SortDirection, SortOption } from './common.types';
 import { ICardSetProvider } from '../interfaces/manager/ICardSetProvider';
 
 /**
@@ -10,32 +10,32 @@ export enum CardSetMode {
   /**
    * 활성 폴더 모드 - 현재 활성화된 파일이 위치한 폴더의 모든 노트를 카드로 표시
    */
-  ACTIVE_FOLDER = 'ACTIVE_FOLDER',
+  ACTIVE_FOLDER = 'active_folder',
   
   /**
    * 지정 폴더 모드 - 사용자가 명시적으로 지정한 특정 폴더의 노트만 표시
    */
-  SELECTED_FOLDER = 'SELECTED_FOLDER',
+  SELECTED_FOLDER = 'selected_folder',
   
   /**
    * 볼트 전체 모드 - Obsidian 볼트 내의 모든 노트 파일을 카드로 표시
    */
-  VAULT = 'VAULT',
+  VAULT = 'vault',
   
   /**
    * 검색 결과 모드 - 검색 쿼리에 일치하는 노트 파일들만 카드로 표시
    */
-  SEARCH_RESULTS = 'SEARCH_RESULTS',
+  SEARCH = 'search',
   
   /**
    * 태그 모드 - 특정 태그가 포함된 노트만 표시
    */
-  TAG = 'TAG',
+  TAG = 'tag',
   
   /**
    * 사용자 정의 모드 - 사용자가 직접 정의한 카드셋 표시 방식
    */
-  CUSTOM = 'CUSTOM'
+  CUSTOM = 'custom'
 }
 
 /**
@@ -71,12 +71,12 @@ export interface ICardSet {
 /**
  * 카드셋 이벤트 타입
  */
-export type CardSetEvent = 
-  | 'cardset-loaded'
-  | 'cardset-refreshed'
-  | 'cardset-type-changed'
-  | 'cardset-filtered'
-  | 'cardset-sorted';
+export enum CardSetEvent {
+  MODE_CHANGED = 'cardset:mode_changed',
+  FOLDER_CHANGED = 'cardset:folder_changed',
+  SEARCH_CHANGED = 'cardset:search_changed',
+  CARDS_UPDATED = 'cardset:cards_updated'
+}
 
 /**
  * 카드셋 이벤트 데이터 인터페이스
@@ -102,37 +102,6 @@ export interface CardSetEventData extends IEventData {
  * 카드셋 이벤트 핸들러 타입
  */
 export type CardSetEventHandler = (data: CardSetEventData) => void;
-
-/**
- * 카드 정렬 기준 열거형
- */
-export enum CardSortBy {
-  FILE_NAME = 'file-name',        // 파일 이름
-  CREATED_TIME = 'created-time',  // 생성 시간
-  MODIFIED_TIME = 'modified-time', // 수정 시간
-  FILE_SIZE = 'file-size',        // 파일 크기
-  CUSTOM_FIELD = 'custom-field'   // 사용자 정의 필드
-}
-
-/**
- * 카드 정렬 옵션 인터페이스
- */
-export interface CardSortOption {
-  /**
-   * 정렬 필드
-   */
-  field: 'name' | 'path' | 'created' | 'modified' | 'size' | 'custom';
-  
-  /**
-   * 정렬 방향
-   */
-  direction: 'asc' | 'desc';
-  
-  /**
-   * 사용자 정의 정렬 필드 (field가 'custom'일 때 사용)
-   */
-  customField?: string;
-}
 
 /**
  * 카드 필터 타입
@@ -207,21 +176,19 @@ export interface CardSetOptions {
   mode: CardSetMode;
   
   /**
-   * 선택된 폴더 경로
-   * mode가 'selected-folder'인 경우 사용됩니다.
+   * 선택된 폴더 경로 (mode가 SELECTED_FOLDER인 경우 사용)
    */
   selectedFolderPath?: string;
   
   /**
-   * 검색 쿼리
-   * mode가 'search-results'인 경우 사용됩니다.
+   * 검색어 (SEARCH 모드에서 사용)
    */
-  searchQuery?: string;
+  searchTerm?: string;
   
   /**
    * 정렬 옵션
    */
-  sortOption: CardSortOption;
+  sortOption: SortOption;
   
   /**
    * 필터 옵션 배열
@@ -236,7 +203,7 @@ export interface CardSetOptions {
   /**
    * 하위 폴더 포함 여부
    */
-  includeSubfolders?: boolean;
+  includeSubfolders: boolean;
   
   /**
    * 숨김 파일 포함 여부
@@ -248,6 +215,9 @@ export interface CardSetOptions {
    */
   maxCards?: number;
   
+  /**
+   * 자동 새로고침 여부
+   */
   autoRefresh: boolean;
 }
 

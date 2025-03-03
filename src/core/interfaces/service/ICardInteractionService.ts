@@ -15,6 +15,9 @@ export interface CardInteractionHandlers {
   onHover?: (event: MouseEvent, card: Card) => void;
   onLeave?: (event: MouseEvent, card: Card) => void;
   onDoubleClick?: (event: MouseEvent, card: Card) => void;
+  onKeyDown?: (event: KeyboardEvent, card: Card) => void;
+  onFocus?: (card: Card) => void;
+  onBlur?: (card: Card) => void;
 }
 
 /**
@@ -95,6 +98,28 @@ export interface ICardInteractionService {
   handleCardDoubleClick(card: Card, event: MouseEvent): void;
   
   /**
+   * 카드 키 다운 처리
+   * 카드 키보드 이벤트를 처리합니다.
+   * @param card 카드 객체
+   * @param event 키보드 이벤트
+   */
+  handleCardKeyDown(card: Card, event: KeyboardEvent): void;
+  
+  /**
+   * 카드 포커스 처리
+   * 카드 포커스 이벤트를 처리합니다.
+   * @param card 카드 객체
+   */
+  handleCardFocus(card: Card): void;
+  
+  /**
+   * 카드 블러 처리
+   * 카드 블러 이벤트를 처리합니다.
+   * @param card 카드 객체
+   */
+  handleCardBlur(card: Card): void;
+  
+  /**
    * 이벤트 핸들러 등록
    * 모든 카드 이벤트에 대한 핸들러를 등록합니다.
    * @param handlers 이벤트 핸들러 객체
@@ -146,4 +171,11 @@ export interface ICardInteractionService {
    * @param element 카드 HTML 요소
    */
   removeCardInteractions(card: Card, element: HTMLElement): void;
+  
+  /**
+   * 카드 ID로 카드 요소 가져오기
+   * @param cardId 카드 ID
+   * @returns 카드 요소 또는 null
+   */
+  getCardById(cardId: string): HTMLElement | null;
 } 

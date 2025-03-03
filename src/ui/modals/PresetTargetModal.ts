@@ -6,6 +6,7 @@ import { ErrorCode } from '../../core/constants/error.constants';
 import { IPreset } from '../../core/types/preset.types';
 import { IFolderPresetManager } from '../../core/interfaces/manager/IFolderPresetManager';
 import { ITagPresetManager } from '../../core/interfaces/manager/ITagPresetManager';
+import { MODAL_CLASS_NAMES } from '../../styles/components/modal.styles';
 
 /**
  * 프리셋 적용 대상 유형
@@ -205,7 +206,7 @@ export class PresetTargetModal extends Modal {
         if (this.targetType === PresetTargetType.TAG) {
           contentEl.createEl('div', {
             text: '계층적 태그는 전체 경로를 입력하세요 (예: project/work)',
-            cls: 'card-navigator-info-text'
+            cls: MODAL_CLASS_NAMES.INFO.TEXT
           });
         }
       }
@@ -255,18 +256,18 @@ export class PresetTargetModal extends Modal {
         if (globalPreset) {
           contentEl.createEl('div', {
             text: `현재 전역 프리셋: ${globalPreset.name}`,
-            cls: 'card-navigator-info-text'
+            cls: MODAL_CLASS_NAMES.INFO.TEXT
           });
         }
       }
       
       // 버튼 컨테이너
-      const buttonContainer = contentEl.createDiv({ cls: 'card-navigator-modal-buttons' });
+      const buttonContainer = contentEl.createDiv({ cls: MODAL_CLASS_NAMES.BUTTONS.CONTAINER });
       
       // 취소 버튼
       buttonContainer.createEl('button', {
         text: '취소',
-        cls: 'card-navigator-button card-navigator-button-small'
+        cls: `${MODAL_CLASS_NAMES.BUTTONS.BUTTON} ${MODAL_CLASS_NAMES.BUTTONS.SMALL} ${MODAL_CLASS_NAMES.BUTTONS.CANCEL}`
       }).addEventListener('click', () => {
         this.close();
       });
@@ -274,7 +275,7 @@ export class PresetTargetModal extends Modal {
       // 저장 버튼
       buttonContainer.createEl('button', {
         text: '저장',
-        cls: 'card-navigator-button card-navigator-button-small'
+        cls: `${MODAL_CLASS_NAMES.BUTTONS.BUTTON} ${MODAL_CLASS_NAMES.BUTTONS.SMALL} ${MODAL_CLASS_NAMES.BUTTONS.SAVE}`
       }).addEventListener('click', () => {
         this.handleSave();
       });

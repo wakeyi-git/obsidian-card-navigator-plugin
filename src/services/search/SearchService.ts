@@ -10,17 +10,19 @@ import {
 } from '../../core/types/search.types';
 import { ErrorCode } from '../../core/constants/error.constants';
 import { Card } from '../../core/models/Card';
+import { IFileService } from '../../core/interfaces/service/IFileService';
+import { IMetadataService } from '../../core/interfaces/service/IMetadataService';
+import { ITagService } from '../../core/interfaces/service/ITagService';
+import { ErrorHandler } from '../../utils/error/ErrorHandler';
+import { Log } from '../../utils/log/Log';
+import { SEARCH_CLASS_NAMES, SEARCH_STYLES } from '../../styles/components/search.styles';
+import { SEARCH_DEFAULTS, SEARCH_EVENTS, SEARCH_SCOPE_TYPES, SEARCH_TYPES } from '../../core/constants/search.constants';
 
 /**
  * 검색 서비스 구현 클래스
  * 검색 기능과 관련된 기능을 구현합니다.
  */
 export class SearchService implements ISearchService {
-  /**
-   * Obsidian 앱 인스턴스
-   */
-  private app: App;
-  
   /**
    * 검색 옵션
    */
@@ -50,10 +52,15 @@ export class SearchService implements ISearchService {
    * 검색 서비스 생성자
    * @param app Obsidian 앱 인스턴스
    * @param options 검색 옵션
+   * @param fileService 파일 서비스
+   * @param metadataService 메타데이터 서비스
    */
-  constructor(app: App, options: Partial<SearchOptions> = {}) {
-    this.app = app;
-    
+  constructor(
+    private readonly app: App, 
+    options: Partial<SearchOptions> = {},
+    private readonly fileService: IFileService,
+    private readonly metadataService: IMetadataService
+  ) {
     // 기본 옵션과 사용자 옵션 병합
     this.options = {
       searchInTitle: true,
@@ -66,6 +73,12 @@ export class SearchService implements ISearchService {
       matchWholeWord: false,
       ...options
     };
+    
+    // 이벤트 핸들러 맵 초기화
+    this.eventHandlers.set('search-started', []);
+    this.eventHandlers.set('search-completed', []);
+    this.eventHandlers.set('search-cancelled', []);
+    this.eventHandlers.set('search-error', []);
   }
   
   /**
@@ -510,26 +523,23 @@ export class SearchService implements ISearchService {
    * @returns 태그 배열
    */
   private getAllTags(): string[] {
-    const tagSet = new Set<string>();
-    
-    // 모든 파일의 캐시 순회
-    this.app.metadataCache.getFileCache = this.app.metadataCache.getFileCache || (() => null);
-    
-    // 볼트의 모든 마크다운 파일 가져오기
-    const files = this.app.vault.getMarkdownFiles();
-    
-    // 각 파일의 캐시 확인
-    files.forEach(file => {
-      const cache = this.app.metadataCache.getFileCache(file);
+    try {
+      const tags: Set<string> = new Set();
       
-      if (cache && cache.tags) {
-        cache.tags.forEach(tagObj => {
-          tagSet.add(tagObj.tag.substring(1)); // '#' 제거
-        });
+      // 모든 마크다운 파일 가져오기
+      const files = this.fileService.getAllMarkdownFiles();
+      
+      // 각 파일의 태그 수집
+      for (const file of files) {
+        const fileTags = this.metadataService.getTags(file);
+        fileTags.forEach(tag => tags.add(tag));
       }
-    });
-    
-    return Array.from(tagSet).sort();
+      
+      return Array.from(tags).sort();
+    } catch (error) {
+      Log.error('태그 가져오기 실패', error);
+      return [];
+    }
   }
   
   /**
@@ -562,8 +572,61 @@ export class SearchService implements ISearchService {
    * @returns 검색 결과 파일 배열
    */
   async searchFiles(files: TFile[], searchTerm: string): Promise<TFile[]> {
-    const results = await this.search(searchTerm, files);
-    return results.map(result => result.file);
+    const result = await ErrorHandler.captureError(async () => {
+      if (!searchTerm || searchTerm.trim() === '') {
+        return files;
+      }
+      
+      const searchPattern = this.createSearchPattern(searchTerm);
+      const results: TFile[] = [];
+      
+      for (const file of files) {
+        // 파일명 검색
+        if (searchPattern.test(file.name)) {
+          results.push(file);
+          continue;
+        }
+        
+        // 태그 검색
+        const tags = this.metadataService.getTags(file);
+        if (tags.some(tag => searchPattern.test(tag))) {
+          results.push(file);
+          continue;
+        }
+        
+        // 헤딩 검색
+        const headings = this.metadataService.getHeadings(file);
+        if (headings.some(heading => searchPattern.test(heading.heading))) {
+          results.push(file);
+          continue;
+        }
+        
+        // 프론트매터 검색
+        const frontmatter = this.metadataService.getFrontMatter(file);
+        if (frontmatter) {
+          const frontmatterValues = Object.values(frontmatter);
+          if (frontmatterValues.some(value => 
+            typeof value === 'string' && searchPattern.test(value)
+          )) {
+            results.push(file);
+            continue;
+          }
+        }
+        
+        // 내용 검색 (옵션에 따라)
+        if (this.options.searchInContent) {
+          const content = await this.fileService.getFileContent(file);
+          if (content && searchPattern.test(content)) {
+            results.push(file);
+          }
+        }
+      }
+      
+      return results;
+    }, ErrorCode.SEARCH_ERROR, { searchTerm });
+    
+    // undefined인 경우 빈 배열 반환
+    return result || [];
   }
   
   /**
@@ -621,11 +684,114 @@ export class SearchService implements ISearchService {
     if (!searchTerm || !content) return content;
     
     try {
-      const pattern = this.createSearchPattern(searchTerm);
-      return content.replace(pattern, match => `<span class="search-highlight">${match}</span>`);
+      const matches = this.findMatches(content, searchTerm);
+      if (!matches.length) return content;
+
+      let highlightedText = '';
+      let lastIndex = 0;
+
+      matches.slice(0, SEARCH_STYLES.HIGHLIGHT.MAX_HIGHLIGHTS).forEach((match: RegExpExecArray) => {
+        const start = Math.max(0, match.index - SEARCH_STYLES.HIGHLIGHT.CONTEXT_LENGTH);
+        const end = Math.min(content.length, match.index + match[0].length + SEARCH_STYLES.HIGHLIGHT.CONTEXT_LENGTH);
+
+        if (start > lastIndex) {
+          highlightedText += SEARCH_STYLES.HIGHLIGHT.SEPARATOR;
+        }
+
+        highlightedText += content.slice(start, match.index);
+        highlightedText += `<${SEARCH_STYLES.HIGHLIGHT.TAG} class="${SEARCH_CLASS_NAMES.HIGHLIGHT}">${match[0]}</${SEARCH_STYLES.HIGHLIGHT.TAG}>`;
+        highlightedText += content.slice(match.index + match[0].length, end);
+
+        lastIndex = end;
+      });
+
+      if (lastIndex < content.length) {
+        highlightedText += SEARCH_STYLES.HIGHLIGHT.SEPARATOR;
+      }
+
+      return highlightedText;
     } catch (error) {
       // 정규식 오류 등의 예외 처리
       return content;
     }
+  }
+
+  /**
+   * 검색 패턴과 일치하는 모든 매치를 찾습니다.
+   * @param text 검색할 텍스트
+   * @param searchTerm 검색어
+   * @returns RegExpExecArray 배열
+   */
+  private findMatches(text: string, searchTerm: string): RegExpExecArray[] {
+    const pattern = this.createSearchPattern(searchTerm);
+    const matches: RegExpExecArray[] = [];
+    let match: RegExpExecArray | null;
+    
+    while ((match = pattern.exec(text)) !== null) {
+      matches.push(match);
+      if (!pattern.global) break; // global 플래그가 없는 경우 무한 루프 방지
+    }
+    
+    return matches;
+  }
+
+  /**
+   * 검색 컨테이너 요소를 가져옵니다.
+   * @returns HTMLElement
+   */
+  private getSearchContainer(): HTMLElement {
+    let container = document.querySelector(`.${SEARCH_CLASS_NAMES.CONTAINER}`);
+    if (!container) {
+      container = document.createElement('div');
+      container.classList.add(SEARCH_CLASS_NAMES.CONTAINER);
+      document.body.appendChild(container);
+    }
+    return container as HTMLElement;
+  }
+
+  /**
+   * 검색 결과를 업데이트합니다.
+   * @param results 검색 결과 배열
+   */
+  private updateSearchResults(results: SearchResult[]): void {
+    const container = this.getSearchContainer();
+    container.classList.remove(SEARCH_CLASS_NAMES.LOADING);
+    container.classList.remove(SEARCH_CLASS_NAMES.ERROR);
+
+    const resultsElement = container.querySelector(`.${SEARCH_CLASS_NAMES.RESULTS}`);
+    if (!resultsElement) return;
+
+    if (!results.length) {
+      resultsElement.classList.add(SEARCH_CLASS_NAMES.NO_RESULTS);
+      return;
+    }
+
+    resultsElement.classList.remove(SEARCH_CLASS_NAMES.NO_RESULTS);
+    results.forEach(result => {
+      const matchElement = document.createElement('div');
+      matchElement.classList.add(SEARCH_CLASS_NAMES.MATCH.BASE);
+      
+      const matchType = result.matches[0]?.type || SEARCH_TYPES.CONTENT;
+      
+      switch (matchType) {
+        case SEARCH_TYPES.TITLE:
+          matchElement.classList.add(SEARCH_CLASS_NAMES.MATCH.TITLE);
+          break;
+        case SEARCH_TYPES.HEADER:
+          matchElement.classList.add(SEARCH_CLASS_NAMES.MATCH.HEADER);
+          break;
+        case SEARCH_TYPES.TAG:
+          matchElement.classList.add(SEARCH_CLASS_NAMES.MATCH.TAG);
+          break;
+        case SEARCH_TYPES.CONTENT:
+          matchElement.classList.add(SEARCH_CLASS_NAMES.MATCH.CONTENT);
+          break;
+        case SEARCH_TYPES.FRONTMATTER:
+          matchElement.classList.add(SEARCH_CLASS_NAMES.MATCH.FRONTMATTER);
+          break;
+      }
+
+      // ... existing code ...
+    });
   }
 } 

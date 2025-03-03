@@ -276,7 +276,7 @@ export class CardContainerManager implements ICardContainerManager {
       Log.debug('CardContainerManager', `카드 제거: ${cardId}`);
       
       return true;
-    }, ErrorCode.CARD_DELETION_ERROR, { cardId }, true) || false;
+    }, ErrorCode.CARD_INTERACTION_ERROR, { cardId }, true) || false;
   }
 
   /**

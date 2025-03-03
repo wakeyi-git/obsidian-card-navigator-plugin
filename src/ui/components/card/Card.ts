@@ -1,33 +1,54 @@
-import { TFile } from 'obsidian';
-import { Card as CardModel } from '../../../core/models/Card';
-import { CardPosition } from '../../../core/models/CardPosition';
-import { CardInteractionEvent, CardInteractionHandler, CardRenderOptions, CardStateEnum } from '../../../core/types/card.types';
-import { ErrorHandler } from '../../../utils/error/ErrorHandler';
+import { TFile, Component, App } from 'obsidian';
+import { CardRenderOptions } from '../../../core/types/card.types';
+import { CARD_CLASS_NAMES, CARD_THEME } from '../../../styles/components/card.styles';
+import { CardHeader } from './CardHeader';
+import { CardBody } from './CardBody';
+import { CardFooter } from './CardFooter';
 
 /**
  * 카드 컴포넌트 클래스
- * 카드 UI 요소를 생성하고 관리합니다.
+ * 카드의 전체적인 구조와 동작을 관리합니다.
  */
-export class Card {
+export class Card extends Component {
   /**
-   * 카드 요소
+   * 카드 컨테이너 요소
    */
   private element: HTMLElement;
   
   /**
-   * 카드 모델
+   * 헤더 컴포넌트
    */
-  private model: CardModel;
+  private header: CardHeader;
   
   /**
-   * 카드 위치
+   * 본문 컴포넌트
    */
-  private position: CardPosition | null = null;
+  private body: CardBody;
   
   /**
-   * 카드 상태
+   * 푸터 컴포넌트
    */
-  private state: CardStateEnum = CardStateEnum.NORMAL;
+  private footer: CardFooter;
+  
+  /**
+   * 파일 객체
+   */
+  private file: TFile;
+  
+  /**
+   * 첫 번째 헤더 텍스트
+   */
+  private firstHeader: string | null;
+  
+  /**
+   * 본문 내용
+   */
+  private content: string;
+  
+  /**
+   * 태그 목록
+   */
+  private tags: string[];
   
   /**
    * 렌더링 옵션
@@ -35,20 +56,63 @@ export class Card {
   private renderOptions: CardRenderOptions;
   
   /**
-   * 이벤트 핸들러 맵
+   * 선택 상태
    */
-  private eventHandlers: Map<CardInteractionEvent, CardInteractionHandler[]> = new Map();
+  private isSelected: boolean;
+  
+  /**
+   * 포커스 상태
+   */
+  private isFocused: boolean;
+  
+  /**
+   * 앱 인스턴스
+   */
+  private app: App;
   
   /**
    * 카드 컴포넌트 생성자
-   * @param model 카드 모델
+   * @param file 파일 객체
+   * @param firstHeader 첫 번째 헤더 텍스트
+   * @param content 본문 내용
+   * @param tags 태그 목록
    * @param renderOptions 렌더링 옵션
+   * @param app 앱 인스턴스
    */
-  constructor(model: CardModel, renderOptions: CardRenderOptions) {
-    this.model = model;
+  constructor(
+    file: TFile,
+    firstHeader: string | null,
+    content: string,
+    tags: string[],
+    renderOptions: CardRenderOptions,
+    app: App
+  ) {
+    super();
+    
+    this.file = file;
+    this.firstHeader = firstHeader;
+    this.content = content;
+    this.tags = tags;
     this.renderOptions = renderOptions;
+    this.app = app;
+    this.isSelected = false;
+    this.isFocused = false;
+    
+    // 카드 컨테이너 생성
     this.element = this.createCardElement();
-    this.setupEventListeners();
+    
+    // 하위 컴포넌트 생성
+    this.header = new CardHeader(file, firstHeader, renderOptions);
+    this.body = new CardBody(file, content, renderOptions, app);
+    this.footer = new CardFooter(file, tags, renderOptions, app);
+    
+    // 하위 컴포넌트 추가
+    this.element.appendChild(this.header.getElement());
+    this.element.appendChild(this.body.getElement());
+    this.element.appendChild(this.footer.getElement());
+    
+    // 이벤트 리스너 등록
+    this.registerEventListeners();
   }
   
   /**
@@ -60,162 +124,99 @@ export class Card {
   }
   
   /**
-   * 카드 모델 가져오기
-   * @returns 카드 모델
-   */
-  getModel(): CardModel {
-    return this.model;
-  }
-  
-  /**
-   * 카드 ID 가져오기
-   * @returns 카드 ID
-   */
-  getId(): string {
-    return this.model.id;
-  }
-  
-  /**
-   * 카드 파일 가져오기
-   * @returns 카드 파일
+   * 파일 객체 가져오기
+   * @returns 파일 객체
    */
   getFile(): TFile {
-    return this.model.file;
+    return this.file;
   }
   
   /**
-   * 카드 위치 설정
-   * @param position 카드 위치
+   * 선택 상태 설정
+   * @param selected 선택 상태
    */
-  setPosition(position: CardPosition): void {
-    this.position = position;
-    this.updatePosition();
+  setSelected(selected: boolean): void {
+    this.isSelected = selected;
+    this.updateCardState();
   }
   
   /**
-   * 카드 위치 가져오기
-   * @returns 카드 위치
+   * 포커스 상태 설정
+   * @param focused 포커스 상태
    */
-  getPosition(): CardPosition | null {
-    return this.position;
+  setFocused(focused: boolean): void {
+    this.isFocused = focused;
+    this.updateCardState();
   }
   
   /**
-   * 카드 상태 설정
-   * @param state 카드 상태
+   * 카드 내용 업데이트
+   * @param newContent 새 내용
    */
-  setState(state: CardStateEnum): void {
-    // 이전 상태 클래스 제거
-    this.element.classList.remove(`card-state-${this.state}`);
-    
-    // 새 상태 설정
-    this.state = state;
-    
-    // 새 상태 클래스 추가
-    this.element.classList.add(`card-state-${state}`);
-    
-    // 상태에 따른 추가 처리
-    switch (state) {
-      case CardStateEnum.ACTIVE:
-        this.element.setAttribute('aria-selected', 'true');
-        break;
-      case CardStateEnum.FOCUSED:
-        this.element.focus();
-        break;
-      default:
-        this.element.setAttribute('aria-selected', 'false');
-    }
+  updateContent(newContent: string): void {
+    this.content = newContent;
+    this.body.updateContent(newContent);
   }
   
   /**
-   * 카드 상태 가져오기
-   * @returns 카드 상태
+   * 첫 번째 헤더 업데이트
+   * @param newHeader 새 헤더 텍스트
    */
-  getState(): CardStateEnum {
-    return this.state;
+  updateFirstHeader(newHeader: string | null): void {
+    this.firstHeader = newHeader;
+    this.header.updateFirstHeader(newHeader);
   }
   
   /**
-   * 카드 업데이트
-   * @param model 새 카드 모델
+   * 태그 업데이트
+   * @param newTags 새 태그 목록
    */
-  update(model: CardModel): void {
-    this.model = model;
-    this.render();
+  updateTags(newTags: string[]): void {
+    this.tags = newTags;
+    this.footer.updateTags(newTags);
   }
   
   /**
-   * 카드 렌더링
+   * 파일 업데이트
+   * @param newFile 새 파일 객체
    */
-  render(): void {
-    // 카드 내용 초기화
-    this.element.innerHTML = '';
-    
-    // 카드 헤더 생성
-    if (this.renderOptions.showFileName || this.renderOptions.showFirstHeader) {
-      const header = this.createCardHeader();
-      this.element.appendChild(header);
-    }
-    
-    // 카드 본문 생성
-    if (this.renderOptions.showBody && this.model.body) {
-      const body = this.createCardBody();
-      this.element.appendChild(body);
-    }
-    
-    // 카드 푸터 생성
-    if (this.renderOptions.showTags && this.model.tags && this.model.tags.length > 0) {
-      const footer = this.createCardFooter();
-      this.element.appendChild(footer);
-    }
+  updateFile(newFile: TFile): void {
+    this.file = newFile;
+    this.header.updateFile(newFile);
+    this.body.updateFile(newFile);
+    this.footer.updateFile(newFile);
   }
   
   /**
-   * 이벤트 리스너 등록
-   * @param event 이벤트 타입
-   * @param handler 이벤트 핸들러
+   * 렌더링 옵션 업데이트
+   * @param newOptions 새 렌더링 옵션
    */
-  on(event: CardInteractionEvent, handler: CardInteractionHandler): void {
-    if (!this.eventHandlers.has(event)) {
-      this.eventHandlers.set(event, []);
-    }
-    
-    this.eventHandlers.get(event)?.push(handler);
+  updateRenderOptions(newOptions: CardRenderOptions): void {
+    this.renderOptions = newOptions;
+    this.header.updateRenderOptions(newOptions);
+    this.body.updateRenderOptions(newOptions);
+    this.footer.updateRenderOptions(newOptions);
   }
   
   /**
-   * 이벤트 리스너 제거
-   * @param event 이벤트 타입
-   * @param handler 이벤트 핸들러
+   * 컴포넌트 언로드
+   * 이벤트 리스너 제거 및 정리 작업 수행
    */
-  off(event: CardInteractionEvent, handler: CardInteractionHandler): void {
-    if (!this.eventHandlers.has(event)) {
-      return;
-    }
-    
-    const handlers = this.eventHandlers.get(event);
-    if (handlers) {
-      const index = handlers.indexOf(handler);
-      if (index !== -1) {
-        handlers.splice(index, 1);
-      }
-    }
-  }
-  
-  /**
-   * 리소스 정리
-   */
-  destroy(): void {
+  onunload(): void {
     // 이벤트 리스너 제거
-    this.removeEventListeners();
+    this.element.removeEventListener('click', this.handleClick);
+    this.element.removeEventListener('mouseenter', this.handleMouseEnter);
+    this.element.removeEventListener('mouseleave', this.handleMouseLeave);
     
-    // 요소 제거
-    if (this.element.parentNode) {
-      this.element.parentNode.removeChild(this.element);
-    }
+    // 하위 컴포넌트들의 unload 호출
+    this.header?.unload();
+    this.body?.unload();
+    this.footer?.unload();
     
-    // 이벤트 핸들러 정리
-    this.eventHandlers.clear();
+    // DOM에서 제거
+    this.element.remove();
+    
+    super.onunload();
   }
   
   /**
@@ -224,304 +225,83 @@ export class Card {
    */
   private createCardElement(): HTMLElement {
     const card = document.createElement('div');
-    card.className = 'card';
-    card.dataset.id = this.model.id;
-    card.dataset.path = this.model.file.path;
-    card.setAttribute('tabindex', '0');
-    card.setAttribute('role', 'listitem');
-    card.setAttribute('aria-label', this.model.file.basename);
     
-    // 카드 상태 클래스 추가
-    card.classList.add(`card-state-${this.state}`);
+    // 기본 클래스 적용
+    const baseClasses = [
+      CARD_CLASS_NAMES.CARD.CONTAINER,
+      CARD_CLASS_NAMES.INTERACTION.CLICKABLE,
+      CARD_CLASS_NAMES.INTERACTION.HOVERABLE
+    ];
     
-    // 카드 내용 렌더링
-    this.render();
+    card.className = baseClasses.join(' ');
+    
+    // 테마 클래스 별도 적용
+    const isDarkTheme = document.body.classList.contains('theme-dark');
+    card.classList.add(isDarkTheme ? CARD_THEME.DARK : CARD_THEME.LIGHT);
     
     return card;
   }
   
   /**
-   * 카드 헤더 생성
-   * @returns 카드 헤더 요소
+   * 이벤트 리스너 등록
    */
-  private createCardHeader(): HTMLElement {
-    const header = document.createElement('div');
-    header.className = 'card-header';
-    
-    // 제목 요소 생성
-    const title = document.createElement('div');
-    title.className = 'card-title';
-    
-    // 제목 폰트 크기 설정
-    title.style.fontSize = `${this.renderOptions.titleFontSize}px`;
-    
-    // 파일명 또는 첫 번째 헤더 표시
-    if (this.renderOptions.showFirstHeader && this.model.firstHeader) {
-      title.textContent = this.model.firstHeader;
-    } else {
-      title.textContent = this.model.file.basename;
-    }
-    
-    header.appendChild(title);
-    
-    return header;
-  }
-  
-  /**
-   * 카드 본문 생성
-   * @returns 카드 본문 요소
-   */
-  private createCardBody(): HTMLElement {
-    const body = document.createElement('div');
-    body.className = 'card-body';
-    
-    // 본문 폰트 크기 설정
-    body.style.fontSize = `${this.renderOptions.bodyFontSize}px`;
-    
-    // 본문 내용 제한
-    let content = this.model.body || '';
-    if (this.renderOptions.maxBodyLength > 0 && content.length > this.renderOptions.maxBodyLength) {
-      content = content.substring(0, this.renderOptions.maxBodyLength) + '...';
-    }
-    
-    // 마크다운 렌더링 (간단한 구현, 실제로는 Obsidian의 마크다운 렌더러 사용)
-    body.textContent = content;
-    
-    return body;
-  }
-  
-  /**
-   * 카드 푸터 생성
-   * @returns 카드 푸터 요소
-   */
-  private createCardFooter(): HTMLElement {
-    const footer = document.createElement('div');
-    footer.className = 'card-footer';
-    
-    // 태그 컨테이너 생성
-    const tagContainer = document.createElement('div');
-    tagContainer.className = 'card-tags';
-    
-    // 태그 폰트 크기 설정
-    tagContainer.style.fontSize = `${this.renderOptions.tagFontSize}px`;
-    
-    // 태그 추가
-    if (this.model.tags) {
-      for (const tag of this.model.tags) {
-        const tagElement = document.createElement('span');
-        tagElement.className = 'card-tag';
-        tagElement.textContent = `#${tag}`;
-        tagContainer.appendChild(tagElement);
-      }
-    }
-    
-    footer.appendChild(tagContainer);
-    
-    return footer;
-  }
-  
-  /**
-   * 카드 위치 업데이트
-   */
-  private updatePosition(): void {
-    if (!this.position) return;
-    
-    // 위치 설정
-    this.element.style.position = 'absolute';
-    this.element.style.left = `${this.position.x}px`;
-    this.element.style.top = `${this.position.y}px`;
-    this.element.style.width = `${this.position.width}px`;
-    this.element.style.height = `${this.position.height}px`;
-    
-    // 그리드 위치 데이터 설정
-    this.element.dataset.column = String(this.position.column);
-    this.element.dataset.row = String(this.position.row);
-  }
-  
-  /**
-   * 이벤트 리스너 설정
-   */
-  private setupEventListeners(): void {
+  private registerEventListeners = (): void => {
     // 클릭 이벤트
-    this.element.addEventListener('click', this.handleClick.bind(this));
+    this.element.addEventListener('click', this.handleClick);
     
-    // 더블 클릭 이벤트
-    this.element.addEventListener('dblclick', this.handleDblClick.bind(this));
-    
-    // 컨텍스트 메뉴 이벤트
-    this.element.addEventListener('contextmenu', this.handleContextMenu.bind(this));
-    
-    // 마우스 이벤트
-    this.element.addEventListener('mouseenter', this.handleMouseEnter.bind(this));
-    this.element.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
-    
-    // 키보드 이벤트
-    this.element.addEventListener('keydown', this.handleKeyDown.bind(this));
-    
-    // 드래그 이벤트
-    this.element.addEventListener('dragstart', this.handleDragStart.bind(this));
-    this.element.addEventListener('dragend', this.handleDragEnd.bind(this));
-    
-    // 드롭 이벤트
-    this.element.addEventListener('dragover', this.handleDragOver.bind(this));
-    this.element.addEventListener('drop', this.handleDrop.bind(this));
-    
-    // 드래그 가능 설정
-    this.element.setAttribute('draggable', 'true');
-  }
-  
-  /**
-   * 이벤트 리스너 제거
-   */
-  private removeEventListeners(): void {
-    // 클릭 이벤트
-    this.element.removeEventListener('click', this.handleClick.bind(this));
-    
-    // 더블 클릭 이벤트
-    this.element.removeEventListener('dblclick', this.handleDblClick.bind(this));
-    
-    // 컨텍스트 메뉴 이벤트
-    this.element.removeEventListener('contextmenu', this.handleContextMenu.bind(this));
-    
-    // 마우스 이벤트
-    this.element.removeEventListener('mouseenter', this.handleMouseEnter.bind(this));
-    this.element.removeEventListener('mouseleave', this.handleMouseLeave.bind(this));
-    
-    // 키보드 이벤트
-    this.element.removeEventListener('keydown', this.handleKeyDown.bind(this));
-    
-    // 드래그 이벤트
-    this.element.removeEventListener('dragstart', this.handleDragStart.bind(this));
-    this.element.removeEventListener('dragend', this.handleDragEnd.bind(this));
-    
-    // 드롭 이벤트
-    this.element.removeEventListener('dragover', this.handleDragOver.bind(this));
-    this.element.removeEventListener('drop', this.handleDrop.bind(this));
-  }
+    // 마우스 호버 이벤트
+    this.element.addEventListener('mouseenter', this.handleMouseEnter);
+    this.element.addEventListener('mouseleave', this.handleMouseLeave);
+  };
   
   /**
    * 클릭 이벤트 핸들러
-   * @param event 마우스 이벤트
+   * @param event 클릭 이벤트
    */
-  private handleClick(event: MouseEvent): void {
-    this.triggerEvent('click', event);
-  }
-  
-  /**
-   * 더블 클릭 이벤트 핸들러
-   * @param event 마우스 이벤트
-   */
-  private handleDblClick(event: MouseEvent): void {
-    this.triggerEvent('dblclick', event);
-  }
-  
-  /**
-   * 컨텍스트 메뉴 이벤트 핸들러
-   * @param event 마우스 이벤트
-   */
-  private handleContextMenu(event: MouseEvent): void {
-    this.triggerEvent('contextmenu', event);
-  }
+  private handleClick = (event: MouseEvent): void => {
+    // 이벤트 버블링 방지
+    event.stopPropagation();
+    
+    // 클릭 이벤트 발생
+    const customEvent = new CustomEvent('card-click', {
+      detail: {
+        file: this.file,
+        originalEvent: event
+      },
+      bubbles: true
+    });
+    
+    this.element.dispatchEvent(customEvent);
+  };
   
   /**
    * 마우스 진입 이벤트 핸들러
-   * @param event 마우스 이벤트
    */
-  private handleMouseEnter(event: MouseEvent): void {
-    this.triggerEvent('mouseenter', event);
-  }
+  private handleMouseEnter = (): void => {
+    this.element.classList.add(CARD_CLASS_NAMES.CARD.STATE.FOCUSED);
+  };
   
   /**
    * 마우스 이탈 이벤트 핸들러
-   * @param event 마우스 이벤트
    */
-  private handleMouseLeave(event: MouseEvent): void {
-    this.triggerEvent('mouseleave', event);
-  }
-  
-  /**
-   * 키 다운 이벤트 핸들러
-   * @param event 키보드 이벤트
-   */
-  private handleKeyDown(event: KeyboardEvent): void {
-    this.triggerEvent('keydown', event);
-  }
-  
-  /**
-   * 드래그 시작 이벤트 핸들러
-   * @param event 드래그 이벤트
-   */
-  private handleDragStart(event: DragEvent): void {
-    if (event.dataTransfer) {
-      // 드래그 데이터 설정
-      event.dataTransfer.setData('text/plain', this.model.file.path);
-      event.dataTransfer.effectAllowed = 'copyLink';
+  private handleMouseLeave = (): void => {
+    if (!this.isFocused) {
+      this.element.classList.remove(CARD_CLASS_NAMES.CARD.STATE.FOCUSED);
     }
-    
-    // 드래그 중 클래스 추가
-    this.element.classList.add('card-dragging');
-    
-    this.triggerEvent('dragstart', event);
-  }
+  };
   
   /**
-   * 드래그 종료 이벤트 핸들러
-   * @param event 드래그 이벤트
+   * 카드 상태 업데이트
+   * 선택 및 포커스 상태에 따라 클래스 업데이트
    */
-  private handleDragEnd(event: DragEvent): void {
-    // 드래그 중 클래스 제거
-    this.element.classList.remove('card-dragging');
-    
-    this.triggerEvent('dragend', event);
-  }
-  
-  /**
-   * 드래그 오버 이벤트 핸들러
-   * @param event 드래그 이벤트
-   */
-  private handleDragOver(event: DragEvent): void {
-    // 기본 동작 방지 (드롭 허용)
-    event.preventDefault();
-    
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = 'copyLink';
-    }
-    
-    this.triggerEvent('dragover', event);
-  }
-  
-  /**
-   * 드롭 이벤트 핸들러
-   * @param event 드래그 이벤트
-   */
-  private handleDrop(event: DragEvent): void {
-    // 기본 동작 방지
-    event.preventDefault();
-    
-    if (event.dataTransfer) {
-      const sourcePath = event.dataTransfer.getData('text/plain');
-      
-      // 드롭 처리
-      if (sourcePath && sourcePath !== this.model.file.path) {
-        this.triggerEvent('drop', event, { sourcePath });
-      }
-    }
-  }
-  
-  /**
-   * 이벤트 발생
-   * @param event 이벤트 타입
-   * @param originalEvent 원본 이벤트
-   * @param data 추가 데이터
-   */
-  private triggerEvent(
-    event: CardInteractionEvent,
-    originalEvent: Event,
-    data: any = {}
-  ): void {
-    const handlers = this.eventHandlers.get(event);
-    if (handlers) {
-      handlers.forEach(handler => handler(originalEvent, this.model.file, data));
-    }
+  private updateCardState(): void {
+    const stateClasses = {
+      [CARD_CLASS_NAMES.CARD.STATE.SELECTED]: this.isSelected,
+      [CARD_CLASS_NAMES.CARD.STATE.FOCUSED]: this.isFocused
+    };
+
+    Object.entries(stateClasses).forEach(([className, shouldApply]) => {
+      this.element.classList.toggle(className, shouldApply);
+    });
   }
 } 

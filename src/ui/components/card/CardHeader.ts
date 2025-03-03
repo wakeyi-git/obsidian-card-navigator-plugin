@@ -1,11 +1,11 @@
-import { TFile } from 'obsidian';
+import { TFile, Component } from 'obsidian';
 import { CardRenderOptions } from '../../../core/types/card.types';
 
 /**
  * 카드 헤더 컴포넌트 클래스
  * 카드의 헤더 부분을 생성하고 관리합니다.
  */
-export class CardHeader {
+export class CardHeader extends Component {
   /**
    * 헤더 요소
    */
@@ -38,6 +38,7 @@ export class CardHeader {
    * @param renderOptions 렌더링 옵션
    */
   constructor(file: TFile, firstHeader: string | null, renderOptions: CardRenderOptions) {
+    super();
     this.file = file;
     this.firstHeader = firstHeader;
     this.renderOptions = renderOptions;
@@ -48,7 +49,7 @@ export class CardHeader {
     this.element.appendChild(this.titleElement);
     
     // 추가 헤더 요소가 필요한 경우 여기에 추가
-    if (this.renderOptions.showCreatedDate || this.renderOptions.showModifiedDate) {
+    if (this.renderOptions.showCreationDate || this.renderOptions.showModificationDate) {
       const dateElement = this.createDateElement();
       this.element.appendChild(dateElement);
     }
@@ -98,7 +99,7 @@ export class CardHeader {
     }
     
     // 날짜 정보 업데이트
-    if (this.renderOptions.showCreatedDate || this.renderOptions.showModifiedDate) {
+    if (this.renderOptions.showCreationDate || this.renderOptions.showModificationDate) {
       const dateElement = this.element.querySelector('.card-date');
       if (dateElement) {
         dateElement.remove();
@@ -128,7 +129,7 @@ export class CardHeader {
     
     // 날짜 표시 업데이트
     const dateElement = this.element.querySelector('.card-date');
-    if (this.renderOptions.showCreatedDate || this.renderOptions.showModifiedDate) {
+    if (this.renderOptions.showCreationDate || this.renderOptions.showModificationDate) {
       if (!dateElement) {
         const newDateElement = this.createDateElement();
         this.element.appendChild(newDateElement);
@@ -191,7 +192,7 @@ export class CardHeader {
     dateContainer.style.fontSize = `${Math.max(10, this.renderOptions.titleFontSize - 2)}px`;
     
     // 생성 날짜 표시
-    if (this.renderOptions.showCreatedDate) {
+    if (this.renderOptions.showCreationDate) {
       const createdDate = document.createElement('span');
       createdDate.className = 'card-created-date';
       
@@ -204,14 +205,14 @@ export class CardHeader {
     }
     
     // 생성 날짜와 수정 날짜 모두 표시하는 경우 구분자 추가
-    if (this.renderOptions.showCreatedDate && this.renderOptions.showModifiedDate) {
+    if (this.renderOptions.showCreationDate && this.renderOptions.showModificationDate) {
       const separator = document.createElement('span');
       separator.textContent = ' | ';
       dateContainer.appendChild(separator);
     }
     
     // 수정 날짜 표시
-    if (this.renderOptions.showModifiedDate) {
+    if (this.renderOptions.showModificationDate) {
       const modifiedDate = document.createElement('span');
       modifiedDate.className = 'card-modified-date';
       
@@ -240,5 +241,16 @@ export class CardHeader {
     const day = String(date.getDate()).padStart(2, '0');
     
     return `${year}-${month}-${day}`;
+  }
+
+  /**
+   * 컴포넌트 언로드
+   * 이벤트 리스너 제거 및 정리 작업 수행
+   */
+  onunload(): void {
+    // DOM에서 제거
+    this.element.remove();
+    
+    super.onunload();
   }
 } 

@@ -1,5 +1,34 @@
-import { SearchSettings } from '../../core/types/search.types';
 import { ErrorHandler } from '../../utils/error/ErrorHandler';
+
+/**
+ * 검색 설정 인터페이스
+ */
+export interface SearchSettings {
+  /**
+   * 검색 기록 저장 여부
+   */
+  saveSearchHistory: boolean;
+  
+  /**
+   * 최대 검색 기록 항목 수
+   */
+  maxSearchHistoryItems: number;
+  
+  /**
+   * 검색 제안 활성화 여부
+   */
+  enableSearchSuggestions?: boolean;
+
+  /**
+   * 파일명 검색 여부
+   */
+  searchInFilename?: boolean;
+
+  /**
+   * 태그 검색 여부
+   */
+  searchInTags?: boolean;
+}
 
 /**
  * 검색 기록 서비스 클래스

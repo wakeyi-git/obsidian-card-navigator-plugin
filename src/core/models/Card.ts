@@ -1,5 +1,6 @@
 import { TFile } from 'obsidian';
 import { CardData } from '../types/card.types';
+import { ICardPosition } from '../types/layout.types';
 
 /**
  * 카드 모델 클래스
@@ -14,7 +15,7 @@ export class Card implements CardData {
   /**
    * 파일 객체
    */
-  public readonly file: TFile;
+  public readonly file?: TFile;
   
   /**
    * 파일 경로
@@ -57,8 +58,18 @@ export class Card implements CardData {
   public readonly fileSize: number;
   
   /**
+   * 카드 위치
+   */
+  public readonly position: ICardPosition | null;
+  
+  /**
+   * 고정 여부
+   */
+  public readonly isPinned: boolean;
+  
+  /**
    * 카드 생성자
-   * @param file 파일 객체
+   * @param fileOrData 파일 객체 또는 카드 데이터
    * @param filename 파일명
    * @param firstHeader 첫 번째 헤더
    * @param content 본문 내용
@@ -66,27 +77,70 @@ export class Card implements CardData {
    * @param creationDate 생성 날짜
    * @param modificationDate 수정 날짜
    * @param fileSize 파일 크기
+   * @param position 카드 위치
+   * @param isPinned 고정 여부
    */
   constructor(
-    file: TFile,
-    filename: string,
-    firstHeader: string | undefined,
-    content: string | undefined,
-    tags: string[],
-    creationDate: number,
-    modificationDate: number,
-    fileSize: number
+    fileOrData: TFile | CardData,
+    filename?: string,
+    firstHeader?: string,
+    content?: string,
+    tags?: string[],
+    creationDate?: number,
+    modificationDate?: number,
+    fileSize?: number,
+    position?: ICardPosition | null,
+    isPinned?: boolean
   ) {
-    this.id = file.path;
-    this.file = file;
-    this.path = file.path;
-    this.filename = filename;
-    this.firstHeader = firstHeader;
-    this.content = content;
-    this.tags = [...tags];
-    this.creationDate = creationDate;
-    this.modificationDate = modificationDate;
-    this.fileSize = fileSize;
+    if (fileOrData instanceof TFile) {
+      // TFile 생성자 오버로드
+      const file = fileOrData;
+      this.id = file.path;
+      this.file = file;
+      this.path = file.path;
+      this.filename = filename || file.basename;
+      this.firstHeader = firstHeader;
+      this.content = content;
+      this.tags = tags ? [...tags] : [];
+      this.creationDate = creationDate || file.stat.ctime;
+      this.modificationDate = modificationDate || file.stat.mtime;
+      this.fileSize = fileSize || file.stat.size;
+      this.position = position || null;
+      this.isPinned = isPinned || false;
+    } else {
+      // CardData 생성자 오버로드
+      const cardData = fileOrData;
+      this.id = cardData.id;
+      this.file = cardData.file;
+      this.path = cardData.path || cardData.file?.path || '';
+      this.filename = cardData.filename || cardData.file?.basename || '';
+      this.firstHeader = cardData.firstHeader;
+      this.content = cardData.content;
+      this.tags = cardData.tags ? [...cardData.tags] : [];
+      this.creationDate = cardData.creationDate || 0;
+      this.modificationDate = cardData.modificationDate || 0;
+      this.fileSize = cardData.fileSize || 0;
+      this.position = cardData.position || null;
+      this.isPinned = isPinned || false;
+    }
+  }
+  
+  /**
+   * 카드 데이터 업데이트
+   * @param cardData 업데이트할 카드 데이터
+   */
+  public update(cardData: CardData): void {
+    // readonly 속성이므로 타입 단언을 사용하여 업데이트
+    (this as any).path = cardData.path || this.path;
+    (this as any).filename = cardData.filename || this.filename;
+    (this as any).firstHeader = cardData.firstHeader;
+    (this as any).content = cardData.content;
+    (this as any).tags = cardData.tags ? [...cardData.tags] : this.tags;
+    (this as any).creationDate = cardData.creationDate || this.creationDate;
+    (this as any).modificationDate = cardData.modificationDate || this.modificationDate;
+    (this as any).fileSize = cardData.fileSize || this.fileSize;
+    (this as any).position = cardData.position || this.position;
+    (this as any).isPinned = cardData.isPinned || this.isPinned;
   }
   
   /**
@@ -112,7 +166,9 @@ export class Card implements CardData {
       tags: this.tags,
       creationDate: this.creationDate,
       modificationDate: this.modificationDate,
-      fileSize: this.fileSize
+      fileSize: this.fileSize,
+      position: this.position,
+      isPinned: this.isPinned
     };
   }
 } 

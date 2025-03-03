@@ -3,54 +3,45 @@ import { PresetEvent } from '../../types/event.types';
 
 /**
  * 이벤트 관리자 인터페이스
- * 애플리케이션 내 이벤트 처리를 위한 인터페이스입니다.
+ * 컴포넌트 간 이벤트 기반 통신을 위한 인터페이스를 정의합니다.
  */
 export interface IEventManager {
   /**
-   * 이벤트 리스너 등록
+   * 이벤트를 발생시킵니다.
    * @param event 이벤트 이름
-   * @param handler 이벤트 핸들러 함수
+   * @param data 이벤트 데이터 (선택사항)
    */
-  on(event: string | PresetEvent, handler: EventHandler): void;
-  
+  emit(event: string, data?: any): void;
+
   /**
-   * 이벤트 리스너 제거
+   * 이벤트 리스너를 등록합니다.
    * @param event 이벤트 이름
-   * @param handler 이벤트 핸들러 함수
+   * @param callback 이벤트 핸들러 함수
    */
-  off(event: string | PresetEvent, handler: EventHandler): void;
-  
+  on(event: string, callback: (data?: any) => void): void;
+
   /**
-   * 이벤트 발생
+   * 이벤트 리스너를 제거합니다.
    * @param event 이벤트 이름
-   * @param data 이벤트 데이터
+   * @param callback 제거할 이벤트 핸들러 함수
    */
-  triggerEvent(event: string | PresetEvent, data?: any): void;
-  
+  off(event: string, callback: (data?: any) => void): void;
+
   /**
-   * 모든 이벤트 리스너 제거
+   * 한 번만 실행되는 이벤트 리스너를 등록합니다.
+   * @param event 이벤트 이름
+   * @param callback 이벤트 핸들러 함수
    */
-  clearAllEventListeners(): void;
-  
+  once(event: string, callback: (data?: any) => void): void;
+
   /**
-   * 특정 이벤트의 모든 리스너 제거
+   * 특정 이벤트의 모든 리스너를 제거합니다.
    * @param event 이벤트 이름
    */
-  clearEventListeners(event: string | PresetEvent): void;
-  
+  removeAllListeners(event: string): void;
+
   /**
-   * 이벤트 리스너 추가 (addEventListener 별칭)
-   * ICardSetProvider와의 호환성을 위한 메소드입니다.
-   * @param eventName 이벤트 이름
-   * @param listener 리스너 함수
+   * 등록된 모든 이벤트 리스너를 제거합니다.
    */
-  addEventListener(eventName: string | PresetEvent, listener: EventHandler): void;
-  
-  /**
-   * 이벤트 리스너 제거 (removeEventListener 별칭)
-   * ICardSetProvider와의 호환성을 위한 메소드입니다.
-   * @param eventName 이벤트 이름
-   * @param listener 리스너 함수
-   */
-  removeEventListener(eventName: string | PresetEvent, listener: EventHandler): void;
+  clearAllListeners(): void;
 } 
