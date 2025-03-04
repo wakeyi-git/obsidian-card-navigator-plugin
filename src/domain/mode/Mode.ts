@@ -1,7 +1,7 @@
 /**
  * 모드 타입 정의
  */
-export type ModeType = 'folder' | 'tag';
+export type ModeType = 'folder' | 'tag' | 'search';
 
 /**
  * 모드 인터페이스

@@ -9,6 +9,7 @@ import PresetSelector from '../presets/PresetSelector';
 import SettingsModal from '../settings/SettingsModal';
 import { SearchType } from '../../domain/search/Search';
 import { App, SuggestModal } from 'obsidian';
+import { ModeType } from '../../domain/mode/Mode';
 
 /**
  * 툴바 컴포넌트 속성 인터페이스
@@ -17,8 +18,8 @@ export interface IToolbarProps {
   onSearch: (query: string) => void;
   onSearchTypeChange?: (type: SearchType, frontmatterKey?: string) => void;
   onCaseSensitiveChange?: (caseSensitive: boolean) => void;
-  onModeChange: (mode: 'folder' | 'tag') => void;
-  currentMode: 'folder' | 'tag';
+  onModeChange: (mode: ModeType) => void;
+  currentMode: ModeType;
   onSortChange?: (sortType: SortType, sortDirection: SortDirection) => void;
   onLayoutChange?: (layout: 'grid' | 'masonry') => void;
   onCardSetSelect?: (cardSet: string, isFixed: boolean) => void;
@@ -113,6 +114,11 @@ const Toolbar: React.FC<IToolbarProps> = ({
   const [isCardSetFixed, setIsCardSetFixed] = useState<boolean>(false);
   const [includeSubfolders, setIncludeSubfolders] = useState<boolean>(true);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchType, setSearchType] = useState<SearchType>('content');
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const [frontmatterKey, setFrontmatterKey] = useState('');
+  const [showSearchOptions, setShowSearchOptions] = useState(false);
 
   // 카드 세트 로드
   useEffect(() => {
@@ -168,22 +174,31 @@ const Toolbar: React.FC<IToolbarProps> = ({
 
   // 폴더/태그 선택 모달 열기
   const openCardSetModal = () => {
-    if (!service || !app) return;
+    if (!service || !app) {
+      console.log(`[Toolbar] 서비스 또는 앱이 초기화되지 않아 모달을 열 수 없습니다.`);
+      return;
+    }
     
     const modeService = service.getModeService();
     const currentMode = modeService.getCurrentModeType();
     
+    console.log(`[Toolbar] 카드 세트 모달 열기, 현재 모드: ${currentMode}`);
+    
     if (currentMode === 'folder') {
       // 폴더 선택 모달 열기
       modeService.getCardSets().then(folders => {
-        console.log('사용 가능한 폴더 목록:', folders);
+        console.log(`[Toolbar] 사용 가능한 폴더 목록 (${folders.length}개):`, folders);
         new FolderSuggestModal(app, folders, handleCardSetSelect).open();
+      }).catch(error => {
+        console.error(`[Toolbar] 폴더 목록 가져오기 오류:`, error);
       });
     } else {
       // 태그 선택 모달 열기
       modeService.getCardSets().then(tags => {
-        console.log('사용 가능한 태그 목록:', tags);
+        console.log(`[Toolbar] 사용 가능한 태그 목록 (${tags.length}개):`, tags);
         new TagSuggestModal(app, tags, handleCardSetSelect).open();
+      }).catch(error => {
+        console.error(`[Toolbar] 태그 목록 가져오기 오류:`, error);
       });
     }
   };
@@ -240,6 +255,62 @@ const Toolbar: React.FC<IToolbarProps> = ({
     console.log('===================================');
   };
 
+  // 모드 변경 처리
+  const handleModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const mode = e.target.value as ModeType;
+    onModeChange(mode);
+  };
+  
+  // 검색 처리
+  const handleSearch = () => {
+    if (!searchQuery.trim()) return;
+    
+    console.log(`[Toolbar] 검색 실행: ${searchQuery}, 타입: ${searchType}, 대소문자 구분: ${caseSensitive}`);
+    onSearch(searchQuery);
+    
+    // 검색 타입 설정
+    onSearchTypeChange(searchType, searchType === 'frontmatter' ? frontmatterKey : undefined);
+    
+    // 대소문자 구분 설정
+    onCaseSensitiveChange(caseSensitive);
+    
+    // 검색 모드로 변경
+    if (currentMode !== 'search') {
+      onModeChange('search');
+    }
+  };
+  
+  // 검색 입력 처리
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+  
+  // 검색 타입 변경 처리
+  const handleSearchTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSearchType(e.target.value as SearchType);
+  };
+  
+  // 대소문자 구분 변경 처리
+  const handleCaseSensitiveChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCaseSensitive(e.target.checked);
+  };
+  
+  // 프론트매터 키 변경 처리
+  const handleFrontmatterKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFrontmatterKey(e.target.value);
+  };
+  
+  // 검색 옵션 토글
+  const toggleSearchOptions = () => {
+    setShowSearchOptions(!showSearchOptions);
+  };
+  
+  // 검색 폼 제출 처리
+  const handleSearchFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSearch();
+  };
+
   return (
     <div className="card-navigator-toolbar">
       <div className="card-navigator-toolbar-left">
@@ -248,13 +319,15 @@ const Toolbar: React.FC<IToolbarProps> = ({
           onModeChange={onModeChange}
         />
         
-        <SearchBar
-          onSearch={onSearch}
-          onSearchTypeChange={onSearchTypeChange}
-          onCaseSensitiveChange={onCaseSensitiveChange}
-          placeholder="카드 검색..."
-          service={service}
-        />
+        <select
+          className="dropdown"
+          value={currentMode}
+          onChange={handleModeChange}
+        >
+          <option value="folder">폴더 모드</option>
+          <option value="tag">태그 모드</option>
+          <option value="search">검색 모드</option>
+        </select>
       </div>
       
       <div className="card-navigator-toolbar-center">
@@ -327,6 +400,65 @@ const Toolbar: React.FC<IToolbarProps> = ({
           service={service}
         />
       )}
+      
+      {/* 검색 */}
+      <div className="card-navigator-toolbar-section">
+        <form onSubmit={handleSearchFormSubmit} className="search-form">
+          <input
+            type="text"
+            placeholder="검색어 입력..."
+            value={searchQuery}
+            onChange={handleSearchInputChange}
+            className="search-input"
+          />
+          <button type="submit" className="search-button">검색</button>
+          <button 
+            type="button" 
+            className="search-options-toggle"
+            onClick={toggleSearchOptions}
+          >
+            ⚙️
+          </button>
+        </form>
+        
+        {showSearchOptions && (
+          <div className="search-options">
+            <div className="search-option">
+              <label>검색 타입:</label>
+              <select value={searchType} onChange={handleSearchTypeChange}>
+                <option value="title">제목</option>
+                <option value="content">내용</option>
+                <option value="path">경로</option>
+                <option value="frontmatter">프론트매터</option>
+                <option value="all">전체</option>
+              </select>
+            </div>
+            
+            {searchType === 'frontmatter' && (
+              <div className="search-option">
+                <label>프론트매터 키:</label>
+                <input
+                  type="text"
+                  value={frontmatterKey}
+                  onChange={handleFrontmatterKeyChange}
+                  placeholder="키 입력..."
+                />
+              </div>
+            )}
+            
+            <div className="search-option">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={caseSensitive}
+                  onChange={handleCaseSensitiveChange}
+                />
+                대소문자 구분
+              </label>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

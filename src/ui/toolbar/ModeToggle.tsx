@@ -1,36 +1,38 @@
 import React from 'react';
+import { ModeType } from '../../domain/mode/Mode';
 
 /**
  * 모드 토글 컴포넌트 속성 인터페이스
  */
-interface IModeToggleProps {
-  currentMode: 'folder' | 'tag';
-  onModeChange: (mode: 'folder' | 'tag') => void;
+export interface IModeToggleProps {
+  onModeChange: (mode: ModeType) => void;
+  currentMode: ModeType;
 }
 
 /**
  * 모드 토글 컴포넌트
- * 폴더 모드와 태그 모드 간 전환을 위한 토글 버튼을 제공합니다.
+ * 폴더 모드와 태그 모드 간 전환을 위한 컴포넌트입니다.
  */
-const ModeToggle: React.FC<IModeToggleProps> = ({
-  currentMode,
-  onModeChange,
-}) => {
+const ModeToggle: React.FC<IModeToggleProps> = ({ onModeChange, currentMode }) => {
   return (
-    <div className="card-navigator-mode-toggle">
+    <div className="mode-toggle">
       <button
-        className={`card-navigator-mode-button ${currentMode === 'folder' ? 'active' : ''}`}
+        className={`mode-button ${currentMode === 'folder' ? 'active' : ''}`}
         onClick={() => onModeChange('folder')}
-        aria-label="폴더 모드"
       >
-        폴더
+        폴더 모드
       </button>
       <button
-        className={`card-navigator-mode-button ${currentMode === 'tag' ? 'active' : ''}`}
+        className={`mode-button ${currentMode === 'tag' ? 'active' : ''}`}
         onClick={() => onModeChange('tag')}
-        aria-label="태그 모드"
       >
-        태그
+        태그 모드
+      </button>
+      <button
+        className={`mode-button ${currentMode === 'search' ? 'active' : ''}`}
+        onClick={() => onModeChange('search')}
+      >
+        검색 모드
       </button>
     </div>
   );

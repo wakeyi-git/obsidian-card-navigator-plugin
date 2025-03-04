@@ -39,122 +39,125 @@ export default class CardNavigatorPlugin extends Plugin {
   private cardNavigatorService: CardNavigatorService | null = null;
 
   async onload() {
-    // 설정 로드
-    await this.loadSettings();
-
-    // 인프라스트럭처 레이어 초기화
-    const obsidianAdapter = new ObsidianAdapter(this.app);
-    const cardFactory = new CardFactory();
-    const cardRepository = new CardRepositoryImpl(obsidianAdapter, cardFactory);
+    console.log('카드 네비게이터 플러그인 로드 중...');
     
-    // 서비스 레이어 초기화
-    this.cardNavigatorService = new CardNavigatorService(
-      this.app,
-      cardRepository,
-      this.settings.defaultMode
-    );
+    // 이미 로드 중인지 확인
+    if ((this as any)._loading) {
+      console.log('카드 네비게이터 플러그인이 이미 로드 중입니다. 중복 로드 방지');
+      return;
+    }
     
-    // 서비스 초기화
-    await this.cardNavigatorService.initialize();
-
-    // 카드 네비게이터 뷰 등록
-    this.registerView(
-      'card-navigator-view',
-      (leaf) => new CardNavigatorView(leaf)
-    );
-
-    // 워크스페이스에 뷰 타입 등록
-    this.app.workspace.onLayoutReady(() => {
-      if (this.app.workspace.getLeavesOfType('card-navigator-view').length === 0) {
+    (this as any)._loading = true;
+    
+    try {
+      // 설정 로드
+      await this.loadSettings();
+      
+      // 카드 네비게이터 뷰 등록
+      this.registerView(
+        'card-navigator-view',
+        (leaf) => new CardNavigatorView(leaf)
+      );
+      
+      // 리본 아이콘 추가
+      this.addRibbonIcon('layout-grid', '카드 네비게이터', () => {
         this.activateView();
-      }
-    });
-
-    // 리본 아이콘 추가
-    this.addRibbonIcon('layout-grid', '카드 네비게이터 열기', () => {
-      this.activateView();
-    });
-
-    // 명령어 추가
-    this.addCommand({
-      id: 'open-card-navigator',
-      name: '카드 네비게이터 열기',
-      callback: () => {
-        this.activateView();
-      },
-    });
-    
-    // 카드 네비게이터 상태 정보 출력 명령어 추가
-    this.addCommand({
-      id: 'log-card-navigator-status',
-      name: '카드 네비게이터 상태 정보 출력',
-      callback: () => {
-        this.logCardNavigatorStatus();
-      },
-    });
-    
-    // 폴더 모드 명령어 추가
-    this.addCommand({
-      id: 'switch-to-folder-mode',
-      name: '폴더 모드로 전환',
-      callback: () => {
-        if (this.cardNavigatorService) {
-          this.cardNavigatorService.getModeService().changeMode('folder');
+      });
+      
+      // 명령어 등록
+      this.addCommand({
+        id: 'open-card-navigator',
+        name: '카드 네비게이터 열기',
+        callback: () => {
+          this.activateView();
         }
-      },
-    });
-    
-    // 태그 모드 명령어 추가
-    this.addCommand({
-      id: 'switch-to-tag-mode',
-      name: '태그 모드로 전환',
-      callback: () => {
-        if (this.cardNavigatorService) {
-          this.cardNavigatorService.getModeService().changeMode('tag');
+      });
+      
+      // 카드 네비게이터 상태 정보 출력 명령어 추가
+      this.addCommand({
+        id: 'show-card-navigator-status',
+        name: '카드 네비게이터 상태 정보 출력',
+        callback: () => {
+          this.showStatus();
         }
-      },
-    });
-    
-    // 하위 폴더 포함 토글 명령어 추가
-    this.addCommand({
-      id: 'toggle-include-subfolders',
-      name: '하위 폴더 포함 토글',
-      callback: () => {
-        if (this.cardNavigatorService) {
-          const modeService = this.cardNavigatorService.getModeService();
-          const currentValue = modeService.getIncludeSubfolders();
-          modeService.setIncludeSubfolders(!currentValue);
-          
-          // 설정 업데이트
-          this.settings.includeSubfolders = !currentValue;
-          this.saveSettings();
+      });
+      
+      // 설정 탭 추가
+      this.addSettingTab(new CardNavigatorSettingTab(this.app, this));
+      
+      // 워크스페이스에 뷰 타입 등록
+      this.app.workspace.onLayoutReady(() => {
+        if (this.app.workspace.getLeavesOfType('card-navigator-view').length === 0) {
+          this.activateView();
         }
-      },
-    });
-    
-    // 카드 세트 고정 토글 명령어 추가
-    this.addCommand({
-      id: 'toggle-card-set-fixed',
-      name: '카드 세트 고정 토글',
-      callback: () => {
-        if (this.cardNavigatorService) {
-          const modeService = this.cardNavigatorService.getModeService();
-          const currentValue = modeService.isCardSetFixed();
-          const currentCardSet = modeService.getCurrentCardSet();
-          
-          if (currentCardSet) {
-            modeService.selectCardSet(currentCardSet, !currentValue);
+      });
+      
+      // 폴더 모드 명령어 추가
+      this.addCommand({
+        id: 'switch-to-folder-mode',
+        name: '폴더 모드로 전환',
+        callback: () => {
+          if (this.cardNavigatorService) {
+            this.cardNavigatorService.getModeService().changeMode('folder');
+          }
+        },
+      });
+      
+      // 태그 모드 명령어 추가
+      this.addCommand({
+        id: 'switch-to-tag-mode',
+        name: '태그 모드로 전환',
+        callback: () => {
+          if (this.cardNavigatorService) {
+            this.cardNavigatorService.getModeService().changeMode('tag');
+          }
+        },
+      });
+      
+      // 하위 폴더 포함 토글 명령어 추가
+      this.addCommand({
+        id: 'toggle-include-subfolders',
+        name: '하위 폴더 포함 토글',
+        callback: () => {
+          if (this.cardNavigatorService) {
+            const modeService = this.cardNavigatorService.getModeService();
+            const currentValue = modeService.getIncludeSubfolders();
+            modeService.setIncludeSubfolders(!currentValue);
             
             // 설정 업데이트
-            this.settings.isCardSetFixed = !currentValue;
+            this.settings.includeSubfolders = !currentValue;
             this.saveSettings();
           }
-        }
-      },
-    });
-
-    // 설정 탭 추가
-    this.addSettingTab(new CardNavigatorSettingTab(this.app, this));
+        },
+      });
+      
+      // 카드 세트 고정 토글 명령어 추가
+      this.addCommand({
+        id: 'toggle-card-set-fixed',
+        name: '카드 세트 고정 토글',
+        callback: () => {
+          if (this.cardNavigatorService) {
+            const modeService = this.cardNavigatorService.getModeService();
+            const currentValue = modeService.isCardSetFixed();
+            const currentCardSet = modeService.getCurrentCardSet();
+            
+            if (currentCardSet) {
+              modeService.selectCardSet(currentCardSet, !currentValue);
+              
+              // 설정 업데이트
+              this.settings.isCardSetFixed = !currentValue;
+              this.saveSettings();
+            }
+          }
+        },
+      });
+      
+      console.log('카드 네비게이터 플러그인 로드 완료');
+    } catch (error) {
+      console.error('카드 네비게이터 플러그인 로드 중 오류 발생:', error);
+    } finally {
+      (this as any)._loading = false;
+    }
   }
 
   onunload() {
@@ -222,7 +225,7 @@ export default class CardNavigatorPlugin extends Plugin {
   /**
    * 현재 카드 네비게이터 상태 정보를 콘솔에 출력
    */
-  logCardNavigatorStatus(): void {
+  showStatus(): void {
     if (!this.cardNavigatorService) {
       console.log('카드 네비게이터 서비스가 초기화되지 않았습니다.');
       return;

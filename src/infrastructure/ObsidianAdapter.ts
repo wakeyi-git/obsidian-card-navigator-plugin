@@ -172,7 +172,9 @@ export class ObsidianAdapter implements IObsidianAdapter {
     try {
       // 정규화된 태그 (# 포함)
       const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
-      console.log(`[성능] 태그 접근 횟수: ${this.tagAccessCount}, 태그: ${normalizedTag}`);
+      const tagWithoutHash = tag.startsWith('#') ? tag.substring(1) : tag;
+      
+      console.log(`[성능] 태그 접근 횟수: ${this.tagAccessCount}, 태그: ${normalizedTag}, 해시 없는 태그: ${tagWithoutHash}`);
       
       // 모든 마크다운 파일 가져오기
       const allFiles = this.getAllMarkdownFiles();
@@ -180,12 +182,33 @@ export class ObsidianAdapter implements IObsidianAdapter {
       // 특정 태그를 가진 파일만 필터링
       const filesWithTag = allFiles.filter(file => {
         const cache = this.metadataCache.getFileCache(file);
-        if (!cache || !cache.tags) return false;
+        if (!cache) return false;
         
-        return cache.tags.some(t => {
+        // 인라인 태그 확인
+        if (cache.tags && cache.tags.some(t => {
           const tagText = t.tag;
           return tagText === normalizedTag || tagText === tag;
-        });
+        })) {
+          console.log(`[ObsidianAdapter] 파일 '${file.path}'에서 인라인 태그 '${normalizedTag}' 발견`);
+          return true;
+        }
+        
+        // 프론트매터 태그 확인
+        if (cache.frontmatter && cache.frontmatter.tags) {
+          const frontmatterTags = Array.isArray(cache.frontmatter.tags) 
+            ? cache.frontmatter.tags 
+            : [cache.frontmatter.tags];
+          
+          if (frontmatterTags.some(t => {
+            // 프론트매터 태그는 # 없이 저장될 수 있으므로 두 가지 형태 모두 확인
+            return t === tagWithoutHash || t === normalizedTag || t === tag;
+          })) {
+            console.log(`[ObsidianAdapter] 파일 '${file.path}'에서 프론트매터 태그 '${tagWithoutHash}' 발견`);
+            return true;
+          }
+        }
+        
+        return false;
       });
       
       console.log(`[성능] 태그 '${normalizedTag}'를 가진 파일 수: ${filesWithTag.length}`);
@@ -246,16 +269,33 @@ export class ObsidianAdapter implements IObsidianAdapter {
       // 각 파일의 태그 수집
       for (const file of files) {
         const cache = this.metadataCache.getFileCache(file);
-        if (!cache || !cache.tags) continue;
+        if (!cache) continue;
         
-        for (const tag of cache.tags) {
-          tagSet.add(tag.tag);
+        // 인라인 태그 수집
+        if (cache.tags) {
+          for (const tag of cache.tags) {
+            tagSet.add(tag.tag);
+          }
+        }
+        
+        // 프론트매터 태그 수집
+        if (cache.frontmatter && cache.frontmatter.tags) {
+          const frontmatterTags = Array.isArray(cache.frontmatter.tags) 
+            ? cache.frontmatter.tags 
+            : [cache.frontmatter.tags];
+          
+          for (const tag of frontmatterTags) {
+            // 프론트매터 태그는 # 없이 저장될 수 있으므로 # 추가
+            const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
+            tagSet.add(normalizedTag);
+          }
         }
       }
       
       const tags = Array.from(tagSet);
       
       console.log(`[성능] 태그 접근 횟수: ${this.tagAccessCount}, 태그 수: ${tags.length}`);
+      console.log(`[ObsidianAdapter] 수집된 태그 목록: ${tags.join(', ')}`);
       console.timeEnd(timerLabel);
       return tags;
     } catch (error) {

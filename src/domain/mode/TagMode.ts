@@ -22,12 +22,27 @@ export class TagMode extends Mode {
     const files = this.app.vault.getMarkdownFiles();
     
     console.log(`[TagMode] 전체 마크다운 파일 수: ${files.length}`);
+    console.log(`[TagMode] 태그 목록 수집 시작`);
     
     for (const file of files) {
       const cache = this.app.metadataCache.getFileCache(file);
       if (cache && cache.tags) {
         for (const tag of cache.tags) {
           tags.add(tag.tag);
+          console.log(`[TagMode] 파일 ${file.path}에서 태그 추가: ${tag.tag}`);
+        }
+      }
+      
+      // 프론트매터 태그도 확인
+      if (cache && cache.frontmatter && cache.frontmatter.tags) {
+        const frontmatterTags = Array.isArray(cache.frontmatter.tags) 
+          ? cache.frontmatter.tags 
+          : [cache.frontmatter.tags];
+        
+        for (const tag of frontmatterTags) {
+          const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
+          tags.add(normalizedTag);
+          console.log(`[TagMode] 파일 ${file.path}에서 프론트매터 태그 추가: ${normalizedTag}`);
         }
       }
     }
@@ -85,6 +100,8 @@ export class TagMode extends Mode {
   async getFilesWithCurrentTag(): Promise<string[]> {
     if (!this.currentCardSet) return [];
     
+    console.log(`[TagMode] 현재 태그로 파일 검색 시작: ${this.currentCardSet}`);
+    
     const files: string[] = [];
     const allFiles = this.app.vault.getMarkdownFiles();
     
@@ -92,6 +109,9 @@ export class TagMode extends Mode {
     const normalizedTag = this.currentCardSet.startsWith('#') 
       ? this.currentCardSet 
       : `#${this.currentCardSet}`;
+    
+    console.log(`[TagMode] 정규화된 태그: ${normalizedTag}`);
+    console.log(`[TagMode] 전체 파일 수: ${allFiles.length}`);
     
     for (const file of allFiles) {
       const cache = this.app.metadataCache.getFileCache(file);
@@ -103,6 +123,7 @@ export class TagMode extends Mode {
           console.log(`[TagMode] 파일 ${file.path}의 인라인 태그: ${cache.tags.map(t => t.tag).join(', ')}`);
           for (const tag of cache.tags) {
             if (tag.tag === normalizedTag) {
+              console.log(`[TagMode] 파일 ${file.path}에서 인라인 태그 매치: ${tag.tag} === ${normalizedTag}`);
               files.push(file.path);
               tagFound = true;
               break;
@@ -121,6 +142,7 @@ export class TagMode extends Mode {
           for (const tag of frontmatterTags) {
             const normalizedFrontmatterTag = tag.startsWith('#') ? tag : `#${tag}`;
             if (normalizedFrontmatterTag === normalizedTag || tag === this.currentCardSet) {
+              console.log(`[TagMode] 파일 ${file.path}에서 프론트매터 태그 매치: ${normalizedFrontmatterTag} === ${normalizedTag}`);
               files.push(file.path);
               break;
             }
@@ -128,6 +150,9 @@ export class TagMode extends Mode {
         }
       }
     }
+    
+    console.log(`[TagMode] 태그 '${this.currentCardSet}'를 가진 파일 수: ${files.length}`);
+    console.log(`[TagMode] 찾은 파일 경로:`, files);
     
     return files;
   }

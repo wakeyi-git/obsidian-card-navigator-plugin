@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
+import { ModeType } from '../../domain/mode/Mode';
 
 /**
  * 설정 모달 컴포넌트 속성 인터페이스
@@ -23,7 +24,7 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
   const [cardHeight, setCardHeight] = useState(200);
   const [priorityTags, setPriorityTags] = useState<string[]>([]);
   const [priorityFolders, setPriorityFolders] = useState<string[]>([]);
-  const [defaultMode, setDefaultMode] = useState<'folder' | 'tag'>('folder');
+  const [defaultMode, setDefaultMode] = useState<ModeType>('folder');
   const [defaultLayout, setDefaultLayout] = useState<'grid' | 'masonry'>('grid');
   const [includeSubfolders, setIncludeSubfolders] = useState<boolean>(true);
   const [defaultCardSet, setDefaultCardSet] = useState<string>('/');
@@ -110,10 +111,11 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
               <select
                 id="defaultMode"
                 value={defaultMode}
-                onChange={(e) => setDefaultMode(e.target.value as 'folder' | 'tag')}
+                onChange={(e) => setDefaultMode(e.target.value as ModeType)}
               >
                 <option value="folder">폴더 모드</option>
                 <option value="tag">태그 모드</option>
+                <option value="search">검색 모드</option>
               </select>
             </div>
 

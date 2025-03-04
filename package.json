@@ -15,6 +15,7 @@
 		"@types/node": "^16.18.126",
 		"@types/react": "^18.2.64",
 		"@types/react-dom": "^18.2.21",
+		"@types/uuid": "^10.0.0",
 		"@typescript-eslint/eslint-plugin": "^5.62.0",
 		"@typescript-eslint/parser": "^5.62.0",
 		"builtin-modules": "^3.3.0",
@@ -25,10 +26,11 @@
 	},
 	"dependencies": {
 		"@popperjs/core": "^2.11.8",
+		"@types/react-window": "^1.8.8",
 		"i18next": "^23.16.8",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 		"react-window": "^1.8.10",
-		"@types/react-window": "^1.8.8"
+		"uuid": "^11.1.0"
 	}
 }
