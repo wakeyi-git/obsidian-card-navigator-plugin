@@ -15,6 +15,12 @@ export interface ICardService {
   getAllCards(): Promise<ICard[]>;
   
   /**
+   * 현재 상태에 맞는 카드 가져오기
+   * @returns 카드 목록
+   */
+  getCards(): Promise<ICard[]>;
+  
+  /**
    * 특정 ID의 카드 가져오기
    * @param id 카드 ID
    * @returns 카드 객체 또는 null
@@ -65,6 +71,11 @@ export class CardService implements ICardService {
   private cardFactory: ICardFactory;
   private cardRepository: ICardRepository;
   
+  // 성능 모니터링을 위한 카운터 추가
+  private cardFetchCount: number = 0;
+  private cacheHitCount: number = 0;
+  private cacheMissCount: number = 0;
+  
   constructor(app: App, cardRepository: ICardRepository) {
     this.app = app;
     this.cardFactory = new CardFactory();
@@ -72,15 +83,63 @@ export class CardService implements ICardService {
   }
   
   async getAllCards(): Promise<ICard[]> {
-    return this.cardRepository.getAllCards();
+    const timerLabel = `[성능] CardService.getAllCards 실행 시간-${Date.now()}`;
+    console.time(timerLabel);
+    this.cardFetchCount++;
+    console.log(`[성능] CardService 카드 조회 횟수: ${this.cardFetchCount}`);
+    
+    try {
+      const cards = await this.cardRepository.getAllCards();
+      console.log(`[성능] CardService.getAllCards 카드 수: ${cards.length}`);
+      console.timeEnd(timerLabel);
+      return cards;
+    } catch (error) {
+      console.error('[성능] CardService.getAllCards 오류:', error);
+      console.timeEnd(timerLabel);
+      return [];
+    }
+  }
+  
+  async getCards(): Promise<ICard[]> {
+    return this.getAllCards();
   }
   
   async getCardById(id: string): Promise<ICard | null> {
-    return this.cardRepository.getCardById(id);
+    const timerLabel = `[성능] CardService.getCardById(${id}) 실행 시간-${Date.now()}`;
+    console.time(timerLabel);
+    
+    try {
+      const card = await this.cardRepository.getCardById(id);
+      if (card) {
+        this.cacheHitCount++;
+        console.log(`[성능] CardService 캐시 히트 횟수: ${this.cacheHitCount}`);
+      } else {
+        this.cacheMissCount++;
+        console.log(`[성능] CardService 캐시 미스 횟수: ${this.cacheMissCount}`);
+      }
+      
+      console.timeEnd(timerLabel);
+      return card;
+    } catch (error) {
+      console.error(`[성능] CardService.getCardById(${id}) 오류:`, error);
+      console.timeEnd(timerLabel);
+      return null;
+    }
   }
   
   async getCardByPath(path: string): Promise<ICard | null> {
-    return this.cardRepository.getCardByPath(path);
+    const timerLabel = `[성능] CardService.getCardByPath 실행 시간-${Date.now()}`;
+    console.time(timerLabel);
+    
+    try {
+      const card = await this.cardRepository.getCardByPath(path);
+      console.timeEnd(timerLabel);
+      return card;
+    } catch (error) {
+      console.error('[성능] CardService.getCardByPath 오류:', error);
+      console.timeEnd(timerLabel);
+      return null;
+    }
   }
   
   async getCardsByTag(tag: string): Promise<ICard[]> {
@@ -105,7 +164,17 @@ export class CardService implements ICardService {
   }
   
   async refreshCards(): Promise<void> {
-    await this.cardRepository.refresh();
+    const timerLabel = `[성능] CardService.refreshCards 실행 시간-${Date.now()}`;
+    console.time(timerLabel);
+    
+    try {
+      await this.cardRepository.refresh();
+      console.log('[성능] CardService 카드 저장소 리프레시 완료');
+      console.timeEnd(timerLabel);
+    } catch (error) {
+      console.error('[성능] CardService.refreshCards 오류:', error);
+      console.timeEnd(timerLabel);
+    }
   }
   
   /**

@@ -1,0 +1,398 @@
+.card-navigator-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.card-navigator-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.card-navigator-toolbar-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 2;
+}
+
+.card-navigator-toolbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 1;
+}
+
+/* 드롭다운 공통 스타일 */
+.card-navigator-dropdown {
+  position: relative;
+  margin-left: 8px;
+}
+
+.card-navigator-dropdown-button {
+  display: flex;
+  align-items: center;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-normal);
+}
+
+.card-navigator-dropdown-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-dropdown-icon {
+  margin-right: 4px;
+  font-size: 14px;
+}
+
+.card-navigator-dropdown-content {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 200px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  margin-top: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.card-navigator-dropdown-header {
+  padding: 8px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.card-navigator-dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text-normal);
+}
+
+.card-navigator-dropdown-item:hover {
+  background-color: var(--background-secondary);
+}
+
+.card-navigator-dropdown-item.active {
+  background-color: var(--background-modifier-hover);
+  font-weight: 500;
+}
+
+/* 모드 드롭다운 */
+.card-navigator-mode-dropdown-content {
+  min-width: 240px;
+}
+
+.card-navigator-mode-section {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-mode-section:last-child {
+  border-bottom: none;
+}
+
+.card-navigator-mode-section-header {
+  padding: 0 12px 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* 레이아웃 드롭다운 */
+.card-navigator-layout-option {
+  display: flex;
+  align-items: center;
+}
+
+.card-navigator-layout-icon {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+/* 프리셋 드롭다운 */
+.card-navigator-preset-form {
+  padding: 12px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-preset-input {
+  width: 100%;
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  color: var(--text-normal);
+}
+
+.card-navigator-preset-input:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+
+.card-navigator-preset-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.card-navigator-preset-button {
+  padding: 4px 8px;
+  background-color: var(--interactive-normal);
+  border: none;
+  border-radius: 4px;
+  color: var(--text-normal);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.card-navigator-preset-button:hover {
+  background-color: var(--interactive-hover);
+}
+
+.card-navigator-preset-button.primary {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.card-navigator-preset-button.primary:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.card-navigator-preset-button.danger {
+  background-color: var(--text-error);
+  color: white;
+}
+
+.card-navigator-preset-button.danger:hover {
+  background-color: var(--text-error-hover);
+}
+
+/* 정렬 드롭다운 */
+.card-navigator-sort-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-navigator-sort-direction {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* 모드 토글 */
+.card-navigator-mode-toggle {
+  display: flex;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.card-navigator-mode-button {
+  padding: 4px 8px;
+  background-color: var(--background-primary);
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s ease;
+}
+
+.card-navigator-mode-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-mode-button.active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+/* 카드 세트 선택기 */
+.card-navigator-cardset-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.card-navigator-cardset-button {
+  padding: 6px 12px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 0.2s ease;
+}
+
+.card-navigator-cardset-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-cardset-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.card-navigator-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.card-navigator-checkbox-label input[type="checkbox"] {
+  margin: 0;
+}
+
+/* 정렬 드롭다운 */
+.card-navigator-sort-dropdown {
+  position: relative;
+}
+
+.card-navigator-sort-button {
+  padding: 4px 8px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-navigator-sort-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-sort-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 200px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  padding: 8px;
+  margin-top: 4px;
+}
+
+.card-navigator-sort-option {
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-navigator-sort-option:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-sort-option.active {
+  background-color: var(--background-modifier-hover);
+  font-weight: bold;
+}
+
+/* 레이아웃 토글 */
+.card-navigator-layout-toggle {
+  display: flex;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.card-navigator-layout-button {
+  padding: 4px;
+  background-color: var(--background-primary);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-navigator-layout-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-layout-button.active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.card-navigator-layout-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 설정 버튼 */
+.card-navigator-settings-button {
+  padding: 4px;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.card-navigator-settings-button:hover {
+  color: var(--text-normal);
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  .card-navigator-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .card-navigator-toolbar-left,
+  .card-navigator-toolbar-center,
+  .card-navigator-toolbar-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .card-navigator-toolbar-right {
+    justify-content: flex-end;
+  }
+  
+  .card-navigator-cardset-selector {
+    max-width: 100%;
+  }
+} 

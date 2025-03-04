@@ -81,9 +81,20 @@ export class CardFactory implements ICardFactory {
     const tags: string[] = [];
     if (frontmatter && frontmatter.tags) {
       if (Array.isArray(frontmatter.tags)) {
-        tags.push(...frontmatter.tags);
+        // 배열인 경우 각 태그 추가
+        frontmatter.tags.forEach((tag: string) => {
+          // # 포함 여부 확인하여 정규화
+          const normalizedTag = tag.startsWith('#') ? tag.substring(1) : tag;
+          if (!tags.includes(normalizedTag)) {
+            tags.push(normalizedTag);
+          }
+        });
       } else if (typeof frontmatter.tags === 'string') {
-        tags.push(frontmatter.tags);
+        // 문자열인 경우 단일 태그 추가
+        const normalizedTag = frontmatter.tags.startsWith('#') 
+          ? frontmatter.tags.substring(1) 
+          : frontmatter.tags;
+        tags.push(normalizedTag);
       }
     }
     

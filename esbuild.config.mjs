@@ -1,6 +1,8 @@
 import esbuild from "esbuild";
 import process from "process";
 import builtins from "builtin-modules";
+import fs from 'fs';
+import path from 'path';
 
 const banner =
 `/*
@@ -10,6 +12,82 @@ if you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = (process.argv[2] === "production");
+
+// CSS 파일을 수집하고 병합하는 플러그인
+const cssPlugin = {
+	name: 'css-collector',
+	setup(build) {
+		// 빌드 시작 전에 실행
+		build.onStart(() => {
+			console.log('CSS 파일 수집 및 병합 시작...');
+			
+			// 기존 styles.css 파일이 있는지 확인
+			const stylesPath = 'styles.css';
+			let existingStyles = '';
+			
+			try {
+				if (fs.existsSync(stylesPath)) {
+					// 기존 파일이 있으면 내용 읽기
+					existingStyles = fs.readFileSync(stylesPath, 'utf8');
+					console.log('기존 styles.css 파일을 읽었습니다.');
+				}
+			} catch (err) {
+				console.error('styles.css 파일 읽기 오류:', err);
+			}
+			
+			// 이미 처리된 CSS 파일 경로를 저장할 Set
+			const processedFiles = new Set();
+			
+			// 기존 파일에서 이미 처리된 CSS 파일 경로 추출
+			const filePathRegex = /\/\* (src\/.*?\.css) \*\//g;
+			let match;
+			while ((match = filePathRegex.exec(existingStyles)) !== null) {
+				processedFiles.add(match[1]);
+			}
+			
+			// 새로운 CSS 내용을 저장할 변수
+			let newCSSContent = '';
+			
+			// CSS 파일 찾기 및 내용 수집 함수
+			const collectCSSFiles = (dir) => {
+				const files = fs.readdirSync(dir);
+				
+				for (const file of files) {
+					const filePath = path.join(dir, file);
+					const stat = fs.statSync(filePath);
+					
+					if (stat.isDirectory()) {
+						// 디렉토리인 경우 재귀적으로 탐색
+						collectCSSFiles(filePath);
+					} else if (file.endsWith('.css')) {
+						// 이미 처리된 파일은 건너뛰기
+						if (processedFiles.has(filePath)) {
+							console.log(`이미 처리된 CSS 파일: ${filePath}`);
+							continue;
+						}
+						
+						// 새로운 CSS 파일인 경우 내용 읽기
+						console.log(`새로운 CSS 파일 발견: ${filePath}`);
+						const content = fs.readFileSync(filePath, 'utf8');
+						newCSSContent += `/* ${filePath} */\n${content}\n\n`;
+					}
+				}
+			};
+			
+			// src 디렉토리에서 CSS 파일 수집
+			collectCSSFiles('src');
+			
+			// 새로운 CSS 내용이 있으면 기존 내용에 추가
+			if (newCSSContent) {
+				const finalCSS = existingStyles + newCSSContent;
+				fs.writeFileSync(stylesPath, finalCSS);
+				console.log('새로운 CSS 내용이 styles.css에 추가되었습니다.');
+			} else {
+				console.log('추가할 새로운 CSS 내용이 없습니다.');
+			}
+		});
+	}
+};
 
 const context = await esbuild.context({
 	banner: {
@@ -40,6 +118,7 @@ const context = await esbuild.context({
 	outfile: "main.js",
 	jsx: "automatic",
 	jsxImportSource: "react",
+	plugins: [cssPlugin],
 });
 
 if (prod) {

@@ -2,16 +2,16 @@ import { ICard } from '../card/Card';
 import { Search } from './Search';
 
 /**
- * 파일명 검색 클래스
- * 파일명을 기준으로 카드를 검색하는 클래스입니다.
+ * 폴더 검색 클래스
+ * 카드의 폴더 경로를 기준으로 검색하는 클래스입니다.
  */
-export class FilenameSearch extends Search {
+export class FolderSearch extends Search {
   constructor(query: string = '', caseSensitive: boolean = false) {
-    super('filename', query, caseSensitive);
+    super('folder', query, caseSensitive);
   }
   
   /**
-   * 파일명 검색 수행
+   * 폴더 검색 수행
    * @param cards 검색할 카드 목록
    * @returns 검색 결과 카드 목록
    */
@@ -19,13 +19,19 @@ export class FilenameSearch extends Search {
     if (!this.query) return cards;
     
     return cards.filter(card => {
-      if (!card.title) return false;
-      return this.matches(card.title);
+      if (!card.path) return false;
+      
+      // 폴더 경로 추출
+      const pathParts = card.path.split('/');
+      pathParts.pop(); // 파일명 제거
+      const folderPath = pathParts.join('/');
+      
+      return this.matches(folderPath);
     });
   }
   
   /**
-   * 파일명 검색 객체 직렬화
+   * 폴더 검색 객체 직렬화
    * @returns 직렬화된 검색 객체
    */
   serialize(): any {

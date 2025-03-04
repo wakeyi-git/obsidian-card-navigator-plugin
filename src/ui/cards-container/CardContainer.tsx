@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Card, { ICardProps } from './Card';
 
 /**
@@ -19,11 +19,25 @@ const CardContainer: React.FC<ICardContainerProps> = ({
   onCardClick,
   layout = 'grid',
 }) => {
+  console.time('[성능] CardContainer 렌더링 시간');
+  
+  useEffect(() => {
+    console.timeEnd('[성능] CardContainer 렌더링 시간');
+    console.log(`[성능] CardContainer 렌더링: 카드 수 = ${cards.length}, 레이아웃 = ${layout}`);
+    console.log(`[CardContainer] 카드 목록 상태: ${cards.length > 0 ? '카드 있음' : '카드 없음'}`);
+    if (cards.length > 0) {
+      console.log(`[CardContainer] 첫 번째 카드 정보: 제목=${cards[0].title}, 경로=${cards[0].path}`);
+    }
+  }, [cards, layout]);
+  
   // 카드가 없는 경우 메시지 표시
   if (cards.length === 0) {
     return (
-      <div className="card-navigator-empty">
-        <p>표시할 카드가 없습니다.</p>
+      <div className="card-navigator-empty-state">
+        <div className="card-navigator-empty-message">
+          <span>표시할 카드가 없습니다</span>
+          <p>다른 폴더나 태그를 선택해보세요.</p>
+        </div>
       </div>
     );
   }
@@ -32,9 +46,9 @@ const CardContainer: React.FC<ICardContainerProps> = ({
   if (layout === 'grid') {
     return (
       <div className="card-navigator-grid">
-        {cards.map((card) => (
+        {cards.map((card, index) => (
           <Card
-            key={card.id}
+            key={`grid-${card.id}-${index}`}
             id={card.id}
             title={card.title}
             content={card.content}
@@ -55,9 +69,9 @@ const CardContainer: React.FC<ICardContainerProps> = ({
       <div className="card-navigator-masonry-column">
         {cards
           .filter((_, i) => i % 3 === 0)
-          .map((card) => (
+          .map((card, index) => (
             <Card
-              key={card.id}
+              key={`masonry-col1-${card.id}-${index}`}
               id={card.id}
               title={card.title}
               content={card.content}
@@ -72,9 +86,9 @@ const CardContainer: React.FC<ICardContainerProps> = ({
       <div className="card-navigator-masonry-column">
         {cards
           .filter((_, i) => i % 3 === 1)
-          .map((card) => (
+          .map((card, index) => (
             <Card
-              key={card.id}
+              key={`masonry-col2-${card.id}-${index}`}
               id={card.id}
               title={card.title}
               content={card.content}
@@ -89,9 +103,9 @@ const CardContainer: React.FC<ICardContainerProps> = ({
       <div className="card-navigator-masonry-column">
         {cards
           .filter((_, i) => i % 3 === 2)
-          .map((card) => (
+          .map((card, index) => (
             <Card
-              key={card.id}
+              key={`masonry-col3-${card.id}-${index}`}
               id={card.id}
               title={card.title}
               content={card.content}

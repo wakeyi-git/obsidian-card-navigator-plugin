@@ -1,4 +1,3 @@
-import { IFilter } from '../filter/Filter';
 import { ILayout } from '../layout/Layout';
 import { IMode } from '../mode/Mode';
 import { ISearch } from '../search/Search';
@@ -33,11 +32,6 @@ export interface IPreset {
    * 레이아웃
    */
   layout?: ILayout;
-  
-  /**
-   * 필터 목록
-   */
-  filters?: IFilter[];
   
   /**
    * 정렬
@@ -82,11 +76,6 @@ export interface PresetData {
     gap?: number;
     [key: string]: any;
   };
-  filters?: Array<{
-    type: string;
-    value: any;
-    [key: string]: any;
-  }>;
   sort?: {
     type: string;
     direction: string;
@@ -112,7 +101,6 @@ export class Preset implements IPreset {
   description?: string;
   mode?: IMode;
   layout?: ILayout;
-  filters?: IFilter[];
   sort?: ISort;
   search?: ISearch;
   
@@ -122,7 +110,6 @@ export class Preset implements IPreset {
     description?: string,
     mode?: IMode,
     layout?: ILayout,
-    filters?: IFilter[],
     sort?: ISort,
     search?: ISearch
   ) {
@@ -131,7 +118,6 @@ export class Preset implements IPreset {
     this.description = description;
     this.mode = mode;
     this.layout = layout;
-    this.filters = filters;
     this.sort = sort;
     this.search = search;
   }
@@ -143,7 +129,6 @@ export class Preset implements IPreset {
       this.description,
       this.mode,
       this.layout,
-      this.filters,
       this.sort,
       this.search
     );
@@ -175,13 +160,6 @@ export class Preset implements IPreset {
       };
     }
     
-    if (this.filters && this.filters.length > 0) {
-      data.filters = this.filters.map(filter => ({
-        type: filter.type,
-        value: filter.value
-      }));
-    }
-    
     if (this.sort) {
       data.sort = {
         type: this.sort.type,
@@ -195,13 +173,14 @@ export class Preset implements IPreset {
     
     if (this.search) {
       data.search = {
-        type: this.search.type,
-        query: this.search.query,
-        caseSensitive: this.search.caseSensitive
+        type: this.search.getType(),
+        query: this.search.getQuery(),
+        caseSensitive: this.search.isCaseSensitive()
       };
       
-      if (this.search.frontmatterKey) {
-        data.search.frontmatterKey = this.search.frontmatterKey;
+      const searchAny = this.search as any;
+      if (searchAny.frontmatterKey) {
+        data.search.frontmatterKey = searchAny.frontmatterKey;
       }
     }
     

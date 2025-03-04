@@ -1,31 +1,37 @@
 import { ICard } from '../card/Card';
-import { Search, SearchType } from './Search';
+import { Search } from './Search';
 
 /**
  * 태그 검색 클래스
- * 카드를 태그를 기준으로 검색합니다.
+ * 카드의 태그를 기준으로 검색하는 클래스입니다.
  */
 export class TagSearch extends Search {
   constructor(query: string = '', caseSensitive: boolean = false) {
     super('tag', query, caseSensitive);
   }
-
+  
   /**
-   * 검색 적용
-   * 카드를 태그 기준으로 검색합니다.
-   * @param cards 카드 목록
-   * @returns 검색된 카드 목록
+   * 태그 검색 수행
+   * @param cards 검색할 카드 목록
+   * @returns 검색 결과 카드 목록
    */
-  apply(cards: ICard[]): ICard[] {
-    if (!this.query) {
-      return cards;
-    }
-
+  search(cards: ICard[]): ICard[] {
+    if (!this.query) return cards;
+    
     return cards.filter(card => {
-      const tags = card.tags || [];
+      if (!card.tags || card.tags.length === 0) return false;
       
-      // 태그 배열에서 검색어를 포함하는 태그가 있는지 확인
-      return tags.some(tag => this.includes(tag, this.query));
+      return card.tags.some(tag => this.matches(tag));
     });
+  }
+  
+  /**
+   * 태그 검색 객체 직렬화
+   * @returns 직렬화된 검색 객체
+   */
+  serialize(): any {
+    return {
+      ...super.serialize()
+    };
   }
 } 

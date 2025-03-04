@@ -71,6 +71,12 @@ export interface IObsidianAdapter {
    * @returns 링크 목록
    */
   getFileLinks(file: TFile): { link: string; displayText: string }[];
+  
+  /**
+   * 메타데이터 캐시 가져오기
+   * @returns 메타데이터 캐시
+   */
+  getMetadataCache(): MetadataCache;
 }
 
 /**
@@ -82,6 +88,12 @@ export class ObsidianAdapter implements IObsidianAdapter {
   private vault: Vault;
   private metadataCache: MetadataCache;
   
+  // 성능 모니터링을 위한 카운터 추가
+  private fileAccessCount: number = 0;
+  private folderAccessCount: number = 0;
+  private tagAccessCount: number = 0;
+  private metadataAccessCount: number = 0;
+  
   constructor(app: App) {
     this.app = app;
     this.vault = app.vault;
@@ -89,111 +101,185 @@ export class ObsidianAdapter implements IObsidianAdapter {
   }
   
   getAllMarkdownFiles(): TFile[] {
-    return this.vault.getMarkdownFiles();
+    const timerLabel = `[성능] ObsidianAdapter.getAllMarkdownFiles 실행 시간-${Date.now()}`;
+    console.time(timerLabel);
+    this.fileAccessCount++;
+    
+    try {
+      const files = this.vault.getMarkdownFiles();
+      console.log(`[성능] 마크다운 파일 접근 횟수: ${this.fileAccessCount}, 파일 수: ${files.length}`);
+      console.timeEnd(timerLabel);
+      return files;
+    } catch (error) {
+      console.error('[성능] ObsidianAdapter.getAllMarkdownFiles 오류:', error);
+      console.timeEnd(timerLabel);
+      return [];
+    }
   }
   
   getMarkdownFilesInFolder(folderPath: string): TFile[] {
-    const allFiles = this.getAllMarkdownFiles();
+    const timerLabel = `[성능] ObsidianAdapter.getMarkdownFilesInFolder(${folderPath}) 실행 시간-${Date.now()}`;
+    console.time(timerLabel);
+    this.folderAccessCount++;
     
-    // 루트 폴더인 경우
-    if (folderPath === '/' || folderPath === '') {
-      return allFiles.filter(file => !file.path.includes('/') || file.path.lastIndexOf('/') === 0);
+    try {
+      // 모든 마크다운 파일 가져오기
+      const allFiles = this.getAllMarkdownFiles();
+      console.log(`[성능] 폴더 접근 횟수: ${this.folderAccessCount}, 전체 파일 수: ${allFiles.length}`);
+      
+      // 정규화된 폴더 경로 (끝에 슬래시 제거, 루트 폴더는 예외)
+      const normalizedFolderPath = folderPath.endsWith('/') && folderPath !== '/' 
+        ? folderPath.slice(0, -1) 
+        : folderPath;
+      
+      console.log(`[성능] 정규화된 폴더 경로: ${normalizedFolderPath}`);
+      
+      // 루트 폴더인 경우
+      if (normalizedFolderPath === '/') {
+        const rootFiles = allFiles.filter(file => {
+          const lastSlashIndex = file.path.lastIndexOf('/');
+          return lastSlashIndex === -1 || lastSlashIndex === 0;
+        });
+        
+        console.log(`[성능] 루트 폴더 파일 수: ${rootFiles.length}`);
+        console.timeEnd(timerLabel);
+        return rootFiles;
+      }
+      
+      // 특정 폴더의 파일만 필터링
+      const filesInFolder = allFiles.filter(file => {
+        const filePath = file.path;
+        const fileDir = filePath.substring(0, Math.max(0, filePath.lastIndexOf('/')));
+        
+        return fileDir === normalizedFolderPath;
+      });
+      
+      console.log(`[성능] 폴더 '${normalizedFolderPath}'의 파일 수: ${filesInFolder.length}`);
+      console.timeEnd(timerLabel);
+      return filesInFolder;
+    } catch (error) {
+      console.error(`[성능] ObsidianAdapter.getMarkdownFilesInFolder(${folderPath}) 오류:`, error);
+      console.timeEnd(timerLabel);
+      return [];
     }
-    
-    // 정규화된 경로 확보
-    const normalizedPath = folderPath.endsWith('/') ? folderPath : folderPath + '/';
-    
-    return allFiles.filter(file => {
-      // 파일이 해당 폴더 내에 있는지 확인
-      return file.path.startsWith(normalizedPath) && 
-        // 하위 폴더의 파일은 제외
-        file.path.substring(normalizedPath.length).indexOf('/') === -1;
-    });
   }
   
   getMarkdownFilesWithTag(tag: string): TFile[] {
-    const allFiles = this.getAllMarkdownFiles();
-    const normalizedTag = tag.startsWith('#') ? tag : '#' + tag;
+    const timerLabel = `[성능] ObsidianAdapter.getMarkdownFilesWithTag(${tag}) 실행 시간-${Date.now()}`;
+    console.time(timerLabel);
+    this.tagAccessCount++;
     
-    return allFiles.filter(file => {
-      const fileCache = this.metadataCache.getFileCache(file);
+    try {
+      // 정규화된 태그 (# 포함)
+      const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
+      console.log(`[성능] 태그 접근 횟수: ${this.tagAccessCount}, 태그: ${normalizedTag}`);
       
-      if (!fileCache) return false;
+      // 모든 마크다운 파일 가져오기
+      const allFiles = this.getAllMarkdownFiles();
       
-      // 프론트매터에서 태그 확인
-      const frontmatter = fileCache.frontmatter;
-      if (frontmatter && frontmatter.tags) {
-        const tags = Array.isArray(frontmatter.tags) 
-          ? frontmatter.tags 
-          : [frontmatter.tags];
-          
-        if (tags.some(t => t === tag || '#' + t === normalizedTag)) {
-          return true;
-        }
-      }
+      // 특정 태그를 가진 파일만 필터링
+      const filesWithTag = allFiles.filter(file => {
+        const cache = this.metadataCache.getFileCache(file);
+        if (!cache || !cache.tags) return false;
+        
+        return cache.tags.some(t => {
+          const tagText = t.tag;
+          return tagText === normalizedTag || tagText === tag;
+        });
+      });
       
-      // 인라인 태그 확인
-      const tags = fileCache.tags || [];
-      return tags.some(tagObj => tagObj.tag === normalizedTag);
-    });
+      console.log(`[성능] 태그 '${normalizedTag}'를 가진 파일 수: ${filesWithTag.length}`);
+      console.timeEnd(timerLabel);
+      return filesWithTag;
+    } catch (error) {
+      console.error(`[성능] ObsidianAdapter.getMarkdownFilesWithTag(${tag}) 오류:`, error);
+      console.timeEnd(timerLabel);
+      return [];
+    }
   }
   
   getAllFolders(): TFolder[] {
-    const folders: TFolder[] = [];
-    const rootFolder = this.vault.getRoot();
+    const timerLabel = `[성능] ObsidianAdapter.getAllFolders 실행 시간-${Date.now()}`;
+    console.time(timerLabel);
+    this.folderAccessCount++;
     
-    const collectFolders = (folder: TFolder) => {
-      folders.push(folder);
+    try {
+      const folders: TFolder[] = [];
+      const rootFolder = this.vault.getRoot();
       
-      for (const child of folder.children) {
-        if (child instanceof TFolder) {
-          collectFolders(child);
+      // 루트 폴더 추가
+      folders.push(rootFolder);
+      
+      // 재귀적으로 모든 폴더 탐색
+      const collectFolders = (folder: TFolder) => {
+        for (const child of folder.children) {
+          if (child instanceof TFolder) {
+            folders.push(child);
+            collectFolders(child);
+          }
         }
-      }
-    };
-    
-    // 루트 폴더부터 시작
-    collectFolders(rootFolder);
-    
-    return folders;
+      };
+      
+      collectFolders(rootFolder);
+      
+      console.log(`[성능] 폴더 접근 횟수: ${this.folderAccessCount}, 폴더 수: ${folders.length}`);
+      console.timeEnd(timerLabel);
+      return folders;
+    } catch (error) {
+      console.error('[성능] ObsidianAdapter.getAllFolders 오류:', error);
+      console.timeEnd(timerLabel);
+      return [];
+    }
   }
   
   getAllTags(): string[] {
-    const tagSet = new Set<string>();
+    const timerLabel = `[성능] ObsidianAdapter.getAllTags 실행 시간-${Date.now()}`;
+    console.time(timerLabel);
+    this.tagAccessCount++;
     
-    // 모든 파일의 태그 수집
-    for (const file of this.getAllMarkdownFiles()) {
-      const fileCache = this.metadataCache.getFileCache(file);
+    try {
+      const tagSet = new Set<string>();
       
-      if (!fileCache) continue;
+      // 모든 마크다운 파일 가져오기
+      const files = this.getAllMarkdownFiles();
       
-      // 프론트매터 태그 추가
-      const frontmatter = fileCache.frontmatter;
-      if (frontmatter && frontmatter.tags) {
-        const tags = Array.isArray(frontmatter.tags) 
-          ? frontmatter.tags 
-          : [frontmatter.tags];
-          
-        tags.forEach(tag => tagSet.add(tag));
+      // 각 파일의 태그 수집
+      for (const file of files) {
+        const cache = this.metadataCache.getFileCache(file);
+        if (!cache || !cache.tags) continue;
+        
+        for (const tag of cache.tags) {
+          tagSet.add(tag.tag);
+        }
       }
       
-      // 인라인 태그 추가
-      const tags = fileCache.tags || [];
-      tags.forEach(tagObj => {
-        // '#' 제거
-        const tagName = tagObj.tag.startsWith('#') 
-          ? tagObj.tag.substring(1) 
-          : tagObj.tag;
-          
-        tagSet.add(tagName);
-      });
+      const tags = Array.from(tagSet);
+      
+      console.log(`[성능] 태그 접근 횟수: ${this.tagAccessCount}, 태그 수: ${tags.length}`);
+      console.timeEnd(timerLabel);
+      return tags;
+    } catch (error) {
+      console.error('[성능] ObsidianAdapter.getAllTags 오류:', error);
+      console.timeEnd(timerLabel);
+      return [];
     }
-    
-    return Array.from(tagSet);
   }
   
   async getFileContent(file: TFile): Promise<string> {
-    return await this.vault.read(file);
+    const timerLabel = `[성능] ObsidianAdapter.getFileContent(${file.path}) 실행 시간-${Date.now()}`;
+    console.time(timerLabel);
+    this.fileAccessCount++;
+    
+    try {
+      const content = await this.vault.read(file);
+      console.log(`[성능] 파일 내용 접근 횟수: ${this.fileAccessCount}, 파일: ${file.path}`);
+      console.timeEnd(timerLabel);
+      return content;
+    } catch (error) {
+      console.error(`[성능] ObsidianAdapter.getFileContent(${file.path}) 오류:`, error);
+      console.timeEnd(timerLabel);
+      return '';
+    }
   }
   
   async updateFileContent(file: TFile, content: string): Promise<void> {
@@ -201,13 +287,22 @@ export class ObsidianAdapter implements IObsidianAdapter {
   }
   
   getFileFrontmatter(file: TFile): Record<string, any> | null {
-    const fileCache = this.metadataCache.getFileCache(file);
+    const timerLabel = `[성능] ObsidianAdapter.getFileFrontmatter(${file.path}) 실행 시간-${Date.now()}`;
+    console.time(timerLabel);
+    this.metadataAccessCount++;
     
-    if (!fileCache || !fileCache.frontmatter) {
+    try {
+      const cache = this.metadataCache.getFileCache(file);
+      const frontmatter = cache?.frontmatter || null;
+      
+      console.log(`[성능] 메타데이터 접근 횟수: ${this.metadataAccessCount}, 파일: ${file.path}`);
+      console.timeEnd(timerLabel);
+      return frontmatter;
+    } catch (error) {
+      console.error(`[성능] ObsidianAdapter.getFileFrontmatter(${file.path}) 오류:`, error);
+      console.timeEnd(timerLabel);
       return null;
     }
-    
-    return fileCache.frontmatter;
   }
   
   /**
@@ -216,11 +311,26 @@ export class ObsidianAdapter implements IObsidianAdapter {
    * @returns 파일 객체
    */
   getFileByPath(path: string): TFile | null {
-    const file = this.app.vault.getAbstractFileByPath(path);
-    if (file instanceof TFile) {
-      return file;
+    const timerLabel = `[성능] ObsidianAdapter.getFileByPath(${path}) 실행 시간-${Date.now()}`;
+    console.time(timerLabel);
+    this.fileAccessCount++;
+    
+    try {
+      const file = this.vault.getAbstractFileByPath(path);
+      
+      console.log(`[성능] 파일 경로 접근 횟수: ${this.fileAccessCount}, 경로: ${path}`);
+      console.timeEnd(timerLabel);
+      
+      if (file instanceof TFile) {
+        return file;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`[성능] ObsidianAdapter.getFileByPath(${path}) 오류:`, error);
+      console.timeEnd(timerLabel);
+      return null;
     }
-    return null;
   }
   
   /**
@@ -257,5 +367,9 @@ export class ObsidianAdapter implements IObsidianAdapter {
     }
     
     return links;
+  }
+  
+  getMetadataCache(): MetadataCache {
+    return this.metadataCache;
   }
 } 

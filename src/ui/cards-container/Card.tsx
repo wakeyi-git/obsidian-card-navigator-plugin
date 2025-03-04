@@ -70,9 +70,9 @@ const Card: React.FC<ICardProps> = ({
       
       <div className="card-navigator-card-footer">
         <div className="card-navigator-card-tags">
-          {tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="card-navigator-card-tag">
-              #{tag}
+          {tags.slice(0, 3).map((tag, index) => (
+            <span key={`${id}-${tag}-${index}`} className="card-navigator-card-tag">
+              {tag.startsWith('#') ? tag : `#${tag}`}
             </span>
           ))}
           {tags.length > 3 && (

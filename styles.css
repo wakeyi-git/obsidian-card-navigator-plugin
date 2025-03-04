@@ -632,3 +632,355 @@
     padding: 8px;
   }
 } 
+
+/* src/ui/toolbar/SearchBar.css */
+.card-navigator-search {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+}
+
+.card-navigator-search-input-container {
+  display: flex;
+  align-items: center;
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-search-icon {
+  margin-right: 8px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.card-navigator-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-normal);
+  font-size: 14px;
+  padding: 4px 0;
+  width: 100%;
+}
+
+.card-navigator-search-input:focus {
+  outline: none;
+}
+
+.card-navigator-search-clear {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  margin-left: 4px;
+}
+
+.card-navigator-search-options-button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  margin-left: 4px;
+}
+
+.card-navigator-search-options-icon {
+  font-size: 14px;
+}
+
+/* 검색 옵션 드롭다운 */
+.card-navigator-search-options-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+  z-index: 100;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.card-navigator-search-options-header {
+  padding: 8px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.card-navigator-search-options-list {
+  padding: 4px 0;
+}
+
+.card-navigator-search-option-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-navigator-search-option-item:hover {
+  background-color: var(--background-secondary);
+}
+
+.card-navigator-search-option-label {
+  font-weight: 500;
+  color: var(--text-normal);
+}
+
+.card-navigator-search-option-description {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.card-navigator-search-option-case {
+  padding: 8px 12px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-search-option-case label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.card-navigator-search-option-case input {
+  margin-right: 8px;
+}
+
+/* 검색 제안 */
+.card-navigator-search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  margin-top: 4px;
+  z-index: 100;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.card-navigator-search-suggestions-list {
+  padding: 4px 0;
+}
+
+.card-navigator-search-suggestion-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text-normal);
+}
+
+.card-navigator-search-suggestion-item:hover,
+.card-navigator-search-suggestion-item.selected {
+  background-color: var(--background-secondary);
+}
+
+/* 검색 결과 하이라이트 */
+.card-navigator-search-highlight {
+  background-color: rgba(255, 255, 0, 0.3);
+  border-radius: 2px;
+  padding: 0 2px;
+} 
+
+/* src/ui/toolbar/Toolbar.css */
+.card-navigator-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--background-primary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-toolbar-left {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.card-navigator-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 드롭다운 공통 스타일 */
+.card-navigator-dropdown {
+  position: relative;
+  margin-left: 8px;
+}
+
+.card-navigator-dropdown-button {
+  display: flex;
+  align-items: center;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-normal);
+}
+
+.card-navigator-dropdown-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-dropdown-icon {
+  margin-right: 4px;
+  font-size: 14px;
+}
+
+.card-navigator-dropdown-content {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 200px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  margin-top: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.card-navigator-dropdown-header {
+  padding: 8px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.card-navigator-dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text-normal);
+}
+
+.card-navigator-dropdown-item:hover {
+  background-color: var(--background-secondary);
+}
+
+.card-navigator-dropdown-item.active {
+  background-color: var(--background-modifier-hover);
+  font-weight: 500;
+}
+
+/* 모드 드롭다운 */
+.card-navigator-mode-dropdown-content {
+  min-width: 240px;
+}
+
+.card-navigator-mode-section {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-mode-section:last-child {
+  border-bottom: none;
+}
+
+.card-navigator-mode-section-header {
+  padding: 0 12px 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* 레이아웃 드롭다운 */
+.card-navigator-layout-option {
+  display: flex;
+  align-items: center;
+}
+
+.card-navigator-layout-icon {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+/* 프리셋 드롭다운 */
+.card-navigator-preset-form {
+  padding: 12px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-preset-input {
+  width: 100%;
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  color: var(--text-normal);
+}
+
+.card-navigator-preset-input:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+
+.card-navigator-preset-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.card-navigator-preset-button {
+  padding: 4px 8px;
+  background-color: var(--interactive-normal);
+  border: none;
+  border-radius: 4px;
+  color: var(--text-normal);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.card-navigator-preset-button:hover {
+  background-color: var(--interactive-hover);
+}
+
+.card-navigator-preset-button.primary {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.card-navigator-preset-button.primary:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.card-navigator-preset-button.danger {
+  background-color: var(--text-error);
+  color: white;
+}
+
+.card-navigator-preset-button.danger:hover {
+  background-color: var(--text-error-hover);
+}
+
+/* 정렬 드롭다운 */
+.card-navigator-sort-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-navigator-sort-direction {
+  color: var(--text-muted);
+  font-size: 14px;
+} 
+

@@ -37,6 +37,12 @@ export interface IMode {
   getFilterOptions(): Promise<string[]>;
   
   /**
+   * 파일 목록 가져오기
+   * 현재 모드에 따라 파일 목록을 가져옵니다.
+   */
+  getFiles(): Promise<string[]>;
+  
+  /**
    * 설정 초기화
    * 현재 모드의 설정을 초기화합니다.
    */
@@ -62,6 +68,12 @@ export abstract class Mode implements IMode {
   }
   
   abstract getFilterOptions(): Promise<string[]>;
+  
+  /**
+   * 파일 목록 가져오기
+   * 현재 모드에 따라 파일 목록을 가져옵니다.
+   */
+  abstract getFiles(): Promise<string[]>;
   
   /**
    * 설정 초기화

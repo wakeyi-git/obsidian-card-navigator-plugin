@@ -5,7 +5,7 @@ import { ICardNavigatorService } from '../../application/CardNavigatorService';
  * 설정 모달 컴포넌트 속성 인터페이스
  */
 export interface ISettingsModalProps {
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   service: ICardNavigatorService | null;
 }
@@ -15,7 +15,7 @@ export interface ISettingsModalProps {
  * 카드 네비게이터의 설정을 변경할 수 있는 모달 UI를 제공합니다.
  */
 const SettingsModal: React.FC<ISettingsModalProps> = ({
-  isOpen,
+  isOpen = true,
   onClose,
   service,
 }) => {
@@ -25,6 +25,10 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
   const [priorityFolders, setPriorityFolders] = useState<string[]>([]);
   const [defaultMode, setDefaultMode] = useState<'folder' | 'tag'>('folder');
   const [defaultLayout, setDefaultLayout] = useState<'grid' | 'masonry'>('grid');
+  const [includeSubfolders, setIncludeSubfolders] = useState<boolean>(true);
+  const [defaultCardSet, setDefaultCardSet] = useState<string>('/');
+  const [isCardSetFixed, setIsCardSetFixed] = useState<boolean>(false);
+  const [cardSets, setCardSets] = useState<string[]>([]);
 
   // 설정 로드
   useEffect(() => {
@@ -38,7 +42,15 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
           setPriorityFolders(settings.priorityFolders || []);
           setDefaultMode(settings.defaultMode);
           setDefaultLayout(settings.defaultLayout);
+          setIncludeSubfolders(settings.includeSubfolders !== undefined ? settings.includeSubfolders : true);
+          setDefaultCardSet(settings.defaultCardSet || '/');
+          setIsCardSetFixed(settings.isCardSetFixed || false);
         }
+        
+        // 카드 세트 목록 로드
+        const modeService = service.getModeService();
+        const sets = await modeService.getCardSets();
+        setCardSets(sets);
       }
     };
 
@@ -50,15 +62,24 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
   // 설정 저장
   const handleSave = async () => {
     if (service) {
-      await service.updateSettings({
-        cardWidth,
-        cardHeight,
-        priorityTags,
-        priorityFolders,
-        defaultMode,
-        defaultLayout,
-      });
-      onClose();
+      try {
+        const settings = {
+          cardWidth,
+          cardHeight,
+          priorityTags,
+          priorityFolders,
+          defaultMode,
+          defaultLayout,
+          includeSubfolders,
+          defaultCardSet,
+          isCardSetFixed,
+        };
+        
+        await service.updateSettings(settings);
+        onClose();
+      } catch (error) {
+        console.error('설정 저장 실패:', error);
+      }
     }
   };
 
@@ -103,96 +124,123 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
                 value={defaultLayout}
                 onChange={(e) => setDefaultLayout(e.target.value as 'grid' | 'masonry')}
               >
-                <option value="grid">그리드 레이아웃</option>
-                <option value="masonry">메이슨리 레이아웃</option>
+                <option value="grid">그리드</option>
+                <option value="masonry">메이슨리</option>
               </select>
             </div>
+            
+            <div className="card-navigator-setting-item">
+              <label htmlFor="includeSubfolders">하위 폴더 포함</label>
+              <div className="card-navigator-toggle">
+                <input
+                  type="checkbox"
+                  id="includeSubfolders"
+                  checked={includeSubfolders}
+                  onChange={(e) => setIncludeSubfolders(e.target.checked)}
+                />
+                <span className="card-navigator-toggle-slider"></span>
+              </div>
+            </div>
+            
+            <div className="card-navigator-setting-item">
+              <label htmlFor="defaultCardSet">기본 카드 세트</label>
+              <select
+                id="defaultCardSet"
+                value={defaultCardSet}
+                onChange={(e) => setDefaultCardSet(e.target.value)}
+              >
+                {cardSets.map((set) => (
+                  <option key={set} value={set}>
+                    {set}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="card-navigator-setting-item">
+              <label htmlFor="isCardSetFixed">카드 세트 고정</label>
+              <div className="card-navigator-toggle">
+                <input
+                  type="checkbox"
+                  id="isCardSetFixed"
+                  checked={isCardSetFixed}
+                  onChange={(e) => setIsCardSetFixed(e.target.checked)}
+                />
+                <span className="card-navigator-toggle-slider"></span>
+              </div>
+            </div>
           </div>
 
           <div className="card-navigator-setting-group">
-            <h3>카드 크기</h3>
+            <h3>카드 설정</h3>
             
             <div className="card-navigator-setting-item">
-              <label htmlFor="cardWidth">카드 너비</label>
-              <div className="card-navigator-slider-container">
-                <input
-                  type="range"
-                  id="cardWidth"
-                  min="200"
-                  max="500"
-                  step="10"
-                  value={cardWidth}
-                  onChange={(e) => setCardWidth(Number(e.target.value))}
-                />
-                <span>{cardWidth}px</span>
-              </div>
+              <label htmlFor="cardWidth">카드 너비 (px)</label>
+              <input
+                type="number"
+                id="cardWidth"
+                value={cardWidth}
+                onChange={(e) => setCardWidth(Number(e.target.value))}
+                min="100"
+                max="800"
+              />
             </div>
-
+            
             <div className="card-navigator-setting-item">
-              <label htmlFor="cardHeight">카드 높이</label>
-              <div className="card-navigator-slider-container">
-                <input
-                  type="range"
-                  id="cardHeight"
-                  min="150"
-                  max="400"
-                  step="10"
-                  value={cardHeight}
-                  onChange={(e) => setCardHeight(Number(e.target.value))}
-                />
-                <span>{cardHeight}px</span>
-              </div>
+              <label htmlFor="cardHeight">카드 높이 (px)</label>
+              <input
+                type="number"
+                id="cardHeight"
+                value={cardHeight}
+                onChange={(e) => setCardHeight(Number(e.target.value))}
+                min="100"
+                max="800"
+              />
             </div>
           </div>
 
           <div className="card-navigator-setting-group">
-            <h3>우선 순위</h3>
+            <h3>우선 순위 설정</h3>
             
             <div className="card-navigator-setting-item">
-              <label htmlFor="priorityTags">우선 태그</label>
+              <label htmlFor="priorityTags">우선 순위 태그</label>
               <input
                 type="text"
                 id="priorityTags"
-                placeholder="쉼표로 구분 (예: tag1, tag2)"
                 value={priorityTags.join(', ')}
-                onChange={(e) => {
-                  const tags = e.target.value
-                    .split(',')
-                    .map((tag) => tag.trim())
-                    .filter((tag) => tag.length > 0);
-                  setPriorityTags(tags);
-                }}
+                onChange={(e) => setPriorityTags(e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag))}
+                placeholder="태그1, 태그2, 태그3"
               />
+              <p className="card-navigator-setting-description">
+                쉼표로 구분된 태그 목록입니다. 이 태그들은 카드 정렬 시 우선적으로 표시됩니다.
+              </p>
             </div>
-
+            
             <div className="card-navigator-setting-item">
-              <label htmlFor="priorityFolders">우선 폴더</label>
+              <label htmlFor="priorityFolders">우선 순위 폴더</label>
               <input
                 type="text"
                 id="priorityFolders"
-                placeholder="쉼표로 구분 (예: folder1, folder2)"
                 value={priorityFolders.join(', ')}
-                onChange={(e) => {
-                  const folders = e.target.value
-                    .split(',')
-                    .map((folder) => folder.trim())
-                    .filter((folder) => folder.length > 0);
-                  setPriorityFolders(folders);
-                }}
+                onChange={(e) => setPriorityFolders(e.target.value.split(',').map(folder => folder.trim()).filter(folder => folder))}
+                placeholder="/폴더1, /폴더2, /폴더3"
               />
+              <p className="card-navigator-setting-description">
+                쉼표로 구분된 폴더 경로 목록입니다. 이 폴더들은 카드 정렬 시 우선적으로 표시됩니다.
+              </p>
             </div>
           </div>
         </div>
 
         <div className="card-navigator-modal-footer">
           <button
-            className="card-navigator-modal-cancel"
+            className="card-navigator-button secondary"
             onClick={onClose}
           >
             취소
           </button>
           <button
-            className="card-navigator-modal-save"
+            className="card-navigator-button primary"
             onClick={handleSave}
           >
             저장

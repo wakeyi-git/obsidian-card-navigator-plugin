@@ -1,42 +1,26 @@
 import { ICard } from '../card/Card';
 
 /**
- * 검색 타입 정의
+ * 검색 타입 열거형
  */
-export type SearchType = 'filename' | 'content' | 'tag' | 'frontmatter';
+export type SearchType = 'filename' | 'content' | 'tag' | 'frontmatter' | 'folder';
 
 /**
  * 검색 인터페이스
- * 카드를 검색하기 위한 인터페이스입니다.
+ * 검색 기능을 정의하는 인터페이스입니다.
  */
 export interface ISearch {
   /**
-   * 검색 타입
+   * 검색 타입 가져오기
+   * @returns 검색 타입
    */
-  type: SearchType;
+  getType(): SearchType;
   
   /**
-   * 검색어
+   * 검색어 가져오기
+   * @returns 검색어
    */
-  query: string;
-  
-  /**
-   * 프론트매터 키 (frontmatter 타입인 경우)
-   */
-  frontmatterKey?: string;
-  
-  /**
-   * 대소문자 구분 여부
-   */
-  caseSensitive: boolean;
-  
-  /**
-   * 검색 적용
-   * 주어진 카드 목록에 검색을 적용합니다.
-   * @param cards 카드 목록
-   * @returns 검색된 카드 목록
-   */
-  apply(cards: ICard[]): ICard[];
+  getQuery(): string;
   
   /**
    * 검색어 설정
@@ -45,58 +29,88 @@ export interface ISearch {
   setQuery(query: string): void;
   
   /**
-   * 대소문자 구분 설정
+   * 대소문자 구분 여부 가져오기
+   * @returns 대소문자 구분 여부
+   */
+  isCaseSensitive(): boolean;
+  
+  /**
+   * 대소문자 구분 여부 설정
    * @param caseSensitive 대소문자 구분 여부
    */
   setCaseSensitive(caseSensitive: boolean): void;
+  
+  /**
+   * 검색 수행
+   * @param cards 검색할 카드 목록
+   * @returns 검색 결과 카드 목록
+   */
+  search(cards: ICard[]): ICard[];
+  
+  /**
+   * 검색 객체 직렬화
+   * @returns 직렬화된 검색 객체
+   */
+  serialize(): any;
 }
 
 /**
- * 검색 추상 클래스
- * 검색 인터페이스를 구현하는 추상 클래스입니다.
+ * 기본 검색 추상 클래스
+ * 검색 기능의 기본 구현을 제공하는 추상 클래스입니다.
  */
 export abstract class Search implements ISearch {
-  type: SearchType;
-  query: string;
-  frontmatterKey?: string;
-  caseSensitive: boolean;
+  protected query: string;
+  protected caseSensitive: boolean;
+  protected type: SearchType;
   
-  constructor(
-    type: SearchType,
-    query: string = '',
-    caseSensitive: boolean = false,
-    frontmatterKey?: string
-  ) {
+  constructor(type: SearchType, query: string = '', caseSensitive: boolean = false) {
     this.type = type;
     this.query = query;
     this.caseSensitive = caseSensitive;
-    this.frontmatterKey = frontmatterKey;
   }
   
-  abstract apply(cards: ICard[]): ICard[];
+  getType(): SearchType {
+    return this.type;
+  }
+  
+  getQuery(): string {
+    return this.query;
+  }
   
   setQuery(query: string): void {
     this.query = query;
+  }
+  
+  isCaseSensitive(): boolean {
+    return this.caseSensitive;
   }
   
   setCaseSensitive(caseSensitive: boolean): void {
     this.caseSensitive = caseSensitive;
   }
   
+  abstract search(cards: ICard[]): ICard[];
+  
+  serialize(): any {
+    return {
+      type: this.type,
+      query: this.query,
+      caseSensitive: this.caseSensitive
+    };
+  }
+  
   /**
-   * 문자열 포함 여부 확인
-   * 대소문자 구분 설정에 따라 문자열 포함 여부를 확인합니다.
-   * @param text 검색 대상 문자열
-   * @param searchTerm 검색어
-   * @returns 포함 여부
+   * 검색어 매칭 여부 확인
+   * @param text 검색 대상 텍스트
+   * @returns 매칭 여부
    */
-  protected includes(text: string, searchTerm: string): boolean {
-    if (!text || !searchTerm) return false;
+  protected matches(text: string): boolean {
+    if (!this.query) return true;
     
     if (this.caseSensitive) {
-      return text.includes(searchTerm);
+      return text.includes(this.query);
     } else {
-      return text.toLowerCase().includes(searchTerm.toLowerCase());
+      return text.toLowerCase().includes(this.query.toLowerCase());
     }
   }
 } 

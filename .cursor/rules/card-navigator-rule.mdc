@@ -67,7 +67,6 @@ card-navigator/
 │   │   ├── mode/              # ✅ Folder Mode & Tag Mode Configuration  
 │   │   ├── card/              # ✅ Card Model & Data Processing  
 │   │   ├── layout/            # ✅ Card Layout Logic  
-│   │   ├── filter/            # ✅ Filtering Logic (Tag, Folder, YAML)  
 │   │   ├── sorting/           # ✅ Sorting Logic (Filename, Date, etc.)  
 │   │   ├── search/            # ✅ Search Functionality  
 │   │   ├── preset/            # ✅ Preset Management  
@@ -102,10 +101,6 @@ card-navigator/
         •	Layout.ts → Layout Configuration
         •	MasonryLayout.ts → Masonry-style layout
         •	GridLayout.ts → Grid-style layout
-	•	filter/
-        •	Filter.ts → Filtering Model
-        •	TagFilter.ts → Tag filtering
-        •	FolderFilter.ts → Folder filtering
 	•	sorting/
         •	Sort.ts → Sorting Model
         •	SortManager.ts → Sorting Management
@@ -121,7 +116,6 @@ card-navigator/
 📂 application/ (Application Layer - Business Logic)
 	•	ModeService.ts → Mode switching management
 	•	PresetService.ts → Preset service
-	•	FilterService.ts → Filtering service
 	•	SortService.ts → Sorting service
 	•	SearchService.ts → Search service
 
