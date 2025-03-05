@@ -41,17 +41,17 @@ const ModeToggle: React.FC<ModeToggleProps> = ({ currentMode, onModeChange, serv
 
   return (
     <div
-      className="clickable-icon card-navigator-mode-toggle"
+      className="clickable-icon card-navigator-icon card-navigator-mode-toggle"
       onClick={handleModeToggle}
       aria-label={displayMode === 'folder' ? '태그 모드로 전환' : '폴더 모드로 전환'}
       title={displayMode === 'folder' ? '태그 모드로 전환' : '폴더 모드로 전환'}
     >
       {displayMode === 'folder' ? (
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-folder">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-folder">
           <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>
         </svg>
       ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-tag">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-tag">
           <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"></path>
           <path d="M7 7h.01"></path>
         </svg>

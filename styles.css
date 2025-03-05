@@ -1448,8 +1448,8 @@
   gap: 4px;
 }
 
-/* 공통 아이콘 버튼 스타일 */
-.clickable-icon {
+/* 플러그인 아이콘 버튼 스타일 */
+.card-navigator-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1458,24 +1458,22 @@
   padding: 5px;
   border-radius: 4px;
   cursor: pointer;
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
   color: var(--text-normal);
   transition: background-color 0.2s, color 0.2s;
 }
 
-.clickable-icon:hover {
+.card-navigator-icon:hover {
   background-color: var(--background-modifier-hover);
   color: var(--text-normal);
 }
 
-.clickable-icon.active {
+.card-navigator-icon.active {
   background-color: var(--interactive-accent);
   border-color: var(--interactive-accent);
   color: var(--text-on-accent);
 }
 
-.clickable-icon svg {
+.card-navigator-icon svg {
   width: 18px;
   height: 18px;
 }
