@@ -128,20 +128,20 @@ const SortDropdown: React.FC<ISortDropdownProps> = ({
 
   return (
     <div className="card-navigator-sort-dropdown">
-      <button
-        className="card-navigator-sort-button"
+      <div
+        className="clickable-icon card-navigator-sort-button"
         onClick={showSortMenu}
         aria-label="정렬"
         title="정렬"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-arrow-up-narrow-wide">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-arrow-up-narrow-wide">
           <path d="m3 8 4-4 4 4"/>
           <path d="M7 4v16"/>
           <path d="M11 12h4"/>
           <path d="M11 16h7"/>
           <path d="M11 20h10"/>
         </svg>
-      </button>
+      </div>
     </div>
   );
 };

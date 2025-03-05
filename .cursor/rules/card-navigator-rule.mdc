@@ -3,132 +3,167 @@ description: Card Navigator Plugin Design & Folder Structure
 globs: 
 alwaysApply: false
 ---
-Card Navigator is an Obsidian plugin that supports both folder-based and tag-based note classification methods.
-It is optimized to allow users to customize card views, apply filters, sorting, searching, and presets freely.
+Card Navigator는 폴더 기반 및 태그 기반 노트 분류 방법을 모두 지원하는 Obsidian 플러그인입니다.
+사용자가 카드 뷰를 자유롭게 커스터마이징하고, 필터, 정렬, 검색 및 프리셋을 적용할 수 있도록 최적화되어 있습니다.
 
-🔗 Obsidian Integration Principles
-	1.	Maximize the Use of Obsidian API
-	•	Extend and inherit key classes like Plugin, PluginSettingTab, ItemView
-	•	Utilize APIs such as Workspace, MetadataCache, and Vault for file and metadata access
-	•	Use UI components like Notice, Modal, and Menu
-	•	Leverage the event system for optimal performance
-	2.	Maintain UI/UX Consistency
-	•	Follow Obsidian’s design patterns and styles
-	•	Utilize Obsidian’s built-in CSS variables for seamless light/dark mode support
-	•	Integrate with Obsidian’s internationalization (i18n) system
-	3.	Performance Optimization
-	•	Rendering Optimization: Use virtual scrolling (react-window) for smooth rendering of hundreds of cards
-	•	Event Optimization: Prevent unnecessary event listener registrations to minimize memory leaks
-	•	Data Caching: Reduce redundant API calls and file accesses
+🔗 Obsidian 통합 원칙
+1.	Obsidian API 최대한 활용
+	•	Plugin, PluginSettingTab, ItemView와 같은 핵심 클래스 확장 및 상속
+	•	파일 및 메타데이터 접근을 위한 Workspace, MetadataCache, Vault 등의 API 활용
+	•	Notice, Modal, Menu와 같은 UI 컴포넌트 사용
+	•	최적의 성능을 위한 이벤트 시스템 활용
+2.	UI/UX 일관성 유지
+	•	Obsidian의 디자인 패턴 및 스타일 준수
+	•	라이트/다크 모드 지원을 위한 Obsidian의 내장 CSS 변수 활용
+	•	Obsidian의 국제화(i18n) 시스템과 통합
+3.	성능 최적화
+	•	렌더링 최적화: 수백 개의 카드를 부드럽게 렌더링하기 위한 가상 스크롤링(react-window) 사용
+	•	이벤트 최적화: 메모리 누수를 최소화하기 위한 불필요한 이벤트 리스너 등록 방지
+	•	데이터 캐싱: 중복 API 호출 및 파일 접근 감소
 
-🛠️ Key Features Overview
+🛠️ 주요 기능 개요
 
-1️⃣ Mode Selection (Folder Mode vs Tag Mode)
-	•	Folder Mode: Organize card sets based on folders, using tags as filtering options
-	•	Tag Mode: Organize card sets based on tags, using folders as filtering options
-	•	Priority System
-	•	Folder Mode → If a priority tag is set, the tag preset takes precedence
-	•	Tag Mode → If a priority folder is set, the folder preset takes precedence
-	•	Instant mode switching via the toolbar
+1️⃣ 모드 선택 (폴더 모드 vs 태그 모드)
+	•	폴더 모드: 폴더를 기반으로 카드 세트를 구성하고, 태그를 필터링 옵션으로 사용
+	•	태그 모드: 태그를 기반으로 카드 세트를 구성하고, 폴더를 필터링 옵션으로 사용
+	•	우선순위 시스템
+	•	폴더 모드 → 우선순위 태그가 설정된 경우, 태그 프리셋이 우선
+	•	태그 모드 → 우선순위 폴더가 설정된 경우, 폴더 프리셋이 우선
+	•	툴바를 통한 즉각적인 모드 전환
 
-2️⃣ Card UI & Interactions
-	•	Virtual Scrolling (react-window) → Performance optimization
-	•	Customizable Styles (background color, font size, border, etc.)
-	•	Auto Color Assignment Based on Tags (highlighting important tags)
-	•	Inline Editing (edit directly within the card)
+2️⃣ 카드 UI 및 상호작용
+	•	가상 스크롤링(react-window) → 성능 최적화
+	•	커스터마이징 가능한 스타일(배경색, 글꼴 크기, 테두리 등)
+	•	태그 기반 자동 색상 할당(중요 태그 강조)
+	•	인라인 편집(카드 내에서 직접 편집)
 
-3️⃣ Sorting & Filtering
-	•	Sorting Criteria:
-	•	Filename, creation date, modification date, custom front matter values
-	•	Filtering
-	•	Folder Mode → Uses tag filtering
-	•	Tag Mode → Uses folder filtering
+3️⃣ 정렬
+	•	정렬 기준:
+	•	파일명, 생성일, 수정일, 사용자 정의 front matter 값
 
-4️⃣ Preset Management
-	•	Configure folder/tag presets and apply them automatically
-	•	Set priority between folder and tag presets
-	•	Import/export presets
+4️⃣ 프리셋 관리
+	•	폴더/태그 프리셋을 구성하고 자동으로 적용
+	•	폴더 및 태그 프리셋 간의 우선순위 설정
+	•	프리셋 가져오기/내보내기
 
-5️⃣ Search Functionality
-	•	Real-time search (filters results instantly as you type)
-	•	Autocomplete with search suggestions (recent search history)
-	•	Supports regex search
+5️⃣ 검색 기능
+	•	실시간 검색(입력 즉시 결과 필터링)
+	•	검색 제안이 포함된 자동 완성(최근 검색 기록)
+	•	정규식 검색 지원
 
-6️⃣ Settings UI
-	•	Choose default mode (folder/tag)
-	•	Configure priority tags and folders manually
-	•	Customize all card styles and display elements
+6️⃣ 설정 UI
+	•	기본 모드 선택(폴더/태그)
+	•	우선순위 태그 및 폴더 수동 구성
+	•	모든 카드 스타일 및 표시 요소 커스터마이징
 
-📂 Optimized Folder Structure
+📂 최적화된 폴더 구조
 
-card-navigator/
+obsidian-card-navigator-plugin/
 │── src/  
-│   ├── domain/                # 🧩 Domain Layer (Core Business Logic)  
-│   │   ├── mode/              # ✅ Folder Mode & Tag Mode Configuration  
-│   │   ├── card/              # ✅ Card Model & Data Processing  
-│   │   ├── layout/            # ✅ Card Layout Logic  
-│   │   ├── sorting/           # ✅ Sorting Logic (Filename, Date, etc.)  
-│   │   ├── search/            # ✅ Search Functionality  
-│   │   ├── preset/            # ✅ Preset Management  
-│   ├── application/           # 🚀 Application Layer (Business Logic)  
-│   ├── infrastructure/        # 🏗️ Infrastructure Layer (File System, API Integration)  
-│   ├── ui/                    # 🎨 UI Layer  
+│   ├── domain/                # 🧩 도메인 레이어 (핵심 비즈니스 로직)  
+│   │   ├── mode/              # ✅ 폴더 모드 & 태그 모드 구성  
+│   │   ├── card/              # ✅ 카드 모델 & 데이터 처리  
+│   │   ├── cardset/           # ✅ 카드셋 모델 & 관리  
+│   │   ├── layout/            # ✅ 카드 레이아웃 로직  
+│   │   ├── sorting/           # ✅ 정렬 로직 (파일명, 날짜 등)  
+│   │   ├── search/            # ✅ 검색 기능  
+│   │   ├── preset/            # ✅ 프리셋 관리  
+│   ├── application/           # 🚀 애플리케이션 레이어 (비즈니스 로직)  
+│   │   ├── CardNavigatorService.ts # ✅ 메인 서비스  
+│   │   ├── ModeService.ts     # ✅ 모드 전환 관리  
+│   │   ├── CardSetService.ts  # ✅ 카드셋 서비스  
+│   │   ├── CardService.ts     # ✅ 카드 서비스  
+│   │   ├── FilterService.ts   # ✅ 필터 서비스  
+│   │   ├── SearchService.ts   # ✅ 검색 서비스  
+│   │   ├── PresetService.ts   # ✅ 프리셋 서비스  
+│   │   ├── SortService.ts     # ✅ 정렬 서비스  
+│   │   ├── LayoutService.ts   # ✅ 레이아웃 서비스  
+│   ├── infrastructure/        # 🏗️ 인프라 레이어 (파일 시스템, API 통합)  
+│   │   ├── ObsidianAdapter.ts # ✅ Obsidian API 통합  
+│   │   ├── CardRepositoryImpl.ts # ✅ 카드 저장소 구현  
+│   │   ├── Storage.ts         # ✅ 설정 저장 및 로드  
+│   │   ├── Cache.ts           # ✅ 데이터 캐싱  
+│   │   ├── EventManager.ts    # ✅ 이벤트 관리  
+│   │   ├── index.ts           # ✅ 인프라 모듈 내보내기  
+│   ├── ui/                    # 🎨 UI 레이어  
+│   │   ├── CardNavigatorView.tsx # ✅ 메인 뷰 컴포넌트  
+│   │   ├── CardNavigator.css  # ✅ 메인 CSS 스타일  
 │   │   ├── toolbar/           # ✅ 툴바 (검색 & 버튼 그룹)  
 │   │   ├── cards-container/   # ✅ 카드 UI  
 │   │   ├── layout/            # ✅ 레이아웃 UI  
 │   │   ├── presets/           # ✅ 프리셋 UI  
 │   │   ├── settings/          # ✅ 설정 UI  
-│   ├── main.ts                # 🏁 Plugin Entry Point  
-│   ├── manifest.json          # 📝 Plugin Metadata  
-│── assets/                     # 🎨 Icons, Localization Files  
-│── tests/                      # ✅ Test Code  
-│── docs/                       # 📖 Documentation  
+│   ├── main.ts                # 🏁 플러그인 진입점  
+│── manifest.json              # 📝 플러그인 메타데이터  
+│── styles.css                 # 🎨 전역 CSS 스타일  
+│── esbuild.config.mjs         # 🛠️ 빌드 설정  
+│── package.json               # 📦 패키지 정보 및 의존성  
+│── tsconfig.json              # ⚙️ TypeScript 설정  
+│── README.md                  # 📖 영문 문서  
+│── README-ko.md               # 📖 한글 문서  
+│── versions.json              # 📊 버전 정보  
 
-📌 Detailed Folder Descriptions
+📌 상세 폴더 설명
 
-📂 domain/ (Domain Layer - Core Logic)
+📂 domain/ (도메인 레이어 - 핵심 로직)
 	•	mode/
-        •	Mode.ts → Folder Mode vs Tag Mode Configuration
-        •	FolderMode.ts → Folder-based card set & filtering
-        •	TagMode.ts → Tag-based card set & filtering
+        •	Mode.ts → 폴더 모드 vs 태그 모드 구성
+        •	FolderMode.ts → 폴더 기반 카드셋 & 필터링
+        •	TagMode.ts → 태그 기반 카드셋 & 필터링
 	•	card/
-        •	Card.ts → Card Model
-        •	CardFactory.ts → Card creation logic
-        •	CardStyle.ts → Card style management
-        •	CardContent.ts → Card content data processing
-        •	CardActions.ts → Card interactions (click, drag, etc.)
+        •	Card.ts → 카드 모델
+        •	CardFactory.ts → 카드 생성 로직
+        •	CardStyle.ts → 카드 스타일 관리
+        •	CardContent.ts → 카드 콘텐츠 데이터 처리
+        •	CardActions.ts → 카드 상호작용(클릭, 드래그 등)
+	•	cardset/
+        •	CardSet.ts → 카드셋 모델
+        •	CardSetFactory.ts → 카드셋 생성 로직
+        •	FolderCardSet.ts → 폴더 기반 카드셋
+        •	TagCardSet.ts → 태그 기반 카드셋
+        •	SearchCardSet.ts → 검색 기반 카드셋
 	•	layout/
-        •	Layout.ts → Layout Configuration
-        •	MasonryLayout.ts → Masonry-style layout
-        •	GridLayout.ts → Grid-style layout
+        •	Layout.ts → 레이아웃 구성
+        •	MasonryLayout.ts → 메이슨리 스타일 레이아웃
+        •	GridLayout.ts → 그리드 스타일 레이아웃
 	•	sorting/
-        •	Sort.ts → Sorting Model
-        •	SortManager.ts → Sorting Management
+        •	Sort.ts → 정렬 모델
+        •	SortManager.ts → 정렬 관리
 	•	search/
-        •	Search.ts → Search Model
-        •	SearchManager.ts → Search Management
-        •	RegexSearch.ts → Regex-based search
+        •	Search.ts → 검색 모델
+        •	SearchManager.ts → 검색 관리
+        •	RegexSearch.ts → 정규식 기반 검색
 	•	preset/
-        •	Preset.ts → Preset Model
-        •	PresetManager.ts → Preset Management
-        •	applyPreset.ts → Priority Application Logic
+        •	Preset.ts → 프리셋 모델
+        •	PresetManager.ts → 프리셋 관리
+        •	applyPreset.ts → 우선순위 적용 로직
 
-📂 application/ (Application Layer - Business Logic)
-	•	ModeService.ts → Mode switching management
-	•	PresetService.ts → Preset service
-	•	SortService.ts → Sorting service
-	•	SearchService.ts → Search service
+📂 application/ (애플리케이션 레이어 - 비즈니스 로직)
+	•	CardNavigatorService.ts → 메인 서비스 (전체 기능 조정)
+	•	ModeService.ts → 모드 전환 관리
+	•	CardSetService.ts → 카드셋 서비스
+	•	CardService.ts → 카드 서비스
+	•	FilterService.ts → 필터 서비스
+	•	SearchService.ts → 검색 서비스
+	•	PresetService.ts → 프리셋 서비스
+	•	SortService.ts → 정렬 서비스
+	•	LayoutService.ts → 레이아웃 서비스
 
-📂 infrastructure/ (Infrastructure Layer - API & File System)
-	•	ObsidianAdapter.ts → Obsidian API Integration
-	•	Storage.ts → Configuration storage and loading
-	•	Cache.ts → Data caching
+📂 infrastructure/ (인프라 레이어 - API & 파일 시스템)
+	•	ObsidianAdapter.ts → Obsidian API 통합
+	•	CardRepositoryImpl.ts → 카드 저장소 구현
+	•	Storage.ts → 설정 저장 및 로드
+	•	Cache.ts → 데이터 캐싱
+	•	EventManager.ts → 이벤트 관리
+	•	index.ts → 인프라 모듈 내보내기
 
-📂 ui/ (UI Layer - User Interface)
-	•	toolbar/ → Toolbar (Search & Button Group)
-	•	cards-container/ → Card UI
-	•	layout/ → Layout UI
-	•	presets/ → Preset UI
-	•	settings/ → Settings UI
+📂 ui/ (UI 레이어 - 사용자 인터페이스)
+	•	CardNavigatorView.tsx → 메인 뷰 컴포넌트
+	•	CardNavigator.css → 메인 CSS 스타일
+	•	toolbar/ → 툴바 (검색 & 버튼 그룹)
+	•	cards-container/ → 카드 UI
+	•	layout/ → 레이아웃 UI
+	•	presets/ → 프리셋 UI
+	•	settings/ → 설정 UI
 
-Now, strictly follow these rules and proceed with the development of Card Navigator! 🚀
+이 규칙을 엄격히 따라 Card Navigator 개발을 진행하세요! 🚀

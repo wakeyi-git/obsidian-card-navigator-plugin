@@ -459,6 +459,14 @@
   border-radius: 4px;
 }
 
+.card-navigator-x-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .card-navigator-modal-close:hover {
   background-color: var(--background-modifier-hover);
   color: var(--text-normal);
@@ -836,19 +844,14 @@
 }
 
 /* src/ui/toolbar/ModeToggle.css */
+/* 모드 토글 컴포넌트 스타일 */
 .card-navigator-mode-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  padding: 4px;
-  background-color: transparent;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
+  flex-shrink: 0;
 }
 
 .card-navigator-mode-toggle:hover {
@@ -893,7 +896,11 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  color: var(--text-normal);
+}
+
+.card-navigator-mode-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .mode-icon {
@@ -1061,22 +1068,26 @@
 }
 
 .card-navigator-search-clear-button {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: transparent;
+  background: none;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 2px;
+  padding: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  transition: color 0.2s, background-color 0.2s;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.card-navigator-clear-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .card-navigator-search-clear-button:hover {
@@ -1302,7 +1313,7 @@
 .search-clear-icon {
   width: 12px;
   height: 12px;
-} 
+}
 
 /* src/ui/toolbar/Toolbar.css */
 .card-navigator-toolbar {
@@ -1437,38 +1448,40 @@
   gap: 4px;
 }
 
-/* 모드 토글 */
-.card-navigator-mode-toggle {
+/* 공통 아이콘 버튼 스타일 */
+.clickable-icon {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  background: none;
-  border: none;
+  padding: 5px;
   border-radius: 4px;
-  padding: 4px;
   cursor: pointer;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
   color: var(--text-normal);
-  margin-right: 8px;
-  transition: color 0.2s ease;
+  transition: background-color 0.2s, color 0.2s;
 }
 
-.card-navigator-mode-toggle:hover {
-  background: none;
-  color: var(--text-accent);
+.clickable-icon:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
 }
 
-.mode-toggle-icon {
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.clickable-icon.active {
+  background-color: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+  color: var(--text-on-accent);
 }
 
-.folder-mode-icon, .tag-mode-icon {
-  font-size: 16px;
+.clickable-icon svg {
+  width: 18px;
+  height: 18px;
 }
+
+/* 각 버튼 유형별 특별한 스타일이 필요한 경우 여기에 추가하세요 */
+/* 예: .card-navigator-mode-toggle { margin-right: 8px; } */
 
 /* 아이콘 크기 통일 */
 .card-navigator-search-icon, 
@@ -1488,37 +1501,8 @@
 .mode-toggle-icon svg,
 .card-navigator-lock-icon svg,
 .card-navigator-cardset-icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* 고정 아이콘 버튼 */
-.card-navigator-lock-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  border-radius: 4px;
-  padding: 4px;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  color: var(--text-muted);
-  opacity: 1 !important;
-  transition: color 0.2s ease;
-  margin-left: 2px;
-}
-
-.card-navigator-lock-button:hover {
-  background: none;
-  color: var(--text-accent);
-}
-
-.card-navigator-lock-button.active {
-  background: none;
-  color: var(--interactive-accent);
-  border: none;
+  width: 18px;
+  height: 18px;
 }
 
 /* 카드 세트 선택기 */
@@ -1571,54 +1555,6 @@
   margin-left: 8px;
   font-size: 14px;
   color: var(--text-accent);
-}
-
-/* 검색 아이콘 버튼 */
-.card-navigator-search-icon-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 4px;
-  background-color: transparent;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
-}
-
-.card-navigator-search-icon-button:hover {
-  background-color: var(--background-modifier-hover);
-  color: var(--text-normal);
-}
-
-.card-navigator-search-icon-button.active {
-  background-color: var(--interactive-accent);
-  border-color: var(--interactive-accent);
-  color: var(--text-on-accent);
-}
-
-/* 설정 버튼 */
-.card-navigator-settings-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 4px;
-  background-color: transparent;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
-}
-
-.card-navigator-settings-button:hover {
-  background-color: var(--background-modifier-hover);
-  color: var(--text-normal);
 }
 
 /* 모바일 대응 */
@@ -1675,5 +1611,5 @@
 .card-navigator-visible {
   opacity: 1 !important;
   visibility: visible !important;
-}
+} 
 

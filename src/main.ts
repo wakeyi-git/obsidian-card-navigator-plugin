@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, addIcon } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf } from 'obsidian';
 import { CardNavigatorView } from './ui/CardNavigatorView';
 import { CardRepositoryImpl } from './infrastructure/CardRepositoryImpl';
 import { ObsidianAdapter } from './infrastructure/ObsidianAdapter';
@@ -41,126 +41,48 @@ export default class CardNavigatorPlugin extends Plugin {
   async onload() {
     console.log('카드 네비게이터 플러그인 로드 중...');
     
-    // 이미 로드 중인지 확인
-    if ((this as any)._loading) {
-      console.log('카드 네비게이터 플러그인이 이미 로드 중입니다. 중복 로드 방지');
-      return;
-    }
+    // 설정 로드
+    await this.loadSettings();
     
-    (this as any)._loading = true;
+    // 서비스 초기화
+    this.initializeServices();
     
-    // 아이콘 등록
-    this.registerIcons();
+    // 이벤트 리스너 등록
+    this.registerEventListeners();
     
-    try {
-      // 설정 로드
-      await this.loadSettings();
-      
-      // 카드 네비게이터 뷰 등록
-      this.registerView(
-        'card-navigator-view',
-        (leaf) => new CardNavigatorView(leaf)
-      );
-      
-      // 리본 아이콘 추가
-      this.addRibbonIcon('layout-grid', '카드 네비게이터', () => {
+    // 뷰 타입 등록
+    this.registerView(
+      'card-navigator-view',
+      (leaf) => new CardNavigatorView(leaf)
+    );
+    
+    // 리본 아이콘 추가
+    this.addRibbonIcon('layout-grid', '카드 네비게이터 열기', () => {
+      this.activateView();
+    });
+    
+    // 명령어 추가
+    this.addCommand({
+      id: 'open-card-navigator',
+      name: '카드 네비게이터 열기',
+      callback: () => {
         this.activateView();
-      });
-      
-      // 명령어 등록
-      this.addCommand({
-        id: 'open-card-navigator',
-        name: '카드 네비게이터 열기',
-        callback: () => {
-          this.activateView();
-        }
-      });
-      
-      // 카드 네비게이터 상태 정보 출력 명령어 추가
-      this.addCommand({
-        id: 'show-card-navigator-status',
-        name: '카드 네비게이터 상태 정보 출력',
-        callback: () => {
-          this.showStatus();
-        }
-      });
-      
-      // 설정 탭 추가
-      this.addSettingTab(new CardNavigatorSettingTab(this.app, this));
-      
-      // 워크스페이스에 뷰 타입 등록
-      this.app.workspace.onLayoutReady(() => {
-        if (this.app.workspace.getLeavesOfType('card-navigator-view').length === 0) {
-          this.activateView();
-        }
-      });
-      
-      // 폴더 모드 명령어 추가
-      this.addCommand({
-        id: 'switch-to-folder-mode',
-        name: '폴더 모드로 전환',
-        callback: () => {
-          if (this.cardNavigatorService) {
-            this.cardNavigatorService.getModeService().changeMode('folder');
-          }
-        },
-      });
-      
-      // 태그 모드 명령어 추가
-      this.addCommand({
-        id: 'switch-to-tag-mode',
-        name: '태그 모드로 전환',
-        callback: () => {
-          if (this.cardNavigatorService) {
-            this.cardNavigatorService.getModeService().changeMode('tag');
-          }
-        },
-      });
-      
-      // 하위 폴더 포함 토글 명령어 추가
-      this.addCommand({
-        id: 'toggle-include-subfolders',
-        name: '하위 폴더 포함 토글',
-        callback: () => {
-          if (this.cardNavigatorService) {
-            const modeService = this.cardNavigatorService.getModeService();
-            const currentValue = modeService.getIncludeSubfolders();
-            modeService.setIncludeSubfolders(!currentValue);
-            
-            // 설정 업데이트
-            this.settings.includeSubfolders = !currentValue;
-            this.saveSettings();
-          }
-        },
-      });
-      
-      // 카드 세트 고정 토글 명령어 추가
-      this.addCommand({
-        id: 'toggle-card-set-fixed',
-        name: '카드 세트 고정 토글',
-        callback: () => {
-          if (this.cardNavigatorService) {
-            const modeService = this.cardNavigatorService.getModeService();
-            const currentValue = modeService.isCardSetFixed();
-            const currentCardSet = modeService.getCurrentCardSet();
-            
-            if (currentCardSet) {
-              modeService.selectCardSet(currentCardSet, !currentValue);
-              
-              // 설정 업데이트
-              this.settings.isCardSetFixed = !currentValue;
-              this.saveSettings();
-            }
-          }
-        },
-      });
-      
-      console.log('카드 네비게이터 플러그인 로드 완료');
-    } catch (error) {
-      console.error('카드 네비게이터 플러그인 로드 중 오류 발생:', error);
-    } finally {
-      (this as any)._loading = false;
-    }
+      }
+    });
+    
+    // 상태 표시 명령어 추가
+    this.addCommand({
+      id: 'show-card-navigator-status',
+      name: '카드 네비게이터 상태 표시',
+      callback: () => {
+        this.showStatus();
+      }
+    });
+    
+    // 설정 탭 추가
+    this.addSettingTab(new CardNavigatorSettingTab(this.app, this));
+    
+    console.log('카드 네비게이터 플러그인 로드 완료');
   }
 
   onunload() {
@@ -248,30 +170,63 @@ export default class CardNavigatorPlugin extends Plugin {
     console.log('===================================');
   }
 
-  /**
-   * 플러그인에서 사용할 아이콘 등록
-   */
-  private registerIcons() {
-    // 폴더 아이콘
-    addIcon('card-navigator-folder', `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg>`);
+  private initializeServices() {
+    console.log('카드 네비게이터 서비스 초기화 중...');
     
-    // 태그 아이콘
-    addIcon('card-navigator-tag', `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-3"></path><circle cx="9" cy="12" r="2"></circle><path d="M9 14v7"></path><path d="M9 14h6"></path></svg>`);
+    try {
+      // ObsidianAdapter와 CardRepositoryImpl을 생성하여 CardNavigatorService에 전달
+      const obsidianAdapter = new ObsidianAdapter(this.app);
+      const cardFactory = new CardFactory();
+      const cardRepository = new CardRepositoryImpl(obsidianAdapter, cardFactory);
+      this.cardNavigatorService = new CardNavigatorService(
+        this.app, 
+        cardRepository, 
+        this.settings.defaultMode
+      );
+      console.log('카드 네비게이터 서비스 초기화 완료');
+    } catch (error) {
+      console.error('카드 네비게이터 서비스 초기화 중 오류 발생:', error);
+    }
+  }
+
+  private registerEventListeners() {
+    // 파일 변경 이벤트 리스너
+    this.registerEvent(
+      this.app.vault.on('modify', (file) => {
+        if (this.cardNavigatorService) {
+          this.cardNavigatorService.refreshCards();
+        }
+      })
+    );
     
-    // 잠금 아이콘
-    addIcon('card-navigator-lock', `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`);
+    // 파일 생성 이벤트 리스너
+    this.registerEvent(
+      this.app.vault.on('create', (file) => {
+        if (this.cardNavigatorService) {
+          this.cardNavigatorService.refreshCards();
+        }
+      })
+    );
     
-    // 잠금 해제 아이콘
-    addIcon('card-navigator-unlock', `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>`);
+    // 파일 삭제 이벤트 리스너
+    this.registerEvent(
+      this.app.vault.on('delete', (file) => {
+        if (this.cardNavigatorService) {
+          this.cardNavigatorService.refreshCards();
+        }
+      })
+    );
     
-    // 검색 아이콘
-    addIcon('card-navigator-search', `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>`);
+    // 파일 이름 변경 이벤트 리스너
+    this.registerEvent(
+      this.app.vault.on('rename', (file, oldPath) => {
+        if (this.cardNavigatorService) {
+          this.cardNavigatorService.refreshCards();
+        }
+      })
+    );
     
-    // 설정 아이콘
-    addIcon('card-navigator-settings', `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>`);
-    
-    // 닫기(X) 아이콘
-    addIcon('card-navigator-x', `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>`);
+    console.log('카드 네비게이터 이벤트 리스너 등록 완료');
   }
 }
 

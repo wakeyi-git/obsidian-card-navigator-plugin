@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import ModeToggle from './ModeToggle';
 import SortDropdown from './SortDropdown';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import { SortType, SortDirection } from '../../domain/sorting/Sort';
 import SettingsModal from '../settings/SettingsModal';
-import { App, SuggestModal, setIcon } from 'obsidian';
+import { App, SuggestModal } from 'obsidian';
 import { ModeType } from '../../domain/mode/Mode';
 import { SearchBar } from './SearchBar';
 import './Toolbar.css';
@@ -125,9 +125,7 @@ const Toolbar: React.FC<IToolbarProps> = ({
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [showSearchBar, setShowSearchBar] = useState(isSearchMode);
 
-  /**
-   * 카드셋 로드
-   */
+  // 카드셋 로드
   useEffect(() => {
     const loadCardSets = async () => {
       if (service) {
@@ -210,54 +208,76 @@ const Toolbar: React.FC<IToolbarProps> = ({
           onModeChange={onModeChange}
           service={service}
         />
-        <button
-          className="card-navigator-cardset-button"
-          onClick={openCardSetModal}
-          aria-label="카드셋 선택"
-        >
-          <span className="card-navigator-cardset-icon" ref={el => {
-            if (el) setIcon(el, currentMode === 'tag' ? 'card-navigator-tag' : 'card-navigator-folder');
-          }}></span>
-          <span className="card-navigator-cardset-name">
-            {getDisplayCardSetName()}
-          </span>
-        </button>
-        <button
-          className={`card-navigator-lock-button ${isCardSetFixed ? 'active' : ''}`}
+        <div className="card-navigator-cardset-selector">
+          <button
+            className="card-navigator-cardset-button"
+            onClick={openCardSetModal}
+            aria-label="카드셋 선택"
+          >
+            {currentMode === 'folder' ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-folder card-navigator-cardset-icon">
+                <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-tag card-navigator-cardset-icon">
+                <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"></path>
+                <path d="M7 7h.01"></path>
+              </svg>
+            )}
+            <span className="card-navigator-cardset-name">
+              {getDisplayCardSetName()}
+            </span>
+          </button>
+        </div>
+        <div
+          className={`clickable-icon card-navigator-lock-button ${isCardSetFixed ? 'active' : ''}`}
           onClick={handleCardSetFixedToggle}
           aria-label={isCardSetFixed ? '고정 해제' : '고정'}
+          title={isCardSetFixed ? '고정 해제' : '고정'}
         >
-          <span className="card-navigator-lock-icon" ref={el => {
-            if (el) setIcon(el, isCardSetFixed ? 'card-navigator-lock' : 'card-navigator-unlock');
-          }}></span>
-        </button>
+          {isCardSetFixed ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-lock">
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-unlock">
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+            </svg>
+          )}
+        </div>
       </div>
       <div className="card-navigator-toolbar-center">
         {/* 검색바는 CardNavigatorView에서 직접 렌더링됩니다 */}
       </div>
       <div className="card-navigator-toolbar-right">
-        <button
-          className={`card-navigator-search-icon-button ${showSearchBar ? 'active' : ''}`}
+        <div
+          className={`clickable-icon card-navigator-search-icon-button ${showSearchBar ? 'active' : ''}`}
           onClick={handleSearchIconClick}
           aria-label="검색"
+          title="검색"
         >
-          <span className="card-navigator-search-icon" ref={el => {
-            if (el) setIcon(el, 'card-navigator-search');
-          }}></span>
-        </button>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-search">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.3-4.3"></path>
+          </svg>
+        </div>
         <SortDropdown
           onSortChange={onSortChange}
           service={service}
         />
-        <button
-          className="card-navigator-settings-button"
+        <div
+          className="clickable-icon card-navigator-settings-button"
           onClick={() => setIsSettingsModalOpen(true)}
           aria-label="설정"
+          title="설정"
         >
-          <span className="card-navigator-settings-icon" ref={el => {
-            if (el) setIcon(el, 'card-navigator-settings');
-          }}></span>
-        </button>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-settings">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </div>
       </div>
       
       {isSettingsModalOpen && (

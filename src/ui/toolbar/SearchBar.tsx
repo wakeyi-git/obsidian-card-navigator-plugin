@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import { SearchType } from '../../domain/search/Search';
 import { ModeType } from '../../domain/mode/Mode';
-import { App, AbstractInputSuggest, setIcon } from 'obsidian';
+import { App, AbstractInputSuggest } from 'obsidian';
 import './SearchBar.css';
 
 /**
@@ -197,9 +197,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
               onClick={handleClear}
               aria-label="검색어 지우기"
             >
-              <span className="card-navigator-clear-icon" ref={el => {
-                if (el) setIcon(el, 'card-navigator-x');
-              }}></span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="card-navigator-clear-icon">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
             </button>
           )}
         </div>

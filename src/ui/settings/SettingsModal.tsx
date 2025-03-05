@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import { ModeType } from '../../domain/mode/Mode';
-import { setIcon } from 'obsidian';
 import './SettingsModal.css';
 
 /**
@@ -139,9 +138,10 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
             onClick={onClose}
             aria-label="닫기"
           >
-            <span className="card-navigator-x-icon" ref={el => {
-              if (el) setIcon(el, 'card-navigator-x');
-            }}></span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="card-navigator-x-icon">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
           </button>
         </div>
         
