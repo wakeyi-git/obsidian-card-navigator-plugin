@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import Card, { ICardProps } from './Card';
+import './CardContainer.css';
 
 /**
  * 카드 컨테이너 속성 인터페이스
@@ -8,6 +9,7 @@ export interface ICardContainerProps {
   cards: ICardProps[];
   onCardClick?: (id: string) => void;
   layout?: 'grid' | 'masonry';
+  searchQuery?: string;
 }
 
 /**
@@ -18,6 +20,7 @@ const CardContainer: React.FC<ICardContainerProps> = ({
   cards,
   onCardClick,
   layout = 'grid',
+  searchQuery = '',
 }) => {
   console.time('[성능] CardContainer 렌더링 시간');
   
@@ -28,7 +31,10 @@ const CardContainer: React.FC<ICardContainerProps> = ({
     if (cards.length > 0) {
       console.log(`[CardContainer] 첫 번째 카드 정보: 제목=${cards[0].title}, 경로=${cards[0].path}`);
     }
-  }, [cards, layout]);
+    if (searchQuery) {
+      console.log(`[CardContainer] 검색 쿼리: ${searchQuery}`);
+    }
+  }, [cards, layout, searchQuery]);
   
   // 카드가 없는 경우 메시지 표시
   if (cards.length === 0) {
@@ -57,6 +63,7 @@ const CardContainer: React.FC<ICardContainerProps> = ({
             created={card.created}
             modified={card.modified}
             onClick={onCardClick}
+            searchQuery={searchQuery}
           />
         ))}
       </div>
@@ -80,6 +87,7 @@ const CardContainer: React.FC<ICardContainerProps> = ({
               created={card.created}
               modified={card.modified}
               onClick={onCardClick}
+              searchQuery={searchQuery}
             />
           ))}
       </div>
@@ -97,6 +105,7 @@ const CardContainer: React.FC<ICardContainerProps> = ({
               created={card.created}
               modified={card.modified}
               onClick={onCardClick}
+              searchQuery={searchQuery}
             />
           ))}
       </div>
@@ -114,6 +123,7 @@ const CardContainer: React.FC<ICardContainerProps> = ({
               created={card.created}
               modified={card.modified}
               onClick={onCardClick}
+              searchQuery={searchQuery}
             />
           ))}
       </div>

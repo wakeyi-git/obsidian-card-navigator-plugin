@@ -55,14 +55,42 @@ export class CardRepositoryImpl implements ICardRepository {
           
           // 메타데이터에서 태그 추출
           const cache = this.obsidianAdapter.getMetadataCache().getFileCache(file);
-          const tags = cache?.tags?.map(tag => tag.tag) || [];
+          
+          // 인라인 태그 추출
+          const inlineTags = cache?.tags?.map(tag => tag.tag) || [];
+          
+          // 프론트매터 태그 추출
+          const frontmatterTags: string[] = [];
+          if (frontmatter && frontmatter.tags) {
+            const fmTags = Array.isArray(frontmatter.tags) ? frontmatter.tags : [frontmatter.tags];
+            for (const tag of fmTags) {
+              const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
+              frontmatterTags.push(normalizedTag);
+            }
+          }
+          
+          // 단수형 태그도 처리
+          if (frontmatter && frontmatter.tag) {
+            const fmTags = Array.isArray(frontmatter.tag) ? frontmatter.tag : [frontmatter.tag];
+            for (const tag of fmTags) {
+              const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
+              frontmatterTags.push(normalizedTag);
+            }
+          }
+          
+          // 모든 태그 합치기 (중복 제거)
+          const allTags = [...new Set([...inlineTags, ...frontmatterTags])];
+          
+          if (frontmatterTags.length > 0) {
+            console.log(`[CardRepositoryImpl] 파일 ${file.path}의 프론트매터 태그: ${frontmatterTags.join(', ')}`);
+          }
           
           // 카드 생성
           const card = this.cardFactory.createCard(
             file.path,
             file.basename,
             content,
-            tags,
+            allTags,
             file.path,
             file.stat.ctime,
             file.stat.mtime,
@@ -143,14 +171,42 @@ export class CardRepositoryImpl implements ICardRepository {
       
       // 메타데이터에서 태그 추출
       const cache = this.obsidianAdapter.getMetadataCache().getFileCache(file);
-      const tags = cache?.tags?.map(tag => tag.tag) || [];
+      
+      // 인라인 태그 추출
+      const inlineTags = cache?.tags?.map(tag => tag.tag) || [];
+      
+      // 프론트매터 태그 추출
+      const frontmatterTags: string[] = [];
+      if (frontmatter && frontmatter.tags) {
+        const fmTags = Array.isArray(frontmatter.tags) ? frontmatter.tags : [frontmatter.tags];
+        for (const tag of fmTags) {
+          const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
+          frontmatterTags.push(normalizedTag);
+        }
+      }
+      
+      // 단수형 태그도 처리
+      if (frontmatter && frontmatter.tag) {
+        const fmTags = Array.isArray(frontmatter.tag) ? frontmatter.tag : [frontmatter.tag];
+        for (const tag of fmTags) {
+          const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
+          frontmatterTags.push(normalizedTag);
+        }
+      }
+      
+      // 모든 태그 합치기 (중복 제거)
+      const allTags = [...new Set([...inlineTags, ...frontmatterTags])];
+      
+      if (frontmatterTags.length > 0) {
+        console.log(`[CardRepositoryImpl] 파일 ${file.path}의 프론트매터 태그: ${frontmatterTags.join(', ')}`);
+      }
       
       // 카드 생성
       const card = this.cardFactory.createCard(
         file.path,
         file.basename,
         content,
-        tags,
+        allTags,
         file.path,
         file.stat.ctime,
         file.stat.mtime,

@@ -79,22 +79,47 @@ export class CardFactory implements ICardFactory {
     
     // 태그 추출 (프론트매터에서 태그 가져오기)
     const tags: string[] = [];
-    if (frontmatter && frontmatter.tags) {
-      if (Array.isArray(frontmatter.tags)) {
-        // 배열인 경우 각 태그 추가
-        frontmatter.tags.forEach((tag: string) => {
-          // # 포함 여부 확인하여 정규화
-          const normalizedTag = tag.startsWith('#') ? tag.substring(1) : tag;
+    if (frontmatter) {
+      // 'tags' 속성 처리 (복수형)
+      if (frontmatter.tags) {
+        if (Array.isArray(frontmatter.tags)) {
+          // 배열인 경우 각 태그 추가
+          frontmatter.tags.forEach((tag: string) => {
+            // # 포함 여부 확인하여 정규화
+            const normalizedTag = tag.startsWith('#') ? tag.substring(1) : tag;
+            if (!tags.includes(normalizedTag)) {
+              tags.push(normalizedTag);
+            }
+          });
+        } else if (typeof frontmatter.tags === 'string') {
+          // 문자열인 경우 단일 태그 추가
+          const normalizedTag = frontmatter.tags.startsWith('#') 
+            ? frontmatter.tags.substring(1) 
+            : frontmatter.tags;
+          tags.push(normalizedTag);
+        }
+      }
+      
+      // 'tag' 속성 처리 (단수형)
+      if (frontmatter.tag) {
+        if (Array.isArray(frontmatter.tag)) {
+          // 배열인 경우 각 태그 추가
+          frontmatter.tag.forEach((tag: string) => {
+            // # 포함 여부 확인하여 정규화
+            const normalizedTag = tag.startsWith('#') ? tag.substring(1) : tag;
+            if (!tags.includes(normalizedTag)) {
+              tags.push(normalizedTag);
+            }
+          });
+        } else if (typeof frontmatter.tag === 'string') {
+          // 문자열인 경우 단일 태그 추가
+          const normalizedTag = frontmatter.tag.startsWith('#') 
+            ? frontmatter.tag.substring(1) 
+            : frontmatter.tag;
           if (!tags.includes(normalizedTag)) {
             tags.push(normalizedTag);
           }
-        });
-      } else if (typeof frontmatter.tags === 'string') {
-        // 문자열인 경우 단일 태그 추가
-        const normalizedTag = frontmatter.tags.startsWith('#') 
-          ? frontmatter.tags.substring(1) 
-          : frontmatter.tags;
-        tags.push(normalizedTag);
+        }
       }
     }
     

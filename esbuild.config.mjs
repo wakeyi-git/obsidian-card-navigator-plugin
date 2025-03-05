@@ -3,6 +3,7 @@ import process from "process";
 import builtins from "builtin-modules";
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 const banner =
 `/*
@@ -12,6 +13,7 @@ if you want to view the source, please visit the github repository of this plugi
 `;
 
 const prod = (process.argv[2] === "production");
+const rebuildCss = process.argv.includes("--rebuild-css");
 
 // CSS 파일을 수집하고 병합하는 플러그인
 const cssPlugin = {
@@ -24,29 +26,48 @@ const cssPlugin = {
 			// 기존 styles.css 파일이 있는지 확인
 			const stylesPath = 'styles.css';
 			let existingStyles = '';
+			let cssFileMap = new Map();
+			
+			// CSS 파일 메타데이터를 저장할 파일 경로
+			const cssMetadataPath = '.css-metadata.json';
+			let cssMetadata = {};
 			
 			try {
-				if (fs.existsSync(stylesPath)) {
-					// 기존 파일이 있으면 내용 읽기
-					existingStyles = fs.readFileSync(stylesPath, 'utf8');
-					console.log('기존 styles.css 파일을 읽었습니다.');
+				// CSS 메타데이터 파일이 있으면 읽기
+				if (fs.existsSync(cssMetadataPath)) {
+					cssMetadata = JSON.parse(fs.readFileSync(cssMetadataPath, 'utf8'));
 				}
 			} catch (err) {
-				console.error('styles.css 파일 읽기 오류:', err);
+				console.error('CSS 메타데이터 파일 읽기 오류:', err);
+				cssMetadata = {};
 			}
 			
-			// 이미 처리된 CSS 파일 경로를 저장할 Set
-			const processedFiles = new Set();
-			
-			// 기존 파일에서 이미 처리된 CSS 파일 경로 추출
-			const filePathRegex = /\/\* (src\/.*?\.css) \*\//g;
-			let match;
-			while ((match = filePathRegex.exec(existingStyles)) !== null) {
-				processedFiles.add(match[1]);
+			// 전체 재생성 옵션이 아니고 기존 styles.css 파일이 있으면 내용 읽기
+			if (!rebuildCss && fs.existsSync(stylesPath)) {
+				try {
+					existingStyles = fs.readFileSync(stylesPath, 'utf8');
+					console.log('기존 styles.css 파일을 읽었습니다.');
+					
+					// 기존 파일에서 CSS 파일 정보 추출
+					const fileContentRegex = /\/\* (src\/.*?\.css) \*\/\n([\s\S]*?)(?=\/\* src\/|$)/g;
+					let match;
+					while ((match = fileContentRegex.exec(existingStyles)) !== null) {
+						const filePath = match[1];
+						const content = match[2].trim();
+						cssFileMap.set(filePath, content);
+					}
+				} catch (err) {
+					console.error('styles.css 파일 읽기 오류:', err);
+				}
+			} else if (rebuildCss) {
+				console.log('CSS 전체 재생성 모드로 실행합니다.');
+				cssFileMap.clear();
+				cssMetadata = {};
 			}
 			
 			// 새로운 CSS 내용을 저장할 변수
-			let newCSSContent = '';
+			let finalCSSContent = '';
+			let hasChanges = false;
 			
 			// CSS 파일 찾기 및 내용 수집 함수
 			const collectCSSFiles = (dir) => {
@@ -60,30 +81,72 @@ const cssPlugin = {
 						// 디렉토리인 경우 재귀적으로 탐색
 						collectCSSFiles(filePath);
 					} else if (file.endsWith('.css')) {
-						// 이미 처리된 파일은 건너뛰기
-						if (processedFiles.has(filePath)) {
-							console.log(`이미 처리된 CSS 파일: ${filePath}`);
-							continue;
+						try {
+							// 파일 내용 읽기
+							const content = fs.readFileSync(filePath, 'utf8');
+							
+							// 파일 내용의 해시 계산
+							const contentHash = crypto.createHash('md5').update(content).digest('hex');
+							
+							// 파일이 변경되었는지 또는 새로운 파일인지 확인
+							const isNewOrChanged = !cssMetadata[filePath] || 
+												  cssMetadata[filePath].hash !== contentHash ||
+												  !cssFileMap.has(filePath);
+							
+							if (isNewOrChanged) {
+								console.log(`${cssFileMap.has(filePath) ? '변경된' : '새로운'} CSS 파일: ${filePath}`);
+								cssFileMap.set(filePath, content);
+								cssMetadata[filePath] = {
+									hash: contentHash,
+									lastModified: stat.mtime.getTime()
+								};
+								hasChanges = true;
+							} else {
+								console.log(`변경 없는 CSS 파일: ${filePath}`);
+							}
+						} catch (err) {
+							console.error(`CSS 파일 처리 오류 (${filePath}):`, err);
 						}
-						
-						// 새로운 CSS 파일인 경우 내용 읽기
-						console.log(`새로운 CSS 파일 발견: ${filePath}`);
-						const content = fs.readFileSync(filePath, 'utf8');
-						newCSSContent += `/* ${filePath} */\n${content}\n\n`;
 					}
 				}
 			};
 			
 			// src 디렉토리에서 CSS 파일 수집
-			collectCSSFiles('src');
+			try {
+				collectCSSFiles('src');
+			} catch (err) {
+				console.error('CSS 파일 수집 중 오류 발생:', err);
+			}
 			
-			// 새로운 CSS 내용이 있으면 기존 내용에 추가
-			if (newCSSContent) {
-				const finalCSS = existingStyles + newCSSContent;
-				fs.writeFileSync(stylesPath, finalCSS);
-				console.log('새로운 CSS 내용이 styles.css에 추가되었습니다.');
+			// 삭제된 파일 확인 및 제거
+			const existingFiles = Array.from(cssFileMap.keys());
+			for (const filePath of existingFiles) {
+				if (!fs.existsSync(filePath)) {
+					console.log(`삭제된 CSS 파일 감지: ${filePath}`);
+					cssFileMap.delete(filePath);
+					delete cssMetadata[filePath];
+					hasChanges = true;
+				}
+			}
+			
+			// 변경사항이 있거나 전체 재생성 모드인 경우 styles.css 파일 생성
+			if (hasChanges || rebuildCss || !fs.existsSync(stylesPath)) {
+				// 정렬된 파일 경로로 최종 CSS 내용 생성
+				const sortedFilePaths = Array.from(cssFileMap.keys()).sort();
+				for (const filePath of sortedFilePaths) {
+					const content = cssFileMap.get(filePath);
+					finalCSSContent += `/* ${filePath} */\n${content}\n\n`;
+				}
+				
+				// styles.css 파일 쓰기
+				fs.writeFileSync(stylesPath, finalCSSContent);
+				console.log('styles.css 파일이 업데이트되었습니다.');
+				
+				// CSS 메타데이터 저장
+				fs.writeFileSync(cssMetadataPath, JSON.stringify(cssMetadata, null, 2));
+				console.log('CSS 메타데이터가 업데이트되었습니다.');
 			} else {
-				console.log('추가할 새로운 CSS 내용이 없습니다.');
+				console.log('CSS 파일에 변경사항이 없습니다. styles.css를 유지합니다.');
 			}
 		});
 	}
@@ -119,6 +182,12 @@ const context = await esbuild.context({
 	jsx: "automatic",
 	jsxImportSource: "react",
 	plugins: [cssPlugin],
+	write: true,
+	metafile: true,
+	// CSS 출력 비활성화
+	loader: {
+		'.css': 'empty',
+	},
 });
 
 if (prod) {

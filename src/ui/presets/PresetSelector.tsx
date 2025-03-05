@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { IPreset } from '../../domain/preset/Preset';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
+import './PresetSelector.css';
 
 /**
  * 프리셋 선택기 컴포넌트 속성 인터페이스

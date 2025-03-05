@@ -12,7 +12,7 @@ import { ICard } from '../domain/card/Card';
 import { SortType, SortDirection } from '../domain/sorting/Sort';
 import { LayoutType } from '../domain/layout/Layout';
 import { SearchType } from '../domain/search/Search';
-import SearchBar from './toolbar/SearchBar';
+import { SearchBar } from './toolbar/SearchBar';
 import { SearchType as SearchModeType } from '../domain/mode/SearchMode';
 import { ModeType } from '../domain/mode/Mode';
 
@@ -30,6 +30,7 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
   const [error, setError] = useState<string | null>(null);
   const [isCardSetFixed, setIsCardSetFixed] = useState<boolean>(false);
   const [includeSubfolders, setIncludeSubfolders] = useState<boolean>(true);
+  const [isSearchMode, setIsSearchMode] = useState<boolean>(false);
   
   // 성능 모니터링을 위한 카운터
   const [renderCount, setRenderCount] = useState<number>(0);
@@ -46,6 +47,26 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
       console.timeEnd('[성능] CardNavigatorComponent 렌더링 시간');
     };
   }, [cards, isLoading, error, currentMode, layout, isCardSetFixed, includeSubfolders]);
+
+  useEffect(() => {
+    // 전역 스타일 추가
+    const style = document.createElement('style');
+    style.textContent = `
+      .card-navigator-view * {
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+      .card-navigator-visible {
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   useEffect(() => {
     // 서비스 초기화 및 데이터 로딩
@@ -253,107 +274,6 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
     }));
   };
 
-  // 검색 처리
-  const handleSearch = async (query: string) => {
-    if (!service) return;
-    
-    setIsLoading(true);
-    
-    try {
-      console.time('[성능] 검색 실행 시간');
-      
-      // 검색 수행
-      await service.search(query);
-      
-      // 카드 목록 가져오기
-      const filteredCards = await service.getCards();
-      setCards(mapDomainCardsToProps(filteredCards));
-      
-      // 상태 정보 콘솔에 출력
-      logCardNavigatorStatus(service);
-      console.timeEnd('[성능] 검색 실행 시간');
-    } catch (error) {
-      console.error('검색 중 오류 발생:', error);
-      setError('검색 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // 검색 타입 변경 처리
-  const handleSearchTypeChange = async (type: SearchType, frontmatterKey?: string) => {
-    if (!service) return;
-    
-    setIsLoading(true);
-    
-    try {
-      console.time('[성능] 검색 타입 변경 실행 시간');
-      
-      // 검색 모드 서비스 가져오기
-      const modeService = service.getModeService();
-      
-      // 검색 모드 설정
-      if (modeService.getCurrentModeType() === 'search') {
-        (modeService as any).configureSearchMode(
-          (modeService.getCurrentMode() as any).query || '',
-          type,
-          (modeService.getCurrentMode() as any).caseSensitive || false,
-          frontmatterKey
-        );
-      }
-      
-      // 카드 목록 가져오기
-      const filteredCards = await service.getCards();
-      setCards(mapDomainCardsToProps(filteredCards));
-      
-      // 상태 정보 콘솔에 출력
-      logCardNavigatorStatus(service);
-      console.timeEnd('[성능] 검색 타입 변경 실행 시간');
-    } catch (error) {
-      console.error('검색 타입 변경 중 오류 발생:', error);
-      setError('검색 타입 변경 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // 대소문자 구분 변경 처리
-  const handleCaseSensitiveChange = async (caseSensitive: boolean) => {
-    if (!service) return;
-    
-    setIsLoading(true);
-    
-    try {
-      console.time('[성능] 대소문자 구분 변경 실행 시간');
-      
-      // 검색 모드 서비스 가져오기
-      const modeService = service.getModeService();
-      
-      // 검색 모드 설정
-      if (modeService.getCurrentModeType() === 'search') {
-        (modeService as any).configureSearchMode(
-          (modeService.getCurrentMode() as any).query || '',
-          (modeService.getCurrentMode() as any).searchType || 'content',
-          caseSensitive,
-          (modeService.getCurrentMode() as any).frontmatterKey
-        );
-      }
-      
-      // 카드 목록 가져오기
-      const filteredCards = await service.getCards();
-      setCards(mapDomainCardsToProps(filteredCards));
-      
-      // 상태 정보 콘솔에 출력
-      logCardNavigatorStatus(service);
-      console.timeEnd('[성능] 대소문자 구분 변경 실행 시간');
-    } catch (error) {
-      console.error('대소문자 구분 변경 중 오류 발생:', error);
-      setError('대소문자 구분 변경 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // 모드 변경 처리
   const handleModeChange = async (mode: ModeType) => {
     if (!service) return;
@@ -366,6 +286,18 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
       // 모드 변경
       await service.changeMode(mode);
       setCurrentMode(mode);
+      
+      // 검색 모드가 아닌 경우 검색 쿼리 초기화
+      if (mode !== 'search') {
+        setSearchQuery('');
+      } else if (mode === 'search') {
+        // 검색 모드인 경우 현재 쿼리 가져오기
+        const modeService = service.getModeService();
+        const searchMode = modeService.getCurrentMode() as any;
+        if (searchMode && searchMode.query) {
+          setSearchQuery(searchMode.query);
+        }
+      }
       
       // 카드 목록 가져오기
       const filteredCards = await service.getCards();
@@ -506,12 +438,112 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
     }
   };
 
+  // 검색 모드 토글
+  const toggleSearchMode = () => {
+    setIsSearchMode(!isSearchMode);
+  };
+
+  // 검색 실행
+  const handleSearch = (query: string, type: string) => {
+    setSearchQuery(query);
+    setSearchType(type as SearchType);
+
+    if (query) {
+      // 검색 모드로 전환하고 검색 실행
+      if (service) {
+        const searchCards = async () => {
+          setIsLoading(true);
+          setError(null);
+          
+          try {
+            const allCards = await service.getCards();
+            const filteredCards = allCards.filter(card => {
+              if (type === 'content') {
+                return card.content.toLowerCase().includes(query.toLowerCase());
+              } else if (type === 'tag') {
+                return card.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()));
+              } else if (type === 'path') {
+                return card.path.toLowerCase().includes(query.toLowerCase());
+              }
+              return false;
+            });
+            
+            setCards(mapDomainCardsToProps(filteredCards));
+            setIsLoading(false);
+          } catch (error) {
+            console.error('카드 검색 중 오류 발생:', error);
+            setError('카드를 검색하는 중 오류가 발생했습니다.');
+            setIsLoading(false);
+          }
+        };
+        
+        searchCards();
+      }
+    } else {
+      loadCards();
+    }
+  };
+
+  // 검색 카드 로드
+  const searchCards = async (query: string, type: string) => {
+    if (!service) return;
+    
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // 서비스를 통해 모든 카드를 가져온 후 필터링
+      const allCards = await service.getCards();
+      const filteredCards = allCards.filter(card => {
+        if (type === 'content') {
+          return card.content.toLowerCase().includes(query.toLowerCase());
+        } else if (type === 'tag') {
+          return card.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()));
+        } else if (type === 'path') {
+          return card.path.toLowerCase().includes(query.toLowerCase());
+        }
+        return false;
+      });
+      
+      setCards(mapDomainCardsToProps(filteredCards));
+      setIsLoading(false);
+    } catch (error) {
+      console.error('카드 검색 중 오류 발생:', error);
+      setError('카드를 검색하는 중 오류가 발생했습니다.');
+      setIsLoading(false);
+    }
+  };
+
+  // 카드 로드
+  const loadCards = async () => {
+    if (!service) return;
+    
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const cards = await service.getCards();
+      setCards(mapDomainCardsToProps(cards));
+      setIsLoading(false);
+    } catch (error) {
+      console.error('카드 로드 중 오류 발생:', error);
+      setError('카드를 로드하는 중 오류가 발생했습니다.');
+      setIsLoading(false);
+    }
+  };
+
+  // 모드 토글 핸들러
+  const handleModeToggle = () => {
+    if (currentMode === 'folder') {
+      handleModeChange('tag');
+    } else {
+      handleModeChange('folder');
+    }
+  };
+
   return (
     <div className="card-navigator-container">
       <Toolbar
-        onSearch={handleSearch}
-        onSearchTypeChange={handleSearchTypeChange}
-        onCaseSensitiveChange={handleCaseSensitiveChange}
         onModeChange={handleModeChange}
         currentMode={currentMode}
         onSortChange={handleSortChange}
@@ -519,26 +551,53 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
         onCardSetSelect={handleCardSetSelect}
         onIncludeSubfoldersChange={handleIncludeSubfoldersChange}
         onPresetApply={handlePresetApply}
+        onPresetSave={() => {
+          // 프리셋 저장 처리
+          if (service) {
+            service.saveAsPreset('새 프리셋');
+          }
+        }}
+        onPresetDelete={(presetId) => {
+          // 프리셋 삭제 처리
+          if (service) {
+            const presetService = service.getPresetService();
+            presetService.deletePreset(presetId);
+          }
+        }}
         currentLayout={layout}
         service={service}
         app={app}
+        isSearchMode={isSearchMode}
+        toggleSearchMode={toggleSearchMode}
+        onSearch={handleSearch}
+        cardSet=""
+        cardSets={{
+          folders: [],
+          tags: []
+        }}
+        isFixed={isCardSetFixed}
+        onModeToggle={handleModeToggle}
       />
       
-      {error && (
-        <div className="card-navigator-error">
-          <p>{error}</p>
-          <button onClick={() => setError(null)}>닫기</button>
-        </div>
+      {isSearchMode && (
+        <SearchBar onSearch={handleSearch} />
       )}
       
       {isLoading ? (
-        <div className="card-navigator-loading">
-          <p>로딩 중...</p>
+        <div className="card-navigator-loading">카드를 불러오는 중...</div>
+      ) : error ? (
+        <div className="card-navigator-error">{error}</div>
+      ) : cards.length === 0 ? (
+        <div className="card-navigator-empty">
+          {searchQuery
+            ? '검색 결과가 없습니다.'
+            : '카드가 없습니다.'}
         </div>
       ) : (
         <CardContainer
           cards={cards}
           layout={layout}
+          searchQuery={currentMode === 'search' ? searchQuery : ''}
           onCardClick={(cardId) => {
             // 카드 클릭 처리
             const card = cards.find((c) => c.id === cardId);
@@ -579,12 +638,31 @@ export class CardNavigatorView extends ItemView {
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass('card-navigator-view');
+    container.addClass('card-navigator-visible');
 
-    const rootEl = createDiv();
+    const rootEl = createDiv({ cls: 'card-navigator-root card-navigator-visible' });
+    rootEl.style.opacity = '1';
+    rootEl.style.visibility = 'visible';
     container.appendChild(rootEl);
 
-    const root = createRoot(rootEl);
-    root.render(<CardNavigatorComponent app={this.app} />);
+    try {
+      const root = createRoot(rootEl);
+      root.render(<CardNavigatorComponent app={this.app} />);
+      
+      // 렌더링 후 추가 스타일 적용
+      setTimeout(() => {
+        const toolbarElements = container.querySelectorAll('.card-navigator-toolbar, .card-navigator-toolbar-left, .card-navigator-toolbar-center, .card-navigator-toolbar-right');
+        toolbarElements.forEach(el => {
+          (el as HTMLElement).style.opacity = '1';
+          (el as HTMLElement).style.visibility = 'visible';
+        });
+      }, 100);
+    } catch (error) {
+      console.error('카드 네비게이터 렌더링 오류:', error);
+      const errorEl = createDiv({ cls: 'card-navigator-error' });
+      errorEl.setText('카드 네비게이터 렌더링 중 오류가 발생했습니다.');
+      container.appendChild(errorEl);
+    }
   }
 
   async onClose() {

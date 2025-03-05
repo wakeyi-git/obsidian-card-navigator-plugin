@@ -1,0 +1,165 @@
+/* 프리셋 선택기 스타일 */
+.card-navigator-preset-selector {
+  position: relative;
+}
+
+.card-navigator-preset-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.card-navigator-preset-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-preset-button svg {
+  fill: var(--text-muted);
+}
+
+.card-navigator-preset-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 240px;
+  z-index: 100;
+}
+
+.card-navigator-preset-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-preset-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.card-navigator-preset-create-button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.card-navigator-preset-create-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-preset-create-button svg {
+  fill: var(--text-muted);
+}
+
+.card-navigator-preset-create {
+  padding: 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-preset-create input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  margin-bottom: 8px;
+}
+
+.card-navigator-preset-create-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.card-navigator-preset-create-actions button {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.card-navigator-preset-create-actions button:first-child {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+}
+
+.card-navigator-preset-create-actions button:last-child {
+  background-color: transparent;
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+.card-navigator-preset-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.card-navigator-preset-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.card-navigator-preset-item:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-preset-delete {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.card-navigator-preset-delete:hover {
+  opacity: 1;
+  background-color: var(--background-modifier-error-hover);
+}
+
+.card-navigator-preset-delete svg {
+  fill: var(--text-error);
+}
+
+.card-navigator-preset-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  .card-navigator-preset-dropdown {
+    width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-navigator-preset-button span {
+    display: none;
+  }
+} 

@@ -1,23 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import SearchBar from './SearchBar';
+import React, { useState, useEffect, useRef } from 'react';
 import ModeToggle from './ModeToggle';
 import SortDropdown from './SortDropdown';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import { SortType, SortDirection } from '../../domain/sorting/Sort';
-import LayoutToggle from '../layout/LayoutToggle';
-import PresetSelector from '../presets/PresetSelector';
 import SettingsModal from '../settings/SettingsModal';
-import { SearchType } from '../../domain/search/Search';
-import { App, SuggestModal } from 'obsidian';
+import { App, SuggestModal, setIcon } from 'obsidian';
 import { ModeType } from '../../domain/mode/Mode';
+import { SearchBar } from './SearchBar';
+import './Toolbar.css';
 
 /**
  * 툴바 컴포넌트 속성 인터페이스
  */
 export interface IToolbarProps {
-  onSearch: (query: string) => void;
-  onSearchTypeChange?: (type: SearchType, frontmatterKey?: string) => void;
-  onCaseSensitiveChange?: (caseSensitive: boolean) => void;
   onModeChange: (mode: ModeType) => void;
   currentMode: ModeType;
   onSortChange?: (sortType: SortType, sortDirection: SortDirection) => void;
@@ -30,6 +25,16 @@ export interface IToolbarProps {
   currentLayout: 'grid' | 'masonry';
   service: ICardNavigatorService | null;
   app: App;
+  cardSet: string;
+  cardSets: {
+    folders: string[];
+    tags: string[];
+  };
+  isFixed: boolean;
+  onModeToggle: () => void;
+  onSearch: (query: string, type: string) => void;
+  isSearchMode: boolean;
+  toggleSearchMode: () => void;
 }
 
 /**
@@ -93,9 +98,6 @@ class TagSuggestModal extends SuggestModal<string> {
  * 검색, 모드 전환, 정렬, 레이아웃 변경 등의 컨트롤을 제공합니다.
  */
 const Toolbar: React.FC<IToolbarProps> = ({
-  onSearch,
-  onSearchTypeChange = () => {},
-  onCaseSensitiveChange = () => {},
   onModeChange,
   currentMode,
   onSortChange = () => {},
@@ -108,288 +110,153 @@ const Toolbar: React.FC<IToolbarProps> = ({
   currentLayout = 'grid',
   service,
   app,
+  cardSet,
+  cardSets,
+  isFixed,
+  onModeToggle,
+  onSearch,
+  isSearchMode,
+  toggleSearchMode,
 }) => {
-  const [cardSets, setCardSets] = useState<string[]>([]);
+  const [availableCardSets, setAvailableCardSets] = useState<string[]>([]);
   const [selectedCardSet, setSelectedCardSet] = useState<string>('');
   const [isCardSetFixed, setIsCardSetFixed] = useState<boolean>(false);
   const [includeSubfolders, setIncludeSubfolders] = useState<boolean>(true);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState<SearchType>('content');
-  const [caseSensitive, setCaseSensitive] = useState(false);
-  const [frontmatterKey, setFrontmatterKey] = useState('');
-  const [showSearchOptions, setShowSearchOptions] = useState(false);
+  const [showSearchBar, setShowSearchBar] = useState(isSearchMode);
 
-  // 카드 세트 로드
+  /**
+   * 카드셋 로드
+   */
   useEffect(() => {
     const loadCardSets = async () => {
       if (service) {
         try {
+          // 서비스에서 카드셋 목록 가져오기
           const modeService = service.getModeService();
           const sets = await modeService.getCardSets();
-          setCardSets(sets);
+          setAvailableCardSets(sets);
           
-          // 현재 선택된 카드 세트 가져오기
+          // 현재 선택된 카드셋 가져오기
           const currentSet = await modeService.getCurrentCardSet();
           if (currentSet) {
             setSelectedCardSet(currentSet);
+            setIsCardSetFixed(modeService.isCardSetFixed());
+          } else if (sets.length > 0) {
+            setSelectedCardSet(sets[0]);
+            setIsCardSetFixed(false);
           }
-          
-          // 카드 세트 고정 여부 가져오기
-          setIsCardSetFixed(modeService.isCardSetFixed());
-          
-          // 하위 폴더 포함 여부 가져오기
-          setIncludeSubfolders(modeService.getIncludeSubfolders());
         } catch (error) {
           console.error('카드 세트 로드 중 오류 발생:', error);
         }
       }
     };
-
+    
     loadCardSets();
   }, [service, currentMode]);
 
+  useEffect(() => {
+    setShowSearchBar(isSearchMode);
+  }, [isSearchMode]);
+
   // 카드 세트 선택 처리
-  const handleCardSetSelect = (cardSet: string) => {
-    console.log(`[Toolbar] 카드 세트 선택: ${cardSet}, 고정 상태: ${isCardSetFixed}`);
+  const handleCardSetSelectInternal = async (cardSet: string) => {
     setSelectedCardSet(cardSet);
-    onCardSetSelect(cardSet, isCardSetFixed);
+    await onCardSetSelect(cardSet, isCardSetFixed);
+    return cardSet;
   };
 
-  // 카드 세트 고정 여부 변경 처리
-  const handleCardSetFixedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const isFixed = e.target.checked;
-    console.log(`[Toolbar] 카드 세트 고정 상태 변경: ${isFixed}, 현재 카드 세트: ${selectedCardSet}`);
-    setIsCardSetFixed(isFixed);
-    onCardSetSelect(selectedCardSet, isFixed);
+  // 카드셋 고정 토글
+  const handleCardSetFixedToggle = async () => {
+    const newFixedState = !isCardSetFixed;
+    setIsCardSetFixed(newFixedState);
+    await onCardSetSelect(selectedCardSet, newFixedState);
   };
 
-  // 하위 폴더 포함 여부 변경 처리
-  const handleIncludeSubfoldersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const include = e.target.checked;
-    console.log('하위 폴더 포함 상태 변경:', include);
-    setIncludeSubfolders(include);
-    onIncludeSubfoldersChange(include);
+  // 카드셋 표시 이름 가져오기
+  const getDisplayCardSetName = () => {
+    if (!selectedCardSet) {
+      return currentMode === 'folder' ? '폴더 선택' : '태그 선택';
+    }
+    
+    if (currentMode === 'tag' && selectedCardSet.startsWith('#')) {
+      return selectedCardSet.substring(1);
+    }
+    
+    return selectedCardSet;
   };
 
-  // 폴더/태그 선택 모달 열기
+  // 카드셋 선택 모달 열기
   const openCardSetModal = () => {
-    if (!service || !app) {
-      console.log(`[Toolbar] 서비스 또는 앱이 초기화되지 않아 모달을 열 수 없습니다.`);
-      return;
-    }
-    
-    const modeService = service.getModeService();
-    const currentMode = modeService.getCurrentModeType();
-    
-    console.log(`[Toolbar] 카드 세트 모달 열기, 현재 모드: ${currentMode}`);
-    
     if (currentMode === 'folder') {
-      // 폴더 선택 모달 열기
-      modeService.getCardSets().then(folders => {
-        console.log(`[Toolbar] 사용 가능한 폴더 목록 (${folders.length}개):`, folders);
-        new FolderSuggestModal(app, folders, handleCardSetSelect).open();
-      }).catch(error => {
-        console.error(`[Toolbar] 폴더 목록 가져오기 오류:`, error);
-      });
-    } else {
-      // 태그 선택 모달 열기
-      modeService.getCardSets().then(tags => {
-        console.log(`[Toolbar] 사용 가능한 태그 목록 (${tags.length}개):`, tags);
-        new TagSuggestModal(app, tags, handleCardSetSelect).open();
-      }).catch(error => {
-        console.error(`[Toolbar] 태그 목록 가져오기 오류:`, error);
-      });
+      new FolderSuggestModal(app, availableCardSets, handleCardSetSelectInternal).open();
+    } else if (currentMode === 'tag') {
+      new TagSuggestModal(app, availableCardSets, handleCardSetSelectInternal).open();
     }
   };
 
-  // 하위 폴더 포함 여부 토글
-  const handleIncludeSubfoldersToggle = () => {
-    if (!service) return;
-    
-    const modeService = service.getModeService();
-    const newValue = !includeSubfolders;
-    modeService.setIncludeSubfolders(newValue);
-    setIncludeSubfolders(newValue);
-    
-    // 상태 정보 콘솔에 출력
-    logCardNavigatorStatus(service);
-    
-    // 변경 이벤트 발생
-    onIncludeSubfoldersChange(newValue);
-  };
-  
-  // 카드 세트 고정 여부 토글
-  const handleCardSetFixedToggle = () => {
-    if (!service) return;
-    
-    const modeService = service.getModeService();
-    const currentCardSet = modeService.getCurrentCardSet();
-    
-    if (currentCardSet) {
-      const newValue = !isCardSetFixed;
-      modeService.selectCardSet(currentCardSet, newValue);
-      setIsCardSetFixed(newValue);
-      
-      // 상태 정보 콘솔에 출력
-      logCardNavigatorStatus(service);
-      
-      // 변경 이벤트 발생
-      onCardSetSelect(currentCardSet, newValue);
-    }
-  };
-  
-  // 카드 네비게이터 상태 정보를 콘솔에 출력하는 함수
-  const logCardNavigatorStatus = (service: ICardNavigatorService) => {
-    const modeService = service.getModeService();
-    const currentMode = modeService.getCurrentModeType();
-    const currentCardSet = modeService.getCurrentCardSet() || '/';
-    const isCardSetFixed = modeService.isCardSetFixed();
-    const includeSubfolders = modeService.getIncludeSubfolders();
-
-    console.log('===== 카드 네비게이터 상태 정보 =====');
-    console.log(`현재 모드: ${currentMode === 'folder' ? '폴더 모드' : '태그 모드'}`);
-    console.log(`현재 ${currentMode === 'folder' ? '폴더 경로' : '태그'}: ${currentCardSet}`);
-    console.log(`카드 세트 고정 여부: ${isCardSetFixed ? '고정됨' : '고정되지 않음'}`);
-    console.log(`하위 폴더 포함 여부: ${includeSubfolders ? '포함' : '미포함'}`);
-    console.log('===================================');
-  };
-
-  // 모드 변경 처리
-  const handleModeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const mode = e.target.value as ModeType;
-    onModeChange(mode);
-  };
-  
-  // 검색 처리
-  const handleSearch = () => {
-    if (!searchQuery.trim()) return;
-    
-    console.log(`[Toolbar] 검색 실행: ${searchQuery}, 타입: ${searchType}, 대소문자 구분: ${caseSensitive}`);
-    onSearch(searchQuery);
-    
-    // 검색 타입 설정
-    onSearchTypeChange(searchType, searchType === 'frontmatter' ? frontmatterKey : undefined);
-    
-    // 대소문자 구분 설정
-    onCaseSensitiveChange(caseSensitive);
-    
-    // 검색 모드로 변경
-    if (currentMode !== 'search') {
-      onModeChange('search');
-    }
-  };
-  
-  // 검색 입력 처리
-  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
-  
-  // 검색 타입 변경 처리
-  const handleSearchTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSearchType(e.target.value as SearchType);
-  };
-  
-  // 대소문자 구분 변경 처리
-  const handleCaseSensitiveChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCaseSensitive(e.target.checked);
-  };
-  
-  // 프론트매터 키 변경 처리
-  const handleFrontmatterKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFrontmatterKey(e.target.value);
-  };
-  
-  // 검색 옵션 토글
-  const toggleSearchOptions = () => {
-    setShowSearchOptions(!showSearchOptions);
-  };
-  
-  // 검색 폼 제출 처리
-  const handleSearchFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleSearch();
+  /**
+   * 검색 아이콘 클릭 핸들러
+   */
+  const handleSearchIconClick = () => {
+    toggleSearchMode();
   };
 
   return (
-    <div className="card-navigator-toolbar">
+    <div className={`card-navigator-toolbar ${isCardSetFixed ? 'fixed' : ''}`}>
       <div className="card-navigator-toolbar-left">
         <ModeToggle
           currentMode={currentMode}
           onModeChange={onModeChange}
+          service={service}
         />
-        
-        <select
-          className="dropdown"
-          value={currentMode}
-          onChange={handleModeChange}
+        <button
+          className="card-navigator-cardset-button"
+          onClick={openCardSetModal}
+          aria-label="카드셋 선택"
         >
-          <option value="folder">폴더 모드</option>
-          <option value="tag">태그 모드</option>
-          <option value="search">검색 모드</option>
-        </select>
+          <span className="card-navigator-cardset-icon" ref={el => {
+            if (el) setIcon(el, currentMode === 'tag' ? 'card-navigator-tag' : 'card-navigator-folder');
+          }}></span>
+          <span className="card-navigator-cardset-name">
+            {getDisplayCardSetName()}
+          </span>
+        </button>
+        <button
+          className={`card-navigator-lock-button ${isCardSetFixed ? 'active' : ''}`}
+          onClick={handleCardSetFixedToggle}
+          aria-label={isCardSetFixed ? '고정 해제' : '고정'}
+        >
+          <span className="card-navigator-lock-icon" ref={el => {
+            if (el) setIcon(el, isCardSetFixed ? 'card-navigator-lock' : 'card-navigator-unlock');
+          }}></span>
+        </button>
       </div>
-      
       <div className="card-navigator-toolbar-center">
-        <div className="card-navigator-cardset-selector">
-          <button
-            className="card-navigator-cardset-button"
-            onClick={openCardSetModal}
-            aria-label={currentMode === 'folder' ? '폴더 선택' : '태그 선택'}
-          >
-            {selectedCardSet || (currentMode === 'folder' ? '폴더 선택' : '태그 선택')}
-          </button>
-          
-          <div className="card-navigator-cardset-options">
-            <label className="card-navigator-checkbox-label">
-              <input
-                type="checkbox"
-                checked={isCardSetFixed}
-                onChange={handleCardSetFixedChange}
-              />
-              {currentMode === 'folder' ? '폴더 고정' : '태그 고정'}
-            </label>
-            
-            {currentMode === 'folder' && (
-              <label className="card-navigator-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={includeSubfolders}
-                  onChange={handleIncludeSubfoldersChange}
-                />
-                하위 폴더 포함
-              </label>
-            )}
-          </div>
-        </div>
+        {/* 검색바는 CardNavigatorView에서 직접 렌더링됩니다 */}
       </div>
-      
       <div className="card-navigator-toolbar-right">
+        <button
+          className={`card-navigator-search-icon-button ${showSearchBar ? 'active' : ''}`}
+          onClick={handleSearchIconClick}
+          aria-label="검색"
+        >
+          <span className="card-navigator-search-icon" ref={el => {
+            if (el) setIcon(el, 'card-navigator-search');
+          }}></span>
+        </button>
         <SortDropdown
           onSortChange={onSortChange}
           service={service}
         />
-        
-        <LayoutToggle
-          onLayoutChange={onLayoutChange}
-          currentLayout={currentLayout}
-        />
-        
-        <PresetSelector
-          onPresetApply={onPresetApply}
-          onPresetSave={onPresetSave}
-          onPresetDelete={onPresetDelete}
-          service={service}
-        />
-        
         <button
           className="card-navigator-settings-button"
           onClick={() => setIsSettingsModalOpen(true)}
           aria-label="설정"
         >
-          <svg viewBox="0 0 24 24" width="24" height="24">
-            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
-          </svg>
+          <span className="card-navigator-settings-icon" ref={el => {
+            if (el) setIcon(el, 'card-navigator-settings');
+          }}></span>
         </button>
       </div>
       
@@ -398,67 +265,13 @@ const Toolbar: React.FC<IToolbarProps> = ({
           isOpen={isSettingsModalOpen}
           onClose={() => setIsSettingsModalOpen(false)}
           service={service}
+          onLayoutChange={onLayoutChange}
+          currentLayout={currentLayout}
+          onPresetApply={onPresetApply}
+          onPresetSave={onPresetSave}
+          onPresetDelete={onPresetDelete}
         />
       )}
-      
-      {/* 검색 */}
-      <div className="card-navigator-toolbar-section">
-        <form onSubmit={handleSearchFormSubmit} className="search-form">
-          <input
-            type="text"
-            placeholder="검색어 입력..."
-            value={searchQuery}
-            onChange={handleSearchInputChange}
-            className="search-input"
-          />
-          <button type="submit" className="search-button">검색</button>
-          <button 
-            type="button" 
-            className="search-options-toggle"
-            onClick={toggleSearchOptions}
-          >
-            ⚙️
-          </button>
-        </form>
-        
-        {showSearchOptions && (
-          <div className="search-options">
-            <div className="search-option">
-              <label>검색 타입:</label>
-              <select value={searchType} onChange={handleSearchTypeChange}>
-                <option value="title">제목</option>
-                <option value="content">내용</option>
-                <option value="path">경로</option>
-                <option value="frontmatter">프론트매터</option>
-                <option value="all">전체</option>
-              </select>
-            </div>
-            
-            {searchType === 'frontmatter' && (
-              <div className="search-option">
-                <label>프론트매터 키:</label>
-                <input
-                  type="text"
-                  value={frontmatterKey}
-                  onChange={handleFrontmatterKeyChange}
-                  placeholder="키 입력..."
-                />
-              </div>
-            )}
-            
-            <div className="search-option">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={caseSensitive}
-                  onChange={handleCaseSensitiveChange}
-                />
-                대소문자 구분
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 };

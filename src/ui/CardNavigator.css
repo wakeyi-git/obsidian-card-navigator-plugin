@@ -1,0 +1,16 @@
+/* 카드 네비게이터 기본 스타일 */
+.card-navigator-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-interface);
+}
+
+/* 
+ * 컴포넌트별 스타일은 각 디렉토리로 분리되었습니다:
+ * - 카드 관련 스타일: src/ui/cards-container/Card.css, CardContainer.css
+ * - 레이아웃 관련 스타일: src/ui/layout/LayoutToggle.css
+ * - 프리셋 관련 스타일: src/ui/presets/PresetSelector.css
+ * - 검색 관련 스타일: src/ui/toolbar/SearchBar.css
+ */ 

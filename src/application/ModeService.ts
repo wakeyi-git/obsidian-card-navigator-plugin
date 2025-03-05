@@ -121,6 +121,12 @@ export interface IModeService {
     caseSensitive: boolean,
     frontmatterKey?: string
   ): void;
+  
+  /**
+   * 이전 모드 가져오기
+   * @returns 이전 모드
+   */
+  getPreviousMode(): ModeType;
 }
 
 /**
@@ -136,6 +142,7 @@ export class ModeService implements IModeService {
   private isFixed: boolean = false;
   private includeSubfolders: boolean = true;
   private cardService: ICardService;
+  private previousMode: ModeType = 'folder';
   
   constructor(app: App, cardService: ICardService, defaultModeType: ModeType = 'folder') {
     this.app = app;
@@ -213,6 +220,11 @@ export class ModeService implements IModeService {
       return this.currentMode;
     }
     
+    // 검색 모드로 전환할 때 이전 모드 저장
+    if (type === 'search') {
+      this.previousMode = this.currentMode.type;
+    }
+    
     switch (type) {
       case 'folder':
         this.currentMode = this.folderMode;
@@ -227,24 +239,29 @@ export class ModeService implements IModeService {
     
     this.isFixed = false;
     
-    // 모드 변경 시 활성 파일 기준으로 카드 세트 설정
-    const activeFile = this.app.workspace.getActiveFile();
-    if (activeFile) {
-      this.handleActiveFileChange(activeFile);
+    // 검색 모드에서 나갈 때는 활성 파일 기준으로 카드 세트를 설정하지 않음
+    if (type !== 'search') {
+      // 모드 변경 시 활성 파일 기준으로 카드 세트 설정
+      const activeFile = this.app.workspace.getActiveFile();
+      if (activeFile) {
+        this.handleActiveFileChange(activeFile);
+      }
     }
     
     return this.currentMode;
   }
   
-  selectCardSet(cardSet: string, isFixed: boolean = false): void {
+  selectCardSet(cardSet: string, isFixed?: boolean): void {
     console.log(`[ModeService] 카드 세트 선택: ${cardSet}, 고정 여부: ${isFixed}`);
-    console.log(`[ModeService] 이전 카드 세트: ${this.currentMode.currentCardSet}`);
+    
+    this.isFixed = isFixed || false;
+    
+    // 태그 모드인 경우 TagMode의 setFixed 메서드 호출
+    if (this.currentMode.type === 'tag') {
+      (this.currentMode as TagMode).setFixed(this.isFixed);
+    }
     
     this.currentMode.selectCardSet(cardSet);
-    this.isFixed = isFixed;
-    
-    console.log(`[ModeService] 선택 후 카드 세트: ${this.currentMode.currentCardSet}`);
-    console.log(`[ModeService] 현재 모드 타입: ${this.currentMode.type}`);
   }
   
   getCurrentCardSet(): string | null {
@@ -252,6 +269,11 @@ export class ModeService implements IModeService {
   }
   
   isCardSetFixed(): boolean {
+    // 태그 모드인 경우 TagMode의 isTagFixed 메서드 사용
+    if (this.currentMode.type === 'tag') {
+      return (this.currentMode as TagMode).isTagFixed();
+    }
+    
     return this.isFixed;
   }
   
@@ -339,27 +361,52 @@ export class ModeService implements IModeService {
       return filteredCards;
     } else if (this.currentMode.type === 'tag') {
       // 태그 모드인 경우 해당 태그를 가진 카드만 필터링
-      // # 제거한 태그 사용
-      const cleanTag = cardSet.startsWith('#') ? cardSet.substring(1) : cardSet;
-      console.log(`[ModeService] 태그 모드 필터링 시작, 태그: ${cardSet}, 정제된 태그: ${cleanTag}`);
+      // 쉼표로 구분된 여러 태그 처리
+      const tagList = cardSet.split(',').map(tag => tag.trim());
+      console.log(`[ModeService] 태그 모드 필터링 시작, 태그 목록: ${tagList.join(', ')}`);
+      
+      // 각 태그를 정규화하여 배열로 저장 (# 있는 버전과 없는 버전 모두 포함)
+      const normalizedTags: string[] = [];
+      tagList.forEach(tag => {
+        // # 있는 버전
+        const tagWithHash = tag.startsWith('#') ? tag : `#${tag}`;
+        normalizedTags.push(tagWithHash);
+        
+        // # 없는 버전
+        const tagWithoutHash = tag.startsWith('#') ? tag.substring(1) : tag;
+        normalizedTags.push(tagWithoutHash);
+      });
+      
+      console.log(`[ModeService] 정규화된 태그 목록: ${normalizedTags.join(', ')}`);
       
       const filteredCards = cards.filter(card => {
         if (!card.tags || card.tags.length === 0) {
-          console.log(`[ModeService] 카드 ${card.id}에 태그가 없음`);
+          console.log(`[ModeService] 카드 ${card.title || card.id}에 태그가 없음`);
           return false;
         }
         
-        // 태그 비교 시 # 제거하고 비교
-        const hasTag = card.tags.some(tag => {
-          const cardTagClean = tag.startsWith('#') ? tag.substring(1) : tag;
-          const isMatch = cardTagClean === cleanTag;
-          if (isMatch) {
-            console.log(`[ModeService] 카드 ${card.id}에서 태그 매치: ${tag} (정제: ${cardTagClean}) === ${cleanTag}`);
-          }
-          return isMatch;
-        });
+        // 카드의 각 태그에 대해 검색 태그와 비교
+        let hasMatchingTag = false;
         
-        return hasTag;
+        for (const cardTag of card.tags) {
+          // 카드 태그 정규화 (# 있는 버전과 없는 버전)
+          const cardTagWithHash = cardTag.startsWith('#') ? cardTag : `#${cardTag}`;
+          const cardTagWithoutHash = cardTag.startsWith('#') ? cardTag.substring(1) : cardTag;
+          
+          // 검색 태그와 비교
+          for (const searchTag of normalizedTags) {
+            // 정확히 일치하는지 확인
+            if (cardTagWithHash === searchTag || cardTagWithoutHash === searchTag) {
+              hasMatchingTag = true;
+              console.log(`[ModeService] 카드 ${card.title || card.id}에서 태그 매치: ${cardTag} = ${searchTag}`);
+              break;
+            }
+          }
+          
+          if (hasMatchingTag) break;
+        }
+        
+        return hasMatchingTag;
       });
       
       console.log(`[ModeService] 태그 모드 필터링 완료, 필터링 후 카드 수: ${filteredCards.length}`);
@@ -403,16 +450,25 @@ export class ModeService implements IModeService {
       }
     } else if (this.currentMode.type === 'tag') {
       // 태그 모드인 경우 활성 파일의 태그로 설정
-      const fileCache = this.app.metadataCache.getFileCache(file);
-      if (fileCache && fileCache.tags && fileCache.tags.length > 0) {
-        // 태그가 있는 경우 첫 번째 태그 사용
-        const firstTag = fileCache.tags[0].tag;
-        console.log(`[ModeService] 활성 파일의 첫 번째 태그: ${firstTag}`);
+      const tagMode = this.tagMode;
+      
+      // 태그 모드가 고정되어 있는 경우 변경하지 않음
+      if (tagMode.isTagFixed()) {
+        console.log(`[ModeService] 태그 모드가 고정되어 있어 활성 파일 변경을 무시합니다.`);
+        return;
+      }
+      
+      const allTags = tagMode.getAllTagsFromFile(file);
+      
+      if (allTags.length > 0) {
+        // 모든 태그를 쉼표로 구분하여 하나의 문자열로 결합 (OR 연산)
+        const combinedTags = allTags.join(',');
+        console.log(`[ModeService] 활성 파일의 모든 태그: ${combinedTags}`);
         
         // 현재 카드 세트와 다른 경우에만 업데이트
-        if (this.currentMode.currentCardSet !== firstTag) {
-          console.log(`[ModeService] 카드 세트 업데이트: ${this.currentMode.currentCardSet} -> ${firstTag}`);
-          this.currentMode.selectCardSet(firstTag);
+        if (this.currentMode.currentCardSet !== combinedTags) {
+          console.log(`[ModeService] 카드 세트 업데이트: ${this.currentMode.currentCardSet} -> ${combinedTags}`);
+          this.currentMode.selectCardSet(combinedTags);
         }
       } else {
         // 태그가 없는 경우 이전에 선택한 태그 유지
@@ -491,5 +547,13 @@ export class ModeService implements IModeService {
     
     // 검색 쿼리를 카드 세트로 설정
     searchMode.selectCardSet(query);
+  }
+  
+  /**
+   * 이전 모드 가져오기
+   * @returns 이전 모드
+   */
+  getPreviousMode(): ModeType {
+    return this.previousMode;
   }
 } 

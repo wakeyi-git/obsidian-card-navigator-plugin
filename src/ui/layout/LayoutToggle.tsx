@@ -1,4 +1,5 @@
 import React from 'react';
+import './LayoutToggle.css';
 
 /**
  * 레이아웃 토글 컴포넌트 속성 인터페이스

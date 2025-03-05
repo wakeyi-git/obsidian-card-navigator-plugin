@@ -1,0 +1,45 @@
+/* 레이아웃 토글 스타일 */
+.card-navigator-layout-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.card-navigator-layout-button {
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.card-navigator-layout-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-layout-button.active {
+  background-color: var(--interactive-accent);
+}
+
+.card-navigator-layout-button.active svg {
+  fill: var(--text-on-accent);
+}
+
+.card-navigator-layout-button svg {
+  fill: var(--text-muted);
+}
+
+/* 반응형 스타일 */
+@media (max-width: 480px) {
+  .card-navigator-layout-button {
+    padding: 3px;
+  }
+  
+  .card-navigator-layout-button svg {
+    width: 16px;
+    height: 16px;
+  }
+} 

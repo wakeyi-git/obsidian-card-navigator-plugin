@@ -1,4 +1,5 @@
 import React from 'react';
+import './Card.css';
 
 /**
  * 카드 컴포넌트 속성 인터페이스
@@ -13,6 +14,7 @@ export interface ICardProps {
   modified?: number;
   onClick?: (id: string) => void;
   style?: React.CSSProperties;
+  searchQuery?: string;
 }
 
 /**
@@ -29,6 +31,7 @@ const Card: React.FC<ICardProps> = ({
   modified,
   onClick,
   style = {},
+  searchQuery = '',
 }) => {
   const handleClick = () => {
     if (onClick) {
@@ -52,6 +55,34 @@ const Card: React.FC<ICardProps> = ({
     return text.substring(0, 150) + '...';
   };
 
+  // 검색어 하이라이트 함수
+  const highlightText = (text: string, query: string) => {
+    if (!query.trim()) return text;
+    
+    try {
+      const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+      
+      return parts.map((part, index) => 
+        part.toLowerCase() === query.toLowerCase() ? 
+          <span key={index} className="card-navigator-highlight">{part}</span> : 
+          part
+      );
+    } catch (e) {
+      console.error('검색어 하이라이트 오류:', e);
+      return text;
+    }
+  };
+
+  // 요약된 내용에 검색어 하이라이트 적용
+  const highlightedContent = searchQuery ? 
+    highlightText(summarizeContent(content), searchQuery) : 
+    summarizeContent(content);
+
+  // 제목에 검색어 하이라이트 적용
+  const highlightedTitle = searchQuery ? 
+    highlightText(title, searchQuery) : 
+    title;
+
   return (
     <div
       className="card-navigator-card"
@@ -60,12 +91,12 @@ const Card: React.FC<ICardProps> = ({
     >
       <div className="card-navigator-card-header">
         <h3 className="card-navigator-card-title" title={title}>
-          {title}
+          {highlightedTitle}
         </h3>
       </div>
       
       <div className="card-navigator-card-content">
-        {summarizeContent(content)}
+        {highlightedContent}
       </div>
       
       <div className="card-navigator-card-footer">

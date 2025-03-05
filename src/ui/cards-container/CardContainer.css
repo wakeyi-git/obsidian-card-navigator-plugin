@@ -1,0 +1,69 @@
+/* 카드 컨테이너 스타일 */
+.card-navigator-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.card-navigator-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+  padding: 16px;
+  width: 100%;
+}
+
+.card-navigator-masonry {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  width: 100%;
+}
+
+.card-navigator-masonry-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card-navigator-empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 300px;
+  width: 100%;
+}
+
+.card-navigator-empty-message {
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.card-navigator-empty-message span {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.card-navigator-empty-message p {
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  .card-navigator-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+  
+  .card-navigator-masonry {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-navigator-grid {
+    grid-template-columns: 1fr;
+  }
+} 
