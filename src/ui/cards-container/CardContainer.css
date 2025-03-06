@@ -4,6 +4,7 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 .card-navigator-grid {
@@ -12,6 +13,9 @@
   gap: 16px;
   padding: 16px;
   width: 100%;
+  overflow-y: auto;
+  max-height: calc(100vh - 60px);
+  height: 100%;
 }
 
 .card-navigator-masonry {
@@ -19,6 +23,9 @@
   gap: 16px;
   padding: 16px;
   width: 100%;
+  overflow-y: auto;
+  max-height: calc(100vh - 60px);
+  height: 100%;
 }
 
 .card-navigator-masonry-column {

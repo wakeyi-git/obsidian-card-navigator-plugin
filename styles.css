@@ -8,13 +8,18 @@
   font-family: var(--font-interface);
 }
 
+.view-content.card-navigator-view {
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
 /* 
  * 컴포넌트별 스타일은 각 디렉토리로 분리되었습니다:
  * - 카드 관련 스타일: src/ui/cards-container/Card.css, CardContainer.css
  * - 레이아웃 관련 스타일: src/ui/layout/LayoutToggle.css
  * - 프리셋 관련 스타일: src/ui/presets/PresetSelector.css
  * - 검색 관련 스타일: src/ui/toolbar/SearchBar.css
- */
+ */ 
 
 /* src/ui/cards-container/Card.css */
 /* 카드 스타일 */
@@ -128,6 +133,7 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 .card-navigator-grid {
@@ -136,6 +142,9 @@
   gap: 16px;
   padding: 16px;
   width: 100%;
+  overflow-y: auto;
+  max-height: calc(100vh - 60px);
+  height: 100%;
 }
 
 .card-navigator-masonry {
@@ -143,6 +152,9 @@
   gap: 16px;
   padding: 16px;
   width: 100%;
+  overflow-y: auto;
+  max-height: calc(100vh - 60px);
+  height: 100%;
 }
 
 .card-navigator-masonry-column {
@@ -1027,8 +1039,7 @@
 /* src/ui/toolbar/SearchBar.css */
 .card-navigator-search-container {
   width: 100%;
-  padding: 8px 12px;
-  background-color: var(--background-primary);
+  padding: 0px 4px 4px;
   border-bottom: 1px solid var(--background-modifier-border);
   margin-top: 4px;
 }
@@ -1324,7 +1335,9 @@
   padding: 8px 12px;
   background-color: var(--background-primary);
   border-bottom: 1px solid var(--background-modifier-border);
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .card-navigator-toolbar.fixed {
@@ -1335,12 +1348,13 @@
   display: flex;
   align-items: center;
   flex: 1;
+  gap: 2px;
 }
 
 .card-navigator-toolbar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
 }
 
 /* 드롭다운 공통 스타일 */
@@ -1609,5 +1623,5 @@
 .card-navigator-visible {
   opacity: 1 !important;
   visibility: visible !important;
-} 
+}
 

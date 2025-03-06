@@ -3,167 +3,280 @@ description: Card Navigator Plugin Design & Folder Structure
 globs: 
 alwaysApply: false
 ---
-Card Navigator는 폴더 기반 및 태그 기반 노트 분류 방법을 모두 지원하는 Obsidian 플러그인입니다.
-사용자가 카드 뷰를 자유롭게 커스터마이징하고, 필터, 정렬, 검색 및 프리셋을 적용할 수 있도록 최적화되어 있습니다.
+## Cursor Rules for Card Navigator
 
-🔗 Obsidian 통합 원칙
-1.	Obsidian API 최대한 활용
-	•	Plugin, PluginSettingTab, ItemView와 같은 핵심 클래스 확장 및 상속
-	•	파일 및 메타데이터 접근을 위한 Workspace, MetadataCache, Vault 등의 API 활용
-	•	Notice, Modal, Menu와 같은 UI 컴포넌트 사용
-	•	최적의 성능을 위한 이벤트 시스템 활용
-2.	UI/UX 일관성 유지
-	•	Obsidian의 디자인 패턴 및 스타일 준수
-	•	라이트/다크 모드 지원을 위한 Obsidian의 내장 CSS 변수 활용
-	•	Obsidian의 국제화(i18n) 시스템과 통합
-3.	성능 최적화
-	•	렌더링 최적화: 수백 개의 카드를 부드럽게 렌더링하기 위한 가상 스크롤링(react-window) 사용
-	•	이벤트 최적화: 메모리 누수를 최소화하기 위한 불필요한 이벤트 리스너 등록 방지
-	•	데이터 캐싱: 중복 API 호출 및 파일 접근 감소
+### 1. Overview
+Card Navigator is an Obsidian plugin supporting both folder-based and tag-based note classification. It provides customizable card views, search, sorting and presets.
 
-🛠️ 주요 기능 개요
+### 2. Obsidian Integration Principles
+#### 2.1 Maximizing Obsidian API Usage
+- Extend core classes: `Plugin`, `PluginSettingTab`, `ItemView`
+- Utilize APIs: `Workspace`, `MetadataCache`, `Vault`
+- Use UI components: `Notice`, `Modal`, `Menu`
+- Optimize event handling for performance
 
-1️⃣ 모드 선택 (폴더 모드 vs 태그 모드)
-	•	폴더 모드: 폴더를 기반으로 카드 세트를 구성하고, 태그를 필터링 옵션으로 사용
-	•	태그 모드: 태그를 기반으로 카드 세트를 구성하고, 폴더를 필터링 옵션으로 사용
-	•	우선순위 시스템
-	•	폴더 모드 → 우선순위 태그가 설정된 경우, 태그 프리셋이 우선
-	•	태그 모드 → 우선순위 폴더가 설정된 경우, 폴더 프리셋이 우선
-	•	툴바를 통한 즉각적인 모드 전환
+#### 2.2 Maintaining UI/UX Consistency
+- Follow Obsidian’s design patterns
+- Use Obsidian’s CSS variables for light/dark mode support
+- Integrate with Obsidian’s i18n system
 
-2️⃣ 카드 UI 및 상호작용
-	•	가상 스크롤링(react-window) → 성능 최적화
-	•	커스터마이징 가능한 스타일(배경색, 글꼴 크기, 테두리 등)
-	•	태그 기반 자동 색상 할당(중요 태그 강조)
-	•	인라인 편집(카드 내에서 직접 편집)
+#### 2.3 Performance Optimization
+- **Rendering Optimization:** Implement virtual scrolling (`react-window`) for smooth card rendering
+- **Event Optimization:** Minimize redundant event listener registrations
+- **Data Caching:** Reduce unnecessary API calls and file access
 
-3️⃣ 정렬
-	•	정렬 기준:
-	•	파일명, 생성일, 수정일, 사용자 정의 front matter 값
+### 3. Context Expansion and Reduction in Card Sets
+Card Navigator’s folder mode, tag mode, search, and sorting functions can be understood in terms of expanding and reducing the context of card sets. These features help users dynamically adjust the scope of their information based on their navigation needs.
 
-4️⃣ 프리셋 관리
-	•	폴더/태그 프리셋을 구성하고 자동으로 적용
-	•	폴더 및 태그 프리셋 간의 우선순위 설정
-	•	프리셋 가져오기/내보내기
+#### Folder Mode & Tag Mode: Structural vs. Semantic Context Expansion
 
-5️⃣ 검색 기능
-	•	실시간 검색(입력 즉시 결과 필터링)
-	•	검색 제안이 포함된 자동 완성(최근 검색 기록)
-	•	정규식 검색 지원
+Folder and tag modes define the primary context of a card set, determining the boundaries of the displayed notes.
 
-6️⃣ 설정 UI
-	•	기본 모드 선택(폴더/태그)
-	•	우선순위 태그 및 폴더 수동 구성
-	•	모든 카드 스타일 및 표시 요소 커스터마이징
+##### Folder Mode: Structural Context (Hierarchy-Based Expansion)
 
-📂 최적화된 폴더 구조
+Folder mode relies on a physical hierarchy to organize notes, meaning context expansion and reduction follow the folder structure.
+	•	Context Expansion: Enabling the “include subfolders” option broadens the context, incorporating notes from deeper folder structures.
+	•	Context Reduction: Selecting a specific subfolder without including subfolders narrows the context, restricting the card set to a smaller, more focused selection.
 
-obsidian-card-navigator-plugin/
-│── src/  
-│   ├── domain/                # 🧩 도메인 레이어 (핵심 비즈니스 로직)  
-│   │   ├── mode/              # ✅ 폴더 모드 & 태그 모드 구성  
-│   │   ├── card/              # ✅ 카드 모델 & 데이터 처리  
-│   │   ├── cardset/           # ✅ 카드셋 모델 & 관리  
-│   │   ├── layout/            # ✅ 카드 레이아웃 로직  
-│   │   ├── sorting/           # ✅ 정렬 로직 (파일명, 날짜 등)  
-│   │   ├── search/            # ✅ 검색 기능  
-│   │   ├── preset/            # ✅ 프리셋 관리  
-│   ├── application/           # 🚀 애플리케이션 레이어 (비즈니스 로직)  
-│   │   ├── CardNavigatorService.ts # ✅ 메인 서비스  
-│   │   ├── ModeService.ts     # ✅ 모드 전환 관리  
-│   │   ├── CardSetService.ts  # ✅ 카드셋 서비스  
-│   │   ├── CardService.ts     # ✅ 카드 서비스  
-│   │   ├── FilterService.ts   # ✅ 필터 서비스  
-│   │   ├── SearchService.ts   # ✅ 검색 서비스  
-│   │   ├── PresetService.ts   # ✅ 프리셋 서비스  
-│   │   ├── SortService.ts     # ✅ 정렬 서비스  
-│   │   ├── LayoutService.ts   # ✅ 레이아웃 서비스  
-│   ├── infrastructure/        # 🏗️ 인프라 레이어 (파일 시스템, API 통합)  
-│   │   ├── ObsidianAdapter.ts # ✅ Obsidian API 통합  
-│   │   ├── CardRepositoryImpl.ts # ✅ 카드 저장소 구현  
-│   │   ├── Storage.ts         # ✅ 설정 저장 및 로드  
-│   │   ├── Cache.ts           # ✅ 데이터 캐싱  
-│   │   ├── EventManager.ts    # ✅ 이벤트 관리  
-│   │   ├── index.ts           # ✅ 인프라 모듈 내보내기  
-│   ├── ui/                    # 🎨 UI 레이어  
-│   │   ├── CardNavigatorView.tsx # ✅ 메인 뷰 컴포넌트  
-│   │   ├── CardNavigator.css  # ✅ 메인 CSS 스타일  
-│   │   ├── toolbar/           # ✅ 툴바 (검색 & 버튼 그룹)  
-│   │   ├── cards-container/   # ✅ 카드 UI  
-│   │   ├── layout/            # ✅ 레이아웃 UI  
-│   │   ├── presets/           # ✅ 프리셋 UI  
-│   │   ├── settings/          # ✅ 설정 UI  
-│   ├── main.ts                # 🏁 플러그인 진입점  
-│── manifest.json              # 📝 플러그인 메타데이터  
-│── styles.css                 # 🎨 전역 CSS 스타일  
-│── esbuild.config.mjs         # 🛠️ 빌드 설정  
-│── package.json               # 📦 패키지 정보 및 의존성  
-│── tsconfig.json              # ⚙️ TypeScript 설정  
-│── README.md                  # 📖 영문 문서  
-│── README-ko.md               # 📖 한글 문서  
-│── versions.json              # 📊 버전 정보  
+##### Tag Mode: Semantic Context (Meaning-Based Expansion)
 
-📌 상세 폴더 설명
+Tag mode groups notes based on semantic meaning rather than physical structure.
+	•	Context Expansion: Selecting multiple tags includes all notes associated with those tags, expanding the contextual scope.
+	•	Context Reduction: Using AND logic for multiple tags limits the card set to notes containing all selected tags, narrowing the context to a more specific subset.
 
-📂 domain/ (도메인 레이어 - 핵심 로직)
-	•	mode/
-        •	Mode.ts → 폴더 모드 vs 태그 모드 구성
-        •	FolderMode.ts → 폴더 기반 카드셋 & 필터링
-        •	TagMode.ts → 태그 기반 카드셋 & 필터링
-	•	card/
-        •	Card.ts → 카드 모델
-        •	CardFactory.ts → 카드 생성 로직
-        •	CardStyle.ts → 카드 스타일 관리
-        •	CardContent.ts → 카드 콘텐츠 데이터 처리
-        •	CardActions.ts → 카드 상호작용(클릭, 드래그 등)
-	•	cardset/
-        •	CardSet.ts → 카드셋 모델
-        •	CardSetFactory.ts → 카드셋 생성 로직
-        •	FolderCardSet.ts → 폴더 기반 카드셋
-        •	TagCardSet.ts → 태그 기반 카드셋
-        •	SearchCardSet.ts → 검색 기반 카드셋
-	•	layout/
-        •	Layout.ts → 레이아웃 구성
-        •	MasonryLayout.ts → 메이슨리 스타일 레이아웃
-        •	GridLayout.ts → 그리드 스타일 레이아웃
-	•	sorting/
-        •	Sort.ts → 정렬 모델
-        •	SortManager.ts → 정렬 관리
-	•	search/
-        •	Search.ts → 검색 모델
-        •	SearchManager.ts → 검색 관리
-        •	RegexSearch.ts → 정규식 기반 검색
-	•	preset/
-        •	Preset.ts → 프리셋 모델
-        •	PresetManager.ts → 프리셋 관리
-        •	applyPreset.ts → 우선순위 적용 로직
+✅ Folder mode follows physical boundaries, while tag mode follows semantic boundaries for context expansion and reduction.
 
-📂 application/ (애플리케이션 레이어 - 비즈니스 로직)
-	•	CardNavigatorService.ts → 메인 서비스 (전체 기능 조정)
-	•	ModeService.ts → 모드 전환 관리
-	•	CardSetService.ts → 카드셋 서비스
-	•	CardService.ts → 카드 서비스
-	•	FilterService.ts → 필터 서비스
-	•	SearchService.ts → 검색 서비스
-	•	PresetService.ts → 프리셋 서비스
-	•	SortService.ts → 정렬 서비스
-	•	LayoutService.ts → 레이아웃 서비스
+#### Search: Instantaneous Context Expansion and Reduction
 
-📂 infrastructure/ (인프라 레이어 - API & 파일 시스템)
-	•	ObsidianAdapter.ts → Obsidian API 통합
-	•	CardRepositoryImpl.ts → 카드 저장소 구현
-	•	Storage.ts → 설정 저장 및 로드
-	•	Cache.ts → 데이터 캐싱
-	•	EventManager.ts → 이벤트 관리
-	•	index.ts → 인프라 모듈 내보내기
+The search function dynamically reconstructs card sets based on keywords, momentarily expanding or reducing the context.
+	•	Context Expansion:
+	•	Searching for a keyword across all notes extends beyond folder or tag constraints, allowing broader exploration.
+	•	Example: Searching for “education” retrieves all related notes, regardless of their folder or tag placement.
+	•	Context Reduction:
+	•	Applying search filters (e.g., searching within a specific folder or tag) refines the scope of the card set.
+	•	Using regex patterns further limits results to a highly specific subset of notes.
 
-📂 ui/ (UI 레이어 - 사용자 인터페이스)
-	•	CardNavigatorView.tsx → 메인 뷰 컴포넌트
-	•	CardNavigator.css → 메인 CSS 스타일
-	•	toolbar/ → 툴바 (검색 & 버튼 그룹)
-	•	cards-container/ → 카드 UI
-	•	layout/ → 레이아웃 UI
-	•	presets/ → 프리셋 UI
-	•	settings/ → 설정 UI
+✅ Search allows users to override existing folder/tag contexts and dynamically adjust the card set scope.
 
-이 규칙을 엄격히 따라 Card Navigator 개발을 진행하세요! 🚀
+#### Sorting: Context Reorganization Without Changing Scope
+
+Sorting does not alter the card set’s boundaries but reorganizes meaning within the context by adjusting how cards are presented.
+	•	Implicit Expansion & Reduction:
+	•	Changing the sorting criteria shifts the focus within the card set.
+	•	Example: Sorting by “last modified date” highlights recently updated notes, shifting emphasis toward temporal recency.
+	•	Sorting alphabetically weakens semantic clustering, reducing contextual relevance between notes.
+	•	Fine-Tuning Context:
+	•	Adjusting ascending/descending order modifies the priority of displayed information.
+	•	Example: Sorting by “creation date (ascending)” supports retrospective analysis, whereas “creation date (descending)” emphasizes recent ideas.
+
+✅ Sorting does not redefine the context but restructures meaning and priority within the existing card set.
+
+#### Overall Flow: Organic Context Expansion and Reduction
+
+Folder mode, tag mode, search, and sorting interact dynamically based on the user’s navigation process.
+
+##### Context Expansion Flow:
+	1.	Broaden folder/tag range → Include subfolders / Select multiple tags
+	2.	Use search to add relevant notes → Expand meaning-based exploration
+	3.	Adjust sorting for semantic grouping → Highlight newer, older, or prioritized notes
+
+#### Context Reduction Flow:
+	1.	Limit folder/tag range → Select a specific folder/tag
+	2.	Apply refined search filters → Restrict by metadata (e.g., date, properties)
+	3.	Use sorting for finer adjustments → Change emphasis within the card set
+
+#### Conclusion
+
+Card Navigator’s core functions serve as tools for context expansion and reduction, allowing users to tailor their note exploration experience.
+	•	Folder/Tag Mode: Establishes the primary context based on structure (folder) or meaning (tag).
+	•	Search: Overrides existing contexts for dynamic and flexible exploration.
+	•	Sorting: Adjusts emphasis within a given context without altering its scope.
+
+By combining these functions, users can organize, explore, and restructure their knowledge base in ways that align with their cognitive processes, making the card navigation experience more intuitive and meaningful.
+
+### 4. Plugin Features
+#### 4.1 General
+- Display ribbon menu
+- Activate view in the side panel
+
+#### 4.2 Cards
+- **Customization:**
+  - Header, body, footer customization (e.g., filename, first header, body, tags, date, properties)
+- **Rendering Options:**
+  - Plain text
+  - Markdown rendering (HTML conversion, images, code blocks, callouts, formulas)
+- **Style Customization:**
+  - General, active, and focused card styles (background, font size, borders)
+  - Header, body, and footer styles
+
+#### 4.3 Modes
+- **Folder Mode:**
+  - Show notes in the active folder or a specified folder (with subfolder inclusion option)
+- **Tag Mode:**
+  - Show notes containing active file tags or specified tags
+- **Search Mode:**
+  - Automatically activate upon entering a search query
+
+#### 4.4 Search
+- **Real-time Filtering:** Immediate results while typing
+- **Search Options:** Path, filename, tags, line, section, properties, date (creation/update)
+- **Regex Support:** Advanced search capabilities
+- **Highlighting:** Matching keywords within cards
+- **Search History Tracking**
+- **Keyboard Support:**
+  - Shortcut for search bar focus
+  - Navigate search suggestions via keyboard
+  - Clear search query shortcut
+
+#### 4.5 Sorting
+- Sort by filename, creation date, update date, custom front matter value
+- Ascending/descending order toggle
+
+#### 4.6 Layout
+- **Grid Mode:** Fixed height, supports horizontal/vertical modes
+- **Masonry Mode:** Auto height adjustment (within threshold), vertical only
+- **Threshold Settings:** Adjustable width/height
+- **Scroll Direction:** Vertical or horizontal based on mode
+
+#### 4.7 Navigation
+- **Scroll & Keyboard Navigation:**
+  - Center active file card
+  - Highlight active file card border
+  - Smooth scroll and instant display toggle
+  - Global shortcut for card navigator focus
+  - Arrow key navigation for card focus
+  - Enter key to open a focused card
+
+#### 4.8 Card Interactions
+- **Left Click:** Open note in editor
+- **Right Click:** Context menu (copy link, copy content)
+- **Drag & Drop:**
+  - Drag to editor to insert link/content
+  - Drag between cards to create links
+- **Double Click:** Edit note directly from navigator
+- **Multi-Select (Shift/Ctrl + Click, Ctrl + A):** Batch actions
+
+#### 4.9 Presets
+- Save/load user-defined settings
+- Create, delete, apply presets
+- Auto-apply presets based on folder/tag mappings
+- Priority settings for folder/tag-based presets
+
+#### 4.10 Toolbar
+- **Search Input Field**
+- **Toggle Icons:**
+  - **Filter Toggle:** Show pop-up for filters
+  - **Sort Toggle:** Show sorting options (filename, update date, creation date, custom value)
+  - **Mode Toggle:** Folder/tag icons switch accordingly
+  - **Settings Toggle:** Quick access to frequently used settings (mode change, preset management, rendering options)
+
+### 5. Settings
+#### 5.1 Modes
+- Toggle between folder and tag modes
+
+#### 5.2 Cards
+- **Content Selection:** Customize header, body, footer elements
+- **Rendering Mode:** Plain text or HTML (supports images, code blocks, callouts, formulas)
+- **Style Customization:**
+  - Set background, font size, and border properties per card type (general, active, focused)
+  - Customize header, body, and footer styles
+
+#### 5.3 Search
+- Configure filters for folder/tag modes
+- Set front matter filtering options
+
+#### 5.4 Sorting
+- Define sorting criteria and order
+
+#### 5.5 Layout
+- Adjust card width/height thresholds
+
+#### 5.6 Presets
+- **Create Preset:** Save current settings
+- **Preset List:** Manage presets (clone, edit, delete, export)
+- **Preset Mapping:**
+  - Assign presets to folders/tags
+  - Adjust priority order
+
+### 6. Folder Structure
+
+#### 6.1 Root Directory
+	•	main.js: Compiled plugin file
+	•	styles.css: Plugin stylesheet
+	•	manifest.json: Obsidian plugin metadata
+	•	package.json: Defines project dependencies and scripts
+	•	tsconfig.json: TypeScript configuration
+	•	esbuild.config.mjs: Build configuration
+	•	README.md / README-ko.md: Documentation in English and Korean
+
+#### 6.2 Source Code Structure (src/)
+
+The project follows the Clean Architecture pattern with clearly separated layers:
+
+##### 6.2.1 Domain Layer (src/domain/)
+
+The core layer that contains business logic and entities:
+	•	card/: Domain models related to cards
+	•	cardset/: Domain models related to card sets
+	•	layout/: Domain models related to layout
+	•	mode/: Domain models related to modes (folder/tag)
+	•	preset/: Domain models related to presets
+	•	search/: Domain models related to search
+	•	sorting/: Domain models related to sorting
+
+##### 6.2.2 Application Layer (src/application/)
+
+This layer coordinates domain logic and acts as an intermediary between the UI and infrastructure layers:
+	•	CardNavigatorService.ts: Main service class managing the overall plugin functionality
+	•	CardService.ts: Handles card-related operations
+	•	CardSetService.ts: Manages card sets (folder/tag-based)
+	•	FilterService.ts: Provides card filtering functionality
+	•	LayoutService.ts: Manages grid/masonry layouts
+	•	ModeService.ts: Handles mode switching and management (folder/tag)
+	•	PresetService.ts: Manages user-defined preset configurations
+	•	SearchService.ts: Provides card search functionality
+	•	SortService.ts: Handles card sorting
+
+##### 6.2.3 Infrastructure Layer (src/infrastructure/)
+
+This layer manages integration with external systems and technical details:
+	•	ObsidianAdapter.ts: Interface for integrating with the Obsidian API
+	•	CardRepositoryImpl.ts: Implementation of the card data repository
+	•	Storage.ts: Manages plugin settings and data storage
+	•	Cache.ts: Implements caching mechanisms for performance optimization
+	•	EventManager.ts: Manages event-driven communication between components
+
+##### 6.2.4 User Interface Layer (src/ui/)
+
+React-based UI components:
+	•	CardNavigatorView.tsx: Main view component
+	•	CardNavigator.css: Defines base styles
+	•	cards-container/: Components related to the card container
+	•	layout/: UI components for layout management
+	•	presets/: UI components for preset management
+	•	settings/: UI components for settings management
+	•	SettingTab.ts: Implements the Obsidian settings tab
+	•	SettingsModal.tsx: Modal component for settings
+	•	SettingsModal.css: Styles for settings modal
+	•	toolbar/: UI components for the toolbar
+
+##### 6.2.5 Entry Point
+	•	main.ts: Plugin entry point, defining and initializing the Obsidian plugin
+
+### 7. Technology Stack
+	•	Language: TypeScript
+	•	UI Library: React
+	•	Virtual Scrolling: react-window (for efficient rendering of a large number of cards)
+	•	Internationalization: i18next
+	•	Build Tool: esbuild
+
+### 8. Architectural Characteristics
+	•	Clean Architecture: The project follows a layered architecture, ensuring clear separation of concerns between domain, application, infrastructure, and UI layers.
+	•	Dependency Injection: Uses dependency injection patterns to enable loose coupling, improving testability and maintainability.
+	•	Event-Driven Communication: Implements an event manager to facilitate communication between components, reducing module coupling.
+	•	Caching Mechanisms: Implements caching to optimize performance by minimizing redundant computations.
+	•	Responsive UI: Utilizes React to provide a dynamic and responsive card-based interface.
+	•	Settings Management: Separates user settings management into dedicated classes and UI components.
+
+This document establishes clear rules for implementing the Card Navigator plugin while maintaining Obsidian's principles, performance, and UI/UX consistency.
+

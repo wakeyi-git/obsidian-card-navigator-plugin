@@ -1,7 +1,6 @@
 .card-navigator-search-container {
   width: 100%;
-  padding: 8px 12px;
-  background-color: var(--background-primary);
+  padding: 0px 4px 4px;
   border-bottom: 1px solid var(--background-modifier-border);
   margin-top: 4px;
 }

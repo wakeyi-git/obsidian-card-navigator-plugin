@@ -6,7 +6,9 @@
   padding: 8px 12px;
   background-color: var(--background-primary);
   border-bottom: 1px solid var(--background-modifier-border);
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .card-navigator-toolbar.fixed {
@@ -17,12 +19,13 @@
   display: flex;
   align-items: center;
   flex: 1;
+  gap: 2px;
 }
 
 .card-navigator-toolbar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
 }
 
 /* 드롭다운 공통 스타일 */

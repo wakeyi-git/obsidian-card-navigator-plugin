@@ -7,6 +7,11 @@
   font-family: var(--font-interface);
 }
 
+.view-content.card-navigator-view {
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
 /* 
  * 컴포넌트별 스타일은 각 디렉토리로 분리되었습니다:
  * - 카드 관련 스타일: src/ui/cards-container/Card.css, CardContainer.css
