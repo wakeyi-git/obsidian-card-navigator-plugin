@@ -22,19 +22,26 @@ const CardContainer: React.FC<ICardContainerProps> = ({
   layout = 'grid',
   searchQuery = '',
 }) => {
-  console.time('[성능] CardContainer 렌더링 시간');
+  // 이 줄을 제거합니다
+  // console.time('[성능] CardContainer 렌더링 시간');
   
-  useEffect(() => {
-    console.timeEnd('[성능] CardContainer 렌더링 시간');
-    console.log(`[성능] CardContainer 렌더링: 카드 수 = ${cards.length}, 레이아웃 = ${layout}`);
-    console.log(`[CardContainer] 카드 목록 상태: ${cards.length > 0 ? '카드 있음' : '카드 없음'}`);
-    if (cards.length > 0) {
-      console.log(`[CardContainer] 첫 번째 카드 정보: 제목=${cards[0].title}, 경로=${cards[0].path}`);
+// 컴포넌트 렌더링 성능 측정 (CardContainer 컴포넌트 내부)
+useEffect(() => {
+  // 타이머 ID를 고유하게 만들기 위해 타임스탬프 추가
+  const timerId = `[성능] CardContainer 렌더링 시간-${Date.now()}`;
+  
+  // 타이머 시작
+  console.time(timerId);
+  
+  return () => {
+    // 클린업 함수에서 동일한 ID로 타이머 종료
+    try {
+      console.timeEnd(timerId);
+    } catch (e) {
+      // 타이머가 없는 경우 오류 무시
     }
-    if (searchQuery) {
-      console.log(`[CardContainer] 검색 쿼리: ${searchQuery}`);
-    }
-  }, [cards, layout, searchQuery]);
+  };
+}, [cards, layout, searchQuery]); // 의존성 배열은 실제 컴포넌트에 맞게 조정
   
   // 카드가 없는 경우 메시지 표시
   if (cards.length === 0) {

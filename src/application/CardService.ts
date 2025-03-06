@@ -83,20 +83,13 @@ export class CardService implements ICardService {
   }
   
   async getAllCards(): Promise<ICard[]> {
-    const timerLabel = `[성능] CardService.getAllCards 실행 시간-${Date.now()}`;
-    console.time(timerLabel);
-    this.cardFetchCount++;
-    console.log(`[성능] CardService 카드 조회 횟수: ${this.cardFetchCount}`);
-    
     try {
+      // 성능 측정 코드 제거 - 실제 기능 코드만 유지
       const cards = await this.cardRepository.getAllCards();
-      console.log(`[성능] CardService.getAllCards 카드 수: ${cards.length}`);
-      console.timeEnd(timerLabel);
       return cards;
     } catch (error) {
-      console.error('[성능] CardService.getAllCards 오류:', error);
-      console.timeEnd(timerLabel);
-      return [];
+      console.error('[CardService] 모든 카드 가져오기 오류:', error);
+      throw error;
     }
   }
   
@@ -105,39 +98,30 @@ export class CardService implements ICardService {
   }
   
   async getCardById(id: string): Promise<ICard | null> {
-    const timerLabel = `[성능] CardService.getCardById(${id}) 실행 시간-${Date.now()}`;
-    console.time(timerLabel);
-    
     try {
       const card = await this.cardRepository.getCardById(id);
       if (card) {
         this.cacheHitCount++;
+        // 로그 출력만 유지하고 타이머 제거
         console.log(`[성능] CardService 캐시 히트 횟수: ${this.cacheHitCount}`);
       } else {
         this.cacheMissCount++;
         console.log(`[성능] CardService 캐시 미스 횟수: ${this.cacheMissCount}`);
       }
       
-      console.timeEnd(timerLabel);
       return card;
     } catch (error) {
       console.error(`[성능] CardService.getCardById(${id}) 오류:`, error);
-      console.timeEnd(timerLabel);
       return null;
     }
   }
   
   async getCardByPath(path: string): Promise<ICard | null> {
-    const timerLabel = `[성능] CardService.getCardByPath 실행 시간-${Date.now()}`;
-    console.time(timerLabel);
-    
     try {
       const card = await this.cardRepository.getCardByPath(path);
-      console.timeEnd(timerLabel);
       return card;
     } catch (error) {
       console.error('[성능] CardService.getCardByPath 오류:', error);
-      console.timeEnd(timerLabel);
       return null;
     }
   }
@@ -164,16 +148,11 @@ export class CardService implements ICardService {
   }
   
   async refreshCards(): Promise<void> {
-    const timerLabel = `[성능] CardService.refreshCards 실행 시간-${Date.now()}`;
-    console.time(timerLabel);
-    
     try {
       await this.cardRepository.refresh();
       console.log('[성능] CardService 카드 저장소 리프레시 완료');
-      console.timeEnd(timerLabel);
     } catch (error) {
       console.error('[성능] CardService.refreshCards 오류:', error);
-      console.timeEnd(timerLabel);
     }
   }
   

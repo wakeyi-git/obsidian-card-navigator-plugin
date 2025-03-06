@@ -5,21 +5,61 @@ import { ObsidianAdapter } from './infrastructure/ObsidianAdapter';
 import { CardFactory } from './domain/card/CardFactory';
 import { CardNavigatorService } from './application/CardNavigatorService';
 import { CardNavigatorSettingTab } from './ui/settings/SettingTab';
+import { ModeType } from './domain/mode/Mode';
 
-// 카드 네비게이터 설정 인터페이스
 export interface CardNavigatorSettings {
-  defaultMode: 'folder' | 'tag';
+  // 기본 설정
+  defaultMode: ModeType;
   defaultLayout: 'grid' | 'masonry';
-  cardWidth: number;
-  cardHeight: number;
-  priorityTags: string[];
-  priorityFolders: string[];
   includeSubfolders: boolean;
   defaultCardSet: string;
   isCardSetFixed: boolean;
+  
+  // 카드 설정
+  cardWidth: number;
+  cardHeight: number;
+  cardHeaderContent?: string;
+  cardBodyContent?: string;
+  cardFooterContent?: string;
+  renderingMode?: string;
+  
+  // 카드 스타일 설정
+  normalCardBgColor?: string;
+  activeCardBgColor?: string;
+  focusedCardBgColor?: string;
+  headerBgColor?: string;
+  bodyBgColor?: string;
+  footerBgColor?: string;
+  headerFontSize?: number;
+  bodyFontSize?: number;
+  footerFontSize?: number;
+  
+  // 검색 설정
+  tagModeSearchOptions?: string[];
+  folderModeSearchOptions?: string[];
+  frontmatterSearchKey?: string;
+  
+  // 정렬 설정
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  customSortKey?: string;
+  
+  // 레이아웃 설정
+  fixedCardHeight?: boolean;
+  cardMinWidth?: number;
+  cardMinHeight?: number;
+  
+  // 우선 순위 설정
+  priorityTags: string[];
+  priorityFolders: string[];
+  
+  // 프리셋 설정
+  folderPresetMappings?: {folder: string, presetId: string}[];
+  tagPresetMappings?: {tag: string, presetId: string}[];
+  presetPriorities?: {id: string, type: 'folder' | 'tag', target: string}[];
 }
 
-// 기본 설정
+// 기본 설정값도 업데이트
 const DEFAULT_SETTINGS: CardNavigatorSettings = {
   defaultMode: 'folder',
   defaultLayout: 'grid',
@@ -30,6 +70,33 @@ const DEFAULT_SETTINGS: CardNavigatorSettings = {
   includeSubfolders: true,
   defaultCardSet: '/',
   isCardSetFixed: false,
+  
+  // 새로 추가된 기본값
+  cardHeaderContent: 'filename',
+  cardBodyContent: 'content',
+  cardFooterContent: 'tags',
+  renderingMode: 'text',
+  normalCardBgColor: '#ffffff',
+  activeCardBgColor: '#f0f0f0',
+  focusedCardBgColor: '#e0e0e0',
+  headerBgColor: '#f5f5f5',
+  bodyBgColor: '#ffffff',
+  footerBgColor: '#f5f5f5',
+  headerFontSize: 16,
+  bodyFontSize: 14,
+  footerFontSize: 12,
+  tagModeSearchOptions: ['path', 'date'],
+  folderModeSearchOptions: ['tag', 'date'],
+  frontmatterSearchKey: '',
+  sortBy: 'filename',
+  sortOrder: 'asc',
+  customSortKey: '',
+  fixedCardHeight: true,
+  cardMinWidth: 250,
+  cardMinHeight: 150,
+  folderPresetMappings: [],
+  tagPresetMappings: [],
+  presetPriorities: []
 };
 
 /**
@@ -231,5 +298,16 @@ export default class CardNavigatorPlugin extends Plugin {
     );
     
     console.log('카드 네비게이터 이벤트 리스너 등록 완료');
+  }
+
+  // 설정 모달을 여는 메서드 추가
+  openSettingsModal(): void {
+    // React 컴포넌트를 렌더링하는 코드
+    console.log('고급 설정 모달 열기');
+    
+    // 임시 구현: 기본 설정 탭 열기
+    // 타입 단언 사용
+    (this.app as any).setting.open();
+    (this.app as any).setting.openTabById(this.manifest.id);
   }
 }

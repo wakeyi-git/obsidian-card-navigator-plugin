@@ -36,17 +36,26 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
   const [renderCount, setRenderCount] = useState<number>(0);
   const [cardLoadCount, setCardLoadCount] = useState<number>(0);
   
-  // 컴포넌트 렌더링 성능 측정
-  useEffect(() => {
-    console.timeEnd('[성능] CardNavigatorComponent 렌더링 시간');
-    console.time('[성능] CardNavigatorComponent 렌더링 시간');
-    setRenderCount(prev => prev + 1);
-    console.log(`[성능] CardNavigatorComponent 렌더링 횟수: ${renderCount + 1}`);
-    
-    return () => {
-      console.timeEnd('[성능] CardNavigatorComponent 렌더링 시간');
-    };
-  }, [cards, isLoading, error, currentMode, layout, isCardSetFixed, includeSubfolders]);
+// 컴포넌트 렌더링 성능 측정
+useEffect(() => {
+  // 타이머 ID를 고유하게 만들기 위해 타임스탬프 추가
+  const timerId = `[성능] CardNavigatorComponent 렌더링 시간-${Date.now()}`;
+  
+  // 타이머 시작
+  console.time(timerId);
+  
+  setRenderCount(prev => prev + 1);
+  console.log(`[성능] CardNavigatorComponent 렌더링 횟수: ${renderCount + 1}`);
+  
+  return () => {
+    // 클린업 함수에서 동일한 ID로 타이머 종료
+    try {
+      console.timeEnd(timerId);
+    } catch (e) {
+      // 타이머가 없는 경우 오류 무시
+    }
+  };
+}, [cards, isLoading, error, currentMode, layout, isCardSetFixed, includeSubfolders]);
 
   useEffect(() => {
     // 전역 스타일 추가

@@ -19,12 +19,13 @@
  * - 레이아웃 관련 스타일: src/ui/layout/LayoutToggle.css
  * - 프리셋 관련 스타일: src/ui/presets/PresetSelector.css
  * - 검색 관련 스타일: src/ui/toolbar/SearchBar.css
- */ 
+ */
 
 /* src/ui/cards-container/Card.css */
 /* 카드 스타일 */
 .card-navigator-card {
   background-color: var(--background-secondary);
+  border: var(--border-width) solid var(--background-modifier-border);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   padding: 16px;
@@ -139,8 +140,8 @@
 .card-navigator-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 16px;
-  padding: 16px;
+  gap: 10px;
+  padding: 10px;
   width: 100%;
   overflow-y: auto;
   max-height: calc(100vh - 60px);
@@ -149,8 +150,8 @@
 
 .card-navigator-masonry {
   display: flex;
-  gap: 16px;
-  padding: 16px;
+  gap: 10px;
+  padding: 10px;
   width: 100%;
   overflow-y: auto;
   max-height: calc(100vh - 60px);
@@ -161,7 +162,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .card-navigator-empty-state {
@@ -202,7 +203,7 @@
   .card-navigator-grid {
     grid-template-columns: 1fr;
   }
-}
+} 
 
 /* src/ui/layout/LayoutToggle.css */
 /* 레이아웃 토글 스타일 */
