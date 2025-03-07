@@ -1713,8 +1713,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 18px;
+  height: 18px;
   border-radius: 4px;
   cursor: pointer;
   color: var(--text-muted);

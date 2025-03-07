@@ -209,11 +209,21 @@ const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({
         <div 
           key={option.type}
           className={`card-navigator-suggestion-item ${index === selectedIndex ? 'is-selected' : ''}`}
-          onClick={() => onSelect(option)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onSelect(option);
+          }}
           onMouseEnter={() => setSelectedIndex(index)}
           role="option"
           aria-selected={index === selectedIndex}
           tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onSelect(option);
+            }
+          }}
         >
           <div className="card-navigator-suggestion-title">
             <span className="card-navigator-suggestion-icon">

@@ -460,8 +460,135 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
    * 검색 옵션 선택 핸들러
    */
   const handleSearchOptionSelect = (option: SearchOption) => {
-    // 이 함수는 SearchBar.tsx에서 구현해야 합니다.
-    console.log('검색 옵션 선택:', option);
+    try {
+      console.log('검색 옵션 선택 처리 시작:', option.type, option.prefix);
+      
+      // 추천 검색어 관련 상태 초기화
+      setShowSuggestedValues(false);
+      setSelectedSuggestionIndex(-1);
+      
+      if (inputRef.current) {
+        const cursorPosition = inputRef.current.selectionStart || 0;
+        const currentValue = inputRef.current.value;
+        
+        // 현재 커서 위치 이전과 이후의 텍스트
+        const textBeforeCursor = currentValue.substring(0, cursorPosition);
+        const textAfterCursor = currentValue.substring(cursorPosition);
+        
+        // 커서 위치에 접두사 삽입
+        let insertText = '';
+        let newCursorPosition = 0;
+        
+        if (option.type === 'complex') {
+          // 복합 검색의 경우 파이프 추가
+          if (currentValue.trim() === '') {
+            // 빈 검색어인 경우 파이프 추가하지 않음
+            insertText = '';
+            newCursorPosition = textBeforeCursor.length + insertText.length;
+          } else if (currentValue.endsWith(' ')) {
+            // 이미 공백이 있으면 파이프만 추가
+            insertText = '| ';
+            newCursorPosition = textBeforeCursor.length + insertText.length;
+          } else {
+            // 공백과 파이프 추가
+            insertText = ' | ';
+            newCursorPosition = textBeforeCursor.length + insertText.length;
+          }
+        } else {
+          // 현재 입력 필드가 비어있거나 커서가 맨 앞에 있는 경우
+          if (currentValue.trim() === '' || cursorPosition === 0) {
+            insertText = option.prefix;
+            
+            if (option.type === 'frontmatter') {
+              insertText += ']:'; // 프론트매터 검색의 경우 닫는 괄호와 콜론 추가
+              newCursorPosition = insertText.length - 2; // 커서를 대괄호 안에 위치시킴
+            } else if (option.type === 'create' || option.type === 'modify') {
+              // 날짜 검색의 경우 시작일 옵션 추가
+              insertText += ' [start date]:';
+              newCursorPosition = insertText.length;
+              
+              setDatePickerType('start');
+              setIsDateRangeMode(true);
+              
+              // 날짜 선택기 표시
+              setTimeout(() => {
+                if (inputRef.current) {
+                  const rect = inputRef.current.getBoundingClientRect();
+                  setDatePickerPosition({
+                    top: rect.bottom + window.scrollY,
+                    left: rect.left + window.scrollX
+                  });
+                  setShowDatePicker(true);
+                }
+              }, 100);
+            } else {
+              insertText += ' '; // 다른 검색 타입의 경우 공백 추가
+              newCursorPosition = insertText.length;
+            }
+          } 
+          // 이미 검색어가 있는 경우 (복합 검색으로 추가)
+          else if (currentValue.trim() !== '') {
+            // 현재 커서 위치에 파이프와 함께 검색 옵션 추가
+            if (textBeforeCursor.endsWith(' ') || textBeforeCursor.endsWith('| ')) {
+              // 이미 공백이나 파이프가 있으면 접두사만 추가
+              insertText = option.prefix;
+            } else {
+              // 공백과 파이프, 접두사 추가
+              insertText = ' | ' + option.prefix;
+            }
+            
+            if (option.type === 'frontmatter') {
+              insertText += ']:'; // 프론트매터 검색의 경우 닫는 괄호와 콜론 추가
+              newCursorPosition = textBeforeCursor.length + insertText.length - 2; // 커서를 대괄호 안에 위치시킴
+            } else if (option.type === 'create' || option.type === 'modify') {
+              // 날짜 검색의 경우 시작일 옵션 추가
+              insertText += ' [start date]:';
+              newCursorPosition = textBeforeCursor.length + insertText.length;
+              
+              setDatePickerType('start');
+              setIsDateRangeMode(true);
+              
+              // 날짜 선택기 표시
+              setTimeout(() => {
+                if (inputRef.current) {
+                  const rect = inputRef.current.getBoundingClientRect();
+                  setDatePickerPosition({
+                    top: rect.bottom + window.scrollY,
+                    left: rect.left + window.scrollX
+                  });
+                  setShowDatePicker(true);
+                }
+              }, 100);
+            } else {
+              insertText += ' '; // 다른 검색 타입의 경우 공백 추가
+              newCursorPosition = textBeforeCursor.length + insertText.length;
+            }
+          }
+        }
+        
+        // 새 검색어 설정
+        const newValue = textBeforeCursor + insertText + textAfterCursor;
+        setSearchText(newValue);
+        
+        // 커서 위치 조정
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
+          }
+        }, 10);
+        
+        // 검색 옵션에 따른 추천 검색어 로드
+        if (option.type !== 'frontmatter' && option.type !== 'create' && option.type !== 'modify' && option.type !== 'complex') {
+          loadSuggestedValues(option);
+        }
+      }
+      
+      // 검색 제안 숨기기
+      setShowSearchSuggestions(false);
+    } catch (error) {
+      console.error('검색 옵션 선택 처리 중 오류 발생:', error);
+    }
   };
   
   /**
