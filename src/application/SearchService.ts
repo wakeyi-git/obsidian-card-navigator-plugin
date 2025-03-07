@@ -157,6 +157,39 @@ export interface ISearchService {
    * @returns 볼트 전체 노트를 변환한 카드 배열
    */
   getAllVaultCards(): Promise<ICard[]>;
+
+  /**
+   * 검색 범위에 따른 태그 목록 가져오기
+   * @param searchScope 검색 범위 ('all' 또는 'current')
+   * @param currentCards 현재 표시 중인 카드 목록
+   * @returns 태그 목록
+   */
+  getScopedTags(searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]>;
+  
+  /**
+   * 검색 범위에 따른 파일명 목록 가져오기
+   * @param searchScope 검색 범위 ('all' 또는 'current')
+   * @param currentCards 현재 표시 중인 카드 목록
+   * @returns 파일명 목록
+   */
+  getScopedFilenames(searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]>;
+  
+  /**
+   * 검색 범위에 따른 프론트매터 키 목록 가져오기
+   * @param searchScope 검색 범위 ('all' 또는 'current')
+   * @param currentCards 현재 표시 중인 카드 목록
+   * @returns 프론트매터 키 목록
+   */
+  getScopedFrontmatterKeys(searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]>;
+  
+  /**
+   * 검색 범위에 따른 프론트매터 값 목록 가져오기
+   * @param key 프론트매터 키
+   * @param searchScope 검색 범위 ('all' 또는 'current')
+   * @param currentCards 현재 표시 중인 카드 목록
+   * @returns 프론트매터 값 목록
+   */
+  getScopedFrontmatterValues(key: string, searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]>;
 }
 
 /**
@@ -171,8 +204,8 @@ export class SearchService implements ISearchService {
   private cardService: ICardService;
   private modeService: IModeService;
   private isInSearchMode: boolean = false;
-  private searchScope: 'all' | 'current' = 'all'; // 기본 검색 범위는 전체
-  private preSearchCards: ICard[] = []; // 검색 모드 전환 전 카드셋
+  private searchScope: 'all' | 'current' = 'current';
+  private preSearchCards: ICard[] = [];
   
   constructor(presetService: IPresetService, cardService: ICardService, modeService: IModeService) {
     this.presetService = presetService;
@@ -184,7 +217,7 @@ export class SearchService implements ISearchService {
     // 기본 검색 설정
     this.currentSearch = new FilenameSearch();
     this.isInSearchMode = false;
-    this.searchScope = 'all';
+    this.searchScope = 'current';
     this.preSearchCards = [];
   }
   
@@ -192,7 +225,7 @@ export class SearchService implements ISearchService {
     this.clearSearch();
     this.searchHistory = [];
     this.isInSearchMode = false;
-    this.searchScope = 'all';
+    this.searchScope = 'current';
     this.preSearchCards = [];
   }
   
@@ -719,5 +752,132 @@ export class SearchService implements ISearchService {
       console.error('[SearchService] 볼트 전체 노트 가져오기 오류:', error);
       return [];
     }
+  }
+
+  /**
+   * 검색 범위에 따른 태그 목록 가져오기
+   * @param searchScope 검색 범위 ('all' 또는 'current')
+   * @param currentCards 현재 표시 중인 카드 목록
+   * @returns 태그 목록
+   */
+  async getScopedTags(searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]> {
+    // 검색 범위가 현재 카드셋이고 카드가 있는 경우
+    if (searchScope === 'current' && currentCards.length > 0) {
+      const tagsSet = new Set<string>();
+      
+      // 현재 카드셋에서 태그 수집
+      currentCards.forEach(card => {
+        // 본문 태그 수집
+        card.tags.forEach(tag => tagsSet.add(tag));
+        
+        // 프론트매터 태그 수집
+        if (card.frontmatter) {
+          if (card.frontmatter.tag) {
+            if (Array.isArray(card.frontmatter.tag)) {
+              card.frontmatter.tag.forEach(tag => tagsSet.add(tag));
+            } else {
+              tagsSet.add(String(card.frontmatter.tag));
+            }
+          }
+          
+          if (card.frontmatter.tags) {
+            if (Array.isArray(card.frontmatter.tags)) {
+              card.frontmatter.tags.forEach(tag => tagsSet.add(String(tag)));
+            } else {
+              tagsSet.add(String(card.frontmatter.tags));
+            }
+          }
+        }
+      });
+      
+      return Array.from(tagsSet);
+    } else {
+      // 전체 노트에서 태그 수집
+      return this.getTags();
+    }
+  }
+  
+  /**
+   * 검색 범위에 따른 파일명 목록 가져오기
+   * @param searchScope 검색 범위 ('all' 또는 'current')
+   * @param currentCards 현재 표시 중인 카드 목록
+   * @returns 파일명 목록
+   */
+  async getScopedFilenames(searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]> {
+    // 검색 범위가 현재 카드셋이고 카드가 있는 경우
+    if (searchScope === 'current' && currentCards.length > 0) {
+      // 현재 카드셋에서 파일명 수집
+      return currentCards.map(card => {
+        // 경로에서 파일명만 추출
+        const pathParts = card.path.split('/');
+        return pathParts[pathParts.length - 1].replace('.md', '');
+      });
+    } else {
+      // 전체 노트에서 파일명 수집
+      const cards = await this.cardService.getAllCards();
+      return cards.map(card => {
+        const pathParts = card.path.split('/');
+        return pathParts[pathParts.length - 1].replace('.md', '');
+      });
+    }
+  }
+  
+  /**
+   * 검색 범위에 따른 프론트매터 키 목록 가져오기
+   * @param searchScope 검색 범위 ('all' 또는 'current')
+   * @param currentCards 현재 표시 중인 카드 목록
+   * @returns 프론트매터 키 목록
+   */
+  async getScopedFrontmatterKeys(searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]> {
+    // 검색 범위가 현재 카드셋이고 카드가 있는 경우
+    if (searchScope === 'current' && currentCards.length > 0) {
+      // 현재 카드셋에서 프론트매터 키 수집
+      const keysSet = new Set<string>();
+      
+      currentCards.forEach(card => {
+        if (card.frontmatter) {
+          Object.keys(card.frontmatter).forEach(key => keysSet.add(key));
+        }
+      });
+      
+      return Array.from(keysSet);
+    } else {
+      // 전체 노트에서 프론트매터 키 수집
+      return this.getFrontmatterKeys();
+    }
+  }
+  
+  /**
+   * 검색 범위에 따른 프론트매터 값 목록 가져오기
+   * @param key 프론트매터 키
+   * @param searchScope 검색 범위 ('all' 또는 'current')
+   * @param currentCards 현재 표시 중인 카드 목록
+   * @returns 프론트매터 값 목록
+   */
+  async getScopedFrontmatterValues(key: string, searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]> {
+    // 특정 프론트매터 키에 대한 값 수집
+    const valuesSet = new Set<string>();
+    
+    const cards = searchScope === 'current' && currentCards.length > 0
+      ? currentCards
+      : await this.cardService.getAllCards();
+    
+    cards.forEach(card => {
+      if (card.frontmatter && card.frontmatter[key] !== undefined) {
+        const value = card.frontmatter[key];
+        
+        if (Array.isArray(value)) {
+          value.forEach(v => {
+            if (typeof v === 'string' || typeof v === 'number') {
+              valuesSet.add(String(v));
+            }
+          });
+        } else if (typeof value === 'string' || typeof value === 'number') {
+          valuesSet.add(String(value));
+        }
+      }
+    });
+    
+    return Array.from(valuesSet);
   }
 } 
