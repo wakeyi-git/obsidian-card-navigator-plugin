@@ -37,27 +37,43 @@
   gap: 10px;
 }
 
+/* 빈 상태 메시지 스타일 */
 .card-navigator-empty-state {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 300px;
   width: 100%;
+  height: 200px;
+  margin: 20px 0;
+  text-align: center;
+}
+
+.card-navigator-grid .card-navigator-empty-state,
+.card-navigator-masonry .card-navigator-empty-state {
+  width: 100%;
+  height: 300px;
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  margin: 20px 0;
 }
 
 .card-navigator-empty-message {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   color: var(--text-muted);
 }
 
 .card-navigator-empty-message span {
-  font-size: 18px;
+  font-size: 1.2em;
+  margin-bottom: 10px;
   font-weight: 500;
 }
 
 .card-navigator-empty-message p {
-  margin-top: 8px;
-  font-size: 14px;
+  font-size: 0.9em;
+  margin: 0;
 }
 
 /* 반응형 스타일 */

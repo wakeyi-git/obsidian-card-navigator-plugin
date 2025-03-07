@@ -5,6 +5,7 @@ interface FrontmatterKeySuggestionsProps {
   isVisible: boolean;
   onSelect: (key: string) => void;
   inputRef: React.RefObject<HTMLInputElement>;
+  onClose?: () => void;
 }
 
 /**
@@ -14,7 +15,8 @@ const FrontmatterKeySuggestions: React.FC<FrontmatterKeySuggestionsProps> = ({
   keys,
   isVisible,
   onSelect,
-  inputRef
+  inputRef,
+  onClose
 }) => {
   const [filteredKeys, setFilteredKeys] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
@@ -72,7 +74,9 @@ const FrontmatterKeySuggestions: React.FC<FrontmatterKeySuggestionsProps> = ({
           break;
         case 'Escape':
           e.preventDefault();
-          // 여기서는 isVisible을 직접 제어하지 않고, 부모 컴포넌트에서 처리
+          if (onClose) {
+            onClose();
+          }
           break;
       }
     };
@@ -81,7 +85,7 @@ const FrontmatterKeySuggestions: React.FC<FrontmatterKeySuggestionsProps> = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isVisible, filteredKeys, selectedIndex, onSelect]);
+  }, [isVisible, filteredKeys, selectedIndex, onSelect, onClose]);
   
   // 선택된 항목이 변경될 때 스크롤 조정
   useEffect(() => {

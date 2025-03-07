@@ -10,7 +10,30 @@ interface SuggestedValuesProps {
   onSelect: (value: string) => void;
   onMouseEnter?: (index: number) => void;
   title?: string;
+  filterText?: string; // 필터링 텍스트 추가
+  onClose?: () => void; // 닫기 콜백 추가
 }
+
+/**
+ * 검색어와 일치하는 부분을 강조 표시하는 함수
+ */
+const HighlightedText: React.FC<{ text: string; highlight: string }> = ({ text, highlight }) => {
+  if (!highlight || highlight.trim() === '') {
+    return <span>{text}</span>;
+  }
+
+  const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+  
+  return (
+    <span>
+      {parts.map((part, index) => 
+        part.toLowerCase() === highlight.toLowerCase() ? 
+          <span key={index} className="card-navigator-highlight">{part}</span> : 
+          <span key={index}>{part}</span>
+      )}
+    </span>
+  );
+};
 
 /**
  * 추천 검색어 컴포넌트
@@ -22,7 +45,9 @@ const SuggestedValues: React.FC<SuggestedValuesProps> = ({
   selectedIndex,
   onSelect,
   onMouseEnter,
-  title = '추천 검색어'
+  title = '추천 검색어',
+  filterText = '',
+  onClose
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -42,6 +67,23 @@ const SuggestedValues: React.FC<SuggestedValuesProps> = ({
       }
     }
   }, [selectedIndex]);
+  
+  // 키보드 이벤트 처리
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isVisible) return;
+      
+      if (e.key === 'Escape' && onClose) {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isVisible, onClose]);
   
   if (!isVisible || values.length === 0) {
     return null;
@@ -65,9 +107,21 @@ const SuggestedValues: React.FC<SuggestedValuesProps> = ({
           className={`card-navigator-suggestion-item ${index === selectedIndex ? 'is-selected' : ''}`}
           onClick={() => onSelect(value)}
           onMouseEnter={() => onMouseEnter && onMouseEnter(index)}
+          role="option"
+          aria-selected={index === selectedIndex}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onSelect(value);
+            } else if (e.key === 'Escape' && onClose) {
+              e.preventDefault();
+              onClose();
+            }
+          }}
         >
           <div className="card-navigator-suggestion-title">
-            <span className="card-navigator-suggestion-value">{value}</span>
+            <HighlightedText text={value} highlight={filterText} />
           </div>
         </div>
       ))}

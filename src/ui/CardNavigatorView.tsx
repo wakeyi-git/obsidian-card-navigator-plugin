@@ -660,11 +660,13 @@ useEffect(() => {
       ) : error ? (
         <div className="card-navigator-error">{error}</div>
       ) : cards.length === 0 ? (
-        <div className="card-navigator-empty">
-          {searchQuery
-            ? '검색 결과가 없습니다.'
-            : '카드가 없습니다.'}
-        </div>
+        <CardContainer
+          cards={[]}
+          layout={layout}
+          searchQuery={searchQuery}
+          onCardClick={() => {}}
+          emptyMessage={searchQuery ? '검색 결과가 없습니다.' : '카드가 없습니다.'}
+        />
       ) : (
         <CardContainer
           cards={cards}

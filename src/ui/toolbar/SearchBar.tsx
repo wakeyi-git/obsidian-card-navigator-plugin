@@ -16,60 +16,6 @@ import SuggestedValues from './components/SuggestedValues';
 import useSearchBar from './hooks/useSearchBar';
 
 /**
- * 검색 옵션 목록
- */
-const SEARCH_OPTIONS: SearchOption[] = [
-  {
-    type: 'filename',
-    label: '파일 이름 검색',
-    description: '카드의 파일 이름에서 검색합니다.',
-    prefix: 'file:'
-  },
-  {
-    type: 'content',
-    label: '내용 검색',
-    description: '카드 내용에서 검색합니다.',
-    prefix: 'content:'
-  },
-  {
-    type: 'tag',
-    label: '태그 검색',
-    description: '카드의 태그에서 검색합니다.',
-    prefix: 'tag:'
-  },
-  {
-    type: 'path',
-    label: '경로 검색',
-    description: '카드의 경로에서 검색합니다.',
-    prefix: 'path:'
-  },
-  {
-    type: 'frontmatter',
-    label: '속성 검색',
-    description: '카드의 프론트매터 속성에서 검색합니다.',
-    prefix: '['
-  },
-  {
-    type: 'create',
-    label: '생성일 검색',
-    description: '카드의 생성일로 검색합니다.',
-    prefix: 'create:'
-  },
-  {
-    type: 'modify',
-    label: '수정일 검색',
-    description: '카드의 수정일로 검색합니다.',
-    prefix: 'modify:'
-  },
-  {
-    type: 'complex',
-    label: '다중 필드 검색',
-    description: '여러 필드를 동시에 검색합니다. (예: file:제목 | tag:태그)',
-    prefix: '|'
-  }
-];
-
-/**
  * 검색바 컴포넌트 속성
  */
 interface SearchBarProps {
@@ -107,7 +53,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({ cardNavigatorService, onSe
     selectedSuggestionIndex,
     setSelectedSuggestionIndex,
     currentSearchOption,
-    frontmatterKey,
     
     // 참조
     inputRef,
@@ -127,11 +72,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({ cardNavigatorService, onSe
     handleHistoryItemClick,
     handleFrontmatterKeySelect,
     handleSuggestedValueSelect,
+    searchOptions,
   } = useSearchBar({
     cardNavigatorService,
     onSearch,
     currentCards,
-    searchOptions: SEARCH_OPTIONS
   });
   
   return (
@@ -160,10 +105,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({ cardNavigatorService, onSe
         {showSearchSuggestions && (
           <SearchSuggestions
             searchText={searchText}
-            options={SEARCH_OPTIONS}
+            options={searchOptions}
             isVisible={showSearchSuggestions}
             onSelect={handleSearchOptionSelect}
             inputRef={inputRef}
+            onClose={() => setShowSearchSuggestions(false)}
           />
         )}
         
@@ -174,6 +120,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ cardNavigatorService, onSe
             isVisible={showFrontmatterKeySuggestions}
             onSelect={handleFrontmatterKeySelect}
             inputRef={inputRef}
+            onClose={() => setShowFrontmatterKeySuggestions(false)}
           />
         )}
         
@@ -186,6 +133,25 @@ export const SearchBar: React.FC<SearchBarProps> = ({ cardNavigatorService, onSe
             onSelect={handleSuggestedValueSelect}
             onMouseEnter={setSelectedSuggestionIndex}
             title={currentSearchOption ? `${currentSearchOption.label} 추천` : '추천 검색어'}
+            filterText={currentSearchOption ? (() => {
+              // 현재 검색어에서 검색 옵션 접두사 이후의 텍스트 추출
+              const isComplex = searchText.includes('|');
+              
+              if (isComplex) {
+                // 복합 검색의 경우 마지막 부분만 고려
+                const parts = searchText.split('|');
+                const lastPart = parts[parts.length - 1].trim();
+                
+                if (lastPart.startsWith(currentSearchOption.prefix)) {
+                  return lastPart.substring(currentSearchOption.prefix.length).trim();
+                }
+              } else if (searchText.startsWith(currentSearchOption.prefix)) {
+                return searchText.substring(currentSearchOption.prefix.length).trim();
+              }
+              
+              return '';
+            })() : ''}
+            onClose={() => setShowSuggestedValues(false)}
           />
         )}
         
@@ -196,6 +162,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ cardNavigatorService, onSe
             searchHistory={searchHistory}
             isVisible={showSearchHistory}
             onItemClick={handleHistoryItemClick}
+            onClose={() => setShowSearchHistory(false)}
           />
         )}
         

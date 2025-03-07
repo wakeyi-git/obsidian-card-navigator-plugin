@@ -10,6 +10,7 @@ export interface ICardContainerProps {
   onCardClick?: (id: string) => void;
   layout?: 'grid' | 'masonry';
   searchQuery?: string;
+  emptyMessage?: string;
 }
 
 /**
@@ -21,6 +22,7 @@ const CardContainer: React.FC<ICardContainerProps> = ({
   onCardClick,
   layout = 'grid',
   searchQuery = '',
+  emptyMessage = '표시할 카드가 없습니다',
 }) => {
   // 이 줄을 제거합니다
   // console.time('[성능] CardContainer 렌더링 시간');
@@ -45,11 +47,22 @@ useEffect(() => {
   
   // 카드가 없는 경우 메시지 표시
   if (cards.length === 0) {
-    return (
-      <div className="card-navigator-empty-state">
-        <div className="card-navigator-empty-message">
-          <span>표시할 카드가 없습니다</span>
-          <p>다른 폴더나 태그를 선택해보세요.</p>
+    return layout === 'grid' ? (
+      <div className="card-navigator-grid">
+        <div className="card-navigator-empty-state">
+          <div className="card-navigator-empty-message">
+            <span>{emptyMessage}</span>
+            {!searchQuery && <p>다른 폴더나 태그를 선택해보세요.</p>}
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div className="card-navigator-masonry">
+        <div className="card-navigator-empty-state">
+          <div className="card-navigator-empty-message">
+            <span>{emptyMessage}</span>
+            {!searchQuery && <p>다른 폴더나 태그를 선택해보세요.</p>}
+          </div>
         </div>
       </div>
     );

@@ -13,6 +13,7 @@ interface SearchSuggestionsProps {
   isVisible: boolean;
   onSelect: (option: SearchOption) => void;
   inputRef: React.RefObject<HTMLInputElement>;
+  onClose?: () => void;
 }
 
 /**
@@ -100,11 +101,13 @@ const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({
   options,
   isVisible,
   onSelect,
-  inputRef
+  inputRef,
+  onClose
 }) => {
   const [filteredOptions, setFilteredOptions] = useState<SearchOption[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const selectedItemRef = useRef<HTMLDivElement>(null);
   
   // 검색어에 따라 옵션 필터링
   useEffect(() => {
@@ -126,62 +129,121 @@ const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({
   
   // 키보드 이벤트 처리
   useEffect(() => {
+    // 키보드 이벤트 핸들러
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isVisible || filteredOptions.length === 0) return;
+      
+      // 현재 선택된 옵션 로깅
+      if (selectedIndex >= 0 && selectedIndex < filteredOptions.length) {
+        const currentOption = filteredOptions[selectedIndex];
+        console.log(`현재 선택된 옵션: [${selectedIndex}] ${currentOption.type}, ${currentOption.prefix}`);
+      }
       
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setSelectedIndex(prev => (prev + 1) % filteredOptions.length);
+          setSelectedIndex(prev => {
+            const newIndex = (prev + 1) % filteredOptions.length;
+            scrollToSelectedItem(newIndex);
+            console.log(`ArrowDown: 새 인덱스 ${newIndex}, 옵션: ${filteredOptions[newIndex].type}, ${filteredOptions[newIndex].prefix}`);
+            return newIndex;
+          });
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setSelectedIndex(prev => (prev <= 0 ? filteredOptions.length - 1 : prev - 1));
+          setSelectedIndex(prev => {
+            const newIndex = prev <= 0 ? filteredOptions.length - 1 : prev - 1;
+            scrollToSelectedItem(newIndex);
+            console.log(`ArrowUp: 새 인덱스 ${newIndex}, 옵션: ${filteredOptions[newIndex].type}, ${filteredOptions[newIndex].prefix}`);
+            return newIndex;
+          });
           break;
         case 'Enter':
           if (selectedIndex >= 0 && selectedIndex < filteredOptions.length) {
             e.preventDefault();
-            onSelect(filteredOptions[selectedIndex]);
+            const selectedOption = filteredOptions[selectedIndex];
+            console.log(`Enter 키로 선택: [${selectedIndex}] ${selectedOption.type}, ${selectedOption.prefix}`);
+            onSelect(selectedOption);
           }
           break;
         case 'Tab':
-          // Tab 키로도 선택 가능하게 함
           if (selectedIndex >= 0 && selectedIndex < filteredOptions.length) {
             e.preventDefault();
-            onSelect(filteredOptions[selectedIndex]);
+            const selectedOption = filteredOptions[selectedIndex];
+            console.log(`Tab 키로 선택: [${selectedIndex}] ${selectedOption.type}, ${selectedOption.prefix}`);
+            onSelect(selectedOption);
           }
           break;
         case 'Escape':
           e.preventDefault();
-          // 여기서는 isVisible을 직접 제어하지 않고, 부모 컴포넌트에서 처리
+          if (onClose) {
+            onClose();
+          }
+          break;
+        default:
+          // Alt+숫자 단축키 처리
+          if (e.altKey && /^[1-9]$/.test(e.key)) {
+            const keyNum = parseInt(e.key);
+            if (keyNum >= 1 && keyNum <= Math.min(9, filteredOptions.length)) {
+              e.preventDefault();
+              const index = keyNum - 1;
+              const selectedOption = filteredOptions[index];
+              console.log(`Alt+${keyNum} 단축키로 선택: [${index}] ${selectedOption.type}, ${selectedOption.prefix}`);
+              onSelect(selectedOption);
+            }
+          }
           break;
       }
     };
     
-    document.addEventListener('keydown', handleKeyDown);
+    // 이벤트 리스너 등록
+    if (inputRef.current) {
+      inputRef.current.addEventListener('keydown', handleKeyDown);
+    }
+    
+    // 클린업 함수
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      if (inputRef.current) {
+        inputRef.current.removeEventListener('keydown', handleKeyDown);
+      }
     };
-  }, [isVisible, filteredOptions, selectedIndex, onSelect]);
+  }, [isVisible, filteredOptions, selectedIndex, onSelect, onClose, inputRef]);
+  
+  // 선택된 항목이 변경될 때 스크롤 조정
+  const scrollToSelectedItem = (index: number) => {
+    if (index >= 0 && suggestionsRef.current) {
+      setTimeout(() => {
+        try {
+          // data-index 속성을 사용하여 정확한 항목 찾기
+          const selectedElement = suggestionsRef.current?.querySelector(`[data-index="${index}"]`) as HTMLElement;
+          
+          if (selectedElement && suggestionsRef.current) {
+            const containerRect = suggestionsRef.current.getBoundingClientRect();
+            const selectedRect = selectedElement.getBoundingClientRect();
+            
+            // 선택된 항목이 컨테이너 아래에 있는 경우
+            if (selectedRect.bottom > containerRect.bottom) {
+              suggestionsRef.current.scrollTop += selectedRect.bottom - containerRect.bottom + 8; // 여유 공간 추가
+            } 
+            // 선택된 항목이 컨테이너 위에 있는 경우
+            else if (selectedRect.top < containerRect.top) {
+              suggestionsRef.current.scrollTop -= containerRect.top - selectedRect.top + 8; // 여유 공간 추가
+            }
+            
+            console.log(`스크롤 조정: 인덱스 ${index}, 타입: ${selectedElement.dataset.type}, 접두사: ${selectedElement.dataset.prefix}`);
+          } else {
+            console.warn(`선택된 항목을 찾을 수 없음: 인덱스 ${index}`);
+          }
+        } catch (error) {
+          console.error('스크롤 조정 중 오류 발생:', error);
+        }
+      }, 10);
+    }
+  };
   
   // 선택된 항목이 변경될 때 스크롤 조정
   useEffect(() => {
-    if (selectedIndex >= 0 && suggestionsRef.current) {
-      const selectedElement = suggestionsRef.current.children[selectedIndex] as HTMLElement;
-      if (selectedElement) {
-        const containerRect = suggestionsRef.current.getBoundingClientRect();
-        const selectedRect = selectedElement.getBoundingClientRect();
-        
-        // 선택된 항목이 컨테이너 아래에 있는 경우
-        if (selectedRect.bottom > containerRect.bottom) {
-          suggestionsRef.current.scrollTop += selectedRect.bottom - containerRect.bottom;
-        } 
-        // 선택된 항목이 컨테이너 위에 있는 경우
-        else if (selectedRect.top < containerRect.top) {
-          suggestionsRef.current.scrollTop -= containerRect.top - selectedRect.top;
-        }
-      }
-    }
+    scrollToSelectedItem(selectedIndex);
   }, [selectedIndex]);
   
   // 단축키 표시
@@ -199,45 +261,69 @@ const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({
       ref={suggestionsRef}
       onClick={(e) => {
         // 이벤트 버블링 방지
+        e.preventDefault();
         e.stopPropagation();
       }}
     >
       <div className="card-navigator-suggestions-header">
         검색 옵션
       </div>
-      {filteredOptions.map((option, index) => (
-        <div 
-          key={option.type}
-          className={`card-navigator-suggestion-item ${index === selectedIndex ? 'is-selected' : ''}`}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onSelect(option);
-          }}
-          onMouseEnter={() => setSelectedIndex(index)}
-          role="option"
-          aria-selected={index === selectedIndex}
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
+      {filteredOptions.map((option, index) => {
+        // 디버깅을 위해 콘솔에 출력
+        console.log(`렌더링 옵션 [${index}]: ${option.type}, ${option.prefix}`);
+        
+        return (
+          <div 
+            key={`${option.type}-${index}`}
+            className={`card-navigator-suggestion-item ${index === selectedIndex ? 'is-selected' : ''}`}
+            onClick={(e) => {
+              // 이벤트 버블링 방지
               e.preventDefault();
+              e.stopPropagation();
+              
+              // 선택된 인덱스 업데이트
+              setSelectedIndex(index);
+              
+              // 선택한 옵션을 직접 전달
+              console.log(`마우스 클릭으로 선택된 옵션: [${index}] ${option.type}, ${option.prefix}`);
               onSelect(option);
-            }
-          }}
-        >
-          <div className="card-navigator-suggestion-title">
-            <span className="card-navigator-suggestion-icon">
-              {getSearchOptionIcon(option.type)}
-            </span>
-            <span className="card-navigator-suggestion-prefix">{option.prefix}</span>
-            {option.label}
-            <span className="card-navigator-suggestion-shortcut">{getShortcut(index)}</span>
+              
+              // 입력 필드에 포커스 유지
+              if (inputRef.current) {
+                setTimeout(() => {
+                  inputRef.current?.focus();
+                }, 10);
+              }
+            }}
+            onMouseEnter={() => setSelectedIndex(index)}
+            role="option"
+            aria-selected={index === selectedIndex}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                console.log('키보드 Enter/Space로 선택된 옵션:', option.type, option.prefix);
+                onSelect(option);
+              }
+            }}
+            data-type={option.type}
+            data-prefix={option.prefix}
+            data-index={index}
+          >
+            <div className="card-navigator-suggestion-title">
+              <span className="card-navigator-suggestion-icon">
+                {getSearchOptionIcon(option.type)}
+              </span>
+              <span className="card-navigator-suggestion-prefix">{option.prefix}</span>
+              {option.label}
+              <span className="card-navigator-suggestion-shortcut">{getShortcut(index)}</span>
+            </div>
+            <div className="card-navigator-suggestion-description">
+              {option.description}
+            </div>
           </div>
-          <div className="card-navigator-suggestion-description">
-            {option.description}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

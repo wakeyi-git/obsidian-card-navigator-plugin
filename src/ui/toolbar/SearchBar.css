@@ -283,11 +283,13 @@
   background-color: var(--background-secondary);
 }
 
-/* 검색 결과 강조 스타일 */
+/* 강조 표시 스타일 */
 .card-navigator-highlight {
-  background-color: rgba(var(--interactive-accent-rgb), 0.3);
-  border-radius: 2px;
+  background-color: var(--text-highlight-bg);
+  color: var(--text-highlight-fg);
+  border-radius: 3px;
   padding: 0 2px;
+  font-weight: bold;
 }
 
 /* 검색 기록 스타일 */
@@ -399,6 +401,9 @@
 .card-navigator-suggestion-item.is-selected {
   background-color: var(--background-modifier-active);
   border-left-color: var(--interactive-accent);
+  box-shadow: 0 0 0 1px var(--background-modifier-border-hover);
+  position: relative;
+  z-index: 1;
 }
 
 .card-navigator-suggestion-item:focus {
@@ -422,6 +427,22 @@
   width: 24px;
   height: 24px;
   color: var(--text-muted);
+}
+
+/* 검색 제안 접두사 스타일 */
+.card-navigator-suggestion-prefix {
+  font-family: var(--font-monospace);
+  font-weight: bold;
+  color: var(--interactive-accent);
+  background-color: var(--background-secondary);
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+}
+
+.card-navigator-suggestion-item.is-selected .card-navigator-suggestion-prefix {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
 }
 
 /* 검색 제안 설명 스타일 */
@@ -528,13 +549,6 @@
 .card-navigator-frontmatter-key-item:hover,
 .card-navigator-frontmatter-key-item.is-selected {
   background-color: var(--background-secondary);
-}
-
-/* 검색 강조 스타일 */
-.card-navigator-highlight {
-  background-color: rgba(var(--interactive-accent-rgb), 0.3);
-  border-radius: 2px;
-  padding: 0 2px;
 }
 
 /* 검색 모드 표시기 */
