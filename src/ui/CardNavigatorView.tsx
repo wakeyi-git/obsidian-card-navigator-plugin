@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ItemView, WorkspaceLeaf, App, TFile, TAbstractFile } from 'obsidian';
 import Toolbar from './toolbar/Toolbar';
@@ -47,6 +47,11 @@ useEffect(() => {
   setRenderCount(prev => prev + 1);
   console.log(`[성능] CardNavigatorComponent 렌더링 횟수: ${renderCount + 1}`);
   
+  // 렌더링 횟수가 비정상적으로 많으면 경고
+  if (renderCount > 100) {
+    console.warn('[CardNavigatorComponent] 렌더링 횟수가 100회를 초과했습니다. 무한 루프가 발생했을 수 있습니다.');
+  }
+  
   return () => {
     // 클린업 함수에서 동일한 ID로 타이머 종료
     try {
@@ -55,7 +60,7 @@ useEffect(() => {
       // 타이머가 없는 경우 오류 무시
     }
   };
-}, [cards, isLoading, error, currentMode, layout, isCardSetFixed, includeSubfolders]);
+}, []); // 의존성 배열을 비워서 마운트 시에만 실행
 
   useEffect(() => {
     // 전역 스타일 추가
@@ -134,7 +139,21 @@ useEffect(() => {
           setCardLoadCount(prev => prev + 1);
           console.log(`[성능] 카드 로드 횟수: ${cardLoadCount + 1}, 카드 수: ${initialCards.length}`);
           
-          setCards(mapDomainCardsToProps(initialCards));
+          setCards(initialCards.map(card => {
+            const cardProps: ICardProps = {
+              id: card.id,
+              title: card.title,
+              content: card.content || '',
+              tags: card.tags || [],
+              path: card.path,
+              created: card.created,
+              modified: card.modified,
+              searchQuery: searchQuery,
+              cardNavigatorService: service || undefined,
+              isActive: false
+            };
+            return cardProps;
+          }));
         } catch (loadError) {
           console.error(`[CardNavigatorView] 초기 카드 로드 오류:`, loadError);
           // 오류가 발생해도 계속 진행 (빈 카드 목록으로)
@@ -179,51 +198,98 @@ useEffect(() => {
     };
   }, [app]); // app이 변경될 때만 실행
 
-  // 활성 파일 변경 이벤트 리스너 등록
-  useEffect(() => {
-    if (!service) return;
+  // 도메인 카드를 UI 카드 속성으로 변환하는 함수 (의존성 없음)
+  const mapCardToProps = (card: ICard): ICardProps => {
+    return {
+      id: card.id,
+      title: card.title,
+      content: card.content || '',
+      tags: card.tags || [],
+      path: card.path,
+      created: card.created,
+      modified: card.modified,
+      searchQuery: searchQuery,
+      cardNavigatorService: service || undefined,
+      isActive: false
+    };
+  };
+
+  // UI 카드 속성을 도메인 카드로 변환하는 함수
+  const mapPropsToCard = (cardProps: ICardProps): ICard => {
+    return {
+      id: cardProps.id,
+      title: cardProps.title,
+      content: cardProps.content || '',
+      tags: cardProps.tags || [],
+      path: cardProps.path || '',
+      created: cardProps.created || Date.now(),
+      modified: cardProps.modified || Date.now(),
+      frontmatter: {}
+    };
+  };
+
+  // UI 카드 속성 배열을 도메인 카드 배열로 변환하는 함수
+  const mapPropsArrayToCardArray = (cardProps: ICardProps[]): ICard[] => {
+    return cardProps.map(mapPropsToCard);
+  };
+
+  // 활성 파일 변경 처리 함수
+  const handleActiveFileChange = useCallback(async (file: TFile | null) => {
+    if (!file || !service) return;
     
-    // 마지막으로 처리한 파일 경로를 저장하는 변수
-    let lastProcessedFilePath: string | null = null;
+    // 카드 세트가 고정되어 있으면 활성 파일 변경에 반응하지 않음
+    if (isCardSetFixed) {
+      console.log(`[CardNavigatorView] 카드 세트가 고정되어 있어 활성 파일 변경에 반응하지 않습니다.`);
+      return;
+    }
     
-    // 활성 파일 변경 이벤트 리스너
-    const handleActiveFileChange = async (file: TFile | null) => {
-      if (!file) return;
+    // 현재 모드 확인
+    const modeService = service.getModeService();
+    const currentMode = modeService.getCurrentModeType();
+    
+    // 폴더 모드에서 같은 폴더 내 이동인지 확인
+    if (currentMode === 'folder') {
+      const filePath = file.path;
+      const lastSlashIndex = filePath.lastIndexOf('/');
+      const folderPath = lastSlashIndex > 0 ? filePath.substring(0, lastSlashIndex) : '/';
       
-      // 이미 처리한 파일이면 중복 처리 방지
-      if (lastProcessedFilePath === file.path) {
-        console.log(`[CardNavigatorView] 이미 처리한 파일입니다: ${file.path}`);
+      // 현재 카드 세트(폴더)와 동일한 경우 업데이트 불필요
+      if (modeService.getCurrentCardSet() === folderPath) {
+        console.log(`[CardNavigatorView] 같은 폴더 내 이동이므로 카드 세트 업데이트를 건너뜁니다.`);
         return;
       }
+    }
+    
+    // 활성 파일 변경 처리
+    try {
+      // 서비스의 ModeService를 통해 활성 파일 변경 처리
+      const cardSetChanged = await modeService.handleActiveFileChange(file);
       
-      // 현재 처리 중인 파일 경로 저장
-      lastProcessedFilePath = file.path;
-      
-      const modeService = service.getModeService();
-      
-      // 카드 세트가 고정되지 않은 경우에만 활성 파일 변경 처리
-      if (!modeService.isCardSetFixed()) {
-        console.log(`[CardNavigatorView] 활성 파일 변경 감지: ${file.path}`);
-        
-        // ModeService의 handleActiveFileChange 호출
-        modeService.handleActiveFileChange(file);
-        
-        // 카드 목록 갱신
-        const updatedCards = await service.getCards();
-        setCardLoadCount(prev => prev + 1);
-        console.log(`[CardNavigatorView] 활성 파일 변경 후 카드 로드 횟수: ${cardLoadCount + 1}, 카드 수: ${updatedCards.length}`);
-        
-        setCards(mapDomainCardsToProps(updatedCards));
-        
-        // 상태 정보 콘솔에 출력
-        logCardNavigatorStatus(service);
+      // 카드 세트가 변경된 경우에만 카드 목록 다시 로드
+      if (cardSetChanged) {
+        console.log(`[CardNavigatorView] 카드 세트가 변경되어 카드 목록을 다시 로드합니다.`);
+        const cards = await service.getCards();
+        setCards(cards.map(mapCardToProps));
+      } else {
+        console.log(`[CardNavigatorView] 카드 세트가 변경되지 않아 카드 목록 로드를 건너뜁니다.`);
       }
-    };
+    } catch (error) {
+      console.error(`[CardNavigatorView] 활성 파일 변경 처리 중 오류 발생:`, error);
+    }
+  }, [service, isCardSetFixed, searchQuery]); // searchQuery 의존성 추가
+
+  // 파일 열기 이벤트 리스너 등록
+  useEffect(() => {
+    if (!service || !app.workspace) return;
     
-    // 이벤트 리스너 등록
-    const eventRef = app.workspace.on('file-open', handleActiveFileChange);
+    // 파일 열기 이벤트 리스너 등록 (활성 리프 변경 대신)
+    const removeListener = app.workspace.on('file-open', async (file: TFile | null) => {
+      if (isCardSetFixed || !file) return; // 카드 세트가 고정된 경우 또는 파일이 없는 경우 무시
+      
+      await handleActiveFileChange(file);
+    });
     
-    // 현재 활성 파일이 있으면 처리
+    // 현재 활성 파일 처리
     const activeFile = app.workspace.getActiveFile();
     if (activeFile) {
       handleActiveFileChange(activeFile);
@@ -231,9 +297,9 @@ useEffect(() => {
     
     // 컴포넌트 언마운트 시 이벤트 리스너 제거
     return () => {
-      app.workspace.offref(eventRef);
+      app.workspace.offref(removeListener);
     };
-  }, [service, app]); // cardLoadCount 의존성 제거
+  }, [service, isCardSetFixed, app.workspace, handleActiveFileChange]);
   
   // 카드 세트 고정 상태 변경 시 활성 파일 처리
   useEffect(() => {
@@ -248,11 +314,11 @@ useEffect(() => {
         
         // 카드 목록 갱신
         service.getCards().then(updatedCards => {
-          setCards(mapDomainCardsToProps(updatedCards));
+          setCards(updatedCards.map(mapCardToProps));
         });
       }
     }
-  }, [isCardSetFixed, service, app]);
+  }, [isCardSetFixed, service, app.workspace, searchQuery]); // 의존성 배열 최적화
 
   // 카드 네비게이터 상태 정보를 콘솔에 출력하는 함수
   const logCardNavigatorStatus = (service: ICardNavigatorService) => {
@@ -270,56 +336,23 @@ useEffect(() => {
     console.log('===================================');
   };
 
-  // 도메인 카드 객체를 UI 컴포넌트 속성으로 변환
-  const mapDomainCardsToProps = (domainCards: ICard[]): ICardProps[] => {
-    return domainCards.map((card) => ({
-      id: card.id,
-      title: card.title,
-      content: card.content,
-      tags: card.tags,
-      path: card.path,
-      created: card.created,
-      modified: card.modified,
-    }));
-  };
-
   // 모드 변경 처리
   const handleModeChange = async (mode: ModeType) => {
     if (!service) return;
     
-    setIsLoading(true);
-    
     try {
-      console.time('[성능] 모드 변경 실행 시간');
-      
       // 모드 변경
-      await service.changeMode(mode);
+      await service.getModeService().changeMode(mode);
       setCurrentMode(mode);
-      
-      // 검색 모드가 아닌 경우 검색 쿼리 초기화
-      if (mode !== 'search') {
-        setSearchQuery('');
-      } else if (mode === 'search') {
-        // 검색 모드인 경우 현재 쿼리 가져오기
-        const modeService = service.getModeService();
-        const searchMode = modeService.getCurrentMode() as any;
-        if (searchMode && searchMode.query) {
-          setSearchQuery(searchMode.query);
-        }
-      }
       
       // 카드 목록 가져오기
       const filteredCards = await service.getCards();
-      setCards(mapDomainCardsToProps(filteredCards));
+      setCards(filteredCards.map(mapCardToProps));
       
       // 상태 정보 콘솔에 출력
       logCardNavigatorStatus(service);
-      console.timeEnd('[성능] 모드 변경 실행 시간');
     } catch (error) {
       console.error('모드 변경 중 오류 발생:', error);
-      setError('모드 변경 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -327,34 +360,24 @@ useEffect(() => {
   const handleCardSetSelect = async (cardSet: string, isFixed: boolean) => {
     if (!service) return;
     
-    setIsLoading(true);
-    setIsCardSetFixed(isFixed);
-    
     try {
-      console.time('[성능] 카드 세트 선택 실행 시간');
-      
-      // 모드 서비스에서 카드 세트 선택 (이미 내부적으로 refreshCards를 호출함)
-      await service.selectCardSet(cardSet);
-      
-      // 모드 서비스 상태 업데이트 (isFixed 설정)
-      const modeService = service.getModeService();
-      modeService.selectCardSet(cardSet, isFixed);
+      // 카드 세트 선택
+      await service.getModeService().selectCardSet(cardSet, isFixed);
+      setIsCardSetFixed(isFixed);
       
       // 카드 목록 가져오기
       const filteredCards = await service.getCards();
+      
+      // 카드 로드 횟수 증가
       setCardLoadCount(prev => prev + 1);
       console.log(`[성능] 카드 세트 선택 후 카드 로드 횟수: ${cardLoadCount + 1}, 카드 수: ${filteredCards.length}`);
       
-      setCards(mapDomainCardsToProps(filteredCards));
+      setCards(filteredCards.map(mapCardToProps));
       
       // 상태 정보 콘솔에 출력
       logCardNavigatorStatus(service);
-      console.timeEnd('[성능] 카드 세트 선택 실행 시간');
     } catch (error) {
       console.error('카드 세트 선택 중 오류 발생:', error);
-      setError('카드 세트 선택 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -362,20 +385,15 @@ useEffect(() => {
   const handleIncludeSubfoldersChange = async (include: boolean) => {
     if (!service) return;
     
-    setIncludeSubfolders(include);
-    setIsLoading(true);
-    
     try {
-      const modeService = service.getModeService();
-      modeService.setIncludeSubfolders(include);
+      // 하위 폴더 포함 여부 변경
+      await service.getModeService().setIncludeSubfolders(include);
+      setIncludeSubfolders(include);
       
       const filteredCards = await service.getCards();
-      setCards(mapDomainCardsToProps(filteredCards));
+      setCards(filteredCards.map(mapCardToProps));
     } catch (error) {
       console.error('하위 폴더 포함 여부 변경 중 오류 발생:', error);
-      setError('하위 폴더 포함 여부 변경 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -383,142 +401,173 @@ useEffect(() => {
   const handleSortChange = async (sortType: SortType, sortDirection: SortDirection) => {
     if (!service) return;
     
-    setIsLoading(true);
-    
     try {
-      const sortService = service.getSortService();
-      sortService.setSortType(sortType, sortDirection);
+      // 정렬 변경
+      await service.getSortService().setSortType(sortType, sortDirection);
       
       const sortedCards = await service.getCards();
-      setCards(mapDomainCardsToProps(sortedCards));
+      setCards(sortedCards.map(mapCardToProps));
     } catch (error) {
       console.error('정렬 변경 중 오류 발생:', error);
-      setError('정렬 변경 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
   // 레이아웃 변경 처리
   const handleLayoutChange = async (layoutType: 'grid' | 'masonry') => {
-    if (!service) return;
-    
     setLayout(layoutType);
-    
-    try {
-      const layoutService = service.getLayoutService();
-      layoutService.changeLayoutType(layoutType);
-    } catch (error) {
-      console.error('레이아웃 변경 중 오류 발생:', error);
-      setError('레이아웃 변경 중 오류가 발생했습니다.');
-    }
   };
 
   // 프리셋 적용 처리
   const handlePresetApply = async (presetId: string) => {
     if (!service) return;
     
-    setIsLoading(true);
-    
     try {
-      const presetService = service.getPresetService();
-      await presetService.applyPreset(presetId);
-      
-      // 모드 설정 업데이트
-      const modeService = service.getModeService();
-      setCurrentMode(modeService.getCurrentModeType());
-      setIsCardSetFixed(modeService.isCardSetFixed());
-      setIncludeSubfolders(modeService.getIncludeSubfolders());
-      
-      // 레이아웃 설정 업데이트
-      const layoutService = service.getLayoutService();
-      const currentLayout = layoutService.getCurrentLayout();
-      if (currentLayout) {
-        setLayout(currentLayout.type);
-      }
+      // 프리셋 적용
+      await service.getPresetService().applyPreset(presetId);
       
       const filteredCards = await service.getCards();
-      setCards(mapDomainCardsToProps(filteredCards));
+      setCards(filteredCards.map(mapCardToProps));
     } catch (error) {
       console.error('프리셋 적용 중 오류 발생:', error);
-      setError('프리셋 적용 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
   // 검색 모드 토글
   const toggleSearchMode = () => {
-    setIsSearchMode(!isSearchMode);
-  };
-
-  // 검색 실행
-  const handleSearch = (query: string, type: string) => {
-    setSearchQuery(query);
-    setSearchType(type as SearchType);
-
-    if (query) {
-      // 검색 모드로 전환하고 검색 실행
+    try {
       if (service) {
-        const searchCards = async () => {
-          setIsLoading(true);
-          setError(null);
-          
-          try {
-            const allCards = await service.getCards();
-            const filteredCards = allCards.filter(card => {
-              if (type === 'content') {
-                return card.content.toLowerCase().includes(query.toLowerCase());
-              } else if (type === 'tag') {
-                return card.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()));
-              } else if (type === 'path') {
-                return card.path.toLowerCase().includes(query.toLowerCase());
-              }
-              return false;
-            });
-            
-            setCards(mapDomainCardsToProps(filteredCards));
-            setIsLoading(false);
-          } catch (error) {
-            console.error('카드 검색 중 오류 발생:', error);
-            setError('카드를 검색하는 중 오류가 발생했습니다.');
-            setIsLoading(false);
-          }
-        };
+        const newSearchMode = !isSearchMode;
+        console.log(`[CardNavigatorView] 검색 모드 전환: ${isSearchMode} -> ${newSearchMode}`);
         
-        searchCards();
+        // 검색 모드로 전환될 때 현재 카드셋 저장
+        if (newSearchMode && !isSearchMode) {
+          // 현재 카드셋 저장 (검색 범위가 'current'인 경우 사용)
+          service.getSearchService().setPreSearchCards(mapPropsArrayToCardArray(cards));
+        }
+        
+        setIsSearchMode(newSearchMode);
+        
+        // 검색 모드가 아닐 때는 검색어 초기화
+        if (!newSearchMode) {
+          setSearchQuery('');
+          service.getSearchService().clearSearch();
+        }
+        
+        // 검색 입력 필드에 포커스
+        setTimeout(() => {
+          const searchInput = document.querySelector('.card-navigator-search-input') as HTMLInputElement;
+          if (searchInput) {
+            searchInput.focus();
+          }
+        }, 100);
       }
-    } else {
-      loadCards();
+    } catch (error) {
+      console.error('[CardNavigatorView] 검색 모드 전환 중 오류 발생:', error);
     }
   };
 
-  // 검색 카드 로드
+  // 검색 핸들러
+  const handleSearch = (query: string, type: string = 'filename') => {
+    if (!service) return;
+    
+    // 검색어 상태 업데이트
+    setSearchQuery(query);
+    setSearchType(type as SearchType);
+    
+    // 검색어가 비어있으면 검색 모드 종료
+    if (!query.trim()) {
+      if (isSearchMode) {
+        toggleSearchMode();
+      }
+      return;
+    }
+    
+    // 검색 모드가 아니면 검색 모드로 전환
+    if (!isSearchMode) {
+      // 검색 모드로 전환 전 현재 카드셋 저장
+      service.getSearchService().setPreSearchCards(mapPropsArrayToCardArray(cards));
+      toggleSearchMode();
+    }
+    
+    // 검색 실행
+    searchCards(query, type);
+  };
+
+  // 검색 실행
   const searchCards = async (query: string, type: string) => {
     if (!service) return;
     
     setIsLoading(true);
     setError(null);
-
+    
     try {
-      // 서비스를 통해 모든 카드를 가져온 후 필터링
-      const allCards = await service.getCards();
-      const filteredCards = allCards.filter(card => {
-        if (type === 'content') {
-          return card.content.toLowerCase().includes(query.toLowerCase());
-        } else if (type === 'tag') {
-          return card.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()));
-        } else if (type === 'path') {
-          return card.path.toLowerCase().includes(query.toLowerCase());
-        }
-        return false;
-      });
+      console.log(`[CardNavigatorView] 검색 시작: 쿼리="${query}", 타입=${type}`);
       
-      setCards(mapDomainCardsToProps(filteredCards));
+      // 검색 서비스 가져오기
+      const searchService = service.getSearchService();
+      
+      // 검색 쿼리 설정
+      searchService.setSearchQuery(query);
+      
+      // 검색 타입 설정
+      switch (type) {
+        case 'content':
+          searchService.changeSearchType('content');
+          break;
+        case 'tag':
+          searchService.changeSearchType('tag');
+          break;
+        case 'folder':
+          searchService.changeSearchType('folder');
+          break;
+        case 'path':
+          searchService.changeSearchType('path');
+          break;
+        case 'filename':
+          searchService.changeSearchType('filename');
+          break;
+        case 'create':
+          searchService.changeSearchType('create');
+          break;
+        case 'modify':
+          searchService.changeSearchType('modify');
+          break;
+        case 'complex':
+          // 복합 검색은 별도 처리
+          break;
+        default:
+          // frontmatter 검색인 경우
+          if (type.startsWith('frontmatter:')) {
+            const frontmatterKey = type.substring(12);
+            searchService.changeSearchType('frontmatter', frontmatterKey);
+          } else {
+            // 기본값은 파일명 검색
+            searchService.changeSearchType('filename');
+          }
+          break;
+      }
+      
+      // 모든 카드 가져오기
+      const allCards = await service.getCards();
+      
+      console.log(`[CardNavigatorView] 전체 카드: ${allCards.length}개`);
+      
+      // 검색 적용 (비동기 메서드 처리)
+      let filteredCards: ICard[];
+      if (type === 'complex') {
+        filteredCards = await searchService.applyComplexSearch(query, allCards);
+      } else {
+        filteredCards = await searchService.applySearch(allCards);
+      }
+      
+      console.log(`[CardNavigatorView] 검색 결과: ${filteredCards.length}개의 카드 찾음`);
+      
+      // 결과 설정
+      setCards(filteredCards.map(mapCardToProps));
       setIsLoading(false);
     } catch (error) {
-      console.error('카드 검색 중 오류 발생:', error);
-      setError('카드를 검색하는 중 오류가 발생했습니다.');
+      console.error('[CardNavigatorView] 카드 검색 중 오류 발생:', error);
+      setError('검색 중 오류가 발생했습니다.');
       setIsLoading(false);
     }
   };
@@ -527,15 +576,25 @@ useEffect(() => {
   const loadCards = async () => {
     if (!service) return;
     
+    // 이미 로딩 중이면 중복 로드 방지
+    if (isLoading) {
+      console.log('[CardNavigatorView] 이미 로딩 중입니다. 중복 로드 방지');
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
 
     try {
+      console.log('[CardNavigatorView] 카드 로드 시작');
       const cards = await service.getCards();
-      setCards(mapDomainCardsToProps(cards));
+      console.log(`[CardNavigatorView] 카드 로드 완료: ${cards.length}개의 카드`);
+      
+      // 카드 매핑
+      setCards(cards.map(mapCardToProps));
       setIsLoading(false);
     } catch (error) {
-      console.error('카드 로드 중 오류 발생:', error);
+      console.error('[CardNavigatorView] 카드 로드 중 오류 발생:', error);
       setError('카드를 로드하는 중 오류가 발생했습니다.');
       setIsLoading(false);
     }
@@ -588,9 +647,13 @@ useEffect(() => {
         onModeToggle={handleModeToggle}
       />
       
-      {isSearchMode && (
-        <SearchBar onSearch={handleSearch} />
-      )}
+      <div className={`card-navigator-search-wrapper ${isSearchMode ? 'visible' : 'hidden'}`}>
+        <SearchBar 
+          cardNavigatorService={service} 
+          onSearch={handleSearch}
+          currentCards={cards}
+        />
+      </div>
       
       {isLoading ? (
         <div className="card-navigator-loading">카드를 불러오는 중...</div>
@@ -644,33 +707,115 @@ export class CardNavigatorView extends ItemView {
   }
 
   async onOpen() {
-    const container = this.containerEl.children[1];
-    container.empty();
-    container.addClass('card-navigator-view');
-    container.addClass('card-navigator-visible');
-
-    const rootEl = createDiv({ cls: 'card-navigator-root card-navigator-visible' });
-    rootEl.style.opacity = '1';
-    rootEl.style.visibility = 'visible';
-    container.appendChild(rootEl);
-
     try {
-      const root = createRoot(rootEl);
-      root.render(<CardNavigatorComponent app={this.app} />);
+      console.log('[CardNavigatorView] onOpen 시작');
       
-      // 렌더링 후 추가 스타일 적용
-      setTimeout(() => {
-        const toolbarElements = container.querySelectorAll('.card-navigator-toolbar, .card-navigator-toolbar-left, .card-navigator-toolbar-center, .card-navigator-toolbar-right');
-        toolbarElements.forEach(el => {
-          (el as HTMLElement).style.opacity = '1';
-          (el as HTMLElement).style.visibility = 'visible';
-        });
-      }, 100);
+      // 컨테이너 요소 준비
+      const container = this.containerEl.children[1];
+      container.empty();
+      container.addClass('card-navigator-view');
+      container.addClass('card-navigator-visible');
+      
+      // 루트 요소 생성
+      const rootEl = createDiv({ cls: 'card-navigator-root card-navigator-visible' });
+      rootEl.style.opacity = '1';
+      rootEl.style.visibility = 'visible';
+      container.appendChild(rootEl);
+      
+      console.log('[CardNavigatorView] 루트 요소 생성 완료');
+      
+      // React 루트 생성 및 컴포넌트 렌더링
+      try {
+        const root = createRoot(rootEl);
+        
+        // 렌더링 전 상태 확인
+        console.log('[CardNavigatorView] React 루트 생성 완료, 렌더링 시작');
+        
+        // 컴포넌트 렌더링
+        root.render(
+          <React.StrictMode>
+            <CardNavigatorComponent app={this.app} />
+          </React.StrictMode>
+        );
+        
+        console.log('[CardNavigatorView] 컴포넌트 렌더링 완료');
+        
+        // 렌더링 후 DOM 요소 확인
+        setTimeout(() => {
+          const cardNavigatorElements = container.querySelectorAll('.card-navigator-container');
+          console.log(`[CardNavigatorView] 카드 네비게이터 요소 수: ${cardNavigatorElements.length}`);
+          
+          if (cardNavigatorElements.length === 0) {
+            console.warn('[CardNavigatorView] 카드 네비게이터 요소가 없습니다. DOM 재구성 시도');
+            this.reRenderComponent(rootEl);
+          } else {
+            console.log('[CardNavigatorView] 카드 네비게이터 요소 확인 완료');
+          }
+          
+          // 추가 스타일 적용
+          const toolbarElements = container.querySelectorAll('.card-navigator-toolbar, .card-navigator-toolbar-left, .card-navigator-toolbar-center, .card-navigator-toolbar-right');
+          toolbarElements.forEach(el => {
+            (el as HTMLElement).style.opacity = '1';
+            (el as HTMLElement).style.visibility = 'visible';
+          });
+        }, 300);
+      } catch (renderError) {
+        console.error('[CardNavigatorView] React 렌더링 오류:', renderError);
+        this.handleRenderError(container, renderError);
+      }
     } catch (error) {
-      console.error('카드 네비게이터 렌더링 오류:', error);
+      console.error('[CardNavigatorView] onOpen 오류:', error);
+      this.handleRenderError(this.containerEl.children[1], error);
+    }
+  }
+  
+  /**
+   * 컴포넌트 재렌더링 시도
+   */
+  private reRenderComponent(rootEl: HTMLElement) {
+    try {
+      console.log('[CardNavigatorView] 컴포넌트 재렌더링 시도');
+      
+      // 기존 내용 제거
+      rootEl.empty();
+      
+      // 새로운 React 루트 생성 및 컴포넌트 렌더링
+      const newRoot = createRoot(rootEl);
+      newRoot.render(<CardNavigatorComponent app={this.app} />);
+      
+      console.log('[CardNavigatorView] 컴포넌트 재렌더링 완료');
+    } catch (error) {
+      console.error('[CardNavigatorView] 컴포넌트 재렌더링 오류:', error);
+    }
+  }
+  
+  /**
+   * 렌더링 오류 처리
+   */
+  private handleRenderError(container: Element, error: any) {
+    try {
+      // 오류 메시지 표시
       const errorEl = createDiv({ cls: 'card-navigator-error' });
       errorEl.setText('카드 네비게이터 렌더링 중 오류가 발생했습니다.');
+      
+      // 오류 세부 정보 표시
+      const errorDetailsEl = createDiv({ cls: 'card-navigator-error-details' });
+      errorDetailsEl.setText(error?.message || '알 수 없는 오류');
+      errorEl.appendChild(errorDetailsEl);
+      
+      // 재시도 버튼 추가
+      const retryButton = createEl('button', { cls: 'card-navigator-retry-button' });
+      retryButton.setText('다시 시도');
+      retryButton.addEventListener('click', () => {
+        // 컨테이너 초기화 후 onOpen 다시 호출
+        container.empty();
+        this.onOpen();
+      });
+      errorEl.appendChild(retryButton);
+      
       container.appendChild(errorEl);
+    } catch (handlerError) {
+      console.error('[CardNavigatorView] 오류 처리 중 추가 오류 발생:', handlerError);
     }
   }
 

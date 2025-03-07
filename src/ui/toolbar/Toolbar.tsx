@@ -197,7 +197,20 @@ const Toolbar: React.FC<IToolbarProps> = ({
    * 검색 아이콘 클릭 핸들러
    */
   const handleSearchIconClick = () => {
-    toggleSearchMode();
+    try {
+      // 검색 모드 토글
+      toggleSearchMode();
+      
+      // 검색 모드 상태 변경 후 약간의 지연을 두고 검색 입력 필드에 포커스
+      setTimeout(() => {
+        const searchInput = document.querySelector('.card-navigator-search-input') as HTMLInputElement;
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }, 100);
+    } catch (error) {
+      console.error('[Toolbar] 검색 아이콘 클릭 처리 중 오류 발생:', error);
+    }
   };
 
   return (

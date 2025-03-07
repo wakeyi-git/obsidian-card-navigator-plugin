@@ -10,12 +10,14 @@
 .card-navigator-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-auto-rows: minmax(200px, auto);
   gap: 10px;
   padding: 10px;
   width: 100%;
   overflow-y: auto;
   max-height: calc(100vh - 60px);
   height: 100%;
+  align-items: stretch;
 }
 
 .card-navigator-masonry {
@@ -62,15 +64,34 @@
 @media (max-width: 768px) {
   .card-navigator-grid {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    padding: 10px;
   }
   
   .card-navigator-masonry {
     flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+  }
+  
+  .card-navigator-masonry-column {
+    gap: 10px;
   }
 }
 
 @media (max-width: 480px) {
   .card-navigator-grid {
     grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 10px;
+  }
+  
+  .card-navigator-masonry {
+    gap: 10px;
+    padding: 10px;
+  }
+  
+  .card-navigator-masonry-column {
+    gap: 10px;
   }
 } 

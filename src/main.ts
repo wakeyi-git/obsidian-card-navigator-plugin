@@ -7,6 +7,9 @@ import { CardNavigatorService } from './application/CardNavigatorService';
 import { CardNavigatorSettingTab } from './ui/settings/SettingTab';
 import { ModeType } from './domain/mode/Mode';
 
+// 뷰 타입 상수 정의
+export const VIEW_TYPE_CARD_NAVIGATOR = 'card-navigator-view';
+
 export interface CardNavigatorSettings {
   // 기본 설정
   defaultMode: ModeType;
@@ -111,18 +114,18 @@ export default class CardNavigatorPlugin extends Plugin {
     
     // 설정 로드
     await this.loadSettings();
+
+    // 뷰 등록
+    this.registerView(
+      VIEW_TYPE_CARD_NAVIGATOR,
+      (leaf: WorkspaceLeaf) => new CardNavigatorView(leaf)
+    );
     
     // 서비스 초기화
     this.initializeServices();
     
     // 이벤트 리스너 등록
     this.registerEventListeners();
-    
-    // 뷰 타입 등록
-    this.registerView(
-      'card-navigator-view',
-      (leaf) => new CardNavigatorView(leaf)
-    );
     
     // 리본 아이콘 추가
     this.addRibbonIcon('layout-grid', '카드 네비게이터 열기', () => {
@@ -151,7 +154,9 @@ export default class CardNavigatorPlugin extends Plugin {
     this.addSettingTab(new CardNavigatorSettingTab(this.app, this));
 
     // 플러그인 로드 시 뷰 활성화
-    await this.activateView();
+    setTimeout(() => {
+      this.activateView();
+    }, 300);
     
     console.log('카드 네비게이터 플러그인 로드 완료');
   }
@@ -189,23 +194,51 @@ export default class CardNavigatorPlugin extends Plugin {
    * 카드 네비게이터 뷰 활성화
    */
   async activateView() {
-    const { workspace } = this.app;
-    
-    // 이미 열려있는 뷰 확인
-    const existingLeaves = workspace.getLeavesOfType('card-navigator-view');
-    
-    if (existingLeaves.length > 0) {
-      // 이미 열려있는 뷰가 있으면 활성화
-      workspace.revealLeaf(existingLeaves[0]);
-    } else {
-      // 새 뷰 생성 - 오른쪽 사이드 패널에 생성
-      const leaf = workspace.getRightLeaf(false);
-      if (leaf) {
+    this.app.workspace.detachLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+  
+    // 오른쪽 사이드바에 뷰 추가 시도
+    try {
+      const leaf = this.app.workspace.getRightLeaf(false);
+      
+      // leaf가 null인 경우 새 leaf 생성
+      if (!leaf) {
+        console.log('오른쪽 사이드바 leaf를 찾을 수 없어 새로 생성합니다.');
+        const newLeaf = this.app.workspace.createLeafInParent(
+          this.app.workspace.rightSplit, 0
+        );
+        
+        if (newLeaf) {
+          await newLeaf.setViewState({
+            type: VIEW_TYPE_CARD_NAVIGATOR,
+            active: true,
+          });
+        } else {
+          console.error('새 leaf를 생성할 수 없습니다.');
+          return;
+        }
+      } else {
+        // 기존 leaf가 있는 경우
         await leaf.setViewState({
-          type: 'card-navigator-view',
+          type: VIEW_TYPE_CARD_NAVIGATOR,
           active: true,
         });
-        workspace.revealLeaf(leaf);
+      }
+      
+      // 뷰가 활성화되면 서비스 초기화
+      this.app.workspace.revealLeaf(
+        this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]
+      );
+    } catch (error) {
+      console.error('카드 네비게이터 뷰 활성화 중 오류 발생:', error);
+      
+      // 대체 방법: 새 탭에 뷰 열기
+      try {
+        await this.app.workspace.getLeaf(true).setViewState({
+          type: VIEW_TYPE_CARD_NAVIGATOR,
+          active: true,
+        });
+      } catch (fallbackError) {
+        console.error('대체 방법으로 뷰 활성화 시도 중 오류 발생:', fallbackError);
       }
     }
   }

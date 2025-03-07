@@ -1,19 +1,28 @@
 /* 카드 스타일 */
 .card-navigator-card {
-  background-color: var(--background-secondary);
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   padding: 16px;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 200px;
+  position: relative;
+  overflow: hidden;
 }
 
 .card-navigator-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 활성 카드 스타일 */
+.card-navigator-card-active {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
 }
 
 .card-navigator-card-header {
@@ -40,13 +49,16 @@
   line-clamp: 5;
   -webkit-box-orient: vertical;
   margin-bottom: 12px;
+  word-break: break-word;
+  min-height: 70px;
 }
 
 .card-navigator-card-footer {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
   font-size: 12px;
+  margin-top: auto;
 }
 
 .card-navigator-card-tags {
@@ -63,14 +75,30 @@
   font-size: 11px;
 }
 
-.card-navigator-card-date {
+.card-navigator-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   color: var(--text-faint);
   font-size: 11px;
 }
 
+.card-navigator-card-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  color: var(--text-accent);
+}
+
+.card-navigator-card-created,
+.card-navigator-card-modified {
+  white-space: nowrap;
+}
+
 /* 검색어 하이라이트 스타일 */
 .card-navigator-highlight {
-  background-color: rgba(255, 220, 0, 0.3);
+  background-color: rgba(var(--interactive-accent-rgb), 0.3);
   color: var(--text-normal);
   font-weight: 600;
   border-radius: 2px;
@@ -82,13 +110,19 @@
 }
 
 .theme-dark .card-navigator-highlight {
-  background-color: rgba(255, 220, 0, 0.2);
+  background-color: rgba(var(--interactive-accent-rgb), 0.4);
+}
+
+/* 검색 모드 표시 */
+.card-navigator-search-mode .card-navigator-card {
+  border-left: 3px solid var(--interactive-accent);
 }
 
 /* 반응형 스타일 */
 @media (max-width: 480px) {
   .card-navigator-card {
     padding: 12px;
+    min-height: 180px;
   }
   
   .card-navigator-card-title {
@@ -99,5 +133,15 @@
     font-size: 12px;
     -webkit-line-clamp: 4;
     line-clamp: 4;
+    min-height: 60px;
+  }
+  
+  .card-navigator-card-footer {
+    gap: 4px;
+  }
+  
+  .card-navigator-card-meta {
+    flex-direction: column;
+    gap: 2px;
   }
 } 

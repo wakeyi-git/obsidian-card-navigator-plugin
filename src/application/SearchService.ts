@@ -9,6 +9,9 @@ import { Card } from '../domain/card/Card';
 import { IPresetService } from './PresetService';
 import { ICardService } from './CardService';
 import { IModeService } from './ModeService';
+import { DateSearch } from '../domain/search/DateSearch';
+import { RegexSearch } from '../domain/search/RegexSearch';
+import { PathSearch } from '../domain/search/PathSearch';
 
 /**
  * 검색 서비스 인터페이스
@@ -22,7 +25,7 @@ export interface ISearchService {
   getCurrentSearch(): ISearch | null;
   
   /**
-   * 검색 설정
+   * 검색 설정 
    * @param search 설정할 검색
    */
   setSearch(search: ISearch): void;
@@ -50,7 +53,7 @@ export interface ISearchService {
    * @param cards 카드 목록
    * @returns 검색된 카드 목록
    */
-  applySearch(cards: ICard[]): ICard[];
+  applySearch(cards: ICard[]): Promise<ICard[]>;
   
   /**
    * 검색 초기화
@@ -92,7 +95,7 @@ export interface ISearchService {
    * @param cards 검색할 카드 목록
    * @returns 검색 결과 카드 목록
    */
-  applyComplexSearch(query: string, cards: Card[]): Card[];
+  applyComplexSearch(query: string, cards: ICard[]): Promise<ICard[]>;
 
   /**
    * 프론트매터 키 목록 가져오기
@@ -105,6 +108,55 @@ export interface ISearchService {
    * @returns 폴더 경로 목록
    */
   getFolderPaths(): Promise<string[]>;
+
+  /**
+   * 태그 목록 가져오기
+   * @returns 태그 목록
+   */
+  getTags(): Promise<string[]>;
+
+  /**
+   * 검색 결과에서 검색어 강조 정보 가져오기
+   * @param card 카드
+   * @returns 강조 정보 (검색어, 위치 등)
+   */
+  getHighlightInfo(card: ICard): { text: string, positions: number[] }[];
+
+  /**
+   * 검색 모드 여부 확인
+   * @returns 검색 모드 여부
+   */
+  isSearchMode(): boolean;
+  
+  /**
+   * 검색 범위 설정
+   * @param scopeType 검색 범위 타입 ('all' | 'current')
+   */
+  setSearchScope(scopeType: 'all' | 'current'): void;
+  
+  /**
+   * 현재 검색 범위 가져오기
+   * @returns 검색 범위 타입
+   */
+  getSearchScope(): 'all' | 'current';
+  
+  /**
+   * 검색 모드 전환 전 카드셋 저장
+   * @param cards 저장할 카드셋
+   */
+  setPreSearchCards(cards: ICard[]): void;
+  
+  /**
+   * 검색 모드 전환 전 카드셋 가져오기
+   * @returns 저장된 카드셋
+   */
+  getPreSearchCards(): ICard[];
+
+  /**
+   * 볼트 전체 노트를 카드로 가져오기
+   * @returns 볼트 전체 노트를 변환한 카드 배열
+   */
+  getAllVaultCards(): Promise<ICard[]>;
 }
 
 /**
@@ -118,6 +170,9 @@ export class SearchService implements ISearchService {
   private presetService: IPresetService;
   private cardService: ICardService;
   private modeService: IModeService;
+  private isInSearchMode: boolean = false;
+  private searchScope: 'all' | 'current' = 'all'; // 기본 검색 범위는 전체
+  private preSearchCards: ICard[] = []; // 검색 모드 전환 전 카드셋
   
   constructor(presetService: IPresetService, cardService: ICardService, modeService: IModeService) {
     this.presetService = presetService;
@@ -128,11 +183,17 @@ export class SearchService implements ISearchService {
   initialize(): void {
     // 기본 검색 설정
     this.currentSearch = new FilenameSearch();
+    this.isInSearchMode = false;
+    this.searchScope = 'all';
+    this.preSearchCards = [];
   }
   
   reset(): void {
     this.clearSearch();
     this.searchHistory = [];
+    this.isInSearchMode = false;
+    this.searchScope = 'all';
+    this.preSearchCards = [];
   }
   
   getCurrentSearch(): ISearch | null {
@@ -141,13 +202,16 @@ export class SearchService implements ISearchService {
   
   setSearch(search: ISearch): void {
     this.currentSearch = search;
+    this.isInSearchMode = !!search && !!search.getQuery();
   }
   
   setQuery(query: string): void {
     if (this.currentSearch) {
       this.currentSearch.setQuery(query);
+      this.isInSearchMode = !!query;
     } else {
       this.currentSearch = new FilenameSearch(query);
+      this.isInSearchMode = !!query;
     }
   }
   
@@ -155,6 +219,14 @@ export class SearchService implements ISearchService {
     // 검색어가 비어있으면 검색 초기화
     if (!query) {
       this.clearSearch();
+      return;
+    }
+    
+    // 파이프로 구분된 복합 검색인 경우
+    if (query.includes('|')) {
+      // 복합 검색은 별도의 처리 없이 그대로 유지
+      // 실제 검색은 applyComplexSearch에서 처리
+      this.isInSearchMode = true;
       return;
     }
     
@@ -173,8 +245,23 @@ export class SearchService implements ISearchService {
       this.setQuery(query.substring(4).trim());
     } else if (query.startsWith('path:')) {
       // 경로 검색
-      this.changeSearchType('folder');
+      this.changeSearchType('path');
       this.setQuery(query.substring(5).trim());
+    } else if (query.startsWith('regex:')) {
+      // 정규식 검색
+      const regexPattern = query.substring(6).trim();
+      this.currentSearch = new RegexSearch(regexPattern);
+      this.isInSearchMode = true;
+    } else if (query.startsWith('create:')) {
+      // 생성일 검색
+      const dateQuery = query.substring(7).trim();
+      this.currentSearch = new DateSearch(dateQuery, 'creation');
+      this.isInSearchMode = true;
+    } else if (query.startsWith('modify:')) {
+      // 수정일 검색
+      const dateQuery = query.substring(7).trim();
+      this.currentSearch = new DateSearch(dateQuery, 'modification');
+      this.isInSearchMode = true;
     } else if (query.match(/^\[.+\]:/)) {
       // 프론트매터 검색
       const match = query.match(/^\[(.+)\]:(.*)/);
@@ -204,18 +291,42 @@ export class SearchService implements ISearchService {
     }
   }
   
-  applySearch(cards: ICard[]): ICard[] {
+  /**
+   * 검색 적용
+   * @param cards 카드 목록
+   * @returns 검색된 카드 목록
+   */
+  async applySearch(cards: ICard[]): Promise<ICard[]> {
     if (!this.currentSearch || !this.currentSearch.getQuery()) {
-      return cards;
+      this.isInSearchMode = false;
+      return Promise.resolve(cards);
     }
     
-    return this.currentSearch.search(cards);
+    this.isInSearchMode = true;
+    
+    // 검색 범위에 따라 검색 대상 결정
+    let searchTargetCards: ICard[];
+    
+    if (this.searchScope === 'current' && this.preSearchCards.length > 0) {
+      // 'current' 범위: 저장된 카드셋에서 검색
+      console.log(`[SearchService] 현재 카드셋에서 검색 (${this.preSearchCards.length}개)`);
+      searchTargetCards = this.preSearchCards;
+    } else {
+      // 'all' 범위: 볼트 전체 노트에서 검색
+      console.log('[SearchService] 볼트 전체에서 검색');
+      searchTargetCards = await this.getAllVaultCards();
+      console.log(`[SearchService] 볼트 전체 노트 로드 완료 (${searchTargetCards.length}개)`);
+    }
+    
+    // 검색 실행
+    return this.currentSearch.search(searchTargetCards);
   }
   
   clearSearch(): void {
     if (this.currentSearch) {
       this.currentSearch.setQuery('');
     }
+    this.isInSearchMode = false;
   }
   
   changeSearchType(type: SearchType, frontmatterKey?: string): void {
@@ -235,12 +346,23 @@ export class SearchService implements ISearchService {
       case 'folder':
         this.currentSearch = new FolderSearch(query, caseSensitive);
         break;
+      case 'path':
+        this.currentSearch = new PathSearch(query, caseSensitive);
+        break;
+      case 'create':
+        this.currentSearch = new DateSearch(query, 'creation');
+        break;
+      case 'modify':
+        this.currentSearch = new DateSearch(query, 'modification');
+        break;
       case 'frontmatter':
         this.currentSearch = new FrontmatterSearch(query, frontmatterKey || '', caseSensitive);
         break;
       default:
         this.currentSearch = new FilenameSearch(query, caseSensitive);
     }
+    
+    this.isInSearchMode = !!query;
   }
   
   saveSearchHistory(query: string): void {
@@ -267,11 +389,12 @@ export class SearchService implements ISearchService {
    * @param searchQuery 검색어
    * @returns 분석된 검색 정보
    */
-  private parseSearchQuery(searchQuery: string): { type: SearchType; query: string; frontmatterKey?: string } {
+  private parseSearchQuery(searchQuery: string): { type: SearchType | 'regex' | 'date'; query: string; frontmatterKey?: string; dateType?: 'creation' | 'modification' } {
     // 기본값은 파일명 검색
-    let type: SearchType = 'filename';
+    let type: SearchType | 'regex' | 'date' = 'filename';
     let query = searchQuery.trim();
     let frontmatterKey: string | undefined = undefined;
+    let dateType: 'creation' | 'modification' | undefined = undefined;
     
     // 태그 검색: #tag
     if (query.startsWith('#')) {
@@ -285,10 +408,36 @@ export class SearchService implements ISearchService {
     }
     // 폴더 검색: path:folder 또는 "path:folder"
     else if (query.startsWith('path:')) {
-      type = 'folder';
+      type = 'path';
       query = query.substring(5);
     }
-    // 프론트매터 검색: key:value 또는 "key:value"
+    // 정규식 검색: regex:pattern
+    else if (query.startsWith('regex:')) {
+      type = 'regex';
+      query = query.substring(6);
+    }
+    // 생성일 검색: create:date
+    else if (query.startsWith('create:')) {
+      type = 'date';
+      query = query.substring(7);
+      dateType = 'creation';
+    }
+    // 수정일 검색: modify:date
+    else if (query.startsWith('modify:')) {
+      type = 'date';
+      query = query.substring(7);
+      dateType = 'modification';
+    }
+    // 프론트매터 검색: [key]:value
+    else if (query.match(/^\[.+\]:/)) {
+      const match = query.match(/^\[(.+)\]:(.*)/);
+      if (match) {
+        type = 'frontmatter';
+        frontmatterKey = match[1].trim();
+        query = match[2].trim();
+      }
+    }
+    // 프론트매터 검색: key:value
     else if (query.includes(':')) {
       const parts = query.split(':', 2);
       if (parts.length === 2 && parts[0].trim() !== '') {
@@ -303,7 +452,7 @@ export class SearchService implements ISearchService {
       query = query.substring(1, query.length - 1);
     }
     
-    return { type, query, frontmatterKey };
+    return { type, query, frontmatterKey, dateType };
   }
 
   /**
@@ -312,22 +461,38 @@ export class SearchService implements ISearchService {
    * @param cards 검색할 카드 목록
    * @returns 검색 결과 카드 목록
    */
-  applyComplexSearch(query: string, cards: Card[]): Card[] {
+  async applyComplexSearch(query: string, cards: ICard[]): Promise<ICard[]> {
     if (!query || query.trim() === '') {
+      this.isInSearchMode = false;
       return cards;
     }
 
     // 파이프로 구분된 검색어 처리
     const parts = query.split('|').map(part => part.trim()).filter(part => part);
     if (parts.length === 0) {
+      this.isInSearchMode = false;
       return cards;
     }
 
-    let filteredCards = [...cards];
+    this.isInSearchMode = true;
+
+    // 검색 범위에 따라 검색할 카드셋 결정
+    let filteredCards: ICard[];
+    
+    if (this.searchScope === 'current' && this.preSearchCards.length > 0) {
+      // 'current' 범위: 저장된 카드셋에서 검색
+      console.log(`[SearchService] 복합 검색: 현재 카드셋에서 검색 (${this.preSearchCards.length}개)`);
+      filteredCards = [...this.preSearchCards];
+    } else {
+      // 'all' 범위: 볼트 전체 노트에서 검색
+      console.log('[SearchService] 복합 검색: 볼트 전체에서 검색');
+      filteredCards = await this.getAllVaultCards();
+      console.log(`[SearchService] 볼트 전체 노트 로드 완료 (${filteredCards.length}개)`);
+    }
 
     // 각 검색 파트 적용
     for (const part of parts) {
-      const { type, query: parsedQuery, frontmatterKey } = this.parseSearchQuery(part);
+      const { type, query: parsedQuery, frontmatterKey, dateType } = this.parseSearchQuery(part);
       
       // 임시 검색 객체 생성
       let tempSearch: ISearch;
@@ -347,6 +512,15 @@ export class SearchService implements ISearchService {
         case 'folder':
           tempSearch = new FolderSearch(parsedQuery);
           break;
+        case 'path':
+          tempSearch = new PathSearch(parsedQuery);
+          break;
+        case 'regex':
+          tempSearch = new RegexSearch(parsedQuery);
+          break;
+        case 'date':
+          tempSearch = new DateSearch(parsedQuery, dateType);
+          break;
         default:
           tempSearch = new FilenameSearch(parsedQuery);
       }
@@ -357,7 +531,7 @@ export class SearchService implements ISearchService {
       }
 
       // 검색 적용
-      filteredCards = tempSearch.search(filteredCards) as Card[];
+      filteredCards = tempSearch.search(filteredCards) as ICard[];
     }
 
     return filteredCards;
@@ -390,5 +564,160 @@ export class SearchService implements ISearchService {
   async getFolderPaths(): Promise<string[]> {
     const cardSets = await this.modeService.getCardSets();
     return cardSets.filter(path => path.includes('/'));
+  }
+
+  /**
+   * 태그 목록 가져오기
+   * @returns 태그 목록
+   */
+  async getTags(): Promise<string[]> {
+    // @ts-ignore - Obsidian API 접근
+    const app = window.app;
+    if (!app) {
+      return [];
+    }
+    
+    const tagsSet = new Set<string>();
+    
+    // Obsidian API를 통해 모든 마크다운 파일에서 태그 수집
+    const files = app.vault.getMarkdownFiles();
+    files.forEach((file: any) => {
+      const fileCache = app.metadataCache.getFileCache(file);
+      if (fileCache && fileCache.tags) {
+        fileCache.tags.forEach((tag: any) => {
+          tagsSet.add(tag.tag);
+        });
+      }
+    });
+    
+    return Array.from(tagsSet);
+  }
+
+  /**
+   * 검색 결과에서 검색어 강조 정보 가져오기
+   * @param card 카드
+   * @returns 강조 정보 (검색어, 위치 등)
+   */
+  getHighlightInfo(card: ICard): { text: string, positions: number[] }[] {
+    if (!this.currentSearch || !this.isInSearchMode) {
+      return [];
+    }
+    
+    const query = this.currentSearch.getQuery();
+    if (!query) {
+      return [];
+    }
+    
+    const type = this.currentSearch.getType();
+    const caseSensitive = this.currentSearch.isCaseSensitive();
+    
+    let textToSearch = '';
+    let positions: number[] = [];
+    
+    switch (type) {
+      case 'filename':
+        textToSearch = card.title;
+        break;
+      case 'content':
+        textToSearch = card.content || '';
+        break;
+      case 'tag':
+        textToSearch = card.tags ? card.tags.join(' ') : '';
+        break;
+      case 'folder':
+        textToSearch = card.path;
+        break;
+      case 'frontmatter':
+        if (this.currentSearch instanceof FrontmatterSearch) {
+          const key = (this.currentSearch as FrontmatterSearch).getFrontmatterKey();
+          if (card.frontmatter && card.frontmatter[key]) {
+            textToSearch = String(card.frontmatter[key]);
+          }
+        }
+        break;
+      default:
+        textToSearch = card.content || '';
+    }
+    
+    // 검색어 위치 찾기
+    if (textToSearch) {
+      let searchText = caseSensitive ? query : query.toLowerCase();
+      let targetText = caseSensitive ? textToSearch : textToSearch.toLowerCase();
+      
+      let pos = 0;
+      while ((pos = targetText.indexOf(searchText, pos)) !== -1) {
+        positions.push(pos);
+        pos += searchText.length;
+      }
+    }
+    
+    return [{ text: query, positions }];
+  }
+
+  /**
+   * 검색 모드 여부 확인
+   * @returns 검색 모드 여부
+   */
+  isSearchMode(): boolean {
+    return this.isInSearchMode;
+  }
+  
+  /**
+   * 검색 범위 설정
+   * @param scopeType 검색 범위 타입 ('all' | 'current')
+   */
+  setSearchScope(scopeType: 'all' | 'current'): void {
+    this.searchScope = scopeType;
+  }
+  
+  /**
+   * 현재 검색 범위 가져오기
+   * @returns 검색 범위 타입
+   */
+  getSearchScope(): 'all' | 'current' {
+    return this.searchScope;
+  }
+  
+  /**
+   * 검색 모드 전환 전 카드셋 저장
+   * @param cards 저장할 카드셋
+   */
+  setPreSearchCards(cards: ICard[]): void {
+    this.preSearchCards = cards;
+  }
+  
+  /**
+   * 검색 모드 전환 전 카드셋 가져오기
+   * @returns 저장된 카드셋
+   */
+  getPreSearchCards(): ICard[] {
+    return this.preSearchCards;
+  }
+
+  /**
+   * 볼트 전체 노트를 카드로 가져오기
+   * @returns 볼트 전체 노트를 변환한 카드 배열
+   */
+  async getAllVaultCards(): Promise<ICard[]> {
+    try {
+      // @ts-ignore - Obsidian API 접근
+      const app = window.app;
+      if (!app) {
+        console.error('[SearchService] Obsidian app 객체를 찾을 수 없습니다.');
+        return [];
+      }
+      
+      // 볼트의 모든 마크다운 파일 가져오기
+      const files = app.vault.getMarkdownFiles();
+      console.log(`[SearchService] 볼트 전체 노트 수: ${files.length}개`);
+      
+      // 카드 서비스를 통해 모든 카드 가져오기
+      const allCards = await this.cardService.getAllCards();
+      
+      return allCards;
+    } catch (error) {
+      console.error('[SearchService] 볼트 전체 노트 가져오기 오류:', error);
+      return [];
+    }
   }
 } 

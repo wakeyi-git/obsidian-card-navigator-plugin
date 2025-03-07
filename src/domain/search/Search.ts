@@ -3,7 +3,7 @@ import { ICard } from '../card/Card';
 /**
  * 검색 타입 열거형
  */
-export type SearchType = 'filename' | 'content' | 'tag' | 'frontmatter' | 'folder';
+export type SearchType = 'filename' | 'content' | 'tag' | 'frontmatter' | 'folder' | 'path' | 'create' | 'modify';
 
 /**
  * 검색 인터페이스

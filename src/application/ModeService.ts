@@ -99,8 +99,9 @@ export interface IModeService {
   /**
    * 활성 파일 변경 이벤트 처리
    * @param file 활성 파일
+   * @returns 카드 세트가 변경되었는지 여부
    */
-  handleActiveFileChange(file: TFile | null): void;
+  handleActiveFileChange(file: TFile | null): boolean;
   
   /**
    * 현재 모드에 따라 카드 목록을 가져옵니다.
@@ -423,17 +424,19 @@ export class ModeService implements IModeService {
   /**
    * 활성 파일 변경 이벤트 처리
    * @param file 활성 파일
+   * @returns 카드 세트가 변경되었는지 여부
    */
-  handleActiveFileChange(file: TFile | null): void {
-    if (!file) return;
+  handleActiveFileChange(file: TFile | null): boolean {
+    if (!file) return false;
     
     // 카드 세트가 고정된 경우 변경하지 않음
     if (this.isCardSetFixed()) {
       console.log(`[ModeService] 카드 세트가 고정되어 있어 활성 파일 변경을 무시합니다.`);
-      return;
+      return false;
     }
     
     console.log(`[ModeService] 활성 파일 변경 처리: ${file.path}`);
+    let cardSetChanged = false;
     
     if (this.currentMode.type === 'folder') {
       // 폴더 모드인 경우 활성 파일의 폴더 경로로 설정
@@ -447,6 +450,9 @@ export class ModeService implements IModeService {
       if (this.currentMode.currentCardSet !== folderPath) {
         console.log(`[ModeService] 카드 세트 업데이트: ${this.currentMode.currentCardSet} -> ${folderPath}`);
         this.currentMode.selectCardSet(folderPath);
+        cardSetChanged = true;
+      } else {
+        console.log(`[ModeService] 같은 폴더 내 이동이므로 카드 세트 업데이트를 건너뜁니다.`);
       }
     } else if (this.currentMode.type === 'tag') {
       // 태그 모드인 경우 활성 파일의 태그로 설정
@@ -455,7 +461,7 @@ export class ModeService implements IModeService {
       // 태그 모드가 고정되어 있는 경우 변경하지 않음
       if (tagMode.isTagFixed()) {
         console.log(`[ModeService] 태그 모드가 고정되어 있어 활성 파일 변경을 무시합니다.`);
-        return;
+        return false;
       }
       
       const allTags = tagMode.getAllTagsFromFile(file);
@@ -469,6 +475,9 @@ export class ModeService implements IModeService {
         if (this.currentMode.currentCardSet !== combinedTags) {
           console.log(`[ModeService] 카드 세트 업데이트: ${this.currentMode.currentCardSet} -> ${combinedTags}`);
           this.currentMode.selectCardSet(combinedTags);
+          cardSetChanged = true;
+        } else {
+          console.log(`[ModeService] 같은 태그 세트를 가진 파일로 이동이므로 카드 세트 업데이트를 건너뜁니다.`);
         }
       } else {
         // 태그가 없는 경우 이전에 선택한 태그 유지
@@ -480,11 +489,14 @@ export class ModeService implements IModeService {
             if (tags.length > 0) {
               console.log(`[ModeService] 기본 태그 선택: ${tags[0]}`);
               this.currentMode.selectCardSet(tags[0]);
+              cardSetChanged = true;
             }
           });
         }
       }
     }
+    
+    return cardSetChanged;
   }
   
   /**
