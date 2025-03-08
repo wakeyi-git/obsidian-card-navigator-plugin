@@ -148,7 +148,7 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
       
       .card-navigator-search-bar-container {
         flex: 0 0 auto;
-        padding: 0 8px 8px 8px;
+        padding: 0;
       }
       
       .card-navigator-content {
