@@ -137,10 +137,10 @@ export abstract class Layout implements ILayout {
   
   constructor(
     type: LayoutType,
-    minCardWidth: number = 250,
-    maxCardWidth: number = 350,
-    gap: number = 16,
-    aspectRatio: number = 0.75
+    minCardWidth = 250,
+    maxCardWidth = 350,
+    gap = 16,
+    aspectRatio = 0.75
   ) {
     this.type = type;
     this.minCardWidth = minCardWidth;

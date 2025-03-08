@@ -207,8 +207,8 @@ export class CardSetService implements ICardSetService {
   createFolderCardSet(
     name: string,
     path: string,
-    includeSubfolders: boolean = true,
-    isFixed: boolean = false
+    includeSubfolders = true,
+    isFixed = false
   ): ICardSet {
     const cardSet = this.cardSetFactory.createFolderCardSet(name, path, includeSubfolders, isFixed);
     this.cardSets.set(cardSet.id, cardSet);
@@ -225,7 +225,7 @@ export class CardSetService implements ICardSetService {
   createTagCardSet(
     name: string,
     tag: string,
-    isFixed: boolean = false
+    isFixed = false
   ): ICardSet {
     const cardSet = this.cardSetFactory.createTagCardSet(name, tag, isFixed);
     this.cardSets.set(cardSet.id, cardSet);
@@ -246,9 +246,9 @@ export class CardSetService implements ICardSetService {
     name: string,
     query: string,
     searchType: SearchType = 'content',
-    caseSensitive: boolean = false,
+    caseSensitive = false,
     frontmatterKey?: string,
-    isFixed: boolean = false
+    isFixed = false
   ): ICardSet {
     const cardSet = this.cardSetFactory.createSearchCardSet(
       name,

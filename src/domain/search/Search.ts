@@ -63,7 +63,7 @@ export abstract class Search implements ISearch {
   protected caseSensitive: boolean;
   protected type: SearchType;
   
-  constructor(type: SearchType, query: string = '', caseSensitive: boolean = false) {
+  constructor(type: SearchType, query = '', caseSensitive = false) {
     this.type = type;
     this.query = query;
     this.caseSensitive = caseSensitive;
@@ -105,7 +105,10 @@ export abstract class Search implements ISearch {
    * @returns 매칭 여부
    */
   protected matches(text: string): boolean {
-    if (!this.query) return true;
+    if (!this.query) {
+      // 검색어가 비어있는 경우 모든 항목 매칭 (기존 동작 유지)
+      return true;
+    }
     
     if (this.caseSensitive) {
       return text.includes(this.query);

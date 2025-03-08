@@ -107,7 +107,7 @@ const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({
   const [filteredOptions, setFilteredOptions] = useState<SearchOption[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-  const selectedItemRef = useRef<HTMLDivElement>(null);
+  const _selectedItemRef = useRef<HTMLDivElement>(null);
   
   // 검색어에 따라 옵션 필터링
   useEffect(() => {
@@ -268,62 +268,47 @@ const SearchSuggestions: React.FC<SearchSuggestionsProps> = ({
       <div className="card-navigator-suggestions-header">
         검색 옵션
       </div>
-      {filteredOptions.map((option, index) => {
-        // 디버깅을 위해 콘솔에 출력
-        console.log(`렌더링 옵션 [${index}]: ${option.type}, ${option.prefix}`);
-        
-        return (
-          <div 
-            key={`${option.type}-${index}`}
-            className={`card-navigator-suggestion-item ${index === selectedIndex ? 'is-selected' : ''}`}
-            onClick={(e) => {
-              // 이벤트 버블링 방지
+      {filteredOptions.map((option, index) => (
+        <div 
+          key={`${option.type}-${index}`}
+          className={`card-navigator-suggestion-item ${index === selectedIndex ? 'is-selected' : ''}`}
+          onClick={(e) => {
+            // 이벤트 버블링 방지
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // 선택한 옵션을 직접 전달
+            console.log(`마우스 클릭으로 선택된 옵션: ${option.type}, ${option.prefix}`);
+            onSelect(option);
+          }}
+          onMouseEnter={() => setSelectedIndex(index)}
+          role="option"
+          aria-selected={index === selectedIndex}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              e.stopPropagation();
-              
-              // 선택된 인덱스 업데이트
-              setSelectedIndex(index);
-              
-              // 선택한 옵션을 직접 전달
-              console.log(`마우스 클릭으로 선택된 옵션: [${index}] ${option.type}, ${option.prefix}`);
+              console.log('키보드 Enter/Space로 선택된 옵션:', option.type, option.prefix);
               onSelect(option);
-              
-              // 입력 필드에 포커스 유지
-              if (inputRef.current) {
-                setTimeout(() => {
-                  inputRef.current?.focus();
-                }, 10);
-              }
-            }}
-            onMouseEnter={() => setSelectedIndex(index)}
-            role="option"
-            aria-selected={index === selectedIndex}
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                console.log('키보드 Enter/Space로 선택된 옵션:', option.type, option.prefix);
-                onSelect(option);
-              }
-            }}
-            data-type={option.type}
-            data-prefix={option.prefix}
-            data-index={index}
-          >
-            <div className="card-navigator-suggestion-title">
-              <span className="card-navigator-suggestion-icon">
-                {getSearchOptionIcon(option.type)}
-              </span>
-              <span className="card-navigator-suggestion-prefix">{option.prefix}</span>
-              {option.label}
-              <span className="card-navigator-suggestion-shortcut">{getShortcut(index)}</span>
-            </div>
-            <div className="card-navigator-suggestion-description">
-              {option.description}
-            </div>
+            }
+          }}
+          data-type={option.type}
+          data-prefix={option.prefix}
+          data-index={index}
+        >
+          <div className="card-navigator-suggestion-title">
+            <span className="card-navigator-suggestion-icon">
+              {getSearchOptionIcon(option.type)}
+            </span>
+            <span className="card-navigator-suggestion-prefix">{option.prefix}</span>
+            {option.label}
+            <span className="card-navigator-suggestion-shortcut">{getShortcut(index)}</span>
           </div>
-        );
-      })}
+          <div className="card-navigator-suggestion-description">
+            {option.description}
+          </div>
+        </div>
+      ))}
     </div>
   );
 };

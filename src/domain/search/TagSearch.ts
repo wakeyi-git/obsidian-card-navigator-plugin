@@ -6,7 +6,7 @@ import { Search } from './Search';
  * 카드의 태그를 기준으로 검색하는 클래스입니다.
  */
 export class TagSearch extends Search {
-  constructor(query: string = '', caseSensitive: boolean = false) {
+  constructor(query = '', caseSensitive = false) {
     super('tag', query, caseSensitive);
   }
   

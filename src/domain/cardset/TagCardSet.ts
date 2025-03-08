@@ -14,7 +14,7 @@ export class TagCardSet extends CardSet {
     name: string,
     tag: string,
     cardRepository: ICardRepository,
-    isFixed: boolean = false
+    isFixed = false
   ) {
     super(id, name, 'tag', 'tag', tag, true, isFixed);
     this.cardRepository = cardRepository;

@@ -89,10 +89,10 @@ export class ObsidianAdapter implements IObsidianAdapter {
   private metadataCache: MetadataCache;
   
   // 성능 모니터링을 위한 카운터 추가
-  private fileAccessCount: number = 0;
-  private folderAccessCount: number = 0;
-  private tagAccessCount: number = 0;
-  private metadataAccessCount: number = 0;
+  private fileAccessCount = 0;
+  private folderAccessCount = 0;
+  private tagAccessCount = 0;
+  private metadataAccessCount = 0;
   
   constructor(app: App) {
     this.app = app;

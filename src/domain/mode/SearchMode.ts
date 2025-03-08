@@ -14,9 +14,9 @@ export type SearchType = 'title' | 'content' | 'path' | 'frontmatter' | 'all';
 export class SearchMode extends Mode {
   type: 'search' = 'search';
   private app: App;
-  private query: string = '';
+  private query = '';
   private searchType: SearchType = 'content';
-  private caseSensitive: boolean = false;
+  private caseSensitive = false;
   private frontmatterKey?: string;
   
   constructor(app: App) {

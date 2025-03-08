@@ -6,7 +6,7 @@ import { Search } from './Search';
  * 카드 내용을 기준으로 검색하는 클래스입니다.
  */
 export class ContentSearch extends Search {
-  constructor(query: string = '', caseSensitive: boolean = false) {
+  constructor(query = '', caseSensitive = false) {
     super('content', query, caseSensitive);
   }
   

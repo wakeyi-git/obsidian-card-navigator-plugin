@@ -84,6 +84,7 @@ export interface ICardNavigatorService {
     includeSubfolders: boolean;
     defaultCardSet: string;
     isCardSetFixed: boolean;
+    defaultSearchScope?: 'all' | 'current';
   }>;
   
   /**
@@ -100,6 +101,7 @@ export interface ICardNavigatorService {
     includeSubfolders: boolean;
     defaultCardSet: string;
     isCardSetFixed: boolean;
+    defaultSearchScope?: 'all' | 'current';
   }>): Promise<void>;
   
   /**
@@ -179,9 +181,9 @@ export class CardNavigatorService implements ICardNavigatorService {
   private cardRepository: ICardRepository;
   
   // 성능 모니터링을 위한 카운터 추가
-  private refreshCount: number = 0;
-  private cardLoadCount: number = 0;
-  private renderCount: number = 0;
+  private refreshCount = 0;
+  private cardLoadCount = 0;
+  private renderCount = 0;
   
   // 카드 가져오기 관련 변수
   private _lastGetCardsCall: number | null = null;
@@ -204,7 +206,7 @@ export class CardNavigatorService implements ICardNavigatorService {
     this.sortService = new SortService();
     this.layoutService = new LayoutService();
     this.presetService = new PresetService();
-    this.searchService = new SearchService(this.presetService, this.cardService, this.modeService);
+    this.searchService = new SearchService(this.presetService, this.cardService, this.modeService, this);
     this.filterService = new FilterService();
   }
   
@@ -252,7 +254,7 @@ export class CardNavigatorService implements ICardNavigatorService {
       this.presetService = new PresetService();
       
       // 검색 서비스 초기화
-      this.searchService = new SearchService(this.presetService, this.cardService, this.modeService);
+      this.searchService = new SearchService(this.presetService, this.cardService, this.modeService, this);
       
       // 필터 서비스 초기화
       this.filterService = new FilterService();
@@ -478,6 +480,7 @@ export class CardNavigatorService implements ICardNavigatorService {
     includeSubfolders: boolean;
     defaultCardSet: string;
     isCardSetFixed: boolean;
+    defaultSearchScope?: 'all' | 'current';
   }> {
     // 플러그인 인스턴스에서 설정 가져오기
     const plugin = (this.app as any).plugins.plugins['obsidian-card-navigator-plugin'];
@@ -491,7 +494,8 @@ export class CardNavigatorService implements ICardNavigatorService {
         defaultLayout: plugin.settings.defaultLayout,
         includeSubfolders: plugin.settings.includeSubfolders,
         defaultCardSet: plugin.settings.defaultCardSet || '/',
-        isCardSetFixed: plugin.settings.isCardSetFixed
+        isCardSetFixed: plugin.settings.isCardSetFixed,
+        defaultSearchScope: plugin.settings.defaultSearchScope
       };
     }
     
@@ -535,10 +539,15 @@ export class CardNavigatorService implements ICardNavigatorService {
       defaultLayout,
       includeSubfolders,
       defaultCardSet,
-      isCardSetFixed
+      isCardSetFixed,
+      defaultSearchScope: 'all'
     };
   }
   
+  /**
+   * 설정 업데이트
+   * @param settings 업데이트할 설정
+   */
   async updateSettings(settings: Partial<{
     cardWidth: number;
     cardHeight: number;
@@ -549,6 +558,7 @@ export class CardNavigatorService implements ICardNavigatorService {
     includeSubfolders: boolean;
     defaultCardSet: string;
     isCardSetFixed: boolean;
+    defaultSearchScope?: 'all' | 'current';
   }>): Promise<void> {
     // 레이아웃 서비스 업데이트
     const layoutService = this.getLayoutService();

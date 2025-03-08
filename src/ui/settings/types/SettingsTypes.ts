@@ -34,6 +34,7 @@ export interface ICardNavigatorSettings {
   tagModeSearchOptions?: string[];
   folderModeSearchOptions?: string[];
   frontmatterSearchKey?: string;
+  defaultSearchScope?: 'all' | 'current';
   
   // 정렬 설정
   sortBy?: string;

@@ -6,10 +6,10 @@ import { Layout } from './Layout';
  */
 export class MasonryLayout extends Layout {
   constructor(
-    minCardWidth: number = 250,
-    maxCardWidth: number = 350,
-    gap: number = 16,
-    aspectRatio: number = 0
+    minCardWidth = 250,
+    maxCardWidth = 350,
+    gap = 16,
+    aspectRatio = 0
   ) {
     super('masonry', minCardWidth, maxCardWidth, gap, aspectRatio);
   }

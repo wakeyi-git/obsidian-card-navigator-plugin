@@ -16,7 +16,7 @@ export class DateSearch extends Search {
    * @param dateType 날짜 타입 (creation: 생성일, modification: 수정일)
    * @param caseSensitive 대소문자 구분 여부
    */
-  constructor(query: string = '', dateType: 'creation' | 'modification' = 'creation', caseSensitive: boolean = false) {
+  constructor(query = '', dateType: 'creation' | 'modification' = 'creation', caseSensitive = false) {
     super('filename', query, caseSensitive); // 타입은 임의로 filename 사용 (실제로는 사용되지 않음)
     this.dateType = dateType;
     this.parseDateQuery(query);

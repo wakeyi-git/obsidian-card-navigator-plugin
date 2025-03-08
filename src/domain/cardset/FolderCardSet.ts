@@ -14,8 +14,8 @@ export class FolderCardSet extends CardSet {
     name: string,
     path: string,
     cardRepository: ICardRepository,
-    includeSubfolders: boolean = true,
-    isFixed: boolean = false
+    includeSubfolders = true,
+    isFixed = false
   ) {
     super(id, name, 'folder', 'folder', path, includeSubfolders, isFixed);
     this.cardRepository = cardRepository;

@@ -17,6 +17,7 @@ export interface CardNavigatorSettings {
   includeSubfolders: boolean;
   defaultCardSet: string;
   isCardSetFixed: boolean;
+  defaultSearchScope?: 'all' | 'current';
   
   // 카드 설정
   cardWidth: number;
@@ -73,6 +74,7 @@ const DEFAULT_SETTINGS: CardNavigatorSettings = {
   includeSubfolders: true,
   defaultCardSet: '/',
   isCardSetFixed: false,
+  defaultSearchScope: 'current',
   
   // 새로 추가된 기본값
   cardHeaderContent: 'filename',

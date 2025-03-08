@@ -27,8 +27,8 @@ export class CardSetFactory {
   createFolderCardSet(
     name: string,
     path: string,
-    includeSubfolders: boolean = true,
-    isFixed: boolean = false
+    includeSubfolders = true,
+    isFixed = false
   ): FolderCardSet {
     const id = uuidv4();
     return new FolderCardSet(id, name, path, this.cardRepository, includeSubfolders, isFixed);
@@ -44,7 +44,7 @@ export class CardSetFactory {
   createTagCardSet(
     name: string,
     tag: string,
-    isFixed: boolean = false
+    isFixed = false
   ): TagCardSet {
     const id = uuidv4();
     return new TagCardSet(id, name, tag, this.cardRepository, isFixed);
@@ -64,9 +64,9 @@ export class CardSetFactory {
     name: string,
     query: string,
     searchType: SearchType = 'content',
-    caseSensitive: boolean = false,
+    caseSensitive = false,
     frontmatterKey?: string,
-    isFixed: boolean = false
+    isFixed = false
   ): SearchCardSet {
     const id = uuidv4();
     return new SearchCardSet(

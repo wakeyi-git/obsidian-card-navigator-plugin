@@ -6,7 +6,7 @@ import { Search } from './Search';
  * 파일명을 기준으로 카드를 검색하는 클래스입니다.
  */
 export class FilenameSearch extends Search {
-  constructor(query: string = '', caseSensitive: boolean = false) {
+  constructor(query = '', caseSensitive = false) {
     super('filename', query, caseSensitive);
   }
   

@@ -9,7 +9,8 @@ const SearchSettings: React.FC<ISettingsTabProps> = ({ settings, onChange }) => 
   const { 
     tagModeSearchOptions = ['path', 'date'], 
     folderModeSearchOptions = ['tag', 'date'], 
-    frontmatterSearchKey = '' 
+    frontmatterSearchKey = '',
+    defaultSearchScope = 'current'
   } = settings;
   
   const handleTagModeOptionChange = (option: string, checked: boolean) => {
@@ -28,9 +29,49 @@ const SearchSettings: React.FC<ISettingsTabProps> = ({ settings, onChange }) => 
     }
   };
   
+  const handleSearchScopeChange = (scope: 'all' | 'current') => {
+    onChange('defaultSearchScope', scope);
+  };
+  
   return (
     <div className="card-navigator-setting-group">
       <h3>검색 설정</h3>
+      
+      <div className="card-navigator-setting-section">
+        <h4>기본 검색 범위</h4>
+        
+        <SettingItem 
+          label="검색 모드 전환 시 기본 검색 범위" 
+          description="검색 모드로 전환할 때 기본적으로 적용할 검색 범위를 설정합니다."
+        >
+          <div className="card-navigator-radio-group">
+            <label className="card-navigator-radio">
+              <input
+                type="radio"
+                name="defaultSearchScope"
+                checked={defaultSearchScope === 'current'}
+                onChange={() => handleSearchScopeChange('current')}
+              />
+              <span>현재 카드셋 (current)</span>
+              <div className="card-navigator-radio-description">
+                검색 모드로 전환하기 직전에 표시되던 카드셋 내에서만 검색합니다.
+              </div>
+            </label>
+            <label className="card-navigator-radio">
+              <input
+                type="radio"
+                name="defaultSearchScope"
+                checked={defaultSearchScope === 'all'}
+                onChange={() => handleSearchScopeChange('all')}
+              />
+              <span>볼트 전체 (all)</span>
+              <div className="card-navigator-radio-description">
+                볼트 내의 모든 노트를 대상으로 검색합니다.
+              </div>
+            </label>
+          </div>
+        </SettingItem>
+      </div>
       
       <div className="card-navigator-setting-section">
         <h4>태그 모드 검색 옵션</h4>

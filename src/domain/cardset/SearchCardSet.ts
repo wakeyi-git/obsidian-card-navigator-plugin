@@ -25,9 +25,9 @@ export class SearchCardSet extends CardSet {
     query: string,
     cardRepository: ICardRepository,
     searchType: SearchType = 'content',
-    caseSensitive: boolean = false,
+    caseSensitive = false,
     frontmatterKey?: string,
-    isFixed: boolean = false
+    isFixed = false
   ) {
     super(id, name, 'search', 'folder', '', true, isFixed);
     this.cardRepository = cardRepository;

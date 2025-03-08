@@ -72,9 +72,9 @@ export class CardService implements ICardService {
   private cardRepository: ICardRepository;
   
   // 성능 모니터링을 위한 카운터 추가
-  private cardFetchCount: number = 0;
-  private cacheHitCount: number = 0;
-  private cacheMissCount: number = 0;
+  private cardFetchCount = 0;
+  private cacheHitCount = 0;
+  private cacheMissCount = 0;
   
   constructor(app: App, cardRepository: ICardRepository) {
     this.app = app;

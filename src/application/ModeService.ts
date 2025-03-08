@@ -140,8 +140,8 @@ export class ModeService implements IModeService {
   private folderMode: FolderMode;
   private tagMode: TagMode;
   private searchMode: SearchMode;
-  private isFixed: boolean = false;
-  private includeSubfolders: boolean = true;
+  private isFixed = false;
+  private includeSubfolders = true;
   private cardService: ICardService;
   private previousMode: ModeType = 'folder';
   

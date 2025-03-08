@@ -8,7 +8,7 @@ import { Search } from './Search';
 export class FrontmatterSearch extends Search {
   private frontmatterKey: string;
   
-  constructor(query: string = '', frontmatterKey: string = '', caseSensitive: boolean = false) {
+  constructor(query = '', frontmatterKey = '', caseSensitive = false) {
     super('frontmatter', query, caseSensitive);
     this.frontmatterKey = frontmatterKey;
   }

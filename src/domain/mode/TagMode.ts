@@ -7,7 +7,7 @@ import { Mode, ModeType } from './Mode';
  */
 export class TagMode extends Mode {
   private app: App;
-  private isFixed: boolean = false; // 태그 고정 여부 추가
+  private isFixed = false; // 태그 고정 여부 추가
   
   constructor(app: App) {
     super('tag');

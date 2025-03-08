@@ -6,7 +6,7 @@ import { Search, SearchType } from './Search';
  * 카드의 경로를 기준으로 검색하는 클래스입니다.
  */
 export class PathSearch extends Search {
-  constructor(query: string = '', caseSensitive: boolean = false) {
+  constructor(query = '', caseSensitive = false) {
     super('path', query, caseSensitive);
   }
   

@@ -203,7 +203,7 @@ const Card: React.FC<ICardProps> = ({
     });
     
     // 텍스트 분할 및 하이라이트 적용
-    let result: React.ReactNode[] = [];
+    const result: React.ReactNode[] = [];
     let lastEnd = 0;
     
     mergedPositions.forEach((pos, index) => {

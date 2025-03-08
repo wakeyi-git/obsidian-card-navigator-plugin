@@ -13,10 +13,10 @@ export class CardRepositoryImpl implements ICardRepository {
   private cardCache: Map<string, ICard>;
   
   // 성능 모니터링을 위한 카운터 추가
-  private cacheSize: number = 0;
-  private cacheHitCount: number = 0;
-  private cacheMissCount: number = 0;
-  private refreshCount: number = 0;
+  private cacheSize = 0;
+  private cacheHitCount = 0;
+  private cacheMissCount = 0;
+  private refreshCount = 0;
   
   constructor(obsidianAdapter: IObsidianAdapter, cardFactory: ICardFactory) {
     this.obsidianAdapter = obsidianAdapter;

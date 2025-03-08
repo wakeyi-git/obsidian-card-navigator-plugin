@@ -31,6 +31,7 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
   const [isCardSetFixed, setIsCardSetFixed] = useState<boolean>(false);
   const [includeSubfolders, setIncludeSubfolders] = useState<boolean>(true);
   const [isSearchMode, setIsSearchMode] = useState<boolean>(false);
+  const [previousMode, setPreviousMode] = useState<ModeType>('folder');
   
   // 성능 모니터링을 위한 카운터
   const [renderCount, setRenderCount] = useState<number>(0);
@@ -432,51 +433,42 @@ useEffect(() => {
     }
   };
 
-  // 검색 모드 토글
-  const toggleSearchMode = () => {
-    try {
-      if (service) {
-        const newSearchMode = !isSearchMode;
-        console.log(`[CardNavigatorView] 검색 모드 전환: ${isSearchMode} -> ${newSearchMode}`);
+  /**
+   * 검색 모드 토글
+   */
+  const toggleSearchMode = useCallback(() => {
+    if (service) {
+      if (currentMode !== 'search') {
+        // 검색 모드로 전환
+        setCurrentMode('search');
+        service.changeMode('search');
         
-        // 검색 모드로 전환될 때 현재 카드셋 저장
-        if (newSearchMode && !isSearchMode) {
-          // 현재 카드셋 저장 (검색 범위가 'current'인 경우 사용)
-          service.getSearchService().setPreSearchCards(mapPropsArrayToCardArray(cards));
-        }
-        
-        setIsSearchMode(newSearchMode);
-        
-        // 검색 모드가 아닐 때는 검색어 초기화
-        if (!newSearchMode) {
-          setSearchQuery('');
-          service.getSearchService().clearSearch();
-        }
-        
-        // 검색 입력 필드에 포커스
-        setTimeout(() => {
-          const searchInput = document.querySelector('.card-navigator-search-input') as HTMLInputElement;
-          if (searchInput) {
-            searchInput.focus();
-          }
-        }, 100);
+        // 설정에서 기본 검색 범위 가져와서 설정
+        service.getSettings().then(settings => {
+          const defaultScope = settings.defaultSearchScope || 'current';
+          service.getSearchService().setSearchScope(defaultScope);
+          console.log(`검색 모드 활성화: 검색 범위 ${defaultScope}로 설정됨`);
+        });
+      } else {
+        // 이전 모드로 복귀
+        setCurrentMode(previousMode);
+        service.changeMode(previousMode);
       }
-    } catch (error) {
-      console.error('[CardNavigatorView] 검색 모드 전환 중 오류 발생:', error);
     }
-  };
+  }, [service, currentMode, previousMode]);
 
   // 검색 핸들러
-  const handleSearch = (query: string, type: string = 'filename') => {
+  const handleSearch = (query: string, type = 'filename') => {
     if (!service) return;
     
     // 검색어 상태 업데이트
     setSearchQuery(query);
     setSearchType(type as SearchType);
     
-    // 검색어가 비어있으면 검색 모드 종료
+    // 검색어가 비어있으면 검색 모드 종료하고 이전 모드로 복귀
     if (!query.trim()) {
       if (isSearchMode) {
+        console.log('[CardNavigatorView] 검색어가 비어있어 검색 모드 종료');
         toggleSearchMode();
       }
       return;

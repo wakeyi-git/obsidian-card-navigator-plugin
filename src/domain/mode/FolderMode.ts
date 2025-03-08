@@ -7,7 +7,7 @@ import { Mode, ModeType } from './Mode';
  */
 export class FolderMode extends Mode {
   private app: App;
-  private includeSubfolders: boolean = true;
+  private includeSubfolders = true;
   
   constructor(app: App) {
     super('folder');

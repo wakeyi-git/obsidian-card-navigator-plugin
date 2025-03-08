@@ -13,7 +13,7 @@ export class RegexSearch extends Search {
    * @param query 검색어 (정규식 패턴)
    * @param caseSensitive 대소문자 구분 여부
    */
-  constructor(query: string = '', caseSensitive: boolean = false) {
+  constructor(query = '', caseSensitive = false) {
     super('filename', query, caseSensitive); // 타입은 임의로 filename 사용 (실제로는 사용되지 않음)
     this.compileRegex();
   }

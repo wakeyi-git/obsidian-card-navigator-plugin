@@ -84,8 +84,8 @@ export abstract class CardSet implements ICardSet {
     type: CardSetType,
     mode: ModeType,
     path: string,
-    includeSubfolders: boolean = true,
-    isFixed: boolean = false
+    includeSubfolders = true,
+    isFixed = false
   ) {
     this.id = id;
     this.name = name;

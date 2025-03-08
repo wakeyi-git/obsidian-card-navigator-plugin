@@ -12,6 +12,7 @@ import { IModeService } from './ModeService';
 import { DateSearch } from '../domain/search/DateSearch';
 import { RegexSearch } from '../domain/search/RegexSearch';
 import { PathSearch } from '../domain/search/PathSearch';
+import { ICardNavigatorService } from './CardNavigatorService';
 
 /**
  * 검색 서비스 인터페이스
@@ -80,6 +81,11 @@ export interface ISearchService {
   getSearchHistory(): string[];
   
   /**
+   * 검색 기록 삭제
+   */
+  clearSearchHistory(): void;
+  
+  /**
    * 서비스 초기화
    */
   initialize(): void;
@@ -91,7 +97,7 @@ export interface ISearchService {
 
   /**
    * 복합 검색 실행
-   * @param query 복합 검색어 (파이프로 구분)
+   * @param query 복합 검색어 (스페이스로 구분)
    * @param cards 검색할 카드 목록
    * @returns 검색 결과 카드 목록
    */
@@ -203,29 +209,65 @@ export class SearchService implements ISearchService {
   private presetService: IPresetService;
   private cardService: ICardService;
   private modeService: IModeService;
-  private isInSearchMode: boolean = false;
+  private isInSearchMode = false;
   private searchScope: 'all' | 'current' = 'current';
   private preSearchCards: ICard[] = [];
+  private cardNavigatorService: ICardNavigatorService;
   
-  constructor(presetService: IPresetService, cardService: ICardService, modeService: IModeService) {
+  constructor(presetService: IPresetService, cardService: ICardService, modeService: IModeService, cardNavigatorService: ICardNavigatorService) {
     this.presetService = presetService;
     this.cardService = cardService;
     this.modeService = modeService;
+    this.cardNavigatorService = cardNavigatorService;
   }
   
+  /**
+   * 초기화
+   * 검색 서비스를 초기화합니다.
+   */
   initialize(): void {
     // 기본 검색 설정
     this.currentSearch = new FilenameSearch();
     this.isInSearchMode = false;
-    this.searchScope = 'current';
+    
+    // 설정에서 기본 검색 범위 가져오기
+    if (this.cardNavigatorService) {
+      this.cardNavigatorService.getSettings().then(settings => {
+        if (settings.defaultSearchScope) {
+          this.searchScope = settings.defaultSearchScope;
+        } else {
+          this.searchScope = 'current';
+        }
+      });
+    } else {
+      this.searchScope = 'current';
+    }
+    
     this.preSearchCards = [];
   }
   
+  /**
+   * 초기화
+   * 검색 서비스를 초기 상태로 되돌립니다.
+   */
   reset(): void {
     this.clearSearch();
     this.searchHistory = [];
     this.isInSearchMode = false;
-    this.searchScope = 'current';
+    
+    // 설정에서 기본 검색 범위 가져오기
+    if (this.cardNavigatorService) {
+      this.cardNavigatorService.getSettings().then(settings => {
+        if (settings.defaultSearchScope) {
+          this.searchScope = settings.defaultSearchScope;
+        } else {
+          this.searchScope = 'current';
+        }
+      });
+    } else {
+      this.searchScope = 'current';
+    }
+    
     this.preSearchCards = [];
   }
   
@@ -249,14 +291,47 @@ export class SearchService implements ISearchService {
   }
   
   setSearchQuery(query: string): void {
-    // 검색어가 비어있으면 검색 초기화
-    if (!query) {
-      this.clearSearch();
+    // 검색어가 비어있거나 스페이스만 있는 경우에도 검색 모드 유지
+    if (!query || query.trim() === '') {
+      // 검색어가 비어있는 경우 현재 검색 객체의 쿼리만 비우고 검색 모드 유지
+      if (this.currentSearch) {
+        this.currentSearch.setQuery('');
+      } else {
+        // 검색 객체가 없는 경우 기본 검색 객체(파일명 검색) 생성
+        this.currentSearch = new FilenameSearch('');
+      }
+      this.isInSearchMode = true;
       return;
     }
     
-    // 파이프로 구분된 복합 검색인 경우
-    if (query.includes('|')) {
+    // 검색 접두사 패턴 확인
+    const prefixPatterns = [
+      'file:', 'content:', 'tag:', 'path:', 'folder:', 
+      'fm:', 'frontmatter:', 'create:', 'modify:', 'regex:'
+    ];
+    
+    // 검색어에 여러 접두사가 있는지 확인
+    let hasMultiplePrefixes = false;
+    let prefixCount = 0;
+    
+    for (const prefix of prefixPatterns) {
+      let pos = query.indexOf(prefix);
+      while (pos !== -1) {
+        // 접두사 앞에 공백이 있거나 문자열 시작인 경우에만 유효한 접두사로 간주
+        if (pos === 0 || query[pos - 1] === ' ') {
+          prefixCount++;
+          if (prefixCount >= 2) {
+            hasMultiplePrefixes = true;
+            break;
+          }
+        }
+        pos = query.indexOf(prefix, pos + 1);
+      }
+      if (hasMultiplePrefixes) break;
+    }
+    
+    // 여러 접두사가 있는 경우 복합 검색으로 처리
+    if (hasMultiplePrefixes) {
       // 복합 검색은 별도의 처리 없이 그대로 유지
       // 실제 검색은 applyComplexSearch에서 처리
       this.isInSearchMode = true;
@@ -265,42 +340,105 @@ export class SearchService implements ISearchService {
     
     // 검색 타입 자동 선택
     if (query.startsWith('file:')) {
-      // 파일명 검색
+      // 파일명 검색 - 'file:' 접두사 이후의 텍스트를 검색어로 사용
       this.changeSearchType('filename');
-      this.setQuery(query.substring(5).trim());
+      
+      // 접두사 이후의 텍스트 추출
+      let searchQuery = query.substring(5).trim();
+      
+      // 큰따옴표로 묶인 검색어 처리 (따옴표 제거)
+      if (searchQuery.startsWith('"') && searchQuery.endsWith('"')) {
+        searchQuery = searchQuery.substring(1, searchQuery.length - 1);
+      }
+      
+      this.setQuery(searchQuery);
     } else if (query.startsWith('content:')) {
-      // 내용 검색
+      // 내용 검색 - 'content:' 접두사 이후의 텍스트를 검색어로 사용
       this.changeSearchType('content');
-      this.setQuery(query.substring(8).trim());
+      
+      // 접두사 이후의 텍스트 추출
+      let searchQuery = query.substring(8).trim();
+      
+      // 큰따옴표로 묶인 검색어 처리 (따옴표 제거)
+      if (searchQuery.startsWith('"') && searchQuery.endsWith('"')) {
+        searchQuery = searchQuery.substring(1, searchQuery.length - 1);
+      }
+      
+      this.setQuery(searchQuery);
     } else if (query.startsWith('tag:')) {
-      // 태그 검색
+      // 태그 검색 - 'tag:' 접두사 이후의 텍스트를 검색어로 사용
       this.changeSearchType('tag');
-      this.setQuery(query.substring(4).trim());
+      
+      // 접두사 이후의 텍스트 추출
+      let searchQuery = query.substring(4).trim();
+      
+      // 큰따옴표로 묶인 검색어 처리 (따옴표 제거)
+      if (searchQuery.startsWith('"') && searchQuery.endsWith('"')) {
+        searchQuery = searchQuery.substring(1, searchQuery.length - 1);
+      }
+      
+      this.setQuery(searchQuery);
     } else if (query.startsWith('path:')) {
-      // 경로 검색
+      // 경로 검색 - 'path:' 접두사 이후의 텍스트를 검색어로 사용
       this.changeSearchType('path');
-      this.setQuery(query.substring(5).trim());
+      
+      // 접두사 이후의 텍스트 추출
+      let searchQuery = query.substring(5).trim();
+      
+      // 큰따옴표로 묶인 검색어 처리 (따옴표 제거)
+      if (searchQuery.startsWith('"') && searchQuery.endsWith('"')) {
+        searchQuery = searchQuery.substring(1, searchQuery.length - 1);
+      }
+      
+      this.setQuery(searchQuery);
     } else if (query.startsWith('regex:')) {
-      // 정규식 검색
-      const regexPattern = query.substring(6).trim();
+      // 정규식 검색 - 'regex:' 접두사 이후의 텍스트를 검색어로 사용
+      // 접두사 이후의 텍스트 추출
+      let regexPattern = query.substring(6).trim();
+      
+      // 큰따옴표로 묶인 검색어 처리 (따옴표 제거)
+      if (regexPattern.startsWith('"') && regexPattern.endsWith('"')) {
+        regexPattern = regexPattern.substring(1, regexPattern.length - 1);
+      }
+      
       this.currentSearch = new RegexSearch(regexPattern);
       this.isInSearchMode = true;
     } else if (query.startsWith('create:')) {
-      // 생성일 검색
-      const dateQuery = query.substring(7).trim();
+      // 생성일 검색 - 'create:' 접두사 이후의 텍스트를 검색어로 사용
+      // 접두사 이후의 텍스트 추출
+      let dateQuery = query.substring(7).trim();
+      
+      // 큰따옴표로 묶인 검색어 처리 (따옴표 제거)
+      if (dateQuery.startsWith('"') && dateQuery.endsWith('"')) {
+        dateQuery = dateQuery.substring(1, dateQuery.length - 1);
+      }
+      
       this.currentSearch = new DateSearch(dateQuery, 'creation');
       this.isInSearchMode = true;
     } else if (query.startsWith('modify:')) {
-      // 수정일 검색
-      const dateQuery = query.substring(7).trim();
+      // 수정일 검색 - 'modify:' 접두사 이후의 텍스트를 검색어로 사용
+      // 접두사 이후의 텍스트 추출
+      let dateQuery = query.substring(7).trim();
+      
+      // 큰따옴표로 묶인 검색어 처리 (따옴표 제거)
+      if (dateQuery.startsWith('"') && dateQuery.endsWith('"')) {
+        dateQuery = dateQuery.substring(1, dateQuery.length - 1);
+      }
+      
       this.currentSearch = new DateSearch(dateQuery, 'modification');
       this.isInSearchMode = true;
     } else if (query.match(/^\[.+\]:/)) {
       // 프론트매터 검색
       const match = query.match(/^\[(.+)\]:(.*)/);
       if (match) {
-        const key = match[1];
-        const value = match[2].trim();
+        const key = match[1].trim();
+        let value = match[2].trim();
+        
+        // 큰따옴표로 묶인 검색어 처리 (따옴표 제거)
+        if (value.startsWith('"') && value.endsWith('"')) {
+          value = value.substring(1, value.length - 1);
+        }
+        
         this.changeSearchType('frontmatter', key);
         this.setQuery(value);
       } else {
@@ -330,11 +468,13 @@ export class SearchService implements ISearchService {
    * @returns 검색된 카드 목록
    */
   async applySearch(cards: ICard[]): Promise<ICard[]> {
-    if (!this.currentSearch || !this.currentSearch.getQuery()) {
+    // 검색 객체가 없는 경우에만 원본 카드 반환
+    if (!this.currentSearch) {
       this.isInSearchMode = false;
       return Promise.resolve(cards);
     }
     
+    // 검색어가 비어있더라도 검색 모드 유지
     this.isInSearchMode = true;
     
     // 검색 범위에 따라 검색 대상 결정
@@ -351,7 +491,7 @@ export class SearchService implements ISearchService {
       console.log(`[SearchService] 볼트 전체 노트 로드 완료 (${searchTargetCards.length}개)`);
     }
     
-    // 검색 실행
+    // 검색 실행 - 검색어가 비어있더라도 검색 객체의 search 메서드 호출
     return this.currentSearch.search(searchTargetCards);
   }
   
@@ -414,7 +554,14 @@ export class SearchService implements ISearchService {
   }
   
   getSearchHistory(): string[] {
-    return [...this.searchHistory];
+    return this.searchHistory;
+  }
+  
+  /**
+   * 검색 기록 삭제
+   */
+  clearSearchHistory(): void {
+    this.searchHistory = [];
   }
   
   /**
@@ -432,33 +579,33 @@ export class SearchService implements ISearchService {
     // 태그 검색: #tag
     if (query.startsWith('#')) {
       type = 'tag';
-      query = query.substring(1);
+      query = query.substring(1).trim(); // 접두사 이후의 텍스트를 검색어로 사용 (공백 제거)
     }
     // 내용 검색: content:text 또는 "content:text"
     else if (query.startsWith('content:')) {
       type = 'content';
-      query = query.substring(8);
+      query = query.substring(8).trim(); // 접두사 이후의 텍스트를 검색어로 사용 (공백 제거)
     }
     // 폴더 검색: path:folder 또는 "path:folder"
     else if (query.startsWith('path:')) {
       type = 'path';
-      query = query.substring(5);
+      query = query.substring(5).trim(); // 접두사 이후의 텍스트를 검색어로 사용 (공백 제거)
     }
     // 정규식 검색: regex:pattern
     else if (query.startsWith('regex:')) {
       type = 'regex';
-      query = query.substring(6);
+      query = query.substring(6).trim(); // 접두사 이후의 텍스트를 검색어로 사용 (공백 제거)
     }
     // 생성일 검색: create:date
     else if (query.startsWith('create:')) {
       type = 'date';
-      query = query.substring(7);
+      query = query.substring(7).trim(); // 접두사 이후의 텍스트를 검색어로 사용 (공백 제거)
       dateType = 'creation';
     }
     // 수정일 검색: modify:date
     else if (query.startsWith('modify:')) {
       type = 'date';
-      query = query.substring(7);
+      query = query.substring(7).trim(); // 접두사 이후의 텍스트를 검색어로 사용 (공백 제거)
       dateType = 'modification';
     }
     // 프론트매터 검색: [key]:value
@@ -467,7 +614,7 @@ export class SearchService implements ISearchService {
       if (match) {
         type = 'frontmatter';
         frontmatterKey = match[1].trim();
-        query = match[2].trim();
+        query = match[2].trim(); // 콜론 이후의 텍스트를 검색어로 사용 (공백 제거)
       }
     }
     // 프론트매터 검색: key:value
@@ -476,11 +623,11 @@ export class SearchService implements ISearchService {
       if (parts.length === 2 && parts[0].trim() !== '') {
         type = 'frontmatter';
         frontmatterKey = parts[0].trim();
-        query = parts[1].trim();
+        query = parts[1].trim(); // 콜론 이후의 텍스트를 검색어로 사용 (공백 제거)
       }
     }
     
-    // 따옴표 제거
+    // 따옴표 제거 (따옴표로 묶인 검색어는 공백을 포함할 수 있음)
     if (query.startsWith('"') && query.endsWith('"')) {
       query = query.substring(1, query.length - 1);
     }
@@ -490,19 +637,12 @@ export class SearchService implements ISearchService {
 
   /**
    * 복합 검색 실행
-   * @param query 복합 검색어 (파이프로 구분)
+   * @param query 복합 검색어 (스페이스로 구분)
    * @param cards 검색할 카드 목록
    * @returns 검색 결과 카드 목록
    */
   async applyComplexSearch(query: string, cards: ICard[]): Promise<ICard[]> {
     if (!query || query.trim() === '') {
-      this.isInSearchMode = false;
-      return cards;
-    }
-
-    // 파이프로 구분된 검색어 처리
-    const parts = query.split('|').map(part => part.trim()).filter(part => part);
-    if (parts.length === 0) {
       this.isInSearchMode = false;
       return cards;
     }
@@ -523,6 +663,79 @@ export class SearchService implements ISearchService {
       console.log(`[SearchService] 볼트 전체 노트 로드 완료 (${filteredCards.length}개)`);
     }
 
+    // 검색 파트 추출
+    let parts: string[] = [];
+    
+    // 스페이스로 구분된 검색어 처리 (접두사 기반)
+    const prefixPatterns = [
+      'file:', 'content:', 'tag:', 'path:', 'folder:', 
+      'fm:', 'frontmatter:', 'create:', 'modify:', 'regex:'
+    ];
+    
+    // 검색어에서 접두사 위치 찾기 (큰따옴표로 묶인 부분은 건너뛰기)
+    const prefixPositions: number[] = [];
+    
+    // 큰따옴표 위치 추적을 위한 변수
+    let inQuotes = false;
+    let quoteStart = -1;
+    
+    // 각 접두사 패턴에 대해 검색어에서 위치 찾기
+    for (let i = 0; i < query.length; i++) {
+      // 큰따옴표 처리
+      if (query[i] === '"') {
+        if (!inQuotes) {
+          // 따옴표 시작
+          inQuotes = true;
+          quoteStart = i;
+        } else {
+          // 따옴표 끝
+          inQuotes = false;
+        }
+        continue;
+      }
+      
+      // 따옴표 안에 있는 경우 건너뛰기
+      if (inQuotes) continue;
+      
+      // 접두사 확인
+      for (const prefix of prefixPatterns) {
+        if (i + prefix.length <= query.length && 
+            query.substring(i, i + prefix.length) === prefix && 
+            (i === 0 || query[i - 1] === ' ')) {
+          prefixPositions.push(i);
+          break;
+        }
+      }
+    }
+    
+    // 위치를 오름차순으로 정렬
+    prefixPositions.sort((a, b) => a - b);
+    
+    // 접두사 위치를 기준으로 검색어 분할
+    if (prefixPositions.length > 0) {
+      for (let i = 0; i < prefixPositions.length; i++) {
+        const start = prefixPositions[i];
+        const end = i < prefixPositions.length - 1 ? prefixPositions[i + 1] : query.length;
+        
+        // 현재 접두사부터 다음 접두사 전까지의 부분 추출
+        const part = query.substring(start, end).trim();
+        if (part) {
+          parts.push(part);
+        }
+      }
+    } else {
+      // 접두사가 없는 경우 전체 검색어를 하나의 파트로 처리
+      parts = [query.trim()];
+    }
+    
+    // 검색 파트가 없으면 원본 카드 반환
+    if (parts.length === 0) {
+      this.isInSearchMode = false;
+      return cards;
+    }
+
+    console.log(`[SearchService] 복합 검색: ${parts.length}개의 검색 파트 처리`);
+    
     // 각 검색 파트 적용
     for (const part of parts) {
       const { type, query: parsedQuery, frontmatterKey, dateType } = this.parseSearchQuery(part);
@@ -644,8 +857,52 @@ export class SearchService implements ISearchService {
     const type = this.currentSearch.getType();
     const caseSensitive = this.currentSearch.isCaseSensitive();
     
+    // 복합 검색인 경우 각 검색어 분리
+    if (query.includes('|')) {
+      const complexQueries = query.split('|').map(q => q.trim()).filter(q => q);
+      const results: { text: string, positions: number[] }[] = [];
+      
+      for (const complexQuery of complexQueries) {
+        // 검색 타입과 검색어 분리
+        const match = complexQuery.match(/^(\w+:|\[[^\]]+\]:)(.+)$/);
+        if (match) {
+          const prefix = match[1];
+          const subQuery = match[2].trim();
+          
+          // 검색 타입에 따라 다른 필드 검색
+          let textToSearch = '';
+          
+          if (prefix.startsWith('file:')) {
+            textToSearch = card.title;
+          } else if (prefix.startsWith('content:')) {
+            textToSearch = card.content || '';
+          } else if (prefix.startsWith('tag:')) {
+            textToSearch = card.tags ? card.tags.join(' ') : '';
+          } else if (prefix.startsWith('path:')) {
+            textToSearch = card.path;
+          } else if (prefix.startsWith('[') && prefix.endsWith(']:')) {
+            // 프론트매터 검색
+            const key = prefix.substring(1, prefix.length - 2);
+            if (card.frontmatter && card.frontmatter[key]) {
+              textToSearch = String(card.frontmatter[key]);
+            }
+          }
+          
+          // 검색어 위치 찾기
+          if (textToSearch) {
+            const positions = this.findPositions(textToSearch, subQuery, caseSensitive);
+            if (positions.length > 0) {
+              results.push({ text: subQuery, positions });
+            }
+          }
+        }
+      }
+      
+      return results.length > 0 ? results : [];
+    }
+    
+    // 일반 검색인 경우
     let textToSearch = '';
-    let positions: number[] = [];
     
     switch (type) {
       case 'filename':
@@ -657,6 +914,7 @@ export class SearchService implements ISearchService {
       case 'tag':
         textToSearch = card.tags ? card.tags.join(' ') : '';
         break;
+      case 'path':
       case 'folder':
         textToSearch = card.path;
         break;
@@ -672,19 +930,83 @@ export class SearchService implements ISearchService {
         textToSearch = card.content || '';
     }
     
+    // 정규식 검색인지 확인
+    const isRegexSearch = this.isRegexPattern(query);
+    
     // 검색어 위치 찾기
     if (textToSearch) {
-      let searchText = caseSensitive ? query : query.toLowerCase();
-      let targetText = caseSensitive ? textToSearch : textToSearch.toLowerCase();
-      
-      let pos = 0;
-      while ((pos = targetText.indexOf(searchText, pos)) !== -1) {
-        positions.push(pos);
-        pos += searchText.length;
+      if (isRegexSearch) {
+        try {
+          // 정규식 검색
+          const flags = caseSensitive ? 'g' : 'gi';
+          const regex = new RegExp(query, flags);
+          const positions: number[] = [];
+          
+          let match;
+          while ((match = regex.exec(textToSearch)) !== null) {
+            positions.push(match.index);
+            // 0길이 매치 방지 (무한 루프 방지)
+            if (match[0].length === 0) {
+              regex.lastIndex++;
+            }
+          }
+          
+          return [{ text: query, positions }];
+        } catch (error) {
+          console.error('정규식 검색 오류:', error);
+          return [];
+        }
+      } else {
+        // 일반 검색
+        const positions = this.findPositions(textToSearch, query, caseSensitive);
+        return [{ text: query, positions }];
       }
     }
     
-    return [{ text: query, positions }];
+    return [];
+  }
+  
+  /**
+   * 텍스트에서 검색어 위치 찾기
+   * @param text 검색 대상 텍스트
+   * @param query 검색어
+   * @param caseSensitive 대소문자 구분 여부
+   * @returns 검색어 위치 배열
+   */
+  private findPositions(text: string, query: string, caseSensitive: boolean): number[] {
+    const positions: number[] = [];
+    
+    if (!text || !query) {
+      return positions;
+    }
+    
+    const searchText = caseSensitive ? query : query.toLowerCase();
+    const targetText = caseSensitive ? text : text.toLowerCase();
+    
+    let pos = 0;
+    while ((pos = targetText.indexOf(searchText, pos)) !== -1) {
+      positions.push(pos);
+      pos += searchText.length;
+    }
+    
+    return positions;
+  }
+  
+  /**
+   * 정규식 패턴인지 확인
+   * @param pattern 검사할 패턴
+   * @returns 정규식 패턴 여부
+   */
+  private isRegexPattern(pattern: string): boolean {
+    // 정규식 패턴 확인 (슬래시로 시작하고 끝나는지)
+    if (pattern.startsWith('/') && pattern.length > 2) {
+      const lastSlashIndex = pattern.lastIndexOf('/');
+      return lastSlashIndex > 0 && lastSlashIndex < pattern.length - 1;
+    }
+    
+    // 정규식 특수 문자 포함 여부 확인
+    const regexSpecialChars = ['*', '+', '?', '^', '$', '\\', '.', '[', ']', '{', '}', '(', ')'];
+    return regexSpecialChars.some(char => pattern.includes(char));
   }
 
   /**

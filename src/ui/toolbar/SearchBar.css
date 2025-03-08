@@ -237,9 +237,65 @@
 }
 
 .card-navigator-date-picker {
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  width: 280px;
+  z-index: 1000;
+}
+
+.card-navigator-date-picker-header {
+  font-weight: 600;
+  margin-bottom: 12px;
+  text-align: center;
+  color: var(--text-normal);
+}
+
+.card-navigator-date-quick-options {
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 12px;
+}
+
+.card-navigator-date-quick-options-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-muted);
+}
+
+.card-navigator-date-quick-options-buttons {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.card-navigator-date-quick-option-button {
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  color: var(--text-normal);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
+  transition: all 0.2s ease;
+}
+
+.card-navigator-date-quick-option-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-date-picker-custom {
+  margin-bottom: 16px;
+}
+
+.card-navigator-date-picker-custom-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-muted);
 }
 
 .card-navigator-date-input {
@@ -247,40 +303,43 @@
   padding: 6px;
   border-radius: 4px;
   border: 1px solid var(--background-modifier-border);
-  background-color: var(--background-primary);
+  background-color: var(--background-secondary);
   color: var(--text-normal);
+  font-size: 14px;
 }
 
 .card-navigator-date-picker-buttons {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 8px;
-  margin-top: 8px;
 }
 
 .card-navigator-date-select-button,
-.card-navigator-date-cancel-button {
-  padding: 6px 12px;
-  border-radius: 4px;
+.card-navigator-date-cancel-button,
+.card-navigator-date-toggle-button {
+  background-color: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
-  background-color: var(--background-primary);
+  border-radius: 4px;
   color: var(--text-normal);
   cursor: pointer;
   font-size: 12px;
+  padding: 6px 12px;
+  transition: all 0.2s ease;
+}
+
+.card-navigator-date-select-button:hover,
+.card-navigator-date-cancel-button:hover,
+.card-navigator-date-toggle-button:hover {
+  background-color: var(--background-modifier-hover);
 }
 
 .card-navigator-date-select-button {
   background-color: var(--interactive-accent);
   color: var(--text-on-accent);
-  border-color: var(--interactive-accent);
 }
 
 .card-navigator-date-select-button:hover {
   background-color: var(--interactive-accent-hover);
-}
-
-.card-navigator-date-cancel-button:hover {
-  background-color: var(--background-secondary);
 }
 
 /* 강조 표시 스타일 */
@@ -419,7 +478,7 @@
   gap: 8px;
 }
 
-/* 검색 제안 아이콘 추가 */
+/* 검색 제안 아이콘 */
 .card-navigator-suggestion-icon {
   display: flex;
   align-items: center;
@@ -502,7 +561,7 @@
   position: absolute;
   top: -20px;
   right: 0;
-  background-color: var(--background-modifier-success);
+  /* background-color: var(--background-modifier-success); */
   color: var(--text-on-accent);
   font-size: 12px;
   padding: 2px 6px;
@@ -511,10 +570,10 @@
 }
 
 /* 복합 검색 입력 필드 스타일 */
-.card-navigator-search-input.complex-search {
+/* .card-navigator-search-input.complex-search {
   border-color: var(--background-modifier-success);
   box-shadow: 0 0 0 2px rgba(var(--background-modifier-success-rgb), 0.2);
-}
+} */
 
 /* 날짜 선택기 헤더 */
 .card-navigator-date-picker-header {
@@ -656,12 +715,7 @@
 
 /* 검색 아이콘 */
 .card-navigator-search-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  color: var(--text-muted);
+  display: none; /* 검색 아이콘 숨김 */
 }
 
 /* 검색 입력 필드 */
@@ -673,6 +727,7 @@
   border: none;
   color: var(--text-normal);
   font-size: 14px;
+  width: 100%;
 }
 
 .card-navigator-search-input:focus {
@@ -689,6 +744,10 @@
   color: var(--text-muted);
   cursor: pointer;
   transition: color 0.2s ease;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .card-navigator-search-clear:hover {
@@ -723,21 +782,47 @@
 
 /* 검색 기록 목록 */
 .card-navigator-search-history-list {
-  padding: 4px 0;
+  padding: 8px 0;
 }
 
 /* 검색 기록 항목 */
 .card-navigator-search-history-item {
+  padding: 6px 12px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .card-navigator-search-history-item:hover {
   background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-search-history-item svg {
+  color: var(--text-muted);
+}
+
+.card-navigator-search-history-item-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-navigator-search-history-item-type {
+  font-size: 11px;
+  color: var(--text-muted);
+  background-color: var(--background-secondary);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.card-navigator-highlight {
+  background-color: rgba(var(--interactive-accent-rgb), 0.3);
+  border-radius: 2px;
+  padding: 0 2px;
+  font-weight: 500;
 }
 
 .card-navigator-search-scope-toggle.active {

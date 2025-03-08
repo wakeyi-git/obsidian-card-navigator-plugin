@@ -9,7 +9,7 @@ import SearchScopeToggle from './components/SearchScopeToggle';
 import SearchHistory from './components/SearchHistory';
 import DatePicker from './components/DatePicker';
 import FrontmatterKeySuggestions from './components/FrontmatterKeySuggestions';
-import { SearchSuggestions, SearchOption } from './components/SearchSuggestions';
+import { SearchSuggestions } from './components/SearchSuggestions';
 import SuggestedValues from './components/SuggestedValues';
 
 // 훅 import
@@ -72,6 +72,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({ cardNavigatorService, onSe
     handleHistoryItemClick,
     handleFrontmatterKeySelect,
     handleSuggestedValueSelect,
+    clearSearchHistory,
+    
+    // 검색 옵션
     searchOptions,
   } = useSearchBar({
     cardNavigatorService,
@@ -162,6 +165,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ cardNavigatorService, onSe
             searchHistory={searchHistory}
             isVisible={showSearchHistory}
             onItemClick={handleHistoryItemClick}
+            onClearHistory={clearSearchHistory}
             onClose={() => setShowSearchHistory(false)}
           />
         )}
