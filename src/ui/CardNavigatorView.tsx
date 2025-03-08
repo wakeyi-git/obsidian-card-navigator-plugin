@@ -134,20 +134,37 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
     };
   }, []);
 
+  // 서비스 초기화 - 컴포넌트 마운트 시 한 번만 실행
   useEffect(() => {
-    // 서비스 초기화
+    console.log('[CardNavigatorView] 서비스 초기화 시작');
+    
+    // 서비스 초기화 함수
     const initializeService = async () => {
       try {
-        // 서비스 생성
+        const timerId = TimerUtil.startTimer('[성능] CardNavigatorService 생성 시간');
+        
+        // 서비스 생성 - 중복 초기화 방지 로직이 createCardNavigatorService 내부에 구현됨
         const newService = await createCardNavigatorService(app);
+        
+        // 이미 서비스가 설정되어 있으면 중복 설정 방지
+        if (service === newService) {
+          console.log('[CardNavigatorView] 이미 동일한 서비스가 설정되어 있습니다.');
+          TimerUtil.endTimer(timerId);
+          return;
+        }
+        
         setService(newService);
         
-        // 모드 서비스 가져오기
+        // 모드 서비스에서 카드 가져오기
         const modeService = newService.getModeService();
         
         // 현재 모드 가져오기
         const currentModeType = modeService.getCurrentModeType();
         setCurrentMode(currentModeType);
+        
+        // 현재 카드 세트 가져오기
+        const currentSet = modeService.getCurrentCardSet();
+        setCurrentCardSet(currentSet);
         
         // 카드 세트 고정 여부 가져오기
         const isFixed = modeService.isCardSetFixed();
@@ -157,23 +174,55 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
         const includeSubfolders = modeService.getIncludeSubfolders();
         setIncludeSubfolders(includeSubfolders);
         
-        // 현재 카드 세트 가져오기
-        const currentSet = modeService.getCurrentCardSet();
-        setCurrentCardSet(currentSet);
+        // 정렬 설정 가져오기
+        const sortService = newService.getSortService();
+        const currentSort = sortService.getCurrentSort();
+        if (currentSort) {
+          setCurrentSortType(currentSort.type);
+          setCurrentSortDirection(currentSort.direction);
+        }
         
-        // 카드 목록 가져오기
-        const cards = await newService.getCards();
-        setCards(cards.map(mapCardToProps));
-        setIsLoading(false);
+        // 레이아웃 설정 가져오기
+        const layoutService = newService.getLayoutService();
+        const currentLayout = layoutService.getCurrentLayout();
+        if (currentLayout) {
+          setLayout(currentLayout.type as 'grid' | 'masonry');
+        }
+        
+        // 검색 설정 가져오기
+        const searchService = newService.getSearchService();
+        const currentSearch = searchService.getCurrentSearch();
+        if (currentSearch) {
+          setSearchType(currentSearch.getType() as DomainSearchType);
+          setCaseSensitive(currentSearch.isCaseSensitive());
+          if (currentSearch.getType() === 'frontmatter') {
+            // 프론트매터 검색인 경우 프론트매터 키 설정
+            const frontmatterSearch = currentSearch as any; // FrontmatterSearch로 타입 변환
+            if (frontmatterSearch.getKey) {
+              setFrontmatterKey(frontmatterSearch.getKey());
+            }
+          }
+        }
+        
+        console.log('[CardNavigatorView] 서비스 초기화 완료');
+        TimerUtil.endTimer(timerId);
+        
+        // 초기 카드 로드
+        await loadCards();
       } catch (error) {
-        console.error('서비스 초기화 중 오류 발생:', error);
-        setError('서비스 초기화 중 오류가 발생했습니다.');
+        console.error('[CardNavigatorView] 서비스 초기화 오류:', error);
+        setError(`서비스 초기화 중 오류가 발생했습니다: ${error}`);
         setIsLoading(false);
       }
     };
     
     initializeService();
-  }, [app]);
+    
+    // 컴포넌트 언마운트 시 정리
+    return () => {
+      // 필요한 정리 작업 수행
+    };
+  }, [app]); // app만 의존성으로 추가하여 한 번만 실행되도록 함
 
   // isSearchMode 상태가 변경될 때 로그 출력
   useEffect(() => {
@@ -250,16 +299,32 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
     
     // 활성 파일 변경 처리
     try {
+      // 로딩 상태 설정
+      setIsLoading(true);
+      setError(null);
+      
       // 서비스의 ModeService를 통해 활성 파일 변경 처리
       const cardSetChanged = await modeService.handleActiveFileChange(file);
       
       // 현재 카드 세트 상태 항상 업데이트
       const currentSet = modeService.getCurrentCardSet();
-      setCurrentCardSet(currentSet);
+      
+      // 이전과 동일한 카드 세트인 경우 중복 업데이트 방지
+      if (currentSet === currentCardSet) {
+        console.log(`[CardNavigatorView] 이전과 동일한 카드 세트(${currentSet})이므로 상태 업데이트를 건너뜁니다.`);
+      } else {
+        setCurrentCardSet(currentSet);
+      }
       
       // 카드 세트 고정 여부 상태 업데이트
       const isFixed = modeService.isCardSetFixed();
-      setIsCardSetFixed(isFixed);
+      
+      // 이전과 동일한 고정 상태인 경우 중복 업데이트 방지
+      if (isFixed === isCardSetFixed) {
+        console.log(`[CardNavigatorView] 이전과 동일한 고정 상태(${isFixed})이므로 상태 업데이트를 건너뜁니다.`);
+      } else {
+        setIsCardSetFixed(isFixed);
+      }
       
       console.log(`[CardNavigatorView] 현재 카드 세트 업데이트: ${currentSet}, 고정 여부: ${isFixed}`);
       
@@ -267,24 +332,48 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
       if (cardSetChanged) {
         console.log(`[CardNavigatorView] 카드 세트가 변경되어 카드 목록을 다시 로드합니다.`);
         const cards = await service.getCards();
+        
+        // 카드가 없는 경우 로그 출력
+        if (cards.length === 0) {
+          console.log('[CardNavigatorView] 로드된 카드가 없습니다.');
+        }
+        
         setCards(cards.map(mapCardToProps));
       } else {
         console.log(`[CardNavigatorView] 카드 세트가 변경되지 않아 카드 목록 로드를 건너뜁니다.`);
       }
     } catch (error) {
       console.error(`[CardNavigatorView] 활성 파일 변경 처리 중 오류 발생:`, error);
+      setError(`활성 파일 변경 처리 중 오류가 발생했습니다: ${error}`);
+      setCards([]); // 오류 발생 시 카드 목록 초기화
+    } finally {
+      setIsLoading(false);
     }
-  }, [service, isCardSetFixed, searchQuery]); // searchQuery 의존성 추가
+  }, [service, isCardSetFixed, currentCardSet, searchQuery]); // currentCardSet 의존성 추가
 
   // 파일 열기 이벤트 리스너 등록
   useEffect(() => {
     if (!service || !app.workspace) return;
     
+    // 이벤트 처리 중 플래그
+    let isProcessingFileOpen = false;
+    
     // 파일 열기 이벤트 리스너 등록 (활성 리프 변경 대신)
     const removeListener = app.workspace.on('file-open', async (file: TFile | null) => {
       if (isCardSetFixed || !file) return; // 카드 세트가 고정된 경우 또는 파일이 없는 경우 무시
       
-      await handleActiveFileChange(file);
+      // 이미 처리 중인 경우 중복 처리 방지
+      if (isProcessingFileOpen) {
+        console.log(`[CardNavigatorView] 이미 파일 열기 이벤트 처리 중입니다. 중복 처리 방지`);
+        return;
+      }
+      
+      isProcessingFileOpen = true;
+      try {
+        await handleActiveFileChange(file);
+      } finally {
+        isProcessingFileOpen = false;
+      }
     });
     
     // 현재 활성 파일 처리
@@ -314,21 +403,34 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
         
         // 비동기 처리를 위한 즉시 실행 함수
         (async () => {
-          await modeService.handleActiveFileChange(activeFile);
-          
-          // 현재 카드 세트 상태 업데이트
+          // 현재 카드 세트 확인
           const currentSet = modeService.getCurrentCardSet();
-          setCurrentCardSet(currentSet);
           
-          // 카드 세트 고정 여부 상태 업데이트 (이미 false로 설정되어 있지만 일관성을 위해 유지)
-          const isFixed = modeService.isCardSetFixed();
-          setIsCardSetFixed(isFixed);
+          // 활성 파일 변경 처리
+          const cardSetChanged = await modeService.handleActiveFileChange(activeFile);
           
-          console.log(`[CardNavigatorView] 고정 해제 후 현재 카드 세트 업데이트: ${currentSet}, 고정 여부: ${isFixed}`);
-          
-          // 카드 목록 갱신
-          const updatedCards = await service.getCards();
-          setCards(updatedCards.map(mapCardToProps));
+          // 카드 세트가 변경된 경우에만 상태 업데이트 및 카드 로드
+          if (cardSetChanged) {
+            // 현재 카드 세트 상태 업데이트
+            const newCardSet = modeService.getCurrentCardSet();
+            if (newCardSet !== currentSet) {
+              setCurrentCardSet(newCardSet);
+              
+              // 카드 세트 고정 여부 상태 업데이트 (이미 false로 설정되어 있지만 일관성을 위해 유지)
+              const isFixed = modeService.isCardSetFixed();
+              setIsCardSetFixed(isFixed);
+              
+              console.log(`[CardNavigatorView] 고정 해제 후 현재 카드 세트 업데이트: ${newCardSet}, 고정 여부: ${isFixed}`);
+              
+              // 카드 목록 갱신
+              const updatedCards = await service.getCards();
+              setCards(updatedCards.map(mapCardToProps));
+            } else {
+              console.log(`[CardNavigatorView] 고정 해제 후에도 카드 세트가 변경되지 않았습니다: ${currentSet}`);
+            }
+          } else {
+            console.log(`[CardNavigatorView] 고정 해제 후 카드 세트 변경이 필요하지 않습니다.`);
+          }
         })();
       }
     } else {
@@ -389,39 +491,23 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
     if (!service) return;
     
     try {
-      console.log(`[CardNavigatorView] handleCardSetSelect 호출: cardSet=${cardSet}, isFixed=${isFixed}`);
-      
       // 카드 세트 선택
       await service.getModeService().selectCardSet(cardSet, isFixed);
-      
-      // 상태 업데이트 전 로그
-      console.log(`[CardNavigatorView] 상태 업데이트 전: currentCardSet=${currentCardSet}, isCardSetFixed=${isCardSetFixed}`);
       
       // 상태 업데이트
       setIsCardSetFixed(isFixed);
       setCurrentCardSet(cardSet);
-      
-      // 상태 업데이트 후 서비스에서 값 확인
-      const modeService = service.getModeService();
-      const serviceCardSet = modeService.getCurrentCardSet();
-      const serviceIsFixed = modeService.isCardSetFixed();
-      
-      console.log(`[CardNavigatorView] 카드 세트 선택 후 상태 업데이트: currentCardSet=${cardSet}, isCardSetFixed=${isFixed}`);
-      console.log(`[CardNavigatorView] 서비스 확인: serviceCardSet=${serviceCardSet}, serviceIsFixed=${serviceIsFixed}`);
       
       // 카드 목록 가져오기
       const filteredCards = await service.getCards();
       
       // 카드 로드 횟수 증가
       setCardLoadCount(prev => prev + 1);
-      console.log(`[성능] 카드 세트 선택 후 카드 로드 횟수: ${cardLoadCount + 1}, 카드 수: ${filteredCards.length}`);
       
       setCards(filteredCards.map(mapCardToProps));
-      
-      // 상태 정보 콘솔에 출력
-      logCardNavigatorStatus(service);
     } catch (error) {
-      console.error('카드 세트 선택 중 오류 발생:', error);
+      console.error('[CardNavigatorView] 카드 세트 선택 중 오류 발생:', error);
+      setError(`카드 세트 선택 중 오류가 발생했습니다: ${error}`);
     }
   };
 
@@ -625,26 +711,50 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
 
   // 카드 로드
   const loadCards = async () => {
-    if (!service) return;
+    if (!service) {
+      console.error('[CardNavigatorView] 서비스가 초기화되지 않았습니다.');
+      setError('서비스가 초기화되지 않았습니다.');
+      setIsLoading(false);
+      return;
+    }
     
     try {
-      setIsLoading(true);
+      // 이미 로딩 중인 경우 중복 로드 방지
+      if (isLoading) {
+        console.log('[CardNavigatorView] 이미 카드 로드 중입니다. 중복 로드 방지');
+        return;
+      }
       
-      // 현재 카드 세트 가져오기
-      const modeService = service.getModeService();
-      const currentSet = modeService.getCurrentCardSet();
-      setCurrentCardSet(currentSet);
+      setIsLoading(true);
+      setError(null); // 이전 오류 메시지 초기화
+      
+      // 카드 로드 시간 측정
+      const timerId = TimerUtil.startTimer('[성능] 카드 로드 시간');
       
       // 카드 가져오기
+      console.log('[CardNavigatorView] 카드 로드 시작');
       const cardList = await service.getCards();
+      console.log(`[CardNavigatorView] 카드 로드 완료: ${cardList.length}개 카드`);
+      
+      // 카드 매핑 시간 측정
+      const mapTimerId = TimerUtil.startTimer('[성능] 카드 매핑 시간');
       const cardProps = cardList.map(mapCardToProps);
+      TimerUtil.endTimer(mapTimerId);
+      
+      // 카드가 없는 경우 로그 출력
+      if (cardList.length === 0) {
+        console.log('[CardNavigatorView] 로드된 카드가 없습니다.');
+      }
       
       setCards(cardProps);
       setCardLoadCount(prev => prev + 1);
-      setError(null);
+      
+      TimerUtil.endTimer(timerId);
+      console.log(`[성능] 카드 로드 완료: ${cardProps.length}개 카드`);
     } catch (error) {
       console.error('[CardNavigatorView] 카드 로드 오류:', error);
       setError(`카드 로드 중 오류가 발생했습니다: ${error}`);
+      setCards([]); // 오류 발생 시 카드 목록 초기화
     } finally {
       setIsLoading(false);
     }
@@ -946,34 +1056,62 @@ export class CardNavigatorView extends ItemView {
   }
 }
 
+// 카드 네비게이터 서비스 인스턴스 캐싱
+let cachedNavigatorService: ICardNavigatorService | null = null;
+let serviceInitializationPromise: Promise<ICardNavigatorService> | null = null;
+
 // 카드 네비게이터 서비스 생성 함수
 const createCardNavigatorService = async (app: App): Promise<ICardNavigatorService> => {
   const initTimerId = TimerUtil.startTimer('[성능] CardNavigatorService 생성 시간');
   
-  // 인프라스트럭처 레이어 초기화
-  const obsidianAdapter = new ObsidianAdapter(app);
-  const cardFactory = new CardFactory();
-  const cardRepository = new CardRepositoryImpl(obsidianAdapter, cardFactory);
-  
-  // 서비스 레이어 초기화
-  console.log(`[CardNavigatorView] 서비스 초기화 시작`);
-  const navigatorService = new CardNavigatorService(app, cardRepository, 'folder');
-  
-  try {
-    await navigatorService.initialize();
-    console.log(`[CardNavigatorView] 서비스 초기화 완료`);
-  } catch (initError) {
-    console.error(`[CardNavigatorView] 서비스 초기화 오류:`, initError);
-    throw new Error('서비스 초기화 중 오류가 발생했습니다.');
+  // 이미 초기화된 서비스가 있으면 재사용
+  if (cachedNavigatorService) {
+    console.log(`[CardNavigatorView] 캐시된 서비스 인스턴스 재사용`);
+    TimerUtil.endTimer(initTimerId);
+    return cachedNavigatorService;
   }
   
-  // 서비스 상태 확인
-  if (!navigatorService.getCardService() || 
-      typeof navigatorService.getCardService().getAllCards !== 'function') {
-    console.error('[CardNavigatorView] 카드 서비스가 올바르게 초기화되지 않았습니다.');
-    throw new Error('카드 서비스 초기화 오류');
+  // 초기화 중인 서비스가 있으면 해당 Promise 반환
+  if (serviceInitializationPromise) {
+    console.log(`[CardNavigatorView] 서비스 초기화 중... 기존 초기화 작업 대기`);
+    return serviceInitializationPromise;
   }
   
-  TimerUtil.endTimer(initTimerId);
-  return navigatorService;
+  // 새로운 초기화 작업 시작
+  serviceInitializationPromise = (async () => {
+    try {
+      // 인프라스트럭처 레이어 초기화
+      const obsidianAdapter = new ObsidianAdapter(app);
+      const cardFactory = new CardFactory();
+      const cardRepository = new CardRepositoryImpl(obsidianAdapter, cardFactory);
+      
+      // 서비스 레이어 초기화
+      console.log(`[CardNavigatorView] 서비스 초기화 시작`);
+      const navigatorService = new CardNavigatorService(app, cardRepository, 'folder');
+      
+      await navigatorService.initialize();
+      console.log(`[CardNavigatorView] 서비스 초기화 완료`);
+      
+      // 서비스 인스턴스 캐싱
+      cachedNavigatorService = navigatorService;
+      
+      // 서비스 상태 확인
+      if (!navigatorService.getCardService() || 
+          typeof navigatorService.getCardService().getAllCards !== 'function') {
+        console.error('[CardNavigatorView] 카드 서비스가 올바르게 초기화되지 않았습니다.');
+        throw new Error('카드 서비스 초기화 오류');
+      }
+      
+      return navigatorService;
+    } catch (initError) {
+      console.error(`[CardNavigatorView] 서비스 초기화 오류:`, initError);
+      throw new Error('서비스 초기화 중 오류가 발생했습니다.');
+    } finally {
+      // 초기화 작업 완료 후 Promise 참조 제거
+      serviceInitializationPromise = null;
+      TimerUtil.endTimer(initTimerId);
+    }
+  })();
+  
+  return serviceInitializationPromise;
 }; 

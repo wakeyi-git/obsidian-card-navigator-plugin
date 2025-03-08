@@ -9,6 +9,9 @@ export class FolderMode extends Mode {
   private app: App;
   private includeSubfolders = true;
   private isFixed = false;
+  private folderCache: string[] | null = null;
+  private lastFolderCacheTime = 0;
+  private FOLDER_CACHE_TTL = 5000; // 5초 캐시 유효 시간
   
   constructor(app: App) {
     super('folder');
@@ -53,10 +56,14 @@ export class FolderMode extends Mode {
    * 현재 볼트의 모든 폴더 목록을 가져옵니다.
    */
   async getCardSets(): Promise<string[]> {
+    // 캐시 확인
+    const now = Date.now();
+    if (this.folderCache && now - this.lastFolderCacheTime < this.FOLDER_CACHE_TTL) {
+      return this.folderCache;
+    }
+    
     const folders: Set<string> = new Set();
     const files = this.app.vault.getMarkdownFiles();
-    
-    console.log(`[FolderMode] 전체 마크다운 파일 수: ${files.length}`);
     
     // 루트 폴더 추가
     folders.add('/');
@@ -81,7 +88,11 @@ export class FolderMode extends Mode {
     }
     
     const folderArray = Array.from(folders).sort();
-    console.log(`[FolderMode] 발견된 폴더 수: ${folderArray.length}, 폴더 목록: ${folderArray.join(', ')}`);
+    
+    // 결과 캐싱
+    this.folderCache = folderArray;
+    this.lastFolderCacheTime = now;
+    
     return folderArray;
   }
   
@@ -120,19 +131,13 @@ export class FolderMode extends Mode {
   async getFilesInCurrentFolder(): Promise<string[]> {
     if (!this.currentCardSet) return [];
     
-    console.log(`[FolderMode] 현재 폴더의 파일 목록 가져오기 시작, 폴더: ${this.currentCardSet}, 하위 폴더 포함: ${this.includeSubfolders}`);
-    
     const files: string[] = [];
     const allFiles = this.app.vault.getMarkdownFiles();
-    
-    console.log(`[FolderMode] 전체 마크다운 파일 수: ${allFiles.length}`);
     
     // 정규화된 경로 확보 (끝에 슬래시 제거)
     const normalizedCardSet = this.currentCardSet.endsWith('/') && this.currentCardSet !== '/' 
       ? this.currentCardSet.slice(0, -1) 
       : this.currentCardSet;
-    
-    console.log(`[FolderMode] 정규화된 카드 세트 경로: ${normalizedCardSet}`);
     
     for (const file of allFiles) {
       const filePath = file.path;
@@ -148,13 +153,10 @@ export class FolderMode extends Mode {
       } else if (this.includeSubfolders && 
                 (folderPath.startsWith(normalizedCardSet + '/') || 
                  (normalizedCardSet === '/' && folderPath !== ''))) {
-        // 하위 폴더 포함 옵션이 활성화되어 있고, 하위 폴더인 경우
+        // 하위 폴더인 경우 (하위 폴더 포함 옵션이 켜져 있을 때)
         files.push(filePath);
       }
     }
-    
-    console.log(`[FolderMode] 현재 폴더의 파일 목록 가져오기 완료, 파일 수: ${files.length}`);
-    console.log(`[FolderMode] 찾은 파일 경로:`, files);
     
     return files;
   }

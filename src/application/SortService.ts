@@ -91,8 +91,9 @@ export class SortService implements ISortService {
   private priorityTags: string[] = [];
   private priorityFolders: string[] = [];
   
-  constructor(initialSort?: ISort) {
-    this.currentSort = initialSort || null;
+  constructor() {
+    // 기본 정렬 설정 (파일명 오름차순)
+    this.currentSort = new FilenameSort('asc');
   }
   
   /**
@@ -141,33 +142,63 @@ export class SortService implements ISortService {
     this.initialize();
   }
   
+  /**
+   * 현재 정렬 가져오기
+   * @returns 현재 정렬
+   */
   getCurrentSort(): ISort | null {
     return this.currentSort;
   }
   
+  /**
+   * 정렬 설정
+   * @param sort 설정할 정렬
+   */
   setSort(sort: ISort): void {
     this.currentSort = sort;
   }
   
-  setSortType(type: SortType, direction: SortDirection = 'asc', frontmatterKey?: string): void {
+  /**
+   * 정렬 타입 설정
+   * @param type 정렬 타입
+   * @param direction 정렬 방향 (선택 사항)
+   * @param frontmatterKey 프론트매터 키 (frontmatter 타입인 경우)
+   */
+  setSortType(type: SortType, direction?: SortDirection, frontmatterKey?: string): void {
+    // 현재 정렬 방향 가져오기 (없으면 기본값 'asc')
+    const currentDirection = this.currentSort?.direction || 'asc';
+    
+    // 새 정렬 방향 (지정된 방향 또는 현재 방향)
+    const newDirection = direction || currentDirection;
+    
+    // 정렬 타입에 따라 적절한 정렬 객체 생성
     switch (type) {
       case 'filename':
-        this.currentSort = new FilenameSort(direction);
+        this.currentSort = new FilenameSort(newDirection);
         break;
       case 'created':
-        this.currentSort = new DateSort('created', direction);
+        this.currentSort = new DateSort(newDirection, 'created');
         break;
       case 'modified':
-        this.currentSort = new DateSort('modified', direction);
+        this.currentSort = new DateSort(newDirection, 'modified');
         break;
       case 'frontmatter':
-        this.currentSort = new FrontmatterSort(frontmatterKey || '', direction);
+        if (!frontmatterKey) {
+          console.warn('프론트매터 정렬에는 frontmatterKey가 필요합니다.');
+          return;
+        }
+        this.currentSort = new FrontmatterSort(newDirection, frontmatterKey);
         break;
       default:
-        this.currentSort = new FilenameSort(direction);
+        console.warn(`지원되지 않는 정렬 타입: ${type}`);
+        break;
     }
   }
   
+  /**
+   * 정렬 방향 전환
+   * 현재 정렬 방향을 반대로 전환합니다.
+   */
   toggleSortDirection(): void {
     if (this.currentSort) {
       this.currentSort.toggleDirection();

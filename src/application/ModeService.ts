@@ -411,12 +411,9 @@ export class ModeService implements IModeService {
    * @returns 카드 세트 목록
    */
   async getCardSets(): Promise<string[]> {
-    console.log(`[ModeService] 카드 세트 목록 가져오기 시작, 현재 모드: ${this.getCurrentModeType()}`);
-    
     try {
       // 현재 모드에 따라 카드 세트 목록 가져오기
       const cardSets = await this.currentMode.getCardSets();
-      console.log(`[ModeService] 카드 세트 목록 가져오기 완료, 개수: ${cardSets.length}`);
       return cardSets;
     } catch (error) {
       console.error('[ModeService] 카드 세트 목록 가져오기 오류:', error);
@@ -456,8 +453,17 @@ export class ModeService implements IModeService {
       
       console.log(`[ModeService] 정규화된 카드 세트 경로: ${normalizedCardSet}`);
       
+      // 디버깅을 위해 모든 카드의 경로 출력
+      if (cards.length > 0 && cards.length < 20) {
+        console.log(`[ModeService] 필터링 전 카드 경로 목록:`);
+        cards.forEach(card => console.log(`  - ${card.path}`));
+      }
+      
       const filteredCards = cards.filter(card => {
-        if (!card.path) return false;
+        if (!card.path) {
+          console.log(`[ModeService] 경로가 없는 카드 발견, 필터링에서 제외`);
+          return false;
+        }
         
         // 파일의 폴더 경로 추출 (파일명 제외)
         const folderPath = card.path.substring(0, Math.max(0, card.path.lastIndexOf('/')));
@@ -465,21 +471,41 @@ export class ModeService implements IModeService {
         if (normalizedCardSet === '/') {
           if (!this.includeSubfolders) {
             // 루트 폴더만 포함 (하위 폴더 제외)
-            return folderPath === '';
+            const isInRoot = folderPath === '';
+            if (isInRoot) {
+              console.log(`[ModeService] 루트 폴더 카드 포함: ${card.path}`);
+            }
+            return isInRoot;
           }
+          console.log(`[ModeService] 루트 폴더 모드에서 모든 카드 포함: ${card.path}`);
           return true; // 루트 폴더인 경우 모든 카드 포함 (하위 폴더 포함)
         }
         
+        let included = false;
+        
         if (this.includeSubfolders) {
           // 하위 폴더 포함
-          return folderPath === normalizedCardSet || folderPath.startsWith(`${normalizedCardSet}/`);
+          included = folderPath === normalizedCardSet || folderPath.startsWith(`${normalizedCardSet}/`);
         } else {
           // 현재 폴더만
-          return folderPath === normalizedCardSet;
+          included = folderPath === normalizedCardSet;
         }
+        
+        if (included) {
+          console.log(`[ModeService] 카드 포함: ${card.path}, 폴더 경로: ${folderPath}`);
+        }
+        
+        return included;
       });
       
       console.log(`[ModeService] 폴더 모드 필터링 완료, 필터링 후 카드 수: ${filteredCards.length}`);
+      
+      // 필터링 결과가 비어있는 경우 추가 디버깅 정보
+      if (filteredCards.length === 0) {
+        console.log(`[ModeService] 필터링 결과가 비어있습니다. 폴더 경로: ${normalizedCardSet}`);
+        console.log(`[ModeService] 현재 모드: ${this.currentMode.type}, 하위 폴더 포함: ${this.includeSubfolders}`);
+      }
+      
       return filteredCards;
     } else if (this.currentMode.type === 'tag') {
       // 태그 모드인 경우 해당 태그를 가진 카드만 필터링

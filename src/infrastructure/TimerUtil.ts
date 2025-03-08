@@ -4,7 +4,7 @@
  */
 export class TimerUtil {
   private static activeTimers: Set<string> = new Set();
-  private static timerCounter: number = 0;
+  private static timerCounter = 0;
   
   /**
    * 타이머 시작

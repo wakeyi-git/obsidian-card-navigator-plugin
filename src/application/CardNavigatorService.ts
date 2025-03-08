@@ -207,6 +207,10 @@ export class CardNavigatorService implements ICardNavigatorService {
   // 카드 저장소 새로고침 관련 변수
   private _lastRefreshCall: number | null = null;
   
+  // 초기화 플래그 추가
+  private _initializing = false;
+  private _initialized = false;
+  
   constructor(
     app: App,
     cardRepository: ICardRepository,
@@ -231,75 +235,84 @@ export class CardNavigatorService implements ICardNavigatorService {
   async initialize(): Promise<void> {
     console.log(`[CardNavigatorService] 초기화 시작`);
     
-    // 초기화 플래그 설정 - 이미 초기화 중인지 확인
-    if ((this as any)._initializing) {
+    // 이미 초기화된 경우 중복 초기화 방지
+    if (this._initialized) {
+      console.log(`[CardNavigatorService] 이미 초기화되었습니다. 중복 초기화 방지`);
+      return;
+    }
+    
+    // 초기화 중인 경우 중복 초기화 방지
+    if (this._initializing) {
       console.log(`[CardNavigatorService] 이미 초기화 중입니다. 중복 초기화 방지`);
       return;
     }
     
-    (this as any)._initializing = true;
+    this._initializing = true;
     
     try {
       // 설정 로드
       const settings = (this.app as any).plugins.plugins['obsidian-card-navigator-plugin']?.settings;
       
-      // 카드 서비스 초기화
-      this.cardService = new CardService(this.app, this.cardRepository);
-      
-      // 모드 서비스 초기화 - cardService를 전달
-      this.modeService = new ModeService(this.app, this.cardService, settings?.defaultMode || 'folder');
-      
-      // 하위 폴더 포함 여부 설정
-      if (settings?.includeSubfolders !== undefined) {
-        this.modeService.setIncludeSubfolders(settings.includeSubfolders);
+      // 카드 서비스 초기화 - 이미 생성자에서 초기화되었으므로 설정만 적용
+      if (settings) {
+        // 모드 서비스 설정 적용
+        if (settings.defaultMode) {
+          this.modeService.changeMode(settings.defaultMode);
+        }
+        
+        // 하위 폴더 포함 여부 설정
+        if (settings.includeSubfolders !== undefined) {
+          this.modeService.setIncludeSubfolders(settings.includeSubfolders);
+        }
+        
+        // 태그 대소문자 구분 여부 설정
+        if (settings.tagCaseSensitive !== undefined) {
+          this.modeService.setTagCaseSensitive(settings.tagCaseSensitive);
+        }
+        
+        // 기본 카드 세트 설정
+        if (settings.defaultCardSet) {
+          this.modeService.selectCardSet(settings.defaultCardSet, settings?.isCardSetFixed || false);
+        }
+        
+        // 레이아웃 타입 설정
+        if (settings.defaultLayout) {
+          this.layoutService.changeLayoutType(settings.defaultLayout);
+        }
       }
-      
-      // 태그 대소문자 구분 여부 설정
-      if (settings?.tagCaseSensitive !== undefined) {
-        this.modeService.setTagCaseSensitive(settings.tagCaseSensitive);
-      }
-      
-      // 기본 카드 세트 설정
-      if (settings?.defaultCardSet) {
-        this.modeService.selectCardSet(settings.defaultCardSet, settings?.isCardSetFixed || false);
-      }
-      
-      // 정렬 서비스 초기화
-      this.sortService = new SortService();
-      
-      // 레이아웃 서비스 초기화
-      this.layoutService = new LayoutService(settings?.defaultLayout || 'grid');
-      
-      // 프리셋 서비스 초기화
-      this.presetService = new PresetService();
-      
-      // 검색 서비스 초기화
-      this.searchService = new SearchService(this.presetService, this.cardService, this.modeService, this);
-      
-      // 필터 서비스 초기화
-      this.filterService = new FilterService();
       
       console.log(`[CardNavigatorService] 서비스 초기화 완료`);
+      this._initialized = true;
     } catch (error) {
       console.error(`[CardNavigatorService] 초기화 중 오류 발생:`, error);
     } finally {
-      (this as any)._initializing = false;
+      this._initializing = false;
     }
   }
   
   /**
-   * 현재 상태에 맞는 카드 가져오기
+   * 카드 목록 가져오기
+   * 현재 모드, 필터, 정렬, 검색 설정에 따라 카드 목록을 가져옵니다.
    * @returns 카드 목록
    */
   async getCards(): Promise<ICard[]> {
     console.log(`[CardNavigatorService] getCards 호출됨`);
     
-    // 마지막 호출 시간 기록 (중복 호출 방지)
+    // 캐싱 메커니즘 - 짧은 시간 내에 여러 번 호출되는 경우 이전 결과 재사용
     const now = Date.now();
-    if (this._lastGetCardsCall && now - this._lastGetCardsCall < 100) {
-      console.log(`[CardNavigatorService] getCards 호출 간격이 너무 짧습니다. 이전 결과 재사용`);
-      return this._lastCards || [];
+    const CACHE_THRESHOLD = 500; // 500ms 이내 호출은 캐시 사용 (더 길게 설정)
+    
+    if (this._lastGetCardsCall && now - this._lastGetCardsCall < CACHE_THRESHOLD && this._lastCards) {
+      console.log(`[CardNavigatorService] getCards 호출 간격이 너무 짧습니다. 이전 결과 재사용 (${now - this._lastGetCardsCall}ms)`);
+      return this._lastCards;
     }
+    
+    // 초기화가 완료되지 않은 경우 초기화 대기
+    if (!this._initialized) {
+      console.log(`[CardNavigatorService] 서비스가 초기화되지 않았습니다. 초기화 후 카드를 가져옵니다.`);
+      await this.initialize();
+    }
+    
     this._lastGetCardsCall = now;
     
     try {
@@ -319,17 +332,24 @@ export class CardNavigatorService implements ICardNavigatorService {
       const filteredCards = this.filterService.applyFilters(sortedCards);
       console.log(`[CardNavigatorService] 필터 적용 후 카드 수: ${filteredCards.length}`);
       
-      // 성능 모니터링 카운터 증가
-      this.renderCount++;
-      console.log(`[성능] 카드 렌더링 횟수: ${this.renderCount}`);
-      
       // 결과 캐싱
       this._lastCards = filteredCards;
+      
+      // 카드 로드 횟수 증가
+      this.cardLoadCount++;
+      
+      // 카드가 없는 경우 로그 출력
+      if (filteredCards.length === 0) {
+        console.log(`[CardNavigatorService] 최종 카드 목록이 비어 있습니다. 현재 모드: ${this.modeService.getCurrentModeType()}, 카드 세트: ${this.modeService.getCurrentCardSet() || '없음'}`);
+      }
       
       return filteredCards;
     } catch (error) {
       console.error(`[CardNavigatorService] 카드 가져오기 오류:`, error);
-      return this._lastCards || [];
+      
+      // 오류 발생 시 빈 배열 반환
+      console.log(`[CardNavigatorService] 오류로 인해 빈 카드 목록 반환`);
+      return [];
     }
   }
   
@@ -367,19 +387,31 @@ export class CardNavigatorService implements ICardNavigatorService {
    * 카드 목록을 다시 로드합니다.
    */
   async refreshCards(): Promise<void> {
-    const timerId = TimerUtil.startTimer('[성능] refreshCards');
+    console.log(`[CardNavigatorService] refreshCards 호출됨`);
+    
+    // 캐싱 메커니즘 - 짧은 시간 내에 여러 번 호출되는 경우 무시
+    const now = Date.now();
+    const REFRESH_THRESHOLD = 1000; // 1초 이내 호출은 무시
+    
+    if (this._lastRefreshCall && now - this._lastRefreshCall < REFRESH_THRESHOLD) {
+      console.log(`[CardNavigatorService] refreshCards 호출 간격이 너무 짧습니다. 무시 (${now - this._lastRefreshCall}ms)`);
+      return;
+    }
+    
+    this._lastRefreshCall = now;
     this.refreshCount++;
     
-    console.log(`[성능] 리프레시 횟수: ${this.refreshCount}`);
-    
     try {
-      await this.cardService.refreshCards();
-      console.log('[성능] 카드 저장소 리프레시 완료');
-      TimerUtil.endTimer(timerId);
+      // 카드 저장소 새로고침
+      await this.cardRepository.refresh();
+      
+      // 캐시 초기화
+      this._lastCards = null;
+      this._lastGetCardsCall = null;
+      
+      console.log(`[CardNavigatorService] 카드 저장소 새로고침 완료 (${this.refreshCount}번째)`);
     } catch (error) {
-      console.error('[성능] refreshCards 오류:', error);
-      TimerUtil.endTimer(timerId);
-      throw error;
+      console.error(`[CardNavigatorService] 카드 저장소 새로고침 오류:`, error);
     }
   }
   

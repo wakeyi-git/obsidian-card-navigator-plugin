@@ -52,49 +52,38 @@ export interface ILayout {
   cardHeight?: number;
   
   /**
-   * 최소 카드 너비 설정
-   * @param width 최소 카드 너비
-   */
-  setMinCardWidth(width: number): void;
-  
-  /**
-   * 최대 카드 너비 설정
-   * @param width 최대 카드 너비
-   */
-  setMaxCardWidth(width: number): void;
-  
-  /**
-   * 카드 간격 설정
-   * @param gap 카드 간격
-   */
-  setGap(gap: number): void;
-  
-  /**
-   * 카드 비율 설정
-   * @param ratio 카드 비율
-   */
-  setAspectRatio(ratio: number): void;
-  
-  /**
-   * 동적 열 수 계산
-   * @param containerWidth 컨테이너 너비
-   * @returns 계산된 열 수
-   */
-  calculateColumnCount(containerWidth: number): number;
-  
-  /**
    * 레이아웃 계산
-   * 컨테이너 크기와 아이템 수에 따라 레이아웃을 계산합니다.
+   * 주어진 컨테이너 크기와 아이템 수에 따라 레이아웃을 계산합니다.
    * @param containerWidth 컨테이너 너비
    * @param containerHeight 컨테이너 높이
    * @param itemCount 아이템 수
-   * @returns 레이아웃 계산 결과
+   * @returns 계산된 레이아웃 정보
    */
-  calculateLayout(
-    containerWidth: number,
-    containerHeight: number,
-    itemCount: number
-  ): { columns: number; rows: number; itemWidth: number; itemHeight: number };
+  calculateLayout(containerWidth: number, containerHeight: number, itemCount: number): any;
+  
+  /**
+   * 카드 너비 설정
+   * @param width 카드 너비
+   */
+  setCardWidth(width: number): void;
+  
+  /**
+   * 카드 높이 설정
+   * @param height 카드 높이
+   */
+  setCardHeight(height: number): void;
+  
+  /**
+   * 열 수 설정
+   * @param count 열 수
+   */
+  setColumnCount(count: number): void;
+  
+  /**
+   * 간격 설정
+   * @param gap 간격
+   */
+  setGap(gap: number): void;
 }
 
 /**
@@ -109,30 +98,32 @@ export abstract class Layout implements ILayout {
   aspectRatio: number;
   
   // 하위 호환성을 위한 속성
+  private _columnCount: number = 0;
+  private _cardWidth: number = 0;
+  private _cardHeight: number = 0;
+  
   get columnCount(): number {
-    return this.calculateColumnCount(1000); // 기본값
+    return this._columnCount;
   }
   
   set columnCount(value: number) {
-    // 무시
+    this._columnCount = value;
   }
   
   get cardWidth(): number {
-    return this.minCardWidth;
+    return this._cardWidth || this.minCardWidth;
   }
   
   set cardWidth(value: number) {
-    this.minCardWidth = value;
+    this._cardWidth = value;
   }
   
   get cardHeight(): number {
-    return this.minCardWidth * this.aspectRatio;
+    return this._cardHeight || this.cardWidth / this.aspectRatio;
   }
   
   set cardHeight(value: number) {
-    if (value > 0 && this.minCardWidth > 0) {
-      this.aspectRatio = value / this.minCardWidth;
-    }
+    this._cardHeight = value;
   }
   
   constructor(
@@ -149,6 +140,39 @@ export abstract class Layout implements ILayout {
     this.aspectRatio = aspectRatio;
   }
   
+  /**
+   * 카드 너비 설정
+   * @param width 카드 너비
+   */
+  setCardWidth(width: number): void {
+    this.cardWidth = width;
+  }
+  
+  /**
+   * 카드 높이 설정
+   * @param height 카드 높이
+   */
+  setCardHeight(height: number): void {
+    this.cardHeight = height;
+  }
+  
+  /**
+   * 열 수 설정
+   * @param count 열 수
+   */
+  setColumnCount(count: number): void {
+    this.columnCount = count;
+  }
+  
+  /**
+   * 간격 설정
+   * @param gap 간격
+   */
+  setGap(gap: number): void {
+    this.gap = gap;
+  }
+  
+  // 기존 메서드들
   setMinCardWidth(width: number): void {
     this.minCardWidth = width;
   }
@@ -157,20 +181,19 @@ export abstract class Layout implements ILayout {
     this.maxCardWidth = width;
   }
   
-  setGap(gap: number): void {
-    this.gap = gap;
-  }
-  
   setAspectRatio(ratio: number): void {
     this.aspectRatio = ratio;
   }
   
   calculateColumnCount(containerWidth: number): number {
-    // 기본 구현: 컨테이너 너비와 최소 카드 너비, 간격을 고려하여 열 수 계산
-    const availableWidth = containerWidth - this.gap; // 첫 번째 간격 제외
-    const cardWidthWithGap = this.minCardWidth + this.gap;
-    const columns = Math.max(1, Math.floor(availableWidth / cardWidthWithGap));
-    return columns;
+    // 고정 열 수가 설정된 경우 사용
+    if (this.columnCount > 0) {
+      return this.columnCount;
+    }
+    
+    // 최소 카드 너비와 간격을 고려하여 열 수 계산
+    const maxColumns = Math.floor((containerWidth + this.gap) / (this.minCardWidth + this.gap));
+    return Math.max(1, maxColumns);
   }
   
   abstract calculateLayout(

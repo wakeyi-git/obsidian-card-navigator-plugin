@@ -713,7 +713,7 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
    */
   const handleSearchOptionSelect = (option: SearchOption) => {
     try {
-      console.log('검색 옵션 선택 처리 시작:', option.type, option.prefix);
+      console.log('useSearchBar: handleSearchOptionSelect 호출됨, 옵션:', option.type, option.prefix);
       
       // 현재 선택된 검색 옵션 업데이트
       setCurrentSearchOption(option);

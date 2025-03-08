@@ -52,7 +52,7 @@ export interface IToolbarProps {
 class FolderSuggestModal extends SuggestModal<string> {
   private folders: string[];
   private onSelect: (folder: string, isFixed: boolean) => void;
-  private currentFolder: string = '';
+  private currentFolder = '';
 
   constructor(app: App, folders: string[], onSelect: (folder: string, isFixed: boolean) => void) {
     super(app);
@@ -102,7 +102,7 @@ class FolderSuggestModal extends SuggestModal<string> {
 class TagSuggestModal extends SuggestModal<string> {
   private tags: string[];
   private onSelect: (tag: string, isFixed: boolean) => void;
-  private currentTag: string = '';
+  private currentTag = '';
 
   constructor(app: App, tags: string[], onSelect: (tag: string, isFixed: boolean) => void) {
     super(app);
@@ -264,49 +264,27 @@ const Toolbar: React.FC<IToolbarProps> = ({
 
   // 카드셋 표시 이름 가져오기
   const getDisplayCardSetName = () => {
-    console.log(`[Toolbar] getDisplayCardSetName 호출: cardSet=${cardSet}, currentMode=${currentMode}, isCardSetFixed=${isCardSetFixed}`);
-    
-    // 서비스에서 현재 카드셋 직접 확인
-    let currentCardSetFromService = '';
-    if (service) {
-      try {
-        const modeService = service.getModeService();
-        currentCardSetFromService = modeService.getCurrentCardSet() || '';
-        console.log(`[Toolbar] 서비스에서 가져온 현재 카드셋: ${currentCardSetFromService}`);
-        
-        // props로 전달된 cardSet과 서비스에서 가져온 값이 다른 경우 로그 출력
-        if (cardSet !== currentCardSetFromService) {
-          console.log(`[Toolbar] 주의: props cardSet(${cardSet})과 서비스 cardSet(${currentCardSetFromService})이 다릅니다.`);
-        }
-      } catch (error) {
-        console.error('[Toolbar] 서비스에서 카드셋 가져오기 오류:', error);
-      }
+    // 검색 모드인 경우 '검색 결과' 표시
+    if (showSearchBar) {
+      return '검색 결과';
     }
     
-    // 실제 사용할 카드셋 값 결정 (props 값 우선, 없으면 서비스에서 가져온 값 사용)
-    const effectiveCardSet = cardSet || currentCardSetFromService;
-    
-    if (!effectiveCardSet) {
-      const defaultName = currentMode === 'folder' ? '폴더 선택' : '태그 선택';
-      console.log(`[Toolbar] cardSet이 없음, 기본값 반환: ${defaultName}`);
-      return defaultName;
+    // 실제 사용할 카드셋 값 결정
+    if (!cardSet) {
+      return currentMode === 'folder' ? '폴더 선택' : '태그 선택';
     }
     
-    let displayName = '';
     // 태그 모드에서 # 제거
-    if (currentMode === 'tag' && effectiveCardSet.startsWith('#')) {
-      displayName = effectiveCardSet.substring(1);
+    if (currentMode === 'tag' && cardSet.startsWith('#')) {
+      return cardSet.substring(1);
     }
     // 폴더 모드에서 루트 폴더 표시 개선
-    else if (currentMode === 'folder' && effectiveCardSet === '/') {
-      displayName = '루트 폴더';
+    else if (currentMode === 'folder' && cardSet === '/') {
+      return '루트 폴더';
     }
     else {
-      displayName = effectiveCardSet;
+      return cardSet;
     }
-    
-    console.log(`[Toolbar] 최종 표시 이름: ${displayName}`);
-    return displayName;
   };
 
   // 카드셋 선택 모달 열기

@@ -58,6 +58,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const {
     // 상태
     searchText,
+    setSearchText,
     showSearchSuggestions,
     setShowSearchSuggestions,
     showFrontmatterKeySuggestions,
@@ -69,8 +70,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     showDatePicker,
     setShowDatePicker,
     isDateRangeMode,
+    setIsDateRangeMode,
     datePickerType,
+    setDatePickerType,
     datePickerPosition,
+    setDatePickerPosition,
     isComplexSearch,
     searchHistory,
     frontmatterKeys,
@@ -114,11 +118,42 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   
   // 검색 옵션 선택 핸들러 래핑
   const handleSearchOptionSelect = (option: SearchOption) => {
+    console.log('SearchBar: handleSearchOptionSelect 호출됨, 옵션:', option.type, option.prefix);
+    
+    // 기본 핸들러 호출
     baseHandleSearchOptionSelect(option);
+    
+    // SearchType 변환 및 콜백 호출
     if (onSearchTypeChange) {
       // SearchOption 타입을 SearchType으로 변환
       const searchType = convertOptionTypeToSearchType(option.type);
       onSearchTypeChange(searchType);
+    }
+    
+    // 입력 필드가 비어있는 경우 직접 prefix 입력
+    if (inputRef.current && inputRef.current.value.trim() === '') {
+      console.log('입력 필드가 비어있어 직접 prefix 입력:', option.prefix);
+      
+      // 검색 옵션 접두사 사용
+      let insertText = option.prefix;
+      
+      if (option.type === 'frontmatter') {
+        insertText += ']:'; // 프론트매터 검색의 경우 닫는 괄호와 콜론 추가
+      } else if (option.type === 'filename' || option.type === 'path') {
+        insertText += '"'; // 파일명과 경로 검색의 경우 큰따옴표 추가
+      }
+      
+      // 입력 필드에 접두사 삽입
+      inputRef.current.value = insertText;
+      
+      // 커서 위치 조정
+      const newCursorPosition = option.type === 'frontmatter' ? insertText.length - 2 : insertText.length;
+      inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
+      
+      // 검색 텍스트 상태 업데이트
+      setSearchText(insertText);
+      
+      console.log('입력 필드에 접두사 삽입 완료:', insertText);
     }
   };
   
@@ -169,28 +204,20 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     // app이 없거나 inputRef가 없으면 실행하지 않음
     if (!app || !inputRef.current) return;
     
-    // 인스턴스가 이미 있으면 생성하지 않음
-    if (!searchOptionSuggestRef.current) {
-      console.log('SearchOptionSuggest 인스턴스 생성');
-      // SearchOptionSuggest 인스턴스 생성
-      searchOptionSuggestRef.current = new SearchOptionSuggest(
-        app,
-        inputRef.current,
-        searchOptions,
-        handleSearchOptionSelect
-      );
-    } else {
-      console.log('SearchOptionSuggest 인스턴스 업데이트');
-      // 인스턴스가 이미 있으면 옵션 업데이트
-      searchOptionSuggestRef.current.updateOptions(searchOptions);
-    }
+    console.log('SearchOptionSuggest 인스턴스 생성 또는 가져오기');
+    // SearchOptionSuggest 싱글톤 인스턴스 가져오기
+    searchOptionSuggestRef.current = SearchOptionSuggest.getInstance(
+      app,
+      inputRef.current,
+      searchOptions,
+      handleSearchOptionSelect
+    );
     
     // 컴포넌트 언마운트 시 정리
     return () => {
       console.log('SearchOptionSuggest 인스턴스 정리');
       if (searchOptionSuggestRef.current) {
         searchOptionSuggestRef.current.close();
-        searchOptionSuggestRef.current = null;
       }
     };
   }, [app, searchOptions]); // app과 searchOptions가 변경될 때 실행

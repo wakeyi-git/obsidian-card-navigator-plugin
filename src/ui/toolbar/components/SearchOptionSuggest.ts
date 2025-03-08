@@ -18,6 +18,30 @@ export class SearchOptionSuggest extends AbstractInputSuggest<SearchOption> {
   private options: SearchOption[];
   private onSelectCallback: (option: SearchOption) => void;
   private inputElement: HTMLInputElement;
+  private isOpen = false;
+  
+  // 싱글톤 인스턴스
+  private static instance: SearchOptionSuggest | null = null;
+  
+  /**
+   * 싱글톤 인스턴스 가져오기
+   */
+  public static getInstance(
+    app: App, 
+    inputEl: HTMLInputElement, 
+    options: SearchOption[],
+    onSelect: (option: SearchOption) => void
+  ): SearchOptionSuggest {
+    if (!this.instance) {
+      this.instance = new SearchOptionSuggest(app, inputEl, options, onSelect);
+    } else {
+      // 기존 인스턴스의 속성 업데이트
+      this.instance.updateOptions(options);
+      this.instance.onSelectCallback = onSelect;
+      this.instance.inputElement = inputEl;
+    }
+    return this.instance;
+  }
   
   constructor(
     app: App, 
@@ -92,14 +116,21 @@ export class SearchOptionSuggest extends AbstractInputSuggest<SearchOption> {
    * 제안 항목 선택 시 처리
    */
   selectSuggestion(option: SearchOption, evt: MouseEvent | KeyboardEvent): void {
-    // 콜백 함수 호출
+    console.log('selectSuggestion 호출됨, 옵션:', option.type, option.prefix, '이벤트 타입:', evt instanceof MouseEvent ? 'mouse' : 'keyboard');
+    
+    // 제안 창 닫기 (콜백 함수 호출 전에 닫기)
+    this.close();
+    
+    // 마우스 이벤트인 경우 이벤트 객체에 isMouseEvent 속성 추가
+    if (evt instanceof MouseEvent) {
+      (evt as any).isMouseEvent = true;
+    }
+    
+    // 콜백 함수 호출 (이벤트 타입에 관계없이 동일하게 처리)
     this.onSelectCallback(option);
     
     // 입력 필드 포커스
     this.inputElement.focus();
-    
-    // 제안 창 닫기
-    this.close();
   }
   
   /**
@@ -108,8 +139,26 @@ export class SearchOptionSuggest extends AbstractInputSuggest<SearchOption> {
   open(): void {
     console.log('open 메서드 호출됨');
     
+    // 이미 열려있으면 다시 열지 않음
+    if (this.isOpen) {
+      console.log('이미 열려있어 다시 열지 않음');
+      return;
+    }
+    
+    // 기존 제안 컨테이너 확인 및 제거
+    const existingContainers = document.querySelectorAll('.suggestion-container');
+    console.log('기존 제안 컨테이너 수:', existingContainers.length);
+    
+    if (existingContainers.length > 0) {
+      console.log('기존 제안 컨테이너 제거');
+      existingContainers.forEach(container => {
+        container.remove();
+      });
+    }
+    
     // 부모 클래스의 open 메서드 호출
     super.open();
+    this.isOpen = true;
     
     // 포커스 인디케이터 제거 및 키보드 이벤트 처리 개선
     setTimeout(() => {
@@ -138,5 +187,13 @@ export class SearchOptionSuggest extends AbstractInputSuggest<SearchOption> {
         }
       });
     }, 50);
+  }
+  
+  /**
+   * 제안 창 닫기 오버라이드
+   */
+  close(): void {
+    super.close();
+    this.isOpen = false;
   }
 }
