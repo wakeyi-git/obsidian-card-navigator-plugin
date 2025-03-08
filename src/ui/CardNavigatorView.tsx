@@ -793,45 +793,41 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
       />
       
       {isSearchMode && (
-        <div className="card-navigator-search-wrapper">
-          <SearchBar
-            onSearch={handleSearch}
-            onSearchTypeChange={handleSearchTypeChange}
-            onCaseSensitiveChange={handleCaseSensitiveChange}
-            onFrontmatterKeyChange={handleFrontmatterKeyChange}
-            searchQuery={searchQuery}
-            searchType={searchType}
-            caseSensitive={caseSensitive}
-            frontmatterKey={frontmatterKey}
-          />
-        </div>
+        <SearchBar
+          onSearch={handleSearch}
+          onSearchTypeChange={handleSearchTypeChange}
+          onCaseSensitiveChange={handleCaseSensitiveChange}
+          onFrontmatterKeyChange={handleFrontmatterKeyChange}
+          searchQuery={searchQuery}
+          searchType={searchType}
+          caseSensitive={caseSensitive}
+          frontmatterKey={frontmatterKey}
+        />
       )}
       
-      <div className="card-navigator-cards-wrapper">
-        {isLoading ? (
-          <div className="card-navigator-loading">로딩 중...</div>
-        ) : error ? (
-          <div className="card-navigator-error">{error}</div>
-        ) : cards.length === 0 && currentMode === 'tag' && !currentCardSet ? (
-          <EmptyState mode="tag" />
-        ) : cards.length === 0 ? (
-          <EmptyState mode={currentMode} />
-        ) : (
-          <CardContainer
-            cards={cards}
-            layout={layout}
-            onCardClick={handleCardClick}
-            onCardContextMenu={handleCardContextMenu}
-            onCardDragStart={handleCardDragStart}
-            onCardDragEnd={handleCardDragEnd}
-            onCardDrop={handleCardDrop}
-            onCardDragOver={handleCardDragOver}
-            onCardDragEnter={handleCardDragEnter}
-            onCardDragLeave={handleCardDragLeave}
-            service={service}
-          />
-        )}
-      </div>
+      {isLoading ? (
+        <div className="card-navigator-loading">로딩 중...</div>
+      ) : error ? (
+        <div className="card-navigator-error">{error}</div>
+      ) : cards.length === 0 && currentMode === 'tag' && !currentCardSet ? (
+        <EmptyState mode="tag" />
+      ) : cards.length === 0 ? (
+        <EmptyState mode={currentMode} />
+      ) : (
+        <CardContainer
+          cards={cards}
+          layout={layout}
+          onCardClick={handleCardClick}
+          onCardContextMenu={handleCardContextMenu}
+          onCardDragStart={handleCardDragStart}
+          onCardDragEnd={handleCardDragEnd}
+          onCardDrop={handleCardDrop}
+          onCardDragOver={handleCardDragOver}
+          onCardDragEnter={handleCardDragEnter}
+          onCardDragLeave={handleCardDragLeave}
+          service={service}
+        />
+      )}
     </div>
   );
 };
@@ -848,7 +844,7 @@ export class CardNavigatorView extends ItemView {
   }
 
   getViewType(): string {
-    return 'card-navigator-view';
+    return VIEW_TYPE_CARD_NAVIGATOR;
   }
 
   getDisplayText(): string {
@@ -866,20 +862,11 @@ export class CardNavigatorView extends ItemView {
       // 컨테이너 요소 준비
       const container = this.containerEl.children[1];
       container.empty();
-      container.addClass('card-navigator-view');
-      container.addClass('card-navigator-visible');
-      
-      // 루트 요소 생성
-      const rootEl = createDiv({ cls: 'card-navigator-root card-navigator-visible' });
-      rootEl.style.opacity = '1';
-      rootEl.style.visibility = 'visible';
-      container.appendChild(rootEl);
-      
-      console.log('[CardNavigatorView] 루트 요소 생성 완료');
+      container.addClass('card-navigator-container-view');
       
       // React 루트 생성 및 컴포넌트 렌더링
       try {
-        const root = createRoot(rootEl);
+        const root = createRoot(container);
         
         // 렌더링 전 상태 확인
         console.log('[CardNavigatorView] React 루트 생성 완료, 렌더링 시작');
@@ -892,26 +879,6 @@ export class CardNavigatorView extends ItemView {
         );
         
         console.log('[CardNavigatorView] 컴포넌트 렌더링 완료');
-        
-        // 렌더링 후 DOM 요소 확인
-        setTimeout(() => {
-          const cardNavigatorElements = container.querySelectorAll('.card-navigator-container');
-          console.log(`[CardNavigatorView] 카드 네비게이터 요소 수: ${cardNavigatorElements.length}`);
-          
-          if (cardNavigatorElements.length === 0) {
-            console.warn('[CardNavigatorView] 카드 네비게이터 요소가 없습니다. DOM 재구성 시도');
-            this.reRenderComponent(rootEl);
-          } else {
-            console.log('[CardNavigatorView] 카드 네비게이터 요소 확인 완료');
-          }
-          
-          // 추가 스타일 적용
-          const toolbarElements = container.querySelectorAll('.card-navigator-toolbar, .card-navigator-toolbar-left, .card-navigator-toolbar-center, .card-navigator-toolbar-right');
-          toolbarElements.forEach(el => {
-            (el as HTMLElement).style.opacity = '1';
-            (el as HTMLElement).style.visibility = 'visible';
-          });
-        }, 300);
       } catch (renderError) {
         console.error('[CardNavigatorView] React 렌더링 오류:', renderError);
         this.handleRenderError(container, renderError);

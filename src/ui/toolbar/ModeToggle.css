@@ -3,43 +3,11 @@
   width: 28px;
   height: 28px;
   padding: 4px;
-  margin-right: 8px;
 }
 
 .card-navigator-mode-toggle:hover {
   background-color: var(--background-modifier-hover);
   color: var(--text-normal);
-}
-
-.mode-toggle-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.card-navigator-mode-toggle-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 6px;
-  outline: none;
-  border-radius: 4px;
-  transition: color 0.2s ease;
-  opacity: 1 !important;
-}
-
-.card-navigator-mode-toggle-button:disabled {
-  opacity: 0.8 !important;
-  cursor: not-allowed;
-}
-
-.card-navigator-mode-toggle-button:hover {
-  background: none;
-  color: var(--text-accent);
-}
-
-.card-navigator-mode-toggle-button:active {
-  background: none;
-  color: var(--interactive-accent);
 }
 
 .card-navigator-mode-icon {
@@ -164,10 +132,6 @@
   
   .card-navigator-toggle-option {
     font-size: 10px;
-  }
-  
-  .card-navigator-mode-toggle-button {
-    padding: 4px;
   }
   
   .mode-icon {

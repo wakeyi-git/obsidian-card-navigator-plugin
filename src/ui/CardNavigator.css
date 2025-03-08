@@ -1,5 +1,5 @@
 /* 카드 네비게이터 기본 스타일 */
-.card-navigator-view {
+.card-navigator-container-view {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -9,12 +9,9 @@
   font-family: var(--font-interface);
 }
 
-.view-content.card-navigator-view {
+.view-content.card-navigator-container-view {
   padding: 0;
   height: 100%;
-  width: 100%;
-  overflow: hidden;
-  position: relative;
   display: flex;
   flex-direction: column;
 }
@@ -29,18 +26,21 @@
 
 /* 모드 전환 시 시각적 피드백 */
 .card-navigator-mode-changed {
-  animation: mode-toggle-feedback 0.5s ease-in-out;
+  animation: mode-toggle-feedback 0.3s ease-in-out;
 }
 
 @keyframes mode-toggle-feedback {
   0% {
-    background-color: transparent;
+    opacity: 0.7;
+    transform: scale(0.98);
   }
   50% {
-    background-color: rgba(var(--interactive-accent-rgb), 0.1);
+    opacity: 0.9;
+    transform: scale(1.01);
   }
   100% {
-    background-color: transparent;
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -51,57 +51,39 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  padding: 20px;
   text-align: center;
+  padding: 2rem;
   color: var(--text-muted);
 }
 
 .card-navigator-empty-tag-message svg {
-  margin-bottom: 10px;
   width: 48px;
   height: 48px;
-  opacity: 0.5;
+  margin-bottom: 1rem;
+  color: var(--text-faint);
 }
 
 .card-navigator-empty-tag-message h3 {
-  margin: 10px 0;
-  font-size: 1.2em;
+  margin: 0.5rem 0;
+  font-size: 1.2rem;
 }
 
 .card-navigator-empty-tag-message p {
-  margin: 5px 0;
-  font-size: 0.9em;
-}
-
-.card-navigator-search-wrapper {
-  position: absolute;
-  top: 40px; /* 툴바 높이와 동일하게 설정 */
-  left: 0;
-  width: 100%;
-  z-index: 5; /* 툴바보다 낮은 z-index */
-  background-color: var(--background-primary);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
 }
 
 .card-navigator-search-container {
-  padding: 0 12px;
-  margin: 0;
-  display: flex;
-  align-items: center;
+  position: relative;
   width: 100%;
-  box-sizing: border-box;
-  background-color: var(--background-primary);
-  border-bottom: 1px solid var(--background-modifier-border);
-  padding-top: 8px;
-  padding-bottom: 8px;
-  height: 38px; /* 검색 컨테이너 높이 고정 */
+  z-index: 10;
 }
 
 .card-navigator-search-input {
   width: 100%;
-  padding: 6px 10px;
-  border-radius: 4px;
+  padding: 8px 12px;
   border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
   background-color: var(--background-primary);
   color: var(--text-normal);
   font-size: 14px;
@@ -115,14 +97,13 @@
 
 .card-navigator-search-type {
   margin-left: 8px;
-  display: flex;
-  align-items: center;
+  position: relative;
 }
 
 .card-navigator-search-type select {
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 6px 8px;
   border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
   background-color: var(--background-primary);
   color: var(--text-normal);
   font-size: 14px;
@@ -131,14 +112,13 @@
 
 .card-navigator-frontmatter-key {
   margin-left: 8px;
-  display: flex;
-  align-items: center;
+  position: relative;
 }
 
 .card-navigator-frontmatter-key input {
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 6px 8px;
   border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
   background-color: var(--background-primary);
   color: var(--text-normal);
   font-size: 14px;

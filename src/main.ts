@@ -8,7 +8,7 @@ import { CardNavigatorSettingTab } from './ui/settings/SettingTab';
 import { ModeType } from './domain/mode/Mode';
 
 // 뷰 타입 상수 정의
-export const VIEW_TYPE_CARD_NAVIGATOR = 'card-navigator-view';
+export const VIEW_TYPE_CARD_NAVIGATOR = 'card-navigator-view-type';
 
 export interface CardNavigatorSettings {
   // 기본 설정

@@ -67,22 +67,11 @@ useEffect(() => {
   
   // 카드가 없는 경우 메시지 표시
   if (cards.length === 0) {
-    return layout === 'grid' ? (
-      <div className="card-navigator-grid">
-        <div className="card-navigator-empty-state">
-          <div className="card-navigator-empty-message">
-            <span>{emptyMessage}</span>
-            {!searchQuery && <p>다른 폴더나 태그를 선택해보세요.</p>}
-          </div>
-        </div>
-      </div>
-    ) : (
-      <div className="card-navigator-masonry">
-        <div className="card-navigator-empty-state">
-          <div className="card-navigator-empty-message">
-            <span>{emptyMessage}</span>
-            {!searchQuery && <p>다른 폴더나 태그를 선택해보세요.</p>}
-          </div>
+    return (
+      <div className={`card-navigator-empty-state ${layout}`}>
+        <div className="card-navigator-empty-message">
+          <span>{emptyMessage}</span>
+          {!searchQuery && <p>다른 폴더나 태그를 선택해보세요.</p>}
         </div>
       </div>
     );
