@@ -1,4 +1,4 @@
-import type { SearchOption } from '../components/SearchSuggestions';
+import type { SearchOption } from '../components/SearchOptionSuggest';
 
 /**
  * 검색 옵션 접두사 관련 로직을 담당하는 훅

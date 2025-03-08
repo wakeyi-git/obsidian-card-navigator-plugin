@@ -1,23 +1,11 @@
 {
   "src/ui/CardNavigator.css": {
-    "hash": "ff1620bd02d5c95cfef86b8e6a37f527",
-    "lastModified": 1741418926807
+    "hash": "b1470101808059272fd3b8321677af5d",
+    "lastModified": 1741424899320
   },
-  "src/ui/settings/SettingsModal.css": {
-    "hash": "a4df37b0f6b524e8caf30a540e5b6394",
-    "lastModified": 1741212491577
-  },
-  "src/ui/toolbar/ModeToggle.css": {
-    "hash": "3549143c2a3819ae5deeb1838a32b3c1",
-    "lastModified": 1741419922858
-  },
-  "src/ui/toolbar/SearchBar.css": {
-    "hash": "14a77f7902e2d917a63c4862e391d9a2",
-    "lastModified": 1741414391691
-  },
-  "src/ui/toolbar/Toolbar.css": {
-    "hash": "ba18cf5aab40e4a6e354ab334cd09ebf",
-    "lastModified": 1741420704245
+  "src/ui/cards-container/Card.css": {
+    "hash": "92312b10411c7b77fe74f134ad6b3846",
+    "lastModified": 1741338212751
   },
   "src/ui/cards-container/CardContainer.css": {
     "hash": "7cd09fa7c712c86ade2ce0fc49b9e3df",
@@ -31,8 +19,24 @@
     "hash": "9083236ff05f3f740ec3d5d0f7ed1a3f",
     "lastModified": 1741183222336
   },
-  "src/ui/cards-container/Card.css": {
-    "hash": "92312b10411c7b77fe74f134ad6b3846",
-    "lastModified": 1741338212751
+  "src/ui/settings/SettingsModal.css": {
+    "hash": "a4df37b0f6b524e8caf30a540e5b6394",
+    "lastModified": 1741212491577
+  },
+  "src/ui/toolbar/ModeToggle.css": {
+    "hash": "7718d0e8988b4f13173b8468227aab34",
+    "lastModified": 1741424981723
+  },
+  "src/ui/toolbar/SearchBar.css": {
+    "hash": "2deea3e2ecfd27cdecbdbd063063079b",
+    "lastModified": 1741424961020
+  },
+  "src/ui/toolbar/Toolbar.css": {
+    "hash": "f28a77f582c3335df01733e2967a62aa",
+    "lastModified": 1741425015535
+  },
+  "src/ui/toolbar/components/SearchOptionSuggestStyle.css": {
+    "hash": "477ef1e345fe1ecbb4ae30cfb29f6889",
+    "lastModified": 1741426705614
   }
 }

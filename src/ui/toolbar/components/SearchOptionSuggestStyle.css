@@ -1,0 +1,72 @@
+/* 
+ * 검색 옵션 제안 스타일
+ * 모든 제안 관련 스타일을 통합하여 관리합니다.
+ */
+
+/* 제안 컨테이너 스타일 */
+.card-navigator-suggestion-container {
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+  position: absolute !important;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* 제안 항목 스타일 */
+.card-navigator-suggestion-item {
+  padding: 2px 2px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-left-color 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* 선택된 제안 항목 스타일 */
+.card-navigator-suggestion-item.is-selected {
+  background-color: var(--background-modifier-hover);
+  position: relative;
+}
+
+/* 제안 항목 호버 스타일 */
+.card-navigator-suggestion-item:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+/* 제안 항목 내부 요소 스타일 */
+.card-navigator-suggestion-title {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.card-navigator-suggestion-label {
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+.card-navigator-suggestion-description {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  white-space: normal;
+  line-height: 1.0;
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  .card-navigator-suggestion-container {
+    max-width: 100vw;
+    width: 100%;
+  }
+  
+  .card-navigator-suggestion-description {
+    font-size: 11px;
+  }
+} 

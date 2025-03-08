@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ICardNavigatorService } from '../../../application/CardNavigatorService';
 import { ICardProps } from '../../../ui/cards-container/Card';
 import { ICard } from '../../../domain/card/Card';
-import type { SearchOption } from '../components/SearchSuggestions';
+import type { SearchOption } from '../components/SearchOptionSuggest';
 
 /**
  * 추천 검색어 로드 관련 로직을 담당하는 훅

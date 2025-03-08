@@ -1,5 +1,5 @@
 import { useState, useEffect, RefObject } from 'react';
-import type { SearchOption } from '../components/SearchSuggestions';
+import type { SearchOption } from '../components/SearchOptionSuggest';
 
 interface UseSearchSuggestionsProps {
   searchText: string;

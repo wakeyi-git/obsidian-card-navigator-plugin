@@ -1,4 +1,9 @@
-/* 모드 토글 컴포넌트 스타일 */
+/* 
+ * 모드 토글 컴포넌트 스타일
+ * 폴더/태그 모드 전환 관련 스타일을 포함합니다.
+ */
+
+/* 모드 토글 기본 스타일 */
 .card-navigator-mode-toggle {
   width: 28px;
   height: 28px;
@@ -10,6 +15,7 @@
   color: var(--text-normal);
 }
 
+/* 모드 아이콘 스타일 */
 .card-navigator-mode-icon {
   display: flex;
   align-items: center;
@@ -37,6 +43,7 @@
   color: var(--text-accent);
 }
 
+/* 토글 스위치 스타일 */
 .card-navigator-toggle-switch {
   position: relative;
   width: 80px;
@@ -58,6 +65,7 @@
   opacity: 1 !important;
 }
 
+/* 토글 옵션 스타일 */
 .card-navigator-toggle-option {
   flex: 1;
   display: flex;
@@ -78,6 +86,7 @@
   color: var(--text-normal);
 }
 
+/* 토글 인디케이터 스타일 */
 .card-navigator-toggle-indicator {
   position: absolute;
   width: 40px;
@@ -106,7 +115,7 @@
   font-weight: 600;
 }
 
-/* 다크 모드 대응 */
+/* 테마 대응 스타일 */
 .theme-dark .card-navigator-toggle-switch {
   background: none;
 }
@@ -116,7 +125,7 @@
   color: var(--interactive-accent);
 }
 
-/* 모바일 대응 */
+/* 반응형 스타일 */
 @media (max-width: 768px) {
   .card-navigator-toggle-switch {
     width: 70px;

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import { ICardProps } from '../cards-container/Card';
 import { SearchType } from '../../domain/search/Search';
 import './SearchBar.css';
+import { App } from 'obsidian';
 
 // 컴포넌트 import
 import SearchInput from './components/SearchInput';
@@ -10,8 +11,8 @@ import SearchScopeToggle from './components/SearchScopeToggle';
 import SearchHistory from './components/SearchHistory';
 import DatePicker from './components/DatePicker';
 import FrontmatterKeySuggestions from './components/FrontmatterKeySuggestions';
-import { SearchSuggestions, SearchOption } from './components/SearchSuggestions';
 import SuggestedValues from './components/SuggestedValues';
+import { SearchOptionSuggest, SearchOption } from './components/SearchOptionSuggest';
 
 // 훅 import
 import useSearchBar from './hooks/useSearchBar';
@@ -32,6 +33,7 @@ interface SearchBarProps {
   searchType?: SearchType;
   caseSensitive?: boolean;
   frontmatterKey?: string;
+  app?: App; // Obsidian App 인스턴스 추가
 }
 
 /**
@@ -49,7 +51,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   searchQuery = '',
   searchType = 'filename',
   caseSensitive = false,
-  frontmatterKey = ''
+  frontmatterKey = '',
+  app
 }) => {
   // useSearchBar 훅 사용
   const {
@@ -158,6 +161,55 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     }
   };
 
+  // SearchOptionSuggest 인스턴스 참조
+  const searchOptionSuggestRef = useRef<SearchOptionSuggest | null>(null);
+  
+  // 컴포넌트 마운트 시 SearchOptionSuggest 인스턴스 생성
+  React.useEffect(() => {
+    // app이 없거나 inputRef가 없으면 실행하지 않음
+    if (!app || !inputRef.current) return;
+    
+    // 인스턴스가 이미 있으면 생성하지 않음
+    if (!searchOptionSuggestRef.current) {
+      console.log('SearchOptionSuggest 인스턴스 생성');
+      // SearchOptionSuggest 인스턴스 생성
+      searchOptionSuggestRef.current = new SearchOptionSuggest(
+        app,
+        inputRef.current,
+        searchOptions,
+        handleSearchOptionSelect
+      );
+    } else {
+      console.log('SearchOptionSuggest 인스턴스 업데이트');
+      // 인스턴스가 이미 있으면 옵션 업데이트
+      searchOptionSuggestRef.current.updateOptions(searchOptions);
+    }
+    
+    // 컴포넌트 언마운트 시 정리
+    return () => {
+      console.log('SearchOptionSuggest 인스턴스 정리');
+      if (searchOptionSuggestRef.current) {
+        searchOptionSuggestRef.current.close();
+        searchOptionSuggestRef.current = null;
+      }
+    };
+  }, [app, searchOptions]); // app과 searchOptions가 변경될 때 실행
+  
+  // showSearchSuggestions 상태가 변경될 때 인스턴스의 open/close 메서드 호출
+  React.useEffect(() => {
+    if (!searchOptionSuggestRef.current) return;
+    
+    console.log('showSearchSuggestions 변경:', showSearchSuggestions);
+    
+    if (showSearchSuggestions) {
+      console.log('SearchOptionSuggest 열기');
+      searchOptionSuggestRef.current.open();
+    } else {
+      console.log('SearchOptionSuggest 닫기');
+      searchOptionSuggestRef.current.close();
+    }
+  }, [showSearchSuggestions]);
+
   return (
     <div className="card-navigator-search-container" ref={containerRef}>
       <form onSubmit={handleSubmit} className="card-navigator-search-form">
@@ -183,18 +235,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             onToggle={handleSearchScopeToggle}
           />
         </div>
-        
-        {/* 검색 옵션 제안 */}
-        {showSearchSuggestions && (
-          <SearchSuggestions
-            searchText={searchText}
-            options={searchOptions}
-            isVisible={showSearchSuggestions}
-            onSelect={handleSearchOptionSelect}
-            inputRef={inputRef}
-            onClose={() => setShowSearchSuggestions(false)}
-          />
-        )}
         
         {/* 프론트매터 키 제안 */}
         {showFrontmatterKeySuggestions && (

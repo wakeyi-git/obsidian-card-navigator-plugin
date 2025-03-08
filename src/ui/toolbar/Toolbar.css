@@ -1,4 +1,9 @@
-/* 툴바 스타일 */
+/* 
+ * 툴바 컴포넌트 스타일
+ * 카드 네비게이터의 상단 툴바 관련 스타일을 포함합니다.
+ */
+
+/* 툴바 기본 레이아웃 */
 .card-navigator-toolbar {
   display: flex;
   justify-content: space-between;
@@ -31,10 +36,11 @@
   flex-shrink: 0;
 }
 
-/* 드롭다운 메뉴 */
+/* 드롭다운 메뉴 스타일 */
 .card-navigator-dropdown {
   position: relative;
   display: inline-block;
+  margin-left: 4px;
 }
 
 .card-navigator-dropdown-button {
@@ -75,7 +81,24 @@
   overflow-y: auto;
 }
 
-/* 카드셋 선택기 */
+.card-navigator-dropdown-item {
+  padding: 6px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.card-navigator-dropdown-item:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.card-navigator-dropdown-item.active {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+/* 카드셋 선택기 스타일 */
 .card-navigator-cardset-selector {
   display: flex;
   align-items: center;
@@ -112,74 +135,29 @@
   min-width: 0;
 }
 
-/* 반응형 스타일 */
-@media (max-width: 768px) {
-  .card-navigator-toolbar {
-    padding: 0 4px;
-  }
-  
-  .card-navigator-toolbar-left {
-    gap: 4px;
-  }
-  
-  .card-navigator-toolbar-right {
-    gap: 4px;
-  }
-}
-
-@media (max-width: 480px) {
-  .card-navigator-toolbar-left {
-    gap: 2px;
-  }
-  
-  .card-navigator-toolbar-right {
-    gap: 2px;
-  }
-  
-  .card-navigator-cardset-button {
-    padding: 4px 6px;
-  }
-}
-
-/* 가시성 클래스 */
-.card-navigator-visible {
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-
-/* 고정 아이콘 */
-.card-navigator-lock-icon {
+/* 카드셋 아이콘 스타일 */
+.card-navigator-cardset-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  margin-right: 8px;
+  flex-shrink: 0;
   color: var(--text-accent);
+}
+
+/* 고정된 카드셋 스타일 */
+.card-navigator-fixed-cardset .card-navigator-cardset-name {
+  font-weight: 600;
 }
 
 .card-navigator-fixed-cardset .card-navigator-lock-icon {
   color: var(--text-accent);
 }
 
-/* 드롭다운 공통 스타일 */
-.card-navigator-dropdown {
-  position: relative;
-  margin-left: 4px;
-}
-
-.card-navigator-dropdown-item {
-  padding: 6px 12px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.card-navigator-dropdown-item:hover {
-  background-color: var(--background-modifier-hover);
-  color: var(--text-normal);
-}
-
-.card-navigator-dropdown-item.active {
-  background-color: var(--background-modifier-hover);
-  color: var(--text-normal);
-  font-weight: 600;
-}
-
-/* 모드 드롭다운 콘텐츠 */
+/* 모드 드롭다운 콘텐츠 스타일 */
 .card-navigator-mode-dropdown-content {
   min-width: 220px;
 }
@@ -201,7 +179,7 @@
   text-transform: uppercase;
 }
 
-/* 정렬 옵션 */
+/* 정렬 옵션 스타일 */
 .card-navigator-sort-option {
   display: flex;
   align-items: center;
@@ -209,7 +187,6 @@
   margin-bottom: 4px;
 }
 
-/* 정렬 방향 */
 .card-navigator-sort-direction {
   display: flex;
   align-items: center;
@@ -269,20 +246,37 @@
   height: 18px;
 }
 
-/* 카드셋 아이콘 컨테이너 */
-.card-navigator-cardset-icon-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  margin-right: 8px;
-  flex-shrink: 0;
-  color: var(--text-accent);
+/* 가시성 클래스 */
+.card-navigator-visible {
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
-/* 고정된 카드셋 스타일 */
-.card-navigator-fixed-cardset .card-navigator-cardset-name {
-  font-weight: 600;
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  .card-navigator-toolbar {
+    padding: 0 4px;
+  }
+  
+  .card-navigator-toolbar-left {
+    gap: 4px;
+  }
+  
+  .card-navigator-toolbar-right {
+    gap: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-navigator-toolbar-left {
+    gap: 2px;
+  }
+  
+  .card-navigator-toolbar-right {
+    gap: 2px;
+  }
+  
+  .card-navigator-cardset-button {
+    padding: 4px 6px;
+  }
 } 

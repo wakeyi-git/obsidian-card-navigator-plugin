@@ -802,6 +802,8 @@ const CardNavigatorComponent: React.FC<{ app: App }> = ({ app }) => {
           searchType={searchType}
           caseSensitive={caseSensitive}
           frontmatterKey={frontmatterKey}
+          app={app}
+          cardNavigatorService={service}
         />
       )}
       

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ICardNavigatorService } from '../../../application/CardNavigatorService';
 import { ICardProps } from '../../../ui/cards-container/Card';
 import { ICard } from '../../../domain/card/Card';
-import type { SearchOption } from '../components/SearchSuggestions';
+import type { SearchOption } from '../components/SearchOptionSuggest';
 
 /**
  * 현재 필터링된 카드 목록을 기반으로 추천 검색어를 로드하는 훅

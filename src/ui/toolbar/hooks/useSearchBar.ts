@@ -3,7 +3,7 @@ import { ICardNavigatorService } from '../../../application/CardNavigatorService
 import { ICardProps } from '../../../ui/cards-container/Card';
 import { ICard as _ICard } from '../../../domain/card/Card';
 import { SearchType } from '../../../domain/search/Search';
-import type { SearchOption } from '../components/SearchSuggestions';
+import type { SearchOption } from '../components/SearchOptionSuggest';
 import { useComplexSearch } from './useComplexSearch';
 import { useSearchOptionPair } from './useSearchOptionPair';
 import { useSearchOptionPrefix } from './useSearchOptionPrefix';
@@ -554,8 +554,11 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
    * 포커스 핸들러
    */
   const handleFocus = () => {
+    console.log('handleFocus 호출됨, 검색어:', searchText);
+    
     // 검색어가 비어있으면 검색 옵션 제안 표시
     if (!searchText.trim()) {
+      console.log('검색어가 비어있어 검색 옵션 제안 표시');
       setShowSearchSuggestions(true);
     }
     
