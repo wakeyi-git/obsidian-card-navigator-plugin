@@ -541,26 +541,55 @@ export class ModeService implements IModeService {
           const cardTagWithHash = cardTag.startsWith('#') ? cardTag : `#${cardTag}`;
           const cardTagWithoutHash = cardTag.startsWith('#') ? cardTag.substring(1) : cardTag;
           
+          // 대소문자 무시를 위해 소문자로 변환
+          const cardTagWithHashLower = cardTagWithHash.toLowerCase();
+          const cardTagWithoutHashLower = cardTagWithoutHash.toLowerCase();
+          
           // 검색 태그와 비교
           for (const searchTag of normalizedTags) {
-            // 정확히 일치하는지 확인
-            if (cardTagWithHash === searchTag || cardTagWithoutHash === searchTag) {
+            // 대소문자 무시를 위해 소문자로 변환
+            const searchTagLower = searchTag.toLowerCase();
+            
+            // 정확히 일치하는지 확인 (대소문자 무시)
+            if (cardTagWithHashLower === searchTagLower || cardTagWithoutHashLower === searchTagLower) {
               hasMatchingTag = true;
               console.log(`[ModeService] 카드 ${card.title || card.id}에서 태그 매치: ${cardTag} = ${searchTag}`);
               break;
             }
           }
           
-          if (hasMatchingTag) break;
+          if (hasMatchingTag) {
+            break;
+          }
+        }
+        
+        if (hasMatchingTag) {
+          console.log(`[ModeService] 태그 일치하는 카드 포함: ${card.title || card.id}`);
         }
         
         return hasMatchingTag;
       });
       
       console.log(`[ModeService] 태그 모드 필터링 완료, 필터링 후 카드 수: ${filteredCards.length}`);
-      if (filteredCards.length > 0) {
-        console.log(`[ModeService] 필터링된 첫 번째 카드 정보: ID=${filteredCards[0].id}, 제목=${filteredCards[0].title}, 태그=${filteredCards[0].tags?.join(', ')}`);
+      
+      // 필터링 결과가 비어있는 경우 추가 디버깅 정보
+      if (filteredCards.length === 0) {
+        console.log(`[ModeService] 필터링 결과가 비어있습니다. 태그: ${cardSet}`);
+        console.log(`[ModeService] 현재 모드: ${this.currentMode.type}, 정규화된 태그: ${normalizedTags.join(', ')}`);
+        
+        // 디버깅을 위해 모든 카드의 태그 출력
+        if (cards.length > 0 && cards.length < 20) {
+          console.log(`[ModeService] 필터링 전 카드 태그 목록:`);
+          cards.forEach(card => {
+            if (card.tags && card.tags.length > 0) {
+              console.log(`  - 카드 ${card.title || card.id} 태그: ${card.tags.join(', ')}`);
+            } else {
+              console.log(`  - 카드 ${card.title || card.id}에 태그 없음`);
+            }
+          });
+        }
       }
+      
       return filteredCards;
     }
     

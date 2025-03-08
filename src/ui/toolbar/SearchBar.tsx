@@ -117,11 +117,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   });
   
   // 검색 옵션 선택 핸들러 래핑
-  const handleSearchOptionSelect = (option: SearchOption) => {
-    console.log('SearchBar: handleSearchOptionSelect 호출됨, 옵션:', option.type, option.prefix);
+  const handleSearchOptionSelect = (option: SearchOption, evt: MouseEvent | KeyboardEvent) => {
+    console.log('SearchBar: handleSearchOptionSelect 호출됨, 옵션:', option.type, option.prefix, '이벤트 타입:', evt instanceof MouseEvent ? 'mouse' : 'keyboard');
     
     // 기본 핸들러 호출
-    baseHandleSearchOptionSelect(option);
+    baseHandleSearchOptionSelect(option, evt);
     
     // SearchType 변환 및 콜백 호출
     if (onSearchTypeChange) {
@@ -220,7 +220,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         searchOptionSuggestRef.current.close();
       }
     };
-  }, [app, searchOptions]); // app과 searchOptions가 변경될 때 실행
+  }, [app, inputRef.current, searchOptions]);
   
   // showSearchSuggestions 상태가 변경될 때 인스턴스의 open/close 메서드 호출
   React.useEffect(() => {

@@ -244,7 +244,28 @@ export class CardNavigatorService implements ICardNavigatorService {
     // 초기화 중인 경우 중복 초기화 방지
     if (this._initializing) {
       console.log(`[CardNavigatorService] 이미 초기화 중입니다. 중복 초기화 방지`);
-      return;
+      
+      // 초기화가 완료될 때까지 대기 (최대 5초)
+      let waitCount = 0;
+      const maxWait = 50; // 100ms * 50 = 5초
+      
+      while (this._initializing && waitCount < maxWait) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        waitCount++;
+      }
+      
+      // 초기화가 완료되었으면 반환
+      if (this._initialized) {
+        console.log(`[CardNavigatorService] 초기화가 완료되었습니다.`);
+        return;
+      }
+      
+      // 여전히 초기화 중이면 오류 발생
+      if (this._initializing) {
+        console.error(`[CardNavigatorService] 초기화 시간이 너무 오래 걸립니다.`);
+        this._initializing = false; // 초기화 상태 초기화
+        throw new Error('초기화 시간이 너무 오래 걸립니다.');
+      }
     }
     
     this._initializing = true;
@@ -285,6 +306,8 @@ export class CardNavigatorService implements ICardNavigatorService {
       this._initialized = true;
     } catch (error) {
       console.error(`[CardNavigatorService] 초기화 중 오류 발생:`, error);
+      this._initialized = false; // 초기화 실패 상태로 설정
+      throw error; // 오류를 상위로 전파
     } finally {
       this._initializing = false;
     }
@@ -307,10 +330,41 @@ export class CardNavigatorService implements ICardNavigatorService {
       return this._lastCards;
     }
     
-    // 초기화가 완료되지 않은 경우 초기화 대기
+    // 초기화 중인 경우 대기
+    if (this._initializing) {
+      console.log(`[CardNavigatorService] 서비스가 초기화 중입니다. 초기화가 완료될 때까지 대기합니다.`);
+      
+      // 초기화가 완료될 때까지 대기 (최대 5초)
+      let waitCount = 0;
+      const maxWait = 50; // 100ms * 50 = 5초
+      
+      while (this._initializing && waitCount < maxWait) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        waitCount++;
+      }
+      
+      // 여전히 초기화 중이면 오류 발생
+      if (this._initializing) {
+        console.error(`[CardNavigatorService] 서비스 초기화 시간이 너무 오래 걸립니다.`);
+        throw new Error('서비스 초기화 시간이 너무 오래 걸립니다.');
+      }
+    }
+    
+    // 초기화가 완료되지 않은 경우 초기화 시도
     if (!this._initialized) {
       console.log(`[CardNavigatorService] 서비스가 초기화되지 않았습니다. 초기화 후 카드를 가져옵니다.`);
-      await this.initialize();
+      try {
+        await this.initialize();
+        
+        // 초기화 후에도 초기화되지 않았다면 오류 발생
+        if (!this._initialized) {
+          console.error(`[CardNavigatorService] 서비스 초기화 실패`);
+          throw new Error('서비스 초기화 실패');
+        }
+      } catch (error) {
+        console.error(`[CardNavigatorService] 초기화 중 오류 발생:`, error);
+        throw new Error(`서비스 초기화 중 오류가 발생했습니다: ${error}`);
+      }
     }
     
     this._lastGetCardsCall = now;

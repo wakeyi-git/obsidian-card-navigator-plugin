@@ -98,9 +98,9 @@ export abstract class Layout implements ILayout {
   aspectRatio: number;
   
   // 하위 호환성을 위한 속성
-  private _columnCount: number = 0;
-  private _cardWidth: number = 0;
-  private _cardHeight: number = 0;
+  private _columnCount = 0;
+  private _cardWidth = 0;
+  private _cardHeight = 0;
   
   get columnCount(): number {
     return this._columnCount;

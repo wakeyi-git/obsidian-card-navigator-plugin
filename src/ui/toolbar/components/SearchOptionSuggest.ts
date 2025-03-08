@@ -16,7 +16,7 @@ export interface SearchOption {
  */
 export class SearchOptionSuggest extends AbstractInputSuggest<SearchOption> {
   private options: SearchOption[];
-  private onSelectCallback: (option: SearchOption) => void;
+  private onSelectCallback: (option: SearchOption, evt: MouseEvent | KeyboardEvent) => void;
   private inputElement: HTMLInputElement;
   private isOpen = false;
   
@@ -30,14 +30,15 @@ export class SearchOptionSuggest extends AbstractInputSuggest<SearchOption> {
     app: App, 
     inputEl: HTMLInputElement, 
     options: SearchOption[],
-    onSelect: (option: SearchOption) => void
+    onSelect: (option: SearchOption, evt: MouseEvent | KeyboardEvent) => void
   ): SearchOptionSuggest {
     if (!this.instance) {
-      this.instance = new SearchOptionSuggest(app, inputEl, options, onSelect);
+      this.instance = new SearchOptionSuggest(app, inputEl, options);
+      this.instance.onSelect(onSelect);
     } else {
       // 기존 인스턴스의 속성 업데이트
       this.instance.updateOptions(options);
-      this.instance.onSelectCallback = onSelect;
+      this.instance.onSelect(onSelect);
       this.instance.inputElement = inputEl;
     }
     return this.instance;
@@ -46,14 +47,17 @@ export class SearchOptionSuggest extends AbstractInputSuggest<SearchOption> {
   constructor(
     app: App, 
     inputEl: HTMLInputElement, 
-    options: SearchOption[],
-    onSelect: (option: SearchOption) => void
+    options: SearchOption[]
   ) {
     super(app, inputEl);
     this.options = options;
-    this.onSelectCallback = onSelect;
     this.inputElement = inputEl;
     this.limit = 10; // 한 번에 표시할 최대 제안 수
+    
+    // 기본 콜백 설정 (나중에 onSelect로 재정의 가능)
+    this.onSelectCallback = (option, _evt) => {
+      console.log('기본 콜백 호출됨:', option.type);
+    };
   }
   
   /**
@@ -113,7 +117,15 @@ export class SearchOptionSuggest extends AbstractInputSuggest<SearchOption> {
   }
   
   /**
-   * 제안 항목 선택 시 처리
+   * 선택 콜백 등록 (Obsidian API 준수)
+   */
+  onSelect(callback: (option: SearchOption, evt: MouseEvent | KeyboardEvent) => void): this {
+    this.onSelectCallback = callback;
+    return this;
+  }
+  
+  /**
+   * 제안 항목 선택 시 처리 (Obsidian API 오버라이드)
    */
   selectSuggestion(option: SearchOption, evt: MouseEvent | KeyboardEvent): void {
     console.log('selectSuggestion 호출됨, 옵션:', option.type, option.prefix, '이벤트 타입:', evt instanceof MouseEvent ? 'mouse' : 'keyboard');
@@ -121,13 +133,8 @@ export class SearchOptionSuggest extends AbstractInputSuggest<SearchOption> {
     // 제안 창 닫기 (콜백 함수 호출 전에 닫기)
     this.close();
     
-    // 마우스 이벤트인 경우 이벤트 객체에 isMouseEvent 속성 추가
-    if (evt instanceof MouseEvent) {
-      (evt as any).isMouseEvent = true;
-    }
-    
-    // 콜백 함수 호출 (이벤트 타입에 관계없이 동일하게 처리)
-    this.onSelectCallback(option);
+    // 콜백 함수 호출 (원래 이벤트 객체 그대로 전달)
+    this.onSelectCallback(option, evt);
     
     // 입력 필드 포커스
     this.inputElement.focus();
@@ -173,17 +180,33 @@ export class SearchOptionSuggest extends AbstractInputSuggest<SearchOption> {
         // 플러그인 고유 클래스 추가
         containerEl.classList.add('card-navigator-suggestion-container');
         
-        // 입력 필드의 너비와 동일하게 설정
+        // 입력 필드의 너비와 위치 가져오기
         if (this.inputElement) {
           const inputRect = this.inputElement.getBoundingClientRect();
+          const searchBarContainer = this.inputElement.closest('.card-navigator-search-bar-container');
+          
+          // 너비 설정 - 입력 필드와 동일하게
           containerEl.style.width = `${inputRect.width}px`;
           containerEl.style.minWidth = `${inputRect.width}px`;
           containerEl.style.maxWidth = `${inputRect.width}px`;
           
           // 위치 조정 (입력 필드 바로 아래)
           containerEl.style.left = `${inputRect.left}px`;
+          containerEl.style.top = `${inputRect.bottom + 5}px`; // 입력 필드 아래 5px 간격
           
-          console.log('제안 창 너비 설정:', inputRect.width);
+          // 절대 위치 설정
+          containerEl.style.position = 'fixed';
+          
+          // z-index 높게 설정
+          containerEl.style.zIndex = '9999';
+          
+          console.log('제안 창 스타일 설정:', {
+            width: inputRect.width,
+            left: inputRect.left,
+            top: inputRect.bottom + 5,
+            position: 'fixed',
+            zIndex: 9999
+          });
         }
       });
     }, 50);

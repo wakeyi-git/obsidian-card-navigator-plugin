@@ -117,7 +117,66 @@ export class CardRepositoryImpl implements ICardRepository {
     
     // 메타데이터 캐시에서 태그 추출
     const cache = this.obsidianAdapter.getMetadataCache().getFileCache(file);
-    const tags = cache?.tags?.map(tag => tag.tag) || [];
+    let tags: string[] = [];
+    
+    // 인라인 태그 추출
+    if (cache?.tags) {
+      tags = cache.tags.map(tag => tag.tag);
+    }
+    
+    // 프론트매터 태그 추출
+    if (cache?.frontmatter && cache.frontmatter.tags) {
+      let frontmatterTags: string[] = [];
+      
+      // 문자열인 경우 쉼표로 구분된 목록일 수 있음
+      if (typeof cache.frontmatter.tags === 'string') {
+        frontmatterTags = cache.frontmatter.tags.split(',').map(t => t.trim());
+      } 
+      // 배열인 경우
+      else if (Array.isArray(cache.frontmatter.tags)) {
+        frontmatterTags = cache.frontmatter.tags;
+      }
+      // 단일 값인 경우
+      else {
+        frontmatterTags = [String(cache.frontmatter.tags)];
+      }
+      
+      // 프론트매터 태그 정규화 및 추가
+      for (const tag of frontmatterTags) {
+        const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
+        if (!tags.includes(normalizedTag)) {
+          tags.push(normalizedTag);
+          console.log(`[CardRepositoryImpl] 파일 ${file.path}에서 프론트매터 태그 추가: ${normalizedTag}`);
+        }
+      }
+    }
+    
+    // 단수형 tag 속성도 처리
+    if (cache?.frontmatter && cache.frontmatter.tag) {
+      let frontmatterTags: string[] = [];
+      
+      // 문자열인 경우 쉼표로 구분된 목록일 수 있음
+      if (typeof cache.frontmatter.tag === 'string') {
+        frontmatterTags = cache.frontmatter.tag.split(',').map(t => t.trim());
+      } 
+      // 배열인 경우
+      else if (Array.isArray(cache.frontmatter.tag)) {
+        frontmatterTags = cache.frontmatter.tag;
+      }
+      // 단일 값인 경우
+      else {
+        frontmatterTags = [String(cache.frontmatter.tag)];
+      }
+      
+      // 프론트매터 태그 정규화 및 추가
+      for (const tag of frontmatterTags) {
+        const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
+        if (!tags.includes(normalizedTag)) {
+          tags.push(normalizedTag);
+          console.log(`[CardRepositoryImpl] 파일 ${file.path}에서 프론트매터 tag 추가: ${normalizedTag}`);
+        }
+      }
+    }
     
     // 카드 생성
     const card = this.cardFactory.createCard(

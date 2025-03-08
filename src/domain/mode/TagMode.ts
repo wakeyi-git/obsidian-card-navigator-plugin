@@ -167,8 +167,14 @@ export class TagMode extends Mode {
       return t.startsWith('#') ? t : `#${t}`;
     });
     
+    // 해시 없는 태그 버전도 생성
+    const tagsWithoutHash = normalizedTags.map(t => 
+      t.startsWith('#') ? t.substring(1) : t
+    );
+    
     console.log(`[TagMode] 현재 태그 검색: ${tag}`);
     console.log(`[TagMode] 정규화된 태그 목록: ${normalizedTags.join(', ')}`);
+    console.log(`[TagMode] 해시 없는 태그 목록: ${tagsWithoutHash.join(', ')}`);
     
     // 모든 마크다운 파일 가져오기
     const allFiles = this.app.vault.getMarkdownFiles();
@@ -184,16 +190,33 @@ export class TagMode extends Mode {
         
         // 태그 중 하나라도 일치하는지 확인
         const hasMatchingTag = normalizedTags.some(searchTag => {
+          const searchTagLower = searchTag.toLowerCase();
+          const searchTagWithoutHash = searchTagLower.startsWith('#') 
+            ? searchTagLower.substring(1) 
+            : searchTagLower;
+          
           return fileTags.some(fileTag => {
+            const fileTagLower = fileTag.toLowerCase();
+            const fileTagWithoutHash = fileTagLower.startsWith('#') 
+              ? fileTagLower.substring(1) 
+              : fileTagLower;
+            
             // 대소문자 구분 설정에 따라 비교
             if (this.tagCaseSensitive) {
-              const match = fileTag === searchTag;
+              // 정확한 태그 일치 또는 해시 제외 일치
+              const match = fileTag === searchTag || 
+                           (fileTag.startsWith('#') && fileTag.substring(1) === searchTagWithoutHash) ||
+                           (searchTag.startsWith('#') && searchTag.substring(1) === fileTagWithoutHash);
+              
               if (match) {
                 console.log(`[TagMode] 태그 일치(대소문자 구분): ${fileTag} = ${searchTag}`);
               }
               return match;
             } else {
-              const match = fileTag.toLowerCase() === searchTag.toLowerCase();
+              // 대소문자 무시하고 비교 (이미 소문자로 변환됨)
+              const match = fileTagLower === searchTagLower || 
+                           fileTagWithoutHash === searchTagWithoutHash;
+              
               if (match) {
                 console.log(`[TagMode] 태그 일치(대소문자 무시): ${fileTag} = ${searchTag}`);
               }
@@ -293,9 +316,20 @@ export class TagMode extends Mode {
     if (cache.frontmatter) {
       // tags 속성 처리 (복수형)
       if (cache.frontmatter.tags) {
-        const frontmatterTags = Array.isArray(cache.frontmatter.tags) 
-          ? cache.frontmatter.tags 
-          : [cache.frontmatter.tags];
+        let frontmatterTags: string[] = [];
+        
+        // 문자열인 경우 쉼표로 구분된 목록일 수 있음
+        if (typeof cache.frontmatter.tags === 'string') {
+          frontmatterTags = cache.frontmatter.tags.split(',').map(t => t.trim());
+        } 
+        // 배열인 경우
+        else if (Array.isArray(cache.frontmatter.tags)) {
+          frontmatterTags = cache.frontmatter.tags;
+        }
+        // 기타 타입인 경우 문자열로 변환
+        else {
+          frontmatterTags = [String(cache.frontmatter.tags)];
+        }
         
         for (const tag of frontmatterTags) {
           // 프론트매터 태그는 # 없을 수 있으므로 정규화
@@ -309,9 +343,20 @@ export class TagMode extends Mode {
       
       // tag 속성 처리 (단수형)
       if (cache.frontmatter.tag) {
-        const frontmatterTags = Array.isArray(cache.frontmatter.tag) 
-          ? cache.frontmatter.tag 
-          : [cache.frontmatter.tag];
+        let frontmatterTags: string[] = [];
+        
+        // 문자열인 경우 쉼표로 구분된 목록일 수 있음
+        if (typeof cache.frontmatter.tag === 'string') {
+          frontmatterTags = cache.frontmatter.tag.split(',').map(t => t.trim());
+        } 
+        // 배열인 경우
+        else if (Array.isArray(cache.frontmatter.tag)) {
+          frontmatterTags = cache.frontmatter.tag;
+        }
+        // 기타 타입인 경우 문자열로 변환
+        else {
+          frontmatterTags = [String(cache.frontmatter.tag)];
+        }
         
         for (const tag of frontmatterTags) {
           // 프론트매터 태그는 # 없을 수 있으므로 정규화

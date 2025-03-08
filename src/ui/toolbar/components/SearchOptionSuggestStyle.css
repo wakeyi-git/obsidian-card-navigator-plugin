@@ -11,28 +11,33 @@
   background-color: var(--background-primary);
   max-height: 300px;
   overflow-y: auto;
-  z-index: 1000;
-  position: absolute !important;
+  z-index: 9999;
+  position: fixed !important;
   box-sizing: border-box;
   width: 100%;
+  min-width: 250px;
+  padding: 4px;
 }
 
 /* 제안 항목 스타일 */
 .card-navigator-suggestion-item {
-  padding: 2px 2px;
+  padding: 6px 8px;
   cursor: pointer;
   transition: background-color 0.15s ease, border-left-color 0.15s ease;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   box-sizing: border-box;
   width: 100%;
+  border-radius: 4px;
+  margin-bottom: 2px;
 }
 
 /* 선택된 제안 항목 스타일 */
 .card-navigator-suggestion-item.is-selected {
   background-color: var(--background-modifier-hover);
   position: relative;
+  border-left: 2px solid var(--interactive-accent);
 }
 
 /* 제안 항목 호버 스타일 */
@@ -56,7 +61,7 @@
   font-size: 0.85em;
   color: var(--text-muted);
   white-space: normal;
-  line-height: 1.0;
+  line-height: 1.2;
 }
 
 /* 반응형 스타일 */

@@ -126,7 +126,7 @@ interface UseSearchBarReturn {
   handleClear: () => void;
   handleFocus: () => void;
   handleKeyDown: (e: React.KeyboardEvent) => void;
-  handleSearchOptionSelect: (option: SearchOption) => void;
+  handleSearchOptionSelect: (option: SearchOption, evt: MouseEvent | KeyboardEvent) => void;
   handleDateSelect: (date: string) => void;
   handleSearchScopeToggle: () => void;
   handleHistoryItemClick: (query: string) => void;
@@ -599,7 +599,7 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
           case 'Tab':
             if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < filteredOptions.length) {
               e.preventDefault();
-              handleSearchOptionSelect(filteredOptions[selectedSuggestionIndex]);
+              handleSearchOptionSelect(filteredOptions[selectedSuggestionIndex], e as unknown as KeyboardEvent);
               return;
             }
             break;
@@ -686,7 +686,7 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
             console.log(`Alt+${e.key} 단축키로 선택된 옵션:`, selectedOption.type, selectedOption.prefix);
             
             // 선택된 옵션 처리
-            handleSearchOptionSelect(selectedOption);
+            handleSearchOptionSelect(selectedOption, e as unknown as KeyboardEvent);
             return;
           }
         }
@@ -711,9 +711,9 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
   /**
    * 검색 옵션 선택 핸들러
    */
-  const handleSearchOptionSelect = (option: SearchOption) => {
+  const handleSearchOptionSelect = (option: SearchOption, evt: MouseEvent | KeyboardEvent) => {
     try {
-      console.log('useSearchBar: handleSearchOptionSelect 호출됨, 옵션:', option.type, option.prefix);
+      console.log('useSearchBar: handleSearchOptionSelect 호출됨, 옵션:', option.type, option.prefix, '이벤트 타입:', evt instanceof MouseEvent ? 'mouse' : 'keyboard');
       
       // 현재 선택된 검색 옵션 업데이트
       setCurrentSearchOption(option);
@@ -774,6 +774,15 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
             // 다른 검색 타입의 경우 공백 제거
             newCursorPosition = insertText.length;
           }
+          
+          // 입력 필드에 접두사 삽입
+          inputRef.current.value = insertText;
+          setSearchText(insertText);
+          
+          // 커서 위치 조정
+          inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
+          
+          console.log(`입력 필드에 접두사 삽입 완료: ${insertText}, 커서 위치: ${newCursorPosition}`);
         } 
         // 이미 검색어가 있는 경우
         else {

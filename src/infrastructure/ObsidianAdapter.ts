@@ -187,8 +187,8 @@ export class ObsidianAdapter implements IObsidianAdapter {
         
         // 인라인 태그 확인
         if (cache.tags && cache.tags.some(t => {
-          const tagText = t.tag;
-          return tagText === normalizedTag || tagText === tag;
+          const tagText = t.tag.toLowerCase();
+          return tagText === normalizedTag.toLowerCase() || tagText === tag.toLowerCase();
         })) {
           console.log(`[ObsidianAdapter] 파일 '${file.path}'에서 인라인 태그 '${normalizedTag}' 발견`);
           return true;
@@ -196,15 +196,32 @@ export class ObsidianAdapter implements IObsidianAdapter {
         
         // 프론트매터 태그 확인
         if (cache.frontmatter && cache.frontmatter.tags) {
-          const frontmatterTags = Array.isArray(cache.frontmatter.tags) 
-            ? cache.frontmatter.tags 
-            : [cache.frontmatter.tags];
+          let frontmatterTags: string[] = [];
           
+          // 프론트매터 태그가 문자열인 경우
+          if (typeof cache.frontmatter.tags === 'string') {
+            // 쉼표로 구분된 태그 목록일 수 있음
+            frontmatterTags = cache.frontmatter.tags.split(',').map(t => t.trim());
+          } 
+          // 프론트매터 태그가 배열인 경우
+          else if (Array.isArray(cache.frontmatter.tags)) {
+            frontmatterTags = cache.frontmatter.tags;
+          }
+          // 단일 값인 경우
+          else {
+            frontmatterTags = [String(cache.frontmatter.tags)];
+          }
+          
+          // 태그 비교 (대소문자 무시)
           if (frontmatterTags.some(t => {
-            // 프론트매터 태그는 # 없이 저장될 수 있으므로 두 가지 형태 모두 확인
-            return t === tagWithoutHash || t === normalizedTag || t === tag;
+            const tagText = String(t).toLowerCase();
+            const withoutHash = tagText.startsWith('#') ? tagText.substring(1) : tagText;
+            
+            return withoutHash === tagWithoutHash.toLowerCase() || 
+                   tagText === normalizedTag.toLowerCase() || 
+                   tagText === tag.toLowerCase();
           })) {
-            console.log(`[ObsidianAdapter] 파일 '${file.path}'에서 프론트매터 태그 '${tagWithoutHash}' 발견`);
+            console.log(`[ObsidianAdapter] 파일 '${file.path}'에서 프론트매터 태그 '${tagWithoutHash}' 발견, 프론트매터 태그 목록:`, frontmatterTags);
             return true;
           }
         }
