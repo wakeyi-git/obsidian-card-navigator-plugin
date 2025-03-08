@@ -124,14 +124,77 @@ export class CardFactory implements ICardFactory {
     }
     
     // 파일 캐시에서 태그 추출 (옵시디언 내부 태그)
-    if (file.tags && Array.isArray(file.tags)) {
-      file.tags.forEach((tag: string) => {
+    if (file.cache && file.cache.tags && Array.isArray(file.cache.tags)) {
+      file.cache.tags.forEach((tagObj: any) => {
         // '#' 제거하고 추가
-        const tagName = tag.startsWith('#') ? tag.substring(1) : tag;
+        const tagName = tagObj.tag.startsWith('#') ? tagObj.tag.substring(1) : tagObj.tag;
         if (!tags.includes(tagName)) {
           tags.push(tagName);
+          console.log(`[CardFactory] 파일 캐시에서 인라인 태그 추가: ${tagName}`);
         }
       });
+    }
+    
+    // 파일 메타데이터 캐시에서 태그 추출 (인라인 태그)
+    if (file.app && file.path) {
+      try {
+        const metadataCache = file.app.metadataCache;
+        const fileCache = metadataCache.getFileCache(file);
+        
+        if (fileCache) {
+          // 인라인 태그 추출
+          if (fileCache.tags && Array.isArray(fileCache.tags)) {
+            fileCache.tags.forEach((tagObj: any) => {
+              const tagName = tagObj.tag.startsWith('#') ? tagObj.tag.substring(1) : tagObj.tag;
+              if (!tags.includes(tagName)) {
+                tags.push(tagName);
+                console.log(`[CardFactory] 메타데이터 캐시에서 인라인 태그 추가: ${tagName}`);
+              }
+            });
+          }
+          
+          // 블록 태그 추출
+          if (fileCache.blocks) {
+            for (const blockId in fileCache.blocks) {
+              const block = fileCache.blocks[blockId];
+              // @ts-ignore - Obsidian API에서 BlockCache에 tags 속성이 있지만 타입 정의에 없음
+              if (block.tags && Array.isArray(block.tags)) {
+                // @ts-ignore
+                block.tags.forEach((tag: string) => {
+                  const tagName = tag.startsWith('#') ? tag.substring(1) : tag;
+                  if (!tags.includes(tagName)) {
+                    tags.push(tagName);
+                    console.log(`[CardFactory] 블록에서 태그 추가: ${tagName}`);
+                  }
+                });
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[CardFactory] 메타데이터 캐시에서 태그 추출 중 오류:', error);
+      }
+    }
+    
+    // 파일 내용에서 직접 태그 추출 (정규식 사용)
+    if (content) {
+      const tagRegex = /#[a-zA-Z가-힣0-9_\-/]+/g;
+      const matches = content.match(tagRegex);
+      
+      if (matches) {
+        matches.forEach(tag => {
+          // '#' 제거하고 추가
+          const tagName = tag.substring(1);
+          if (!tags.includes(tagName)) {
+            tags.push(tagName);
+            console.log(`[CardFactory] 파일 내용에서 직접 태그 추출: ${tagName}`);
+          }
+        });
+      }
+    }
+    
+    if (tags.length > 0) {
+      console.log(`[CardFactory] 파일 ${file.path}에서 추출된 총 태그 수: ${tags.length}, 태그 목록: ${tags.join(', ')}`);
     }
     
     return this.createCard(

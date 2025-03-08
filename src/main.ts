@@ -18,6 +18,7 @@ export interface CardNavigatorSettings {
   defaultCardSet: string;
   isCardSetFixed: boolean;
   defaultSearchScope?: 'all' | 'current';
+  tagCaseSensitive?: boolean;
   
   // 카드 설정
   cardWidth: number;
@@ -75,6 +76,7 @@ const DEFAULT_SETTINGS: CardNavigatorSettings = {
   defaultCardSet: '/',
   isCardSetFixed: false,
   defaultSearchScope: 'current',
+  tagCaseSensitive: false,
   
   // 새로 추가된 기본값
   cardHeaderContent: 'filename',

@@ -14,6 +14,7 @@ import { ILayoutService, LayoutService } from './LayoutService';
 import { IPresetService, PresetService } from './PresetService';
 import { Card } from '../domain/card/Card';
 import { IFilterService, FilterService } from './FilterService';
+import { TimerUtil } from '../infrastructure/TimerUtil';
 
 /**
  * 카드 네비게이터 서비스 인터페이스
@@ -85,6 +86,7 @@ export interface ICardNavigatorService {
     defaultCardSet: string;
     isCardSetFixed: boolean;
     defaultSearchScope?: 'all' | 'current';
+    tagCaseSensitive?: boolean;
   }>;
   
   /**
@@ -102,6 +104,7 @@ export interface ICardNavigatorService {
     defaultCardSet: string;
     isCardSetFixed: boolean;
     defaultSearchScope?: 'all' | 'current';
+    tagCaseSensitive?: boolean;
   }>): Promise<void>;
   
   /**
@@ -163,6 +166,18 @@ export interface ICardNavigatorService {
    * @param caseSensitive 대소문자 구분 여부
    */
   setCaseSensitive(caseSensitive: boolean): Promise<void>;
+  
+  /**
+   * 필터 서비스 가져오기
+   * @returns 필터 서비스
+   */
+  getFilterService(): IFilterService;
+  
+  /**
+   * Obsidian App 객체 가져오기
+   * @returns Obsidian App 객체
+   */
+  getApp(): App;
 }
 
 /**
@@ -237,6 +252,11 @@ export class CardNavigatorService implements ICardNavigatorService {
       // 하위 폴더 포함 여부 설정
       if (settings?.includeSubfolders !== undefined) {
         this.modeService.setIncludeSubfolders(settings.includeSubfolders);
+      }
+      
+      // 태그 대소문자 구분 여부 설정
+      if (settings?.tagCaseSensitive !== undefined) {
+        this.modeService.setTagCaseSensitive(settings.tagCaseSensitive);
       }
       
       // 기본 카드 세트 설정
@@ -347,30 +367,19 @@ export class CardNavigatorService implements ICardNavigatorService {
    * 카드 목록을 다시 로드합니다.
    */
   async refreshCards(): Promise<void> {
-    // 마지막 새로고침 시간 확인 (중복 호출 방지)
-    const now = Date.now();
-    if (this._lastRefreshCall && now - this._lastRefreshCall < 500) {
-      console.log(`[CardNavigatorService] refreshCards 호출 간격이 너무 짧습니다. 무시합니다.`);
-      return;
-    }
-    this._lastRefreshCall = now;
-    
-    const timerLabel = `[성능] refreshCards 실행 시간-${Date.now()}`;
-    console.time(timerLabel);
+    const timerId = TimerUtil.startTimer('[성능] refreshCards');
     this.refreshCount++;
+    
     console.log(`[성능] 리프레시 횟수: ${this.refreshCount}`);
     
     try {
-      await this.cardRepository.refresh();
+      await this.cardService.refreshCards();
       console.log('[성능] 카드 저장소 리프레시 완료');
-      
-      // 캐시 초기화
-      this._lastCards = null;
-      
-      console.timeEnd(timerLabel);
+      TimerUtil.endTimer(timerId);
     } catch (error) {
       console.error('[성능] refreshCards 오류:', error);
-      console.timeEnd(timerLabel);
+      TimerUtil.endTimer(timerId);
+      throw error;
     }
   }
   
@@ -391,7 +400,7 @@ export class CardNavigatorService implements ICardNavigatorService {
     
     try {
       // 검색 모드로 변경
-      this.modeService.changeMode('search');
+      await this.modeService.changeMode('search');
       
       // 검색 모드 설정
       (this.modeService as any).configureSearchMode(query, 'content', false);
@@ -470,6 +479,10 @@ export class CardNavigatorService implements ICardNavigatorService {
     }
   }
   
+  /**
+   * 설정 가져오기
+   * @returns 현재 설정
+   */
   async getSettings(): Promise<{
     cardWidth: number;
     cardHeight: number;
@@ -481,54 +494,35 @@ export class CardNavigatorService implements ICardNavigatorService {
     defaultCardSet: string;
     isCardSetFixed: boolean;
     defaultSearchScope?: 'all' | 'current';
+    tagCaseSensitive?: boolean;
   }> {
     // 플러그인 인스턴스에서 설정 가져오기
-    const plugin = (this.app as any).plugins.plugins['obsidian-card-navigator-plugin'];
-    if (plugin && plugin.settings) {
-      return {
-        cardWidth: plugin.settings.cardWidth,
-        cardHeight: plugin.settings.cardHeight,
-        priorityTags: plugin.settings.priorityTags || [],
-        priorityFolders: plugin.settings.priorityFolders || [],
-        defaultMode: plugin.settings.defaultMode,
-        defaultLayout: plugin.settings.defaultLayout,
-        includeSubfolders: plugin.settings.includeSubfolders,
-        defaultCardSet: plugin.settings.defaultCardSet || '/',
-        isCardSetFixed: plugin.settings.isCardSetFixed,
-        defaultSearchScope: plugin.settings.defaultSearchScope
-      };
+    try {
+      const plugin = (this.app as any).plugins.plugins['card-navigator'];
+      
+      if (plugin) {
+        return {
+          cardWidth: plugin.settings.cardWidth,
+          cardHeight: plugin.settings.cardHeight,
+          priorityTags: plugin.settings.priorityTags || [],
+          priorityFolders: plugin.settings.priorityFolders || [],
+          defaultMode: plugin.settings.defaultMode || 'folder',
+          defaultLayout: plugin.settings.defaultLayout || 'grid',
+          includeSubfolders: plugin.settings.includeSubfolders,
+          defaultCardSet: plugin.settings.defaultCardSet || '/',
+          isCardSetFixed: plugin.settings.isCardSetFixed,
+          defaultSearchScope: plugin.settings.defaultSearchScope,
+          tagCaseSensitive: plugin.settings.tagCaseSensitive
+        };
+      } else {
+        console.warn('플러그인 인스턴스를 찾을 수 없어 현재 서비스 상태에서 설정을 구성합니다.');
+      }
+    } catch (error) {
+      console.error('설정을 가져오는 중 오류 발생:', error);
     }
     
-    // 플러그인 인스턴스를 찾을 수 없는 경우 현재 서비스 상태에서 설정 구성
-    console.warn('플러그인 인스턴스를 찾을 수 없어 현재 서비스 상태에서 설정을 구성합니다.');
-    
-    // 레이아웃 서비스에서 카드 크기 정보 가져오기
-    const layoutService = this.getLayoutService();
-    const currentLayout = layoutService.getCurrentLayout();
-    const cardWidth = currentLayout?.cardWidth || 250;
-    const cardHeight = currentLayout?.cardHeight || 150;
-    
-    // 모드 서비스에서 현재 모드 가져오기
-    const modeService = this.getModeService();
-    const defaultMode = modeService.getCurrentModeType();
-    
-    // 레이아웃 타입 가져오기
-    const defaultLayout = currentLayout?.type || 'grid';
-    
-    // 우선순위 태그는 설정에서 가져와야 하지만 여기서는 빈 배열 반환
-    const priorityTags: string[] = [];
-    
-    // 우선순위 폴더도 설정에서 가져와야 하지만 여기서는 빈 배열 반환
-    const priorityFolders: string[] = [];
-    
-    // 하위 폴더 포함 여부
-    const includeSubfolders = modeService.getIncludeSubfolders();
-    
-    // 현재 카드 세트
-    const defaultCardSet = modeService.getCurrentCardSet() || '/';
-    
-    // 카드 세트 고정 여부
-    const isCardSetFixed = modeService.isCardSetFixed();
+    // 플러그인 인스턴스를 찾지 못한 경우 기본 설정 반환
+    const { cardWidth, cardHeight, priorityTags, priorityFolders, defaultMode, defaultLayout, includeSubfolders, defaultCardSet, isCardSetFixed } = this.getDefaultSettings();
     
     return {
       cardWidth,
@@ -540,7 +534,26 @@ export class CardNavigatorService implements ICardNavigatorService {
       includeSubfolders,
       defaultCardSet,
       isCardSetFixed,
-      defaultSearchScope: 'all'
+      defaultSearchScope: 'current',
+      tagCaseSensitive: false
+    };
+  }
+  
+  /**
+   * 기본 설정 가져오기
+   * @returns 기본 설정
+   */
+  private getDefaultSettings() {
+    return {
+      cardWidth: 300,
+      cardHeight: 200,
+      priorityTags: [],
+      priorityFolders: [],
+      defaultMode: 'folder' as ModeType,
+      defaultLayout: 'grid' as LayoutType,
+      includeSubfolders: true,
+      defaultCardSet: '/',
+      isCardSetFixed: false
     };
   }
   
@@ -559,10 +572,19 @@ export class CardNavigatorService implements ICardNavigatorService {
     defaultCardSet: string;
     isCardSetFixed: boolean;
     defaultSearchScope?: 'all' | 'current';
+    tagCaseSensitive?: boolean;
   }>): Promise<void> {
+    console.log('설정 업데이트:', settings);
+    
     // 레이아웃 서비스 업데이트
     const layoutService = this.getLayoutService();
     
+    // 먼저 레이아웃 타입을 설정
+    if (settings.defaultLayout) {
+      layoutService.changeLayoutType(settings.defaultLayout);
+    }
+    
+    // 그 다음 레이아웃 속성 설정
     if (settings.cardWidth) {
       layoutService.setCardWidth(settings.cardWidth);
     }
@@ -571,9 +593,8 @@ export class CardNavigatorService implements ICardNavigatorService {
       layoutService.setCardHeight(settings.cardHeight);
     }
     
-    if (settings.defaultLayout) {
-      layoutService.changeLayoutType(settings.defaultLayout);
-    }
+    // 모드 서비스 업데이트
+    const modeService = this.getModeService();
     
     // 모드 변경
     if (settings.defaultMode) {
@@ -582,64 +603,72 @@ export class CardNavigatorService implements ICardNavigatorService {
     
     // 하위 폴더 포함 여부 설정
     if (settings.includeSubfolders !== undefined) {
-      this.modeService.setIncludeSubfolders(settings.includeSubfolders);
+      modeService.setIncludeSubfolders(settings.includeSubfolders);
+    }
+    
+    // 태그 대소문자 구분 여부 설정
+    if (settings.tagCaseSensitive !== undefined) {
+      modeService.setTagCaseSensitive(settings.tagCaseSensitive);
+    }
+    
+    // 카드 세트 고정 여부 설정
+    if (settings.isCardSetFixed !== undefined) {
+      const currentCardSet = modeService.getCurrentCardSet();
+      if (currentCardSet) {
+        modeService.selectCardSet(currentCardSet, settings.isCardSetFixed);
+      }
     }
     
     // 기본 카드 세트 설정
     if (settings.defaultCardSet) {
-      this.modeService.selectCardSet(settings.defaultCardSet, settings.isCardSetFixed);
+      modeService.selectCardSet(settings.defaultCardSet, settings.isCardSetFixed);
     } else if (settings.isCardSetFixed !== undefined) {
       // 카드 세트는 변경하지 않고 고정 상태만 변경
-      const currentCardSet = this.modeService.getCurrentCardSet();
+      const currentCardSet = modeService.getCurrentCardSet();
       if (currentCardSet) {
-        this.modeService.selectCardSet(currentCardSet, settings.isCardSetFixed);
+        modeService.selectCardSet(currentCardSet, settings.isCardSetFixed);
       }
     }
     
+    // 우선 순위 태그 및 폴더 설정
+    if (settings.priorityTags !== undefined) {
+      // 정렬 서비스에 우선 순위 태그 설정
+      const sortService = this.getSortService();
+      sortService.setPriorityTags(settings.priorityTags);
+    }
+    
+    if (settings.priorityFolders !== undefined) {
+      // 정렬 서비스에 우선 순위 폴더 설정
+      const sortService = this.getSortService();
+      sortService.setPriorityFolders(settings.priorityFolders);
+    }
+    
+    // 검색 범위 설정
+    if (settings.defaultSearchScope !== undefined) {
+      const searchService = this.getSearchService();
+      searchService.setSearchScope(settings.defaultSearchScope);
+    }
+    
     // 플러그인 설정 객체 업데이트
-    const plugin = (this.app as any).plugins.plugins['obsidian-card-navigator-plugin'];
-    if (plugin) {
-      // 설정 객체 업데이트
-      if (settings.cardWidth !== undefined) {
-        plugin.settings.cardWidth = settings.cardWidth;
+    try {
+      const plugin = (this.app as any).plugins.plugins['card-navigator'];
+      if (plugin) {
+        // 설정 객체 업데이트
+        Object.keys(settings).forEach((key: string) => {
+          const typedKey = key as keyof typeof settings;
+          if (settings[typedKey] !== undefined) {
+            plugin.settings[typedKey] = settings[typedKey];
+          }
+        });
+        
+        // 설정 저장
+        await plugin.saveSettings();
+        console.log('플러그인 설정 저장 완료');
+      } else {
+        console.warn('플러그인 인스턴스를 찾을 수 없어 설정을 저장할 수 없습니다.');
       }
-      
-      if (settings.cardHeight !== undefined) {
-        plugin.settings.cardHeight = settings.cardHeight;
-      }
-      
-      if (settings.priorityTags !== undefined) {
-        plugin.settings.priorityTags = settings.priorityTags;
-      }
-      
-      if (settings.priorityFolders !== undefined) {
-        plugin.settings.priorityFolders = settings.priorityFolders;
-      }
-      
-      if (settings.defaultMode !== undefined) {
-        plugin.settings.defaultMode = settings.defaultMode;
-      }
-      
-      if (settings.defaultLayout !== undefined) {
-        plugin.settings.defaultLayout = settings.defaultLayout;
-      }
-      
-      if (settings.includeSubfolders !== undefined) {
-        plugin.settings.includeSubfolders = settings.includeSubfolders;
-      }
-      
-      if (settings.defaultCardSet !== undefined) {
-        plugin.settings.defaultCardSet = settings.defaultCardSet;
-      }
-      
-      if (settings.isCardSetFixed !== undefined) {
-        plugin.settings.isCardSetFixed = settings.isCardSetFixed;
-      }
-      
-      // 설정 저장
-      await plugin.saveSettings();
-    } else {
-      console.error('플러그인 인스턴스를 찾을 수 없습니다.');
+    } catch (error) {
+      console.error('설정 저장 중 오류 발생:', error);
     }
   }
   
@@ -698,5 +727,21 @@ export class CardNavigatorService implements ICardNavigatorService {
    */
   getPresetService(): IPresetService {
     return this.presetService;
+  }
+  
+  /**
+   * 필터 서비스 가져오기
+   * @returns 필터 서비스
+   */
+  getFilterService(): IFilterService {
+    return this.filterService;
+  }
+  
+  /**
+   * Obsidian App 객체 가져오기
+   * @returns Obsidian App 객체
+   */
+  getApp(): App {
+    return this.app;
   }
 } 

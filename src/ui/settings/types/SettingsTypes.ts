@@ -10,6 +10,7 @@ export interface ICardNavigatorSettings {
   includeSubfolders: boolean;
   defaultCardSet: string;
   isCardSetFixed: boolean;
+  tagCaseSensitive?: boolean;
   
   // 카드 설정
   cardWidth: number;

@@ -50,7 +50,11 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
       if (service) {
         const loadedSettings = await service.getSettings();
         if (loadedSettings) {
-          setSettings(loadedSettings);
+          // currentLayout props를 settings에 반영
+          setSettings({
+            ...loadedSettings,
+            defaultLayout: currentLayout || loadedSettings.defaultLayout
+          });
         }
       }
     };
@@ -58,7 +62,7 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
     if (isOpen) {
       loadSettings();
     }
-  }, [isOpen, service]);
+  }, [isOpen, service, currentLayout]);
 
   // 설정 변경 핸들러
   const handleSettingChange = (key: keyof ICardNavigatorSettings, value: any) => {

@@ -2,6 +2,8 @@ import { ICard } from '../domain/card/Card';
 import { ICardRepository } from '../domain/card/CardRepository';
 import { ICardFactory } from '../domain/card/CardFactory';
 import { IObsidianAdapter } from './ObsidianAdapter';
+import { TFile } from 'obsidian';
+import { TimerUtil } from './TimerUtil';
 
 /**
  * 카드 저장소 구현 클래스
@@ -25,99 +27,63 @@ export class CardRepositoryImpl implements ICardRepository {
   }
   
   async getAllCards(): Promise<ICard[]> {
-    const timerLabel = `[성능] CardRepositoryImpl.getAllCards 실행 시간-${Date.now()}`;
-    console.time(timerLabel);
+    const timerId = TimerUtil.startTimer('[성능] CardRepositoryImpl.getAllCards');
     
     try {
       // 모든 마크다운 파일 가져오기
       const files = this.obsidianAdapter.getAllMarkdownFiles();
       console.log(`[성능] 전체 마크다운 파일 수: ${files.length}`);
       
+      // 파일을 카드로 변환
       const cards: ICard[] = [];
       let cacheHits = 0;
       let cacheMisses = 0;
       
-      // 각 파일에 대해 카드 생성
       for (const file of files) {
-        const path = file.path;
-        
-        // 캐시에서 카드 확인
-        if (this.cardCache.has(path)) {
-          cards.push(this.cardCache.get(path)!);
-          cacheHits++;
-          continue;
-        }
-        
-        // 캐시에 없으면 새로 생성
         try {
-          const content = await this.obsidianAdapter.getFileContent(file);
-          const frontmatter = this.obsidianAdapter.getFileFrontmatter(file);
+          // 캐시에서 카드 찾기
+          const cachedCard = this.cardCache.get(file.path);
           
-          // 메타데이터에서 태그 추출
-          const cache = this.obsidianAdapter.getMetadataCache().getFileCache(file);
-          
-          // 인라인 태그 추출
-          const inlineTags = cache?.tags?.map(tag => tag.tag) || [];
-          
-          // 프론트매터 태그 추출
-          const frontmatterTags: string[] = [];
-          if (frontmatter && frontmatter.tags) {
-            const fmTags = Array.isArray(frontmatter.tags) ? frontmatter.tags : [frontmatter.tags];
-            for (const tag of fmTags) {
-              const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
-              frontmatterTags.push(normalizedTag);
-            }
+          if (cachedCard && cachedCard.modified === file.stat.mtime) {
+            // 캐시 히트: 캐시된 카드 사용
+            cards.push(cachedCard);
+            cacheHits++;
+            this.cacheHitCount++;
+          } else {
+            // 캐시 미스: 새 카드 생성
+            cacheMisses++;
+            this.cacheMissCount++;
+            
+            // 파일 내용 가져오기
+            const content = await this.obsidianAdapter.getFileContent(file);
+            
+            // 프론트매터 가져오기
+            const frontmatter = this.obsidianAdapter.getFileFrontmatter(file);
+            
+            // 카드 생성
+            const card = this.cardFactory.createFromFile(file, content, frontmatter || undefined);
+            
+            // 캐시에 카드 저장
+            this.cardCache.set(file.path, card);
+            this.cacheSize = this.cardCache.size;
+            
+            // 결과 배열에 카드 추가
+            cards.push(card);
           }
-          
-          // 단수형 태그도 처리
-          if (frontmatter && frontmatter.tag) {
-            const fmTags = Array.isArray(frontmatter.tag) ? frontmatter.tag : [frontmatter.tag];
-            for (const tag of fmTags) {
-              const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
-              frontmatterTags.push(normalizedTag);
-            }
-          }
-          
-          // 모든 태그 합치기 (중복 제거)
-          const allTags = [...new Set([...inlineTags, ...frontmatterTags])];
-          
-          if (frontmatterTags.length > 0) {
-            console.log(`[CardRepositoryImpl] 파일 ${file.path}의 프론트매터 태그: ${frontmatterTags.join(', ')}`);
-          }
-          
-          // 카드 생성
-          const card = this.cardFactory.createCard(
-            file.path,
-            file.basename,
-            content,
-            allTags,
-            file.path,
-            file.stat.ctime,
-            file.stat.mtime,
-            frontmatter || {}
-          );
-          
-          // 캐시에 저장
-          this.cardCache.set(path, card);
-          cards.push(card);
-          cacheMisses++;
         } catch (error) {
-          console.error(`[성능] 파일 처리 오류 (${path}):`, error);
+          console.error(`[성능] 파일 처리 오류 (${file.path}):`, error);
         }
       }
       
-      this.cacheHitCount += cacheHits;
-      this.cacheMissCount += cacheMisses;
-      this.cacheSize = this.cardCache.size;
-      
+      // 캐시 상태 로깅
       console.log(`[성능] 카드 캐시 상태: 크기=${this.cacheSize}, 히트=${cacheHits}, 미스=${cacheMisses}`);
       console.log(`[성능] 카드 캐시 누적: 히트=${this.cacheHitCount}, 미스=${this.cacheMissCount}`);
-      console.timeEnd(timerLabel);
       
+      TimerUtil.endTimer(timerId);
       return cards;
     } catch (error) {
       console.error('[성능] CardRepositoryImpl.getAllCards 오류:', error);
-      console.timeEnd(timerLabel);
+      TimerUtil.endTimer(timerId);
       return [];
     }
   }

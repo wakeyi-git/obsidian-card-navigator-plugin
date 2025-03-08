@@ -3,13 +3,20 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  width: 100%;
   overflow: hidden;
+  position: relative;
   font-family: var(--font-interface);
 }
 
 .view-content.card-navigator-view {
-  overflow: hidden !important;
-  padding: 0 !important;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 
@@ -19,3 +26,126 @@
  * - 프리셋 관련 스타일: src/ui/presets/PresetSelector.css
  * - 검색 관련 스타일: src/ui/toolbar/SearchBar.css
  */ 
+
+/* 모드 전환 시 시각적 피드백 */
+.card-navigator-mode-changed {
+  animation: mode-toggle-feedback 0.5s ease-in-out;
+}
+
+@keyframes mode-toggle-feedback {
+  0% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(var(--interactive-accent-rgb), 0.1);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* 태그 모드에서 카드 세트가 없을 때 표시할 메시지 */
+.card-navigator-empty-tag-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.card-navigator-empty-tag-message svg {
+  margin-bottom: 10px;
+  width: 48px;
+  height: 48px;
+  opacity: 0.5;
+}
+
+.card-navigator-empty-tag-message h3 {
+  margin: 10px 0;
+  font-size: 1.2em;
+}
+
+.card-navigator-empty-tag-message p {
+  margin: 5px 0;
+  font-size: 0.9em;
+}
+
+.card-navigator-search-wrapper {
+  position: absolute;
+  top: 40px; /* 툴바 높이와 동일하게 설정 */
+  left: 0;
+  width: 100%;
+  z-index: 5; /* 툴바보다 낮은 z-index */
+  background-color: var(--background-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.card-navigator-search-container {
+  padding: 0 12px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--background-primary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-top: 8px;
+  padding-bottom: 8px;
+  height: 38px; /* 검색 컨테이너 높이 고정 */
+}
+
+.card-navigator-search-input {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.card-navigator-search-input:focus {
+  border-color: var(--interactive-accent);
+}
+
+.card-navigator-search-type {
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.card-navigator-search-type select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 14px;
+  outline: none;
+}
+
+.card-navigator-frontmatter-key {
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.card-navigator-frontmatter-key input {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 14px;
+  outline: none;
+  width: 120px;
+}
+
+.card-navigator-frontmatter-key input:focus {
+  border-color: var(--interactive-accent);
+} 

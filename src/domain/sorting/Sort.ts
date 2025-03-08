@@ -43,6 +43,15 @@ export interface ISort {
    * 현재 정렬 방향을 반대로 전환합니다.
    */
   toggleDirection(): void;
+  
+  /**
+   * 두 카드 비교
+   * 정렬 기준에 따라 두 카드를 비교합니다.
+   * @param a 첫 번째 카드
+   * @param b 두 번째 카드
+   * @returns 비교 결과 (-1, 0, 1)
+   */
+  compare(a: ICard, b: ICard): number;
 }
 
 /**
@@ -102,4 +111,6 @@ export abstract class Sort implements ISort {
       ? aStr.localeCompare(bStr)
       : bStr.localeCompare(aStr);
   }
+  
+  abstract compare(a: ICard, b: ICard): number;
 } 

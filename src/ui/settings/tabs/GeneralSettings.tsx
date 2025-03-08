@@ -7,7 +7,15 @@ import ToggleSwitch from '../components/ToggleSwitch';
  * 일반 설정 탭 컴포넌트
  */
 const GeneralSettings: React.FC<ISettingsTabProps> = ({ settings, onChange, service }) => {
-  const { defaultMode, defaultCardSet, isCardSetFixed, includeSubfolders, priorityTags, priorityFolders } = settings;
+  const { 
+    defaultMode, 
+    defaultCardSet, 
+    isCardSetFixed, 
+    includeSubfolders, 
+    priorityTags, 
+    priorityFolders,
+    tagCaseSensitive 
+  } = settings;
   const [cardSets, setCardSets] = React.useState<string[]>([]);
   
   // 카드 세트 목록 로드
@@ -77,6 +85,23 @@ const GeneralSettings: React.FC<ISettingsTabProps> = ({ settings, onChange, serv
           id="includeSubfolders"
           checked={includeSubfolders || false}
           onChange={(checked) => onChange('includeSubfolders', checked)}
+        />
+      </SettingItem>
+      
+      <SettingItem 
+        label="태그 대소문자 구분" 
+        description="태그 모드에서 태그 검색 시 대소문자를 구분합니다."
+      >
+        <ToggleSwitch
+          id="tagCaseSensitive"
+          checked={tagCaseSensitive || false}
+          onChange={(checked) => {
+            onChange('tagCaseSensitive', checked);
+            if (service) {
+              const modeService = service.getModeService();
+              modeService.setTagCaseSensitive(checked);
+            }
+          }}
         />
       </SettingItem>
       

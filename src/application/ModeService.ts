@@ -25,10 +25,9 @@ export interface IModeService {
   
   /**
    * 모드 변경
-   * @param type 변경할 모드 타입
-   * @returns 변경된 모드
+   * @param modeType 변경할 모드 타입
    */
-  changeMode(type: ModeType): IMode;
+  changeMode(modeType: ModeType): Promise<void>;
   
   /**
    * 카드 세트 선택
@@ -101,7 +100,7 @@ export interface IModeService {
    * @param file 활성 파일
    * @returns 카드 세트가 변경되었는지 여부
    */
-  handleActiveFileChange(file: TFile | null): boolean;
+  handleActiveFileChange(file: TFile | null): Promise<boolean>;
   
   /**
    * 현재 모드에 따라 카드 목록을 가져옵니다.
@@ -128,6 +127,30 @@ export interface IModeService {
    * @returns 이전 모드
    */
   getPreviousMode(): ModeType;
+  
+  /**
+   * 태그 대소문자 구분 여부 설정
+   * @param caseSensitive 대소문자 구분 여부
+   */
+  setTagCaseSensitive(caseSensitive: boolean): void;
+  
+  /**
+   * 태그 대소문자 구분 여부 확인
+   * @returns 대소문자 구분 여부
+   */
+  isTagCaseSensitive(): boolean;
+  
+  /**
+   * 이전 모드 상태 저장
+   * 현재 모드의 상태를 저장합니다.
+   */
+  saveCurrentModeState(): void;
+  
+  /**
+   * 이전 모드 상태 복원
+   * 저장된 모드 상태를 복원합니다.
+   */
+  restorePreviousModeState(): void;
 }
 
 /**
@@ -144,10 +167,13 @@ export class ModeService implements IModeService {
   private includeSubfolders = true;
   private cardService: ICardService;
   private previousMode: ModeType = 'folder';
+  private previousCardSet: { [key in ModeType]?: string } = {}; // 모드별 이전 카드 세트 저장
+  private service: any; // 임시로 any 타입 사용
   
-  constructor(app: App, cardService: ICardService, defaultModeType: ModeType = 'folder') {
+  constructor(app: App, cardService: ICardService, defaultModeType: ModeType = 'folder', service?: any) {
     this.app = app;
     this.cardService = cardService;
+    this.service = service; // 서비스 설정
     
     // 모드 초기화
     this.folderMode = new FolderMode(app);
@@ -160,7 +186,7 @@ export class ModeService implements IModeService {
         this.currentMode = this.folderMode;
         break;
       case 'tag':
-        this.currentMode = this.tagMode;
+        this.currentMode = this.tagMode as unknown as IMode;
         break;
       case 'search':
         this.currentMode = this.searchMode;
@@ -216,63 +242,154 @@ export class ModeService implements IModeService {
     return this.currentMode.type;
   }
   
-  changeMode(type: ModeType): IMode {
-    if (type === this.currentMode.type) {
-      return this.currentMode;
-    }
+  /**
+   * 모드 변경
+   * @param modeType 변경할 모드 타입
+   */
+  async changeMode(modeType: ModeType): Promise<void> {
+    console.log(`[ModeService] 모드 변경: ${modeType}`);
     
-    // 검색 모드로 전환할 때 이전 모드 저장
-    if (type === 'search') {
-      this.previousMode = this.currentMode.type;
-    }
+    // 현재 모드 상태 저장
+    this.saveCurrentModeState();
     
-    switch (type) {
+    // 이전 모드 저장
+    this.previousMode = this.currentMode.type;
+    
+    // 모드 변경
+    switch (modeType) {
       case 'folder':
         this.currentMode = this.folderMode;
+        
+        // 설정에서 하위 폴더 포함 여부 및 고정 여부 가져와서 적용
+        try {
+          if (this.service) {
+            const settings = await this.service.getSettings();
+            if (settings) {
+              // 하위 폴더 포함 여부 설정
+              const includeSubfolders = settings.includeSubfolders !== undefined ? settings.includeSubfolders : true;
+              this.folderMode.setIncludeSubfolders(includeSubfolders);
+              console.log(`[ModeService] 폴더 모드 하위 폴더 포함 여부 설정: ${includeSubfolders}`);
+              
+              // 카드 세트 고정 여부 설정
+              const isFixed = settings.isCardSetFixed !== undefined ? settings.isCardSetFixed : false;
+              this.folderMode.setFixed(isFixed);
+              this.isFixed = isFixed;
+              console.log(`[ModeService] 폴더 모드 카드 세트 고정 여부 설정: ${isFixed}`);
+              
+              // 기본 카드 세트 설정 (설정에 있는 경우)
+              if (settings.defaultCardSet && modeType === settings.defaultMode) {
+                this.currentMode.selectCardSet(settings.defaultCardSet);
+                console.log(`[ModeService] 기본 카드 세트 설정: ${settings.defaultCardSet}`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[ModeService] 폴더 모드 설정 적용 중 오류 발생:', error);
+        }
+        
+        // 이전에 저장된 카드 세트가 있으면 복원
+        if (this.previousCardSet[modeType]) {
+          this.currentMode.selectCardSet(this.previousCardSet[modeType] || null);
+          console.log(`[ModeService] 이전 폴더 모드 카드 세트 복원: ${this.previousCardSet[modeType]}`);
+        }
         break;
+        
       case 'tag':
-        this.currentMode = this.tagMode;
+        this.currentMode = this.tagMode as unknown as IMode;
+        
+        // 설정에서 태그 고정 여부 가져와서 적용
+        try {
+          if (this.service) {
+            const settings = await this.service.getSettings();
+            if (settings) {
+              // 태그 고정 여부 설정
+              const isFixed = settings.isCardSetFixed !== undefined ? settings.isCardSetFixed : false;
+              this.tagMode.setFixed(isFixed);
+              this.isFixed = isFixed;
+              console.log(`[ModeService] 태그 모드 태그 고정 여부 설정: ${isFixed}`);
+              
+              // 대소문자 구분 여부 설정
+              const caseSensitive = settings.tagCaseSensitive !== undefined ? settings.tagCaseSensitive : false;
+              this.tagMode.setCaseSensitive(caseSensitive);
+              console.log(`[ModeService] 태그 모드 대소문자 구분 여부 설정: ${caseSensitive}`);
+              
+              // 기본 카드 세트 설정 (설정에 있는 경우)
+              if (settings.defaultCardSet && modeType === settings.defaultMode) {
+                this.currentMode.selectCardSet(settings.defaultCardSet);
+                console.log(`[ModeService] 기본 카드 세트 설정: ${settings.defaultCardSet}`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[ModeService] 태그 모드 설정 적용 중 오류 발생:', error);
+        }
+        
+        // 이전에 저장된 카드 세트가 있으면 복원
+        if (this.previousCardSet[modeType]) {
+          this.currentMode.selectCardSet(this.previousCardSet[modeType] || null);
+          console.log(`[ModeService] 이전 태그 모드 카드 세트 복원: ${this.previousCardSet[modeType]}`);
+        }
         break;
+        
       case 'search':
         this.currentMode = this.searchMode;
         break;
+        
+      default:
+        throw new Error(`지원하지 않는 모드 타입: ${modeType}`);
     }
     
-    this.isFixed = false;
-    
-    // 검색 모드에서 나갈 때는 활성 파일 기준으로 카드 세트를 설정하지 않음
-    if (type !== 'search') {
-      // 모드 변경 시 활성 파일 기준으로 카드 세트 설정
+    // 현재 활성 파일 기반으로 카드 세트 설정 (고정되지 않은 경우)
+    if (!this.isFixed && modeType !== 'search' && !this.previousCardSet[modeType]) {
       const activeFile = this.app.workspace.getActiveFile();
       if (activeFile) {
-        this.handleActiveFileChange(activeFile);
+        await this.handleActiveFileChange(activeFile);
       }
     }
-    
-    return this.currentMode;
   }
   
   selectCardSet(cardSet: string, isFixed?: boolean): void {
     console.log(`[ModeService] 카드 세트 선택: ${cardSet}, 고정 여부: ${isFixed}`);
     
-    this.isFixed = isFixed || false;
+    // isFixed가 undefined인 경우 기본값 false 사용
+    const fixed = isFixed === undefined ? false : isFixed;
     
-    // 태그 모드인 경우 TagMode의 setFixed 메서드 호출
-    if (this.currentMode.type === 'tag') {
-      (this.currentMode as TagMode).setFixed(this.isFixed);
+    // 현재 모드에 카드 세트 설정
+    this.currentMode.selectCardSet(cardSet);
+    
+    // 모드별 고정 상태 설정
+    if (this.currentMode.type === 'folder') {
+      // 폴더 모드인 경우 카드 세트 고정 여부 설정
+      const folderMode = this.currentMode as FolderMode;
+      folderMode.setFixed(fixed);
+      this.isFixed = fixed;
+      console.log(`[ModeService] 폴더 모드 카드 세트 고정 상태 설정: ${fixed}`);
+    } else if (this.currentMode.type === 'tag') {
+      // 태그 모드인 경우 태그 고정 여부 설정
+      const tagMode = this.tagMode;
+      tagMode.setFixed(fixed);
+      this.isFixed = fixed;
+      console.log(`[ModeService] 태그 모드 카드 세트 고정 상태 설정: ${fixed}`);
     }
     
-    this.currentMode.selectCardSet(cardSet);
+    // 선택 후 현재 카드 세트 확인
+    const currentSet = this.getCurrentCardSet();
+    console.log(`[ModeService] 카드 세트 선택 후 확인: currentCardSet=${currentSet}`);
   }
   
   getCurrentCardSet(): string | null {
-    return this.currentMode.currentCardSet;
+    const currentSet = this.currentMode.currentCardSet;
+    console.log(`[ModeService] getCurrentCardSet 호출: currentMode=${this.currentMode.type}, currentCardSet=${currentSet}`);
+    return currentSet;
   }
   
   isCardSetFixed(): boolean {
     // 태그 모드인 경우 TagMode의 isTagFixed 메서드 사용
     if (this.currentMode.type === 'tag') {
-      return (this.currentMode as TagMode).isTagFixed();
+      return (this.currentMode as unknown as TagMode).isTagFixed();
+    } else if (this.currentMode.type === 'folder') {
+      // 폴더 모드인 경우 FolderMode의 isFolderFixed 메서드 사용
+      return (this.currentMode as unknown as FolderMode).isFolderFixed();
     }
     
     return this.isFixed;
@@ -289,6 +406,10 @@ export class ModeService implements IModeService {
     return this.includeSubfolders;
   }
   
+  /**
+   * 카드 세트 목록 가져오기
+   * @returns 카드 세트 목록
+   */
   async getCardSets(): Promise<string[]> {
     console.log(`[ModeService] 카드 세트 목록 가져오기 시작, 현재 모드: ${this.getCurrentModeType()}`);
     
@@ -426,7 +547,7 @@ export class ModeService implements IModeService {
    * @param file 활성 파일
    * @returns 카드 세트가 변경되었는지 여부
    */
-  handleActiveFileChange(file: TFile | null): boolean {
+  async handleActiveFileChange(file: TFile | null): Promise<boolean> {
     if (!file) return false;
     
     // 카드 세트가 고정된 경우 변경하지 않음
@@ -436,6 +557,8 @@ export class ModeService implements IModeService {
     }
     
     console.log(`[ModeService] 활성 파일 변경 처리: ${file.path}`);
+    console.log(`[ModeService] 현재 모드: ${this.currentMode.type}`);
+    
     let cardSetChanged = false;
     
     if (this.currentMode.type === 'folder') {
@@ -464,7 +587,7 @@ export class ModeService implements IModeService {
         return false;
       }
       
-      const allTags = tagMode.getAllTagsFromFile(file);
+      const allTags = await tagMode.getAllTagsFromFile(file);
       
       if (allTags.length > 0) {
         // 모든 태그를 쉼표로 구분하여 하나의 문자열로 결합 (OR 연산)
@@ -480,19 +603,10 @@ export class ModeService implements IModeService {
           console.log(`[ModeService] 같은 태그 세트를 가진 파일로 이동이므로 카드 세트 업데이트를 건너뜁니다.`);
         }
       } else {
-        // 태그가 없는 경우 이전에 선택한 태그 유지
-        console.log(`[ModeService] 활성 파일에 태그가 없어 현재 태그를 유지합니다: ${this.currentMode.currentCardSet}`);
-        
-        // 현재 선택된 태그가 없는 경우 태그 목록을 가져와서 첫 번째 태그 선택
-        if (!this.currentMode.currentCardSet) {
-          this.getCardSets().then(tags => {
-            if (tags.length > 0) {
-              console.log(`[ModeService] 기본 태그 선택: ${tags[0]}`);
-              this.currentMode.selectCardSet(tags[0]);
-              cardSetChanged = true;
-            }
-          });
-        }
+        // 태그가 없는 경우 카드 세트를 null로 설정
+        console.log(`[ModeService] 활성 파일에 태그가 없습니다. 카드 세트를 비웁니다.`);
+        this.currentMode.selectCardSet(null);
+        cardSetChanged = true;
       }
     }
     
@@ -567,5 +681,46 @@ export class ModeService implements IModeService {
    */
   getPreviousMode(): ModeType {
     return this.previousMode;
+  }
+  
+  /**
+   * 태그 대소문자 구분 여부 설정
+   * @param caseSensitive 대소문자 구분 여부
+   */
+  setTagCaseSensitive(caseSensitive: boolean): void {
+    if (this.tagMode) {
+      this.tagMode.setCaseSensitive(caseSensitive);
+    }
+  }
+  
+  /**
+   * 태그 대소문자 구분 여부 확인
+   * @returns 대소문자 구분 여부
+   */
+  isTagCaseSensitive(): boolean {
+    return this.tagMode ? this.tagMode.isCaseSensitive() : false;
+  }
+  
+  /**
+   * 이전 모드 상태 저장
+   * 현재 모드의 상태를 저장합니다.
+   */
+  saveCurrentModeState(): void {
+    if (this.currentMode && this.currentMode.currentCardSet) {
+      this.previousCardSet[this.currentMode.type] = this.currentMode.currentCardSet;
+      console.log(`[ModeService] 현재 모드(${this.currentMode.type}) 상태 저장: ${this.currentMode.currentCardSet}`);
+    }
+  }
+  
+  /**
+   * 이전 모드 상태 복원
+   * 저장된 모드 상태를 복원합니다.
+   */
+  restorePreviousModeState(): void {
+    const previousModeType = this.previousMode;
+    if (previousModeType && this.previousCardSet[previousModeType]) {
+      console.log(`[ModeService] 이전 모드(${previousModeType}) 상태 복원: ${this.previousCardSet[previousModeType]}`);
+      this.changeMode(previousModeType);
+    }
   }
 } 

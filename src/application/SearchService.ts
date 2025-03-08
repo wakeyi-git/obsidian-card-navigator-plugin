@@ -232,13 +232,21 @@ export class SearchService implements ISearchService {
     
     // 설정에서 기본 검색 범위 가져오기
     if (this.cardNavigatorService) {
-      this.cardNavigatorService.getSettings().then(settings => {
-        if (settings.defaultSearchScope) {
-          this.searchScope = settings.defaultSearchScope;
-        } else {
+      try {
+        this.cardNavigatorService.getSettings().then(settings => {
+          if (settings && settings.defaultSearchScope) {
+            this.searchScope = settings.defaultSearchScope;
+          } else {
+            this.searchScope = 'current';
+          }
+        }).catch(_err => {
+          // 설정을 가져오는 중 오류가 발생하면 기본값 사용
           this.searchScope = 'current';
-        }
-      });
+        });
+      } catch (_error) {
+        // 예외 발생 시 기본값 사용
+        this.searchScope = 'current';
+      }
     } else {
       this.searchScope = 'current';
     }
@@ -257,13 +265,21 @@ export class SearchService implements ISearchService {
     
     // 설정에서 기본 검색 범위 가져오기
     if (this.cardNavigatorService) {
-      this.cardNavigatorService.getSettings().then(settings => {
-        if (settings.defaultSearchScope) {
-          this.searchScope = settings.defaultSearchScope;
-        } else {
+      try {
+        this.cardNavigatorService.getSettings().then(settings => {
+          if (settings && settings.defaultSearchScope) {
+            this.searchScope = settings.defaultSearchScope;
+          } else {
+            this.searchScope = 'current';
+          }
+        }).catch(_err => {
+          // 설정을 가져오는 중 오류가 발생하면 기본값 사용
           this.searchScope = 'current';
-        }
-      });
+        });
+      } catch (_error) {
+        // 예외 발생 시 기본값 사용
+        this.searchScope = 'current';
+      }
     } else {
       this.searchScope = 'current';
     }

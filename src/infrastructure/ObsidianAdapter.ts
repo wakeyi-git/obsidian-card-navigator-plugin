@@ -1,4 +1,5 @@
 import { App, TFile, TFolder, Vault, MetadataCache } from 'obsidian';
+import { TimerUtil } from './TimerUtil';
 
 /**
  * Obsidian 어댑터 인터페이스
@@ -306,18 +307,17 @@ export class ObsidianAdapter implements IObsidianAdapter {
   }
   
   async getFileContent(file: TFile): Promise<string> {
-    const timerLabel = `[성능] ObsidianAdapter.getFileContent(${file.path}) 실행 시간-${Date.now()}`;
-    console.time(timerLabel);
+    const timerId = TimerUtil.startTimer(`[성능] ObsidianAdapter.getFileContent(${file.path})`);
     this.fileAccessCount++;
     
     try {
       const content = await this.vault.read(file);
       console.log(`[성능] 파일 내용 접근 횟수: ${this.fileAccessCount}, 파일: ${file.path}`);
-      console.timeEnd(timerLabel);
+      TimerUtil.endTimer(timerId);
       return content;
     } catch (error) {
       console.error(`[성능] ObsidianAdapter.getFileContent(${file.path}) 오류:`, error);
-      console.timeEnd(timerLabel);
+      TimerUtil.endTimer(timerId);
       return '';
     }
   }

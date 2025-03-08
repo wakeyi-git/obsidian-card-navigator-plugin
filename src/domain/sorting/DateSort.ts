@@ -39,4 +39,26 @@ export class DateSort implements ISort {
   toggleDirection(): void {
     this.direction = this.direction === 'asc' ? 'desc' : 'asc';
   }
+  
+  /**
+   * 두 카드 비교
+   * 날짜를 기준으로 두 카드를 비교합니다.
+   * @param a 첫 번째 카드
+   * @param b 두 번째 카드
+   * @returns 비교 결과 (-1, 0, 1)
+   */
+  compare(a: ICard, b: ICard): number {
+    const dateA = this.type === 'created' ? a.created : a.modified;
+    const dateB = this.type === 'created' ? b.created : b.modified;
+    
+    if (!dateA && !dateB) return 0;
+    if (!dateA) return this.direction === 'asc' ? 1 : -1;
+    if (!dateB) return this.direction === 'asc' ? -1 : 1;
+    
+    if (this.direction === 'asc') {
+      return dateA - dateB;
+    } else {
+      return dateB - dateA;
+    }
+  }
 } 

@@ -18,6 +18,15 @@ export interface ICardProps {
   searchQuery?: string;
   cardNavigatorService?: ICardNavigatorService;
   isActive?: boolean;
+  
+  // 추가 속성
+  onContextMenu?: (id: string, event: React.MouseEvent) => void;
+  onDragStart?: (id: string, event: React.DragEvent) => void;
+  onDragEnd?: (id: string, event: React.DragEvent) => void;
+  onDrop?: (id: string, event: React.DragEvent) => void;
+  onDragOver?: (id: string, event: React.DragEvent) => void;
+  onDragEnter?: (id: string, event: React.DragEvent) => void;
+  onDragLeave?: (id: string, event: React.DragEvent) => void;
 }
 
 /**
@@ -37,6 +46,13 @@ const Card: React.FC<ICardProps> = ({
   searchQuery = '',
   cardNavigatorService,
   isActive = false,
+  onContextMenu,
+  onDragStart,
+  onDragEnd,
+  onDrop,
+  onDragOver,
+  onDragEnter,
+  onDragLeave,
 }) => {
   const [highlightInfo, setHighlightInfo] = useState<{ text: string, positions: number[] }[]>([]);
 
@@ -68,6 +84,48 @@ const Card: React.FC<ICardProps> = ({
   const handleClick = () => {
     if (onClick) {
       onClick(id);
+    }
+  };
+  
+  const handleContextMenu = (event: React.MouseEvent) => {
+    if (onContextMenu) {
+      onContextMenu(id, event);
+    }
+  };
+  
+  const handleDragStart = (event: React.DragEvent) => {
+    if (onDragStart) {
+      onDragStart(id, event);
+    }
+  };
+  
+  const handleDragEnd = (event: React.DragEvent) => {
+    if (onDragEnd) {
+      onDragEnd(id, event);
+    }
+  };
+  
+  const handleDrop = (event: React.DragEvent) => {
+    if (onDrop) {
+      onDrop(id, event);
+    }
+  };
+  
+  const handleDragOver = (event: React.DragEvent) => {
+    if (onDragOver) {
+      onDragOver(id, event);
+    }
+  };
+  
+  const handleDragEnter = (event: React.DragEvent) => {
+    if (onDragEnter) {
+      onDragEnter(id, event);
+    }
+  };
+  
+  const handleDragLeave = (event: React.DragEvent) => {
+    if (onDragLeave) {
+      onDragLeave(id, event);
     }
   };
 
@@ -244,6 +302,14 @@ const Card: React.FC<ICardProps> = ({
     <div
       className={`card-navigator-card ${isActive ? 'card-navigator-card-active' : ''}`}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
+      draggable={true}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
       style={style}
     >
       <div className="card-navigator-card-header">

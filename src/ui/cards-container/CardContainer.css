@@ -2,9 +2,30 @@
 .card-navigator-container {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  height: calc(100% - 40px); /* 툴바 높이(40px)를 제외한 높이 */
+  overflow: hidden;
+  position: relative;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.card-navigator-cards-wrapper {
+  flex: 1;
+  width: 100%;
   height: 100%;
   overflow: hidden;
   position: relative;
+}
+
+.card-navigator-container.search-mode .card-navigator-cards-wrapper {
+  padding-top: 40px; /* 검색 입력 필드 높이만큼 패딩 추가 */
+}
+
+.card-navigator-container.search-mode {
+  padding-top: 0; /* 패딩 제거 */
+  height: calc(100% - 40px); /* 툴바 높이(40px)만 제외한 높이 유지 */
 }
 
 .card-navigator-grid {
@@ -13,21 +34,23 @@
   grid-auto-rows: minmax(200px, auto);
   gap: 10px;
   padding: 10px;
+  padding-bottom: 30px; /* 하단 패딩 추가 */
   width: 100%;
   overflow-y: auto;
-  max-height: calc(100vh - 60px);
   height: 100%;
   align-items: stretch;
+  box-sizing: border-box;
 }
 
 .card-navigator-masonry {
   display: flex;
   gap: 10px;
   padding: 10px;
+  padding-bottom: 30px; /* 하단 패딩 추가 */
   width: 100%;
   overflow-y: auto;
-  max-height: calc(100vh - 60px);
   height: 100%;
+  box-sizing: border-box;
 }
 
 .card-navigator-masonry-column {

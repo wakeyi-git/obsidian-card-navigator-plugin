@@ -34,4 +34,22 @@ export class FilenameSort implements ISort {
   toggleDirection(): void {
     this.direction = this.direction === 'asc' ? 'desc' : 'asc';
   }
+  
+  /**
+   * 두 카드 비교
+   * 파일명을 기준으로 두 카드를 비교합니다.
+   * @param a 첫 번째 카드
+   * @param b 두 번째 카드
+   * @returns 비교 결과 (-1, 0, 1)
+   */
+  compare(a: ICard, b: ICard): number {
+    const titleA = a.title.toLowerCase();
+    const titleB = b.title.toLowerCase();
+    
+    if (this.direction === 'asc') {
+      return titleA.localeCompare(titleB);
+    } else {
+      return titleB.localeCompare(titleA);
+    }
+  }
 } 

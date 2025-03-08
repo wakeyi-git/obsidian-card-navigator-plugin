@@ -56,6 +56,30 @@ export interface ISortService {
    * 설정 초기화
    */
   reset(): void;
+  
+  /**
+   * 우선 순위 태그 설정
+   * @param tags 우선 순위 태그 목록
+   */
+  setPriorityTags(tags: string[]): void;
+  
+  /**
+   * 우선 순위 태그 가져오기
+   * @returns 우선 순위 태그 목록
+   */
+  getPriorityTags(): string[];
+  
+  /**
+   * 우선 순위 폴더 설정
+   * @param folders 우선 순위 폴더 목록
+   */
+  setPriorityFolders(folders: string[]): void;
+  
+  /**
+   * 우선 순위 폴더 가져오기
+   * @returns 우선 순위 폴더 목록
+   */
+  getPriorityFolders(): string[];
 }
 
 /**
@@ -64,9 +88,45 @@ export interface ISortService {
  */
 export class SortService implements ISortService {
   private currentSort: ISort | null = null;
+  private priorityTags: string[] = [];
+  private priorityFolders: string[] = [];
   
   constructor(initialSort?: ISort) {
     this.currentSort = initialSort || null;
+  }
+  
+  /**
+   * 우선 순위 태그 설정
+   * @param tags 우선 순위 태그 목록
+   */
+  setPriorityTags(tags: string[]): void {
+    this.priorityTags = tags;
+    console.log(`[SortService] 우선 순위 태그 설정: ${tags.join(', ')}`);
+  }
+  
+  /**
+   * 우선 순위 태그 가져오기
+   * @returns 우선 순위 태그 목록
+   */
+  getPriorityTags(): string[] {
+    return this.priorityTags;
+  }
+  
+  /**
+   * 우선 순위 폴더 설정
+   * @param folders 우선 순위 폴더 목록
+   */
+  setPriorityFolders(folders: string[]): void {
+    this.priorityFolders = folders;
+    console.log(`[SortService] 우선 순위 폴더 설정: ${folders.join(', ')}`);
+  }
+  
+  /**
+   * 우선 순위 폴더 가져오기
+   * @returns 우선 순위 폴더 목록
+   */
+  getPriorityFolders(): string[] {
+    return this.priorityFolders;
   }
   
   initialize(): void {
@@ -119,6 +179,59 @@ export class SortService implements ISortService {
       return [...cards];
     }
     
+    // 우선 순위 태그와 폴더를 고려하여 정렬
+    if (this.priorityTags.length > 0 || this.priorityFolders.length > 0) {
+      // 카드 복사본 생성
+      const sortedCards = [...cards];
+      
+      // 우선 순위 점수 계산 함수
+      const getPriorityScore = (card: ICard): number => {
+        let score = 0;
+        
+        // 우선 순위 태그 점수 계산
+        if (this.priorityTags.length > 0 && card.tags) {
+          for (const tag of card.tags) {
+            const tagIndex = this.priorityTags.indexOf(tag);
+            if (tagIndex !== -1) {
+              // 인덱스가 작을수록 높은 점수 부여 (우선 순위가 높음)
+              score += this.priorityTags.length - tagIndex;
+            }
+          }
+        }
+        
+        // 우선 순위 폴더 점수 계산
+        if (this.priorityFolders.length > 0 && card.path) {
+          for (const folder of this.priorityFolders) {
+            if (card.path.startsWith(folder)) {
+              const folderIndex = this.priorityFolders.indexOf(folder);
+              // 인덱스가 작을수록 높은 점수 부여 (우선 순위가 높음)
+              score += this.priorityFolders.length - folderIndex;
+              break; // 가장 우선 순위가 높은 폴더만 고려
+            }
+          }
+        }
+        
+        return score;
+      };
+      
+      // 우선 순위 점수에 따라 정렬
+      sortedCards.sort((a, b) => {
+        const scoreA = getPriorityScore(a);
+        const scoreB = getPriorityScore(b);
+        
+        // 우선 순위 점수가 다르면 점수에 따라 정렬
+        if (scoreA !== scoreB) {
+          return scoreB - scoreA; // 높은 점수가 먼저 오도록
+        }
+        
+        // 우선 순위 점수가 같으면 기본 정렬 적용
+        return this.currentSort!.compare(a, b);
+      });
+      
+      return sortedCards;
+    }
+    
+    // 우선 순위가 없으면 기본 정렬 적용
     return this.currentSort.apply(cards);
   }
   

@@ -8,10 +8,28 @@ import { Mode, ModeType } from './Mode';
 export class FolderMode extends Mode {
   private app: App;
   private includeSubfolders = true;
+  private isFixed = false;
   
   constructor(app: App) {
     super('folder');
     this.app = app;
+  }
+  
+  /**
+   * 폴더 고정 여부 설정
+   * @param isFixed 고정 여부
+   */
+  setFixed(isFixed: boolean): void {
+    this.isFixed = isFixed;
+    console.log(`[FolderMode] 폴더 고정 상태 변경: ${isFixed}`);
+  }
+  
+  /**
+   * 폴더 고정 여부 확인
+   * @returns 고정 여부
+   */
+  isFolderFixed(): boolean {
+    return this.isFixed;
   }
   
   /**

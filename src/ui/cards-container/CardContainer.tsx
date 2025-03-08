@@ -11,6 +11,16 @@ export interface ICardContainerProps {
   layout?: 'grid' | 'masonry';
   searchQuery?: string;
   emptyMessage?: string;
+  
+  // 추가 속성
+  onCardContextMenu?: (id: string, event: React.MouseEvent) => void;
+  onCardDragStart?: (id: string, event: React.DragEvent) => void;
+  onCardDragEnd?: (id: string, event: React.DragEvent) => void;
+  onCardDrop?: (id: string, event: React.DragEvent) => void;
+  onCardDragOver?: (id: string, event: React.DragEvent) => void;
+  onCardDragEnter?: (id: string, event: React.DragEvent) => void;
+  onCardDragLeave?: (id: string, event: React.DragEvent) => void;
+  service?: any;
 }
 
 /**
@@ -23,6 +33,16 @@ const CardContainer: React.FC<ICardContainerProps> = ({
   layout = 'grid',
   searchQuery = '',
   emptyMessage = '표시할 카드가 없습니다',
+  
+  // 추가 속성
+  onCardContextMenu = () => {},
+  onCardDragStart = () => {},
+  onCardDragEnd = () => {},
+  onCardDrop = () => {},
+  onCardDragOver = () => {},
+  onCardDragEnter = () => {},
+  onCardDragLeave = () => {},
+  service
 }) => {
   // 이 줄을 제거합니다
   // console.time('[성능] CardContainer 렌더링 시간');
@@ -68,24 +88,38 @@ useEffect(() => {
     );
   }
 
+  // 카드 렌더링 함수
+  const renderCard = (card: ICardProps, index: number) => {
+    return (
+      <Card
+        key={card.id}
+        id={card.id}
+        title={card.title}
+        content={card.content}
+        tags={card.tags}
+        path={card.path}
+        created={card.created}
+        modified={card.modified}
+        onClick={onCardClick}
+        searchQuery={searchQuery}
+        isActive={card.isActive}
+        onContextMenu={onCardContextMenu}
+        onDragStart={onCardDragStart}
+        onDragEnd={onCardDragEnd}
+        onDrop={onCardDrop}
+        onDragOver={onCardDragOver}
+        onDragEnter={onCardDragEnter}
+        onDragLeave={onCardDragLeave}
+        cardNavigatorService={service}
+      />
+    );
+  };
+
   // 그리드 레이아웃
   if (layout === 'grid') {
     return (
       <div className="card-navigator-grid">
-        {cards.map((card, index) => (
-          <Card
-            key={`grid-${card.id}-${index}`}
-            id={card.id}
-            title={card.title}
-            content={card.content}
-            tags={card.tags}
-            path={card.path}
-            created={card.created}
-            modified={card.modified}
-            onClick={onCardClick}
-            searchQuery={searchQuery}
-          />
-        ))}
+        {cards.map((card, index) => renderCard(card, index))}
       </div>
     );
   }
@@ -96,56 +130,17 @@ useEffect(() => {
       <div className="card-navigator-masonry-column">
         {cards
           .filter((_, i) => i % 3 === 0)
-          .map((card, index) => (
-            <Card
-              key={`masonry-col1-${card.id}-${index}`}
-              id={card.id}
-              title={card.title}
-              content={card.content}
-              tags={card.tags}
-              path={card.path}
-              created={card.created}
-              modified={card.modified}
-              onClick={onCardClick}
-              searchQuery={searchQuery}
-            />
-          ))}
+          .map((card, index) => renderCard(card, index))}
       </div>
       <div className="card-navigator-masonry-column">
         {cards
           .filter((_, i) => i % 3 === 1)
-          .map((card, index) => (
-            <Card
-              key={`masonry-col2-${card.id}-${index}`}
-              id={card.id}
-              title={card.title}
-              content={card.content}
-              tags={card.tags}
-              path={card.path}
-              created={card.created}
-              modified={card.modified}
-              onClick={onCardClick}
-              searchQuery={searchQuery}
-            />
-          ))}
+          .map((card, index) => renderCard(card, index))}
       </div>
       <div className="card-navigator-masonry-column">
         {cards
           .filter((_, i) => i % 3 === 2)
-          .map((card, index) => (
-            <Card
-              key={`masonry-col3-${card.id}-${index}`}
-              id={card.id}
-              title={card.title}
-              content={card.content}
-              tags={card.tags}
-              path={card.path}
-              created={card.created}
-              modified={card.modified}
-              onClick={onCardClick}
-              searchQuery={searchQuery}
-            />
-          ))}
+          .map((card, index) => renderCard(card, index))}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import { ICardProps } from '../cards-container/Card';
+import { SearchType } from '../../domain/search/Search';
 import './SearchBar.css';
 
 // 컴포넌트 import
@@ -9,7 +10,7 @@ import SearchScopeToggle from './components/SearchScopeToggle';
 import SearchHistory from './components/SearchHistory';
 import DatePicker from './components/DatePicker';
 import FrontmatterKeySuggestions from './components/FrontmatterKeySuggestions';
-import { SearchSuggestions } from './components/SearchSuggestions';
+import { SearchSuggestions, SearchOption } from './components/SearchSuggestions';
 import SuggestedValues from './components/SuggestedValues';
 
 // 훅 import
@@ -19,15 +20,37 @@ import useSearchBar from './hooks/useSearchBar';
  * 검색바 컴포넌트 속성
  */
 interface SearchBarProps {
-  cardNavigatorService: ICardNavigatorService | null;
+  cardNavigatorService?: ICardNavigatorService | null;
   onSearch: (query: string, type?: string) => void;
   currentCards?: ICardProps[]; // 현재 표시 중인 카드셋
+  
+  // 추가 속성
+  onSearchTypeChange?: (type: SearchType) => void;
+  onCaseSensitiveChange?: (sensitive: boolean) => void;
+  onFrontmatterKeyChange?: (key: string) => void;
+  searchQuery?: string;
+  searchType?: SearchType;
+  caseSensitive?: boolean;
+  frontmatterKey?: string;
 }
 
 /**
  * 검색바 컴포넌트
  */
-export const SearchBar: React.FC<SearchBarProps> = ({ cardNavigatorService, onSearch, currentCards = [] }) => {
+export const SearchBar: React.FC<SearchBarProps> = ({ 
+  cardNavigatorService, 
+  onSearch, 
+  currentCards = [],
+  
+  // 추가 속성
+  onSearchTypeChange,
+  onCaseSensitiveChange,
+  onFrontmatterKeyChange,
+  searchQuery = '',
+  searchType = 'filename',
+  caseSensitive = false,
+  frontmatterKey = ''
+}) => {
   // useSearchBar 훅 사용
   const {
     // 상태
@@ -66,22 +89,75 @@ export const SearchBar: React.FC<SearchBarProps> = ({ cardNavigatorService, onSe
     handleClear,
     handleFocus,
     handleKeyDown,
-    handleSearchOptionSelect,
+    handleSearchOptionSelect: baseHandleSearchOptionSelect,
     handleDateSelect,
     handleSearchScopeToggle,
     handleHistoryItemClick,
-    handleFrontmatterKeySelect,
+    handleFrontmatterKeySelect: baseHandleFrontmatterKeySelect,
     handleSuggestedValueSelect,
     clearSearchHistory,
     
     // 검색 옵션
     searchOptions,
   } = useSearchBar({
-    cardNavigatorService,
+    cardNavigatorService: cardNavigatorService || null,
     onSearch,
     currentCards,
+    initialSearchText: searchQuery,
+    initialSearchType: searchType,
+    initialCaseSensitive: caseSensitive,
+    initialFrontmatterKey: frontmatterKey
   });
   
+  // 검색 옵션 선택 핸들러 래핑
+  const handleSearchOptionSelect = (option: SearchOption) => {
+    baseHandleSearchOptionSelect(option);
+    if (onSearchTypeChange) {
+      // SearchOption 타입을 SearchType으로 변환
+      const searchType = convertOptionTypeToSearchType(option.type);
+      onSearchTypeChange(searchType);
+    }
+  };
+  
+  // SearchOption 타입을 SearchType으로 변환하는 함수
+  const convertOptionTypeToSearchType = (optionType: string): SearchType => {
+    switch (optionType) {
+      case 'filename':
+        return 'filename';
+      case 'content':
+        return 'content';
+      case 'tag':
+        return 'tag';
+      case 'path':
+        return 'path';
+      case 'frontmatter':
+        return 'frontmatter';
+      case 'created':
+        return 'create';
+      case 'modified':
+        return 'modify';
+      case 'folder':
+        return 'folder';
+      default:
+        return 'filename';
+    }
+  };
+  
+  // 프론트매터 키 선택 핸들러 래핑
+  const handleFrontmatterKeySelect = (key: string) => {
+    baseHandleFrontmatterKeySelect(key);
+    if (onFrontmatterKeyChange) {
+      onFrontmatterKeyChange(key);
+    }
+  };
+  
+  // 대소문자 구분 토글 핸들러
+  const handleCaseSensitiveToggle = (sensitive: boolean) => {
+    if (onCaseSensitiveChange) {
+      onCaseSensitiveChange(sensitive);
+    }
+  };
+
   return (
     <div className="card-navigator-search-container" ref={containerRef}>
       <form onSubmit={handleSubmit} className="card-navigator-search-form">
@@ -95,6 +171,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({ cardNavigatorService, onSe
             onKeyDown={handleKeyDown}
             onClear={handleClear}
             isComplexSearch={isComplexSearch}
+            caseSensitive={caseSensitive}
+            onCaseSensitiveToggle={handleCaseSensitiveToggle}
+            searchScope={searchScope}
+            onSearchScopeToggle={handleSearchScopeToggle}
           />
           
           {/* 검색 범위 토글 */}

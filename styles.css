@@ -4,13 +4,20 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  width: 100%;
   overflow: hidden;
+  position: relative;
   font-family: var(--font-interface);
 }
 
 .view-content.card-navigator-view {
-  overflow: hidden !important;
-  padding: 0 !important;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 /* 
@@ -19,7 +26,130 @@
  * - 레이아웃 관련 스타일: src/ui/layout/LayoutToggle.css
  * - 프리셋 관련 스타일: src/ui/presets/PresetSelector.css
  * - 검색 관련 스타일: src/ui/toolbar/SearchBar.css
- */
+ */ 
+
+/* 모드 전환 시 시각적 피드백 */
+.card-navigator-mode-changed {
+  animation: mode-toggle-feedback 0.5s ease-in-out;
+}
+
+@keyframes mode-toggle-feedback {
+  0% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(var(--interactive-accent-rgb), 0.1);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* 태그 모드에서 카드 세트가 없을 때 표시할 메시지 */
+.card-navigator-empty-tag-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.card-navigator-empty-tag-message svg {
+  margin-bottom: 10px;
+  width: 48px;
+  height: 48px;
+  opacity: 0.5;
+}
+
+.card-navigator-empty-tag-message h3 {
+  margin: 10px 0;
+  font-size: 1.2em;
+}
+
+.card-navigator-empty-tag-message p {
+  margin: 5px 0;
+  font-size: 0.9em;
+}
+
+.card-navigator-search-wrapper {
+  position: absolute;
+  top: 40px; /* 툴바 높이와 동일하게 설정 */
+  left: 0;
+  width: 100%;
+  z-index: 5; /* 툴바보다 낮은 z-index */
+  background-color: var(--background-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.card-navigator-search-container {
+  padding: 0 12px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--background-primary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-top: 8px;
+  padding-bottom: 8px;
+  height: 38px; /* 검색 컨테이너 높이 고정 */
+}
+
+.card-navigator-search-input {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.card-navigator-search-input:focus {
+  border-color: var(--interactive-accent);
+}
+
+.card-navigator-search-type {
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.card-navigator-search-type select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 14px;
+  outline: none;
+}
+
+.card-navigator-frontmatter-key {
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.card-navigator-frontmatter-key input {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 14px;
+  outline: none;
+  width: 120px;
+}
+
+.card-navigator-frontmatter-key input:focus {
+  border-color: var(--interactive-accent);
+}
 
 /* src/ui/cards-container/Card.css */
 /* 카드 스타일 */
@@ -175,9 +305,30 @@
 .card-navigator-container {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  height: calc(100% - 40px); /* 툴바 높이(40px)를 제외한 높이 */
+  overflow: hidden;
+  position: relative;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.card-navigator-cards-wrapper {
+  flex: 1;
+  width: 100%;
   height: 100%;
   overflow: hidden;
   position: relative;
+}
+
+.card-navigator-container.search-mode .card-navigator-cards-wrapper {
+  padding-top: 40px; /* 검색 입력 필드 높이만큼 패딩 추가 */
+}
+
+.card-navigator-container.search-mode {
+  padding-top: 0; /* 패딩 제거 */
+  height: calc(100% - 40px); /* 툴바 높이(40px)만 제외한 높이 유지 */
 }
 
 .card-navigator-grid {
@@ -186,21 +337,23 @@
   grid-auto-rows: minmax(200px, auto);
   gap: 10px;
   padding: 10px;
+  padding-bottom: 30px; /* 하단 패딩 추가 */
   width: 100%;
   overflow-y: auto;
-  max-height: calc(100vh - 60px);
   height: 100%;
   align-items: stretch;
+  box-sizing: border-box;
 }
 
 .card-navigator-masonry {
   display: flex;
   gap: 10px;
   padding: 10px;
+  padding-bottom: 30px; /* 하단 패딩 추가 */
   width: 100%;
   overflow-y: auto;
-  max-height: calc(100vh - 60px);
   height: 100%;
+  box-sizing: border-box;
 }
 
 .card-navigator-masonry-column {
@@ -939,12 +1092,10 @@
 /* src/ui/toolbar/ModeToggle.css */
 /* 모드 토글 컴포넌트 스타일 */
 .card-navigator-mode-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 28px;
   height: 28px;
-  flex-shrink: 0;
+  padding: 4px;
+  margin-right: 8px;
 }
 
 .card-navigator-mode-toggle:hover {
@@ -1118,10 +1269,28 @@
 }
 
 /* src/ui/toolbar/SearchBar.css */
-.card-navigator-search-container {
-  position: relative;
+.card-navigator-search-wrapper {
+  position: absolute;
+  top: 40px;
+  left: 0;
   width: 100%;
-  margin-top: 4px;
+  z-index: 5;
+  background-color: var(--background-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.card-navigator-search-container {
+  padding: 0 12px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--background-primary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-top: 8px;
+  padding-bottom: 8px;
+  height: 40px;
 }
 
 .card-navigator-search-bar {
@@ -1241,19 +1410,13 @@
   text-transform: uppercase;
 }
 
-.card-navigator-search-option {
-  margin-bottom: 8px;
+.card-navigator-search-options {
+  display: flex;
+  align-items: center;
 }
 
 .card-navigator-search-option:last-child {
   margin-bottom: 0;
-}
-
-.card-navigator-search-option-label {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 12px;
-  color: var(--text-normal);
 }
 
 .card-navigator-search-option-select,
@@ -1312,7 +1475,6 @@
   flex-shrink: 0;
 }
 
-/* 모바일 환경 대응 */
 @media (max-width: 768px) {
   .card-navigator-search-container {
     max-width: 100%;
@@ -1346,7 +1508,6 @@
   }
 }
 
-/* 날짜 선택기 스타일 */
 .card-navigator-date-picker-container {
   background-color: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
@@ -1462,7 +1623,6 @@
   background-color: var(--interactive-accent-hover);
 }
 
-/* 강조 표시 스타일 */
 .card-navigator-highlight {
   background-color: var(--text-highlight-bg);
   color: var(--text-highlight-fg);
@@ -1471,7 +1631,6 @@
   font-weight: bold;
 }
 
-/* 검색 기록 스타일 */
 .card-navigator-search-history {
   position: absolute;
   width: 100%;
@@ -1525,16 +1684,22 @@
   text-overflow: ellipsis;
 }
 
-/* 검색 바 래퍼 스타일 */
-.card-navigator-search-wrapper {
-  width: 100%;
-  padding: 0 16px;
-  transition: all 0.3s ease;
+.card-navigator-search-icon, 
+.search-clear-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-icon, 
+.search-clear-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .card-navigator-search-wrapper.visible {
   opacity: 1;
-  max-height: 50px;
+  max-height: 40px;
   visibility: visible;
 }
 
@@ -1547,13 +1712,11 @@
   overflow: hidden;
 }
 
-/* 검색 제안 컨테이너 스타일 */
 .card-navigator-suggestions-container {
   position: absolute;
   top: 100%;
   left: 0;
   right: 0;
-  margin-top: 4px;
   background-color: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
@@ -1563,7 +1726,6 @@
   overflow-y: auto;
 }
 
-/* 검색 제안 항목 스타일 */
 .card-navigator-suggestion-item {
   padding: 8px 12px;
   cursor: pointer;
@@ -1591,14 +1753,12 @@
   outline: none;
 }
 
-/* 검색 제안 제목 스타일 */
 .card-navigator-suggestion-title {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* 검색 제안 아이콘 */
 .card-navigator-suggestion-icon {
   display: flex;
   align-items: center;
@@ -1608,7 +1768,6 @@
   color: var(--text-muted);
 }
 
-/* 검색 제안 접두사 스타일 */
 .card-navigator-suggestion-prefix {
   font-family: var(--font-monospace);
   font-weight: bold;
@@ -1624,14 +1783,12 @@
   color: var(--text-on-accent);
 }
 
-/* 검색 제안 설명 스타일 */
 .card-navigator-suggestion-description {
   font-size: 0.85em;
   color: var(--text-muted);
-  margin-left: 32px; /* 아이콘 + 여백 */
+  margin-left: 32px;
 }
 
-/* 검색 제안 그룹 헤더 추가 */
 .card-navigator-suggestions-header {
   padding: 8px 12px;
   font-size: 12px;
@@ -1641,14 +1798,6 @@
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
-/* 검색 입력 필드 포커스 스타일 개선 */
-.card-navigator-search-input:focus {
-  border-color: var(--interactive-accent);
-  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
-  outline: none;
-}
-
-/* 검색 옵션 키보드 단축키 표시 */
 .card-navigator-suggestion-shortcut {
   margin-left: auto;
   font-size: 0.8em;
@@ -1659,7 +1808,6 @@
   border-radius: 3px;
 }
 
-/* 검색 옵션 선택 시 애니메이션 효과 */
 @keyframes selectOption {
   0% {
     transform: translateX(0);
@@ -1676,12 +1824,10 @@
   animation: selectOption 0.3s ease;
 }
 
-/* 복합 검색 모드 표시 */
 .card-navigator-complex-search-indicator {
   position: absolute;
   top: -20px;
   right: 0;
-  /* background-color: var(--background-modifier-success); */
   color: var(--text-on-accent);
   font-size: 12px;
   padding: 2px 6px;
@@ -1689,21 +1835,6 @@
   z-index: 10;
 }
 
-/* 복합 검색 입력 필드 스타일 */
-/* .card-navigator-search-input.complex-search {
-  border-color: var(--background-modifier-success);
-  box-shadow: 0 0 0 2px rgba(var(--background-modifier-success-rgb), 0.2);
-} */
-
-/* 날짜 선택기 헤더 */
-.card-navigator-date-picker-header {
-  font-weight: 600;
-  margin-bottom: 8px;
-  text-align: center;
-  color: var(--text-normal);
-}
-
-/* 프론트매터 키 제안 스타일 */
 .card-navigator-frontmatter-key-suggestions-container {
   position: absolute;
   top: 100%;
@@ -1730,7 +1861,6 @@
   background-color: var(--background-secondary);
 }
 
-/* 검색 모드 표시기 */
 .card-navigator-search-mode-indicator {
   display: inline-flex;
   align-items: center;
@@ -1745,7 +1875,6 @@
   margin-right: 4px;
 }
 
-/* 검색 기록 스타일 개선 */
 .card-navigator-search-history-header {
   display: flex;
   justify-content: space-between;
@@ -1765,7 +1894,6 @@
   text-decoration: underline;
 }
 
-/* 반응형 스타일 */
 @media (max-width: 768px) {
   .card-navigator-search-input-container {
     flex-direction: column;
@@ -1825,12 +1953,10 @@
 
 /* 검색 입력 래퍼 */
 .card-navigator-search-input-wrapper {
+  position: relative;
   display: flex;
   align-items: center;
-  position: relative;
   width: 100%;
-  border-radius: 4px;
-  padding: 0 8px;
 }
 
 /* 검색 아이콘 */
@@ -1953,37 +2079,110 @@
 .card-navigator-suggestion-value {
   font-size: 14px;
   color: var(--text-normal);
+}
+
+.card-navigator-search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.card-navigator-search-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  margin-left: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.card-navigator-search-option:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.card-navigator-search-option.active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.card-navigator-search-scope {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  margin-left: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.card-navigator-search-scope:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.card-navigator-search-scope.global {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.card-navigator-search-scope.local {
+  color: var(--text-muted);
 } 
 
 /* src/ui/toolbar/Toolbar.css */
+/* 툴바 기본 스타일 */
 .card-navigator-toolbar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 0 8px;
   background-color: var(--background-primary);
   border-bottom: 1px solid var(--background-modifier-border);
+  width: 100%;
+  box-sizing: border-box;
   position: sticky;
   top: 0;
+  left: 0;
   z-index: 10;
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  box-sizing: border-box;
 }
 
+/* 고정된 툴바 스타일 */
 .card-navigator-toolbar.fixed {
   border-bottom: 2px solid var(--interactive-accent);
 }
 
+/* 툴바 왼쪽 영역 */
 .card-navigator-toolbar-left {
   display: flex;
   align-items: center;
-  flex: 1;
+  flex: 1 1 auto;
   gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+  height: 100%;
 }
 
+/* 툴바 오른쪽 영역 */
 .card-navigator-toolbar-right {
   display: flex;
   align-items: center;
   gap: 2px;
+  flex: 0 0 auto;
+  margin-left: 8px;
+  height: 100%;
 }
 
 /* 드롭다운 공통 스타일 */
@@ -1999,69 +2198,73 @@
   border: none;
   border-radius: 4px;
   padding: 4px 8px;
-  font-size: 12px;
-  cursor: pointer;
   color: var(--text-normal);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
   white-space: nowrap;
-  transition: color 0.2s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .card-navigator-dropdown-button:hover {
-  background: none;
-  color: var(--text-accent);
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
 }
 
 .card-navigator-dropdown-icon {
-  margin-right: 4px;
-  font-size: 14px;
+  margin-left: 4px;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .card-navigator-dropdown-content {
   position: absolute;
   top: 100%;
-  right: 0;
-  min-width: 200px;
+  left: 0;
+  margin-top: 4px;
   background-color: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   z-index: 100;
-  margin-top: 4px;
-  max-height: 300px;
+  min-width: 180px;
+  max-height: 400px;
   overflow-y: auto;
 }
 
 .card-navigator-dropdown-header {
   padding: 8px 12px;
+  font-size: 12px;
   font-weight: 600;
+  color: var(--text-muted);
   border-bottom: 1px solid var(--background-modifier-border);
-  color: var(--text-normal);
 }
 
 .card-navigator-dropdown-item {
-  padding: 8px 12px;
+  padding: 6px 12px;
+  font-size: 14px;
   cursor: pointer;
-  color: var(--text-normal);
 }
 
 .card-navigator-dropdown-item:hover {
-  background: none;
-  color: var(--text-accent);
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
 }
 
 .card-navigator-dropdown-item.active {
-  background: none;
-  color: var(--interactive-accent);
-  font-weight: 500;
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+  font-weight: 600;
 }
 
-/* 모드 드롭다운 */
+/* 모드 드롭다운 콘텐츠 */
 .card-navigator-mode-dropdown-content {
-  min-width: 180px;
+  min-width: 220px;
 }
 
 .card-navigator-mode-section {
-  padding: 8px 0;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
@@ -2070,7 +2273,7 @@
 }
 
 .card-navigator-mode-section-header {
-  padding: 0 12px 8px;
+  margin: 0 0 8px 0;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
@@ -2082,27 +2285,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
+  margin-bottom: 4px;
 }
 
+/* 정렬 방향 */
 .card-navigator-sort-direction {
   display: flex;
   align-items: center;
   gap: 4px;
+  margin-top: 8px;
 }
 
-/* 플러그인 아이콘 버튼 스타일 */
+/* 아이콘 버튼 공통 스타일 */
 .card-navigator-icon {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  padding: 5px;
   border-radius: 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
   cursor: pointer;
-  color: var(--text-normal);
-  transition: background-color 0.2s, color 0.2s;
+  transition: all 0.2s ease;
+  padding: 0;
 }
 
 .card-navigator-icon:hover {
@@ -2111,34 +2318,29 @@
 }
 
 .card-navigator-icon.active {
-  background-color: var(--interactive-accent);
-  border-color: var(--interactive-accent);
-  color: var(--text-on-accent);
+  color: var(--text-accent);
+  background-color: rgba(var(--interactive-accent-rgb), 0.1);
 }
 
 .card-navigator-icon svg {
   width: 18px;
   height: 18px;
-}
-
-/* 각 버튼 유형별 특별한 스타일이 필요한 경우 여기에 추가하세요 */
-/* 예: .card-navigator-mode-toggle { margin-right: 8px; } */
-
-/* 아이콘 크기 통일 */
-.card-navigator-search-icon, 
-.card-navigator-lock-icon,
-.card-navigator-cardset-icon,
-.mode-toggle-icon,
-.settings-icon,
-.search-clear-icon {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.search-icon, 
+/* 아이콘 크기 통일 */
+.card-navigator-lock-icon,
+.card-navigator-cardset-icon,
+.mode-toggle-icon,
+.settings-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .settings-icon,
-.search-clear-icon,
 .mode-toggle-icon svg,
 .card-navigator-lock-icon svg,
 .card-navigator-cardset-icon svg {
@@ -2151,91 +2353,86 @@
   display: flex;
   position: relative;
   opacity: 1 !important;
-  flex-grow: 1;
-  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
   align-items: center;
 }
 
 .card-navigator-cardset-button {
   display: flex;
   align-items: center;
-  padding: 6px 10px;
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
+  background: none;
+  border: none;
   border-radius: 4px;
+  padding: 4px 8px;
   color: var(--text-normal);
   font-size: 14px;
   cursor: pointer;
-  transition: background-color 0.2s, border-color 0.2s;
-  flex-grow: 1;
+  transition: background-color 0.2s ease;
+  width: 100%;
+  height: 30px;
+  justify-content: space-between;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .card-navigator-cardset-button:hover {
   background-color: var(--background-modifier-hover);
 }
 
-.card-navigator-cardset-icon {
-  margin-right: 6px;
-  font-size: 14px;
+.card-navigator-cardset-icon-container {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background-color: rgba(var(--interactive-accent-rgb), 0.1);
+  color: var(--text-accent);
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.card-navigator-cardset-icon-container:hover {
+  background-color: rgba(var(--interactive-accent-rgb), 0.2);
 }
 
 .card-navigator-cardset-name {
+  flex: 1;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  text-align: left;
+  font-size: 14px;
+  color: var(--text-normal);
+  margin-right: 4px;
 }
 
-/* 고정 표시기 */
-.card-navigator-fixed-indicator {
-  margin-left: 8px;
-  font-size: 14px;
+.card-navigator-fixed-cardset-name {
+  font-weight: bold;
   color: var(--text-accent);
 }
 
-/* 모바일 대응 */
+.card-navigator-active-cardset .card-navigator-cardset-name {
+  color: var(--text-accent);
+}
+
+/* 모바일 반응형 스타일 */
 @media (max-width: 768px) {
   .card-navigator-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 8px;
+    padding: 0 4px;
+    gap: 2px;
   }
-
-  .card-navigator-toolbar-left,
-  .card-navigator-toolbar-center,
-  .card-navigator-toolbar-right {
-    width: 100%;
-    justify-content: space-between;
-    margin-bottom: 8px;
-  }
-
-  .card-navigator-toolbar-right {
-    justify-content: flex-end;
-  }
-
+  
   .card-navigator-cardset-selector {
-    width: auto;
-    flex: 1;
-    margin-left: 8px;
+    max-width: 50%;
   }
   
   .card-navigator-cardset-button {
-    min-width: unset;
-    width: 100%;
-  }
-  
-  .card-navigator-cardset-options {
-    flex-direction: column;
-    gap: 4px;
+    padding: 4px;
   }
 }
 
-/* 작은 화면에서 아이콘만 표시 */
 @media (max-width: 480px) {
   .card-navigator-sort-button span {
     display: none;
@@ -2249,8 +2446,18 @@
   }
 }
 
+/* 가시성 클래스 */
 .card-navigator-visible {
+  display: flex !important;
   opacity: 1 !important;
-  visibility: visible !important;
+}
+
+/* 잠금 아이콘 */
+.card-navigator-lock-icon {
+  margin-left: 4px;
+}
+
+.card-navigator-fixed-cardset .card-navigator-lock-icon {
+  color: var(--text-accent);
 }
 

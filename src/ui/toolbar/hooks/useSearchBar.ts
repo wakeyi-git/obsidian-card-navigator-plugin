@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ICardNavigatorService } from '../../../application/CardNavigatorService';
 import { ICardProps } from '../../../ui/cards-container/Card';
 import { ICard as _ICard } from '../../../domain/card/Card';
+import { SearchType } from '../../../domain/search/Search';
 import type { SearchOption } from '../components/SearchSuggestions';
 import { useComplexSearch } from './useComplexSearch';
 import { useSearchOptionPair } from './useSearchOptionPair';
@@ -61,10 +62,19 @@ const SEARCH_OPTIONS: SearchOption[] = [
   }
 ];
 
+/**
+ * useSearchBar 훅 속성 인터페이스
+ */
 interface UseSearchBarProps {
   cardNavigatorService: ICardNavigatorService | null;
   onSearch: (query: string, type?: string) => void;
   currentCards: ICardProps[];
+  
+  // 추가 속성 - 초기값
+  initialSearchText?: string;
+  initialSearchType?: SearchType;
+  initialCaseSensitive?: boolean;
+  initialFrontmatterKey?: string;
 }
 
 interface UseSearchBarReturn {
@@ -141,12 +151,29 @@ interface UseSearchBarReturn {
  * 검색바 관련 핵심 로직을 처리하는 훅
  */
 export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
-  const { cardNavigatorService, onSearch, currentCards } = props;
+  const { 
+    cardNavigatorService, 
+    onSearch, 
+    currentCards,
+    initialSearchText = '',
+    initialSearchType = 'filename',
+    initialCaseSensitive = false,
+    initialFrontmatterKey = ''
+  } = props;
   
   // 상태
-  const [searchText, setSearchText] = useState<string>('');
+  const [searchText, setSearchText] = useState<string>(initialSearchText);
   const [showSearchSuggestions, setShowSearchSuggestions] = useState<boolean>(false);
   const [showFrontmatterKeySuggestions, setShowFrontmatterKeySuggestions] = useState<boolean>(false);
+  const [showSuggestedValues, setShowSuggestedValues] = useState<boolean>(false);
+  const [showSearchHistory, setShowSearchHistory] = useState<boolean>(false);
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  const [isDateRangeMode, setIsDateRangeMode] = useState<boolean>(false);
+  const [datePickerType, setDatePickerType] = useState<'start' | 'end'>('start');
+  const [datePickerPosition, setDatePickerPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [isComplexSearch, setIsComplexSearch] = useState<boolean>(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [frontmatterKeys, setFrontmatterKeys] = useState<string[]>([]);
   
   // 검색 범위 상태 초기화 (설정에서 기본값 가져오기)
   const [searchScope, setSearchScope] = useState<'all' | 'current'>(() => {
@@ -157,15 +184,41 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
     return 'current';
   });
   
-  // 프론트매터 관련 상태
-  const [frontmatterKeys, setFrontmatterKeys] = useState<string[]>([]);
-  const [frontmatterKey, setFrontmatterKey] = useState<string>('');
-  
-  // 추천 검색어 관련 상태
   const [suggestedValues, setSuggestedValues] = useState<string[]>([]);
-  const [showSuggestedValues, setShowSuggestedValues] = useState<boolean>(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState<number>(-1);
-  const [currentSearchOption, setCurrentSearchOption] = useState<SearchOption | null>(null);
+  
+  // 초기 검색 옵션 설정
+  const [currentSearchOption, setCurrentSearchOption] = useState<SearchOption | null>(() => {
+    if (initialSearchType) {
+      // SearchType을 SearchOption으로 변환
+      const option = SEARCH_OPTIONS.find(opt => {
+        switch (initialSearchType) {
+          case 'filename':
+            return opt.type === 'filename';
+          case 'content':
+            return opt.type === 'content';
+          case 'tag':
+            return opt.type === 'tag';
+          case 'path':
+            return opt.type === 'path';
+          case 'frontmatter':
+            return opt.type === 'frontmatter';
+          case 'create':
+            return opt.type === 'created';
+          case 'modify':
+            return opt.type === 'modified';
+          case 'folder':
+            return opt.type === 'folder';
+          default:
+            return false;
+        }
+      });
+      return option || null;
+    }
+    return null;
+  });
+  
+  const [frontmatterKey, setFrontmatterKey] = useState<string>(initialFrontmatterKey);
   
   // 필터링된 검색 옵션 목록
   const [filteredSuggestions, setFilteredSuggestions] = useState<SearchOption[]>(SEARCH_OPTIONS);
@@ -177,7 +230,7 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
   const _optionIndexRef = useRef<number>(0);
   
   // 새로 만든 훅들 사용
-  const { isComplexSearch, setIsComplexSearch, updateComplexSearchStatus } = useComplexSearch();
+  const { isComplexSearch: _isComplexSearch, setIsComplexSearch: _setIsComplexSearch, updateComplexSearchStatus } = useComplexSearch();
   const { checkIfAfterSearchOptionPair } = useSearchOptionPair();
   const { getSearchOptionByPrefix } = useSearchOptionPrefix(SEARCH_OPTIONS);
   const { 
@@ -215,14 +268,14 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
   
   // 날짜 검색 훅 사용
   const {
-    showDatePicker,
-    setShowDatePicker,
-    isDateRangeMode,
-    setIsDateRangeMode,
-    datePickerType,
-    setDatePickerType,
-    datePickerPosition,
-    setDatePickerPosition,
+    showDatePicker: _showDatePicker,
+    setShowDatePicker: _setShowDatePicker,
+    isDateRangeMode: _isDateRangeMode,
+    setIsDateRangeMode: _setIsDateRangeMode,
+    datePickerType: _datePickerType,
+    setDatePickerType: _setDatePickerType,
+    datePickerPosition: _datePickerPosition,
+    setDatePickerPosition: _setDatePickerPosition,
     datePickerRef,
     handleDateSelect,
     checkForDateSearch: _checkForDateSearch
@@ -235,10 +288,10 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
   
   // 검색 히스토리 훅 사용
   const {
-    searchHistory,
-    setSearchHistory,
-    showSearchHistory,
-    setShowSearchHistory,
+    searchHistory: _searchHistory,
+    setSearchHistory: _setSearchHistory,
+    showSearchHistory: _showSearchHistory,
+    setShowSearchHistory: _setShowSearchHistory,
     searchHistoryRef,
     handleHistoryItemClick,
     toggleSearchHistory: _toggleSearchHistory,

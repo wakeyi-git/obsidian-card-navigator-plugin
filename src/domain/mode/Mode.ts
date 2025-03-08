@@ -26,9 +26,9 @@ export interface IMode {
   
   /**
    * 카드 세트 선택
-   * @param cardSet 선택할 카드 세트
+   * @param cardSet 선택할 카드 세트 (null인 경우 카드 세트 선택 해제)
    */
-  selectCardSet(cardSet: string): void;
+  selectCardSet(cardSet: string | null): void;
   
   /**
    * 필터 옵션 가져오기
@@ -63,8 +63,14 @@ export abstract class Mode implements IMode {
   
   abstract getCardSets(): Promise<string[]>;
   
-  selectCardSet(cardSet: string): void {
+  /**
+   * 카드 세트 선택
+   * @param cardSet 선택할 카드 세트 (null인 경우 카드 세트 선택 해제)
+   */
+  selectCardSet(cardSet: string | null): void {
+    console.log(`[Mode] 카드 세트 선택: ${cardSet}, 이전 값: ${this.currentCardSet}, 모드: ${this.type}`);
     this.currentCardSet = cardSet;
+    console.log(`[Mode] 카드 세트 선택 완료: ${this.currentCardSet}`);
   }
   
   abstract getFilterOptions(): Promise<string[]>;

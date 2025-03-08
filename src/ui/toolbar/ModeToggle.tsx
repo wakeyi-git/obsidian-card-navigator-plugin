@@ -20,11 +20,25 @@ const ModeToggle: React.FC<ModeToggleProps> = ({ currentMode, onModeChange, serv
     // 검색 모드인 경우 이전 모드로 전환
     if (currentMode === 'search' && service) {
       const modeService = service.getModeService();
-      const previousMode = modeService.getPreviousMode();
-      onModeChange(previousMode);
+      // 이전 모드 상태 복원
+      modeService.restorePreviousModeState();
+      // UI 업데이트를 위해 onModeChange 호출
+      onModeChange(modeService.getPreviousMode());
     } else {
       // 폴더/태그 모드 간 전환
-      onModeChange(currentMode === 'folder' ? 'tag' : 'folder');
+      const newMode = currentMode === 'folder' ? 'tag' : 'folder';
+      onModeChange(newMode);
+      
+      // 모드 전환 시 시각적 피드백 제공
+      if (service) {
+        const element = document.querySelector('.card-navigator-mode-toggle');
+        if (element) {
+          element.classList.add('card-navigator-mode-changed');
+          setTimeout(() => {
+            element.classList.remove('card-navigator-mode-changed');
+          }, 500);
+        }
+      }
     }
   };
 

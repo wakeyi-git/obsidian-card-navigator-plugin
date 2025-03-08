@@ -4,7 +4,7 @@ import SortDropdown from './SortDropdown';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import { SortType, SortDirection } from '../../domain/sorting/Sort';
 import SettingsModal from '../settings/SettingsModal';
-import { App, SuggestModal } from 'obsidian';
+import { App, SuggestModal, TFile } from 'obsidian';
 import { ModeType } from '../../domain/mode/Mode';
 import { SearchBar } from './SearchBar';
 import './Toolbar.css';
@@ -22,19 +22,28 @@ export interface IToolbarProps {
   onPresetApply?: (presetId: string) => void;
   onPresetSave?: () => void;
   onPresetDelete?: (presetId: string) => void;
-  currentLayout: 'grid' | 'masonry';
   service: ICardNavigatorService | null;
-  app: App;
-  cardSet: string;
-  cardSets: {
+  
+  // 추가 속성
+  layout?: 'grid' | 'masonry';
+  isCardSetFixed?: boolean;
+  includeSubfolders?: boolean;
+  currentSortType?: SortType;
+  currentSortDirection?: SortDirection;
+  
+  // 이전 속성 (선택적으로 변경)
+  app?: App;
+  cardSet?: string;
+  cardSets?: {
     folders: string[];
     tags: string[];
   };
-  isFixed: boolean;
-  onModeToggle: () => void;
-  onSearch: (query: string, type: string) => void;
-  isSearchMode: boolean;
-  toggleSearchMode: () => void;
+  isFixed?: boolean;
+  onModeToggle?: () => void;
+  onSearch?: (query: string, type: string) => void;
+  isSearchMode?: boolean;
+  toggleSearchMode?: () => void;
+  currentLayout?: 'grid' | 'masonry';
 }
 
 /**
@@ -42,26 +51,48 @@ export interface IToolbarProps {
  */
 class FolderSuggestModal extends SuggestModal<string> {
   private folders: string[];
-  private onSelect: (folder: string) => void;
+  private onSelect: (folder: string, isFixed: boolean) => void;
+  private currentFolder: string = '';
 
-  constructor(app: App, folders: string[], onSelect: (folder: string) => void) {
+  constructor(app: App, folders: string[], onSelect: (folder: string, isFixed: boolean) => void) {
     super(app);
     this.folders = folders;
     this.onSelect = onSelect;
   }
 
   getSuggestions(query: string): string[] {
+    // 현재 폴더가 있고 검색어가 비어있으면 현재 폴더를 맨 앞에 표시
+    if (this.currentFolder && !query) {
+      const otherFolders = this.folders.filter(folder => folder !== this.currentFolder);
+      return [this.currentFolder, ...otherFolders];
+    }
+    
     return this.folders.filter(folder => 
       folder.toLowerCase().includes(query.toLowerCase())
     );
   }
 
   renderSuggestion(folder: string, el: HTMLElement): void {
-    el.setText(folder);
+    // 현재 선택된 폴더인 경우 강조 표시
+    if (folder === this.currentFolder) {
+      el.createEl('div', { text: folder, cls: 'card-navigator-current-selection' });
+    } else {
+      el.createEl('div', { text: folder });
+    }
   }
 
   onChooseSuggestion(folder: string, evt: MouseEvent | KeyboardEvent): void {
-    this.onSelect(folder);
+    this.onSelect(folder, true);
+  }
+
+  setCurrentFolder(folder: string) {
+    console.log(`[FolderSuggestModal] 현재 폴더 설정: ${folder}`);
+    this.currentFolder = folder;
+    
+    // 현재 폴더가 폴더 목록에 없으면 추가
+    if (folder && !this.folders.includes(folder)) {
+      this.folders = [folder, ...this.folders];
+    }
   }
 }
 
@@ -70,26 +101,48 @@ class FolderSuggestModal extends SuggestModal<string> {
  */
 class TagSuggestModal extends SuggestModal<string> {
   private tags: string[];
-  private onSelect: (tag: string) => void;
+  private onSelect: (tag: string, isFixed: boolean) => void;
+  private currentTag: string = '';
 
-  constructor(app: App, tags: string[], onSelect: (tag: string) => void) {
+  constructor(app: App, tags: string[], onSelect: (tag: string, isFixed: boolean) => void) {
     super(app);
     this.tags = tags;
     this.onSelect = onSelect;
   }
 
   getSuggestions(query: string): string[] {
+    // 현재 태그가 있고 검색어가 비어있으면 현재 태그를 맨 앞에 표시
+    if (this.currentTag && !query) {
+      const otherTags = this.tags.filter(tag => tag !== this.currentTag);
+      return [this.currentTag, ...otherTags];
+    }
+    
     return this.tags.filter(tag => 
       tag.toLowerCase().includes(query.toLowerCase())
     );
   }
 
   renderSuggestion(tag: string, el: HTMLElement): void {
-    el.setText(tag);
+    // 현재 선택된 태그인 경우 강조 표시
+    if (tag === this.currentTag) {
+      el.createEl('div', { text: tag, cls: 'card-navigator-current-selection' });
+    } else {
+      el.createEl('div', { text: tag });
+    }
   }
 
   onChooseSuggestion(tag: string, evt: MouseEvent | KeyboardEvent): void {
-    this.onSelect(tag);
+    this.onSelect(tag, true);
+  }
+
+  setCurrentTag(tag: string) {
+    console.log(`[TagSuggestModal] 현재 태그 설정: ${tag}`);
+    this.currentTag = tag;
+    
+    // 현재 태그가 태그 목록에 없으면 추가
+    if (tag && !this.tags.includes(tag)) {
+      this.tags = [tag, ...this.tags];
+    }
   }
 }
 
@@ -107,23 +160,53 @@ const Toolbar: React.FC<IToolbarProps> = ({
   onPresetApply = () => {},
   onPresetSave = () => {},
   onPresetDelete = () => {},
-  currentLayout = 'grid',
   service,
+  
+  // 추가 속성
+  layout = 'grid',
+  isCardSetFixed: propIsCardSetFixed = false,
+  includeSubfolders: propIncludeSubfolders = true,
+  currentSortType = 'filename',
+  currentSortDirection = 'asc',
+  
+  // 이전 속성
   app,
-  cardSet,
-  cardSets,
-  isFixed,
-  onModeToggle,
-  onSearch,
-  isSearchMode,
-  toggleSearchMode,
+  cardSet = '',
+  cardSets = { folders: [], tags: [] },
+  isFixed = false,
+  onModeToggle = () => {},
+  onSearch = () => {},
+  isSearchMode = false,
+  toggleSearchMode = () => {},
+  currentLayout = 'grid'
 }) => {
   const [availableCardSets, setAvailableCardSets] = useState<string[]>([]);
-  const [selectedCardSet, setSelectedCardSet] = useState<string>('');
-  const [isCardSetFixed, setIsCardSetFixed] = useState<boolean>(false);
-  const [includeSubfolders, setIncludeSubfolders] = useState<boolean>(true);
+  const [isCardSetFixed, setIsCardSetFixed] = useState<boolean>(propIsCardSetFixed);
+  const [includeSubfolders, setIncludeSubfolders] = useState<boolean>(propIncludeSubfolders);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [showSearchBar, setShowSearchBar] = useState(isSearchMode);
+
+  // propIncludeSubfolders props가 변경될 때 includeSubfolders 상태 업데이트
+  useEffect(() => {
+    setIncludeSubfolders(propIncludeSubfolders);
+    console.log(`[Toolbar] propIncludeSubfolders props 변경: ${propIncludeSubfolders}`);
+  }, [propIncludeSubfolders]);
+
+  // propIsCardSetFixed props가 변경될 때 isCardSetFixed 상태 업데이트
+  useEffect(() => {
+    setIsCardSetFixed(propIsCardSetFixed);
+    console.log(`[Toolbar] propIsCardSetFixed props 변경: ${propIsCardSetFixed}`);
+  }, [propIsCardSetFixed]);
+
+  // cardSet props가 변경될 때 로그 출력
+  useEffect(() => {
+    console.log(`[Toolbar] cardSet props 변경: ${cardSet}`);
+  }, [cardSet]);
+
+  // isSearchMode 상태가 변경될 때 showSearchBar 상태 업데이트
+  useEffect(() => {
+    setShowSearchBar(isSearchMode);
+  }, [isSearchMode]);
 
   // 카드셋 로드
   useEffect(() => {
@@ -134,16 +217,6 @@ const Toolbar: React.FC<IToolbarProps> = ({
           const modeService = service.getModeService();
           const sets = await modeService.getCardSets();
           setAvailableCardSets(sets);
-          
-          // 현재 선택된 카드셋 가져오기
-          const currentSet = await modeService.getCurrentCardSet();
-          if (currentSet) {
-            setSelectedCardSet(currentSet);
-            setIsCardSetFixed(modeService.isCardSetFixed());
-          } else if (sets.length > 0) {
-            setSelectedCardSet(sets[0]);
-            setIsCardSetFixed(false);
-          }
         } catch (error) {
           console.error('카드 세트 로드 중 오류 발생:', error);
         }
@@ -153,43 +226,109 @@ const Toolbar: React.FC<IToolbarProps> = ({
     loadCardSets();
   }, [service, currentMode]);
 
+  // 컴포넌트 마운트 및 props 변경 시 로깅
   useEffect(() => {
-    setShowSearchBar(isSearchMode);
-  }, [isSearchMode]);
+    console.log(`[Toolbar] 컴포넌트 마운트/업데이트: cardSet=${cardSet}, currentMode=${currentMode}, isCardSetFixed=${isCardSetFixed}`);
+  }, [cardSet, currentMode, isCardSetFixed]);
 
-  // 카드 세트 선택 처리
-  const handleCardSetSelectInternal = async (cardSet: string) => {
-    setSelectedCardSet(cardSet);
-    await onCardSetSelect(cardSet, isCardSetFixed);
-    return cardSet;
-  };
-
-  // 카드셋 고정 토글
+  // 카드셋 고정 상태 토글
   const handleCardSetFixedToggle = async () => {
     const newFixedState = !isCardSetFixed;
     setIsCardSetFixed(newFixedState);
-    await onCardSetSelect(selectedCardSet, newFixedState);
+    console.log(`[Toolbar] 카드셋 고정 상태 변경: ${isCardSetFixed} -> ${newFixedState}, 현재 카드셋: ${cardSet}`);
+    
+    if (service) {
+      const modeService = service.getModeService();
+      
+      // 고정 해제 시 현재 활성 파일 기준으로 카드셋 업데이트
+      if (!newFixedState) {
+        const app = service.getApp();
+        const activeFile = app.workspace.getActiveFile();
+        
+        if (activeFile) {
+          console.log(`[Toolbar] 고정 해제 후 활성 파일 기준으로 카드셋 업데이트: ${activeFile.path}`);
+          await modeService.handleActiveFileChange(activeFile);
+          const currentSet = modeService.getCurrentCardSet();
+          if (currentSet) {
+            console.log(`[Toolbar] 활성 파일 기준 카드셋 업데이트 결과: ${currentSet}`);
+            onCardSetSelect(currentSet, newFixedState);
+          }
+        }
+      } else {
+        // 고정 상태로 변경 시 현재 카드셋 사용
+        console.log(`[Toolbar] 고정 상태로 변경, 현재 카드셋 유지: ${cardSet}`);
+        onCardSetSelect(cardSet, newFixedState);
+      }
+    }
   };
 
   // 카드셋 표시 이름 가져오기
   const getDisplayCardSetName = () => {
-    if (!selectedCardSet) {
-      return currentMode === 'folder' ? '폴더 선택' : '태그 선택';
+    console.log(`[Toolbar] getDisplayCardSetName 호출: cardSet=${cardSet}, currentMode=${currentMode}, isCardSetFixed=${isCardSetFixed}`);
+    
+    // 서비스에서 현재 카드셋 직접 확인
+    let currentCardSetFromService = '';
+    if (service) {
+      try {
+        const modeService = service.getModeService();
+        currentCardSetFromService = modeService.getCurrentCardSet() || '';
+        console.log(`[Toolbar] 서비스에서 가져온 현재 카드셋: ${currentCardSetFromService}`);
+        
+        // props로 전달된 cardSet과 서비스에서 가져온 값이 다른 경우 로그 출력
+        if (cardSet !== currentCardSetFromService) {
+          console.log(`[Toolbar] 주의: props cardSet(${cardSet})과 서비스 cardSet(${currentCardSetFromService})이 다릅니다.`);
+        }
+      } catch (error) {
+        console.error('[Toolbar] 서비스에서 카드셋 가져오기 오류:', error);
+      }
     }
     
-    if (currentMode === 'tag' && selectedCardSet.startsWith('#')) {
-      return selectedCardSet.substring(1);
+    // 실제 사용할 카드셋 값 결정 (props 값 우선, 없으면 서비스에서 가져온 값 사용)
+    const effectiveCardSet = cardSet || currentCardSetFromService;
+    
+    if (!effectiveCardSet) {
+      const defaultName = currentMode === 'folder' ? '폴더 선택' : '태그 선택';
+      console.log(`[Toolbar] cardSet이 없음, 기본값 반환: ${defaultName}`);
+      return defaultName;
     }
     
-    return selectedCardSet;
+    let displayName = '';
+    // 태그 모드에서 # 제거
+    if (currentMode === 'tag' && effectiveCardSet.startsWith('#')) {
+      displayName = effectiveCardSet.substring(1);
+    }
+    // 폴더 모드에서 루트 폴더 표시 개선
+    else if (currentMode === 'folder' && effectiveCardSet === '/') {
+      displayName = '루트 폴더';
+    }
+    else {
+      displayName = effectiveCardSet;
+    }
+    
+    console.log(`[Toolbar] 최종 표시 이름: ${displayName}`);
+    return displayName;
   };
 
   // 카드셋 선택 모달 열기
   const openCardSetModal = () => {
+    if (!service || !service.getApp()) return;
+    
+    console.log(`[Toolbar] 카드셋 선택 모달 열기: currentMode=${currentMode}, cardSet=${cardSet}, availableCardSets=${JSON.stringify(availableCardSets)}`);
+    
+    const obsidianApp = service.getApp();
+    
     if (currentMode === 'folder') {
-      new FolderSuggestModal(app, availableCardSets, handleCardSetSelectInternal).open();
+      // 폴더 모달 열기 시 현재 선택된 폴더 정보 전달
+      const modal = new FolderSuggestModal(obsidianApp, availableCardSets, onCardSetSelect);
+      modal.setCurrentFolder(cardSet); // 현재 선택된 폴더 설정
+      modal.open();
+      console.log(`[Toolbar] 폴더 모달 열림: 현재 폴더=${cardSet}`);
     } else if (currentMode === 'tag') {
-      new TagSuggestModal(app, availableCardSets, handleCardSetSelectInternal).open();
+      // 태그 모달 열기 시 현재 선택된 태그 정보 전달
+      const modal = new TagSuggestModal(obsidianApp, availableCardSets, onCardSetSelect);
+      modal.setCurrentTag(cardSet); // 현재 선택된 태그 설정
+      modal.open();
+      console.log(`[Toolbar] 태그 모달 열림: 현재 태그=${cardSet}`);
     }
   };
 
@@ -198,18 +337,30 @@ const Toolbar: React.FC<IToolbarProps> = ({
    */
   const handleSearchIconClick = () => {
     try {
+      console.log('[Toolbar] 검색 아이콘 클릭');
+      
       // 검색 모드 토글
       toggleSearchMode();
+      
+      // showSearchBar 상태 토글
+      setShowSearchBar(prev => {
+        const newState = !prev;
+        console.log(`[Toolbar] showSearchBar 상태 변경: ${prev} -> ${newState}`);
+        return newState;
+      });
       
       // 검색 모드 상태 변경 후 약간의 지연을 두고 검색 입력 필드에 포커스
       setTimeout(() => {
         const searchInput = document.querySelector('.card-navigator-search-input') as HTMLInputElement;
         if (searchInput) {
+          console.log('[Toolbar] 검색 입력 필드 포커스');
           searchInput.focus();
+        } else {
+          console.log('[Toolbar] 검색 입력 필드를 찾을 수 없음');
         }
       }, 100);
     } catch (error) {
-      console.error('[Toolbar] 검색 아이콘 클릭 처리 중 오류 발생:', error);
+      console.error('검색 모드 전환 중 오류 발생:', error);
     }
   };
 
@@ -223,42 +374,34 @@ const Toolbar: React.FC<IToolbarProps> = ({
         />
         <div className="card-navigator-cardset-selector">
           <button
-            className="card-navigator-cardset-button"
+            className={`card-navigator-cardset-button ${isCardSetFixed ? 'card-navigator-fixed-cardset' : 'card-navigator-active-cardset'}`}
             onClick={openCardSetModal}
             aria-label="카드셋 선택"
           >
-            {currentMode === 'folder' ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-folder card-navigator-cardset-icon">
-                <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-tag card-navigator-cardset-icon">
-                <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"></path>
-                <path d="M7 7h.01"></path>
-              </svg>
-            )}
-            <span className="card-navigator-cardset-name">
+            <div 
+              className="card-navigator-cardset-icon-container"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCardSetFixedToggle();
+              }}
+              title={isCardSetFixed ? "고정 해제" : "고정"}
+            >
+              {isCardSetFixed ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-lock card-navigator-lock-icon">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-unlock card-navigator-lock-icon">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+                </svg>
+              )}
+            </div>
+            <span className={`card-navigator-cardset-name ${isCardSetFixed ? 'card-navigator-fixed-cardset-name' : ''}`}>
               {getDisplayCardSetName()}
             </span>
           </button>
-        </div>
-        <div
-          className={`clickable-icon card-navigator-icon card-navigator-lock-button ${isCardSetFixed ? 'active' : ''}`}
-          onClick={handleCardSetFixedToggle}
-          aria-label={isCardSetFixed ? '고정 해제' : '고정'}
-          title={isCardSetFixed ? '고정 해제' : '고정'}
-        >
-          {isCardSetFixed ? (
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-lock">
-              <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-unlock">
-              <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
-            </svg>
-          )}
         </div>
       </div>
       <div className="card-navigator-toolbar-center">

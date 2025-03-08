@@ -98,26 +98,34 @@ export class LayoutService implements ILayoutService {
   }
   
   setColumnCount(columnCount: number): void {
-    if (this.currentLayout) {
+    if (this.currentLayout && typeof this.currentLayout === "object") {
       this.currentLayout.columnCount = columnCount;
+    } else {
+      console.warn(`[LayoutService] currentLayout이 객체가 아닙니다: ${this.currentLayout}`);
     }
   }
   
   setCardWidth(cardWidth: number): void {
-    if (this.currentLayout) {
+    if (this.currentLayout && typeof this.currentLayout === 'object') {
       this.currentLayout.cardWidth = cardWidth;
+    } else {
+      console.warn(`[LayoutService] currentLayout이 객체가 아닙니다: ${this.currentLayout}`);
     }
   }
   
   setCardHeight(cardHeight: number): void {
-    if (this.currentLayout) {
+    if (this.currentLayout && typeof this.currentLayout === 'object') {
       this.currentLayout.cardHeight = cardHeight;
+    } else {
+      console.warn(`[LayoutService] currentLayout이 객체가 아닙니다: ${this.currentLayout}`);
     }
   }
   
   setGap(gap: number): void {
-    if (this.currentLayout) {
+    if (this.currentLayout && typeof this.currentLayout === 'object') {
       this.currentLayout.gap = gap;
+    } else {
+      console.warn(`[LayoutService] currentLayout이 객체가 아닙니다: ${this.currentLayout}`);
     }
   }
   
