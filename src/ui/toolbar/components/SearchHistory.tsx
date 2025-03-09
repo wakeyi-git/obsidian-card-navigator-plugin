@@ -1,9 +1,9 @@
-import React, { forwardRef, useEffect } from 'react';
+import React, { forwardRef } from 'react';
 
 interface SearchHistoryProps {
-  items: string[];
+  history: string[];
   onSelect: (query: string) => void;
-  onClear?: () => void;
+  onClear: () => void;
 }
 
 /**
@@ -27,40 +27,52 @@ const getSearchType = (query: string): string => {
 };
 
 /**
- * 검색 기록 컴포넌트
+ * 검색 히스토리 컴포넌트
+ * 이전 검색 기록을 표시하고 선택할 수 있는 컴포넌트
  */
 const SearchHistory = forwardRef<HTMLDivElement, SearchHistoryProps>(
-  ({ items, onSelect }, ref) => {
-    if (items.length === 0) {
-      return null;
+  ({ history, onSelect, onClear }, ref) => {
+    if (history.length === 0) {
+      return (
+        <div className="card-navigator-search-history" ref={ref}>
+          <div className="card-navigator-search-history-header">
+            <span>검색 기록</span>
+            <button 
+              className="card-navigator-search-history-clear"
+              onClick={onClear}
+              disabled
+            >
+              기록 지우기
+            </button>
+          </div>
+          <div className="card-navigator-search-history-empty">
+            <span>검색 기록이 없습니다.</span>
+          </div>
+        </div>
+      );
     }
-
+    
     return (
-      <div 
-        className="card-navigator-search-history-container" 
-        ref={ref}
-        onClick={(e) => {
-          e.stopPropagation();
-        }}
-      >
+      <div className="card-navigator-search-history" ref={ref}>
         <div className="card-navigator-search-history-header">
-          <span>최근 검색어</span>
+          <span>검색 기록</span>
+          <button 
+            className="card-navigator-search-history-clear"
+            onClick={onClear}
+          >
+            기록 지우기
+          </button>
         </div>
         <div className="card-navigator-search-history-list">
-          {items.map((query, index) => (
+          {history.map((query, index) => (
             <div 
-              key={index} 
+              key={`${query}-${index}`}
               className="card-navigator-search-history-item"
               onClick={() => onSelect(query)}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-              <span className="card-navigator-search-history-item-text">{query}</span>
-              <span className="card-navigator-search-history-item-type">
-                {getSearchType(query)}
-              </span>
+              <div className="card-navigator-search-history-query">
+                {query}
+              </div>
             </div>
           ))}
         </div>

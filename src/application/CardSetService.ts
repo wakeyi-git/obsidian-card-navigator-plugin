@@ -202,6 +202,7 @@ export class CardSetService implements ICardSetService {
   
   private searchService: ISearchService | null = null;
   protected eventEmitter: TypedEventEmitter;
+  private isInitialized = false;
   
   constructor(app: App, cardService: ICardService, defaultSourceType: CardSetSourceType = 'folder') {
     this.app = app;
@@ -230,7 +231,32 @@ export class CardSetService implements ICardSetService {
    * 서비스 초기화
    */
   async initialize(): Promise<void> {
-    // 초기화 작업 수행
+    console.log('[CardSetService] 초기화 시작');
+    
+    try {
+      // 이미 초기화된 경우 중복 초기화 방지
+      if (this.isInitialized) {
+        console.log('[CardSetService] 이미 초기화되었습니다.');
+        return;
+      }
+      
+      // 초기화 플래그 설정
+      this.isInitialized = true;
+      
+      // 폴더 카드셋 소스 초기화
+      await this.folderSource.initialize();
+      
+      // 태그 카드셋 소스 초기화
+      await this.tagSource.initialize();
+      
+      // 현재 카드셋 소스 초기화
+      await this.currentSource.initialize();
+      
+      console.log('[CardSetService] 초기화 완료');
+    } catch (error) {
+      console.error('[CardSetService] 초기화 중 오류 발생:', error);
+      throw error;
+    }
   }
   
   /**
@@ -323,6 +349,12 @@ export class CardSetService implements ICardSetService {
     // 이전 카드셋 소스 저장
     const previousSourceType = this.currentSource.type;
     
+    // 같은 소스 타입으로 변경하는 경우 중복 처리 방지
+    if (previousSourceType === sourceType) {
+      console.log(`[CardSetService] 이미 ${sourceType} 소스 타입입니다. 변경 작업을 건너뜁니다.`);
+      return;
+    }
+    
     // 새 카드셋 소스 설정
     switch (sourceType) {
       case 'folder':
@@ -352,10 +384,11 @@ export class CardSetService implements ICardSetService {
           this.currentSource = this.searchService.getSearchSource();
         } else {
           console.error(`[CardSetService] 검색 서비스가 설정되지 않았습니다.`);
+          return;
         }
         break;
       default:
-        console.error(`[CardSetService] 알 수 없는 카드셋 소스 타입: ${sourceType}`);
+        console.error(`[CardSetService] 지원하지 않는 카드셋 소스 타입: ${sourceType}`);
         return;
     }
     
@@ -365,7 +398,7 @@ export class CardSetService implements ICardSetService {
       newSourceType: sourceType
     });
     
-    console.log(`[CardSetService] 카드셋 소스 변경 완료: ${previousSourceType} -> ${this.currentSource.type}`);
+    console.log(`[CardSetService] 카드셋 소스 변경 완료: ${previousSourceType} -> ${sourceType}`);
   }
   
   /**
@@ -451,20 +484,8 @@ export class CardSetService implements ICardSetService {
    * @returns 카드셋 목록
    */
   async getCardSets(): Promise<ICardSet[]> {
-    // 현재 소스에서 카드셋 목록을 문자열 배열로 가져옴
-    const cardSetStrings = await this.currentSource.getCardSets();
-    
-    // 문자열 배열을 ICardSet 배열로 변환
-    const cardSets: ICardSet[] = cardSetStrings.map(source => {
-      const name = source === '/' ? '루트' : source.split('/').pop() || source;
-      return {
-        id: source,
-        name,
-        sourceType: this.getCurrentSourceType(),
-        source,
-        type: 'active'
-      };
-    });
+    // 현재 소스에서 카드셋 목록을 가져옴
+    const cardSets = await this.currentSource.getCardSets();
     
     return cardSets;
   }

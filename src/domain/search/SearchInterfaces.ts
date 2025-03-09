@@ -1,6 +1,8 @@
 import { ICard } from '../card/Card';
 import { CardSetSourceType, CardSetType, ICardSetSource } from '../cardset/CardSet';
 import { ISearch, SearchType, SearchScope } from './Search';
+import { App } from 'obsidian';
+import { ICardNavigatorService } from '../navigator/NavigatorInterfaces';
 
 /**
  * 검색 관리 인터페이스
@@ -358,6 +360,30 @@ export interface ISearchSourceManager {
 }
 
 /**
+ * App 객체 설정 인터페이스
+ * Obsidian App 객체 설정 기능을 제공합니다.
+ */
+export interface IAppSetter {
+  /**
+   * App 객체 설정
+   * @param app Obsidian App 객체
+   */
+  setApp(app: App): void;
+}
+
+/**
+ * CardNavigatorService 설정 인터페이스
+ * CardNavigatorService 설정 기능을 제공합니다.
+ */
+export interface ICardNavigatorServiceSetter {
+  /**
+   * CardNavigatorService 설정
+   * @param service CardNavigatorService 객체
+   */
+  setCardNavigatorService(service: ICardNavigatorService): void;
+}
+
+/**
  * 통합 검색 서비스 인터페이스
  * 모든 검색 관련 인터페이스를 통합합니다.
  */
@@ -370,5 +396,7 @@ export interface ISearchService extends
   ISearchMetadataProvider,
   ISearchCardSetSourceManager,
   IPreviousCardSetSourceManager,
-  ISearchSourceManager {
+  ISearchSourceManager,
+  IAppSetter,
+  ICardNavigatorServiceSetter {
 } 

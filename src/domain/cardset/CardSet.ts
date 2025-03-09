@@ -113,10 +113,16 @@ export interface ICardSetSource {
   type: CardSetSourceType;
   
   /**
+   * 초기화
+   * 소스를 초기화합니다.
+   */
+  initialize(): Promise<void>;
+  
+  /**
    * 카드셋 목록 가져오기
    * 현재 소스에 따라 카드셋 목록을 가져옵니다.
    */
-  getCardSets(): Promise<string[]>;
+  getCardSets(): Promise<ICardSet[]>;
   
   /**
    * 현재 선택된 카드셋
@@ -195,6 +201,15 @@ export abstract class CardSetSource implements ICardSetSource {
   }
   
   /**
+   * 소스 초기화
+   * 기본 구현은 캐시를 초기화합니다.
+   */
+  async initialize(): Promise<void> {
+    this.clearCache();
+    console.log(`[CardSetSource] ${this.type} 소스 초기화 완료`);
+  }
+  
+  /**
    * 카드셋 선택
    * @param cardSet 선택할 카드셋
    * @param isFixed 고정 여부
@@ -270,7 +285,7 @@ export abstract class CardSetSource implements ICardSetSource {
   /**
    * 카드셋 목록 가져오기
    */
-  abstract getCardSets(): Promise<string[]>;
+  abstract getCardSets(): Promise<ICardSet[]>;
   
   /**
    * 필터 옵션 가져오기

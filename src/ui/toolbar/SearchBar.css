@@ -96,6 +96,10 @@
   box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
 }
 
+.card-navigator-search-input.complex-search {
+  font-family: var(--font-monospace);
+}
+
 /* 검색 아이콘 스타일 */
 .card-navigator-search-icon {
   display: none; /* 검색 아이콘 숨김 */

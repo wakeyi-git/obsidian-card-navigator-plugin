@@ -14,6 +14,7 @@ export class TagCardSetSource extends CardSetSource {
   private allTagsCache: ICardSet[] | null = null; // 모든 태그 캐시
   private lastTagCacheUpdate = 0; // 마지막 태그 캐시 업데이트 시간
   private readonly TAG_CACHE_TTL = 60000; // 1분 캐시 유효 시간
+  private isInitialized = false; // 초기화 완료 플래그
   
   constructor(app: App) {
     super('tag');
@@ -48,6 +49,31 @@ export class TagCardSetSource extends CardSetSource {
   private handleMetadataResolved(): void {
     // 모든 캐시 초기화
     this.clearCache();
+  }
+  
+  /**
+   * 소스 초기화
+   */
+  async initialize(): Promise<void> {
+    console.log('[TagCardSetSource] 초기화 시작');
+    
+    // 이미 초기화된 경우 중복 초기화 방지
+    if (this.isInitialized) {
+      console.log('[TagCardSetSource] 이미 초기화되었습니다.');
+      return;
+    }
+    
+    // 메타데이터 변경 이벤트 리스너 등록
+    this.app.metadataCache.on('changed', this.handleMetadataChanged.bind(this));
+    this.app.metadataCache.on('resolved', this.handleMetadataResolved.bind(this));
+    
+    // 초기화 완료 플래그 설정
+    this.isInitialized = true;
+    
+    // 캐시 초기화
+    this.clearCache();
+    
+    console.log('[TagCardSetSource] 초기화 완료');
   }
   
   /**
@@ -120,40 +146,41 @@ export class TagCardSetSource extends CardSetSource {
   }
   
   /**
-   * 태그 목록 가져오기
+   * 카드셋 목록 가져오기
    * 현재 볼트의 모든 태그 목록을 가져옵니다.
    */
-  async getCardSets(): Promise<string[]> {
+  async getCardSets(): Promise<ICardSet[]> {
     // 캐시 확인
     const now = Date.now();
     if (this.allTagsCache && now - this.lastTagCacheUpdate < this.TAG_CACHE_TTL) {
-      // ICardSet[] 배열에서 source 속성만 추출하여 string[] 배열로 변환
-      return this.allTagsCache.map(cardSet => cardSet.source);
+      return this.allTagsCache;
     }
     
-    const tags: Set<string> = new Set();
+    // 모든 마크다운 파일 가져오기
     const files = this.app.vault.getMarkdownFiles();
     
+    // 태그 목록 추출
+    const tagSet = new Set<string>();
+    
+    // 파일별로 태그 추출
     for (const file of files) {
-      // 파일의 메타데이터 캐시 가져오기
       const cache = this.app.metadataCache.getFileCache(file);
       if (!cache) continue;
       
-      // 파일의 모든 태그 가져오기
-      const fileTags = this.extractTagsFromCache(cache);
-      
-      // 태그 추가
-      for (const tag of fileTags) {
-        tags.add(tag);
+      const tags = this.extractTagsFromCache(cache);
+      for (const tag of tags) {
+        tagSet.add(tag);
       }
     }
     
-    // 태그를 ICardSet 배열로 변환
-    const cardSets: ICardSet[] = Array.from(tags).sort().map(tag => {
-      const name = tag.startsWith('#') ? tag.substring(1) : tag;
+    // 태그 목록을 배열로 변환하고 정렬
+    const tags = Array.from(tagSet).sort();
+    
+    // 태그 목록을 ICardSet 배열로 변환
+    const tagCardSets: ICardSet[] = tags.map(tag => {
       return {
         id: tag,
-        name,
+        name: tag,
         sourceType: 'tag',
         source: tag,
         type: 'active'
@@ -161,11 +188,10 @@ export class TagCardSetSource extends CardSetSource {
     });
     
     // 캐시 업데이트
-    this.allTagsCache = cardSets;
+    this.allTagsCache = tagCardSets;
     this.lastTagCacheUpdate = now;
     
-    // ICardSet[] 배열에서 source 속성만 추출하여 string[] 배열로 반환
-    return cardSets.map(cardSet => cardSet.source);
+    return tagCardSets;
   }
   
   /**

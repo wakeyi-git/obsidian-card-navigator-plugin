@@ -29,7 +29,7 @@ interface SearchBarProps {
   // 추가 속성
   onSearchTypeChange?: (type: SearchType) => void;
   onCaseSensitiveChange?: (sensitive: boolean) => void;
-  _onFrontmatterKeyChange?: (key: string) => void;
+  onFrontmatterKeyChange?: (key: string) => void;
   onSearchScopeChange?: (scope: 'all' | 'current') => void;
   onEnterSearchCardSetSource?: (query: string, type?: SearchType) => void;
   onExitSearchCardSetSource?: () => void;
@@ -57,7 +57,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   // 추가 속성
   onSearchTypeChange,
   onCaseSensitiveChange,
-  _onFrontmatterKeyChange,
+  onFrontmatterKeyChange,
   onSearchScopeChange,
   onEnterSearchCardSetSource,
   onExitSearchCardSetSource,
@@ -74,14 +74,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   
   // 컨테이너 참조 추가
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState<number>(-1);
-
+  const inputRef = useRef<HTMLInputElement>(null);
+  
   // useSearchBar 훅 사용
   const {
     searchText,
     setSearchText,
     handleTextChange: handleInputChange,
-    handleSubmit,
+    handleSubmit: hookHandleSubmit,
     handleFocus: handleInputFocus,
     handleClear,
     handleKeyDown,
@@ -96,22 +96,26 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     showSearchHistory,
     setShowSearchHistory,
     searchHistoryRef,
-    inputRef,
     showDatePicker,
-    datePickerPosition,
-    handleDateSelect,
-    isDateRangeCardSetSource,
-    datePickerType,
+    setShowDatePicker,
     datePickerRef,
+    datePickerPosition,
+    datePickerType,
+    isDateRangeCardSetSource,
+    handleDateSelect,
     showFrontmatterKeySuggestions,
+    setShowFrontmatterKeySuggestions,
     frontmatterKeys,
     handleFrontmatterKeySelect,
     showSuggestedValues,
+    setShowSuggestedValues,
     suggestedValues,
     handleSuggestedValueSelect,
     showSearchSuggestions,
     setShowSearchSuggestions,
-    filteredSuggestions
+    filteredSuggestions,
+    selectedSuggestionIndex,
+    setSelectedSuggestionIndex
   } = useSearchBar({
     cardNavigatorService: actualService,
     onSearch,
@@ -129,6 +133,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
    * @param query 검색 쿼리
    */
   const handleSearch = (query: string) => {
+    console.log(`[SearchBar] 검색 실행: 쿼리=${query}, 타입=${currentSearchOption?.type || 'filename'}`);
+    
     if (onSearch) {
       const searchTypeValue = currentSearchOption?.type ? 
         convertOptionTypeToSearchType(currentSearchOption.type) : 
@@ -217,6 +223,90 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     }
   };
 
+  // 대소문자 구분 변경 처리
+  const handleCaseSensitiveToggle = (sensitive: boolean) => {
+    if (onCaseSensitiveChange) {
+      onCaseSensitiveChange(sensitive);
+    }
+    
+    // 현재 검색 쿼리가 있으면 검색 다시 실행
+    if (searchText) {
+      handleSearch(searchText);
+    }
+  };
+
+  // 프론트매터 키 변경 처리
+  const handleFrontmatterKeyChangeInternal = (key: string) => {
+    if (onFrontmatterKeyChange) {
+      onFrontmatterKeyChange(key);
+    }
+    
+    // 현재 검색 쿼리가 있으면 검색 다시 실행
+    if (searchText) {
+      handleSearch(searchText);
+    }
+  };
+
+  // 검색어 입력 시 실시간 검색 처리
+  useEffect(() => {
+    if (searchText) {
+      // 검색 실행
+      handleSearch(searchText);
+      
+      // 검색 모드로 전환
+      if (!isSearchCardSetSource && onEnterSearchCardSetSource) {
+        handleEnterSearchCardSetSource();
+      }
+    } else {
+      // 검색어가 비어있으면 검색 모드 종료
+      if (isSearchCardSetSource && onExitSearchCardSetSource) {
+        handleExitSearchCardSetSource();
+      }
+    }
+  }, [searchText, isSearchCardSetSource]);
+
+  // 키보드 단축키 처리
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+F 또는 Cmd+F: 검색 입력 필드에 포커스
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }
+      
+      // Escape: 검색 모드 종료
+      if (e.key === 'Escape' && isSearchCardSetSource) {
+        handleExitSearchCardSetSource();
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isSearchCardSetSource]);
+
+  /**
+   * 검색 제출 핸들러
+   */
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log(`[SearchBar] 검색 제출: 쿼리=${searchText}`);
+    
+    if (!searchText.trim()) return;
+    
+    // 검색 실행
+    handleSearch(searchText);
+    
+    // 검색 카드셋 소스 모드인 경우 검색 카드셋 소스 진입
+    if (!isSearchCardSetSource && onEnterSearchCardSetSource) {
+      handleEnterSearchCardSetSource();
+    }
+  };
+
   return (
     <div className="card-navigator-search-bar" ref={containerRef}>
       <div className="card-navigator-search-container">
@@ -252,90 +342,85 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               handleExitSearchCardSetSource();
             }
           }}
+          onSubmit={handleSubmit}
           isSearchCardSetSource={isSearchCardSetSource}
+          caseSensitive={caseSensitive}
+          onCaseSensitiveToggle={handleCaseSensitiveToggle}
+          searchScope={searchScope}
+          onSearchScopeToggle={handleSearchScopeToggle}
         />
         
-        {/* 대소문자 구분 토글 */}
-        <div 
-          className={`card-navigator-case-sensitive-toggle ${caseSensitive ? 'active' : ''}`}
-          onClick={() => {
-            if (onCaseSensitiveChange) {
-              onCaseSensitiveChange(!caseSensitive);
-            }
-          }}
-          title={caseSensitive ? "대소문자 구분 (켜짐)" : "대소문자 구분 (꺼짐)"}
-        >
-          <span className="card-navigator-case-sensitive-icon">Aa</span>
-        </div>
+        {/* 검색 옵션 제안 */}
+        {showSearchSuggestions && (
+          <div className="card-navigator-search-suggestions">
+            <div className="card-navigator-search-suggestions-header">
+              <span>검색 타입 선택</span>
+              <button 
+                className="card-navigator-search-suggestions-close"
+                onClick={() => setShowSearchSuggestions(false)}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            <div className="card-navigator-search-suggestions-list">
+              {filteredSuggestions.map((option, index) => (
+                <div 
+                  key={option.type}
+                  className={`card-navigator-search-suggestion-item ${selectedSuggestionIndex === index ? 'selected' : ''}`}
+                  onClick={() => handleOptionChange(option)}
+                >
+                  <div className="card-navigator-search-suggestion-prefix">{option.prefix}</div>
+                  <div className="card-navigator-search-suggestion-content">
+                    <div className="card-navigator-search-suggestion-label">{option.label}</div>
+                    <div className="card-navigator-search-suggestion-description">{option.description}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
-        {/* 검색 카드 세트 전환 버튼 (검색 카드 세트일 때만 표시) */}
-        {isSearchCardSetSource && (
-          <button 
-            className="card-navigator-exit-search-cardSetSource" 
-            onClick={handleExitSearchCardSetSource}
-            title="검색 카드 세트 종료"
-          >
-            <span className="card-navigator-exit-icon">×</span>
-          </button>
+        {/* 검색 히스토리 */}
+        {showSearchHistory && (
+          <SearchHistory
+            ref={searchHistoryRef}
+            history={searchHistory}
+            onSelect={handleSearchHistorySelect}
+            onClear={handleClearSearchHistory}
+          />
+        )}
+        
+        {/* 날짜 선택기 */}
+        {showDatePicker && (
+          <DatePicker
+            ref={datePickerRef}
+            position={datePickerPosition}
+            onSelect={handleDateSelect}
+            type={datePickerType}
+            isRange={isDateRangeCardSetSource}
+          />
+        )}
+        
+        {/* 프론트매터 키 제안 */}
+        {showFrontmatterKeySuggestions && (
+          <FrontmatterKeySuggestions
+            keys={frontmatterKeys}
+            onSelect={handleFrontmatterKeySelect}
+          />
+        )}
+        
+        {/* 제안 값 */}
+        {showSuggestedValues && (
+          <SuggestedValues
+            values={suggestedValues}
+            onSelect={handleSuggestedValueSelect}
+            isVisible={showSuggestedValues}
+          />
         )}
       </div>
-      
-      {/* 검색 제안 */}
-      {showSearchSuggestions && (
-        <div className="card-navigator-search-suggestions">
-          <div className="search-option-suggestions">
-            {filteredSuggestions.map((option, index) => (
-              <div 
-                key={option.type}
-                className={`search-option-item ${selectedSuggestionIndex === index ? 'selected' : ''} ${currentSearchOption?.type === option.type ? 'current' : ''}`}
-                onClick={() => handleOptionChange(option)}
-              >
-                <span className="search-option-prefix">{option.prefix}</span>
-                <span className="search-option-label">{option.label}</span>
-                <span className="search-option-description">{option.description}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      
-      {/* 검색 기록 */}
-      {showSearchHistory && (
-        <SearchHistory
-          ref={searchHistoryRef}
-          items={searchHistory}
-          onSelect={handleSearchHistorySelect}
-          onClear={handleClearSearchHistory}
-        />
-      )}
-      
-      {/* 날짜 선택기 */}
-      {showDatePicker && (
-        <DatePicker
-          position={datePickerPosition}
-          onSelect={handleDateSelect}
-          isRangeCardSetSource={isDateRangeCardSetSource}
-          type={datePickerType}
-          onRangeCardSetSourceToggle={() => {}}
-        />
-      )}
-      
-      {/* 프론트매터 키 제안 */}
-      {showFrontmatterKeySuggestions && (
-        <FrontmatterKeySuggestions
-          keys={frontmatterKeys}
-          onSelect={handleFrontmatterKeySelect}
-        />
-      )}
-      
-      {/* 제안 값 */}
-      {showSuggestedValues && (
-        <SuggestedValues
-          values={suggestedValues}
-          onSelect={handleSuggestedValueSelect}
-          isVisible={showSuggestedValues}
-        />
-      )}
     </div>
   );
 };

@@ -360,6 +360,7 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
    */
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newText = e.target.value;
+    console.log(`[useSearchBar] 검색어 변경: ${newText}`);
     
     // 검색어 업데이트
     setSearchText(newText);
@@ -378,8 +379,9 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
         clearTimeout(searchDebounceRef.current);
       }
       searchDebounceRef.current = setTimeout(() => {
+        console.log(`[useSearchBar] 빈 검색어로 검색 실행`);
         onSearch(newText);
-      }, 100);
+      }, 300);
       
       return;
     }
@@ -398,33 +400,14 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
           setShowSuggestedValues(false);
           
           // 검색 결과를 유지하기 위해 검색 옵션 제안을 표시하되,
-          // 검색 실행은 그대로 유지
-          if (searchDebounceRef.current) {
-            clearTimeout(searchDebounceRef.current);
-          }
-          searchDebounceRef.current = setTimeout(() => {
-            // 스페이스바만 있는 경우가 아니라면 검색 실행
-            if (newText.trim() !== '') {
-              onSearch(newText);
-            }
-          }, 100);
-          break;
-          
-        case 'create':
-        case 'modify':
-          // 날짜 검색인 경우 날짜 선택기 표시
-          setShowSearchSuggestions(false);
-          setShowFrontmatterKeySuggestions(false);
-          setShowSuggestedValues(false);
-          
-          // 항상 검색 실행 (접두사 이후 내용 확인 없이)
           // 디바운스 처리로 타이핑 중에 너무 많은 검색이 실행되지 않도록 함
           if (searchDebounceRef.current) {
             clearTimeout(searchDebounceRef.current);
           }
           searchDebounceRef.current = setTimeout(() => {
+            console.log(`[useSearchBar] 프론트매터 검색 실행: ${newText}`);
             onSearch(newText, searchOptionPrefix.type);
-          }, 100);
+          }, 300);
           break;
           
         default:
@@ -437,23 +420,21 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
             clearTimeout(searchDebounceRef.current);
           }
           searchDebounceRef.current = setTimeout(() => {
-            onSearch(newText);
-          }, 100);
+            console.log(`[useSearchBar] 일반 검색 실행: ${newText}, 타입: ${searchOptionPrefix.type}`);
+            onSearch(newText, searchOptionPrefix.type);
+          }, 300);
           break;
       }
     } else {
-      // 검색 타입이 없는 경우 검색 옵션 제안 표시
-      setShowSearchSuggestions(true);
-      setShowFrontmatterKeySuggestions(false);
-      setShowSuggestedValues(false);
-      
+      // 검색 타입이 없는 경우 기본 검색 실행
       // 디바운스 처리로 타이핑 중에 너무 많은 검색이 실행되지 않도록 함
       if (searchDebounceRef.current) {
         clearTimeout(searchDebounceRef.current);
       }
       searchDebounceRef.current = setTimeout(() => {
+        console.log(`[useSearchBar] 기본 검색 실행: ${newText}`);
         onSearch(newText);
-      }, 100);
+      }, 300);
     }
   };
   

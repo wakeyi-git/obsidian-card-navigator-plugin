@@ -13,6 +13,7 @@ export class FolderCardSetSource extends CardSetSource {
   private lastFolderCacheTime = 0;
   private folderFilesCache: Map<string, string[]> = new Map();
   private readonly FOLDER_CACHE_TTL = 30000; // 30초 캐시 유효 시간
+  private isInitialized = false;
   
   constructor(app: App) {
     super('folder');
@@ -68,41 +69,49 @@ export class FolderCardSetSource extends CardSetSource {
    * 카드셋 목록 가져오기
    * 현재 볼트의 모든 폴더 목록을 가져옵니다.
    */
-  async getCardSets(): Promise<string[]> {
+  async getCardSets(): Promise<ICardSet[]> {
     // 캐시 확인
     const now = Date.now();
     if (this.folderCache && now - this.lastFolderCacheTime < this.FOLDER_CACHE_TTL) {
-      // ICardSet[] 배열에서 source 속성만 추출하여 string[] 배열로 변환
-      return this.folderCache.map(cardSet => cardSet.source);
+      return this.folderCache;
     }
     
-    const folders: Set<string> = new Set();
+    // 모든 마크다운 파일 가져오기
     const files = this.app.vault.getMarkdownFiles();
     
-    // 루트 폴더 추가
-    folders.add('/');
+    // 폴더 목록 추출
+    const folderSet = new Set<string>();
     
+    // 루트 폴더 추가
+    folderSet.add('/');
+    
+    // 파일 경로에서 폴더 추출
     for (const file of files) {
-      const filePath = file.path;
-      const lastSlashIndex = filePath.lastIndexOf('/');
+      const folderPath = file.parent?.path || '/';
+      folderSet.add(folderPath);
       
-      if (lastSlashIndex > 0) {
-        const folderPath = filePath.substring(0, lastSlashIndex);
-        folders.add(folderPath);
-        
-        // 상위 폴더들도 추가
-        let parentPath = folderPath;
-        while (parentPath.includes('/')) {
-          parentPath = parentPath.substring(0, parentPath.lastIndexOf('/'));
-          if (parentPath) {
-            folders.add(parentPath);
-          }
+      // 하위 폴더 포함 옵션이 활성화된 경우 상위 폴더도 추가
+      if (this.includeSubfolders) {
+        let parent = file.parent;
+        while (parent && parent.path !== '/') {
+          folderSet.add(parent.path);
+          parent = parent.parent;
         }
       }
     }
     
-    // 폴더를 ICardSet 배열로 변환
-    const cardSets: ICardSet[] = Array.from(folders).sort().map(folder => {
+    // 폴더 목록을 배열로 변환하고 정렬
+    const folders = Array.from(folderSet).sort((a, b) => {
+      // 루트 폴더를 맨 위로
+      if (a === '/') return -1;
+      if (b === '/') return 1;
+      
+      // 나머지는 알파벳 순으로 정렬
+      return a.localeCompare(b);
+    });
+    
+    // 폴더 목록을 ICardSet 배열로 변환
+    const folderCardSets: ICardSet[] = folders.map(folder => {
       const name = folder === '/' ? '루트' : folder.split('/').pop() || folder;
       return {
         id: folder,
@@ -113,12 +122,11 @@ export class FolderCardSetSource extends CardSetSource {
       };
     });
     
-    // 결과 캐싱
-    this.folderCache = cardSets;
+    // 캐시 업데이트
+    this.folderCache = folderCardSets;
     this.lastFolderCacheTime = now;
     
-    // ICardSet[] 배열에서 source 속성만 추출하여 string[] 배열로 반환
-    return cardSets.map(cardSet => cardSet.source);
+    return folderCardSets;
   }
   
   /**
@@ -227,5 +235,29 @@ export class FolderCardSetSource extends CardSetSource {
   reset(): void {
     super.reset();
     this.includeSubfolders = true;
+  }
+  
+  /**
+   * 소스 초기화
+   */
+  async initialize(): Promise<void> {
+    console.log('[FolderCardSetSource] 초기화 시작');
+    
+    // 이미 초기화된 경우 중복 초기화 방지
+    if (this.isInitialized) {
+      console.log('[FolderCardSetSource] 이미 초기화되었습니다.');
+      return;
+    }
+    
+    // 파일 변경 이벤트 리스너 등록
+    this.app.vault.on('create', this.handleFileChange.bind(this));
+    this.app.vault.on('delete', this.handleFileChange.bind(this));
+    this.app.vault.on('rename', this.handleFileChange.bind(this));
+    this.app.vault.on('modify', this.handleFileChange.bind(this));
+    
+    // 초기화 완료 플래그 설정
+    this.isInitialized = true;
+    
+    console.log('[FolderCardSetSource] 초기화 완료');
   }
 } 

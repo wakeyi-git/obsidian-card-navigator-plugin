@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
  */
 interface SuggestedValuesProps {
   values: string[];
-  isVisible: boolean;
+  isVisible?: boolean;
   selectedIndex?: number;
   onSelect: (value: string) => void;
   onMouseEnter?: (index: number) => void;
@@ -41,7 +41,7 @@ const HighlightedText: React.FC<{ text: string; highlight: string }> = ({ text, 
  */
 const SuggestedValues: React.FC<SuggestedValuesProps> = ({
   values,
-  isVisible,
+  isVisible = true,
   selectedIndex: externalSelectedIndex,
   onSelect,
   onMouseEnter,

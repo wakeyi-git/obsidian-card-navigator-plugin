@@ -141,7 +141,8 @@ export class ServiceFactory {
         this.getPresetService(), 
         this.getCardService(), 
         null, // 임시로 null 설정
-        null  // 임시로 null 설정
+        null, // 임시로 null 설정
+        this.app // App 객체 전달
       );
       
       // 카드셋 소스 서비스가 이미 생성되어 있다면 의존성 설정
@@ -212,19 +213,37 @@ export class ServiceFactory {
       const presetService = this.getPresetService();
       const settingsService = this.getSettingsService();
       
-      // 순환 참조가 있는 서비스들 생성
-      const cardSetSourceService = this.getCardSetSourceService();
+      // 순환 참조가 있는 서비스들 생성 - 순서 변경
+      // 1. 먼저 CardNavigatorService 생성
       const cardNavigatorService = this.getCardNavigatorService();
+      
+      // 2. 그 다음 CardSetSourceService 생성
+      const cardSetSourceService = this.getCardSetSourceService();
+      
+      // 3. 마지막으로 SearchService 생성
       const searchService = this.getSearchService();
       
-      // 의존성 설정
-      cardSetSourceService.setSearchService(searchService);
+      // 의존성 설정 - 순서 변경
+      // 1. CardNavigatorService에 CardSetSourceService 설정
       cardNavigatorService.setCardSetSourceService(cardSetSourceService);
+      
+      // 2. CardSetSourceService에 SearchService 설정
+      cardSetSourceService.setSearchService(searchService);
+      
+      // 3. CardNavigatorService에 SearchService 설정
       cardNavigatorService.setSearchService(searchService);
       
+      // 4. SearchService에 CardNavigatorService 설정
+      if (searchService.setCardNavigatorService) {
+        searchService.setCardNavigatorService(cardNavigatorService);
+      }
+      
       // 서비스 초기화 - 의존성 설정 후 초기화
-      await cardSetSourceService.initialize();
+      // 1. 먼저 CardNavigatorService 초기화
       await cardNavigatorService.initialize();
+      
+      // 2. 그 다음 CardSetSourceService 초기화
+      await cardSetSourceService.initialize();
       
       console.log('[ServiceFactory] 모든 서비스 초기화 완료');
     } catch (error) {

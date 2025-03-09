@@ -331,6 +331,9 @@ export default class CardNavigatorPlugin extends Plugin {
    */
   async saveSettings() {
     try {
+      // 설정 저장 전 현재 설정 복사
+      const currentSettings = JSON.stringify(this.settings);
+      
       // 배열 타입 확인 및 변환
       if (this.settings.priorityTags && !Array.isArray(this.settings.priorityTags)) {
         this.settings.priorityTags = [this.settings.priorityTags];
@@ -348,12 +351,19 @@ export default class CardNavigatorPlugin extends Plugin {
         this.settings.cardFooterContent = [this.settings.cardFooterContent];
       }
       
-      // 옵시디언 플러그인 표준 방식으로 설정 저장
-      await this.saveData(this.settings);
-      console.log('설정 저장 성공:', this.settings);
+      // 변환 후 설정이 변경되었는지 확인
+      const newSettings = JSON.stringify(this.settings);
       
-      // 설정 변경 이벤트 발생
-      this.app.workspace.trigger('card-navigator:settings-changed', this.settings);
+      // 설정이 변경되었거나 강제 저장 플래그가 설정된 경우에만 저장
+      if (currentSettings !== newSettings) {
+        await this.saveData(this.settings);
+        console.log('설정 저장 성공:', this.settings);
+        
+        // 설정 변경 이벤트 발생
+        this.app.workspace.trigger('card-navigator:settings-changed', this.settings);
+      } else {
+        console.log('설정 변경 없음, 저장 건너뜀');
+      }
     } catch (error) {
       console.error('설정 저장 실패:', error);
     }

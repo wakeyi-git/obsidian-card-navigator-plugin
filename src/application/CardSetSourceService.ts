@@ -104,8 +104,14 @@ export class CardSetSourceService implements ICardSetSourceService {
       // 현재 카드셋 소스 타입 가져오기
       const currentSourceType = this.getCurrentSourceType();
       
+      // 설정 변경 여부 추적
+      let settingsChanged = false;
+      
       // 카드셋 고정 여부 설정
-      this.plugin.settings.isCardSetFixed = this.isCardSetFixed();
+      if (this.plugin.settings.isCardSetFixed !== this.isCardSetFixed()) {
+        this.plugin.settings.isCardSetFixed = this.isCardSetFixed();
+        settingsChanged = true;
+      }
       
       // 현재 카드셋 가져오기
       const currentCardSet = this.getCurrentCardSet();
@@ -113,24 +119,40 @@ export class CardSetSourceService implements ICardSetSourceService {
       // 카드셋 소스 타입에 따라 처리
       if (currentSourceType === 'folder' && currentCardSet) {
         // 폴더 카드 세트
-        this.plugin.settings.defaultFolderCardSet = currentCardSet.source;
-        console.log(`[CardSetSourceService] 폴더 카드셋 설정 업데이트: ${currentCardSet.source}`);
+        if (this.plugin.settings.defaultFolderCardSet !== currentCardSet.source) {
+          this.plugin.settings.defaultFolderCardSet = currentCardSet.source;
+          console.log(`[CardSetSourceService] 폴더 카드셋 설정 업데이트: ${currentCardSet.source}`);
+          settingsChanged = true;
+        }
       } else if (currentSourceType === 'tag' && currentCardSet) {
         // 태그 카드 세트
-        this.plugin.settings.defaultTagCardSet = currentCardSet.source;
-        console.log(`[CardSetSourceService] 태그 카드셋 설정 업데이트: ${currentCardSet.source}`);
+        if (this.plugin.settings.defaultTagCardSet !== currentCardSet.source) {
+          this.plugin.settings.defaultTagCardSet = currentCardSet.source;
+          console.log(`[CardSetSourceService] 태그 카드셋 설정 업데이트: ${currentCardSet.source}`);
+          settingsChanged = true;
+        }
       }
       
       // 하위 폴더 포함 여부 설정
-      this.plugin.settings.includeSubfolders = this.getIncludeSubfolders();
+      if (this.plugin.settings.includeSubfolders !== this.getIncludeSubfolders()) {
+        this.plugin.settings.includeSubfolders = this.getIncludeSubfolders();
+        settingsChanged = true;
+      }
       
       // 태그 대소문자 구분 여부 설정
-      this.plugin.settings.tagCaseSensitive = this.isTagCaseSensitive();
+      if (this.plugin.settings.tagCaseSensitive !== this.isTagCaseSensitive()) {
+        this.plugin.settings.tagCaseSensitive = this.isTagCaseSensitive();
+        settingsChanged = true;
+      }
       
-      // 설정 저장
-      await this.plugin.saveSettings();
-      
-      console.log(`[CardSetSourceService] 플러그인 설정 저장 완료`);
+      // 설정이 변경된 경우에만 저장
+      if (settingsChanged) {
+        // 설정 저장
+        await this.plugin.saveSettings();
+        console.log(`[CardSetSourceService] 플러그인 설정 저장 완료`);
+      } else {
+        console.log(`[CardSetSourceService] 설정 변경 없음, 저장 건너뜀`);
+      }
     } catch (error) {
       console.error(`[CardSetSourceService] 플러그인 설정 저장 오류:`, error);
       throw error;

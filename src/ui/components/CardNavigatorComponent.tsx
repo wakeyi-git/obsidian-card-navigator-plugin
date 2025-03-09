@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { App } from 'obsidian';
 import CardContainer from '../cards-container/CardContainer';
 import Toolbar from '../toolbar/Toolbar';
@@ -8,8 +8,9 @@ import { useCardLoading } from '../hooks/useCardLoading';
 import { useCardEvents } from '../hooks/useCardEvents';
 import { TimerUtil } from '../../infrastructure/TimerUtil';
 import { SearchBar } from '../toolbar/SearchBar';
-import { SearchType as SearchBarSearchType } from '../../domain/search/Search';
+import { SearchType, SearchType as SearchBarSearchType } from '../../domain/search/Search';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
+import { ICardSet } from '../../domain/cardset/CardSet';
 
 /**
  * 카드 네비게이터 컴포넌트 속성
@@ -25,6 +26,9 @@ export interface CardNavigatorComponentProps {
 export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ service }) => {
   // 성능 모니터링을 위한 카운터
   const [renderCount, setRenderCount] = useState<number>(0);
+  
+  // 초기화 상태 추적
+  const isInitializedRef = useRef<boolean>(false);
   
   // 서비스 초기화 및 관리
   const {
@@ -108,15 +112,18 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
   const [availableFolders, setAvailableFolders] = useState<string[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   
+  // 검색 관련 상태
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchScope, setSearchScope] = useState<'all' | 'current'>('current');
+  
   // currentCardSetSource 상태가 변경될 때 isSearchCardSetSource 상태 업데이트
   useEffect(() => {
     setIsSearchCardSetSource(currentCardSetSource === 'search');
   }, [currentCardSetSource]);
   
   // 카드 세트가 변경될 때만 카드 다시 로드
-  // 향후 정렬 기능이 추가되면 이 부분을 currentCardList 상태로 대체하는 것이 좋음
   useEffect(() => {
-    if (service && currentCardSet !== null) {
+    if (service && currentCardSet !== null && isInitializedRef.current) {
       console.log('[CardNavigatorView] 카드 세트 변경으로 카드 다시 로드:', currentCardSet);
       loadCards();
     }
@@ -128,13 +135,52 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
     console.log('[CardNavigatorView] Toolbar 렌더링 시 전달되는 cardSet:', currentCardSet);
   }, [currentCardSet]);
   
-  // 컴포넌트 마운트 시 카드 로드
+  // 컴포넌트 마운트 시 카드 로드 및 초기화
   useEffect(() => {
-    if (service) {
+    if (service && !isInitializedRef.current) {
       console.log('[CardNavigatorView] 컴포넌트 마운트, 카드 로드 시작');
+      
+      // 초기화 플래그 설정
+      isInitializedRef.current = true;
+      
+      // 카드 로드
       loadCards();
+      
+      // 폴더 및 태그 목록 비동기 로드
+      loadAvailableFoldersAndTags();
     }
   }, [service, loadCards]);
+  
+  // 폴더 및 태그 목록 비동기 로드 함수
+  const loadAvailableFoldersAndTags = async () => {
+    if (!service) return;
+    
+    try {
+      console.log('[CardNavigatorView] 서비스가 초기화되었습니다. 폴더 및 태그 목록 로드를 시작합니다.');
+      
+      const cardSetSourceService = service.getCardSetSourceService();
+      const currentSource = cardSetSourceService.getCurrentSourceType();
+      
+      // 폴더 목록 가져오기
+      await cardSetSourceService.changeCardSetSource('folder');
+      const folderCardSets = await cardSetSourceService.getCardSets();
+      const folders = folderCardSets.map(cardSet => cardSet.source);
+      console.log(`[CardNavigatorView] 폴더 목록 로드: ${folders.length}개`);
+      setAvailableFolders(folders);
+      
+      // 태그 목록 가져오기
+      await cardSetSourceService.changeCardSetSource('tag');
+      const tagCardSets = await cardSetSourceService.getCardSets();
+      const tags = tagCardSets.map(cardSet => cardSet.source);
+      console.log(`[CardNavigatorView] 태그 목록 로드: ${tags.length}개`);
+      setAvailableTags(tags);
+      
+      // 원래 카드 세트로 복원
+      await cardSetSourceService.changeCardSetSource(currentSource);
+    } catch (error) {
+      console.error('[CardNavigatorView] 폴더 및 태그 목록 로드 중 오류 발생:', error);
+    }
+  };
   
   // 컴포넌트 렌더링 성능 측정
   useEffect(() => {
@@ -202,9 +248,9 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
       }
       
       .card-navigator-loading-spinner {
-        border: 4px solid var(--background-modifier-border);
-        border-top: 4px solid var(--interactive-accent);
+        border: 4px solid rgba(var(--text-muted-rgb), 0.3);
         border-radius: 50%;
+        border-top: 4px solid var(--text-accent);
         width: 40px;
         height: 40px;
         animation: card-navigator-spin 1s linear infinite;
@@ -216,33 +262,41 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
       }
       
       .card-navigator-error {
-        color: var(--text-error);
         padding: 16px;
-        text-align: center;
-        background-color: var(--background-modifier-error);
+        color: var(--text-error);
+        background-color: rgba(var(--text-error-rgb), 0.1);
         border-radius: 4px;
         margin: 16px;
       }
       
-      .card-navigator-empty-state {
+      .card-navigator-empty {
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
         height: 100%;
-        min-height: 200px;
+        padding: 32px;
+        text-align: center;
         color: var(--text-muted);
       }
       
-      .card-navigator-empty-state-icon {
+      .card-navigator-empty-icon {
         font-size: 48px;
         margin-bottom: 16px;
       }
       
-      .card-navigator-empty-state-message {
-        font-size: 16px;
+      .card-navigator-empty-title {
+        font-size: 18px;
+        font-weight: 500;
+        margin-bottom: 8px;
+      }
+      
+      .card-navigator-empty-description {
+        font-size: 14px;
+        max-width: 400px;
       }
     `;
+    
     document.head.appendChild(style);
     
     return () => {
@@ -250,42 +304,62 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
     };
   }, []);
   
-  // 서비스가 초기화되면 카드 로드 및 폴더/태그 목록 가져오기
-  useEffect(() => {
-    if (service) {
-      console.log('[CardNavigatorView] 서비스가 초기화되었습니다. 카드 로드를 시작합니다.');
-      loadCards();
-      
-      // 폴더 및 태그 목록 가져오기
-      const cardSetSourceService = service.getCardSetSourceService();
-      
-      // 폴더 목록 가져오기
-      cardSetSourceService.changeCardSetSource('folder').then(() => {
-        cardSetSourceService.getCardSets().then((folders: string[]) => {
-          console.log(`[CardNavigatorView] 폴더 목록 로드: ${folders.length}개`);
-          setAvailableFolders(folders);
-          
-          // 태그 목록 가져오기
-          cardSetSourceService.changeCardSetSource('tag').then(() => {
-            cardSetSourceService.getCardSets().then((tags: string[]) => {
-              console.log(`[CardNavigatorView] 태그 목록 로드: ${tags.length}개`);
-              setAvailableTags(tags);
-              
-              // 원래 카드 세트로 복원
-              cardSetSourceService.changeCardSetSource(currentCardSetSource);
-            });
-          });
-        });
-      });
-    }
-  }, [service, loadCards]);
-  
-  // 카드 세트 토글 핸들러
+  // 카드 세트 소스 토글 핸들러
   const handleCardSetSourceToggle = () => {
     if (currentCardSetSource === 'folder') {
       handleCardSetSourceChange('tag');
     } else {
       handleCardSetSourceChange('folder');
+    }
+  };
+  
+  // 검색 모드 진입 처리
+  const handleEnterSearchCardSetSource = (query: string, type?: SearchType) => {
+    console.log(`[CardNavigatorView] 검색 모드 진입: 쿼리=${query}, 타입=${type}`);
+    
+    // 검색 쿼리 설정
+    setSearchQuery(query);
+    
+    // 검색 타입 설정 (useCardNavigatorService에서 가져온 setSearchType 사용)
+    if (type) {
+      setSearchType(type);
+    }
+    
+    // 검색 카드 세트 소스로 변경
+    handleCardSetSourceChange('search');
+  };
+  
+  // 검색 모드 종료 처리
+  const handleExitSearchCardSetSource = () => {
+    console.log('[CardNavigatorView] 검색 모드 종료');
+    
+    // 검색 쿼리 초기화
+    setSearchQuery('');
+    
+    // 이전 카드 세트 소스로 복원
+    const searchService = service.getSearchService();
+    const previousSourceType = searchService.getPreviousCardSetSource();
+    
+    // 이전 소스로 변경
+    handleCardSetSourceChange(previousSourceType);
+  };
+  
+  // 검색 범위 변경 처리
+  const handleSearchScopeChange = (scope: 'all' | 'current') => {
+    console.log(`[CardNavigatorView] 검색 범위 변경: ${scope}`);
+    
+    // 검색 범위 설정
+    setSearchScope(scope);
+    
+    // 검색 서비스에 검색 범위 설정
+    const searchService = service.getSearchService();
+    searchService.setSearchScope(scope);
+    
+    // 현재 검색 쿼리가 있으면 검색 다시 실행
+    if (searchQuery) {
+      // useCardNavigatorService에서 가져온 handleSearch 함수 호출
+      // handleSearch 함수는 (query: string, type?: string) => Promise<void> 형태
+      handleSearch(searchQuery);
     }
   };
   
@@ -335,10 +409,16 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
               }}
               onCaseSensitiveChange={handleCaseSensitiveChange}
               onFrontmatterKeyChange={handleFrontmatterKeyChange}
-              searchQuery=""
-              searchType={'content' as SearchBarSearchType}
+              onSearchScopeChange={handleSearchScopeChange}
+              onEnterSearchCardSetSource={handleEnterSearchCardSetSource}
+              onExitSearchCardSetSource={handleExitSearchCardSetSource}
+              searchQuery={searchQuery}
+              searchType={searchType}
               caseSensitive={caseSensitive}
               frontmatterKey={frontmatterKey}
+              searchScopeProps={searchScope}
+              isSearchCardSetSource={isSearchCardSetSource}
+              app={service.getApp()}
             />
           </div>
         )}
@@ -358,7 +438,27 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
         )}
         
         {!isLoading && !errorMessage && cards.length === 0 && (
-          <EmptyState cardSetSource={currentCardSetSource} />
+          <EmptyState
+            title="카드가 없습니다"
+            description={
+              currentCardSetSource === 'folder' ? 
+                "선택한 폴더에 노트가 없거나 폴더를 선택하지 않았습니다." : 
+              currentCardSetSource === 'tag' ? 
+                "선택한 태그가 포함된 노트가 없거나 태그를 선택하지 않았습니다." : 
+              currentCardSetSource === 'search' ? 
+                "검색 결과가 없습니다." : 
+                "카드가 없습니다."
+            }
+            icon={
+              currentCardSetSource === 'folder' ? 
+                "folder" : 
+              currentCardSetSource === 'tag' ? 
+                "tag" : 
+              currentCardSetSource === 'search' ? 
+                "search" : 
+                "card"
+            }
+          />
         )}
         
         {!isLoading && !errorMessage && cards.length > 0 && (
@@ -372,8 +472,6 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
             onCardDragOver={handleCardDragOver}
             onCardDragEnter={handleCardDragEnter}
             onCardDragLeave={handleCardDragLeave}
-            service={service}
-            settings={service?.getSettings()}
           />
         )}
       </div>

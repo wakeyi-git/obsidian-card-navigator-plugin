@@ -34,7 +34,8 @@ const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     caseSensitive = false,
     onCaseSensitiveToggle,
     searchScope = 'current',
-    onSearchScopeToggle
+    onSearchScopeToggle,
+    isSearchCardSetSource = false
   }, ref) => {
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -57,8 +58,10 @@ const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
             onKeyDown={onKeyDown}
           />
         </form>
+        
+        {/* 검색어 삭제 버튼 */}
         {value && (
-          <div className="card-navigator-search-clear" onClick={onClear}>
+          <div className="card-navigator-search-clear" onClick={onClear} title="검색어 지우기">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -90,6 +93,19 @@ const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
               ) : (
                 <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8-10-8-10-8z"></path>
               )}
+            </svg>
+          </div>
+        )}
+        
+        {/* 검색 모드 종료 버튼 */}
+        {isSearchCardSetSource && value && (
+          <div 
+            className="card-navigator-exit-search-mode"
+            onClick={onClear}
+            title="검색 모드 종료"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6L6 18M6 6l12 12"></path>
             </svg>
           </div>
         )}

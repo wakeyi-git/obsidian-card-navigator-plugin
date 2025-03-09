@@ -394,7 +394,7 @@ const Toolbar: React.FC<IToolbarProps> = ({
         return fixedPrefix + currentCardSet;
         
       case 'search':
-        return '검색 결과';
+        return '검색 모드';
         
       default:
         return fixedPrefix + currentCardSet;
