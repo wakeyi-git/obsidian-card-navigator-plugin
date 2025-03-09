@@ -1,5 +1,4 @@
 import { ICard } from '../card/Card';
-import { TFile } from 'obsidian';
 import { CardSetSourceType, CardSetType } from '../cardset/CardSet';
 
 /**
@@ -13,6 +12,107 @@ export type SearchType = 'filename' | 'content' | 'tag' | 'path' | 'frontmatter'
  * 검색 범위를 정의합니다.
  */
 export type SearchScope = 'all' | 'current';
+
+/**
+ * 검색 필드 인터페이스
+ * 다중 필드 검색을 위한 인터페이스입니다.
+ */
+export interface ISearchField {
+  /**
+   * 검색 타입
+   */
+  type: SearchType;
+  
+  /**
+   * 검색어
+   */
+  query: string;
+  
+  /**
+   * 프론트매터 키 (frontmatter 타입인 경우)
+   */
+  frontmatterKey?: string;
+  
+  /**
+   * 날짜 범위 (create, modify 타입인 경우)
+   */
+  dateRange?: {
+    /**
+     * 시작일
+     */
+    start?: string;
+    
+    /**
+     * 종료일
+     */
+    end?: string;
+  };
+}
+
+/**
+ * 검색 제안 인터페이스
+ * 검색어 자동 완성을 위한 인터페이스입니다.
+ */
+export interface ISearchSuggestion {
+  /**
+   * 제안 텍스트
+   */
+  text: string;
+  
+  /**
+   * 제안 타입
+   */
+  type: SearchType;
+  
+  /**
+   * 제안 설명
+   */
+  description?: string;
+  
+  /**
+   * 강조 위치
+   * 검색어와 일치하는 부분의 시작 인덱스와 끝 인덱스
+   */
+  highlightIndices?: [number, number][];
+}
+
+/**
+ * 검색 인터페이스
+ * 검색 기능을 정의합니다.
+ */
+export interface ISearch {
+  /**
+   * 검색 타입 가져오기
+   * @returns 검색 타입
+   */
+  getType(): SearchType;
+  
+  /**
+   * 검색어 가져오기
+   * @returns 검색어
+   */
+  getQuery(): string;
+  
+  /**
+   * 대소문자 구분 여부 가져오기
+   * @returns 대소문자 구분 여부
+   */
+  isCaseSensitive(): boolean;
+  
+  /**
+   * 검색 필드 목록 가져오기
+   * 다중 필드 검색인 경우 여러 검색 필드를 반환합니다.
+   * @returns 검색 필드 목록
+   */
+  getSearchFields(): ISearchField[];
+  
+  /**
+   * 카드가 검색 조건과 일치하는지 확인
+   * @param card 확인할 카드
+   * @returns 일치 여부
+   */
+  match(card: ICard): Promise<boolean>;
+}
 
 /**
  * 검색 카드 세트 상태 인터페이스
@@ -45,6 +145,12 @@ export interface ISearchCardSetSourceState {
   searchScope: SearchScope;
   
   /**
+   * 검색 필드 목록
+   * 다중 필드 검색인 경우 여러 검색 필드를 포함합니다.
+   */
+  searchFields?: ISearchField[];
+  
+  /**
    * 검색 카드 세트 전환 전 카드셋
    */
   preSearchCards: ICard[];
@@ -63,131 +169,4 @@ export interface ISearchCardSetSourceState {
    * 검색 카드 세트 전환 전 카드 세트 타입
    */
   previousCardSetType: CardSetType;
-}
-
-/**
- * 검색 인터페이스
- * 모든 검색 구현체가 구현해야 하는 인터페이스입니다.
- */
-export interface ISearch {
-  /**
-   * 검색 타입 가져오기
-   * @returns 검색 타입
-   */
-  getType(): SearchType;
-  
-  /**
-   * 검색어 가져오기
-   * @returns 검색어
-   */
-  getQuery(): string;
-  
-  /**
-   * 검색어 설정
-   * @param query 검색어
-   */
-  setQuery(query: string): void;
-  
-  /**
-   * 대소문자 구분 여부 가져오기
-   * @returns 대소문자 구분 여부
-   */
-  isCaseSensitive(): boolean;
-  
-  /**
-   * 대소문자 구분 여부 설정
-   * @param caseSensitive 대소문자 구분 여부
-   */
-  setCaseSensitive(caseSensitive: boolean): void;
-  
-  /**
-   * 카드가 검색 조건과 일치하는지 확인
-   * @param card 확인할 카드
-   * @returns 일치 여부
-   */
-  match(card: ICard): Promise<boolean>;
-  
-  /**
-   * 검색 수행
-   * @param cards 검색할 카드 목록
-   * @returns 검색 결과 카드 목록
-   */
-  search(cards: ICard[]): Promise<ICard[]>;
-  
-  /**
-   * 검색 객체 직렬화
-   * @returns 직렬화된 검색 객체
-   */
-  serialize(): any;
-}
-
-/**
- * 기본 검색 추상 클래스
- * 검색 기능의 기본 구현을 제공하는 추상 클래스입니다.
- */
-export abstract class Search implements ISearch {
-  protected query: string;
-  protected caseSensitive: boolean;
-  protected type: SearchType;
-  
-  constructor(type: SearchType, query = '', caseSensitive = false) {
-    this.type = type;
-    this.query = query;
-    this.caseSensitive = caseSensitive;
-  }
-  
-  getType(): SearchType {
-    return this.type;
-  }
-  
-  getQuery(): string {
-    return this.query;
-  }
-  
-  setQuery(query: string): void {
-    this.query = query;
-  }
-  
-  isCaseSensitive(): boolean {
-    return this.caseSensitive;
-  }
-  
-  setCaseSensitive(caseSensitive: boolean): void {
-    this.caseSensitive = caseSensitive;
-  }
-  
-  abstract match(card: ICard): Promise<boolean>;
-  
-  /**
-   * 검색 수행
-   * @param cards 검색할 카드 목록
-   * @returns 검색 결과 카드 목록
-   */
-  abstract search(cards: ICard[]): Promise<ICard[]>;
-  
-  serialize(): any {
-    return {
-      type: this.type,
-      query: this.query,
-      caseSensitive: this.caseSensitive
-    };
-  }
-  
-  /**
-   * 검색어 매칭 여부 확인
-   * @param text 검색 대상 텍스트
-   * @returns 매칭 여부
-   */
-  protected matches(text: string): boolean {
-    if (!this.query) {
-      // 검색어가 비어있는 경우 모든 항목 매칭 (기존 동작 유지)
-      return true;
-    }
-    
-    if (this.caseSensitive) {
-      return text.includes(this.query);
-    } else {
-      return text.toLowerCase().includes(this.query.toLowerCase());
-    }
-  }
 } 

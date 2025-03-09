@@ -1,9 +1,17 @@
 import { TFile } from 'obsidian';
 import { ICard } from '../card/Card';
 import { CardSetSourceType, ICardSetSource } from './CardSet';
-import { SearchType } from '../search/Search';
-import { FolderCardSetSource } from './FolderCardSetSource';
-import { TagCardSetSource } from './TagCardSetSource';
+import { SearchType } from '../search/index';
+
+/**
+ * 카드셋 이벤트 타입 정의
+ */
+export type CardSetEventType = 
+  | 'source-changed'       // 소스 타입 변경 (폴더 → 태그, 태그 → 검색 등)
+  | 'cardset-changed'      // 카드셋 변경 (다른 폴더/태그 선택)
+  | 'cards-updated'        // 카드 목록 업데이트
+  | 'filter-changed'       // 필터 옵션 변경
+  | 'settings-changed';    // 설정 변경
 
 /**
  * 카드셋 소스 관리 인터페이스
@@ -32,13 +40,13 @@ export interface ICardSetSourceManager {
    * 폴더 카드셋 소스 가져오기
    * @returns 폴더 카드셋 소스 객체
    */
-  getFolderSource(): FolderCardSetSource;
+  getFolderSource(): ICardSetSource;
   
   /**
    * 태그 카드셋 소스 가져오기
    * @returns 태그 카드셋 소스 객체
    */
-  getTagSource(): TagCardSetSource;
+  getTagSource(): ICardSetSource;
   
   /**
    * 이전 카드셋 소스 가져오기
@@ -211,14 +219,21 @@ export interface ICardSetEventManager {
    * @param event 이벤트 이름
    * @param listener 리스너 함수
    */
-  on(event: string, listener: (...args: any[]) => void): void;
+  on(event: CardSetEventType, listener: (...args: any[]) => void): void;
   
   /**
    * 이벤트 리스너 제거
    * @param event 이벤트 이름
    * @param listener 리스너 함수
    */
-  off(event: string, listener: (...args: any[]) => void): void;
+  off(event: CardSetEventType, listener: (...args: any[]) => void): void;
+  
+  /**
+   * 이벤트 발생
+   * @param event 이벤트 이름
+   * @param args 이벤트 인자
+   */
+  emit(event: CardSetEventType, ...args: any[]): void;
 }
 
 /**

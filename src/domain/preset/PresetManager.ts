@@ -1,19 +1,53 @@
-import { IPreset, Preset, PresetData } from './Preset';
+import { IPreset } from './Preset';
+
+/**
+ * 프리셋 매핑 인터페이스
+ * 폴더나 태그에 프리셋을 매핑하기 위한 인터페이스입니다.
+ */
+export interface IPresetMapping {
+  /**
+   * 매핑 ID
+   */
+  id: string;
+  
+  /**
+   * 매핑 타입 (폴더 또는 태그)
+   */
+  type: 'folder' | 'tag';
+  
+  /**
+   * 매핑 대상 (폴더 경로 또는 태그 이름)
+   */
+  target: string;
+  
+  /**
+   * 프리셋 ID
+   */
+  presetId: string;
+  
+  /**
+   * 우선순위 (낮을수록 우선)
+   */
+  priority: number;
+}
 
 /**
  * 프리셋 관리자 인터페이스
- * 프리셋을 관리하기 위한 인터페이스입니다.
+ * 프리셋 관리 기능을 정의합니다.
  */
 export interface IPresetManager {
   /**
-   * 프리셋 목록
+   * 모든 프리셋 가져오기
+   * @returns 프리셋 목록
    */
-  presets: IPreset[];
+  getAllPresets(): IPreset[];
   
   /**
-   * 현재 선택된 프리셋
+   * 프리셋 가져오기
+   * @param id 프리셋 ID
+   * @returns 프리셋 또는 undefined
    */
-  currentPreset: IPreset | null;
+  getPreset(id: string): IPreset | undefined;
   
   /**
    * 프리셋 추가
@@ -24,11 +58,11 @@ export interface IPresetManager {
   
   /**
    * 프리셋 업데이트
-   * @param id 업데이트할 프리셋 ID
+   * @param id 프리셋 ID
    * @param preset 업데이트할 프리셋 데이터
-   * @returns 업데이트된 프리셋
+   * @returns 업데이트된 프리셋 또는 undefined
    */
-  updatePreset(id: string, preset: Partial<IPreset>): IPreset | null;
+  updatePreset(id: string, preset: Partial<IPreset>): IPreset | undefined;
   
   /**
    * 프리셋 삭제
@@ -38,148 +72,44 @@ export interface IPresetManager {
   deletePreset(id: string): boolean;
   
   /**
-   * 프리셋 가져오기
-   * @param id 가져올 프리셋 ID
-   * @returns 프리셋
+   * 모든 매핑 가져오기
+   * @returns 매핑 목록
    */
-  getPreset(id: string): IPreset | null;
+  getAllMappings(): IPresetMapping[];
   
   /**
-   * 프리셋 선택
-   * @param id 선택할 프리셋 ID
-   * @returns 선택된 프리셋
+   * 매핑 추가
+   * @param mapping 추가할 매핑
+   * @returns 추가된 매핑
    */
-  selectPreset(id: string): IPreset | null;
+  addMapping(mapping: IPresetMapping): IPresetMapping;
   
   /**
-   * 프리셋 직렬화
-   * @returns 직렬화된 프리셋 데이터 목록
+   * 매핑 업데이트
+   * @param id 매핑 ID
+   * @param mapping 업데이트할 매핑 데이터
+   * @returns 업데이트된 매핑 또는 undefined
    */
-  serialize(): PresetData[];
+  updateMapping(id: string, mapping: Partial<IPresetMapping>): IPresetMapping | undefined;
   
   /**
-   * 프리셋 역직렬화
-   * @param data 역직렬화할 프리셋 데이터 목록
+   * 매핑 삭제
+   * @param id 삭제할 매핑 ID
+   * @returns 삭제 성공 여부
    */
-  deserialize(data: PresetData[]): void;
-}
-
-/**
- * 프리셋 관리자 클래스
- * 프리셋을 관리하기 위한 클래스입니다.
- */
-export class PresetManager implements IPresetManager {
-  presets: IPreset[] = [];
-  currentPreset: IPreset | null = null;
-  
-  constructor(presets: IPreset[] = []) {
-    this.presets = presets;
-    
-    if (presets.length > 0) {
-      this.currentPreset = presets[0];
-    }
-  }
-  
-  addPreset(preset: IPreset): IPreset {
-    // ID 중복 확인
-    const existingPreset = this.getPreset(preset.id);
-    if (existingPreset) {
-      throw new Error(`Preset with ID ${preset.id} already exists`);
-    }
-    
-    this.presets.push(preset);
-    return preset;
-  }
-  
-  updatePreset(id: string, presetData: Partial<IPreset>): IPreset | null {
-    const index = this.presets.findIndex(p => p.id === id);
-    if (index === -1) {
-      return null;
-    }
-    
-    const preset = this.presets[index];
-    const updatedPreset = { ...preset, ...presetData };
-    
-    // 업데이트된 프리셋이 IPreset 인터페이스를 구현하는지 확인
-    if (
-      typeof updatedPreset.clone !== 'function' ||
-      typeof updatedPreset.serialize !== 'function'
-    ) {
-      return null;
-    }
-    
-    this.presets[index] = updatedPreset as IPreset;
-    
-    // 현재 선택된 프리셋이 업데이트된 경우 현재 프리셋도 업데이트
-    if (this.currentPreset && this.currentPreset.id === id) {
-      this.currentPreset = this.presets[index];
-    }
-    
-    return this.presets[index];
-  }
-  
-  deletePreset(id: string): boolean {
-    const index = this.presets.findIndex(p => p.id === id);
-    if (index === -1) {
-      return false;
-    }
-    
-    this.presets.splice(index, 1);
-    
-    // 현재 선택된 프리셋이 삭제된 경우 현재 프리셋을 null로 설정
-    if (this.currentPreset && this.currentPreset.id === id) {
-      this.currentPreset = this.presets.length > 0 ? this.presets[0] : null;
-    }
-    
-    return true;
-  }
-  
-  getPreset(id: string): IPreset | null {
-    return this.presets.find(p => p.id === id) || null;
-  }
-  
-  selectPreset(id: string): IPreset | null {
-    const preset = this.getPreset(id);
-    if (preset) {
-      this.currentPreset = preset;
-    }
-    return preset;
-  }
-  
-  serialize(): PresetData[] {
-    return this.presets.map(preset => preset.serialize());
-  }
-  
-  deserialize(data: PresetData[]): void {
-    this.presets = data.map(presetData => {
-      return new Preset(
-        presetData.id,
-        presetData.name,
-        presetData.description
-      );
-    });
-    
-    if (this.presets.length > 0) {
-      this.currentPreset = this.presets[0];
-    } else {
-      this.currentPreset = null;
-    }
-  }
+  deleteMapping(id: string): boolean;
   
   /**
-   * 기본 프리셋 생성
-   * @param id 프리셋 ID
-   * @param name 프리셋 이름
-   * @returns 생성된 기본 프리셋
+   * 폴더에 적용할 프리셋 찾기
+   * @param folderPath 폴더 경로
+   * @returns 프리셋 또는 undefined
    */
-  createDefaultPreset(id: string, name: string): IPreset {
-    const preset = new Preset(
-      id,
-      name,
-      '기본 프리셋'
-    );
-    
-    this.addPreset(preset);
-    return preset;
-  }
+  findPresetForFolder(folderPath: string): IPreset | undefined;
+  
+  /**
+   * 태그에 적용할 프리셋 찾기
+   * @param tag 태그 이름
+   * @returns 프리셋 또는 undefined
+   */
+  findPresetForTag(tag: string): IPreset | undefined;
 }

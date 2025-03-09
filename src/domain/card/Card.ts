@@ -1,4 +1,4 @@
-import { TFile } from 'obsidian';
+import { TFile, CachedMetadata } from 'obsidian';
 
 /**
  * 카드 인터페이스
@@ -6,9 +6,10 @@ import { TFile } from 'obsidian';
  */
 export interface ICard {
   /**
-   * 카드 ID (파일 경로)
+   * 원본 파일 객체
+   * Obsidian TFile 객체를 직접 참조합니다.
    */
-  id: string;
+  file: TFile;
   
   /**
    * 카드 제목 (파일 이름)
@@ -26,21 +27,6 @@ export interface ICard {
   tags: string[];
   
   /**
-   * 카드 경로 (파일 경로)
-   */
-  path: string;
-  
-  /**
-   * 생성일
-   */
-  created: number;
-  
-  /**
-   * 수정일
-   */
-  modified: number;
-  
-  /**
    * 프론트매터 데이터
    */
   frontmatter?: Record<string, any>;
@@ -56,14 +42,34 @@ export interface ICard {
   displaySettings?: ICardDisplaySettings;
   
   /**
-   * 원본 파일 객체
+   * 캐시된 메타데이터
    */
-  file?: TFile;
+  metadata?: CachedMetadata;
+  
+  /**
+   * 카드 ID 가져오기 (파일 경로)
+   */
+  getId(): string;
+  
+  /**
+   * 카드 경로 가져오기 (파일 경로)
+   */
+  getPath(): string;
+  
+  /**
+   * 생성일 가져오기
+   */
+  getCreatedTime(): number;
+  
+  /**
+   * 수정일 가져오기
+   */
+  getModifiedTime(): number;
 }
 
 /**
  * 카드 표시 설정 인터페이스
- * 카드의 표시 항목, 렌더링 방식, 스타일을 정의합니다.
+ * 카드의 표시 방식을 정의합니다.
  */
 export interface ICardDisplaySettings {
   /**
@@ -84,7 +90,7 @@ export interface ICardDisplaySettings {
   /**
    * 렌더링 방식
    */
-  renderingCardSetSource?: CardRenderingCardSetSource;
+  renderingMode?: CardRenderingMode;
   
   /**
    * 카드 스타일
@@ -93,17 +99,20 @@ export interface ICardDisplaySettings {
 }
 
 /**
- * 카드 내용 타입
+ * 카드 콘텐츠 타입
+ * 카드에 표시할 콘텐츠 타입을 정의합니다.
  */
 export type CardContentType = 'filename' | 'title' | 'firstheader' | 'content' | 'tags' | 'path' | 'created' | 'modified' | 'frontmatter' | string;
 
 /**
- * 카드 렌더링 방식
+ * 카드 렌더링 모드
+ * 카드 렌더링 방식을 정의합니다.
  */
-export type CardRenderingCardSetSource = 'text' | 'html';
+export type CardRenderingMode = 'text' | 'html';
 
 /**
  * 카드 스타일 인터페이스
+ * 카드의 스타일을 정의합니다.
  */
 export interface ICardStyle {
   /**
@@ -139,6 +148,7 @@ export interface ICardStyle {
 
 /**
  * 카드 요소 스타일 인터페이스
+ * 카드 요소의 스타일을 정의합니다.
  */
 export interface ICardElementStyle {
   /**
@@ -177,79 +187,73 @@ export interface ICardElementStyle {
  * 노트의 정보를 카드 형태로 표현하는 클래스입니다.
  */
 export class Card implements ICard {
-  id: string;
+  file: TFile;
   title: string;
   content: string;
-  tags: string[];
-  path: string;
-  created: number;
-  modified: number;
+  tags: string[] = [];
   frontmatter?: Record<string, any>;
   firstHeader?: string;
   displaySettings?: ICardDisplaySettings;
-  file?: TFile;
+  metadata?: CachedMetadata;
   
+  /**
+   * 생성자
+   * @param file 파일 객체
+   * @param content 내용
+   * @param tags 태그 목록
+   * @param frontmatter 프론트매터 데이터
+   * @param firstHeader 첫 번째 헤더
+   * @param displaySettings 표시 설정
+   * @param metadata 캐시된 메타데이터
+   */
   constructor(
-    id: string,
-    title: string,
+    file: TFile,
     content: string,
     tags: string[] = [],
-    path: string,
-    created: number,
-    modified: number,
     frontmatter?: Record<string, any>,
     firstHeader?: string,
     displaySettings?: ICardDisplaySettings,
-    file?: TFile
+    metadata?: CachedMetadata
   ) {
-    this.id = id;
-    this.title = title;
+    this.file = file;
+    this.title = file.basename;
     this.content = content;
     this.tags = tags;
-    this.path = path;
-    this.created = created;
-    this.modified = modified;
     this.frontmatter = frontmatter;
     this.firstHeader = firstHeader;
     this.displaySettings = displaySettings;
-    this.file = file;
+    this.metadata = metadata;
   }
   
   /**
-   * 카드 내용 업데이트
-   * @param content 새 내용
+   * 카드 ID 가져오기 (파일 경로)
+   * @returns 카드 ID
    */
-  updateContent(content: string): void {
-    this.content = content;
-    this.modified = Date.now();
+  getId(): string {
+    return this.file.path;
   }
   
   /**
-   * 카드 태그 추가
-   * @param tag 추가할 태그
+   * 카드 경로 가져오기 (파일 경로)
+   * @returns 카드 경로
    */
-  addTag(tag: string): void {
-    if (!this.tags.includes(tag)) {
-      this.tags.push(tag);
-    }
+  getPath(): string {
+    return this.file.path;
   }
   
   /**
-   * 카드 태그 제거
-   * @param tag 제거할 태그
+   * 생성일 가져오기
+   * @returns 생성일 타임스탬프
    */
-  removeTag(tag: string): void {
-    this.tags = this.tags.filter(t => t !== tag);
+  getCreatedTime(): number {
+    return this.file.stat.ctime;
   }
   
   /**
-   * 카드 표시 설정 업데이트
-   * @param displaySettings 새 표시 설정
+   * 수정일 가져오기
+   * @returns 수정일 타임스탬프
    */
-  updateDisplaySettings(displaySettings: ICardDisplaySettings): void {
-    this.displaySettings = {
-      ...this.displaySettings,
-      ...displaySettings
-    };
+  getModifiedTime(): number {
+    return this.file.stat.mtime;
   }
 } 

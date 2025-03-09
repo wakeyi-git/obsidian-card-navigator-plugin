@@ -1,7 +1,7 @@
 import { ICard } from '../card/Card';
-import { CardSetSourceType } from '../cardset/CardSet';
+import { CardSetSourceType } from '../cardset/index';
 import { LayoutType } from '../layout/Layout';
-import { SearchType } from '../search/Search';
+import { SearchType } from '../search/index';
 
 /**
  * 카드셋 변경 이벤트 데이터 인터페이스
