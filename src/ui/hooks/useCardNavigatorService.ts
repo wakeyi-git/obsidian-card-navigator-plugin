@@ -164,9 +164,30 @@ export const useCardNavigatorService = (service: ICardNavigatorService): UseCard
     // 이벤트 리스너 등록
     service.getApp().workspace.on('card-navigator:settings-changed', settingsChangeHandler);
     
+    // 카드 세트 변경 이벤트 리스너 등록
+    const cardSetSourceService = service.getCardSetSourceService();
+    
+    // 카드 세트 변경 이벤트 핸들러
+    const cardSetChangedHandler = () => {
+      console.log('[useCardNavigatorService] 카드 세트 변경 감지');
+      updateCurrentCardSet();
+    };
+    
+    // 소스 변경 이벤트 핸들러
+    const sourceChangedHandler = () => {
+      console.log('[useCardNavigatorService] 카드 세트 소스 변경 감지');
+      updateCurrentCardSet();
+    };
+    
+    // 이벤트 리스너 등록
+    cardSetSourceService.on('cardSetChanged', cardSetChangedHandler);
+    cardSetSourceService.on('sourceChanged', sourceChangedHandler);
+    
     // 컴포넌트 언마운트 시 이벤트 리스너 제거
     return () => {
       service.getApp().workspace.off('card-navigator:settings-changed', settingsChangeHandler);
+      cardSetSourceService.off('cardSetChanged', cardSetChangedHandler);
+      cardSetSourceService.off('sourceChanged', sourceChangedHandler);
     };
   }, [service, currentCardSet, isCardSetFixed]);
   

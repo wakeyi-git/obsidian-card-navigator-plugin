@@ -225,9 +225,6 @@ export default class CardNavigatorPlugin extends Plugin {
     // 서비스 초기화 (비동기 처리)
     await this.initializeServices();
     
-    // 이벤트 리스너 등록
-    this.registerEventListeners();
-    
     // 리본 아이콘 추가
     this.addRibbonIcon('layout-grid', '카드 네비게이터 열기', () => {
       this.activateView();
@@ -472,6 +469,9 @@ export default class CardNavigatorPlugin extends Plugin {
       // 모든 서비스 초기화
       await this.serviceFactory.initializeServices();
       
+      // 서비스 초기화 후 이벤트 리스너 등록
+      this.registerEventListeners();
+      
       console.log('카드 네비게이터 서비스 초기화 완료');
     } catch (error) {
       console.error('카드 네비게이터 서비스 초기화 실패:', error);
@@ -530,6 +530,27 @@ export default class CardNavigatorPlugin extends Plugin {
         }
       })
     );
+    
+    // 카드 세트 변경 이벤트 리스너 추가
+    if (this.cardNavigatorService) {
+      const cardSetSourceService = this.cardNavigatorService.getCardSetSourceService();
+      
+      // 카드 세트 변경 이벤트 리스너
+      cardSetSourceService.on('cardSetChanged', async () => {
+        console.log('[CardNavigatorPlugin] 카드 세트 변경 감지, 카드 새로고침');
+        if (this.cardNavigatorService) {
+          await this.cardNavigatorService.refreshCards();
+        }
+      });
+      
+      // 소스 변경 이벤트 리스너
+      cardSetSourceService.on('sourceChanged', async () => {
+        console.log('[CardNavigatorPlugin] 카드 세트 소스 변경 감지, 카드 새로고침');
+        if (this.cardNavigatorService) {
+          await this.cardNavigatorService.refreshCards();
+        }
+      });
+    }
     
     console.log('카드 네비게이터 이벤트 리스너 등록 완료');
   }

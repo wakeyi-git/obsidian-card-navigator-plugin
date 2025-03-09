@@ -57,6 +57,23 @@ export class CardNavigatorView extends ItemView {
           this.renderComponent();
         })
       );
+      
+      // 카드 세트 변경 이벤트 리스너 등록
+      if (this.service) {
+        const cardSetSourceService = this.service.getCardSetSourceService();
+        
+        // 카드 세트 변경 이벤트 리스너
+        cardSetSourceService.on('cardSetChanged', async () => {
+          console.log('[CardNavigatorView] 카드 세트 변경 감지, 컴포넌트 다시 렌더링');
+          this.renderComponent();
+        });
+        
+        // 소스 변경 이벤트 리스너
+        cardSetSourceService.on('sourceChanged', async () => {
+          console.log('[CardNavigatorView] 카드 세트 소스 변경 감지, 컴포넌트 다시 렌더링');
+          this.renderComponent();
+        });
+      }
     } catch (error) {
       console.error('카드 네비게이터 뷰 초기화 오류:', error);
       this.handleRenderError(containerEl, error);
