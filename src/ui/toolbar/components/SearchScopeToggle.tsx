@@ -1,21 +1,33 @@
 import React from 'react';
 
 interface SearchScopeToggleProps {
-  searchScope: 'all' | 'current';
-  onToggle: () => void;
+  currentScope: 'all' | 'current';
+  onChange: (scope: 'all' | 'current') => void;
+  disabled?: boolean;
 }
 
 /**
  * 검색 범위 토글 컴포넌트
  */
-const SearchScopeToggle: React.FC<SearchScopeToggleProps> = ({ searchScope, onToggle }) => {
+const SearchScopeToggle: React.FC<SearchScopeToggleProps> = ({ 
+  currentScope, 
+  onChange,
+  disabled = false
+}) => {
+  const handleToggle = () => {
+    if (disabled) return;
+    
+    const newScope = currentScope === 'current' ? 'all' : 'current';
+    onChange(newScope);
+  };
+  
   return (
     <div 
-      className={`card-navigator-search-scope-toggle ${searchScope === 'current' ? 'is-current' : 'is-all'}`}
-      onClick={onToggle}
-      title={searchScope === 'current' ? '현재 카드셋에서 검색' : '전체 노트에서 검색'}
+      className={`card-navigator-search-scope-toggle ${currentScope === 'current' ? 'is-current' : 'is-all'} ${disabled ? 'disabled' : ''}`}
+      onClick={handleToggle}
+      title={currentScope === 'current' ? '현재 카드셋에서 검색' : '전체 노트에서 검색'}
     >
-      {searchScope === 'current' ? (
+      {currentScope === 'current' ? (
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect width="18" height="18" x="3" y="3" rx="2"/>
             <circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>

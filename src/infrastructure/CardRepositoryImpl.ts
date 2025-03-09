@@ -1,8 +1,8 @@
 import { ICard } from '../domain/card/Card';
 import { ICardRepository } from '../domain/card/CardRepository';
-import { ICardFactory } from '../domain/card/CardFactory';
-import { IObsidianAdapter } from './ObsidianAdapter';
-import { TFile } from 'obsidian';
+import { ICardFactory, CardFactory } from '../domain/card/CardFactory';
+import { IObsidianAdapter, ObsidianAdapter } from './ObsidianAdapter';
+import { TFile, App } from 'obsidian';
 import { TimerUtil } from './TimerUtil';
 
 /**
@@ -26,9 +26,22 @@ export class CardRepositoryImpl implements ICardRepository {
   private cacheHitCount = 0;
   private cacheMissCount = 0;
   
-  constructor(obsidianAdapter: IObsidianAdapter, cardFactory: ICardFactory) {
-    this.obsidianAdapter = obsidianAdapter;
-    this.cardFactory = cardFactory;
+  /**
+   * 생성자
+   * @param app Obsidian App 객체 또는 ObsidianAdapter 객체
+   * @param cardFactory 카드 팩토리 (선택 사항)
+   */
+  constructor(app: App | IObsidianAdapter, cardFactory?: ICardFactory) {
+    // app이 ObsidianAdapter인지 확인
+    if ('getAllMarkdownFiles' in app) {
+      this.obsidianAdapter = app as IObsidianAdapter;
+    } else {
+      // app이 App 객체인 경우 ObsidianAdapter 생성
+      this.obsidianAdapter = new ObsidianAdapter(app as App);
+    }
+    
+    // cardFactory가 제공되지 않은 경우 새로 생성
+    this.cardFactory = cardFactory || new CardFactory(this.obsidianAdapter);
   }
   
   async getAllCards(): Promise<ICard[]> {
@@ -107,13 +120,33 @@ export class CardRepositoryImpl implements ICardRepository {
     }
     
     // 파일 내용 가져오기 (캐시 사용)
-    const content = await this.getFileContent(file);
+    let content = await this.getFileContent(file);
     
     // 프론트매터 가져오기
     const frontmatter = this.obsidianAdapter.getFileFrontmatter(file);
     
+    // 프론트매터 제거 (---로 시작하고 ---로 끝나는 부분)
+    const frontmatterRegex = /^---\s*\n[\s\S]*?\n---\s*\n/;
+    content = content.replace(frontmatterRegex, '').trim();
+    
+    // 첫 번째 헤더 추출
+    let firstHeader = '';
+    const headerRegex = /^#+\s+(.+)$/m;
+    const headerMatch = content.match(headerRegex);
+    if (headerMatch && headerMatch[1]) {
+      firstHeader = headerMatch[1].trim();
+    }
+    
     // 파일 이름에서 제목 추출
-    const title = file.basename;
+    let title = file.basename;
+    
+    // 플러그인 설정 가져오기
+    const settings = this.obsidianAdapter.getPluginSettings();
+    
+    // titleSource 설정에 따라 title 값 설정
+    if (settings && settings.titleSource === 'firstheader' && firstHeader) {
+      title = firstHeader;
+    }
     
     // 메타데이터 캐시에서 태그 추출
     const cache = this.obsidianAdapter.getMetadataCache().getFileCache(file);
@@ -136,46 +169,9 @@ export class CardRepositoryImpl implements ICardRepository {
       else if (Array.isArray(cache.frontmatter.tags)) {
         frontmatterTags = cache.frontmatter.tags;
       }
-      // 단일 값인 경우
-      else {
-        frontmatterTags = [String(cache.frontmatter.tags)];
-      }
       
-      // 프론트매터 태그 정규화 및 추가
-      for (const tag of frontmatterTags) {
-        const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
-        if (!tags.includes(normalizedTag)) {
-          tags.push(normalizedTag);
-          console.log(`[CardRepositoryImpl] 파일 ${file.path}에서 프론트매터 태그 추가: ${normalizedTag}`);
-        }
-      }
-    }
-    
-    // 단수형 tag 속성도 처리
-    if (cache?.frontmatter && cache.frontmatter.tag) {
-      let frontmatterTags: string[] = [];
-      
-      // 문자열인 경우 쉼표로 구분된 목록일 수 있음
-      if (typeof cache.frontmatter.tag === 'string') {
-        frontmatterTags = cache.frontmatter.tag.split(',').map(t => t.trim());
-      } 
-      // 배열인 경우
-      else if (Array.isArray(cache.frontmatter.tag)) {
-        frontmatterTags = cache.frontmatter.tag;
-      }
-      // 단일 값인 경우
-      else {
-        frontmatterTags = [String(cache.frontmatter.tag)];
-      }
-      
-      // 프론트매터 태그 정규화 및 추가
-      for (const tag of frontmatterTags) {
-        const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
-        if (!tags.includes(normalizedTag)) {
-          tags.push(normalizedTag);
-          console.log(`[CardRepositoryImpl] 파일 ${file.path}에서 프론트매터 tag 추가: ${normalizedTag}`);
-        }
-      }
+      // 태그 병합
+      tags = [...new Set([...tags, ...frontmatterTags])];
     }
     
     // 카드 생성
@@ -183,11 +179,12 @@ export class CardRepositoryImpl implements ICardRepository {
       path,
       title,
       content,
-      tags,
+      tags.map(tag => tag.startsWith('#') ? tag.substring(1) : tag), // # 제거
       path,
-      file.stat.ctime,
-      file.stat.mtime,
-      frontmatter || {}
+      file.stat?.ctime || Date.now(),
+      file.stat?.mtime || Date.now(),
+      frontmatter || undefined, // null을 undefined로 변환
+      firstHeader
     );
     
     // 카드 캐시에 저장

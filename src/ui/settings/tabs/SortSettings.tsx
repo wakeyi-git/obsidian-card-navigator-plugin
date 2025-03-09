@@ -1,24 +1,34 @@
-import React from 'react';
-import { ISettingsTabProps } from '../types/SettingsTypes';
+import React, { useState, useEffect } from 'react';
+import CardNavigatorPlugin from '../../../main';
 import SettingItem from '../components/SettingItem';
 
 /**
  * 정렬 설정 탭 컴포넌트
  */
-const SortSettings: React.FC<ISettingsTabProps> = ({ settings, onChange }) => {
-  const { 
-    sortBy = 'filename', 
-    sortOrder = 'asc', 
-    customSortKey = '' 
-  } = settings;
+const SortSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => {
+  const settings = plugin.settings;
+  const [showCustomSortKey, setShowCustomSortKey] = useState<boolean>(settings.sortBy === 'custom');
+  
+  // 설정 변경 핸들러
+  const onChange = async (key: string, value: any) => {
+    // @ts-ignore
+    plugin.settings[key] = value;
+    await plugin.saveSettings();
+  };
+  
+  // sortBy 변경 시 커스텀 정렬 키 표시 여부 업데이트
+  useEffect(() => {
+    setShowCustomSortKey(settings.sortBy === 'custom');
+  }, [settings.sortBy]);
   
   return (
-    <div className="card-navigator-setting-group">
-      <h3>정렬 설정</h3>
-      
-      <SettingItem label="정렬 기준">
+    <>
+      <SettingItem 
+        label="정렬 기준" 
+        description="카드를 정렬할 기준을 선택합니다."
+      >
         <select
-          value={sortBy}
+          value={settings.sortBy || 'filename'}
           onChange={(e) => onChange('sortBy', e.target.value)}
         >
           <option value="filename">파일 이름</option>
@@ -28,42 +38,60 @@ const SortSettings: React.FC<ISettingsTabProps> = ({ settings, onChange }) => {
         </select>
       </SettingItem>
       
-      {sortBy === 'custom' && (
-        <SettingItem label="사용자 지정 정렬 키">
+      {showCustomSortKey && (
+        <SettingItem 
+          label="사용자 지정 정렬 키" 
+          description="프론트매터에서 사용할 정렬 키를 입력합니다."
+        >
           <input
             type="text"
-            value={customSortKey}
+            value={settings.customSortKey || ''}
             onChange={(e) => onChange('customSortKey', e.target.value)}
-            placeholder="프론트매터 키 (예: priority, order)"
+            placeholder="프론트매터 키 (예: order, priority)"
           />
         </SettingItem>
       )}
       
-      <SettingItem label="정렬 순서">
-        <div className="card-navigator-radio-group">
-          <label className="card-navigator-radio">
-            <input
-              type="radio"
-              name="sortOrder"
-              value="asc"
-              checked={sortOrder === 'asc'}
-              onChange={() => onChange('sortOrder', 'asc')}
-            />
-            <span>오름차순 (A→Z, 과거→현재)</span>
-          </label>
-          <label className="card-navigator-radio">
-            <input
-              type="radio"
-              name="sortOrder"
-              value="desc"
-              checked={sortOrder === 'desc'}
-              onChange={() => onChange('sortOrder', 'desc')}
-            />
-            <span>내림차순 (Z→A, 현재→과거)</span>
-          </label>
-        </div>
+      <SettingItem 
+        label="정렬 순서" 
+        description="카드 정렬 순서를 선택합니다."
+      >
+        <select
+          value={settings.sortOrder || 'asc'}
+          onChange={(e) => onChange('sortOrder', e.target.value)}
+        >
+          <option value="asc">오름차순 (A→Z, 과거→현재)</option>
+          <option value="desc">내림차순 (Z→A, 현재→과거)</option>
+        </select>
       </SettingItem>
-    </div>
+      
+      <SettingItem 
+        label="태그 정렬 기준" 
+        description="태그 모드에서 태그를 정렬할 기준을 선택합니다."
+      >
+        <select
+          value={settings.tagSortBy || 'name'}
+          onChange={(e) => onChange('tagSortBy', e.target.value)}
+        >
+          <option value="name">이름</option>
+          <option value="count">카드 개수</option>
+        </select>
+      </SettingItem>
+      
+      <SettingItem 
+        label="폴더 정렬 기준" 
+        description="폴더 모드에서 폴더를 정렬할 기준을 선택합니다."
+      >
+        <select
+          value={settings.folderSortBy || 'name'}
+          onChange={(e) => onChange('folderSortBy', e.target.value)}
+        >
+          <option value="name">이름</option>
+          <option value="count">카드 개수</option>
+          <option value="path">경로</option>
+        </select>
+      </SettingItem>
+    </>
   );
 };
 

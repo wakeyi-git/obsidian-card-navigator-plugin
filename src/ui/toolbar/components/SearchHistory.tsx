@@ -1,11 +1,8 @@
 import React, { forwardRef, useEffect } from 'react';
 
 interface SearchHistoryProps {
-  searchHistory: string[];
-  isVisible: boolean;
-  onItemClick: (query: string) => void;
-  onClearHistory?: () => void;
-  onClose?: () => void;
+  items: string[];
+  onSelect: (query: string) => void;
 }
 
 /**
@@ -32,24 +29,8 @@ const getSearchType = (query: string): string => {
  * 검색 기록 컴포넌트
  */
 const SearchHistory = forwardRef<HTMLDivElement, SearchHistoryProps>(
-  ({ searchHistory, isVisible, onItemClick, onClearHistory, onClose }, ref) => {
-    useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (!isVisible) return;
-        
-        if (e.key === 'Escape' && onClose) {
-          e.preventDefault();
-          onClose();
-        }
-      };
-      
-      document.addEventListener('keydown', handleKeyDown);
-      return () => {
-        document.removeEventListener('keydown', handleKeyDown);
-      };
-    }, [isVisible, onClose]);
-    
-    if (!isVisible || searchHistory.length === 0) {
+  ({ items, onSelect }, ref) => {
+    if (items.length === 0) {
       return null;
     }
 
@@ -63,22 +44,13 @@ const SearchHistory = forwardRef<HTMLDivElement, SearchHistoryProps>(
       >
         <div className="card-navigator-search-history-header">
           <span>최근 검색어</span>
-          {onClearHistory && (
-            <span 
-              className="card-navigator-search-history-clear"
-              onClick={onClearHistory}
-              title="검색 기록 삭제"
-            >
-              모두 삭제
-            </span>
-          )}
         </div>
         <div className="card-navigator-search-history-list">
-          {searchHistory.map((query, index) => (
+          {items.map((query, index) => (
             <div 
               key={index} 
               className="card-navigator-search-history-item"
-              onClick={() => onItemClick(query)}
+              onClick={() => onSelect(query)}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>

@@ -1,14 +1,81 @@
 import { App } from 'obsidian';
 import { PresetData } from '../domain/preset/Preset';
+import { ModeType } from '../domain/mode/Mode';
 
 /**
  * 플러그인 설정 인터페이스
  */
 export interface CardNavigatorSettings {
-  defaultMode: 'folder' | 'tag';
+  // 기본 설정
+  defaultMode: ModeType;
   defaultLayout: 'grid' | 'masonry';
+  includeSubfolders: boolean;
+  defaultCardSet: string;
+  isCardSetFixed: boolean;
+  defaultSearchScope?: 'all' | 'current';
+  tagCaseSensitive?: boolean;
+  
+  // 카드 설정
   cardWidth: number;
   cardHeight: number;
+  cardHeaderContent?: string[] | string;
+  cardBodyContent?: string[] | string;
+  cardFooterContent?: string[] | string;
+  cardHeaderFrontmatterKey?: string;
+  cardBodyFrontmatterKey?: string;
+  cardFooterFrontmatterKey?: string;
+  renderingMode?: string;
+  titleSource?: 'filename' | 'firstheader';
+  includeFrontmatterInContent?: boolean;
+  includeFirstHeaderInContent?: boolean;
+  limitContentLength?: boolean;
+  contentMaxLength?: number;
+  
+  // 카드 스타일 설정
+  normalCardBgColor?: string;
+  activeCardBgColor?: string;
+  focusedCardBgColor?: string;
+  headerBgColor?: string;
+  bodyBgColor?: string;
+  footerBgColor?: string;
+  headerFontSize?: number;
+  bodyFontSize?: number;
+  footerFontSize?: number;
+  
+  // 테두리 스타일 설정
+  normalCardBorderStyle?: string;
+  normalCardBorderColor?: string;
+  normalCardBorderWidth?: number;
+  normalCardBorderRadius?: number;
+  
+  activeCardBorderStyle?: string;
+  activeCardBorderColor?: string;
+  activeCardBorderWidth?: number;
+  activeCardBorderRadius?: number;
+  
+  focusedCardBorderStyle?: string;
+  focusedCardBorderColor?: string;
+  focusedCardBorderWidth?: number;
+  focusedCardBorderRadius?: number;
+  
+  headerBorderStyle?: string;
+  headerBorderColor?: string;
+  headerBorderWidth?: number;
+  headerBorderRadius?: number;
+  
+  bodyBorderStyle?: string;
+  bodyBorderColor?: string;
+  bodyBorderWidth?: number;
+  bodyBorderRadius?: number;
+  
+  footerBorderStyle?: string;
+  footerBorderColor?: string;
+  footerBorderWidth?: number;
+  footerBorderRadius?: number;
+  
+  // 검색 설정
+  tagModeSearchOptions?: string[];
+  folderModeSearchOptions?: string[];
   priorityTags: string[];
   priorityFolders: string[];
   presets: PresetData[];
@@ -22,8 +89,13 @@ export interface CardNavigatorSettings {
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {
   defaultMode: 'folder',
   defaultLayout: 'grid',
+  includeSubfolders: true,
+  defaultCardSet: '',
+  isCardSetFixed: false,
   cardWidth: 300,
   cardHeight: 200,
+  limitContentLength: true,
+  contentMaxLength: 200,
   priorityTags: [],
   priorityFolders: [],
   presets: [],
@@ -172,7 +244,7 @@ export class Storage implements IStorage {
    * 기본 모드 저장
    * @param mode 모드 타입
    */
-  async saveDefaultMode(mode: 'folder' | 'tag'): Promise<void> {
+  async saveDefaultMode(mode: ModeType): Promise<void> {
     const settings = await this.loadSettings();
     settings.defaultMode = mode;
     await this.saveSettings(settings);

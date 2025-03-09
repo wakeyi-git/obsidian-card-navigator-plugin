@@ -2,15 +2,20 @@ import React, { useState, useEffect } from 'react';
 
 interface DatePickerProps {
   onSelect: (date: string) => void;
-  onClose: () => void;
+  type: 'start' | 'end';
   isRangeMode: boolean;
-  dateType: 'start' | 'end';
+  onRangeModeToggle: () => void;
 }
 
 /**
  * 날짜 선택기 컴포넌트
  */
-const DatePicker: React.FC<DatePickerProps> = ({ onSelect, onClose, isRangeMode, dateType }) => {
+const DatePicker: React.FC<DatePickerProps> = ({ 
+  onSelect, 
+  type, 
+  isRangeMode, 
+  onRangeModeToggle 
+}) => {
   const [date, setDate] = useState<string>('');
   const [showQuickOptions, setShowQuickOptions] = useState<boolean>(true);
 
@@ -36,7 +41,6 @@ const DatePicker: React.FC<DatePickerProps> = ({ onSelect, onClose, isRangeMode,
   const handleSelect = () => {
     if (date) {
       onSelect(date);
-      onClose();
     }
   };
 
@@ -74,13 +78,12 @@ const DatePicker: React.FC<DatePickerProps> = ({ onSelect, onClose, isRangeMode,
     
     // 빠른 옵션 선택 시 바로 적용
     onSelect(formattedDate);
-    onClose();
   };
 
   return (
     <div className="card-navigator-date-picker">
       <div className="card-navigator-date-picker-header">
-        {isRangeMode ? (dateType === 'start' ? '시작일 선택' : '종료일 선택') : '날짜 선택'}
+        {isRangeMode ? (type === 'start' ? '시작일 선택' : '종료일 선택') : '날짜 선택'}
       </div>
       
       {showQuickOptions && (
@@ -148,10 +151,10 @@ const DatePicker: React.FC<DatePickerProps> = ({ onSelect, onClose, isRangeMode,
         </button>
         <button
           type="button"
-          className="card-navigator-date-cancel-button"
-          onClick={onClose}
+          className="card-navigator-date-toggle-range-button"
+          onClick={onRangeModeToggle}
         >
-          취소
+          {isRangeMode ? '단일 날짜 모드' : '날짜 범위 모드'}
         </button>
         <button
           type="button"

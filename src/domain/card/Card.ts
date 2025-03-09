@@ -42,6 +42,127 @@ export interface ICard {
    * 프론트매터 데이터
    */
   frontmatter?: Record<string, any>;
+  
+  /**
+   * 첫 번째 헤더
+   */
+  firstHeader?: string;
+  
+  /**
+   * 카드 표시 설정
+   */
+  displaySettings?: ICardDisplaySettings;
+}
+
+/**
+ * 카드 표시 설정 인터페이스
+ * 카드의 표시 항목, 렌더링 방식, 스타일을 정의합니다.
+ */
+export interface ICardDisplaySettings {
+  /**
+   * 헤더 표시 항목
+   */
+  headerContent?: CardContentType;
+  
+  /**
+   * 본문 표시 항목
+   */
+  bodyContent?: CardContentType;
+  
+  /**
+   * 푸터 표시 항목
+   */
+  footerContent?: CardContentType;
+  
+  /**
+   * 렌더링 방식
+   */
+  renderingMode?: CardRenderingMode;
+  
+  /**
+   * 카드 스타일
+   */
+  cardStyle?: ICardStyle;
+}
+
+/**
+ * 카드 내용 타입
+ */
+export type CardContentType = 'filename' | 'title' | 'firstheader' | 'content' | 'tags' | 'path' | 'created' | 'modified' | 'frontmatter' | string;
+
+/**
+ * 카드 렌더링 방식
+ */
+export type CardRenderingMode = 'text' | 'html';
+
+/**
+ * 카드 스타일 인터페이스
+ */
+export interface ICardStyle {
+  /**
+   * 일반 카드 스타일
+   */
+  normal?: ICardElementStyle;
+  
+  /**
+   * 활성 카드 스타일
+   */
+  active?: ICardElementStyle;
+  
+  /**
+   * 포커스 카드 스타일
+   */
+  focused?: ICardElementStyle;
+  
+  /**
+   * 헤더 스타일
+   */
+  header?: ICardElementStyle;
+  
+  /**
+   * 본문 스타일
+   */
+  body?: ICardElementStyle;
+  
+  /**
+   * 푸터 스타일
+   */
+  footer?: ICardElementStyle;
+}
+
+/**
+ * 카드 요소 스타일 인터페이스
+ */
+export interface ICardElementStyle {
+  /**
+   * 배경색
+   */
+  backgroundColor?: string;
+  
+  /**
+   * 폰트 크기
+   */
+  fontSize?: number;
+  
+  /**
+   * 테두리 스타일
+   */
+  borderStyle?: string;
+  
+  /**
+   * 테두리 색상
+   */
+  borderColor?: string;
+  
+  /**
+   * 테두리 두께
+   */
+  borderWidth?: number;
+  
+  /**
+   * 테두리 반경
+   */
+  borderRadius?: number;
 }
 
 /**
@@ -57,6 +178,8 @@ export class Card implements ICard {
   created: number;
   modified: number;
   frontmatter?: Record<string, any>;
+  firstHeader?: string;
+  displaySettings?: ICardDisplaySettings;
   
   constructor(
     id: string,
@@ -66,7 +189,9 @@ export class Card implements ICard {
     path: string,
     created: number,
     modified: number,
-    frontmatter?: Record<string, any>
+    frontmatter?: Record<string, any>,
+    firstHeader?: string,
+    displaySettings?: ICardDisplaySettings
   ) {
     this.id = id;
     this.title = title;
@@ -76,6 +201,8 @@ export class Card implements ICard {
     this.created = created;
     this.modified = modified;
     this.frontmatter = frontmatter;
+    this.firstHeader = firstHeader;
+    this.displaySettings = displaySettings;
   }
   
   /**
@@ -103,5 +230,16 @@ export class Card implements ICard {
    */
   removeTag(tag: string): void {
     this.tags = this.tags.filter(t => t !== tag);
+  }
+  
+  /**
+   * 카드 표시 설정 업데이트
+   * @param displaySettings 새 표시 설정
+   */
+  updateDisplaySettings(displaySettings: ICardDisplaySettings): void {
+    this.displaySettings = {
+      ...this.displaySettings,
+      ...displaySettings
+    };
   }
 } 

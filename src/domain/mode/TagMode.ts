@@ -1,6 +1,6 @@
 import { App, TFile, CachedMetadata, HeadingCache, BlockCache } from 'obsidian';
 import { Mode, ModeType } from './Mode';
-import { ICardSet } from '../cardset/CardSet';
+import { ICard } from '../card/Card';
 
 /**
  * 태그 모드 클래스
@@ -8,29 +8,11 @@ import { ICardSet } from '../cardset/CardSet';
  */
 export class TagMode extends Mode {
   private app: App;
-  private isFixed = false; // 태그 고정 여부
   private tagCaseSensitive = false; // 대소문자 구분 여부
   
   constructor(app: App) {
     super('tag');
     this.app = app;
-  }
-  
-  /**
-   * 태그 고정 여부 설정
-   * @param isFixed 고정 여부
-   */
-  setFixed(isFixed: boolean): void {
-    this.isFixed = isFixed;
-    console.log(`[TagMode] 태그 고정 여부 변경: ${isFixed}`);
-  }
-  
-  /**
-   * 태그 고정 여부 확인
-   * @returns 고정 여부
-   */
-  isTagFixed(): boolean {
-    return this.isFixed;
   }
   
   /**
@@ -81,25 +63,21 @@ export class TagMode extends Mode {
   
   /**
    * 내부용 카드 세트 객체 생성 메서드
-   * ICardSet 객체 배열을 생성합니다.
-   * @returns ICardSet 객체 배열
+   * 태그 기반 카드 세트 정보 객체 배열을 생성합니다.
+   * @returns 태그 정보 객체 배열
    */
-  async getCardSetObjects(): Promise<ICardSet[]> {
-    const cardSets: ICardSet[] = [];
+  async getCardSetObjects(): Promise<{id: string, name: string, type: string, mode: string, path: string}[]> {
+    const cardSets: {id: string, name: string, type: string, mode: string, path: string}[] = [];
     const tags = await this.getCardSets();
     
     // 태그를 기반으로 카드 세트 생성
     for (const tag of tags) {
-      const cardSet: ICardSet = {
+      const cardSet = {
         id: tag,
         name: tag,
         type: 'tag',
         mode: 'tag',
-        path: tag,
-        includeSubfolders: false,
-        isFixed: false,
-        getCards: async () => [],
-        update: () => {}
+        path: tag
       };
       cardSets.push(cardSet);
     }
@@ -250,151 +228,66 @@ export class TagMode extends Mode {
   
   /**
    * 파일 목록 가져오기
-   * 현재 선택된 태그가 있는 파일 목록을 가져옵니다.
+   * 현재 선택된 태그가 포함된 파일 목록을 가져옵니다.
    */
   async getFiles(): Promise<string[]> {
     if (!this.currentCardSet) return [];
-    return await this.getFilesWithCurrentTag(this.currentCardSet);
+    return this.getFilesWithCurrentTag(this.currentCardSet);
   }
   
   /**
-   * 파일에서 모든 태그 가져오기
-   * 인라인 태그와 프론트매터 태그를 모두 가져옵니다.
+   * 파일의 모든 태그 가져오기
+   * 파일의 프론트매터와 인라인 태그를 모두 가져옵니다.
    * @param file 파일
    * @returns 태그 목록
    */
   async getAllTagsFromFile(file: TFile): Promise<string[]> {
-    const tags: string[] = [];
-    const cache = this.app.metadataCache.getFileCache(file);
+    const tagSet = new Set<string>();
     
-    if (!cache) return tags;
-    
-    // 인라인 태그 추가
-    if (cache.tags) {
-      for (const tag of cache.tags) {
-        if (!tags.includes(tag.tag)) {
-          tags.push(tag.tag);
-          console.log(`[TagMode] 파일 ${file.path}에서 인라인 태그 추가: ${tag.tag}`);
-        }
+    try {
+      // 파일 캐시 가져오기
+      const cache = this.app.metadataCache.getFileCache(file);
+      
+      if (!cache) {
+        return [];
       }
-    }
-    
-    // 블록 참조 태그 추가
-    if (cache.blocks) {
-      for (const blockId in cache.blocks) {
-        const block = cache.blocks[blockId];
-        // @ts-ignore - Obsidian API에서 BlockCache에 tags 속성이 있지만 타입 정의에 없음
-        if (block.tags) {
-          // @ts-ignore
-          for (const tag of block.tags) {
-            if (!tags.includes(tag)) {
-              tags.push(tag);
-              console.log(`[TagMode] 파일 ${file.path}에서 블록 태그 추가: ${tag}`);
-            }
-          }
-        }
-      }
-    }
-    
-    // 헤딩 태그 추가
-    if (cache.headings) {
-      for (const heading of cache.headings) {
-        // @ts-ignore - Obsidian API에서 HeadingCache에 tags 속성이 있지만 타입 정의에 없음
-        if (heading.tags) {
-          // @ts-ignore
-          for (const tag of heading.tags) {
-            if (!tags.includes(tag)) {
-              tags.push(tag);
-              console.log(`[TagMode] 파일 ${file.path}에서 헤딩 태그 추가: ${tag}`);
-            }
-          }
-        }
-      }
-    }
-    
-    // 프론트매터 태그 추가
-    if (cache.frontmatter) {
-      // tags 속성 처리 (복수형)
-      if (cache.frontmatter.tags) {
-        let frontmatterTags: string[] = [];
+      
+      // 1. 프론트매터 태그 처리
+      if (cache.frontmatter && cache.frontmatter.tags) {
+        const frontmatterTags = cache.frontmatter.tags;
         
-        // 문자열인 경우 쉼표로 구분된 목록일 수 있음
-        if (typeof cache.frontmatter.tags === 'string') {
-          frontmatterTags = cache.frontmatter.tags.split(',').map(t => t.trim());
-        } 
-        // 배열인 경우
-        else if (Array.isArray(cache.frontmatter.tags)) {
-          frontmatterTags = cache.frontmatter.tags;
-        }
-        // 기타 타입인 경우 문자열로 변환
-        else {
-          frontmatterTags = [String(cache.frontmatter.tags)];
-        }
-        
-        for (const tag of frontmatterTags) {
-          // 프론트매터 태그는 # 없을 수 있으므로 정규화
-          const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
-          if (!tags.includes(normalizedTag)) {
-            tags.push(normalizedTag);
-            console.log(`[TagMode] 파일 ${file.path}에서 프론트매터 tags 추가: ${normalizedTag}`);
+        if (Array.isArray(frontmatterTags)) {
+          // 배열 형태의 태그
+          for (const tag of frontmatterTags) {
+            const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
+            tagSet.add(normalizedTag);
+          }
+        } else if (typeof frontmatterTags === 'string') {
+          // 쉼표로 구분된 문자열 형태의 태그
+          const tags = frontmatterTags.split(',').map(t => t.trim());
+          for (const tag of tags) {
+            const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
+            tagSet.add(normalizedTag);
           }
         }
       }
       
-      // tag 속성 처리 (단수형)
-      if (cache.frontmatter.tag) {
-        let frontmatterTags: string[] = [];
-        
-        // 문자열인 경우 쉼표로 구분된 목록일 수 있음
-        if (typeof cache.frontmatter.tag === 'string') {
-          frontmatterTags = cache.frontmatter.tag.split(',').map(t => t.trim());
-        } 
-        // 배열인 경우
-        else if (Array.isArray(cache.frontmatter.tag)) {
-          frontmatterTags = cache.frontmatter.tag;
-        }
-        // 기타 타입인 경우 문자열로 변환
-        else {
-          frontmatterTags = [String(cache.frontmatter.tag)];
-        }
-        
-        for (const tag of frontmatterTags) {
-          // 프론트매터 태그는 # 없을 수 있으므로 정규화
-          const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
-          if (!tags.includes(normalizedTag)) {
-            tags.push(normalizedTag);
-            console.log(`[TagMode] 파일 ${file.path}에서 프론트매터 tag 추가: ${normalizedTag}`);
+      // 2. 인라인 태그 처리
+      if (cache.tags) {
+        for (const tagObj of cache.tags) {
+          // 코드 블록 내의 태그는 제외
+          const fileContent = await this.app.vault.read(file);
+          if (!this.isTagInCodeBlock(fileContent, tagObj.tag)) {
+            tagSet.add(tagObj.tag);
           }
         }
       }
+      
+      return Array.from(tagSet);
+    } catch (error) {
+      console.error(`[TagMode] 파일 ${file.path}의 태그 가져오기 오류:`, error);
+      return [];
     }
-    
-    // 파일 내용에서 직접 태그 추출 (메타데이터 캐시가 불완전한 경우를 대비)
-    if (tags.length === 0) {
-      try {
-        const content = await this.app.vault.read(file);
-        if (content) {
-          // 정규식으로 태그 추출 (#태그 형식)
-          const tagRegex = /#[a-zA-Z가-힣0-9_\-/]+/g;
-          const matches = content.match(tagRegex);
-          
-          if (matches) {
-            for (const tag of matches) {
-              // 코드 블록 내의 태그는 제외
-              const isInCodeBlock = this.isTagInCodeBlock(content, tag);
-              if (!isInCodeBlock && !tags.includes(tag)) {
-                tags.push(tag);
-                console.log(`[TagMode] 파일 ${file.path}에서 직접 추출한 태그 추가: ${tag}`);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error(`[TagMode] 파일 ${file.path}에서 태그 직접 추출 중 오류:`, error);
-      }
-    }
-    
-    return tags;
   }
   
   /**
@@ -404,15 +297,64 @@ export class TagMode extends Mode {
    * @returns 코드 블록 내 여부
    */
   private isTagInCodeBlock(content: string, tag: string): boolean {
-    // 태그 위치 찾기
-    const tagIndex = content.indexOf(tag);
-    if (tagIndex === -1) return false;
+    // 코드 블록 내의 태그인지 확인하는 로직
+    // 간단한 구현: 코드 블록 시작과 끝 사이에 태그가 있는지 확인
+    const codeBlockRegex = /```[\s\S]*?```/g;
+    let match;
     
-    // 태그 이전 내용에서 코드 블록 시작 개수 세기
-    const contentBeforeTag = content.substring(0, tagIndex);
-    const codeBlockStarts = (contentBeforeTag.match(/```/g) || []).length;
+    while ((match = codeBlockRegex.exec(content)) !== null) {
+      if (match[0].includes(tag)) {
+        return true;
+      }
+    }
     
-    // 코드 블록 시작 개수가 짝수면 코드 블록 밖, 홀수면 코드 블록 안
-    return codeBlockStarts % 2 === 1;
+    return false;
+  }
+  
+  /**
+   * 현재 태그 가져오기
+   * @returns 현재 선택된 태그
+   */
+  getCurrentTag(): string {
+    return this.currentCardSet || '';
+  }
+  
+  /**
+   * 태그 고정 여부 확인
+   * @returns 태그 고정 여부
+   */
+  isFixedTag(): boolean {
+    return this.isFixed();
+  }
+  
+  /**
+   * 태그 설정
+   * @param tag 설정할 태그
+   * @param isFixed 고정 여부
+   */
+  setTag(tag: string, isFixed: boolean = false): void {
+    this.currentCardSet = tag;
+    this.setFixed(isFixed);
+    console.log(`[TagMode] 태그 설정: ${tag}, 고정=${isFixed}`);
+  }
+  
+  /**
+   * 카드 목록 가져오기
+   * 현재 선택된 태그의 카드 목록을 가져옵니다.
+   * @param cardService 카드 서비스
+   * @returns 카드 목록
+   */
+  async getCards(cardService: any): Promise<ICard[]> {
+    const filePaths = await this.getFiles();
+    return await cardService.getCardsByPaths(filePaths);
+  }
+  
+  /**
+   * 설정 초기화
+   * 현재 모드의 설정을 초기화합니다.
+   */
+  reset(): void {
+    super.reset();
+    this.tagCaseSensitive = false;
   }
 }

@@ -1,4 +1,5 @@
 import React, { ReactNode } from 'react';
+import './SettingItem.css';
 
 interface ISettingItemProps {
   label: string;
@@ -13,12 +14,12 @@ const SettingItem: React.FC<ISettingItemProps> = ({ label, description, children
   return (
     <div className="card-navigator-setting-item">
       <label>{label}</label>
-      <div className="card-navigator-setting-control">
-        {children}
-      </div>
       {description && (
         <p className="card-navigator-setting-description">{description}</p>
       )}
+      <div className="card-navigator-setting-control">
+        {children}
+      </div>
     </div>
   );
 };

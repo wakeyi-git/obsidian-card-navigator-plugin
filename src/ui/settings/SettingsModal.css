@@ -16,8 +16,8 @@
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   width: 90%;
-  max-width: 600px;
-  max-height: 90vh;
+  max-width: 700px;
+  height: 600px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -51,22 +51,22 @@
 }
 
 .card-navigator-x-icon {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
 }
 
 .card-navigator-modal-close:hover {
   background-color: var(--background-modifier-hover);
-  color: var(--text-normal);
 }
 
-.card-navigator-modal-tabs {
+/* 탭 네비게이션 스타일 - 모달과 설정 탭 공통 */
+.card-navigator-modal-tabs,
+.card-navigator-tabs {
   display: flex;
   border-bottom: 1px solid var(--background-modifier-border);
-  background-color: var(--background-secondary);
+  overflow-x: auto;
+  padding: 0 16px;
 }
 
 .card-navigator-tab {
@@ -78,6 +78,7 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
+  white-space: nowrap;
   transition: all 0.2s ease;
 }
 
@@ -89,34 +90,56 @@
 .card-navigator-tab.active {
   color: var(--text-accent);
   border-bottom-color: var(--text-accent);
-  background-color: var(--background-primary);
+  font-weight: 600;
 }
 
+/* 모달 컨텐츠 영역 - 고정 높이 설정 */
 .card-navigator-modal-content {
-  padding: 16px;
+  padding: 20px;
   overflow-y: auto;
-  flex: 1;
+  flex-grow: 1;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 설정 탭 컨텐츠 영역 */
+.card-navigator-tab-content {
+  padding: 20px;
+  overflow-y: auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
 }
 
 .card-navigator-setting-group {
-  margin-bottom: 24px;
+  margin-bottom: 30px;
 }
 
 .card-navigator-setting-group:last-child {
-  margin-bottom: 0;
+  margin-bottom: 10px;
 }
 
 .card-navigator-setting-group h3 {
-  margin: 0 0 16px 0;
+  margin: 0 0 8px 0;
   font-size: 16px;
   font-weight: 600;
   color: var(--text-normal);
-  padding-bottom: 8px;
   border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 8px;
+}
+
+.card-navigator-setting-group h4 {
+  margin: 16px 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-normal);
 }
 
 .card-navigator-setting-item {
-  margin-bottom: 16px;
+  margin-bottom: 24px;
+  width: 100%;
 }
 
 .card-navigator-setting-item:last-child {
@@ -125,48 +148,174 @@
 
 .card-navigator-setting-item label {
   display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-accent);
   margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-normal);
+}
+
+.card-navigator-setting-description {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.card-navigator-section-content > .card-navigator-setting-description {
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-setting-control {
+  margin-bottom: 8px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
 }
 
 .card-navigator-setting-item select,
 .card-navigator-setting-item input[type="text"],
 .card-navigator-setting-item input[type="number"] {
-  width: 100%;
-  padding: 8px 12px;
+  background-color: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
-  background-color: var(--background-secondary);
-  color: var(--text-normal);
+  padding: 8px 12px;
   font-size: 14px;
+  color: var(--text-normal);
+  width: 100%;
+  transition: all 0.2s ease;
+  line-height: 1.5;
+  min-height: 32px;
 }
 
 .card-navigator-setting-item select:focus,
 .card-navigator-setting-item input[type="text"]:focus,
 .card-navigator-setting-item input[type="number"]:focus {
+  border-color: var(--text-accent);
+  box-shadow: 0 0 0 2px rgba(var(--text-accent-rgb), 0.2);
   outline: none;
-  border-color: var(--interactive-accent);
 }
 
-.card-navigator-setting-description {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--text-muted);
+/* 드롭다운 스타일 개선 */
+.card-navigator-setting-item select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  line-height: 1.6;
+  height: auto;
 }
 
+.card-navigator-setting-item select option {
+  padding: 8px;
+  line-height: 1.6;
+}
+
+/* 슬라이더 스타일 개선 */
+.card-navigator-setting-item input[type="range"] {
+  width: 100%;
+  height: 6px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--background-modifier-border);
+  border-radius: 3px;
+  outline: none;
+  margin: 10px 0;
+}
+
+.card-navigator-setting-item input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--text-accent);
+  cursor: pointer;
+  border: none;
+}
+
+.card-navigator-setting-item input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--text-accent);
+  cursor: pointer;
+  border: none;
+}
+
+/* 버튼 스타일 개선 */
+.card-navigator-setting-item button {
+  padding: 8px 12px;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  color: var(--text-normal);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1.5;
+  min-height: 32px;
+}
+
+.card-navigator-setting-item button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+/* 토글 스위치 컨테이너 */
+.card-navigator-setting-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+/* 토글 스위치 아이템 */
+.card-navigator-setting-toggle-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background-color: var(--background-secondary-alt);
+  margin-bottom: 8px;
+}
+
+.card-navigator-setting-toggle-item:last-child {
+  margin-bottom: 0;
+}
+
+.card-navigator-setting-toggle-item:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-setting-toggle-item span {
+  font-size: 14px;
+  color: var(--text-normal);
+  font-weight: 500;
+}
+
+/* 토글 스위치 */
 .card-navigator-toggle {
   position: relative;
   display: inline-block;
-  width: 40px;
-  height: 20px;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
 }
 
 .card-navigator-toggle input {
   opacity: 0;
   width: 0;
   height: 0;
+  margin: 0;
+  padding: 0;
 }
 
 .card-navigator-toggle-slider {
@@ -177,24 +326,25 @@
   right: 0;
   bottom: 0;
   background-color: var(--background-modifier-border);
-  transition: .4s;
-  border-radius: 20px;
+  transition: .3s;
+  border-radius: 24px;
 }
 
 .card-navigator-toggle-slider:before {
   position: absolute;
   content: "";
-  height: 16px;
-  width: 16px;
-  left: 2px;
-  bottom: 2px;
-  background-color: var(--background-primary);
-  transition: .4s;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
   border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .card-navigator-toggle input:checked + .card-navigator-toggle-slider {
-  background-color: var(--interactive-accent);
+  background-color: var(--text-accent);
 }
 
 .card-navigator-toggle input:checked + .card-navigator-toggle-slider:before {
@@ -215,116 +365,196 @@
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.card-navigator-button.primary {
-  background-color: var(--interactive-accent);
-  color: var(--text-on-accent);
+  transition: all 0.2s ease;
   border: none;
 }
 
+.card-navigator-button.primary {
+  background-color: var(--text-accent);
+  color: var(--text-on-accent);
+}
+
 .card-navigator-button.primary:hover {
-  background-color: var(--interactive-accent-hover);
+  background-color: var(--text-accent-hover);
 }
 
 .card-navigator-button.secondary {
   background-color: var(--background-secondary);
   color: var(--text-normal);
-  border: 1px solid var(--background-modifier-border);
 }
 
 .card-navigator-button.secondary:hover {
   background-color: var(--background-modifier-hover);
 }
 
-/* 레이아웃 옵션 스타일 */
+/* 카드 스타일 설정 관련 */
+.card-navigator-subtabs {
+  display: flex;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  overflow-x: auto;
+}
+
+.card-navigator-subtab {
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.card-navigator-subtab:hover {
+  color: var(--text-normal);
+}
+
+.card-navigator-subtab.active {
+  color: var(--text-accent);
+  border-bottom-color: var(--text-accent);
+  font-weight: 500;
+}
+
+.card-navigator-style-section {
+  padding: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background-color: var(--background-secondary);
+}
+
+.card-navigator-style-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-normal);
+}
+
+/* 모드 버튼 스타일 */
+.card-navigator-mode-toggle {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.card-navigator-mode-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  color: var(--text-normal);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.card-navigator-mode-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-mode-button.active {
+  background-color: var(--text-accent);
+  color: var(--text-on-accent);
+  border-color: var(--text-accent);
+}
+
+/* 레이아웃 설정 관련 */
 .card-navigator-layout-options {
   display: flex;
   gap: 16px;
-  margin-top: 16px;
+  margin-bottom: 16px;
 }
 
 .card-navigator-layout-option {
   flex: 1;
   border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
-  padding: 16px;
+  border-radius: 4px;
+  padding: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
+  text-align: center;
 }
 
 .card-navigator-layout-option:hover {
-  background-color: var(--background-secondary);
+  border-color: var(--text-accent);
 }
 
 .card-navigator-layout-option.active {
-  border-color: var(--interactive-accent);
-  background-color: var(--background-secondary);
+  border-color: var(--text-accent);
+  background-color: rgba(var(--text-accent-rgb), 0.1);
 }
 
 .card-navigator-layout-preview {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 12px;
-  height: 120px;
+  height: 100px;
+  margin-bottom: 8px;
+  display: flex;
+  gap: 4px;
 }
 
 .card-navigator-layout-preview.grid {
-  grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  flex-wrap: wrap;
+  align-content: flex-start;
 }
 
 .card-navigator-layout-preview.masonry {
-  grid-template-columns: repeat(2, 1fr);
-  grid-auto-rows: 30px;
+  flex-direction: column;
+  flex-wrap: wrap;
 }
 
 .card-navigator-layout-preview .preview-card {
   background-color: var(--background-modifier-border);
-  border-radius: 4px;
+  border-radius: 2px;
+  flex: 1 0 calc(33.333% - 4px);
+  min-height: 30px;
 }
 
 .card-navigator-layout-preview.masonry .preview-card.tall {
-  grid-row: span 2;
+  height: 60px;
 }
 
 .card-navigator-layout-preview.masonry .preview-card.medium {
-  grid-row: span 1.5;
+  height: 40px;
 }
 
 .card-navigator-layout-name {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   color: var(--text-normal);
 }
 
 .card-navigator-layout-description {
   font-size: 12px;
   color: var(--text-muted);
-  margin: 0;
 }
 
-/* 프리셋 관리 스타일 */
+/* 프리셋 설정 관련 */
 .card-navigator-presets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-bottom: 16px;
-  max-height: 200px;
+  max-height: 300px;
   overflow-y: auto;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
 }
 
 .card-navigator-preset-item {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--background-modifier-border);
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background-color: var(--background-secondary);
 }
 
 .card-navigator-preset-item:last-child {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .card-navigator-preset-info {
@@ -335,11 +565,12 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--text-normal);
+  margin-bottom: 4px;
 }
 
 .card-navigator-preset-actions {
   display: flex;
-  gap: 8px;
+  gap: 4px;
 }
 
 .card-navigator-preset-button {
@@ -347,23 +578,22 @@
   border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.card-navigator-preset-button.apply {
-  background-color: var(--interactive-accent);
-  color: var(--text-on-accent);
+  transition: all 0.2s ease;
   border: none;
 }
 
+.card-navigator-preset-button.apply {
+  background-color: var(--text-accent);
+  color: var(--text-on-accent);
+}
+
 .card-navigator-preset-button.apply:hover {
-  background-color: var(--interactive-accent-hover);
+  background-color: var(--text-accent-hover);
 }
 
 .card-navigator-preset-button.delete {
   background-color: var(--background-modifier-error);
   color: var(--text-on-accent);
-  border: none;
 }
 
 .card-navigator-preset-button.delete:hover {
@@ -371,13 +601,12 @@
 }
 
 .card-navigator-preset-button.save {
-  background-color: var(--interactive-accent);
+  background-color: var(--background-modifier-success);
   color: var(--text-on-accent);
-  border: none;
 }
 
 .card-navigator-preset-button.save:hover {
-  background-color: var(--interactive-accent-hover);
+  background-color: var(--background-modifier-success-hover);
 }
 
 .card-navigator-preset-button.save:disabled {
@@ -387,38 +616,44 @@
 }
 
 .card-navigator-preset-empty {
-  padding: 16px;
   text-align: center;
+  padding: 16px;
   color: var(--text-muted);
-  font-size: 14px;
+  font-style: italic;
 }
 
 .card-navigator-preset-form {
   display: flex;
   gap: 8px;
+  margin-bottom: 16px;
 }
 
 .card-navigator-preset-input {
   flex: 1;
-  padding: 8px 12px;
+  background-color: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
-  background-color: var(--background-secondary);
-  color: var(--text-normal);
+  padding: 8px 12px;
   font-size: 14px;
+  color: var(--text-normal);
 }
 
 .card-navigator-preset-input:focus {
+  border-color: var(--text-accent);
+  box-shadow: 0 0 0 2px rgba(var(--text-accent-rgb), 0.2);
   outline: none;
-  border-color: var(--interactive-accent);
 }
 
-/* 모바일 대응 */
+/* 반응형 스타일 */
 @media (max-width: 768px) {
   .card-navigator-modal {
     width: 95%;
     max-width: none;
-    max-height: 95vh;
+    height: 90vh;
+  }
+  
+  .card-navigator-modal-content {
+    height: auto;
   }
   
   .card-navigator-layout-options {
@@ -430,6 +665,401 @@
   }
   
   .card-navigator-preset-button.save {
-    margin-top: 8px;
+    width: 100%;
   }
+}
+
+/* 체크박스 그룹 스타일 */
+.card-navigator-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.card-navigator-checkbox {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.card-navigator-checkbox:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-checkbox input[type="checkbox"] {
+  margin-right: 6px;
+}
+
+.card-navigator-checkbox span {
+  font-size: 13px;
+  color: var(--text-normal);
+}
+
+/* 슬라이더 컴포넌트 스타일 */
+.card-navigator-slider-with-value {
+  width: 100%;
+  margin: 8px 0;
+}
+
+.card-navigator-slider-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.card-navigator-slider-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-navigator-slider {
+  flex: 1;
+  height: 6px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--background-modifier-border);
+  border-radius: 3px;
+  outline: none;
+}
+
+.card-navigator-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--text-accent);
+  cursor: pointer;
+  border: none;
+}
+
+.card-navigator-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--text-accent);
+  cursor: pointer;
+  border: none;
+}
+
+.card-navigator-slider-value {
+  width: 60px;
+  text-align: center;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: var(--text-normal);
+}
+
+.card-navigator-slider-value:focus {
+  border-color: var(--text-accent);
+  outline: none;
+}
+
+/* 카드 미리보기 스타일 개선 */
+.card-navigator-preview-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 15px;
+  padding: 15px;
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  width: 100%;
+}
+
+.card-navigator-preview-sections {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+}
+
+.card-navigator-preview-card {
+  position: relative;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 4;
+}
+
+.card-navigator-preview-card:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.card-navigator-preview-header,
+.card-navigator-preview-body,
+.card-navigator-preview-footer {
+  position: relative;
+  transition: all 0.2s ease;
+  margin: 5px;
+  border-radius: 4px;
+}
+
+.card-navigator-preview-header:hover,
+.card-navigator-preview-body:hover,
+.card-navigator-preview-footer:hover {
+  filter: brightness(0.95);
+}
+
+.card-navigator-preview-card:active,
+.card-navigator-preview-header:active,
+.card-navigator-preview-body:active,
+.card-navigator-preview-footer:active {
+  filter: brightness(0.9);
+  box-shadow: inset 0 0 0 2px var(--text-accent);
+}
+
+.card-navigator-preview-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  border-radius: 4px;
+}
+
+.card-navigator-preview-help {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* 카드 미리보기 범례 */
+.card-navigator-preview-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.card-navigator-preview-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.card-navigator-preview-legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.card-navigator-preview-legend-color.border {
+  border: 2px dashed var(--text-accent);
+  background-color: transparent;
+}
+
+.card-navigator-preview-legend-color.background {
+  background-color: rgba(var(--text-accent-rgb), 0.1);
+}
+
+.card-navigator-preview-legend-color.header {
+  background-color: rgba(var(--text-accent-rgb), 0.2);
+}
+
+.card-navigator-preview-legend-color.body {
+  background-color: rgba(var(--text-accent-rgb), 0.2);
+}
+
+.card-navigator-preview-legend-color.footer {
+  background-color: rgba(var(--text-accent-rgb), 0.2);
+}
+
+/* 카드 설정 섹션 스타일 */
+.card-navigator-section-settings {
+  background-color: var(--background-secondary);
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 3px solid var(--text-accent);
+  margin-bottom: 15px;
+  width: 100%;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-navigator-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text-accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.card-navigator-section-title svg {
+  width: 18px;
+  height: 18px;
+}
+
+.card-navigator-section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-grow: 1;
+}
+
+/* 섹션 닫기 버튼 */
+.card-section-close-button {
+  position: absolute;
+  right: 0;
+  top: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.card-section-close-button:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.card-section-close-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 카드 설정 레이아웃 - 세로 배치 */
+.card-settings-full-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+}
+
+.card-settings-preview-area {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.card-settings-content-area {
+  width: 100%;
+  height: auto;
+  min-height: 300px;
+  padding-right: 10px;
+  padding-bottom: 20px;
+}
+
+/* 카드 미리보기 도움말 */
+.card-preview-help-list {
+  text-align: left;
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.card-preview-help-list li {
+  margin-bottom: 6px;
+}
+
+.card-preview-help-list strong {
+  color: var(--text-accent);
+}
+
+/* 반응형 레이아웃 */
+@media (max-width: 768px) {
+  .card-settings-full-layout {
+    flex-direction: column;
+  }
+  
+  .card-settings-preview-area {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+  
+  .card-settings-content-area {
+    padding-right: 0;
+  }
+}
+
+/* 도움말 예시 섹션 스타일 */
+.card-navigator-help-examples {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-help-examples h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-accent);
+}
+
+.card-navigator-help-examples p {
+  margin-bottom: 10px;
+}
+
+.card-navigator-help-examples ul {
+  margin-left: 15px;
+  margin-bottom: 15px;
+}
+
+.card-navigator-help-examples li {
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.card-navigator-preview-content-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--text-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+}
+
+.card-navigator-preview-content-button:hover {
+  background-color: var(--text-accent-hover, var(--text-accent));
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.card-navigator-preview-content-button.active {
+  background-color: var(--text-accent-hover, var(--text-accent));
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  transform: scale(1.05);
+}
+
+.card-navigator-preview-content-button svg {
+  color: white;
+  width: 20px;
+  height: 20px;
 } 

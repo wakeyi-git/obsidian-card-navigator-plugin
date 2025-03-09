@@ -5,7 +5,8 @@ export type ModeType = 'folder' | 'tag' | 'search';
 
 /**
  * 모드 인터페이스
- * 폴더 모드와 태그 모드의 공통 인터페이스를 정의합니다.
+ * 폴더 모드, 태그 모드, 검색 모드의 공통 인터페이스를 정의합니다.
+ * 모드는 카드셋을 구성하는 방식을 나타냅니다.
  */
 export interface IMode {
   /**
@@ -47,6 +48,20 @@ export interface IMode {
    * 현재 모드의 설정을 초기화합니다.
    */
   reset(): void;
+  
+  /**
+   * 고정 여부 설정
+   * 현재 모드의 카드셋 고정 여부를 설정합니다.
+   * @param isFixed 고정 여부
+   */
+  setFixed(isFixed: boolean): void;
+  
+  /**
+   * 고정 여부 확인
+   * 현재 모드의 카드셋 고정 여부를 확인합니다.
+   * @returns 고정 여부
+   */
+  isFixed(): boolean;
 }
 
 /**
@@ -56,6 +71,7 @@ export interface IMode {
 export abstract class Mode implements IMode {
   type: ModeType;
   currentCardSet: string | null = null;
+  protected isFixedValue = false;
   
   constructor(type: ModeType) {
     this.type = type;
@@ -87,5 +103,25 @@ export abstract class Mode implements IMode {
    */
   reset(): void {
     this.currentCardSet = null;
+    this.isFixedValue = false;
+  }
+  
+  /**
+   * 고정 여부 설정
+   * 현재 모드의 카드셋 고정 여부를 설정합니다.
+   * @param isFixed 고정 여부
+   */
+  setFixed(isFixed: boolean): void {
+    this.isFixedValue = isFixed;
+    console.log(`[Mode] ${this.type} 모드 고정 상태 변경: ${isFixed}`);
+  }
+  
+  /**
+   * 고정 여부 확인
+   * 현재 모드의 카드셋 고정 여부를 확인합니다.
+   * @returns 고정 여부
+   */
+  isFixed(): boolean {
+    return this.isFixedValue;
   }
 } 

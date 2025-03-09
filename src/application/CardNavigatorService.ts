@@ -1,10 +1,11 @@
-import { App } from 'obsidian';
+import { App, MarkdownRenderer } from 'obsidian';
 import { ICard } from '../domain/card/Card';
 import { ICardRepository } from '../domain/card/CardRepository';
 import { ModeType } from '../domain/mode/Mode';
 import { LayoutType } from '../domain/layout/Layout';
 import { IPreset } from '../domain/preset/Preset';
 import { SearchType } from '../domain/mode/SearchMode';
+import CardNavigatorPlugin from '../main';
 
 import { IModeService, ModeService } from './ModeService';
 import { ICardService, CardService } from './CardService';
@@ -49,7 +50,7 @@ export interface ICardNavigatorService {
    * 레이아웃 변경
    * @param type 변경할 레이아웃 타입
    */
-  changeLayout(type: LayoutType): void;
+  changeLayout(type: LayoutType): Promise<void>;
   
   /**
    * 프리셋 적용
@@ -75,19 +76,7 @@ export interface ICardNavigatorService {
    * 설정 가져오기
    * @returns 현재 설정
    */
-  getSettings(): Promise<{
-    cardWidth: number;
-    cardHeight: number;
-    priorityTags: string[];
-    priorityFolders: string[];
-    defaultMode: ModeType;
-    defaultLayout: LayoutType;
-    includeSubfolders: boolean;
-    defaultCardSet: string;
-    isCardSetFixed: boolean;
-    defaultSearchScope?: 'all' | 'current';
-    tagCaseSensitive?: boolean;
-  }>;
+  getSettings(): any;
   
   /**
    * 설정 업데이트
@@ -178,6 +167,27 @@ export interface ICardNavigatorService {
    * @returns Obsidian App 객체
    */
   getApp(): App;
+  
+  /**
+   * 현재 카드 목록 가져오기
+   * 마지막으로 로드된 카드 목록을 반환합니다.
+   * @returns 현재 카드 목록
+   */
+  getCurrentCards(): ICard[];
+  
+  /**
+   * 마크다운 렌더링
+   * 마크다운 텍스트를 HTML로 변환합니다.
+   * @param markdown 마크다운 텍스트
+   * @returns 변환된 HTML
+   */
+  renderMarkdown(markdown: string): string;
+  
+  /**
+   * 플러그인 인스턴스 가져오기
+   * @returns 플러그인 인스턴스
+   */
+  getPlugin(): CardNavigatorPlugin;
 }
 
 /**
@@ -194,6 +204,7 @@ export class CardNavigatorService implements ICardNavigatorService {
   private presetService: IPresetService;
   private filterService: IFilterService;
   private cardRepository: ICardRepository;
+  private plugin: CardNavigatorPlugin;
   
   // 성능 모니터링을 위한 카운터 추가
   private refreshCount = 0;
@@ -214,17 +225,18 @@ export class CardNavigatorService implements ICardNavigatorService {
   constructor(
     app: App,
     cardRepository: ICardRepository,
-    defaultModeType: ModeType = 'folder'
+    plugin: CardNavigatorPlugin
   ) {
     this.app = app;
     this.cardRepository = cardRepository;
+    this.plugin = plugin;
     
     // 서비스 초기화
     this.cardService = new CardService(app, cardRepository);
-    this.modeService = new ModeService(app, this.cardService, defaultModeType);
-    this.sortService = new SortService();
-    this.layoutService = new LayoutService();
-    this.presetService = new PresetService();
+    this.modeService = new ModeService(app, this.cardService, plugin.settings.defaultMode);
+    this.sortService = new SortService(plugin.settings);
+    this.layoutService = new LayoutService(plugin.settings);
+    this.presetService = new PresetService(plugin.settings);
     this.searchService = new SearchService(this.presetService, this.cardService, this.modeService, this);
     this.filterService = new FilterService();
   }
@@ -278,7 +290,7 @@ export class CardNavigatorService implements ICardNavigatorService {
       if (settings) {
         // 모드 서비스 설정 적용
         if (settings.defaultMode) {
-          this.modeService.changeMode(settings.defaultMode);
+          await this.modeService.changeMode(settings.defaultMode);
         }
         
         // 하위 폴더 포함 여부 설정
@@ -301,6 +313,13 @@ export class CardNavigatorService implements ICardNavigatorService {
           this.layoutService.changeLayoutType(settings.defaultLayout);
         }
       }
+      
+      // 모드 서비스 초기화 - 기본 카드 세트 설정
+      await this.modeService.initialize();
+      
+      // 현재 카드 세트 확인
+      const currentCardSet = this.modeService.getCurrentCardSet();
+      console.log(`[CardNavigatorService] 초기화 후 현재 카드 세트: ${currentCardSet || '없음'}`);
       
       console.log(`[CardNavigatorService] 서비스 초기화 완료`);
       this._initialized = true;
@@ -469,7 +488,7 @@ export class CardNavigatorService implements ICardNavigatorService {
     }
   }
   
-  changeLayout(type: LayoutType): void {
+  async changeLayout(type: LayoutType): Promise<void> {
     this.layoutService.changeLayoutType(type);
   }
   
@@ -569,60 +588,18 @@ export class CardNavigatorService implements ICardNavigatorService {
    * 설정 가져오기
    * @returns 현재 설정
    */
-  async getSettings(): Promise<{
-    cardWidth: number;
-    cardHeight: number;
-    priorityTags: string[];
-    priorityFolders: string[];
-    defaultMode: ModeType;
-    defaultLayout: LayoutType;
-    includeSubfolders: boolean;
-    defaultCardSet: string;
-    isCardSetFixed: boolean;
-    defaultSearchScope?: 'all' | 'current';
-    tagCaseSensitive?: boolean;
-  }> {
+  getSettings(): any {
     // 플러그인 인스턴스에서 설정 가져오기
     try {
-      const plugin = (this.app as any).plugins.plugins['card-navigator'];
-      
-      if (plugin) {
-        return {
-          cardWidth: plugin.settings.cardWidth,
-          cardHeight: plugin.settings.cardHeight,
-          priorityTags: plugin.settings.priorityTags || [],
-          priorityFolders: plugin.settings.priorityFolders || [],
-          defaultMode: plugin.settings.defaultMode || 'folder',
-          defaultLayout: plugin.settings.defaultLayout || 'grid',
-          includeSubfolders: plugin.settings.includeSubfolders,
-          defaultCardSet: plugin.settings.defaultCardSet || '/',
-          isCardSetFixed: plugin.settings.isCardSetFixed,
-          defaultSearchScope: plugin.settings.defaultSearchScope,
-          tagCaseSensitive: plugin.settings.tagCaseSensitive
-        };
-      } else {
-        console.warn('플러그인 인스턴스를 찾을 수 없어 현재 서비스 상태에서 설정을 구성합니다.');
+      if (this.plugin && this.plugin.settings) {
+        return this.plugin.settings;
       }
+      
+      return this.getDefaultSettings();
     } catch (error) {
-      console.error('설정을 가져오는 중 오류 발생:', error);
+      console.error('[CardNavigatorService] 설정 가져오기 오류:', error);
+      return this.getDefaultSettings();
     }
-    
-    // 플러그인 인스턴스를 찾지 못한 경우 기본 설정 반환
-    const { cardWidth, cardHeight, priorityTags, priorityFolders, defaultMode, defaultLayout, includeSubfolders, defaultCardSet, isCardSetFixed } = this.getDefaultSettings();
-    
-    return {
-      cardWidth,
-      cardHeight,
-      priorityTags,
-      priorityFolders,
-      defaultMode,
-      defaultLayout,
-      includeSubfolders,
-      defaultCardSet,
-      isCardSetFixed,
-      defaultSearchScope: 'current',
-      tagCaseSensitive: false
-    };
   }
   
   /**
@@ -829,5 +806,94 @@ export class CardNavigatorService implements ICardNavigatorService {
    */
   getApp(): App {
     return this.app;
+  }
+  
+  /**
+   * 현재 카드 목록 가져오기
+   * 마지막으로 로드된 카드 목록을 반환합니다.
+   * @returns 현재 카드 목록
+   */
+  getCurrentCards(): ICard[] {
+    return this._lastCards || [];
+  }
+  
+  /**
+   * 마크다운 렌더링
+   * 마크다운 텍스트를 HTML로 변환합니다.
+   * @param markdown 마크다운 텍스트
+   * @returns 변환된 HTML
+   */
+  renderMarkdown(markdown: string): string {
+    try {
+      // Obsidian의 MarkdownRenderer 사용
+      const element = document.createElement('div');
+      
+      // 비동기 함수이지만 동기적으로 처리하기 위해 임시 방편 사용
+      try {
+        // Obsidian API를 통해 마크다운 렌더링
+        // Component 객체 생성
+        const component = new (require('obsidian').Component)();
+        MarkdownRenderer.render(this.app, markdown, element, '', component);
+      } catch (renderError) {
+        console.error('Obsidian MarkdownRenderer 오류:', renderError);
+        
+        // 대체 방법으로 app.renderMarkdown 사용 시도
+        try {
+          // @ts-ignore - Obsidian API 타입 오류 무시
+          this.app.renderMarkdown(markdown, element, '', this);
+        } catch (appRenderError) {
+          console.error('app.renderMarkdown 오류:', appRenderError);
+          throw appRenderError; // 오류를 다시 던져서 기본 렌더링 로직으로 처리
+        }
+      }
+      
+      return element.innerHTML;
+    } catch (error) {
+      console.error('마크다운 렌더링 오류:', error);
+      
+      // 오류 발생 시 기본적인 마크다운 변환 로직 사용
+      // 헤더 변환 (# Header -> <h1>Header</h1>)
+      let html = markdown
+        .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+        .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+        .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+        .replace(/^#### (.*$)/gm, '<h4>$1</h4>')
+        .replace(/^##### (.*$)/gm, '<h5>$1</h5>')
+        .replace(/^###### (.*$)/gm, '<h6>$1</h6>');
+      
+      // 강조 변환 (**bold** -> <strong>bold</strong>)
+      html = html
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/~~(.*?)~~/g, '<del>$1</del>');
+      
+      // 링크 변환 ([text](url) -> <a href="url">text</a>)
+      html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>');
+      
+      // 이미지 변환 (![alt](url) -> <img src="url" alt="alt">)
+      html = html.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">');
+      
+      // 코드 블록 변환
+      html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+      
+      // 인라인 코드 변환
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+      
+      // 목록 변환 (- item -> <li>item</li>)
+      html = html.replace(/^- (.*$)/gm, '<li>$1</li>');
+      
+      // 단락 변환 (빈 줄로 구분된 텍스트 -> <p>text</p>)
+      html = html.replace(/^(?!<[hl]|<li|<pre)(.*$)/gm, '<p>$1</p>');
+      
+      return html;
+    }
+  }
+  
+  /**
+   * 플러그인 인스턴스 가져오기
+   * @returns 플러그인 인스턴스
+   */
+  getPlugin(): CardNavigatorPlugin {
+    return this.plugin;
   }
 } 

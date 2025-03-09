@@ -1,6 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import './Card.css';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
+import { ICard, ICardDisplaySettings, ICardStyle, ICardElementStyle } from '../../domain/card/Card';
+
+/**
+ * 내용 요약 함수
+ * @param text 원본 텍스트
+ * @param settings 설정
+ * @returns 요약된 텍스트
+ */
+const summarizeContent = (text: string, settings?: any): string => {
+  if (!text) return '';
+  
+  // 설정에서 본문 길이 제한 여부와 최대 길이 가져오기
+  const limitContentLength = settings?.limitContentLength !== undefined ? settings.limitContentLength : true;
+  const maxLength = settings?.contentMaxLength || 200;
+  
+  // 길이 제한이 비활성화되어 있거나 텍스트 길이가 최대 길이보다 작으면 원본 텍스트 반환
+  if (!limitContentLength || text.length <= maxLength) return text;
+  
+  // 내용 요약
+  return text.substring(0, maxLength) + '...';
+};
 
 /**
  * 카드 컴포넌트 속성 인터페이스
@@ -18,6 +39,11 @@ export interface ICardProps {
   searchQuery?: string;
   cardNavigatorService?: ICardNavigatorService;
   isActive?: boolean;
+  isFocused?: boolean;
+  firstHeader?: string;
+  frontmatter?: Record<string, any>;
+  displaySettings?: ICardDisplaySettings;
+  settings?: any;
   
   // 추가 속성
   onContextMenu?: (id: string, event: React.MouseEvent) => void;
@@ -46,6 +72,11 @@ const Card: React.FC<ICardProps> = ({
   searchQuery = '',
   cardNavigatorService,
   isActive = false,
+  isFocused = false,
+  firstHeader = '',
+  frontmatter = {},
+  displaySettings,
+  settings,
   onContextMenu,
   onDragStart,
   onDragEnd,
@@ -54,33 +85,214 @@ const Card: React.FC<ICardProps> = ({
   onDragEnter,
   onDragLeave,
 }) => {
-  const [highlightInfo, setHighlightInfo] = useState<{ text: string, positions: number[] }[]>([]);
-
-  // 검색어 강조 정보 가져오기
+  // 카드 상태
+  const [isHovered, setIsHovered] = useState(false);
+  const [cardContent, setCardContent] = useState<{
+    header: string;
+    body: string;
+    footer: string;
+  }>({
+    header: title,
+    body: summarizeContent(content, settings),
+    footer: tags.map(tag => `#${tag}`).join(' ')
+  });
+  
+  // 카드 스타일 상태
+  const [cardStyle, setCardStyle] = useState<React.CSSProperties>({});
+  const [headerStyle, setHeaderStyle] = useState<React.CSSProperties>({});
+  const [bodyStyle, setBodyStyle] = useState<React.CSSProperties>({});
+  const [footerStyle, setFooterStyle] = useState<React.CSSProperties>({});
+  
+  // 카드 내용 및 스타일 업데이트
   useEffect(() => {
-    try {
-      if (cardNavigatorService && searchQuery && cardNavigatorService.getSearchService().isSearchMode()) {
-        const card = {
-          id,
-          title,
-          content,
-          tags,
-          path: path || '',
-          created: created || Date.now(),
-          modified: modified || Date.now(),
-        };
-        
-        const info = cardNavigatorService.getSearchService().getHighlightInfo(card);
-        setHighlightInfo(info);
-      } else {
-        setHighlightInfo([]);
-      }
-    } catch (error) {
-      console.error('검색어 강조 정보 가져오기 중 오류 발생:', error);
-      setHighlightInfo([]);
+    updateCardContent();
+    updateCardStyles();
+  }, [
+    title, content, tags, displaySettings, settings,
+    isActive, isFocused, isHovered
+  ]);
+  
+  // 카드 내용 업데이트
+  const updateCardContent = () => {
+    if (!cardNavigatorService || !settings) {
+      setCardContent({
+        header: title,
+        body: summarizeContent(content, settings),
+        footer: tags.map(tag => `#${tag}`).join(' ')
+      });
+      return;
     }
-  }, [id, title, content, tags, path, created, modified, searchQuery, cardNavigatorService]);
-
+    
+    // 카드 객체 생성
+    const card: ICard = {
+      id,
+      title,
+      content,
+      tags,
+      path: path || '',
+      created: created || Date.now(),
+      modified: modified || Date.now(),
+      frontmatter,
+      firstHeader,
+      displaySettings
+    };
+    
+    try {
+      // 헤더 내용 가져오기
+      const headerContentSetting = settings.cardHeaderContent || ['filename'];
+      const headerContent = cardNavigatorService.getCardService().getCardContent(
+        card,
+        headerContentSetting,
+        settings
+      );
+      
+      // 본문 내용 가져오기
+      const bodyContentSetting = settings.cardBodyContent || ['content'];
+      const bodyContent = cardNavigatorService.getCardService().getCardContent(
+        card,
+        bodyContentSetting,
+        settings
+      );
+      
+      // 푸터 내용 가져오기
+      const footerContentSetting = settings.cardFooterContent || ['tags'];
+      const footerContent = cardNavigatorService.getCardService().getCardContent(
+        card,
+        footerContentSetting,
+        settings
+      );
+      
+      setCardContent({
+        header: headerContent || title,
+        body: summarizeContent(bodyContent || content, settings),
+        footer: footerContent || tags.map(tag => `#${tag}`).join(' ')
+      });
+    } catch (error) {
+      console.error('카드 내용 업데이트 오류:', error);
+      setCardContent({
+        header: title,
+        body: summarizeContent(content, settings),
+        footer: tags.map(tag => `#${tag}`).join(' ')
+      });
+    }
+  };
+  
+  // 카드 스타일 업데이트
+  const updateCardStyles = () => {
+    if (!settings) return;
+    
+    // 카드 상태에 따른 스타일 결정
+    let cardStateStyle: ICardElementStyle = {};
+    
+    if (isFocused && displaySettings?.cardStyle?.focused) {
+      cardStateStyle = displaySettings.cardStyle.focused;
+    } else if (isActive && displaySettings?.cardStyle?.active) {
+      cardStateStyle = displaySettings.cardStyle.active;
+    } else if (displaySettings?.cardStyle?.normal) {
+      cardStateStyle = displaySettings.cardStyle.normal;
+    } else {
+      // 설정에서 스타일 가져오기
+      if (isFocused) {
+        cardStateStyle = {
+          backgroundColor: settings.focusedCardBgColor,
+          borderStyle: settings.focusedCardBorderStyle,
+          borderColor: settings.focusedCardBorderColor,
+          borderWidth: settings.focusedCardBorderWidth,
+          borderRadius: settings.focusedCardBorderRadius
+        };
+      } else if (isActive) {
+        cardStateStyle = {
+          backgroundColor: settings.activeCardBgColor,
+          borderStyle: settings.activeCardBorderStyle,
+          borderColor: settings.activeCardBorderColor,
+          borderWidth: settings.activeCardBorderWidth,
+          borderRadius: settings.activeCardBorderRadius
+        };
+      } else {
+        cardStateStyle = {
+          backgroundColor: settings.normalCardBgColor,
+          borderStyle: settings.normalCardBorderStyle,
+          borderColor: settings.normalCardBorderColor,
+          borderWidth: settings.normalCardBorderWidth,
+          borderRadius: settings.normalCardBorderRadius
+        };
+      }
+    }
+    
+    // 카드 스타일 설정 - CSS 클래스로 기본 스타일을 적용하고 인라인 스타일로 사용자 설정 적용
+    setCardStyle({
+      ...style,
+      backgroundColor: cardStateStyle.backgroundColor,
+      borderStyle: cardStateStyle.borderStyle,
+      borderColor: cardStateStyle.borderColor,
+      borderWidth: cardStateStyle.borderWidth ? `${cardStateStyle.borderWidth}px` : undefined,
+      borderRadius: cardStateStyle.borderRadius ? `${cardStateStyle.borderRadius}px` : undefined,
+      // 기본 스타일은 CSS에서 처리하므로 여기서는 사용자 설정만 적용
+    });
+    
+    // 헤더 스타일 설정
+    const headerStyleObj = displaySettings?.cardStyle?.header || {
+      backgroundColor: settings.headerBgColor,
+      fontSize: settings.headerFontSize,
+      borderStyle: settings.headerBorderStyle,
+      borderColor: settings.headerBorderColor,
+      borderWidth: settings.headerBorderWidth,
+      borderRadius: settings.headerBorderRadius
+    };
+    
+    setHeaderStyle({
+      backgroundColor: headerStyleObj.backgroundColor,
+      fontSize: headerStyleObj.fontSize ? `${headerStyleObj.fontSize}px` : undefined,
+      borderStyle: headerStyleObj.borderStyle,
+      borderColor: headerStyleObj.borderColor,
+      borderWidth: headerStyleObj.borderWidth ? `${headerStyleObj.borderWidth}px` : undefined,
+      borderRadius: headerStyleObj.borderRadius ? `${headerStyleObj.borderRadius}px` : undefined,
+      // 기본 스타일은 CSS에서 처리
+    });
+    
+    // 본문 스타일 설정
+    const bodyStyleObj = displaySettings?.cardStyle?.body || {
+      backgroundColor: settings.bodyBgColor,
+      fontSize: settings.bodyFontSize,
+      borderStyle: settings.bodyBorderStyle,
+      borderColor: settings.bodyBorderColor,
+      borderWidth: settings.bodyBorderWidth,
+      borderRadius: settings.bodyBorderRadius
+    };
+    
+    setBodyStyle({
+      backgroundColor: bodyStyleObj.backgroundColor,
+      fontSize: bodyStyleObj.fontSize ? `${bodyStyleObj.fontSize}px` : undefined,
+      borderStyle: bodyStyleObj.borderStyle,
+      borderColor: bodyStyleObj.borderColor,
+      borderWidth: bodyStyleObj.borderWidth ? `${bodyStyleObj.borderWidth}px` : undefined,
+      borderRadius: bodyStyleObj.borderRadius ? `${bodyStyleObj.borderRadius}px` : undefined,
+      // 기본 스타일은 CSS에서 처리
+    });
+    
+    // 푸터 스타일 설정
+    const footerStyleObj = displaySettings?.cardStyle?.footer || {
+      backgroundColor: settings.footerBgColor,
+      fontSize: settings.footerFontSize,
+      borderStyle: settings.footerBorderStyle,
+      borderColor: settings.footerBorderColor,
+      borderWidth: settings.footerBorderWidth,
+      borderRadius: settings.footerBorderRadius
+    };
+    
+    setFooterStyle({
+      backgroundColor: footerStyleObj.backgroundColor,
+      fontSize: footerStyleObj.fontSize ? `${footerStyleObj.fontSize}px` : undefined,
+      borderStyle: footerStyleObj.borderStyle,
+      borderColor: footerStyleObj.borderColor,
+      borderWidth: footerStyleObj.borderWidth ? `${footerStyleObj.borderWidth}px` : undefined,
+      borderRadius: footerStyleObj.borderRadius ? `${footerStyleObj.borderRadius}px` : undefined,
+      color: 'var(--text-muted)',
+      // 기본 스타일은 CSS에서 처리
+    });
+  };
+  
+  // 이벤트 핸들러
   const handleClick = () => {
     if (onClick) {
       onClick(id);
@@ -128,179 +340,254 @@ const Card: React.FC<ICardProps> = ({
       onDragLeave(id, event);
     }
   };
-
-  // 날짜 포맷팅 함수
+  
+  // 날짜 포맷팅
   const formatDate = (timestamp?: number) => {
     if (!timestamp) return '';
-    return new Date(timestamp).toLocaleDateString('ko-KR', {
+    
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('ko-KR', {
       year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
-
-  // 내용 요약 (150자 제한)
-  const summarizeContent = (text: string) => {
-    if (text.length <= 150) return text;
-    return text.substring(0, 150) + '...';
-  };
-
-  /**
-   * 텍스트에서 검색어 강조 처리
-   * @param text 원본 텍스트
-   * @param searchInfo 검색어 및 위치 정보
-   * @returns 강조 처리된 JSX 요소
-   */
+  
+  // 텍스트 하이라이팅
   const highlightText = (text: string, searchInfo: { text: string, positions: number[] }[]): JSX.Element => {
     if (!searchInfo || searchInfo.length === 0 || !text) {
       return <>{text}</>;
     }
     
-    // 모든 검색어 정보를 하나의 배열로 통합
-    const allPositions: { start: number; end: number; text: string }[] = [];
+    // 검색어 위치 정보 정렬
+    const positions = searchInfo.flatMap(info => 
+      info.positions.map(pos => ({ pos, length: info.text.length }))
+    ).sort((a, b) => a.pos - b.pos);
     
-    searchInfo.forEach(info => {
-      info.positions.forEach(pos => {
-        allPositions.push({
-          start: pos,
-          end: pos + info.text.length,
-          text: info.text
-        });
-      });
+    // 겹치는 위치 제거
+    const filteredPositions = positions.filter((pos, index) => {
+      if (index === 0) return true;
+      const prevPos = positions[index - 1];
+      return pos.pos >= prevPos.pos + prevPos.length;
     });
     
-    // 위치 정보를 시작 위치 기준으로 정렬
-    allPositions.sort((a, b) => a.start - b.start);
-    
-    // 겹치는 위치 정보 병합
-    const mergedPositions: { start: number; end: number; text: string }[] = [];
-    
-    allPositions.forEach(pos => {
-      const lastPos = mergedPositions[mergedPositions.length - 1];
-      
-      if (lastPos && pos.start <= lastPos.end) {
-        // 겹치는 경우 병합
-        lastPos.end = Math.max(lastPos.end, pos.end);
-        lastPos.text = text.substring(lastPos.start, lastPos.end);
-      } else {
-        // 겹치지 않는 경우 추가
-        mergedPositions.push({ ...pos });
-      }
-    });
-    
-    // 강조 처리된 JSX 요소 생성
-    const result: JSX.Element[] = [];
+    // 텍스트 분할
+    const parts: JSX.Element[] = [];
     let lastIndex = 0;
     
-    mergedPositions.forEach((pos, index) => {
-      // 강조 구간 이전 텍스트
-      if (pos.start > lastIndex) {
-        result.push(
-          <span key={`text-${index}`}>
-            {text.substring(lastIndex, pos.start)}
+    filteredPositions.forEach((pos, index) => {
+      // 검색어 앞 부분
+      if (pos.pos > lastIndex) {
+        parts.push(
+          <span key={`text-${index}-before`}>
+            {text.substring(lastIndex, pos.pos)}
           </span>
         );
       }
       
-      // 강조 구간
-      result.push(
-        <span key={`highlight-${index}`} className="card-navigator-highlight">
-          {pos.text}
+      // 검색어 부분
+      parts.push(
+        <span key={`highlight-${index}`} className="card-highlight">
+          {text.substring(pos.pos, pos.pos + pos.length)}
         </span>
       );
       
-      lastIndex = pos.end;
+      lastIndex = pos.pos + pos.length;
     });
     
-    // 마지막 강조 구간 이후 텍스트
+    // 마지막 부분
     if (lastIndex < text.length) {
-      result.push(
-        <span key={`text-last`}>
+      parts.push(
+        <span key="text-last">
           {text.substring(lastIndex)}
         </span>
       );
     }
     
-    return <>{result}</>;
+    return <>{parts}</>;
   };
-
-  // 복합 검색어 하이라이트 함수
-  const highlightComplexText = (text: string, highlightInfo: { text: string, positions: number[] }[]) => {
-    if (!highlightInfo.length) return text;
+  
+  // 렌더링 방식에 따른 내용 표시
+  const renderContent = (content: string, isMarkdown: boolean) => {
+    if (!content) return null;
     
-    // 모든 검색어의 위치를 수집
-    const allPositions: { start: number; end: number; text: string }[] = [];
-    
-    highlightInfo.forEach(info => {
-      info.positions.forEach(pos => {
-        allPositions.push({
-          start: pos,
-          end: pos + info.text.length,
-          text: info.text
-        });
-      });
-    });
-    
-    // 위치를 시작 위치 기준으로 정렬
-    allPositions.sort((a, b) => a.start - b.start);
-    
-    // 겹치는 위치 병합
-    const mergedPositions: { start: number; end: number; text: string }[] = [];
-    
-    allPositions.forEach(pos => {
-      const last = mergedPositions[mergedPositions.length - 1];
-      
-      if (last && pos.start <= last.end) {
-        // 겹치는 경우 병합
-        last.end = Math.max(last.end, pos.end);
-        last.text = text.substring(last.start, last.end);
-      } else {
-        // 겹치지 않는 경우 추가
-        mergedPositions.push(pos);
-      }
-    });
-    
-    // 텍스트 분할 및 하이라이트 적용
-    const result: React.ReactNode[] = [];
-    let lastEnd = 0;
-    
-    mergedPositions.forEach((pos, index) => {
-      // 하이라이트 전 텍스트 추가
-      if (pos.start > lastEnd) {
-        result.push(text.substring(lastEnd, pos.start));
-      }
-      
-      // 하이라이트 텍스트 추가
-      result.push(
-        <span key={`highlight-${index}`} className="card-navigator-highlight">
-          {text.substring(pos.start, pos.end)}
-        </span>
+    // HTML 태그가 포함된 경우 (프론트매터 표시 등)
+    if (content.includes('<div class="card-frontmatter">')) {
+      return (
+        <div className="card-text-content" dangerouslySetInnerHTML={{ __html: content }} />
       );
-      
-      lastEnd = pos.end;
-    });
-    
-    // 마지막 하이라이트 이후 텍스트 추가
-    if (lastEnd < text.length) {
-      result.push(text.substring(lastEnd));
     }
     
-    return result;
+    // 줄바꿈으로 내용 분리
+    const contentItems = content.split('\n');
+    
+    if (isMarkdown) {
+      // 마크다운 렌더링 (HTML 변환)
+      return (
+        <div className="card-markdown-content">
+          <div dangerouslySetInnerHTML={{ 
+            __html: cardNavigatorService?.renderMarkdown(contentItems.join('\n')) || contentItems.join('\n') 
+          }} />
+        </div>
+      );
+    } else {
+      // 일반 텍스트 렌더링
+      return (
+        <div className="card-text-content">
+          {contentItems.map((item, index) => (
+            <div key={index} className="card-content-item">
+              {searchQuery ? highlightText(item, []) : item}
+            </div>
+          ))}
+        </div>
+      );
+    }
   };
-
-  // 요약된 내용에 검색어 하이라이트 적용
-  const highlightedContent = highlightInfo.length > 0 ? 
-    highlightComplexText(summarizeContent(content), highlightInfo) : 
-    (searchQuery ? highlightText(summarizeContent(content), highlightInfo) : summarizeContent(content));
-
-  // 제목에 검색어 하이라이트 적용
-  const highlightedTitle = highlightInfo.length > 0 ? 
-    highlightComplexText(title, highlightInfo) : 
-    (searchQuery ? highlightText(title, highlightInfo) : title);
-
+  
+  // 마크다운 렌더링 여부 확인
+  const isMarkdownRendering = settings?.renderingMode === 'html';
+  
+  // 컴포넌트 마운트 시 스타일 추가
+  useEffect(() => {
+    // 스타일 요소 생성
+    const style = document.createElement('style');
+    style.textContent = `
+      .card {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        min-height: 100px;
+        max-height: 400px;
+        padding: 8px;
+        overflow: hidden;
+      }
+      
+      .card:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+      }
+      
+      .card.active {
+        border-color: var(--interactive-accent);
+      }
+      
+      .card.focused {
+        border-color: var(--text-accent);
+        box-shadow: 0 0 0 2px var(--text-accent-hover);
+      }
+      
+      .card-header, .card-body, .card-footer {
+        padding: 12px;
+        overflow: hidden;
+      }
+      
+      .card-header {
+        font-weight: 600;
+        border-bottom: 1px solid var(--background-modifier-border);
+        padding: 4px 6px;
+      }
+      
+      .card-body {
+        flex: 1;
+        min-height: 60px;
+        max-height: 200px;
+        overflow-y: auto;
+        padding: 6px;
+      }
+      
+      .card-footer {
+        font-size: 0.85em;
+        color: var(--text-muted);
+        border-top: 1px solid var(--background-modifier-border);
+        padding: 4px 6px;
+      }
+      
+      .card-content-item {
+        margin-bottom: 4px;
+        padding-bottom: 4px;
+        border-bottom: 1px dashed var(--background-modifier-border);
+      }
+      
+      .card-content-item:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+      
+      .card-highlight {
+        background-color: rgba(var(--interactive-accent-rgb), 0.3);
+        border-radius: 2px;
+        padding: 0 2px;
+      }
+      
+      /* 프론트매터 스타일 */
+      .card-text-content {
+        white-space: pre-wrap;
+      }
+      
+      .card-text-content:has(+ .card-content-item) {
+        margin-bottom: 4px;
+      }
+      
+      /* 마크다운 내용 스타일 조정 */
+      .card-markdown-content p {
+        margin: 0 0 4px 0;
+        line-height: 1.4;
+      }
+      
+      .card-markdown-content ul, 
+      .card-markdown-content ol {
+        margin: 0 0 4px 0;
+        padding-left: 16px;
+      }
+      
+      .card-markdown-content li {
+        margin: 0 0 2px 0;
+      }
+      
+      .card-markdown-content a.tag {
+        padding: 1px 4px;
+        margin: 0 2px;
+      }
+      
+      /* 첫 번째 헤더 스타일 */
+      .card-first-header {
+        font-size: 1.1em;
+        font-weight: bold;
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid var(--background-modifier-border);
+        color: var(--text-accent);
+      }
+      
+      /* 프론트매터 헤더 스타일 */
+      .card-frontmatter {
+        background-color: var(--background-secondary);
+        border-radius: 4px;
+        padding: 8px;
+        font-family: monospace;
+        font-size: 0.9em;
+        margin-bottom: 8px;
+      }
+      
+      .card-content-main {
+        margin-top: 8px;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+  
   return (
     <div
-      className={`card-navigator-card ${isActive ? 'card-navigator-card-active' : ''}`}
+      className={`card ${isActive ? 'active' : ''} ${isFocused ? 'focused' : ''}`}
+      style={cardStyle}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       draggable={true}
@@ -310,37 +597,25 @@ const Card: React.FC<ICardProps> = ({
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
-      style={style}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="card-navigator-card-header">
-        <h3 className="card-navigator-card-title" title={title}>
-          {highlightedTitle}
-        </h3>
+      {/* 카드 헤더 */}
+      <div className="card-header" style={headerStyle}>
+        {renderContent(cardContent.header, isMarkdownRendering)}
       </div>
       
-      <div className="card-navigator-card-content">
-        {highlightedContent}
+      {/* 카드 본문 */}
+      <div className="card-body" style={bodyStyle}>
+        {renderContent(cardContent.body, isMarkdownRendering)}
       </div>
       
-      <div className="card-navigator-card-footer">
-        {tags.length > 0 && (
-          <div className="card-navigator-card-tags">
-            {tags.map((tag, index) => (
-              <span key={index} className="card-navigator-card-tag">
-                {highlightInfo.length > 0 ? highlightComplexText(tag, highlightInfo) : (searchQuery ? highlightText(tag, highlightInfo) : tag)}
-              </span>
-            ))}
-          </div>
-        )}
-        
-        <div className="card-navigator-card-meta">
-          {path && <span className="card-navigator-card-path" title={path}>{path}</span>}
-          {created && <span className="card-navigator-card-created">생성: {formatDate(created)}</span>}
-          {modified && <span className="card-navigator-card-modified">수정: {formatDate(modified)}</span>}
-        </div>
+      {/* 카드 푸터 */}
+      <div className="card-footer" style={footerStyle}>
+        {renderContent(cardContent.footer, isMarkdownRendering)}
       </div>
     </div>
   );
 };
 
-export default Card; 
+export default Card;

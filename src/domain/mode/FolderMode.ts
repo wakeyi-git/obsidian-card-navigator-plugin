@@ -1,5 +1,6 @@
-import { App, TFolder } from 'obsidian';
+import { App, TFile, TFolder } from 'obsidian';
 import { Mode, ModeType } from './Mode';
+import { ICard } from '../card/Card';
 
 /**
  * 폴더 모드 클래스
@@ -8,7 +9,6 @@ import { Mode, ModeType } from './Mode';
 export class FolderMode extends Mode {
   private app: App;
   private includeSubfolders = true;
-  private isFixed = false;
   private folderCache: string[] | null = null;
   private lastFolderCacheTime = 0;
   private FOLDER_CACHE_TTL = 5000; // 5초 캐시 유효 시간
@@ -16,23 +16,6 @@ export class FolderMode extends Mode {
   constructor(app: App) {
     super('folder');
     this.app = app;
-  }
-  
-  /**
-   * 폴더 고정 여부 설정
-   * @param isFixed 고정 여부
-   */
-  setFixed(isFixed: boolean): void {
-    this.isFixed = isFixed;
-    console.log(`[FolderMode] 폴더 고정 상태 변경: ${isFixed}`);
-  }
-  
-  /**
-   * 폴더 고정 여부 확인
-   * @returns 고정 여부
-   */
-  isFolderFixed(): boolean {
-    return this.isFixed;
   }
   
   /**
@@ -159,5 +142,52 @@ export class FolderMode extends Mode {
     }
     
     return files;
+  }
+  
+  /**
+   * 현재 폴더 가져오기
+   * @returns 현재 선택된 폴더
+   */
+  getCurrentFolder(): string {
+    return this.currentCardSet || '';
+  }
+  
+  /**
+   * 폴더 고정 여부 확인
+   * @returns 폴더 고정 여부
+   */
+  isFixedFolder(): boolean {
+    return this.isFixed();
+  }
+  
+  /**
+   * 폴더 설정
+   * @param folder 설정할 폴더
+   * @param isFixed 고정 여부
+   */
+  setFolder(folder: string, isFixed: boolean = false): void {
+    this.currentCardSet = folder;
+    this.setFixed(isFixed);
+    console.log(`[FolderMode] 폴더 설정: ${folder}, 고정=${isFixed}`);
+  }
+  
+  /**
+   * 카드 목록 가져오기
+   * 현재 선택된 폴더의 카드 목록을 가져옵니다.
+   * @param cardService 카드 서비스
+   * @returns 카드 목록
+   */
+  async getCards(cardService: any): Promise<ICard[]> {
+    const filePaths = await this.getFiles();
+    return await cardService.getCardsByPaths(filePaths);
+  }
+  
+  /**
+   * 설정 초기화
+   * 현재 모드의 설정을 초기화합니다.
+   */
+  reset(): void {
+    super.reset();
+    this.includeSubfolders = true;
   }
 } 

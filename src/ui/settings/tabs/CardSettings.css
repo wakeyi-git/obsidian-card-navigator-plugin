@@ -1,0 +1,177 @@
+/* 카드 설정 탭 스타일 - 미니멀 디자인 */
+.card-settings-full-layout {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  height: 100%;
+  padding: 12px;
+}
+
+/* 미리보기 영역 */
+.card-settings-preview-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--background-primary);
+  border-radius: 6px;
+  padding: 16px;
+  max-width: 400px;
+}
+
+/* 설정 영역 */
+.card-settings-content-area {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background-primary);
+  border-radius: 6px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+/* 카드 미리보기 컨테이너 */
+.card-preview-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.card-preview-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-normal);
+  text-align: center;
+}
+
+/* 도움말 영역 */
+.card-navigator-preview-help {
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  padding: 12px;
+  margin-top: 16px;
+  width: 100%;
+}
+
+.card-navigator-preview-help p {
+  font-weight: 500;
+  margin-bottom: 8px;
+  text-align: center;
+  color: var(--text-normal);
+}
+
+.card-preview-help-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.card-preview-help-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.card-preview-help-list li:last-child {
+  border-bottom: none;
+}
+
+/* 설정 도움말 그리드 */
+.card-settings-help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.card-settings-help-item {
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.card-settings-help-item h4 {
+  margin: 0 0 6px 0;
+  font-size: 0.9rem;
+  color: var(--text-normal);
+}
+
+.card-settings-help-item p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* 섹션 설정 */
+.card-navigator-section-settings {
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.card-navigator-section-title {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background-color: var(--background-secondary-alt);
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+.card-navigator-section-title svg {
+  margin-right: 8px;
+  color: var(--text-normal);
+}
+
+.card-navigator-section-content {
+  padding: 16px;
+}
+
+.card-navigator-help-examples {
+  background-color: var(--background-secondary);
+  border-radius: 4px;
+  padding: 12px;
+  margin-top: 16px;
+}
+
+.card-navigator-help-examples h4 {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: var(--text-normal);
+}
+
+.card-navigator-help-examples ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.card-navigator-help-examples li {
+  margin-bottom: 4px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  .card-settings-full-layout {
+    flex-direction: column;
+  }
+  
+  .card-settings-preview-area {
+    max-width: 100%;
+    margin-bottom: 16px;
+  }
+  
+  .card-settings-content-area {
+    max-height: 500px;
+  }
+  
+  .card-settings-help-grid {
+    grid-template-columns: 1fr;
+  }
+} 

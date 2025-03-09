@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 /**
  * 추천 검색어 컴포넌트 속성
@@ -6,7 +6,7 @@ import React, { useEffect, useRef } from 'react';
 interface SuggestedValuesProps {
   values: string[];
   isVisible: boolean;
-  selectedIndex: number;
+  selectedIndex?: number;
   onSelect: (value: string) => void;
   onMouseEnter?: (index: number) => void;
   title?: string;
@@ -42,7 +42,7 @@ const HighlightedText: React.FC<{ text: string; highlight: string }> = ({ text, 
 const SuggestedValues: React.FC<SuggestedValuesProps> = ({
   values,
   isVisible,
-  selectedIndex,
+  selectedIndex: externalSelectedIndex,
   onSelect,
   onMouseEnter,
   title = '추천 검색어',
@@ -50,6 +50,10 @@ const SuggestedValues: React.FC<SuggestedValuesProps> = ({
   onClose
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [internalSelectedIndex, setInternalSelectedIndex] = useState(-1);
+  
+  // 실제 사용할 selectedIndex 결정
+  const selectedIndex = externalSelectedIndex !== undefined ? externalSelectedIndex : internalSelectedIndex;
   
   // 선택된 항목이 변경될 때 스크롤 조정
   useEffect(() => {
@@ -73,9 +77,27 @@ const SuggestedValues: React.FC<SuggestedValuesProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isVisible) return;
       
-      if (e.key === 'Escape' && onClose) {
-        e.preventDefault();
-        onClose();
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setInternalSelectedIndex(prev => (prev + 1) % values.length);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setInternalSelectedIndex(prev => (prev <= 0 ? values.length - 1 : prev - 1));
+          break;
+        case 'Enter':
+          if (selectedIndex >= 0 && selectedIndex < values.length) {
+            e.preventDefault();
+            onSelect(values[selectedIndex]);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          if (onClose) {
+            onClose();
+          }
+          break;
       }
     };
     
@@ -83,7 +105,7 @@ const SuggestedValues: React.FC<SuggestedValuesProps> = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isVisible, onClose]);
+  }, [isVisible, values, selectedIndex, onSelect, onClose]);
   
   if (!isVisible || values.length === 0) {
     return null;
@@ -106,7 +128,10 @@ const SuggestedValues: React.FC<SuggestedValuesProps> = ({
           key={value}
           className={`card-navigator-suggestion-item ${index === selectedIndex ? 'is-selected' : ''}`}
           onClick={() => onSelect(value)}
-          onMouseEnter={() => onMouseEnter && onMouseEnter(index)}
+          onMouseEnter={() => {
+            setInternalSelectedIndex(index);
+            if (onMouseEnter) onMouseEnter(index);
+          }}
           role="option"
           aria-selected={index === selectedIndex}
           tabIndex={0}

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import { ICardProps } from '../cards-container/Card';
 import { SearchType } from '../../domain/search/Search';
@@ -12,7 +12,7 @@ import SearchHistory from './components/SearchHistory';
 import DatePicker from './components/DatePicker';
 import FrontmatterKeySuggestions from './components/FrontmatterKeySuggestions';
 import SuggestedValues from './components/SuggestedValues';
-import { SearchOptionSuggest, SearchOption } from './components/SearchOptionSuggest';
+import { SearchOption } from './components/SearchOptionSuggest';
 
 // 훅 import
 import useSearchBar from './hooks/useSearchBar';
@@ -29,10 +29,15 @@ interface SearchBarProps {
   onSearchTypeChange?: (type: SearchType) => void;
   onCaseSensitiveChange?: (sensitive: boolean) => void;
   onFrontmatterKeyChange?: (key: string) => void;
+  onSearchScopeChange?: (scope: 'all' | 'current') => void;
+  onEnterSearchMode?: (query: string, type?: SearchType) => void;
+  onExitSearchMode?: () => void;
   searchQuery?: string;
   searchType?: SearchType;
   caseSensitive?: boolean;
   frontmatterKey?: string;
+  searchScope?: 'all' | 'current';
+  isSearchMode?: boolean;
   app?: App; // Obsidian App 인스턴스 추가
 }
 
@@ -48,10 +53,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onSearchTypeChange,
   onCaseSensitiveChange,
   onFrontmatterKeyChange,
+  onSearchScopeChange,
+  onEnterSearchMode,
+  onExitSearchMode,
   searchQuery = '',
   searchType = 'filename',
   caseSensitive = false,
   frontmatterKey = '',
+  searchScope = 'current',
+  isSearchMode = false,
   app
 }) => {
   // useSearchBar 훅 사용
@@ -78,7 +88,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     isComplexSearch,
     searchHistory,
     frontmatterKeys,
-    searchScope,
     suggestedValues,
     selectedSuggestionIndex,
     setSelectedSuggestionIndex,
@@ -98,66 +107,136 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     handleKeyDown,
     handleSearchOptionSelect: baseHandleSearchOptionSelect,
     handleDateSelect,
-    handleSearchScopeToggle,
-    handleHistoryItemClick,
-    handleFrontmatterKeySelect: baseHandleFrontmatterKeySelect,
+    handleFrontmatterKeySelect: baseFrontmatterKeySelect,
     handleSuggestedValueSelect,
-    clearSearchHistory,
+    handleSearchHistorySelect,
+    handleClickOutside,
+    
+    // 서비스 호출
+    getScopedTags,
+    getScopedFilenames,
+    getScopedFrontmatterKeys,
+    getScopedFrontmatterValues,
     
     // 검색 옵션
     searchOptions,
+    filteredSuggestions
   } = useSearchBar({
-    cardNavigatorService: cardNavigatorService || null,
+    cardNavigatorService,
     onSearch,
     currentCards,
-    initialSearchText: searchQuery,
-    initialSearchType: searchType,
-    initialCaseSensitive: caseSensitive,
-    initialFrontmatterKey: frontmatterKey
+    searchQuery,
+    searchType,
+    caseSensitive,
+    frontmatterKey,
+    searchScope,
+    app
   });
   
-  // 검색 옵션 선택 핸들러 래핑
-  const handleSearchOptionSelect = (option: SearchOption, evt: MouseEvent | KeyboardEvent) => {
-    console.log('SearchBar: handleSearchOptionSelect 호출됨, 옵션:', option.type, option.prefix, '이벤트 타입:', evt instanceof MouseEvent ? 'mouse' : 'keyboard');
+  // SearchOptionSuggest 인스턴스 참조
+  const [searchOptionSuggestInstance, setSearchOptionSuggestInstance] = useState<any>(null);
+  
+  // 컴포넌트 마운트 시 SearchOptionSuggest 인스턴스 생성
+  useEffect(() => {
+    if (app && inputRef.current && showSearchSuggestions) {
+      try {
+        // SearchOptionSuggest 클래스 동적 임포트
+        import('./components/SearchOptionSuggest').then(({ SearchOptionSuggest }) => {
+          const instance = SearchOptionSuggest.getInstance(
+            app,
+            inputRef.current!,
+            searchOptions,
+            handleSearchOptionSelect
+          );
+          setSearchOptionSuggestInstance(instance);
+          instance.open();
+        });
+      } catch (error) {
+        console.error('SearchOptionSuggest 로드 오류:', error);
+      }
+    }
     
-    // 기본 핸들러 호출
+    return () => {
+      if (searchOptionSuggestInstance) {
+        searchOptionSuggestInstance.close();
+      }
+    };
+  }, [app, inputRef.current, showSearchSuggestions, searchOptions]);
+  
+  /**
+   * 검색 범위 변경 처리
+   * @param scope 검색 범위 ('all' | 'current')
+   */
+  const handleSearchScopeChange = (scope: 'all' | 'current') => {
+    console.log(`[SearchBar] 검색 범위 변경: ${scope}`);
+    
+    // 검색 범위 변경 콜백 호출
+    if (onSearchScopeChange) {
+      onSearchScopeChange(scope);
+    }
+    
+    // 현재 검색 쿼리가 있으면 검색 다시 실행
+    if (searchText) {
+      handleSearch(searchText);
+    }
+  };
+  
+  /**
+   * 검색 모드 진입 처리
+   */
+  const handleEnterSearchMode = () => {
+    console.log(`[SearchBar] 검색 모드 진입: 쿼리=${searchText}, 타입=${currentSearchOption?.type}`);
+    
+    if (onEnterSearchMode && searchText) {
+      const searchTypeValue = currentSearchOption?.type ? 
+        convertOptionTypeToSearchType(currentSearchOption.type) : 
+        'filename';
+      
+      onEnterSearchMode(searchText, searchTypeValue);
+    }
+  };
+  
+  /**
+   * 검색 모드 종료 처리
+   */
+  const handleExitSearchMode = () => {
+    console.log(`[SearchBar] 검색 모드 종료`);
+    
+    // 검색 텍스트 초기화
+    setSearchText('');
+    
+    // 검색 모드 종료 콜백 호출
+    if (onExitSearchMode) {
+      onExitSearchMode();
+    }
+  };
+  
+  // 검색 옵션 선택 핸들러
+  const handleSearchOptionSelect = (option: SearchOption, evt: MouseEvent | KeyboardEvent) => {
     baseHandleSearchOptionSelect(option, evt);
     
-    // SearchType 변환 및 콜백 호출
+    // 검색 타입 변경
     if (onSearchTypeChange) {
-      // SearchOption 타입을 SearchType으로 변환
       const searchType = convertOptionTypeToSearchType(option.type);
       onSearchTypeChange(searchType);
     }
     
-    // 입력 필드가 비어있는 경우 직접 prefix 입력
-    if (inputRef.current && inputRef.current.value.trim() === '') {
-      console.log('입력 필드가 비어있어 직접 prefix 입력:', option.prefix);
-      
-      // 검색 옵션 접두사 사용
-      let insertText = option.prefix;
-      
-      if (option.type === 'frontmatter') {
-        insertText += ']:'; // 프론트매터 검색의 경우 닫는 괄호와 콜론 추가
-      } else if (option.type === 'filename' || option.type === 'path') {
-        insertText += '"'; // 파일명과 경로 검색의 경우 큰따옴표 추가
-      }
-      
-      // 입력 필드에 접두사 삽입
-      inputRef.current.value = insertText;
-      
-      // 커서 위치 조정
-      const newCursorPosition = option.type === 'frontmatter' ? insertText.length - 2 : insertText.length;
-      inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
-      
-      // 검색 텍스트 상태 업데이트
-      setSearchText(insertText);
-      
-      console.log('입력 필드에 접두사 삽입 완료:', insertText);
+    // 프론트매터 키 변경
+    if (option.type === 'frontmatter' && option.frontmatterKey && onFrontmatterKeyChange) {
+      onFrontmatterKeyChange(option.frontmatterKey);
     }
   };
   
-  // SearchOption 타입을 SearchType으로 변환하는 함수
+  // 프론트매터 키 선택 핸들러
+  const handleFrontmatterKeySelect = (key: string) => {
+    baseFrontmatterKeySelect(key);
+    
+    if (onFrontmatterKeyChange) {
+      onFrontmatterKeyChange(key);
+    }
+  };
+  
+  // 검색 옵션 타입을 SearchType으로 변환
   const convertOptionTypeToSearchType = (optionType: string): SearchType => {
     switch (optionType) {
       case 'filename':
@@ -170,22 +249,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         return 'path';
       case 'frontmatter':
         return 'frontmatter';
-      case 'created':
+      case 'create':
         return 'create';
-      case 'modified':
+      case 'modify':
         return 'modify';
-      case 'folder':
-        return 'folder';
       default:
         return 'filename';
-    }
-  };
-  
-  // 프론트매터 키 선택 핸들러 래핑
-  const handleFrontmatterKeySelect = (key: string) => {
-    baseHandleFrontmatterKeySelect(key);
-    if (onFrontmatterKeyChange) {
-      onFrontmatterKeyChange(key);
     }
   };
   
@@ -195,149 +264,115 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       onCaseSensitiveChange(sensitive);
     }
   };
-
-  // SearchOptionSuggest 인스턴스 참조
-  const searchOptionSuggestRef = useRef<SearchOptionSuggest | null>(null);
   
-  // 컴포넌트 마운트 시 SearchOptionSuggest 인스턴스 생성
-  React.useEffect(() => {
-    // app이 없거나 inputRef가 없으면 실행하지 않음
-    if (!app || !inputRef.current) return;
-    
-    console.log('SearchOptionSuggest 인스턴스 생성 또는 가져오기');
-    // SearchOptionSuggest 싱글톤 인스턴스 가져오기
-    searchOptionSuggestRef.current = SearchOptionSuggest.getInstance(
-      app,
-      inputRef.current,
-      searchOptions,
-      handleSearchOptionSelect
-    );
-    
-    // 컴포넌트 언마운트 시 정리
-    return () => {
-      console.log('SearchOptionSuggest 인스턴스 정리');
-      if (searchOptionSuggestRef.current) {
-        searchOptionSuggestRef.current.close();
+  // 검색 입력 필드에 포커스가 있을 때 자동으로 검색 모드로 전환
+  useEffect(() => {
+    const handleInputFocus = () => {
+      if (!isSearchMode && inputRef.current === document.activeElement && searchText) {
+        handleEnterSearchMode();
       }
     };
-  }, [app, inputRef.current, searchOptions]);
-  
-  // showSearchSuggestions 상태가 변경될 때 인스턴스의 open/close 메서드 호출
-  React.useEffect(() => {
-    if (!searchOptionSuggestRef.current) return;
     
-    console.log('showSearchSuggestions 변경:', showSearchSuggestions);
-    
-    if (showSearchSuggestions) {
-      console.log('SearchOptionSuggest 열기');
-      searchOptionSuggestRef.current.open();
-    } else {
-      console.log('SearchOptionSuggest 닫기');
-      searchOptionSuggestRef.current.close();
+    const input = inputRef.current;
+    if (input) {
+      input.addEventListener('focus', handleInputFocus);
+      
+      return () => {
+        input.removeEventListener('focus', handleInputFocus);
+      };
     }
-  }, [showSearchSuggestions]);
-
+  }, [inputRef, isSearchMode, searchText]);
+  
   return (
-    <div className="card-navigator-search-container" ref={containerRef}>
-      <form onSubmit={handleSubmit} className="card-navigator-search-form">
-        <div className="card-navigator-search-input-container">
-          {/* 검색 입력 필드 */}
-          <SearchInput
-            ref={inputRef}
-            value={searchText}
-            onChange={handleTextChange}
-            onFocus={handleFocus}
-            onKeyDown={handleKeyDown}
-            onClear={handleClear}
-            isComplexSearch={isComplexSearch}
-            caseSensitive={caseSensitive}
-            onCaseSensitiveToggle={handleCaseSensitiveToggle}
-            searchScope={searchScope}
-            onSearchScopeToggle={handleSearchScopeToggle}
-          />
-          
-          {/* 검색 범위 토글 */}
-          <SearchScopeToggle
-            searchScope={searchScope}
-            onToggle={handleSearchScopeToggle}
+    <div className="card-navigator-search-bar" ref={containerRef}>
+      <div className="card-navigator-search-container">
+        {/* 검색 범위 토글 */}
+        <SearchScopeToggle 
+          scope={searchScope || 'current'} 
+          onChange={handleSearchScopeChange}
+          isSearchMode={isSearchMode}
+        />
+        
+        {/* 검색 입력 필드 */}
+        <SearchInput
+          ref={inputRef}
+          value={searchText}
+          onChange={handleTextChange}
+          onKeyDown={handleKeyDown}
+          onFocus={handleFocus}
+          onBlur={handleClickOutside}
+          placeholder="검색어 입력..."
+          onClear={() => {
+            setSearchText('');
+            if (isSearchMode) {
+              handleExitSearchMode();
+            }
+          }}
+          isSearchMode={isSearchMode}
+        />
+        
+        {/* 검색 모드 전환 버튼 (검색 모드일 때만 표시) */}
+        {isSearchMode && (
+          <button 
+            className="card-navigator-exit-search-mode" 
+            onClick={handleExitSearchMode}
+            title="검색 모드 종료"
+          >
+            <span className="card-navigator-exit-icon">×</span>
+          </button>
+        )}
+      </div>
+      
+      {/* 검색 제안 및 옵션 */}
+      {showSearchSuggestions && (
+        <div className="card-navigator-search-suggestions">
+          <SearchOptionSuggest
+            options={searchOptions}
+            onSelect={handleSearchOptionSelect}
+            selectedIndex={selectedSuggestionIndex}
+            currentOption={currentSearchOption}
           />
         </div>
-        
-        {/* 프론트매터 키 제안 */}
-        {showFrontmatterKeySuggestions && (
-          <FrontmatterKeySuggestions
-            keys={frontmatterKeys}
-            isVisible={showFrontmatterKeySuggestions}
-            onSelect={handleFrontmatterKeySelect}
-            inputRef={inputRef}
-            onClose={() => setShowFrontmatterKeySuggestions(false)}
-          />
-        )}
-        
-        {/* 추천 검색어 */}
-        {showSuggestedValues && (
-          <SuggestedValues
-            values={suggestedValues}
-            isVisible={showSuggestedValues}
-            selectedIndex={selectedSuggestionIndex}
-            onSelect={handleSuggestedValueSelect}
-            onMouseEnter={setSelectedSuggestionIndex}
-            title={currentSearchOption ? `${currentSearchOption.label} 추천` : '추천 검색어'}
-            filterText={currentSearchOption ? (() => {
-              // 현재 검색어에서 검색 옵션 접두사 이후의 텍스트 추출
-              const isComplex = searchText.includes('|');
-              
-              if (isComplex) {
-                // 복합 검색의 경우 마지막 부분만 고려
-                const parts = searchText.split('|');
-                const lastPart = parts[parts.length - 1].trim();
-                
-                if (lastPart.startsWith(currentSearchOption.prefix)) {
-                  return lastPart.substring(currentSearchOption.prefix.length).trim();
-                }
-              } else if (searchText.startsWith(currentSearchOption.prefix)) {
-                return searchText.substring(currentSearchOption.prefix.length).trim();
-              }
-              
-              return '';
-            })() : ''}
-            onClose={() => setShowSuggestedValues(false)}
-          />
-        )}
-        
-        {/* 검색 기록 */}
-        {showSearchHistory && (
-          <SearchHistory
-            ref={searchHistoryRef}
-            searchHistory={searchHistory}
-            isVisible={showSearchHistory}
-            onItemClick={handleHistoryItemClick}
-            onClearHistory={clearSearchHistory}
-            onClose={() => setShowSearchHistory(false)}
-          />
-        )}
-        
-        {/* 날짜 선택기 */}
-        {showDatePicker && (
-          <div 
-            ref={datePickerRef}
-            className="card-navigator-date-picker-container"
-            style={{ 
-              position: 'absolute', 
-              top: `${datePickerPosition.top}px`, 
-              left: `${datePickerPosition.left}px`,
-              zIndex: 1000
-            }}
-          >
-            <DatePicker 
-              onSelect={handleDateSelect} 
-              onClose={() => setShowDatePicker(false)}
-              isRangeMode={isDateRangeMode}
-              dateType={datePickerType}
-            />
-          </div>
-        )}
-      </form>
+      )}
+      
+      {/* 검색 기록 */}
+      {showSearchHistory && (
+        <SearchHistory
+          ref={searchHistoryRef}
+          history={searchHistory}
+          onSelect={handleSearchHistorySelect}
+          onClear={handleClear}
+        />
+      )}
+      
+      {/* 프론트매터 키 제안 */}
+      {showFrontmatterKeySuggestions && (
+        <FrontmatterKeySuggestions
+          keys={frontmatterKeys}
+          onSelect={handleFrontmatterKeySelect}
+          selectedIndex={selectedSuggestionIndex}
+        />
+      )}
+      
+      {/* 제안 값 */}
+      {showSuggestedValues && (
+        <SuggestedValues
+          values={suggestedValues}
+          onSelect={handleSuggestedValueSelect}
+          selectedIndex={selectedSuggestionIndex}
+        />
+      )}
+      
+      {/* 날짜 선택기 */}
+      {showDatePicker && (
+        <DatePicker
+          ref={datePickerRef}
+          position={datePickerPosition}
+          onSelect={handleDateSelect}
+          isRange={isDateRangeMode}
+          type={datePickerType}
+        />
+      )}
     </div>
   );
 };

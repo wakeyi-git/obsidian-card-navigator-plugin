@@ -1,18 +1,17 @@
-import React from 'react';
-import { createRoot, Root } from 'react-dom/client';
 import { ItemView, WorkspaceLeaf, App } from 'obsidian';
-import { ICardNavigatorService } from '../application/CardNavigatorService';
-import { CardNavigatorService } from '../application/CardNavigatorService';
+import { Root, createRoot } from 'react-dom/client';
+import { CardNavigatorService, ICardNavigatorService } from '../application/CardNavigatorService';
 import { CardRepositoryImpl } from '../infrastructure/CardRepositoryImpl';
 import { ObsidianAdapter } from '../infrastructure/ObsidianAdapter';
 import { CardFactory } from '../domain/card/CardFactory';
 import { TimerUtil } from '../infrastructure/TimerUtil';
 import { VIEW_TYPE_CARD_NAVIGATOR } from '../main';
 import { CardNavigatorComponent } from './components/CardNavigatorComponent';
+import CardNavigatorPlugin from '../main';
 
 /**
  * 카드 네비게이터 뷰 클래스
- * Obsidian의 ItemView를 확장하여 구현
+ * Obsidian의 ItemView를 확장하여 카드 네비게이터 UI를 제공합니다.
  */
 export class CardNavigatorView extends ItemView {
   private reactComponent: Root | null = null;
@@ -34,104 +33,94 @@ export class CardNavigatorView extends ItemView {
   }
   
   async onOpen() {
-    console.log('[CardNavigatorView] onOpen 시작');
-    
-    // 컨테이너 생성
-    const container = this.containerEl.children[1];
-    container.empty();
-    container.addClass('card-navigator-container-view');
+    const { containerEl } = this;
     
     try {
-      // React 루트 생성
-      const root = createRoot(container);
-      console.log('[CardNavigatorView] React 루트 생성 완료, 렌더링 시작');
+      // 컨테이너 초기화
+      containerEl.empty();
+      containerEl.addClass('card-navigator-container');
+      
+      // 서비스 생성
+      const service = await createCardNavigatorService(this.app);
       
       // React 컴포넌트 렌더링
-      root.render(
-        <React.StrictMode>
-          <CardNavigatorComponent app={this.app} />
-        </React.StrictMode>
+      const rootEl = containerEl.createDiv('card-navigator-root');
+      this.reactComponent = createRoot(rootEl);
+      this.reactComponent.render(
+        <CardNavigatorComponent service={service} />
       );
       
-      console.log('[CardNavigatorView] 컴포넌트 렌더링 완료');
-      
-      // 렌더링된 컴포넌트 저장
-      this.reactComponent = root;
+      console.log('카드 네비게이터 뷰 열림');
     } catch (error) {
-      this.handleRenderError(container, error);
+      console.error('카드 네비게이터 뷰 초기화 오류:', error);
+      this.handleRenderError(containerEl, error);
     }
   }
   
-  /**
-   * 렌더링 오류 처리
-   * @param container 컨테이너 요소
-   * @param error 오류 객체
-   */
   private handleRenderError(container: Element, error: unknown) {
-    console.error('[CardNavigatorView] 렌더링 오류:', error);
-    
-    // 오류 메시지 표시
     container.empty();
-    const errorEl = container.createDiv({ cls: 'card-navigator-error' });
-    errorEl.createDiv({ text: '카드 네비게이터를 렌더링하는 중 오류가 발생했습니다.' });
-    errorEl.createDiv({ text: error instanceof Error ? error.message : String(error) });
     
-    // 스택 트레이스 표시
-    if (error instanceof Error && error.stack) {
-      const stackEl = errorEl.createDiv({ cls: 'card-navigator-error-stack' });
-      stackEl.createEl('pre', { text: error.stack });
-    }
+    const errorContainer = container.createDiv('card-navigator-error');
+    errorContainer.createEl('h2', { text: '카드 네비게이터 오류' });
+    
+    const errorMessage = errorContainer.createEl('div', { cls: 'card-navigator-error-message' });
+    errorMessage.createEl('p', { text: '카드 네비게이터를 로드하는 중 오류가 발생했습니다:' });
+    
+    const errorDetails = errorMessage.createEl('pre');
+    errorDetails.createEl('code', {
+      text: error instanceof Error 
+        ? `${error.name}: ${error.message}\n\n${error.stack || '스택 정보 없음'}`
+        : String(error)
+    });
+    
+    const retryButton = errorContainer.createEl('button', {
+      text: '다시 시도',
+      cls: 'mod-cta'
+    });
+    
+    retryButton.addEventListener('click', () => {
+      this.reRenderComponent(container as HTMLElement);
+    });
   }
   
-  /**
-   * 컴포넌트 다시 렌더링
-   * @param rootEl 루트 요소
-   */
   private reRenderComponent(rootEl: HTMLElement) {
-    try {
-      // React 루트 생성
-      const root = createRoot(rootEl);
-      
-      // React 컴포넌트 렌더링
-      root.render(
-        <React.StrictMode>
-          <CardNavigatorComponent app={this.app} />
-        </React.StrictMode>
-      );
-      
-      // 렌더링된 컴포넌트 저장
-      this.reactComponent = root;
-    } catch (error) {
-      this.handleRenderError(rootEl, error);
-    }
+    rootEl.empty();
+    
+    createCardNavigatorService(this.app)
+      .then(service => {
+        rootEl.empty();
+        this.reactComponent = createRoot(rootEl);
+        this.reactComponent.render(
+          <CardNavigatorComponent service={service} />
+        );
+      })
+      .catch(error => {
+        console.error('카드 네비게이터 재시도 오류:', error);
+        this.handleRenderError(rootEl, error);
+      });
   }
   
   async onClose() {
-    // 필요한 정리 작업 수행
-    console.log('[CardNavigatorView] onClose 호출됨');
-    
     // React 컴포넌트 언마운트
     if (this.reactComponent) {
-      try {
-        this.reactComponent.unmount();
-        this.reactComponent = null;
-      } catch (error) {
-        console.error('[CardNavigatorView] 컴포넌트 언마운트 중 오류:', error);
-      }
+      this.reactComponent.unmount();
+      this.reactComponent = null;
     }
     
-    return Promise.resolve();
+    console.log('카드 네비게이터 뷰 닫힘');
   }
 }
 
-// 카드 네비게이터 서비스 인스턴스 캐싱
+// 캐싱된 서비스 인스턴스
 let cachedNavigatorService: ICardNavigatorService | null = null;
+// 서비스 초기화 Promise
 let serviceInitializationPromise: Promise<ICardNavigatorService> | null = null;
 
 /**
  * 카드 네비게이터 서비스 생성 함수
- * @param app Obsidian 앱 인스턴스
- * @returns 카드 네비게이터 서비스 인스턴스
+ * 싱글톤 패턴으로 구현되어 있어 한 번 생성된 서비스는 재사용됩니다.
+ * @param app Obsidian App 인스턴스
+ * @returns 카드 네비게이터 서비스
  */
 export const createCardNavigatorService = async (app: App): Promise<ICardNavigatorService> => {
   const initTimerId = TimerUtil.startTimer('[성능] CardNavigatorService 생성 시간');
@@ -154,12 +143,16 @@ export const createCardNavigatorService = async (app: App): Promise<ICardNavigat
     try {
       // 인프라스트럭처 레이어 초기화
       const obsidianAdapter = new ObsidianAdapter(app);
-      const cardFactory = new CardFactory();
-      const cardRepository = new CardRepositoryImpl(obsidianAdapter, cardFactory);
+      const cardFactory = new CardFactory(obsidianAdapter);
+      const cardRepository = new CardRepositoryImpl(app);
       
       // 서비스 레이어 초기화
       console.log(`[CardNavigatorView] 서비스 초기화 시작`);
-      const navigatorService = new CardNavigatorService(app, cardRepository, 'folder');
+      
+      // 플러그인 인스턴스 가져오기
+      const plugin = (app as any).plugins.plugins['card-navigator'] as CardNavigatorPlugin;
+      
+      const navigatorService = new CardNavigatorService(app, cardRepository, plugin);
       
       await navigatorService.initialize();
       
@@ -168,14 +161,12 @@ export const createCardNavigatorService = async (app: App): Promise<ICardNavigat
       // 서비스 인스턴스 캐싱
       cachedNavigatorService = navigatorService;
       
-      return navigatorService;
-    } catch (initError: unknown) {
-      console.error(`[CardNavigatorView] 서비스 초기화 오류:`, initError);
-      throw new Error(`서비스 초기화 중 오류가 발생했습니다: ${initError instanceof Error ? initError.message : String(initError)}`);
-    } finally {
-      // 초기화 작업 완료 후 Promise 참조 제거
-      serviceInitializationPromise = null;
       TimerUtil.endTimer(initTimerId);
+      return navigatorService;
+    } catch (error) {
+      console.error(`[CardNavigatorView] 서비스 초기화 실패:`, error);
+      serviceInitializationPromise = null;
+      throw error;
     }
   })();
   

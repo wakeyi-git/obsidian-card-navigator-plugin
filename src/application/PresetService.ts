@@ -80,14 +80,39 @@ export interface IPresetService {
 }
 
 /**
- * 프리셋 서비스 클래스
+ * 프리셋 서비스 구현 클래스
  * 프리셋 관리를 위한 클래스입니다.
  */
 export class PresetService implements IPresetService {
   private presets: Map<string, IPreset>;
   
-  constructor() {
+  /**
+   * 생성자
+   * @param settings 설정 객체 (선택 사항)
+   */
+  constructor(settings?: any) {
     this.presets = new Map<string, IPreset>();
+    
+    // 설정에서 프리셋 로드
+    if (settings && settings.presets) {
+      const presetNames = settings.presets || [];
+      
+      presetNames.forEach((presetName: string) => {
+        const presetKey = `preset_${presetName}`;
+        const presetData = settings[presetKey];
+        
+        if (presetData) {
+          const preset = new Preset(
+            presetData.id || presetName,
+            presetData.name || presetName,
+            presetData.description || '',
+            presetData.settings || {}
+          );
+          
+          this.presets.set(preset.id, preset);
+        }
+      });
+    }
   }
   
   getAllPresets(): IPreset[] {

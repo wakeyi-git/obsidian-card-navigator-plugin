@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
-import { ICardNavigatorSettings } from './types/SettingsTypes';
 import TabNavigation from './components/TabNavigation';
-import GeneralSettings from './tabs/GeneralSettings';
+import ModeSettings from './tabs/ModeSettings';
 import CardSettings from './tabs/CardSettings';
 import SearchSettings from './tabs/SearchSettings';
 import SortSettings from './tabs/SortSettings';
 import LayoutSettings from './tabs/LayoutSettings';
 import PresetSettings from './tabs/PresetSettings';
+import CardNavigatorPlugin from '../../main';
 import './SettingsModal.css';
 
 /**
@@ -16,7 +16,7 @@ import './SettingsModal.css';
 export interface ISettingsModalProps {
   isOpen?: boolean;
   onClose: () => void;
-  service: ICardNavigatorService | null;
+  plugin: CardNavigatorPlugin;
   onLayoutChange?: (layout: 'grid' | 'masonry') => void;
   currentLayout?: 'grid' | 'masonry';
   onPresetApply?: (presetId: string) => void;
@@ -31,52 +31,36 @@ export interface ISettingsModalProps {
 const SettingsModal: React.FC<ISettingsModalProps> = ({
   isOpen = true,
   onClose,
-  service,
+  plugin,
   onLayoutChange = () => {},
   currentLayout = 'grid',
   onPresetApply = () => {},
   onPresetSave = () => {},
   onPresetDelete = () => {},
 }) => {
-  // 설정 상태
-  const [settings, setSettings] = useState<Partial<ICardNavigatorSettings>>({});
-  
   // 활성 탭 상태
-  const [activeTab, setActiveTab] = useState<'general' | 'card' | 'search' | 'sort' | 'layout' | 'presets'>('general');
+  const [activeTab, setActiveTab] = useState<'mode' | 'card' | 'search' | 'sort' | 'layout' | 'preset'>('mode');
 
   // 설정 로드
   useEffect(() => {
     const loadSettings = async () => {
-      if (service) {
-        const loadedSettings = await service.getSettings();
-        if (loadedSettings) {
-          // currentLayout props를 settings에 반영
-          setSettings({
-            ...loadedSettings,
-            defaultLayout: currentLayout || loadedSettings.defaultLayout
-          });
-        }
+      if (plugin) {
+        // currentLayout props를 settings에 반영
+        plugin.settings.defaultLayout = currentLayout || plugin.settings.defaultLayout;
+        await plugin.saveSettings();
       }
     };
 
     if (isOpen) {
       loadSettings();
     }
-  }, [isOpen, service, currentLayout]);
-
-  // 설정 변경 핸들러
-  const handleSettingChange = (key: keyof ICardNavigatorSettings, value: any) => {
-    setSettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
+  }, [isOpen, plugin, currentLayout]);
 
   // 설정 저장
   const handleSave = async () => {
-    if (service) {
+    if (plugin) {
       try {
-        await service.updateSettings(settings);
+        await plugin.saveSettings();
         onClose();
       } catch (error) {
         console.error('설정 저장 실패:', error);
@@ -88,13 +72,81 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
 
   // 탭 정의
   const tabs = [
-    { id: 'general', label: '일반 설정' },
+    { id: 'mode', label: '모드' },
     { id: 'card', label: '카드' },
     { id: 'search', label: '검색' },
     { id: 'sort', label: '정렬' },
     { id: 'layout', label: '레이아웃' },
-    { id: 'presets', label: '프리셋' },
+    { id: 'preset', label: '프리셋' },
   ];
+
+  // 현재 활성 탭에 따른 컨텐츠 렌더링
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'mode':
+        return (
+          <div className="card-navigator-setting-group">
+            <h3>모드 설정</h3>
+            <p className="card-navigator-setting-description">
+              카드 네비게이터의 모드와 관련된 설정을 변경합니다.
+            </p>
+            <ModeSettings plugin={plugin} />
+          </div>
+        );
+      case 'card':
+        return (
+          <div className="card-navigator-setting-group">
+            <h3>카드 설정</h3>
+            <p className="card-navigator-setting-description">
+              카드의 표시 항목, 렌더링 방식, 스타일을 설정합니다.
+            </p>
+            <CardSettings plugin={plugin} />
+          </div>
+        );
+      case 'search':
+        return (
+          <div className="card-navigator-setting-group">
+            <h3>검색 설정</h3>
+            <p className="card-navigator-setting-description">
+              검색 기능과 관련된 설정을 변경합니다.
+            </p>
+            <SearchSettings plugin={plugin} />
+          </div>
+        );
+      case 'sort':
+        return (
+          <div className="card-navigator-setting-group">
+            <h3>정렬 설정</h3>
+            <p className="card-navigator-setting-description">
+              카드 정렬 방식과 관련된 설정을 변경합니다.
+            </p>
+            <SortSettings plugin={plugin} />
+          </div>
+        );
+      case 'layout':
+        return (
+          <div className="card-navigator-setting-group">
+            <h3>레이아웃 설정</h3>
+            <p className="card-navigator-setting-description">
+              카드 레이아웃과 관련된 설정을 변경합니다.
+            </p>
+            <LayoutSettings plugin={plugin} />
+          </div>
+        );
+      case 'preset':
+        return (
+          <div className="card-navigator-setting-group">
+            <h3>프리셋 설정</h3>
+            <p className="card-navigator-setting-description">
+              설정 프리셋을 관리하고 적용합니다.
+            </p>
+            <PresetSettings plugin={plugin} />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="card-navigator-modal-overlay">
@@ -120,61 +172,7 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
         />
 
         <div className="card-navigator-modal-content">
-          {activeTab === 'general' && (
-            <GeneralSettings 
-              settings={settings} 
-              onChange={handleSettingChange} 
-              service={service} 
-            />
-          )}
-          
-          {activeTab === 'card' && (
-            <CardSettings 
-              settings={settings} 
-              onChange={handleSettingChange} 
-              service={service} 
-            />
-          )}
-          
-          {activeTab === 'search' && (
-            <SearchSettings 
-              settings={settings} 
-              onChange={handleSettingChange} 
-              service={service} 
-            />
-          )}
-          
-          {activeTab === 'sort' && (
-            <SortSettings 
-              settings={settings} 
-              onChange={handleSettingChange} 
-              service={service} 
-            />
-          )}
-          
-          {activeTab === 'layout' && (
-            <LayoutSettings 
-              settings={{
-                ...settings,
-                onLayoutChange
-              }} 
-              onChange={handleSettingChange} 
-              service={service} 
-            />
-          )}
-          
-          {activeTab === 'presets' && (
-            <PresetSettings 
-              settings={{
-                ...settings,
-                onPresetApply,
-                onPresetSave,
-                onPresetDelete
-              }} 
-              onChange={handleSettingChange} 
-              service={service} 
-            />
-          )}
+          {renderTabContent()}
         </div>
 
         <div className="card-navigator-modal-footer">

@@ -6,12 +6,13 @@ import { SortDirection, SortType } from '../../domain/sorting/Sort';
 import { SearchType } from '../../domain/mode/SearchMode';
 import { createCardNavigatorService } from '../utils/serviceFactory';
 import { TimerUtil } from '../../infrastructure/TimerUtil';
+import { ICard } from '../../domain/card/Card';
+import { IPreset } from '../../domain/preset/Preset';
 
 /**
  * 서비스 초기화 훅 반환 타입
  */
 interface UseCardNavigatorServiceReturn {
-  service: ICardNavigatorService | null;
   currentMode: ModeType;
   currentCardSet: string | null;
   isCardSetFixed: boolean;
@@ -34,122 +35,284 @@ interface UseCardNavigatorServiceReturn {
   setSearchType: (type: SearchType) => void;
   setCaseSensitive: (sensitive: boolean) => void;
   setFrontmatterKey: (key: string) => void;
-  setError: (error: string | null) => void;
   
-  initializeService: () => Promise<void>;
+  refreshCards: () => Promise<void>;
+  handleCardClick: (id: string) => void;
+  handleSearch: (query: string) => Promise<void>;
+  handlePresetApply: (presetId: string) => Promise<void>;
+  handlePresetSave: () => Promise<IPreset>;
+  handlePresetDelete: (presetId: string) => Promise<void>;
 }
 
 /**
  * 카드 네비게이터 서비스 초기화 및 관리를 위한 커스텀 훅
- * @param app Obsidian App 인스턴스
+ * @param service 카드 네비게이터 서비스 인스턴스
  * @returns 서비스 초기화 관련 상태와 함수
  */
-export const useCardNavigatorService = (app: App): UseCardNavigatorServiceReturn => {
-  const [service, setService] = useState<ICardNavigatorService | null>(null);
-  const [currentMode, setCurrentMode] = useState<ModeType>('folder');
-  const [currentCardSet, setCurrentCardSet] = useState<string | null>(null);
-  const [isCardSetFixed, setIsCardSetFixed] = useState<boolean>(false);
-  const [includeSubfolders, setIncludeSubfolders] = useState<boolean>(true);
-  const [currentSortType, setCurrentSortType] = useState<SortType>('filename');
-  const [currentSortDirection, setCurrentSortDirection] = useState<SortDirection>('asc');
-  const [layout, setLayout] = useState<'grid' | 'masonry'>('grid');
-  const [searchType, setSearchType] = useState<SearchType>('title');
-  const [caseSensitive, setCaseSensitive] = useState(false);
-  const [frontmatterKey, setFrontmatterKey] = useState<string>('');
+export const useCardNavigatorService = (service: ICardNavigatorService): UseCardNavigatorServiceReturn => {
+  const [currentMode, setCurrentModeState] = useState<ModeType>('folder');
+  const [currentCardSet, setCurrentCardSetState] = useState<string | null>(null);
+  const [isCardSetFixed, setIsCardSetFixedState] = useState<boolean>(false);
+  const [includeSubfolders, setIncludeSubfoldersState] = useState<boolean>(true);
+  const [currentSortType, setCurrentSortTypeState] = useState<SortType>('filename');
+  const [currentSortDirection, setCurrentSortDirectionState] = useState<SortDirection>('asc');
+  const [layout, setLayoutState] = useState<'grid' | 'masonry'>('grid');
+  const [searchType, setSearchTypeState] = useState<SearchType>('content');
+  const [caseSensitive, setCaseSensitiveState] = useState<boolean>(false);
+  const [frontmatterKey, setFrontmatterKeyState] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   
-  /**
-   * 서비스 초기화 함수
-   */
-  const initializeService = useCallback(async () => {
+  // 초기 설정 로드
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await service.getSettings();
+        
+        setCurrentModeState(settings.defaultMode);
+        setIsCardSetFixedState(settings.isCardSetFixed);
+        setIncludeSubfoldersState(settings.includeSubfolders);
+        setLayoutState(settings.defaultLayout);
+        setCaseSensitiveState(settings.tagCaseSensitive || false);
+        
+        if (settings.isCardSetFixed && settings.defaultCardSet) {
+          setCurrentCardSetState(settings.defaultCardSet);
+        }
+        
+        // 정렬 설정 가져오기
+        const sortService = service.getSortService();
+        const currentSort = sortService.getCurrentSort();
+        if (currentSort) {
+          setCurrentSortTypeState(currentSort.type);
+          setCurrentSortDirectionState(currentSort.direction);
+        }
+      } catch (error) {
+        console.error('설정 로드 중 오류 발생:', error);
+        setError('설정을 로드하는 중 오류가 발생했습니다.');
+      }
+    };
+    
+    loadSettings();
+  }, [service]);
+  
+  // 모드 변경 핸들러
+  const setCurrentMode = useCallback(async (mode: ModeType) => {
     try {
-      const timerId = TimerUtil.startTimer('[성능] CardNavigatorService 생성 시간');
-      
-      // 서비스 생성
-      const newService = await createCardNavigatorService(app);
-      
-      setService(newService);
-      
-      // 모드 서비스에서 카드 가져오기
-      const modeService = newService.getModeService();
-      
-      // 현재 모드 가져오기
-      const currentModeType = modeService.getCurrentModeType();
-      setCurrentMode(currentModeType);
-      
-      // 현재 카드 세트 가져오기
-      const currentSet = modeService.getCurrentCardSet();
-      setCurrentCardSet(currentSet);
-      
-      // 카드 세트 고정 여부 가져오기
-      const isFixed = modeService.isCardSetFixed();
-      setIsCardSetFixed(isFixed);
-      
-      // 하위 폴더 포함 여부 가져오기
-      const includeSubfolders = modeService.getIncludeSubfolders();
-      setIncludeSubfolders(includeSubfolders);
-      
-      // 정렬 설정 가져오기
-      const sortService = newService.getSortService();
-      const currentSort = sortService.getCurrentSort();
-      if (currentSort) {
-        setCurrentSortType(currentSort.type);
-        setCurrentSortDirection(currentSort.direction);
+      await service.changeMode(mode);
+      setCurrentModeState(mode);
+      setCurrentCardSetState(null);
+    } catch (error) {
+      console.error('모드 변경 중 오류 발생:', error);
+      setError('모드를 변경하는 중 오류가 발생했습니다.');
+    }
+  }, [service]);
+  
+  // 카드 세트 변경 핸들러
+  const setCurrentCardSet = useCallback(async (cardSet: string | null) => {
+    try {
+      if (cardSet) {
+        await service.selectCardSet(cardSet);
       }
+      setCurrentCardSetState(cardSet);
+    } catch (error) {
+      console.error('카드 세트 변경 중 오류 발생:', error);
+      setError('카드 세트를 변경하는 중 오류가 발생했습니다.');
+    }
+  }, [service]);
+  
+  // 카드 세트 고정 여부 변경 핸들러
+  const setIsCardSetFixed = useCallback(async (isFixed: boolean) => {
+    try {
+      const settings = await service.getSettings();
+      await service.updateSettings({
+        ...settings,
+        isCardSetFixed: isFixed
+      });
+      setIsCardSetFixedState(isFixed);
+    } catch (error) {
+      console.error('카드 세트 고정 여부 변경 중 오류 발생:', error);
+      setError('카드 세트 고정 여부를 변경하는 중 오류가 발생했습니다.');
+    }
+  }, [service]);
+  
+  // 하위 폴더 포함 여부 변경 핸들러
+  const setIncludeSubfolders = useCallback(async (include: boolean) => {
+    try {
+      const settings = await service.getSettings();
+      await service.updateSettings({
+        ...settings,
+        includeSubfolders: include
+      });
+      setIncludeSubfoldersState(include);
+    } catch (error) {
+      console.error('하위 폴더 포함 여부 변경 중 오류 발생:', error);
+      setError('하위 폴더 포함 여부를 변경하는 중 오류가 발생했습니다.');
+    }
+  }, [service]);
+  
+  // 정렬 타입 변경 핸들러
+  const setCurrentSortType = useCallback((type: SortType) => {
+    try {
+      const sortService = service.getSortService();
+      sortService.setSortType(type, currentSortDirection);
+      setCurrentSortTypeState(type);
+    } catch (error) {
+      console.error('정렬 타입 변경 중 오류 발생:', error);
+      setError('정렬 타입을 변경하는 중 오류가 발생했습니다.');
+    }
+  }, [service, currentSortDirection]);
+  
+  // 정렬 방향 변경 핸들러
+  const setCurrentSortDirection = useCallback((direction: SortDirection) => {
+    try {
+      const sortService = service.getSortService();
+      sortService.setSortType(currentSortType, direction);
+      setCurrentSortDirectionState(direction);
+    } catch (error) {
+      console.error('정렬 방향 변경 중 오류 발생:', error);
+      setError('정렬 방향을 변경하는 중 오류가 발생했습니다.');
+    }
+  }, [service, currentSortType]);
+  
+  // 레이아웃 변경 핸들러
+  const setLayout = useCallback(async (layoutType: 'grid' | 'masonry') => {
+    try {
+      await service.changeLayout(layoutType);
+      setLayoutState(layoutType);
+    } catch (error) {
+      console.error('레이아웃 변경 중 오류 발생:', error);
+      setError('레이아웃을 변경하는 중 오류가 발생했습니다.');
+    }
+  }, [service]);
+  
+  // 검색 타입 변경 핸들러
+  const setSearchType = useCallback(async (type: SearchType) => {
+    try {
+      await service.changeSearchType(type, frontmatterKey);
+      setSearchTypeState(type);
+    } catch (error) {
+      console.error('검색 타입 변경 중 오류 발생:', error);
+      setError('검색 타입을 변경하는 중 오류가 발생했습니다.');
+    }
+  }, [service, frontmatterKey]);
+  
+  // 대소문자 구분 여부 변경 핸들러
+  const setCaseSensitive = useCallback(async (sensitive: boolean) => {
+    try {
+      await service.setCaseSensitive(sensitive);
+      setCaseSensitiveState(sensitive);
+    } catch (error) {
+      console.error('대소문자 구분 여부 변경 중 오류 발생:', error);
+      setError('대소문자 구분 여부를 변경하는 중 오류가 발생했습니다.');
+    }
+  }, [service]);
+  
+  // 프론트매터 키 변경 핸들러
+  const setFrontmatterKey = useCallback(async (key: string) => {
+    try {
+      await service.changeSearchType(searchType, key);
+      setFrontmatterKeyState(key);
+    } catch (error) {
+      console.error('프론트매터 키 변경 중 오류 발생:', error);
+      setError('프론트매터 키를 변경하는 중 오류가 발생했습니다.');
+    }
+  }, [service, searchType]);
+  
+  // 카드 새로고침 핸들러
+  const refreshCards = useCallback(async () => {
+    try {
+      await service.refreshCards();
+    } catch (error) {
+      console.error('카드 새로고침 중 오류 발생:', error);
+      setError('카드를 새로고침하는 중 오류가 발생했습니다.');
+    }
+  }, [service]);
+  
+  // 카드 클릭 핸들러
+  const handleCardClick = useCallback((id: string) => {
+    try {
+      const app = service.getApp();
+      const cardService = service.getCardService();
       
-      // 레이아웃 설정 가져오기
-      const layoutService = newService.getLayoutService();
-      const currentLayout = layoutService.getCurrentLayout();
-      if (currentLayout) {
-        setLayout(currentLayout.type as 'grid' | 'masonry');
-      }
-      
-      // 검색 설정 가져오기
-      const searchService = newService.getSearchService();
-      const currentSearch = searchService.getCurrentSearch();
-      if (currentSearch) {
-        setSearchType(currentSearch.getType() as SearchType);
-        setCaseSensitive(currentSearch.isCaseSensitive());
-        if (currentSearch.getType() === 'frontmatter') {
-          // 프론트매터 검색인 경우 프론트매터 키 설정
-          const frontmatterSearch = currentSearch as any;
-          if (frontmatterSearch.getKey) {
-            setFrontmatterKey(frontmatterSearch.getKey());
+      cardService.getCardById(id).then(card => {
+        if (card && card.path) {
+          // 파일 열기
+          const file = app.vault.getAbstractFileByPath(card.path);
+          if (file) {
+            app.workspace.getLeaf().openFile(file as any);
           }
         }
+      });
+    } catch (error) {
+      console.error('카드 클릭 처리 중 오류 발생:', error);
+      setError('카드 클릭을 처리하는 중 오류가 발생했습니다.');
+    }
+  }, [service]);
+  
+  // 검색 핸들러
+  const handleSearch = useCallback(async (query: string) => {
+    try {
+      await service.search(query);
+    } catch (error) {
+      console.error('검색 중 오류 발생:', error);
+      setError('검색하는 중 오류가 발생했습니다.');
+    }
+  }, [service]);
+  
+  // 프리셋 적용 핸들러
+  const handlePresetApply = useCallback(async (presetId: string) => {
+    try {
+      await service.applyPreset(presetId);
+      
+      // 설정 다시 로드
+      const settings = await service.getSettings();
+      
+      setCurrentModeState(settings.defaultMode);
+      setIsCardSetFixedState(settings.isCardSetFixed);
+      setIncludeSubfoldersState(settings.includeSubfolders);
+      setLayoutState(settings.defaultLayout);
+      setCaseSensitiveState(settings.tagCaseSensitive || false);
+      
+      if (settings.isCardSetFixed && settings.defaultCardSet) {
+        setCurrentCardSetState(settings.defaultCardSet);
       }
       
-      console.log('[CardNavigatorView] 서비스 초기화 완료');
-      TimerUtil.endTimer(timerId);
-    } catch (error: unknown) {
-      console.error('[CardNavigatorView] 서비스 초기화 오류:', error);
-      setError(`서비스 초기화 중 오류가 발생했습니다: ${error instanceof Error ? error.message : String(error)}`);
+      // 정렬 설정 가져오기
+      const sortService = service.getSortService();
+      const currentSort = sortService.getCurrentSort();
+      if (currentSort) {
+        setCurrentSortTypeState(currentSort.type);
+        setCurrentSortDirectionState(currentSort.direction);
+      }
+    } catch (error) {
+      console.error('프리셋 적용 중 오류 발생:', error);
+      setError('프리셋을 적용하는 중 오류가 발생했습니다.');
     }
-  }, [app]);
+  }, [service]);
   
-  // 컴포넌트 마운트 시 서비스 초기화
-  useEffect(() => {
-    console.log('[CardNavigatorView] 서비스 초기화 시작');
-    
-    // 이미 초기화된 서비스가 있는 경우 중복 초기화 방지
-    if (service) {
-      console.log('[CardNavigatorView] 이미 초기화된 서비스가 있습니다.');
-      return;
+  // 프리셋 저장 핸들러
+  const handlePresetSave = useCallback(async () => {
+    try {
+      const preset = service.saveAsPreset('새 프리셋');
+      return preset;
+    } catch (error) {
+      console.error('프리셋 저장 중 오류 발생:', error);
+      setError('프리셋을 저장하는 중 오류가 발생했습니다.');
+      throw error;
     }
-    
-    // 서비스 초기화 - setTimeout을 사용하여 React 렌더링 사이클과 분리
-    setTimeout(() => {
-      initializeService();
-    }, 0);
-    
-    // 컴포넌트 언마운트 시 정리
-    return () => {
-      console.log('[CardNavigatorView] 컴포넌트 언마운트');
-    };
-  }, [app, initializeService, service]);
+  }, [service]);
+  
+  // 프리셋 삭제 핸들러
+  const handlePresetDelete = useCallback(async (presetId: string) => {
+    try {
+      const presetService = service.getPresetService();
+      presetService.deletePreset(presetId);
+    } catch (error) {
+      console.error('프리셋 삭제 중 오류 발생:', error);
+      setError('프리셋을 삭제하는 중 오류가 발생했습니다.');
+    }
+  }, [service]);
   
   return {
-    service,
     currentMode,
     currentCardSet,
     isCardSetFixed,
@@ -172,8 +335,12 @@ export const useCardNavigatorService = (app: App): UseCardNavigatorServiceReturn
     setSearchType,
     setCaseSensitive,
     setFrontmatterKey,
-    setError,
     
-    initializeService
+    refreshCards,
+    handleCardClick,
+    handleSearch,
+    handlePresetApply,
+    handlePresetSave,
+    handlePresetDelete
   };
 }; 

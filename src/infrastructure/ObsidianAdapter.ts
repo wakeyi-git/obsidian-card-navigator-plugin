@@ -78,6 +78,12 @@ export interface IObsidianAdapter {
    * @returns 메타데이터 캐시
    */
   getMetadataCache(): MetadataCache;
+  
+  /**
+   * 플러그인 설정 가져오기
+   * @returns 플러그인 설정
+   */
+  getPluginSettings(): any;
 }
 
 /**
@@ -427,6 +433,20 @@ export class ObsidianAdapter implements IObsidianAdapter {
   }
   
   getMetadataCache(): MetadataCache {
+    this.metadataAccessCount++;
     return this.metadataCache;
+  }
+  
+  /**
+   * 플러그인 설정 가져오기
+   * @returns 플러그인 설정
+   */
+  getPluginSettings(): any {
+    // 플러그인 인스턴스 가져오기
+    const plugin = (this.app as any).plugins.plugins['card-navigator'];
+    if (plugin && plugin.settings) {
+      return plugin.settings;
+    }
+    return null;
   }
 } 

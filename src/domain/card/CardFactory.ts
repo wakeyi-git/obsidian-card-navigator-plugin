@@ -1,4 +1,5 @@
-import { Card, ICard } from './Card';
+import { Card, ICard, ICardDisplaySettings } from './Card';
+import { IObsidianAdapter } from '../../infrastructure/ObsidianAdapter';
 
 /**
  * 카드 팩토리 인터페이스
@@ -15,6 +16,8 @@ export interface ICardFactory {
    * @param created 생성일
    * @param modified 수정일
    * @param frontmatter 프론트매터 데이터
+   * @param firstHeader 첫 번째 헤더
+   * @param displaySettings 카드 표시 설정
    * @returns 생성된 카드
    */
   createCard(
@@ -25,7 +28,9 @@ export interface ICardFactory {
     path: string,
     created: number,
     modified: number,
-    frontmatter?: Record<string, any>
+    frontmatter?: Record<string, any>,
+    firstHeader?: string,
+    displaySettings?: ICardDisplaySettings
   ): ICard;
   
   /**
@@ -44,9 +49,21 @@ export interface ICardFactory {
 
 /**
  * 카드 팩토리 클래스
- * 카드 객체를 생성하는 클래스입니다.
+ * 카드 객체를 생성하기 위한 클래스입니다.
  */
 export class CardFactory implements ICardFactory {
+  private obsidianAdapter: IObsidianAdapter | null = null;
+  
+  /**
+   * 생성자
+   * @param obsidianAdapter Obsidian 어댑터 (선택 사항)
+   */
+  constructor(obsidianAdapter?: IObsidianAdapter) {
+    if (obsidianAdapter) {
+      this.obsidianAdapter = obsidianAdapter;
+    }
+  }
+  
   createCard(
     id: string,
     title: string,
@@ -55,7 +72,9 @@ export class CardFactory implements ICardFactory {
     path: string,
     created: number,
     modified: number,
-    frontmatter?: Record<string, any>
+    frontmatter?: Record<string, any>,
+    firstHeader?: string,
+    displaySettings?: ICardDisplaySettings
   ): ICard {
     return new Card(
       id,
@@ -65,7 +84,9 @@ export class CardFactory implements ICardFactory {
       path,
       created,
       modified,
-      frontmatter
+      frontmatter,
+      firstHeader,
+      displaySettings
     );
   }
   
@@ -197,6 +218,25 @@ export class CardFactory implements ICardFactory {
       console.log(`[CardFactory] 파일 ${file.path}에서 추출된 총 태그 수: ${tags.length}, 태그 목록: ${tags.join(', ')}`);
     }
     
+    // 첫 번째 헤더 추출
+    let firstHeader = '';
+    if (content) {
+      // 마크다운 헤더 정규식 (# 헤더)
+      const headerRegex = /^#+\s+(.+)$/m;
+      const headerMatch = content.match(headerRegex);
+      
+      if (headerMatch && headerMatch[1]) {
+        firstHeader = headerMatch[1].trim();
+        console.log(`[CardFactory] 파일 ${file.path}에서 첫 번째 헤더 추출: ${firstHeader}`);
+      }
+      
+      // 헤더를 찾지 못한 경우 frontmatter의 title 속성 사용
+      if (!firstHeader && frontmatter && frontmatter.title) {
+        firstHeader = frontmatter.title;
+        console.log(`[CardFactory] 파일 ${file.path}에서 frontmatter title 사용: ${firstHeader}`);
+      }
+    }
+    
     return this.createCard(
       file.path,
       filename,
@@ -205,7 +245,8 @@ export class CardFactory implements ICardFactory {
       file.path,
       file.stat?.ctime || Date.now(),
       file.stat?.mtime || Date.now(),
-      frontmatter
+      frontmatter,
+      firstHeader
     );
   }
 } 

@@ -4,6 +4,7 @@ import { CardFactory } from '../../domain/card/CardFactory';
 import { CardRepositoryImpl } from '../../infrastructure/CardRepositoryImpl';
 import { ObsidianAdapter } from '../../infrastructure/ObsidianAdapter';
 import { TimerUtil } from '../../infrastructure/TimerUtil';
+import CardNavigatorPlugin from '../../main';
 
 // 캐싱된 서비스 인스턴스
 let cachedNavigatorService: ICardNavigatorService | null = null;
@@ -37,12 +38,16 @@ export const createCardNavigatorService = async (app: App): Promise<ICardNavigat
     try {
       // 인프라스트럭처 레이어 초기화
       const obsidianAdapter = new ObsidianAdapter(app);
-      const cardFactory = new CardFactory();
-      const cardRepository = new CardRepositoryImpl(obsidianAdapter, cardFactory);
+      const cardFactory = new CardFactory(obsidianAdapter);
+      const cardRepository = new CardRepositoryImpl(app);
       
       // 서비스 레이어 초기화
       console.log(`[CardNavigatorView] 서비스 초기화 시작`);
-      const navigatorService = new CardNavigatorService(app, cardRepository, 'folder');
+      
+      // 플러그인 인스턴스 가져오기
+      const plugin = (app as any).plugins.plugins['card-navigator'] as CardNavigatorPlugin;
+      
+      const navigatorService = new CardNavigatorService(app, cardRepository, plugin);
       
       await navigatorService.initialize();
       
@@ -51,14 +56,12 @@ export const createCardNavigatorService = async (app: App): Promise<ICardNavigat
       // 서비스 인스턴스 캐싱
       cachedNavigatorService = navigatorService;
       
-      return navigatorService;
-    } catch (initError: unknown) {
-      console.error(`[CardNavigatorView] 서비스 초기화 오류:`, initError);
-      throw new Error(`서비스 초기화 중 오류가 발생했습니다: ${initError instanceof Error ? initError.message : String(initError)}`);
-    } finally {
-      // 초기화 작업 완료 후 Promise 참조 제거
-      serviceInitializationPromise = null;
       TimerUtil.endTimer(initTimerId);
+      return navigatorService;
+    } catch (error) {
+      console.error(`[CardNavigatorView] 서비스 초기화 실패:`, error);
+      serviceInitializationPromise = null;
+      throw error;
     }
   })();
   

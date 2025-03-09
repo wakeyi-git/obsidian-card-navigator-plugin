@@ -231,35 +231,128 @@ const Toolbar: React.FC<IToolbarProps> = ({
     console.log(`[Toolbar] 컴포넌트 마운트/업데이트: cardSet=${cardSet}, currentMode=${currentMode}, isCardSetFixed=${isCardSetFixed}`);
   }, [cardSet, currentMode, isCardSetFixed]);
 
-  // 카드셋 고정 상태 토글
-  const handleCardSetFixedToggle = async () => {
-    const newFixedState = !isCardSetFixed;
-    setIsCardSetFixed(newFixedState);
-    console.log(`[Toolbar] 카드셋 고정 상태 변경: ${isCardSetFixed} -> ${newFixedState}, 현재 카드셋: ${cardSet}`);
+  /**
+   * 카드셋 선택 모달 열기
+   */
+  const openCardSetModal = () => {
+    console.log(`[Toolbar] 카드셋 선택 모달 열기: 현재 모드=${currentMode}`);
     
-    if (service) {
-      const modeService = service.getModeService();
-      
-      // 고정 해제 시 현재 활성 파일 기준으로 카드셋 업데이트
-      if (!newFixedState) {
-        const app = service.getApp();
-        const activeFile = app.workspace.getActiveFile();
-        
-        if (activeFile) {
-          console.log(`[Toolbar] 고정 해제 후 활성 파일 기준으로 카드셋 업데이트: ${activeFile.path}`);
-          await modeService.handleActiveFileChange(activeFile);
-          const currentSet = modeService.getCurrentCardSet();
-          if (currentSet) {
-            console.log(`[Toolbar] 활성 파일 기준 카드셋 업데이트 결과: ${currentSet}`);
-            onCardSetSelect(currentSet, newFixedState);
-          }
+    if (!app) {
+      console.error(`[Toolbar] App 객체가 없습니다.`);
+      return;
+    }
+    
+    if (currentMode === 'folder') {
+      // 폴더 선택 모달 열기
+      const modal = new FolderSuggestModal(
+        app,
+        cardSets.folders || [],
+        (folder, isFixed) => {
+          console.log(`[Toolbar] 폴더 선택: ${folder}, 고정=${isFixed}`);
+          onCardSetSelect(folder, isFixed);
         }
-      } else {
-        // 고정 상태로 변경 시 현재 카드셋 사용
-        console.log(`[Toolbar] 고정 상태로 변경, 현재 카드셋 유지: ${cardSet}`);
-        onCardSetSelect(cardSet, newFixedState);
+      );
+      
+      // 현재 폴더 설정
+      if (cardSet) {
+        modal.setCurrentFolder(cardSet);
+      }
+      
+      modal.open();
+    } else if (currentMode === 'tag') {
+      // 태그 선택 모달 열기
+      const modal = new TagSuggestModal(
+        app,
+        cardSets.tags || [],
+        (tag, isFixed) => {
+          console.log(`[Toolbar] 태그 선택: ${tag}, 고정=${isFixed}`);
+          onCardSetSelect(tag, isFixed);
+        }
+      );
+      
+      // 현재 태그 설정
+      if (cardSet) {
+        modal.setCurrentTag(cardSet);
+      }
+      
+      modal.open();
+    } else if (currentMode === 'search') {
+      // 검색 모드에서는 검색바에 포커스
+      const searchInput = document.querySelector('.card-navigator-search-input') as HTMLInputElement;
+      if (searchInput) {
+        searchInput.focus();
       }
     }
+  };
+
+  /**
+   * 모드 변경 처리
+   * @param newMode 새 모드
+   */
+  const handleModeChange = (newMode: ModeType) => {
+    console.log(`[Toolbar] 모드 변경: ${currentMode} -> ${newMode}`);
+    
+    // 검색 모드에서 다른 모드로 전환하는 경우 검색 모드 종료
+    if (currentMode === 'search' && newMode !== 'search') {
+      const searchService = service?.getSearchService();
+      if (searchService) {
+        searchService.exitSearchMode();
+      }
+    }
+    
+    // 모드 변경 콜백 호출
+    onModeChange(newMode);
+  };
+
+  /**
+   * 카드셋 고정 상태 토글
+   */
+  const handleCardSetFixedToggle = async () => {
+    console.log(`[Toolbar] 카드셋 고정 상태 토글: 현재=${isCardSetFixed}`);
+    
+    // 카드셋이 없는 경우 모달 열기
+    if (!cardSet) {
+      openCardSetModal();
+      return;
+    }
+    
+    // 고정 상태 토글
+    const newFixedState = !isCardSetFixed;
+    
+    // 카드셋 선택 콜백 호출
+    onCardSetSelect(cardSet, newFixedState);
+    
+    // 현재 모드가 폴더 모드이고 하위 폴더 포함 옵션이 있는 경우 알림 표시
+    if (currentMode === 'folder' && includeSubfolders) {
+      const notice = new Notice(
+        `${newFixedState ? '고정 폴더' : '활성 폴더'} 모드로 전환되었습니다.${newFixedState ? '\n다른 폴더의 노트를 열어도 카드 목록이 변경되지 않습니다.' : ''}`,
+        3000
+      );
+    } else if (currentMode === 'tag') {
+      const notice = new Notice(
+        `${newFixedState ? '고정 태그' : '활성 태그'} 모드로 전환되었습니다.${newFixedState ? '\n다른 태그의 노트를 열어도 카드 목록이 변경되지 않습니다.' : ''}`,
+        3000
+      );
+    }
+  };
+
+  /**
+   * 하위 폴더 포함 옵션 토글
+   */
+  const handleIncludeSubfoldersToggle = () => {
+    console.log(`[Toolbar] 하위 폴더 포함 옵션 토글: 현재=${includeSubfolders}`);
+    
+    // 하위 폴더 포함 옵션 토글
+    const newIncludeState = !includeSubfolders;
+    
+    // 콜백 호출
+    onIncludeSubfoldersChange(newIncludeState);
+    
+    // 알림 표시
+    const notice = new Notice(
+      `하위 폴더 ${newIncludeState ? '포함' : '제외'} 모드로 전환되었습니다.`,
+      3000
+    );
   };
 
   // 카드셋 표시 이름 가져오기
@@ -284,29 +377,6 @@ const Toolbar: React.FC<IToolbarProps> = ({
     }
     else {
       return cardSet;
-    }
-  };
-
-  // 카드셋 선택 모달 열기
-  const openCardSetModal = () => {
-    if (!service || !service.getApp()) return;
-    
-    console.log(`[Toolbar] 카드셋 선택 모달 열기: currentMode=${currentMode}, cardSet=${cardSet}, availableCardSets=${JSON.stringify(availableCardSets)}`);
-    
-    const obsidianApp = service.getApp();
-    
-    if (currentMode === 'folder') {
-      // 폴더 모달 열기 시 현재 선택된 폴더 정보 전달
-      const modal = new FolderSuggestModal(obsidianApp, availableCardSets, onCardSetSelect);
-      modal.setCurrentFolder(cardSet); // 현재 선택된 폴더 설정
-      modal.open();
-      console.log(`[Toolbar] 폴더 모달 열림: 현재 폴더=${cardSet}`);
-    } else if (currentMode === 'tag') {
-      // 태그 모달 열기 시 현재 선택된 태그 정보 전달
-      const modal = new TagSuggestModal(obsidianApp, availableCardSets, onCardSetSelect);
-      modal.setCurrentTag(cardSet); // 현재 선택된 태그 설정
-      modal.open();
-      console.log(`[Toolbar] 태그 모달 열림: 현재 태그=${cardSet}`);
     }
   };
 
@@ -347,7 +417,7 @@ const Toolbar: React.FC<IToolbarProps> = ({
       <div className="card-navigator-toolbar-left">
         <ModeToggle
           currentMode={currentMode}
-          onModeChange={onModeChange}
+          onModeChange={handleModeChange}
           service={service}
         />
         <div className="card-navigator-cardset-selector">
@@ -414,11 +484,11 @@ const Toolbar: React.FC<IToolbarProps> = ({
         </div>
       </div>
       
-      {isSettingsModalOpen && (
+      {isSettingsModalOpen && service && (
         <SettingsModal
           isOpen={isSettingsModalOpen}
           onClose={() => setIsSettingsModalOpen(false)}
-          service={service}
+          plugin={service.getPlugin()}
           onLayoutChange={onLayoutChange}
           currentLayout={currentLayout}
           onPresetApply={onPresetApply}

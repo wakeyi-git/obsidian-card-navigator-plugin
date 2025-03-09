@@ -66,15 +66,17 @@ const SEARCH_OPTIONS: SearchOption[] = [
  * useSearchBar 훅 속성 인터페이스
  */
 interface UseSearchBarProps {
-  cardNavigatorService: ICardNavigatorService | null;
+  cardNavigatorService: ICardNavigatorService | null | undefined;
   onSearch: (query: string, type?: string) => void;
   currentCards: ICardProps[];
   
   // 추가 속성 - 초기값
-  initialSearchText?: string;
-  initialSearchType?: SearchType;
-  initialCaseSensitive?: boolean;
-  initialFrontmatterKey?: string;
+  searchQuery?: string;
+  searchType?: SearchType;
+  caseSensitive?: boolean;
+  frontmatterKey?: string;
+  searchScope?: 'all' | 'current';
+  app?: any; // Obsidian App 인스턴스
 }
 
 interface UseSearchBarReturn {
@@ -129,10 +131,17 @@ interface UseSearchBarReturn {
   handleSearchOptionSelect: (option: SearchOption, evt: MouseEvent | KeyboardEvent) => void;
   handleDateSelect: (date: string) => void;
   handleSearchScopeToggle: () => void;
-  handleHistoryItemClick: (query: string) => void;
   handleFrontmatterKeySelect: (key: string) => void;
   handleSuggestedValueSelect: (value: string) => void;
+  handleSearchHistorySelect: (query: string) => void;
+  handleClickOutside: (event: MouseEvent) => void;
   clearSearchHistory: () => void;
+  
+  // 서비스 호출
+  getScopedTags: (searchScope: 'all' | 'current') => Promise<string[]>;
+  getScopedFilenames: (searchScope: 'all' | 'current') => Promise<string[]>;
+  getScopedFrontmatterKeys: (searchScope: 'all' | 'current') => Promise<string[]>;
+  getScopedFrontmatterValues: (key: string, searchScope: 'all' | 'current') => Promise<string[]>;
   
   // 유틸리티 함수
   loadSuggestedValues: (option: SearchOption, searchScope?: 'all' | 'current') => Promise<void>;
@@ -152,17 +161,22 @@ interface UseSearchBarReturn {
  */
 export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
   const { 
-    cardNavigatorService, 
+    cardNavigatorService: originalCardNavigatorService, 
     onSearch, 
     currentCards,
-    initialSearchText = '',
-    initialSearchType = 'filename',
-    initialCaseSensitive = false,
-    initialFrontmatterKey = ''
+    searchQuery = '',
+    searchType = 'filename',
+    caseSensitive = false,
+    frontmatterKey: initialFrontmatterKey = '',
+    searchScope: initialSearchScope = 'current',
+    app
   } = props;
   
+  // cardNavigatorService가 undefined인 경우 null로 변환
+  const cardNavigatorService = originalCardNavigatorService || null;
+  
   // 상태
-  const [searchText, setSearchText] = useState<string>(initialSearchText);
+  const [searchText, setSearchText] = useState<string>(searchQuery);
   const [showSearchSuggestions, setShowSearchSuggestions] = useState<boolean>(false);
   const [showFrontmatterKeySuggestions, setShowFrontmatterKeySuggestions] = useState<boolean>(false);
   const [showSuggestedValues, setShowSuggestedValues] = useState<boolean>(false);
@@ -189,10 +203,10 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
   
   // 초기 검색 옵션 설정
   const [currentSearchOption, setCurrentSearchOption] = useState<SearchOption | null>(() => {
-    if (initialSearchType) {
+    if (searchType) {
       // SearchType을 SearchOption으로 변환
       const option = SEARCH_OPTIONS.find(opt => {
-        switch (initialSearchType) {
+        switch (searchType) {
           case 'filename':
             return opt.type === 'filename';
           case 'content':
@@ -319,79 +333,27 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
     loadFrontmatterKeys();
   }, [cardNavigatorService]);
   
-  // 외부 클릭 감지
+  // 외부 클릭 감지 이벤트 핸들러
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      
-      try {
-        // 검색 제안 외부 클릭 감지
-        if (
-          showSearchSuggestions &&
-          inputRef.current && 
-          !inputRef.current.contains(target)
-        ) {
-          setShowSearchSuggestions(false);
-        }
-        
-        // 프론트매터 키 제안 외부 클릭 감지
-        if (
-          showFrontmatterKeySuggestions &&
-          inputRef.current && 
-          !inputRef.current.contains(target)
-        ) {
-          setShowFrontmatterKeySuggestions(false);
-        }
-        
-        // 추천 검색어 외부 클릭 감지
-        if (
-          showSuggestedValues &&
-          inputRef.current && 
-          !inputRef.current.contains(target)
-        ) {
-          setShowSuggestedValues(false);
-        }
-        
-        // 날짜 선택기 외부 클릭 감지
-        if (
-          showDatePicker &&
-          datePickerRef.current && 
-          !datePickerRef.current.contains(target) &&
-          inputRef.current && 
-          !inputRef.current.contains(target)
-        ) {
-          setShowDatePicker(false);
-        }
-        
-        // 검색 기록 외부 클릭 감지
-        if (
-          showSearchHistory &&
-          searchHistoryRef.current && 
-          !searchHistoryRef.current.contains(target) &&
-          inputRef.current && 
-          !inputRef.current.contains(target)
-        ) {
-          setShowSearchHistory(false);
-        }
-      } catch (error) {
-        console.error('외부 클릭 처리 중 오류 발생:', error);
+    const handleClickOutsideEvent = (event: MouseEvent) => {
+      if (
+        containerRef.current && 
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setShowSearchSuggestions(false);
+        setShowFrontmatterKeySuggestions(false);
+        setShowSuggestedValues(false);
+        setShowSearchHistory(false);
+        setShowDatePicker(false);
       }
     };
     
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutsideEvent);
+    
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('mousedown', handleClickOutsideEvent);
     };
-  }, [
-    showSearchSuggestions, 
-    showFrontmatterKeySuggestions, 
-    showSuggestedValues, 
-    showDatePicker,
-    showSearchHistory,
-    inputRef, 
-    datePickerRef,
-    searchHistoryRef
-  ]);
+  }, [containerRef]);
   
   /**
    * 텍스트 변경 핸들러
@@ -713,8 +675,6 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
    */
   const handleSearchOptionSelect = (option: SearchOption, evt: MouseEvent | KeyboardEvent) => {
     try {
-      console.log('useSearchBar: handleSearchOptionSelect 호출됨, 옵션:', option.type, option.prefix, '이벤트 타입:', evt instanceof MouseEvent ? 'mouse' : 'keyboard');
-      
       // 현재 선택된 검색 옵션 업데이트
       setCurrentSearchOption(option);
       
@@ -725,185 +685,66 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
       // 검색 제안 숨기기
       setShowSearchSuggestions(false);
       
+      // 마우스 이벤트일 때는 SearchOptionSuggest에서 이미 처리했으므로 추가 처리 불필요
+      if (evt instanceof MouseEvent) {
+        // 마우스 이벤트 처리는 SearchOptionSuggest에서 수행
+        // 검색 실행만 수행
+        if (inputRef.current) {
+          onSearch(inputRef.current.value, option.type);
+        }
+        return;
+      }
+      
+      // 키보드 이벤트일 때만 추가 처리
       if (inputRef.current) {
-        const cursorPosition = inputRef.current.selectionStart || 0;
-        const currentValue = inputRef.current.value;
-        
-        // 현재 커서 위치 이전과 이후의 텍스트
-        const textBeforeCursor = currentValue.substring(0, cursorPosition);
-        const textAfterCursor = currentValue.substring(cursorPosition);
-        
-        // 커서 위치에 접두사 삽입
-        let insertText = '';
+        // 검색 옵션 접두사 생성
+        let insertText = option.prefix;
         let newCursorPosition = 0;
         
-        // 일반 검색 옵션 처리
-        // 현재 입력 필드가 비어있는 경우
-        if (currentValue.trim() === '') {
-          // 검색 옵션 접두사 사용 - 선택한 옵션의 접두사 사용
-          insertText = option.prefix;
-          console.log(`빈 입력 필드에 접두사 삽입: ${option.type}, ${option.prefix}`);
+        // 옵션 타입에 따라 접두사 형식 조정
+        if (option.type === 'frontmatter') {
+          insertText += ']:'; // 프론트매터 검색의 경우 닫는 괄호와 콜론 추가
+          newCursorPosition = insertText.length - 2; // 커서를 대괄호 안에 위치시킴
+        } else if (option.type === 'create' || option.type === 'modify') {
+          // 날짜 검색의 경우 시작일 옵션 추가
+          insertText += ' [start date]:';
+          newCursorPosition = insertText.length;
           
-          if (option.type === 'frontmatter') {
-            insertText += ']:'; // 프론트매터 검색의 경우 닫는 괄호와 콜론 추가
-            newCursorPosition = insertText.length - 2; // 커서를 대괄호 안에 위치시킴
-          } else if (option.type === 'create' || option.type === 'modify') {
-            // 날짜 검색의 경우 시작일 옵션 추가
-            insertText += ' [start date]:';
-            newCursorPosition = insertText.length;
-            
-            setDatePickerType('start');
-            setIsDateRangeMode(true);
-            
-            // 날짜 선택기 표시
-            setTimeout(() => {
-              if (inputRef.current) {
-                const rect = inputRef.current.getBoundingClientRect();
-                setDatePickerPosition({
-                  top: rect.bottom + window.scrollY,
-                  left: rect.left + window.scrollX
-                });
-                setShowDatePicker(true);
-              }
-            }, 100);
-          } else if (option.type === 'filename' || option.type === 'path') {
-            // 파일명과 경로 검색의 경우 큰따옴표 추가
-            insertText += '"';
-            newCursorPosition = insertText.length;
-          } else {
-            // 다른 검색 타입의 경우 공백 제거
-            newCursorPosition = insertText.length;
-          }
+          setDatePickerType('start');
+          setIsDateRangeMode(true);
           
-          // 입력 필드에 접두사 삽입
-          inputRef.current.value = insertText;
-          setSearchText(insertText);
-          
-          // 커서 위치 조정
-          inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
-          
-          console.log(`입력 필드에 접두사 삽입 완료: ${insertText}, 커서 위치: ${newCursorPosition}`);
-        } 
-        // 이미 검색어가 있는 경우
-        else {
-          // 현재 검색어에 이미 검색 옵션이 있는지 확인
-          const existingOption = getSearchOptionByPrefix(currentValue);
-          
-          // 이미 같은 검색 옵션이 있는 경우 (대체)
-          if (existingOption && existingOption.type === option.type) {
-            // 기존 검색어를 새 검색 옵션으로 대체
-            const newValue = option.prefix + currentValue.substring(existingOption.prefix.length);
-            console.log(`기존 검색 옵션 대체: ${existingOption.type} -> ${option.type}`);
-            setSearchText(newValue);
-            
-            // 커서 위치 조정
-            setTimeout(() => {
-              if (inputRef.current) {
-                inputRef.current.focus();
-                const newPosition = option.prefix.length;
-                inputRef.current.setSelectionRange(newPosition, newPosition);
-              }
-            }, 10);
-            
-            // 검색 옵션에 따른 추천 검색어 로드
-            if (option.type !== 'frontmatter' && option.type !== 'create' && option.type !== 'modify') {
-              // 약간의 지연을 두고 추천 검색어 로드 (상태 업데이트 후)
-              setTimeout(() => {
-                // 복합 검색인 경우 현재 필터링된 카드 목록을 기반으로 추천 검색어 로드
-                if (isComplex) {
-                  loadSuggestedValuesFromCurrentCards(option, searchScope);
-                } else {
-                  loadSuggestedValues(option, searchScope);
-                }
-                
-                // 검색 실행
-                onSearch(newValue, option.type);
-              }, 50);
-            } else {
-              // 검색 실행
-              onSearch(newValue, option.type);
+          // 날짜 선택기 표시
+          setTimeout(() => {
+            if (inputRef.current) {
+              const rect = inputRef.current.getBoundingClientRect();
+              setDatePickerPosition({
+                top: rect.bottom + window.scrollY,
+                left: rect.left + window.scrollX
+              });
+              setShowDatePicker(true);
             }
-            
-            return;
-          }
-          
-          // 복합 검색으로 추가 (파이프 사용 대신 스페이스만 사용)
-          if (textBeforeCursor.endsWith(' ')) {
-            // 이미 공백이 있으면 접두사만 추가
-            insertText = option.prefix;
-            console.log(`공백 이후에 접두사 추가: ${option.type}, ${option.prefix}`);
-          } else {
-            // 공백과 접두사 추가 (파이프 없이)
-            insertText = ' ' + option.prefix;
-            console.log(`공백과 접두사 추가: ${option.type}, ${option.prefix}`);
-          }
-          
-          if (option.type === 'frontmatter') {
-            insertText += ']:'; // 프론트매터 검색의 경우 닫는 괄호와 콜론 추가
-            newCursorPosition = textBeforeCursor.length + insertText.length - 2; // 커서를 대괄호 안에 위치시킴
-          } else if (option.type === 'create' || option.type === 'modify') {
-            // 날짜 검색의 경우 시작일 옵션 추가
-            insertText += ' [start date]:';
-            newCursorPosition = textBeforeCursor.length + insertText.length;
-            
-            setDatePickerType('start');
-            setIsDateRangeMode(true);
-            
-            // 날짜 선택기 표시
-            setTimeout(() => {
-              if (inputRef.current) {
-                const rect = inputRef.current.getBoundingClientRect();
-                setDatePickerPosition({
-                  top: rect.bottom + window.scrollY,
-                  left: rect.left + window.scrollX
-                });
-                setShowDatePicker(true);
-              }
-            }, 100);
-          } else if (option.type === 'filename' || option.type === 'path') {
-            // 파일명과 경로 검색의 경우 큰따옴표 추가
-            insertText += '"';
-            newCursorPosition = textBeforeCursor.length + insertText.length;
-          } else {
-            insertText += ' '; // 다른 검색 타입의 경우 공백 추가
-            newCursorPosition = textBeforeCursor.length + insertText.length;
-          }
+          }, 100);
+        } else if (option.type === 'filename' || option.type === 'path') {
+          // 파일명과 경로 검색의 경우 큰따옴표 추가
+          insertText += '"';
+          newCursorPosition = insertText.length;
+        } else {
+          // 다른 검색 타입의 경우 커서 위치 조정
+          newCursorPosition = insertText.length;
         }
         
-        // 새 검색어 설정
-        const newValue = textBeforeCursor + insertText + textAfterCursor;
-        console.log(`새 검색어 설정: ${newValue}`);
-        setSearchText(newValue);
+        // 입력 필드에 접두사 삽입
+        inputRef.current.value = insertText;
+        setSearchText(insertText);
         
         // 커서 위치 조정
-        setTimeout(() => {
-          if (inputRef.current) {
-            inputRef.current.focus();
-            inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
-          }
-        }, 10);
+        inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
         
-        // 복합 검색 여부 확인
-        const isComplex = updateComplexSearchStatus(newValue);
+        // 입력 필드에 포커스
+        inputRef.current.focus();
         
-        // 검색 옵션에 따른 추천 검색어 로드
-        if (option.type !== 'frontmatter' && option.type !== 'create' && option.type !== 'modify') {
-          // 약간의 지연을 두고 추천 검색어 로드 (상태 업데이트 후)
-          setTimeout(() => {
-            // 복합 검색인 경우 현재 필터링된 카드 목록을 기반으로 추천 검색어 로드
-            if (isComplex) {
-              loadSuggestedValuesFromCurrentCards(option, searchScope);
-            } else {
-              loadSuggestedValues(option, searchScope);
-            }
-            
-            // 검색 실행
-            onSearch(newValue, option.type);
-          }, 50);
-        } else {
-          // 검색 실행
-          onSearch(newValue, option.type);
-        }
+        // 검색 실행
+        onSearch(insertText, option.type);
       }
     } catch (error) {
       console.error('검색 옵션 선택 처리 중 오류 발생:', error);
@@ -1023,6 +864,85 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
     }
   };
   
+  // 검색 기록 선택 핸들러
+  const handleSearchHistorySelect = (query: string) => {
+    setSearchText(query);
+    setShowSearchHistory(false);
+    
+    // 검색 실행
+    if (onSearch) {
+      onSearch(query);
+    }
+  };
+  
+  // 서비스 호출 메서드들
+  const getScopedTags = async (scope: 'all' | 'current'): Promise<string[]> => {
+    if (!cardNavigatorService) return [];
+    
+    try {
+      const searchService = (cardNavigatorService as any).searchService;
+      if (searchService && typeof searchService.getScopedTags === 'function') {
+        return await searchService.getScopedTags(scope, currentCards);
+      }
+      return [];
+    } catch (error) {
+      console.error('[useSearchBar] 태그 목록 가져오기 오류:', error);
+      return [];
+    }
+  };
+  
+  const getScopedFilenames = async (scope: 'all' | 'current'): Promise<string[]> => {
+    if (!cardNavigatorService) return [];
+    
+    try {
+      const searchService = (cardNavigatorService as any).searchService;
+      if (searchService && typeof searchService.getScopedFilenames === 'function') {
+        return await searchService.getScopedFilenames(scope, currentCards);
+      }
+      return [];
+    } catch (error) {
+      console.error('[useSearchBar] 파일명 목록 가져오기 오류:', error);
+      return [];
+    }
+  };
+  
+  const getScopedFrontmatterKeys = async (scope: 'all' | 'current'): Promise<string[]> => {
+    if (!cardNavigatorService) return [];
+    
+    try {
+      const searchService = (cardNavigatorService as any).searchService;
+      if (searchService && typeof searchService.getScopedFrontmatterKeys === 'function') {
+        return await searchService.getScopedFrontmatterKeys(scope, currentCards);
+      }
+      return [];
+    } catch (error) {
+      console.error('[useSearchBar] 프론트매터 키 목록 가져오기 오류:', error);
+      return [];
+    }
+  };
+  
+  const getScopedFrontmatterValues = async (key: string, scope: 'all' | 'current'): Promise<string[]> => {
+    if (!cardNavigatorService || !key) return [];
+    
+    try {
+      const searchService = (cardNavigatorService as any).searchService;
+      if (searchService && typeof searchService.getScopedFrontmatterValues === 'function') {
+        return await searchService.getScopedFrontmatterValues(key, scope, currentCards);
+      }
+      return [];
+    } catch (error) {
+      console.error('[useSearchBar] 프론트매터 값 목록 가져오기 오류:', error);
+      return [];
+    }
+  };
+  
+  // 초기화
+  useEffect(() => {
+    if (searchQuery) {
+      setSearchText(searchQuery);
+    }
+  }, [searchQuery]);
+  
   return {
     // 상태
     searchText,
@@ -1075,10 +995,28 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
     handleSearchOptionSelect,
     handleDateSelect,
     handleSearchScopeToggle,
-    handleHistoryItemClick,
     handleFrontmatterKeySelect,
     handleSuggestedValueSelect,
+    handleSearchHistorySelect,
+    handleClickOutside: (event: MouseEvent) => {
+      if (
+        containerRef.current && 
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setShowSearchSuggestions(false);
+        setShowFrontmatterKeySuggestions(false);
+        setShowSuggestedValues(false);
+        setShowSearchHistory(false);
+        setShowDatePicker(false);
+      }
+    },
     clearSearchHistory,
+    
+    // 서비스 호출
+    getScopedTags,
+    getScopedFilenames,
+    getScopedFrontmatterKeys,
+    getScopedFrontmatterValues,
     
     // 유틸리티 함수
     loadSuggestedValues,

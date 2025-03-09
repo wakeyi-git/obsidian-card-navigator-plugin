@@ -11,6 +11,8 @@ export interface ICardContainerProps {
   layout?: 'grid' | 'masonry';
   searchQuery?: string;
   emptyMessage?: string;
+  settings?: any;
+  focusedCardId?: string;
   
   // 추가 속성
   onCardContextMenu?: (id: string, event: React.MouseEvent) => void;
@@ -33,6 +35,8 @@ const CardContainer: React.FC<ICardContainerProps> = ({
   layout = 'grid',
   searchQuery = '',
   emptyMessage = '표시할 카드가 없습니다',
+  settings,
+  focusedCardId,
   
   // 추가 속성
   onCardContextMenu = () => {},
@@ -92,6 +96,11 @@ useEffect(() => {
         onClick={onCardClick}
         searchQuery={searchQuery}
         isActive={card.isActive}
+        isFocused={card.id === focusedCardId}
+        firstHeader={card.firstHeader}
+        frontmatter={card.frontmatter}
+        displaySettings={card.displaySettings}
+        settings={settings}
         onContextMenu={onCardContextMenu}
         onDragStart={onCardDragStart}
         onDragEnd={onCardDragEnd}

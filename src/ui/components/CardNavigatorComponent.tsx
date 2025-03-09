@@ -9,25 +9,25 @@ import { useCardEvents } from '../hooks/useCardEvents';
 import { TimerUtil } from '../../infrastructure/TimerUtil';
 import { SearchBar } from '../toolbar/SearchBar';
 import { SearchType as SearchBarSearchType } from '../../domain/search/Search';
+import { ICardNavigatorService } from '../../application/CardNavigatorService';
 
 /**
  * 카드 네비게이터 컴포넌트 속성
  */
-interface CardNavigatorComponentProps {
-  app: App;
+export interface CardNavigatorComponentProps {
+  service: ICardNavigatorService;
 }
 
 /**
  * 카드 네비게이터 컴포넌트
  * 카드 네비게이터의 메인 컴포넌트
  */
-export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ app }) => {
+export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ service }) => {
   // 성능 모니터링을 위한 카운터
   const [renderCount, setRenderCount] = useState<number>(0);
   
   // 서비스 초기화 및 관리
   const {
-    service,
     currentMode,
     currentCardSet,
     isCardSetFixed,
@@ -50,8 +50,14 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
     setSearchType,
     setCaseSensitive,
     setFrontmatterKey,
-    setError: setServiceError
-  } = useCardNavigatorService(app);
+    
+    refreshCards,
+    handleCardClick,
+    handleSearch,
+    handlePresetApply,
+    handlePresetSave,
+    handlePresetDelete
+  } = useCardNavigatorService(service);
   
   // 카드 로딩 관리
   const {
@@ -71,12 +77,9 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
     handleIncludeSubfoldersChange,
     handleSortChange,
     handleLayoutChange,
-    handleSearch,
     handleSearchTypeChange,
     handleCaseSensitiveChange,
     handleFrontmatterKeyChange,
-    handleCardClick,
-    handleCardContextMenu,
     handleCardDragStart,
     handleCardDragEnd,
     handleCardDrop,
@@ -265,7 +268,6 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
           currentSortDirection={currentSortDirection}
           onSortChange={handleSortChange}
           service={service}
-          app={app}
           isSearchMode={isSearchMode}
           toggleSearchMode={() => setIsSearchMode(!isSearchMode)}
         />
@@ -289,7 +291,6 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
               searchType={'content' as SearchBarSearchType}
               caseSensitive={caseSensitive}
               frontmatterKey={frontmatterKey}
-              app={app}
             />
           </div>
         )}
@@ -317,13 +318,14 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
             cards={cards}
             layout={layout}
             onCardClick={handleCardClick}
-            onCardContextMenu={handleCardContextMenu}
             onCardDragStart={handleCardDragStart}
             onCardDragEnd={handleCardDragEnd}
             onCardDrop={handleCardDrop}
             onCardDragOver={handleCardDragOver}
             onCardDragEnter={handleCardDragEnter}
             onCardDragLeave={handleCardDragLeave}
+            service={service}
+            settings={service?.getSettings()}
           />
         )}
       </div>

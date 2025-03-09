@@ -83,7 +83,7 @@ export interface ISortService {
 }
 
 /**
- * 정렬 서비스 클래스
+ * 정렬 서비스 구현 클래스
  * 정렬 관리를 위한 클래스입니다.
  */
 export class SortService implements ISortService {
@@ -91,9 +91,24 @@ export class SortService implements ISortService {
   private priorityTags: string[] = [];
   private priorityFolders: string[] = [];
   
-  constructor() {
-    // 기본 정렬 설정 (파일명 오름차순)
-    this.currentSort = new FilenameSort('asc');
+  /**
+   * 생성자
+   * @param settings 설정 객체 (선택 사항)
+   */
+  constructor(settings?: any) {
+    if (settings) {
+      this.priorityTags = settings.priorityTags || [];
+      this.priorityFolders = settings.priorityFolders || [];
+      
+      // 기본 정렬 설정
+      if (settings.sortBy) {
+        this.setSortType(
+          settings.sortBy as SortType, 
+          settings.sortOrder as SortDirection, 
+          settings.customSortKey
+        );
+      }
+    }
   }
   
   /**

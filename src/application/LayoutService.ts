@@ -67,13 +67,45 @@ export interface ILayoutService {
 }
 
 /**
- * 레이아웃 서비스 클래스
+ * 레이아웃 서비스 구현 클래스
  * 레이아웃 관리를 위한 클래스입니다.
  */
 export class LayoutService implements ILayoutService {
   private currentLayout: ILayout;
   
-  constructor(defaultLayoutType: LayoutType = 'grid') {
+  /**
+   * 생성자
+   * @param settings 설정 객체 또는 기본 레이아웃 타입
+   */
+  constructor(settings?: any) {
+    let defaultLayoutType: LayoutType = 'grid';
+    
+    if (settings) {
+      if (typeof settings === 'string') {
+        defaultLayoutType = settings as LayoutType;
+      } else {
+        defaultLayoutType = settings.defaultLayout || 'grid';
+        
+        // 레이아웃 생성
+        this.currentLayout = this.createLayout(defaultLayoutType);
+        
+        // 설정 적용
+        if (settings.cardWidth) {
+          this.setCardWidth(settings.cardWidth);
+        }
+        
+        if (settings.cardHeight) {
+          this.setCardHeight(settings.cardHeight);
+        }
+        
+        if (settings.cardGap) {
+          this.setGap(settings.cardGap);
+        }
+        
+        return;
+      }
+    }
+    
     // 기본 레이아웃 생성
     this.currentLayout = this.createLayout(defaultLayoutType);
   }

@@ -15,7 +15,11 @@ export const mapCardToProps = (card: ICard): ICardProps => {
     tags: card.tags,
     created: card.created,
     modified: card.modified,
-    // frontmatter는 ICardProps에 없지만 필요하다면 추가 속성으로 전달할 수 있음
+    firstHeader: card.firstHeader || '',
+    frontmatter: card.frontmatter || {},
+    displaySettings: card.displaySettings,
+    isActive: false, // 기본값 설정
+    isFocused: false, // 기본값 설정
   };
 };
 

@@ -2,10 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 interface FrontmatterKeySuggestionsProps {
   keys: string[];
-  isVisible: boolean;
   onSelect: (key: string) => void;
-  inputRef: React.RefObject<HTMLInputElement>;
-  onClose?: () => void;
 }
 
 /**
@@ -13,70 +10,33 @@ interface FrontmatterKeySuggestionsProps {
  */
 const FrontmatterKeySuggestions: React.FC<FrontmatterKeySuggestionsProps> = ({
   keys,
-  isVisible,
-  onSelect,
-  inputRef,
-  onClose
+  onSelect
 }) => {
-  const [filteredKeys, setFilteredKeys] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-  const [searchText, setSearchText] = useState<string>('');
-  
-  // 입력 필드의 값 변경 감지
-  useEffect(() => {
-    if (inputRef.current) {
-      const value = inputRef.current.value;
-      const match = value.match(/\[([^\]]*)\]/);
-      if (match) {
-        setSearchText(match[1]);
-      } else {
-        setSearchText('');
-      }
-    }
-  }, [inputRef.current?.value]);
-  
-  // 검색어에 따라 키 필터링
-  useEffect(() => {
-    if (!searchText.trim()) {
-      setFilteredKeys(keys);
-      return;
-    }
-    
-    const lowerCaseSearchText = searchText.toLowerCase();
-    const filtered = keys.filter(key => 
-      key.toLowerCase().includes(lowerCaseSearchText)
-    );
-    
-    setFilteredKeys(filtered);
-    setSelectedIndex(-1);
-  }, [searchText, keys]);
   
   // 키보드 이벤트 처리
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isVisible || filteredKeys.length === 0) return;
+      if (keys.length === 0) return;
       
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setSelectedIndex(prev => (prev + 1) % filteredKeys.length);
+          setSelectedIndex(prev => (prev + 1) % keys.length);
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setSelectedIndex(prev => (prev <= 0 ? filteredKeys.length - 1 : prev - 1));
+          setSelectedIndex(prev => (prev <= 0 ? keys.length - 1 : prev - 1));
           break;
         case 'Enter':
-          if (selectedIndex >= 0 && selectedIndex < filteredKeys.length) {
+          if (selectedIndex >= 0 && selectedIndex < keys.length) {
             e.preventDefault();
-            onSelect(filteredKeys[selectedIndex]);
+            onSelect(keys[selectedIndex]);
           }
           break;
         case 'Escape':
           e.preventDefault();
-          if (onClose) {
-            onClose();
-          }
           break;
       }
     };
@@ -85,7 +45,7 @@ const FrontmatterKeySuggestions: React.FC<FrontmatterKeySuggestionsProps> = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isVisible, filteredKeys, selectedIndex, onSelect, onClose]);
+  }, [keys, selectedIndex, onSelect]);
   
   // 선택된 항목이 변경될 때 스크롤 조정
   useEffect(() => {
@@ -116,7 +76,7 @@ const FrontmatterKeySuggestions: React.FC<FrontmatterKeySuggestionsProps> = ({
     onSelect(key);
   };
   
-  if (!isVisible || filteredKeys.length === 0) {
+  if (keys.length === 0) {
     return null;
   }
   
@@ -132,7 +92,7 @@ const FrontmatterKeySuggestions: React.FC<FrontmatterKeySuggestionsProps> = ({
       <div className="card-navigator-suggestions-header">
         프론트매터 속성
       </div>
-      {filteredKeys.map((key, index) => (
+      {keys.map((key, index) => (
         <div 
           key={key}
           className={`card-navigator-suggestion-item ${index === selectedIndex ? 'is-selected' : ''}`}
