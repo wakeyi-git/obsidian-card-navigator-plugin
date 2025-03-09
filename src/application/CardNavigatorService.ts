@@ -29,6 +29,9 @@ import { ILayoutService } from './LayoutService';
 import { ISearchService } from './SearchService';
 import { IInteractionService } from './InteractionService';
 
+// ICardNavigatorService 인터페이스 export
+export type { ICardNavigatorService } from '../domain/interaction/InteractionInterfaces';
+
 /**
  * 카드 내비게이터 서비스 클래스
  * 모든 서비스를 통합하고 조정하는 메인 서비스입니다.

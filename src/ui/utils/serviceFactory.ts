@@ -1,10 +1,14 @@
 import { App } from 'obsidian';
 import { CardNavigatorService, ICardNavigatorService } from '../../application/CardNavigatorService';
-import { CardFactory } from '../../domain/card/CardFactory';
 import { CardRepositoryImpl } from '../../infrastructure/CardRepositoryImpl';
 import { ObsidianAdapter } from '../../infrastructure/ObsidianAdapter';
 import { TimerUtil } from '../../infrastructure/TimerUtil';
 import CardNavigatorPlugin from '../../main';
+import { CardService } from '../../application/CardService';
+import { CardSetService } from '../../application/CardSetService';
+import { LayoutService } from '../../application/LayoutService';
+import { SearchService } from '../../application/SearchService';
+import { InteractionService } from '../../application/InteractionService';
 
 // 캐싱된 서비스 인스턴스
 let cachedNavigatorService: ICardNavigatorService | null = null;
@@ -38,7 +42,6 @@ export const createCardNavigatorService = async (app: App): Promise<ICardNavigat
     try {
       // 인프라스트럭처 레이어 초기화
       const obsidianAdapter = new ObsidianAdapter(app);
-      const cardFactory = new CardFactory(obsidianAdapter);
       const cardRepository = new CardRepositoryImpl(app);
       
       // 서비스 레이어 초기화
@@ -47,7 +50,22 @@ export const createCardNavigatorService = async (app: App): Promise<ICardNavigat
       // 플러그인 인스턴스 가져오기
       const plugin = (app as any).plugins.plugins['card-navigator'] as CardNavigatorPlugin;
       
-      const navigatorService = new CardNavigatorService(app, cardRepository, plugin);
+      // 필요한 서비스 인스턴스 생성
+      const cardService = new CardService(app, cardRepository);
+      const cardSetService = new CardSetService(app, cardService);
+      const layoutService = new LayoutService();
+      const searchService = new SearchService(app, cardService);
+      const interactionService = new InteractionService(app, cardService);
+      
+      // CardNavigatorService 생성 시 모든 필요한 매개변수 전달
+      const navigatorService = new CardNavigatorService(
+        app,
+        cardService,
+        cardSetService,
+        layoutService,
+        searchService,
+        interactionService
+      );
       
       await navigatorService.initialize();
       
