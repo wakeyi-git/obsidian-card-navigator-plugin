@@ -165,7 +165,7 @@ export class FolderMode extends Mode {
    * @param folder 설정할 폴더
    * @param isFixed 고정 여부
    */
-  setFolder(folder: string, isFixed: boolean = false): void {
+  setFolder(folder: string, isFixed = false): void {
     this.currentCardSet = folder;
     this.setFixed(isFixed);
     console.log(`[FolderMode] 폴더 설정: ${folder}, 고정=${isFixed}`);

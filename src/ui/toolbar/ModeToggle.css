@@ -10,11 +10,6 @@
   padding: 4px;
 }
 
-.card-navigator-mode-toggle:hover {
-  background-color: var(--background-modifier-hover);
-  color: var(--text-normal);
-}
-
 /* 모드 아이콘 스타일 */
 .card-navigator-mode-icon {
   display: flex;

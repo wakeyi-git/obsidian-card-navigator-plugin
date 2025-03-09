@@ -3,6 +3,7 @@ import React, { forwardRef, useEffect } from 'react';
 interface SearchHistoryProps {
   items: string[];
   onSelect: (query: string) => void;
+  onClear?: () => void;
 }
 
 /**

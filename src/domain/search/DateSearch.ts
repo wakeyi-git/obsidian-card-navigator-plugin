@@ -1,5 +1,6 @@
 import { ICard } from '../card/Card';
-import { Search, SearchType } from './Search';
+import { Search } from './Search';
+import { App, TFile } from 'obsidian';
 
 /**
  * 날짜 검색 클래스
@@ -9,16 +10,19 @@ export class DateSearch extends Search {
   private dateType: 'creation' | 'modification';
   private startDate: Date | null = null;
   private endDate: Date | null = null;
+  private app: App;
 
   /**
    * 생성자
+   * @param app Obsidian App 객체
    * @param query 검색어 (날짜 형식: YYYY-MM-DD 또는 범위: YYYY-MM-DD YYYY-MM-DD)
    * @param dateType 날짜 타입 (creation: 생성일, modification: 수정일)
    * @param caseSensitive 대소문자 구분 여부
    */
-  constructor(query = '', dateType: 'creation' | 'modification' = 'creation', caseSensitive = false) {
-    super('filename', query, caseSensitive); // 타입은 임의로 filename 사용 (실제로는 사용되지 않음)
+  constructor(app: App, query = '', dateType: 'creation' | 'modification' = 'creation', caseSensitive = false) {
+    super(dateType === 'creation' ? 'create' : 'modify', query, caseSensitive);
     this.dateType = dateType;
+    this.app = app;
     this.parseDateQuery(query);
   }
 
@@ -143,5 +147,42 @@ export class DateSearch extends Search {
       startDate: this.startDate ? this.startDate.toISOString() : null,
       endDate: this.endDate ? this.endDate.toISOString() : null
     };
+  }
+
+  /**
+   * 파일이 검색 조건과 일치하는지 확인
+   * @param file 확인할 파일
+   * @returns 일치 여부
+   */
+  async match(file: TFile): Promise<boolean> {
+    if (!this.startDate) return true;
+    
+    try {
+      let fileDate: Date;
+      
+      if (this.dateType === 'creation') {
+        // 생성일 가져오기
+        fileDate = new Date(file.stat.ctime);
+      } else {
+        // 수정일 가져오기
+        fileDate = new Date(file.stat.mtime);
+      }
+      
+      // 날짜 범위 검사
+      if (this.startDate && this.endDate) {
+        // 시작일과 종료일 모두 있는 경우 (범위 검색)
+        return fileDate >= this.startDate && fileDate <= this.endDate;
+      } else {
+        // 시작일만 있는 경우 (단일 날짜 검색)
+        const startOfDay = new Date(this.startDate);
+        const endOfDay = new Date(this.startDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        
+        return fileDate >= startOfDay && fileDate <= endOfDay;
+      }
+    } catch (error) {
+      console.error(`[DateSearch] 파일 날짜 검색 오류 (${file.path}):`, error);
+      return false;
+    }
   }
 } 

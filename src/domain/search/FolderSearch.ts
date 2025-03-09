@@ -1,13 +1,17 @@
 import { ICard } from '../card/Card';
 import { Search } from './Search';
+import { App, TFile } from 'obsidian';
 
 /**
  * 폴더 검색 클래스
  * 카드의 폴더 경로를 기준으로 검색하는 클래스입니다.
  */
 export class FolderSearch extends Search {
-  constructor(query = '', caseSensitive = false) {
+  private app: App;
+  
+  constructor(app: App, query = '', caseSensitive = false) {
     super('folder', query, caseSensitive);
+    this.app = app;
   }
   
   /**
@@ -19,15 +23,23 @@ export class FolderSearch extends Search {
     if (!this.query) return cards;
     
     return cards.filter(card => {
-      if (!card.path) return false;
-      
-      // 폴더 경로 추출
-      const pathParts = card.path.split('/');
-      pathParts.pop(); // 파일명 제거
-      const folderPath = pathParts.join('/');
-      
+      // 파일 경로에서 폴더 부분만 추출
+      const folderPath = card.path.substring(0, card.path.lastIndexOf('/'));
       return this.matches(folderPath);
     });
+  }
+  
+  /**
+   * 파일이 검색 조건과 일치하는지 확인
+   * @param file 확인할 파일
+   * @returns 일치 여부
+   */
+  async match(file: TFile): Promise<boolean> {
+    if (!this.query) return true;
+    
+    // 파일 경로에서 폴더 부분만 추출
+    const folderPath = file.path.substring(0, file.path.lastIndexOf('/'));
+    return this.matches(folderPath);
   }
   
   /**

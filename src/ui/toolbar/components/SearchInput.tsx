@@ -15,6 +15,7 @@ interface SearchInputProps {
   onCaseSensitiveToggle?: (sensitive: boolean) => void;
   searchScope?: 'all' | 'current';
   onSearchScopeToggle?: () => void;
+  isSearchMode?: boolean;
 }
 
 /**

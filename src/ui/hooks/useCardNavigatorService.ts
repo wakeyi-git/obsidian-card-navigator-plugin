@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { App } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import { ModeType } from '../../domain/mode/Mode';
 import { SortDirection, SortType } from '../../domain/sorting/Sort';
-import { SearchType } from '../../domain/mode/SearchMode';
+import { SearchType } from '../../domain/search/Search';
 import { createCardNavigatorService } from '../utils/serviceFactory';
 import { TimerUtil } from '../../infrastructure/TimerUtil';
 import { ICard } from '../../domain/card/Card';
@@ -251,7 +251,7 @@ export const useCardNavigatorService = (service: ICardNavigatorService): UseCard
   // 검색 핸들러
   const handleSearch = useCallback(async (query: string) => {
     try {
-      await service.search(query);
+      await service.search(query, 'filename', false);
     } catch (error) {
       console.error('검색 중 오류 발생:', error);
       setError('검색하는 중 오류가 발생했습니다.');

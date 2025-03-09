@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
-import { TFile } from 'obsidian';
+import { App, TFile } from 'obsidian';
+import { ICard } from '../../domain/card/Card';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import { ModeType } from '../../domain/mode/Mode';
 import { SortDirection, SortType } from '../../domain/sorting/Sort';
-import { SearchType } from '../../domain/mode/SearchMode';
+import { SearchType } from '../../domain/search/Search';
 
 /**
  * 카드 이벤트 핸들러 훅 반환 타입
@@ -183,7 +184,8 @@ export const useCardEvents = (
     
     try {
       // 검색 서비스에서 검색 수행
-      await service.search(query);
+      const searchType = type as SearchType;
+      await service.search(query, searchType, false);
       
       // 카드 다시 로드
       await loadCards();

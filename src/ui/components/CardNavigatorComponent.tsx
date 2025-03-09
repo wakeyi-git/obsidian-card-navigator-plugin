@@ -104,6 +104,10 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
   // 검색 모드 여부
   const [isSearchMode, setIsSearchMode] = useState<boolean>(false);
   
+  // 사용 가능한 폴더와 태그 목록
+  const [availableFolders, setAvailableFolders] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  
   // currentMode 상태가 변경될 때 isSearchMode 상태 업데이트
   useEffect(() => {
     setIsSearchMode(currentMode === 'search');
@@ -229,11 +233,33 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
     console.log('[CardNavigatorView] Toolbar 렌더링 시 전달되는 cardSet:', currentCardSet);
   }, [currentCardSet]);
   
-  // 서비스가 초기화되면 카드 로드
+  // 서비스가 초기화되면 카드 로드 및 폴더/태그 목록 가져오기
   useEffect(() => {
     if (service) {
       console.log('[CardNavigatorView] 서비스가 초기화되었습니다. 카드 로드를 시작합니다.');
       loadCards();
+      
+      // 폴더 및 태그 목록 가져오기
+      const modeService = service.getModeService();
+      
+      // 폴더 목록 가져오기
+      modeService.changeMode('folder').then(() => {
+        modeService.getCardSets().then(folders => {
+          console.log(`[CardNavigatorView] 폴더 목록 로드: ${folders.length}개`);
+          setAvailableFolders(folders);
+          
+          // 태그 목록 가져오기
+          modeService.changeMode('tag').then(() => {
+            modeService.getCardSets().then(tags => {
+              console.log(`[CardNavigatorView] 태그 목록 로드: ${tags.length}개`);
+              setAvailableTags(tags);
+              
+              // 원래 모드로 복원
+              modeService.changeMode(currentMode);
+            });
+          });
+        });
+      });
     }
   }, [service, loadCards]);
   
@@ -268,6 +294,11 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
           currentSortDirection={currentSortDirection}
           onSortChange={handleSortChange}
           service={service}
+          app={service.getApp()}
+          cardSets={{
+            folders: availableFolders,
+            tags: availableTags
+          }}
           isSearchMode={isSearchMode}
           toggleSearchMode={() => setIsSearchMode(!isSearchMode)}
         />

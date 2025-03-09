@@ -1,13 +1,73 @@
 import { ICard } from '../card/Card';
+import { TFile } from 'obsidian';
+import { ModeType, CardSetType } from '../mode/Mode';
 
 /**
- * 검색 타입 열거형
+ * 검색 타입
+ * 검색 대상을 정의합니다.
  */
-export type SearchType = 'filename' | 'content' | 'tag' | 'frontmatter' | 'folder' | 'path' | 'create' | 'modify';
+export type SearchType = 'filename' | 'content' | 'tag' | 'path' | 'frontmatter' | 'create' | 'modify' | 'regex' | 'folder';
+
+/**
+ * 검색 범위 타입
+ * 검색 범위를 정의합니다.
+ */
+export type SearchScope = 'all' | 'current';
+
+/**
+ * 검색 모드 상태 인터페이스
+ * 검색 모드의 상태를 정의합니다.
+ */
+export interface ISearchModeState {
+  /**
+   * 검색 쿼리
+   */
+  query: string;
+  
+  /**
+   * 검색 타입
+   */
+  searchType: SearchType;
+  
+  /**
+   * 대소문자 구분 여부
+   */
+  caseSensitive: boolean;
+  
+  /**
+   * 프론트매터 키 (검색 타입이 frontmatter인 경우)
+   */
+  frontmatterKey?: string;
+  
+  /**
+   * 검색 범위
+   */
+  searchScope: SearchScope;
+  
+  /**
+   * 검색 모드 전환 전 카드셋
+   */
+  preSearchCards: ICard[];
+  
+  /**
+   * 검색 모드 전환 전 모드
+   */
+  previousMode: ModeType;
+  
+  /**
+   * 검색 모드 전환 전 카드 세트
+   */
+  previousCardSet: string | null;
+  
+  /**
+   * 검색 모드 전환 전 카드 세트 타입
+   */
+  previousCardSetType: CardSetType;
+}
 
 /**
  * 검색 인터페이스
- * 검색 기능을 정의하는 인터페이스입니다.
+ * 모든 검색 구현체가 구현해야 하는 인터페이스입니다.
  */
 export interface ISearch {
   /**
@@ -39,6 +99,13 @@ export interface ISearch {
    * @param caseSensitive 대소문자 구분 여부
    */
   setCaseSensitive(caseSensitive: boolean): void;
+  
+  /**
+   * 파일이 검색 조건과 일치하는지 확인
+   * @param file 확인할 파일
+   * @returns 일치 여부
+   */
+  match(file: TFile): Promise<boolean>;
   
   /**
    * 검색 수행
@@ -89,6 +156,13 @@ export abstract class Search implements ISearch {
     this.caseSensitive = caseSensitive;
   }
   
+  abstract match(file: TFile): Promise<boolean>;
+  
+  /**
+   * 검색 수행
+   * @param cards 검색할 카드 목록
+   * @returns 검색 결과 카드 목록
+   */
   abstract search(cards: ICard[]): ICard[];
   
   serialize(): any {

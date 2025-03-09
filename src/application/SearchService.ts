@@ -1,6 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { ICard } from '../domain/card/Card';
-import { ISearch, SearchType } from '../domain/search/Search';
+import { ISearch, SearchType, SearchScope, ISearchModeState } from '../domain/search/Search';
+import { SearchFactory } from '../domain/search/SearchFactory';
 import { FilenameSearch } from '../domain/search/FilenameSearch';
 import { ContentSearch } from '../domain/search/ContentSearch';
 import { TagSearch } from '../domain/search/TagSearch';
@@ -15,10 +16,11 @@ import { RegexSearch } from '../domain/search/RegexSearch';
 import { PathSearch } from '../domain/search/PathSearch';
 import { ICardNavigatorService } from './CardNavigatorService';
 import { CardNavigatorSettings } from '../main';
+import { ModeType, CardSetType } from '../domain/mode/Mode';
 
 /**
- * 검색 서비스 인터페이스
- * 검색 관리를 위한 인터페이스입니다.
+ * 검색 및 필터 서비스 인터페이스
+ * 검색 및 필터링 관리를 위한 인터페이스입니다.
  */
 export interface ISearchService {
   /**
@@ -140,13 +142,13 @@ export interface ISearchService {
    * 검색 범위 설정
    * @param scopeType 검색 범위 타입 ('all' | 'current')
    */
-  setSearchScope(scopeType: 'all' | 'current'): void;
+  setSearchScope(scopeType: SearchScope): void;
   
   /**
    * 현재 검색 범위 가져오기
    * @returns 검색 범위 타입
    */
-  getSearchScope(): 'all' | 'current';
+  getSearchScope(): SearchScope;
   
   /**
    * 검색 모드 전환 전 카드셋 저장
@@ -172,7 +174,7 @@ export interface ISearchService {
    * @param currentCards 현재 표시 중인 카드 목록
    * @returns 태그 목록
    */
-  getScopedTags(searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]>;
+  getScopedTags(searchScope: SearchScope, currentCards: ICard[]): Promise<string[]>;
   
   /**
    * 검색 범위에 따른 파일명 목록 가져오기
@@ -180,7 +182,7 @@ export interface ISearchService {
    * @param currentCards 현재 표시 중인 카드 목록
    * @returns 파일명 목록
    */
-  getScopedFilenames(searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]>;
+  getScopedFilenames(searchScope: SearchScope, currentCards: ICard[]): Promise<string[]>;
   
   /**
    * 검색 범위에 따른 프론트매터 키 목록 가져오기
@@ -188,7 +190,7 @@ export interface ISearchService {
    * @param currentCards 현재 표시 중인 카드 목록
    * @returns 프론트매터 키 목록
    */
-  getScopedFrontmatterKeys(searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]>;
+  getScopedFrontmatterKeys(searchScope: SearchScope, currentCards: ICard[]): Promise<string[]>;
   
   /**
    * 검색 범위에 따른 프론트매터 값 목록 가져오기
@@ -197,7 +199,7 @@ export interface ISearchService {
    * @param currentCards 현재 표시 중인 카드 목록
    * @returns 프론트매터 값 목록
    */
-  getScopedFrontmatterValues(key: string, searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]>;
+  getScopedFrontmatterValues(key: string, searchScope: SearchScope, currentCards: ICard[]): Promise<string[]>;
   
   /**
    * 검색 모드로 전환
@@ -213,11 +215,103 @@ export interface ISearchService {
    * 이전 모드로 돌아갑니다.
    */
   exitSearchMode(): void;
+  
+  /**
+   * 검색 범위에 따른 파일 목록 가져오기
+   * @param query 검색 쿼리
+   * @param searchType 검색 타입
+   * @param caseSensitive 대소문자 구분 여부
+   * @param frontmatterKey 프론트매터 키
+   * @returns 파일 경로 목록
+   */
+  getFilesForSearch(
+    query: string, 
+    searchType: SearchType, 
+    caseSensitive: boolean, 
+    frontmatterKey?: string
+  ): Promise<string[]>;
+
+  /**
+   * 검색 모드 상태 가져오기
+   * @returns 검색 모드 상태
+   */
+  getSearchModeState(): ISearchModeState;
+  
+  /**
+   * 검색 타입 설정
+   * @param searchType 검색 타입
+   * @param frontmatterKey 프론트매터 키 (검색 타입이 frontmatter인 경우)
+   */
+  setSearchType(searchType: SearchType, frontmatterKey?: string): void;
+  
+  /**
+   * 검색 타입 가져오기
+   * @returns 검색 타입
+   */
+  getSearchType(): SearchType;
+  
+  /**
+   * 프론트매터 키 가져오기
+   * @returns 프론트매터 키
+   */
+  getFrontmatterKey(): string | undefined;
+  
+  /**
+   * 대소문자 구분 여부 설정
+   * @param caseSensitive 대소문자 구분 여부
+   */
+  setCaseSensitive(caseSensitive: boolean): void;
+  
+  /**
+   * 대소문자 구분 여부 가져오기
+   * @returns 대소문자 구분 여부
+   */
+  isCaseSensitive(): boolean;
+  
+  /**
+   * 이전 모드 정보 설정
+   * 검색 모드로 전환하기 전 모드 정보를 저장합니다.
+   * @param mode 이전 모드 타입
+   * @param cardSet 이전 카드 세트
+   * @param cardSetType 이전 카드 세트 타입
+   */
+  setPreviousModeInfo(mode: ModeType, cardSet: string | null, cardSetType: CardSetType): void;
+  
+  /**
+   * 이전 모드 가져오기
+   * @returns 이전 모드 타입
+   */
+  getPreviousMode(): ModeType;
+  
+  /**
+   * 이전 카드 세트 가져오기
+   * @returns 이전 카드 세트
+   */
+  getPreviousCardSet(): string | null;
+  
+  /**
+   * 이전 카드 세트 타입 가져오기
+   * @returns 이전 카드 세트 타입
+   */
+  getPreviousCardSetType(): CardSetType;
+  
+  /**
+   * 검색 객체 생성
+   * 현재 설정된 검색 타입과 쿼리로 검색 객체를 생성합니다.
+   * @returns 검색 객체
+   */
+  createSearch(): ISearch;
+
+  /**
+   * 검색 쿼리 가져오기
+   * @returns 검색 쿼리
+   */
+  getQuery(): string;
 }
 
 /**
- * 검색 서비스 클래스
- * 검색 관리를 위한 클래스입니다.
+ * 검색 및 필터 서비스 구현
+ * 검색 및 필터링 관리를 위한 서비스입니다.
  */
 export class SearchService implements ISearchService {
   private currentSearch: ISearch | null = null;
@@ -227,15 +321,35 @@ export class SearchService implements ISearchService {
   private cardService: ICardService;
   private modeService: IModeService;
   private isInSearchMode = false;
-  private searchScope: 'all' | 'current' = 'current';
+  private searchScope: SearchScope = 'current';
   private preSearchCards: ICard[] = [];
   private cardNavigatorService: ICardNavigatorService;
+  private app: App;
+  
+  // 검색 모드 상태
+  private searchModeState: ISearchModeState = {
+    query: '',
+    searchType: 'filename',
+    caseSensitive: false,
+    frontmatterKey: undefined,
+    searchScope: 'current',
+    preSearchCards: [],
+    previousMode: 'folder',
+    previousCardSet: null,
+    previousCardSetType: 'active'
+  };
+  
+  // 필터 설정
+  private filters: {
+    // 향후 필터 설정 추가
+  } = {};
   
   constructor(presetService: IPresetService, cardService: ICardService, modeService: IModeService, cardNavigatorService: ICardNavigatorService) {
     this.presetService = presetService;
     this.cardService = cardService;
     this.modeService = modeService;
     this.cardNavigatorService = cardNavigatorService;
+    this.app = cardNavigatorService.getApp();
     
     // 검색 기록 로드
     this.loadSearchHistory();
@@ -247,7 +361,7 @@ export class SearchService implements ISearchService {
    */
   initialize(): void {
     // 기본 검색 설정
-    this.currentSearch = new FilenameSearch();
+    this.currentSearch = new FilenameSearch(this.app);
     this.isInSearchMode = false;
     
     // 설정에서 기본 검색 범위 가져오기
@@ -317,13 +431,13 @@ export class SearchService implements ISearchService {
   }
   
   setQuery(query: string): void {
+    this.searchModeState.query = query;
+    
     if (this.currentSearch) {
       this.currentSearch.setQuery(query);
-      this.isInSearchMode = !!query;
-    } else {
-      this.currentSearch = new FilenameSearch(query);
-      this.isInSearchMode = !!query;
     }
+    
+    this.isInSearchMode = !!query;
   }
   
   setSearchQuery(query: string): void {
@@ -334,10 +448,8 @@ export class SearchService implements ISearchService {
         this.currentSearch.setQuery('');
       } else {
         // 검색 객체가 없는 경우 기본 검색 객체(파일명 검색) 생성
-        this.currentSearch = new FilenameSearch('');
+        this.currentSearch = new FilenameSearch(this.app, query);
       }
-      this.isInSearchMode = true;
-      return;
     }
     
     // 검색 접두사 패턴 확인
@@ -437,31 +549,29 @@ export class SearchService implements ISearchService {
         regexPattern = regexPattern.substring(1, regexPattern.length - 1);
       }
       
-      this.currentSearch = new RegexSearch(regexPattern);
+      this.currentSearch = new RegexSearch(this.app, regexPattern);
       this.isInSearchMode = true;
     } else if (query.startsWith('create:')) {
-      // 생성일 검색 - 'create:' 접두사 이후의 텍스트를 검색어로 사용
-      // 접두사 이후의 텍스트 추출
+      // 날짜 검색 - 'create:' 접두사 이후의 텍스트를 검색어로 사용
       let dateQuery = query.substring(7).trim();
       
-      // 큰따옴표로 묶인 검색어 처리 (따옴표 제거)
-      if (dateQuery.startsWith('"') && dateQuery.endsWith('"')) {
-        dateQuery = dateQuery.substring(1, dateQuery.length - 1);
+      // 날짜 검색어가 비어있으면 기본값 설정
+      if (!dateQuery) {
+        dateQuery = 'today';
       }
       
-      this.currentSearch = new DateSearch(dateQuery, 'creation');
+      this.currentSearch = new DateSearch(this.app, dateQuery, 'creation', this.searchModeState.caseSensitive);
       this.isInSearchMode = true;
     } else if (query.startsWith('modify:')) {
       // 수정일 검색 - 'modify:' 접두사 이후의 텍스트를 검색어로 사용
-      // 접두사 이후의 텍스트 추출
       let dateQuery = query.substring(7).trim();
       
-      // 큰따옴표로 묶인 검색어 처리 (따옴표 제거)
-      if (dateQuery.startsWith('"') && dateQuery.endsWith('"')) {
-        dateQuery = dateQuery.substring(1, dateQuery.length - 1);
+      // 날짜 검색어가 비어있으면 기본값 설정
+      if (!dateQuery) {
+        dateQuery = 'today';
       }
       
-      this.currentSearch = new DateSearch(dateQuery, 'modification');
+      this.currentSearch = new DateSearch(this.app, dateQuery, 'modification', this.searchModeState.caseSensitive);
       this.isInSearchMode = true;
     } else if (query.match(/^\[.+\]:/)) {
       // 프론트매터 검색
@@ -492,10 +602,18 @@ export class SearchService implements ISearchService {
     this.saveSearchHistory(query);
   }
   
+  /**
+   * 대소문자 구분 여부 설정
+   * @param caseSensitive 대소문자 구분 여부
+   */
   setCaseSensitive(caseSensitive: boolean): void {
     if (this.currentSearch) {
       this.currentSearch.setCaseSensitive(caseSensitive);
     }
+    
+    this.searchModeState.caseSensitive = caseSensitive;
+    
+    console.log(`[SearchService] 대소문자 구분 설정: ${caseSensitive}`);
   }
   
   /**
@@ -545,31 +663,34 @@ export class SearchService implements ISearchService {
     
     switch (type) {
       case 'filename':
-        this.currentSearch = new FilenameSearch(query, caseSensitive);
+        this.currentSearch = new FilenameSearch(this.app, query, caseSensitive);
         break;
       case 'content':
-        this.currentSearch = new ContentSearch(query, caseSensitive);
+        this.currentSearch = new ContentSearch(this.app, query, caseSensitive);
         break;
       case 'tag':
-        this.currentSearch = new TagSearch(query, caseSensitive);
+        this.currentSearch = new TagSearch(this.app, query, caseSensitive);
         break;
       case 'folder':
-        this.currentSearch = new FolderSearch(query, caseSensitive);
+        this.currentSearch = new FolderSearch(this.app, query, caseSensitive);
         break;
       case 'path':
-        this.currentSearch = new PathSearch(query, caseSensitive);
-        break;
-      case 'create':
-        this.currentSearch = new DateSearch(query, 'creation');
-        break;
-      case 'modify':
-        this.currentSearch = new DateSearch(query, 'modification');
+        this.currentSearch = new PathSearch(this.app, query, caseSensitive);
         break;
       case 'frontmatter':
-        this.currentSearch = new FrontmatterSearch(query, frontmatterKey || '', caseSensitive);
+        this.currentSearch = new FrontmatterSearch(this.app, query, caseSensitive, frontmatterKey);
+        break;
+      case 'create':
+        this.currentSearch = new DateSearch(this.app, query, 'creation', caseSensitive);
+        break;
+      case 'modify':
+        this.currentSearch = new DateSearch(this.app, query, 'modification', caseSensitive);
+        break;
+      case 'regex':
+        this.currentSearch = new RegexSearch(this.app, query, caseSensitive);
         break;
       default:
-        this.currentSearch = new FilenameSearch(query, caseSensitive);
+        this.currentSearch = new FilenameSearch(this.app, query, caseSensitive);
     }
     
     this.isInSearchMode = !!query;
@@ -650,7 +771,7 @@ export class SearchService implements ISearchService {
    * @param currentCards 현재 표시 중인 카드 목록
    * @returns 태그 목록
    */
-  async getScopedTags(searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]> {
+  async getScopedTags(searchScope: SearchScope, currentCards: ICard[]): Promise<string[]> {
     console.log(`[SearchService] 검색 범위에 따른 태그 목록 가져오기: 범위=${searchScope}`);
     
     try {
@@ -682,7 +803,7 @@ export class SearchService implements ISearchService {
    * @param currentCards 현재 표시 중인 카드 목록
    * @returns 파일명 목록
    */
-  async getScopedFilenames(searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]> {
+  async getScopedFilenames(searchScope: SearchScope, currentCards: ICard[]): Promise<string[]> {
     console.log(`[SearchService] 검색 범위에 따른 파일명 목록 가져오기: 범위=${searchScope}`);
     
     try {
@@ -707,7 +828,7 @@ export class SearchService implements ISearchService {
    * @param currentCards 현재 표시 중인 카드 목록
    * @returns 프론트매터 키 목록
    */
-  async getScopedFrontmatterKeys(searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]> {
+  async getScopedFrontmatterKeys(searchScope: SearchScope, currentCards: ICard[]): Promise<string[]> {
     console.log(`[SearchService] 검색 범위에 따른 프론트매터 키 목록 가져오기: 범위=${searchScope}`);
     
     try {
@@ -740,7 +861,7 @@ export class SearchService implements ISearchService {
    * @param currentCards 현재 표시 중인 카드 목록
    * @returns 프론트매터 값 목록
    */
-  async getScopedFrontmatterValues(key: string, searchScope: 'all' | 'current', currentCards: ICard[]): Promise<string[]> {
+  async getScopedFrontmatterValues(key: string, searchScope: SearchScope, currentCards: ICard[]): Promise<string[]> {
     console.log(`[SearchService] 검색 범위에 따른 프론트매터 값 목록 가져오기: 키=${key}, 범위=${searchScope}`);
     
     try {
@@ -781,59 +902,34 @@ export class SearchService implements ISearchService {
    * @param frontmatterKey 프론트매터 키 (검색 타입이 frontmatter인 경우)
    */
   enterSearchMode(query: string, searchType?: SearchType, caseSensitive?: boolean, frontmatterKey?: string): void {
-    console.log(`[SearchService] 검색 모드 전환: 쿼리='${query}', 타입=${searchType}, 대소문자=${caseSensitive}, 프론트매터키=${frontmatterKey}`);
-    
-    // 현재 카드셋 저장
-    this.cardService.getCards().then(cards => {
-      this.setPreSearchCards(cards);
-    });
+    // 현재 카드 목록 저장
+    const currentCards = this.cardNavigatorService.getCurrentCards();
     
     // 검색 모드로 전환
     this.isInSearchMode = true;
     
-    // 검색 설정
-    const searchModeType = this.convertToModeSearchType(searchType);
-    this.modeService.configureSearchMode(query, searchModeType, caseSensitive, frontmatterKey);
+    // 검색 모드 상태 설정
+    this.setQuery(query);
+    if (searchType) {
+      this.setSearchType(searchType, frontmatterKey);
+    }
+    this.setCaseSensitive(caseSensitive || false);
     
-    // 검색 쿼리가 유효한 경우 검색 기록에 추가
-    if (query && query.trim()) {
+    // 현재 카드 목록 저장
+    this.setPreSearchCards(currentCards);
+    
+    // 이전 모드 정보 저장
+    const modeService = this.modeService;
+    const currentMode = modeService.getCurrentModeType();
+    if (currentMode !== 'search') {
+      const cardSet = modeService.getCurrentCardSet();
+      const cardSetType: CardSetType = modeService.isCardSetFixed() ? 'fixed' : 'active';
+      this.setPreviousModeInfo(currentMode, cardSet, cardSetType);
+    }
+    
+    // 검색 기록 저장
+    if (query) {
       this.saveSearchHistory(query);
-    }
-    
-    console.log(`[SearchService] 검색 모드 전환 완료: 범위=${this.searchScope}`);
-  }
-  
-  /**
-   * SearchType을 ModeSearchType으로 변환
-   * domain/search/Search.ts의 SearchType을 domain/mode/SearchMode.ts의 SearchType으로 변환합니다.
-   * @param searchType 변환할 SearchType
-   * @returns 변환된 SearchType
-   */
-  private convertToModeSearchType(searchType: SearchType | undefined): any {
-    // searchType이 undefined인 경우 기본값 반환
-    if (searchType === undefined) {
-      return 'filename';
-    }
-    
-    // 두 SearchType 타입이 호환되는 경우 그대로 반환
-    // 호환되지 않는 경우 적절히 변환
-    switch (searchType) {
-      case 'filename':
-        return 'filename';
-      case 'content':
-        return 'content';
-      case 'tag':
-        return 'tag';
-      case 'path':
-        return 'path';
-      case 'frontmatter':
-        return 'frontmatter';
-      case 'create':
-        return 'create';
-      case 'modify':
-        return 'modify';
-      default:
-        return 'filename';
     }
   }
   
@@ -842,26 +938,18 @@ export class SearchService implements ISearchService {
    * 이전 모드로 돌아갑니다.
    */
   exitSearchMode(): void {
-    console.log(`[SearchService] 검색 모드 종료`);
-    
     if (!this.isInSearchMode) {
-      console.log(`[SearchService] 이미 검색 모드가 아닙니다.`);
       return;
     }
     
-    // 검색 상태 초기화
-    this.clearSearch();
-    
-    // 검색 모드 상태 해제
+    // 검색 모드 종료
     this.isInSearchMode = false;
     
     // 이전 모드로 복원
     this.modeService.restorePreviousModeState();
     
-    // 검색 범위 초기화 (다음 검색을 위해)
-    this.searchScope = 'current';
-    
-    console.log(`[SearchService] 검색 모드 종료 완료`);
+    // 검색 설정 초기화
+    this.clearSearch();
   }
   
   /**
@@ -876,35 +964,17 @@ export class SearchService implements ISearchService {
    * 검색 범위 설정
    * @param scopeType 검색 범위 타입 ('all' | 'current')
    */
-  setSearchScope(scopeType: 'all' | 'current'): void {
-    console.log(`[SearchService] 검색 범위 변경: ${this.searchScope} -> ${scopeType}`);
-    
-    if (this.searchScope === scopeType) {
-      return;
-    }
-    
+  setSearchScope(scopeType: SearchScope): void {
     this.searchScope = scopeType;
-    
-    // SearchMode 객체에도 검색 범위 설정
-    if (this.modeService.getCurrentModeType() === 'search') {
-      const searchMode = this.modeService.getCurrentMode() as any;
-      if (searchMode && typeof searchMode.setSearchScope === 'function') {
-        searchMode.setSearchScope(scopeType);
-      }
-    }
-    
-    // 현재 검색 중이면 검색 결과 업데이트
-    if (this.isInSearchMode && this.currentSearch) {
-      this.cardNavigatorService.refreshCards();
-    }
+    this.searchModeState.searchScope = scopeType;
   }
   
   /**
    * 현재 검색 범위 가져오기
    * @returns 검색 범위 타입
    */
-  getSearchScope(): 'all' | 'current' {
-    return this.searchScope;
+  getSearchScope(): SearchScope {
+    return this.searchModeState.searchScope;
   }
   
   /**
@@ -912,16 +982,8 @@ export class SearchService implements ISearchService {
    * @param cards 저장할 카드셋
    */
   setPreSearchCards(cards: ICard[]): void {
-    console.log(`[SearchService] 검색 모드 전환 전 카드셋 저장: ${cards.length}개`);
     this.preSearchCards = [...cards];
-    
-    // SearchMode 객체에도 카드셋 저장
-    if (this.modeService.getCurrentModeType() === 'search') {
-      const searchMode = this.modeService.getCurrentMode() as any;
-      if (searchMode && typeof searchMode.setPreSearchCards === 'function') {
-        searchMode.setPreSearchCards(cards);
-      }
-    }
+    this.searchModeState.preSearchCards = [...cards];
   }
   
   /**
@@ -929,7 +991,7 @@ export class SearchService implements ISearchService {
    * @returns 저장된 카드셋
    */
   getPreSearchCards(): ICard[] {
-    return this.preSearchCards;
+    return this.searchModeState.preSearchCards;
   }
 
   /**
@@ -1198,37 +1260,36 @@ export class SearchService implements ISearchService {
         
         // 검색 객체 생성
         let search: ISearch;
+        const caseSensitive = this.searchModeState.caseSensitive;
         
         switch (type) {
           case 'filename':
-            search = new FilenameSearch(parsedQuery);
+            search = new FilenameSearch(this.app, parsedQuery, caseSensitive);
             break;
           case 'content':
-            search = new ContentSearch(parsedQuery);
+            search = new ContentSearch(this.app, parsedQuery, caseSensitive);
             break;
           case 'tag':
-            search = new TagSearch(parsedQuery);
+            search = new TagSearch(this.app, parsedQuery, caseSensitive);
             break;
           case 'path':
-            search = new PathSearch(parsedQuery);
+            search = new PathSearch(this.app, parsedQuery, caseSensitive);
             break;
           case 'frontmatter':
-            search = new FrontmatterSearch(parsedQuery, frontmatterKey || '');
+            search = new FrontmatterSearch(this.app, parsedQuery, caseSensitive, frontmatterKey);
             break;
           case 'create':
-            search = new DateSearch(parsedQuery, 'creation');
+            search = new DateSearch(this.app, parsedQuery, 'creation', caseSensitive);
             break;
           case 'modify':
-            search = new DateSearch(parsedQuery, 'modification');
+            search = new DateSearch(this.app, parsedQuery, 'modification', caseSensitive);
+            break;
+          case 'regex':
+            search = new RegexSearch(this.app, parsedQuery, caseSensitive);
             break;
           default:
             // 기본은 파일명 검색
-            search = new FilenameSearch(parsedQuery);
-        }
-        
-        // 대소문자 구분 설정
-        if (this.currentSearch) {
-          search.setCaseSensitive(this.currentSearch.isCaseSensitive());
+            search = new FilenameSearch(this.app, parsedQuery, caseSensitive);
         }
         
         // 검색 실행
@@ -1304,5 +1365,201 @@ export class SearchService implements ISearchService {
     }
     
     return { type, query, frontmatterKey };
+  }
+
+  /**
+   * 검색 모드 상태 가져오기
+   * @returns 검색 모드 상태
+   */
+  getSearchModeState(): ISearchModeState {
+    return { ...this.searchModeState };
+  }
+  
+  /**
+   * 검색 타입 설정
+   * @param searchType 검색 타입
+   * @param frontmatterKey 프론트매터 키 (검색 타입이 frontmatter인 경우)
+   */
+  setSearchType(searchType: SearchType, frontmatterKey?: string): void {
+    this.searchModeState.searchType = searchType;
+    this.searchModeState.frontmatterKey = frontmatterKey;
+    
+    // 검색 객체 업데이트
+    this.changeSearchType(searchType, frontmatterKey);
+  }
+  
+  /**
+   * 검색 타입 가져오기
+   * @returns 검색 타입
+   */
+  getSearchType(): SearchType {
+    return this.searchModeState.searchType;
+  }
+  
+  /**
+   * 프론트매터 키 가져오기
+   * @returns 프론트매터 키
+   */
+  getFrontmatterKey(): string | undefined {
+    return this.searchModeState.frontmatterKey;
+  }
+  
+  /**
+   * 이전 모드 정보 설정
+   * 검색 모드로 전환하기 전 모드 정보를 저장합니다.
+   * @param mode 이전 모드 타입
+   * @param cardSet 이전 카드 세트
+   * @param cardSetType 이전 카드 세트 타입
+   */
+  setPreviousModeInfo(mode: ModeType, cardSet: string | null, cardSetType: CardSetType): void {
+    this.searchModeState.previousMode = mode;
+    this.searchModeState.previousCardSet = cardSet;
+    this.searchModeState.previousCardSetType = cardSetType;
+  }
+  
+  /**
+   * 이전 모드 가져오기
+   * @returns 이전 모드 타입
+   */
+  getPreviousMode(): ModeType {
+    return this.searchModeState.previousMode;
+  }
+  
+  /**
+   * 이전 카드 세트 가져오기
+   * @returns 이전 카드 세트
+   */
+  getPreviousCardSet(): string | null {
+    return this.searchModeState.previousCardSet;
+  }
+  
+  /**
+   * 이전 카드 세트 타입 가져오기
+   * @returns 이전 카드 세트 타입
+   */
+  getPreviousCardSetType(): CardSetType {
+    return this.searchModeState.previousCardSetType;
+  }
+  
+  /**
+   * 검색 객체 생성
+   * 현재 설정된 검색 타입과 쿼리로 검색 객체를 생성합니다.
+   * @returns 검색 객체
+   */
+  createSearch(): ISearch {
+    const searchFactory = new SearchFactory(this.app);
+    return searchFactory.createSearch(
+      this.searchModeState.searchType,
+      this.searchModeState.query,
+      this.searchModeState.caseSensitive,
+      this.searchModeState.frontmatterKey
+    );
+  }
+
+  /**
+   * 검색 쿼리 가져오기
+   * @returns 검색 쿼리
+   */
+  getQuery(): string {
+    return this.searchModeState.query;
+  }
+
+  /**
+   * 대소문자 구분 여부 가져오기
+   * @returns 대소문자 구분 여부
+   */
+  isCaseSensitive(): boolean {
+    return this.searchModeState.caseSensitive;
+  }
+
+  /**
+   * 검색 범위에 따른 파일 목록 가져오기
+   * @param query 검색 쿼리
+   * @param searchType 검색 타입
+   * @param caseSensitive 대소문자 구분 여부
+   * @param frontmatterKey 프론트매터 키
+   * @returns 파일 경로 목록
+   */
+  async getFilesForSearch(
+    query: string, 
+    searchType: SearchType, 
+    caseSensitive: boolean, 
+    frontmatterKey?: string
+  ): Promise<string[]> {
+    // 검색 범위에 따른 파일 목록 가져오기
+    let filePaths: string[] = [];
+    
+    if (this.searchScope === 'all') {
+      // 볼트 전체 파일 목록
+      const app = this.cardNavigatorService.getApp();
+      filePaths = app.vault.getMarkdownFiles().map(file => file.path);
+    } else {
+      // 이전 모드의 카드 세트 기반 파일 목록
+      try {
+        const previousMode = this.getPreviousMode();
+        const previousCardSet = this.getPreviousCardSet();
+        const previousCardSetType = this.getPreviousCardSetType();
+        
+        if (previousMode === 'folder') {
+          // 폴더 모드
+          const folderMode = this.modeService.getFolderMode();
+          // 임시로 폴더 모드 설정
+          folderMode.selectCardSet(previousCardSet, previousCardSetType === 'fixed');
+          return await folderMode.getFiles();
+        } else if (previousMode === 'tag') {
+          // 태그 모드
+          const tagMode = this.modeService.getTagMode();
+          // 임시로 태그 모드 설정
+          tagMode.selectCardSet(previousCardSet, previousCardSetType === 'fixed');
+          return await tagMode.getFiles();
+        } else if (this.preSearchCards.length > 0) {
+          // 저장된 카드셋이 있는 경우
+          return this.preSearchCards.map(card => card.path);
+        }
+      } catch (error) {
+        console.error('[SearchService] 파일 목록 가져오기 오류:', error);
+        // 오류 발생 시 빈 배열 반환
+        return [];
+      }
+    }
+    
+    // 검색어가 없는 경우 모든 파일 반환
+    if (!query) {
+      return filePaths;
+    }
+    
+    // 검색 객체 생성 (팩토리 패턴)
+    const searchFactory = new SearchFactory(this.app);
+    const search = searchFactory.createSearch(searchType, query, caseSensitive, frontmatterKey);
+    
+    // 검색 조건에 맞는 파일 필터링
+    return await this.filterFilesBySearch(filePaths, search);
+  }
+  
+  /**
+   * 검색 조건에 맞는 파일 필터링
+   * @param filePaths 파일 경로 목록
+   * @param search 검색 객체
+   * @returns 필터링된 파일 경로 목록
+   */
+  private async filterFilesBySearch(filePaths: string[], search: ISearch): Promise<string[]> {
+    const app = this.cardNavigatorService.getApp();
+    const matchedPaths: string[] = [];
+    
+    for (const path of filePaths) {
+      const file = app.vault.getAbstractFileByPath(path);
+      if (file instanceof TFile) {
+        try {
+          const isMatch = await search.match(file);
+          if (isMatch) {
+            matchedPaths.push(path);
+          }
+        } catch (error) {
+          console.error(`[SearchService] 파일 검색 오류 (${path}):`, error);
+        }
+      }
+    }
+    
+    return matchedPaths;
   }
 } 

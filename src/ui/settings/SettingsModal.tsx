@@ -3,7 +3,6 @@ import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import TabNavigation from './components/TabNavigation';
 import ModeSettings from './tabs/ModeSettings';
 import CardSettings from './tabs/CardSettings';
-import SearchSettings from './tabs/SearchSettings';
 import SortSettings from './tabs/SortSettings';
 import LayoutSettings from './tabs/LayoutSettings';
 import PresetSettings from './tabs/PresetSettings';
@@ -39,7 +38,7 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
   onPresetDelete = () => {},
 }) => {
   // 활성 탭 상태
-  const [activeTab, setActiveTab] = useState<'mode' | 'card' | 'search' | 'sort' | 'layout' | 'preset'>('mode');
+  const [activeTab, setActiveTab] = useState<'mode' | 'card' | 'sort' | 'layout' | 'preset'>('mode');
 
   // 설정 로드
   useEffect(() => {
@@ -74,7 +73,6 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
   const tabs = [
     { id: 'mode', label: '모드' },
     { id: 'card', label: '카드' },
-    { id: 'search', label: '검색' },
     { id: 'sort', label: '정렬' },
     { id: 'layout', label: '레이아웃' },
     { id: 'preset', label: '프리셋' },
@@ -103,22 +101,12 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
             <CardSettings plugin={plugin} />
           </div>
         );
-      case 'search':
-        return (
-          <div className="card-navigator-setting-group">
-            <h3>검색 설정</h3>
-            <p className="card-navigator-setting-description">
-              검색 기능과 관련된 설정을 변경합니다.
-            </p>
-            <SearchSettings plugin={plugin} />
-          </div>
-        );
       case 'sort':
         return (
           <div className="card-navigator-setting-group">
             <h3>정렬 설정</h3>
             <p className="card-navigator-setting-description">
-              카드 정렬 방식과 관련된 설정을 변경합니다.
+              카드 목록의 정렬 방식을 설정합니다.
             </p>
             <SortSettings plugin={plugin} />
           </div>

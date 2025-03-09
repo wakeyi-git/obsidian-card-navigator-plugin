@@ -4,7 +4,7 @@ import SortDropdown from './SortDropdown';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import { SortType, SortDirection } from '../../domain/sorting/Sort';
 import SettingsModal from '../settings/SettingsModal';
-import { App, SuggestModal, TFile } from 'obsidian';
+import { App, SuggestModal, TFile, Notice } from 'obsidian';
 import { ModeType } from '../../domain/mode/Mode';
 import { SearchBar } from './SearchBar';
 import './Toolbar.css';
@@ -236,17 +236,25 @@ const Toolbar: React.FC<IToolbarProps> = ({
    */
   const openCardSetModal = () => {
     console.log(`[Toolbar] 카드셋 선택 모달 열기: 현재 모드=${currentMode}`);
+    console.log(`[Toolbar] 사용 가능한 카드셋:`, cardSets);
     
-    if (!app) {
-      console.error(`[Toolbar] App 객체가 없습니다.`);
+    // App 객체 가져오기 (props에서 직접 또는 service에서)
+    const obsidianApp = app || (service ? service.getApp() : null);
+    
+    if (!obsidianApp) {
+      console.error(`[Toolbar] App 객체가 없습니다. service 또는 app props가 제대로 전달되었는지 확인하세요.`);
       return;
     }
     
     if (currentMode === 'folder') {
+      // 폴더 목록 확인
+      const folders = cardSets.folders || [];
+      console.log(`[Toolbar] 폴더 모드: 사용 가능한 폴더 ${folders.length}개`);
+      
       // 폴더 선택 모달 열기
       const modal = new FolderSuggestModal(
-        app,
-        cardSets.folders || [],
+        obsidianApp,
+        folders,
         (folder, isFixed) => {
           console.log(`[Toolbar] 폴더 선택: ${folder}, 고정=${isFixed}`);
           onCardSetSelect(folder, isFixed);
@@ -260,10 +268,14 @@ const Toolbar: React.FC<IToolbarProps> = ({
       
       modal.open();
     } else if (currentMode === 'tag') {
+      // 태그 목록 확인
+      const tags = cardSets.tags || [];
+      console.log(`[Toolbar] 태그 모드: 사용 가능한 태그 ${tags.length}개`);
+      
       // 태그 선택 모달 열기
       const modal = new TagSuggestModal(
-        app,
-        cardSets.tags || [],
+        obsidianApp,
+        tags,
         (tag, isFixed) => {
           console.log(`[Toolbar] 태그 선택: ${tag}, 고정=${isFixed}`);
           onCardSetSelect(tag, isFixed);
@@ -381,35 +393,26 @@ const Toolbar: React.FC<IToolbarProps> = ({
   };
 
   /**
-   * 검색 아이콘 클릭 핸들러
+   * 검색 아이콘 클릭 처리
    */
   const handleSearchIconClick = () => {
-    try {
-      console.log('[Toolbar] 검색 아이콘 클릭');
-      
-      // 검색 모드 토글
-      toggleSearchMode();
-      
-      // showSearchBar 상태 토글
-      setShowSearchBar(prev => {
-        const newState = !prev;
-        console.log(`[Toolbar] showSearchBar 상태 변경: ${prev} -> ${newState}`);
-        return newState;
-      });
-      
-      // 검색 모드 상태 변경 후 약간의 지연을 두고 검색 입력 필드에 포커스
-      setTimeout(() => {
-        const searchInput = document.querySelector('.card-navigator-search-input') as HTMLInputElement;
-        if (searchInput) {
-          console.log('[Toolbar] 검색 입력 필드 포커스');
-          searchInput.focus();
-        } else {
-          console.log('[Toolbar] 검색 입력 필드를 찾을 수 없음');
-        }
-      }, 100);
-    } catch (error) {
-      console.error('검색 모드 전환 중 오류 발생:', error);
+    console.log(`[Toolbar] 검색 아이콘 클릭`);
+    
+    // App 객체 가져오기 (props에서 직접 또는 service에서)
+    const obsidianApp = app || (service ? service.getApp() : null);
+    
+    if (!obsidianApp) {
+      console.error(`[Toolbar] App 객체가 없습니다. service 또는 app props가 제대로 전달되었는지 확인하세요.`);
+      return;
     }
+    
+    // 검색바에 포커스
+    setTimeout(() => {
+      const searchInput = document.querySelector('.card-navigator-search-input') as HTMLInputElement;
+      if (searchInput) {
+        searchInput.focus();
+      }
+    }, 100);
   };
 
   return (

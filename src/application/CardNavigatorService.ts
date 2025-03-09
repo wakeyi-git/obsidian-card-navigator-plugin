@@ -4,7 +4,7 @@ import { ICardRepository } from '../domain/card/CardRepository';
 import { ModeType } from '../domain/mode/Mode';
 import { LayoutType } from '../domain/layout/Layout';
 import { IPreset } from '../domain/preset/Preset';
-import { SearchType } from '../domain/mode/SearchMode';
+import { SearchType, SearchScope } from '../domain/search/Search';
 import CardNavigatorPlugin from '../main';
 
 import { IModeService, ModeService } from './ModeService';
@@ -14,7 +14,6 @@ import { ISearchService, SearchService } from './SearchService';
 import { ILayoutService, LayoutService } from './LayoutService';
 import { IPresetService, PresetService } from './PresetService';
 import { Card } from '../domain/card/Card';
-import { IFilterService, FilterService } from './FilterService';
 import { TimerUtil } from '../infrastructure/TimerUtil';
 
 /**
@@ -69,8 +68,16 @@ export interface ICardNavigatorService {
   /**
    * 검색 수행
    * @param query 검색어
+   * @param searchType 검색 타입 (기본값: 'filename')
+   * @param caseSensitive 대소문자 구분 여부 (기본값: false)
+   * @param frontmatterKey 프론트매터 키 (검색 타입이 frontmatter인 경우)
    */
-  search(query: string): Promise<void>;
+  search(
+    query: string, 
+    searchType: SearchType, 
+    caseSensitive: boolean, 
+    frontmatterKey?: string
+  ): Promise<void>;
   
   /**
    * 설정 가져오기
@@ -157,12 +164,6 @@ export interface ICardNavigatorService {
   setCaseSensitive(caseSensitive: boolean): Promise<void>;
   
   /**
-   * 필터 서비스 가져오기
-   * @returns 필터 서비스
-   */
-  getFilterService(): IFilterService;
-  
-  /**
    * Obsidian App 객체 가져오기
    * @returns Obsidian App 객체
    */
@@ -202,7 +203,6 @@ export class CardNavigatorService implements ICardNavigatorService {
   private searchService: ISearchService;
   private layoutService: ILayoutService;
   private presetService: IPresetService;
-  private filterService: IFilterService;
   private cardRepository: ICardRepository;
   private plugin: CardNavigatorPlugin;
   
@@ -233,12 +233,14 @@ export class CardNavigatorService implements ICardNavigatorService {
     
     // 서비스 초기화
     this.cardService = new CardService(app, cardRepository);
-    this.modeService = new ModeService(app, this.cardService, plugin.settings.defaultMode);
-    this.sortService = new SortService(plugin.settings);
+    this.modeService = new ModeService(app, this.cardService, plugin.settings.defaultMode, this);
+    this.sortService = new SortService();
     this.layoutService = new LayoutService(plugin.settings);
     this.presetService = new PresetService(plugin.settings);
     this.searchService = new SearchService(this.presetService, this.cardService, this.modeService, this);
-    this.filterService = new FilterService();
+    
+    // 서비스 간 의존성 설정
+    this.modeService.setSearchService(this.searchService);
   }
   
   /**
@@ -321,6 +323,9 @@ export class CardNavigatorService implements ICardNavigatorService {
       const currentCardSet = this.modeService.getCurrentCardSet();
       console.log(`[CardNavigatorService] 초기화 후 현재 카드 세트: ${currentCardSet || '없음'}`);
       
+      // 서비스 간 의존성 설정
+      this.modeService.setSearchService(this.searchService);
+      
       console.log(`[CardNavigatorService] 서비스 초기화 완료`);
       this._initialized = true;
     } catch (error) {
@@ -393,30 +398,21 @@ export class CardNavigatorService implements ICardNavigatorService {
       const cards = await this.modeService.getCards();
       console.log(`[CardNavigatorService] 모드 서비스에서 가져온 카드 수: ${cards.length}`);
       
-      // 검색 적용
-      const searchedCards = await this.searchService.applySearch(cards);
-      console.log(`[CardNavigatorService] 검색 적용 후 카드 수: ${searchedCards.length}`);
-      
-      // 정렬 적용
-      const sortedCards = this.sortService.applySort(searchedCards);
-      console.log(`[CardNavigatorService] 정렬 적용 후 카드 수: ${sortedCards.length}`);
-      
-      // 필터 적용
-      const filteredCards = this.filterService.applyFilters(sortedCards);
-      console.log(`[CardNavigatorService] 필터 적용 후 카드 수: ${filteredCards.length}`);
+      // 정렬 서비스로 카드 정렬
+      const sortedCards = this.sortService.applySort(cards);
       
       // 결과 캐싱
-      this._lastCards = filteredCards;
+      this._lastCards = sortedCards;
       
-      // 카드 로드 횟수 증가
+      // 카드 로드 카운트 증가
       this.cardLoadCount++;
       
       // 카드가 없는 경우 로그 출력
-      if (filteredCards.length === 0) {
+      if (sortedCards.length === 0) {
         console.log(`[CardNavigatorService] 최종 카드 목록이 비어 있습니다. 현재 모드: ${this.modeService.getCurrentModeType()}, 카드 세트: ${this.modeService.getCurrentCardSet() || '없음'}`);
       }
       
-      return filteredCards;
+      return sortedCards;
     } catch (error) {
       console.error(`[CardNavigatorService] 카드 가져오기 오류:`, error);
       
@@ -500,24 +496,31 @@ export class CardNavigatorService implements ICardNavigatorService {
     return this.presetService.saveCurrentAsPreset(name, description);
   }
   
-  async search(query: string): Promise<void> {
-    console.log(`[CardNavigatorService] 검색 실행: ${query}`);
+  /**
+   * 검색 수행
+   * @param query 검색어
+   * @param searchType 검색 타입 (기본값: 'filename')
+   * @param caseSensitive 대소문자 구분 여부 (기본값: false)
+   * @param frontmatterKey 프론트매터 키 (검색 타입이 frontmatter인 경우)
+   */
+  async search(
+    query: string, 
+    searchType: SearchType, 
+    caseSensitive: boolean, 
+    frontmatterKey?: string
+  ): Promise<void> {
+    // 기본값 설정
+    const type = searchType || 'filename';
+    const isCaseSensitive = caseSensitive !== undefined ? caseSensitive : false;
     
-    try {
-      // 검색 모드로 변경
-      await this.modeService.changeMode('search');
-      
-      // 검색 모드 설정
-      (this.modeService as any).configureSearchMode(query, 'content', false);
-      
-      // 카드 저장소 새로고침
-      await this.cardService.refreshCards();
-      
-      console.log(`[CardNavigatorService] 검색 완료`);
-    } catch (error) {
-      console.error(`[CardNavigatorService] 검색 오류:`, error);
-      throw error;
-    }
+    // 검색 모드로 전환
+    this.searchService.enterSearchMode(query, type, isCaseSensitive, frontmatterKey);
+    
+    // 모드 변경 (검색 모드로)
+    await this.changeMode('search');
+    
+    // 카드 목록 새로고침
+    await this.refreshCards();
   }
   
   /**
@@ -790,14 +793,6 @@ export class CardNavigatorService implements ICardNavigatorService {
    */
   getPresetService(): IPresetService {
     return this.presetService;
-  }
-  
-  /**
-   * 필터 서비스 가져오기
-   * @returns 필터 서비스
-   */
-  getFilterService(): IFilterService {
-    return this.filterService;
   }
   
   /**

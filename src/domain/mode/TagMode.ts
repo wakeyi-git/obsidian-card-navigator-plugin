@@ -332,7 +332,7 @@ export class TagMode extends Mode {
    * @param tag 설정할 태그
    * @param isFixed 고정 여부
    */
-  setTag(tag: string, isFixed: boolean = false): void {
+  setTag(tag: string, isFixed = false): void {
     this.currentCardSet = tag;
     this.setFixed(isFixed);
     console.log(`[TagMode] 태그 설정: ${tag}, 고정=${isFixed}`);

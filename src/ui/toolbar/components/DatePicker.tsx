@@ -5,6 +5,7 @@ interface DatePickerProps {
   type: 'start' | 'end';
   isRangeMode: boolean;
   onRangeModeToggle: () => void;
+  position?: { top: number; left: number };
 }
 
 /**

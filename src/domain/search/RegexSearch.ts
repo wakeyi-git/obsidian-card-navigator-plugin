@@ -1,5 +1,6 @@
 import { ICard } from '../card/Card';
-import { Search, SearchType } from './Search';
+import { Search } from './Search';
+import { App, TFile } from 'obsidian';
 
 /**
  * 정규식 검색 클래스
@@ -7,14 +8,17 @@ import { Search, SearchType } from './Search';
  */
 export class RegexSearch extends Search {
   private regex: RegExp | null = null;
+  private app: App;
 
   /**
    * 생성자
+   * @param app Obsidian App 객체
    * @param query 검색어 (정규식 패턴)
    * @param caseSensitive 대소문자 구분 여부
    */
-  constructor(query = '', caseSensitive = false) {
-    super('filename', query, caseSensitive); // 타입은 임의로 filename 사용 (실제로는 사용되지 않음)
+  constructor(app: App, query = '', caseSensitive = false) {
+    super('regex', query, caseSensitive);
+    this.app = app;
     this.compileRegex();
   }
 
@@ -124,5 +128,25 @@ export class RegexSearch extends Search {
    */
   getRegex(): RegExp | null {
     return this.regex;
+  }
+
+  /**
+   * 파일이 검색 조건과 일치하는지 확인
+   * @param file 확인할 파일
+   * @returns 일치 여부
+   */
+  async match(file: TFile): Promise<boolean> {
+    if (!this.regex) return true;
+    
+    try {
+      // 파일 내용 읽기
+      const content = await this.app.vault.read(file);
+      
+      // 정규식 검색 수행
+      return this.regex.test(content);
+    } catch (error) {
+      console.error(`[RegexSearch] 파일 정규식 검색 오류 (${file.path}):`, error);
+      return false;
+    }
   }
 } 

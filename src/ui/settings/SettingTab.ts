@@ -6,7 +6,6 @@ import { renderReactSettings, unmountReactSettings } from './adapters/ReactSetti
 // React 컴포넌트 임포트
 import ModeSettings from './tabs/ModeSettings';
 import CardSettings from './tabs/CardSettings';
-import SearchSettings from './tabs/SearchSettings';
 import SortSettings from './tabs/SortSettings';
 import LayoutSettings from './tabs/LayoutSettings';
 import PresetSettings from './tabs/PresetSettings';
@@ -16,7 +15,7 @@ import PresetSettings from './tabs/PresetSettings';
  */
 export class CardNavigatorSettingTab extends PluginSettingTab {
   plugin: CardNavigatorPlugin;
-  activeTab: 'mode' | 'card' | 'search' | 'sort' | 'layout' | 'preset' = 'mode';
+  activeTab: 'mode' | 'card' | 'sort' | 'layout' | 'preset' = 'mode';
   tabButtons: Record<string, HTMLElement> = {};
   reactContainers: Record<string, HTMLElement> = {};
   
@@ -41,9 +40,6 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
         break;
       case 'card':
         this.createCardSettings(contentContainer);
-        break;
-      case 'search':
-        this.createSearchSettings(contentContainer);
         break;
       case 'sort':
         this.createSortSettings(contentContainer);
@@ -79,14 +75,6 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
     cardTab.addEventListener('click', () => this.switchTab('card'));
     this.tabButtons['card'] = cardTab;
     
-    // 검색 설정 탭
-    const searchTab = tabsContainer.createEl('button', {
-      text: '검색 설정',
-      cls: `card-navigator-tab ${this.activeTab === 'search' ? 'active' : ''}`
-    });
-    searchTab.addEventListener('click', () => this.switchTab('search'));
-    this.tabButtons['search'] = searchTab;
-    
     // 정렬 설정 탭
     const sortTab = tabsContainer.createEl('button', {
       text: '정렬 설정',
@@ -114,18 +102,29 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
   
   /**
    * 탭 전환
-   * @param tab 활성화할 탭
    */
-  switchTab(tab: 'mode' | 'card' | 'search' | 'sort' | 'layout' | 'preset'): void {
+  switchTab(tab: 'mode' | 'card' | 'sort' | 'layout' | 'preset'): void {
     // 이전 탭 비활성화
-    this.tabButtons[this.activeTab].removeClass('active');
+    if (this.tabButtons[this.activeTab]) {
+      this.tabButtons[this.activeTab].removeClass('active');
+    }
     
     // 새 탭 활성화
     this.activeTab = tab;
     this.tabButtons[tab].addClass('active');
     
-    // 설정 다시 표시
-    this.display();
+    // 컨텐츠 영역 초기화
+    const contentEl = this.containerEl.querySelector('.content') as HTMLElement;
+    contentEl.empty();
+    
+    // 선택된 탭에 따라 컨텐츠 생성
+    switch (tab) {
+      case 'mode': this.createModeSettings(contentEl); break;
+      case 'card': this.createCardSettings(contentEl); break;
+      case 'sort': this.createSortSettings(contentEl); break;
+      case 'layout': this.createLayoutSettings(contentEl); break;
+      case 'preset': this.createPresetSettings(contentEl); break;
+    }
   }
   
   /**
@@ -146,16 +145,6 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
     
     // React 컴포넌트 렌더링
     this.reactContainers['card'] = renderReactSettings(CardSettings, containerEl, this.plugin);
-  }
-  
-  /**
-   * 검색 설정 섹션 생성
-   */
-  createSearchSettings(containerEl: HTMLElement): void {
-    containerEl.createEl('h3', { text: '검색 설정' });
-    
-    // React 컴포넌트 렌더링
-    this.reactContainers['search'] = renderReactSettings(SearchSettings, containerEl, this.plugin);
   }
   
   /**

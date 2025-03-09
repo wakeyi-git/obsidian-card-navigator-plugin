@@ -4,6 +4,13 @@
 export type ModeType = 'folder' | 'tag' | 'search';
 
 /**
+ * 카드 세트 타입 정의
+ * 활성: 현재 열려 있는 노트에 따라 자동으로 변경됨
+ * 지정: 사용자가 지정한 값으로 고정됨
+ */
+export type CardSetType = 'active' | 'fixed';
+
+/**
  * 모드 인터페이스
  * 폴더 모드, 태그 모드, 검색 모드의 공통 인터페이스를 정의합니다.
  * 모드는 카드셋을 구성하는 방식을 나타냅니다.
@@ -28,8 +35,9 @@ export interface IMode {
   /**
    * 카드 세트 선택
    * @param cardSet 선택할 카드 세트 (null인 경우 카드 세트 선택 해제)
+   * @param isFixed 카드 세트 고정 여부 (true: 지정, false: 활성)
    */
-  selectCardSet(cardSet: string | null): void;
+  selectCardSet(cardSet: string | null, isFixed?: boolean): void;
   
   /**
    * 필터 옵션 가져오기
@@ -48,6 +56,20 @@ export interface IMode {
    * 현재 모드의 설정을 초기화합니다.
    */
   reset(): void;
+  
+  /**
+   * 카드 세트 타입 설정
+   * 현재 모드의 카드셋 타입(활성/지정)을 설정합니다.
+   * @param type 카드 세트 타입
+   */
+  setCardSetType(type: CardSetType): void;
+  
+  /**
+   * 카드 세트 타입 가져오기
+   * 현재 모드의 카드셋 타입(활성/지정)을 가져옵니다.
+   * @returns 카드 세트 타입
+   */
+  getCardSetType(): CardSetType;
   
   /**
    * 고정 여부 설정
@@ -82,11 +104,17 @@ export abstract class Mode implements IMode {
   /**
    * 카드 세트 선택
    * @param cardSet 선택할 카드 세트 (null인 경우 카드 세트 선택 해제)
+   * @param isFixed 카드 세트 고정 여부 (true: 지정, false: 활성)
    */
-  selectCardSet(cardSet: string | null): void {
+  selectCardSet(cardSet: string | null, isFixed?: boolean): void {
     console.log(`[Mode] 카드 세트 선택: ${cardSet}, 이전 값: ${this.currentCardSet}, 모드: ${this.type}`);
     this.currentCardSet = cardSet;
-    console.log(`[Mode] 카드 세트 선택 완료: ${this.currentCardSet}`);
+    
+    if (isFixed !== undefined) {
+      this.setFixed(isFixed);
+    }
+    
+    console.log(`[Mode] 카드 세트 선택 완료: ${this.currentCardSet}, 고정=${this.isFixedValue}`);
   }
   
   abstract getFilterOptions(): Promise<string[]>;
@@ -104,6 +132,25 @@ export abstract class Mode implements IMode {
   reset(): void {
     this.currentCardSet = null;
     this.isFixedValue = false;
+  }
+  
+  /**
+   * 카드 세트 타입 설정
+   * 현재 모드의 카드셋 타입(활성/지정)을 설정합니다.
+   * @param type 카드 세트 타입
+   */
+  setCardSetType(type: CardSetType): void {
+    this.isFixedValue = type === 'fixed';
+    console.log(`[Mode] ${this.type} 모드 카드 세트 타입 변경: ${type}`);
+  }
+  
+  /**
+   * 카드 세트 타입 가져오기
+   * 현재 모드의 카드셋 타입(활성/지정)을 가져옵니다.
+   * @returns 카드 세트 타입
+   */
+  getCardSetType(): CardSetType {
+    return this.isFixedValue ? 'fixed' : 'active';
   }
   
   /**
