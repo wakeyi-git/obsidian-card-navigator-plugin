@@ -1,5 +1,5 @@
 import { ILayout } from '../layout/Layout';
-import { IMode } from '../mode/Mode';
+import { ICardSetSource } from '../cardset/CardSet';
 import { ISearch } from '../search/Search';
 import { ISort } from '../sorting/Sort';
 
@@ -26,7 +26,7 @@ export interface IPreset {
   /**
    * 모드
    */
-  mode?: IMode;
+  cardSetSource?: ICardSetSource;
   
   /**
    * 레이아웃
@@ -64,7 +64,7 @@ export interface PresetData {
   id: string;
   name: string;
   description?: string;
-  mode?: {
+  cardSetSource?: {
     type: string;
     [key: string]: any;
   };
@@ -99,7 +99,7 @@ export class Preset implements IPreset {
   id: string;
   name: string;
   description?: string;
-  mode?: IMode;
+  cardSetSource?: ICardSetSource;
   layout?: ILayout;
   sort?: ISort;
   search?: ISearch;
@@ -108,7 +108,7 @@ export class Preset implements IPreset {
     id: string,
     name: string,
     description?: string,
-    mode?: IMode,
+    cardSetSource?: ICardSetSource,
     layout?: ILayout,
     sort?: ISort,
     search?: ISearch
@@ -116,7 +116,7 @@ export class Preset implements IPreset {
     this.id = id;
     this.name = name;
     this.description = description;
-    this.mode = mode;
+    this.cardSetSource = cardSetSource;
     this.layout = layout;
     this.sort = sort;
     this.search = search;
@@ -127,7 +127,7 @@ export class Preset implements IPreset {
       this.id,
       this.name,
       this.description,
-      this.mode,
+      this.cardSetSource,
       this.layout,
       this.sort,
       this.search
@@ -144,9 +144,9 @@ export class Preset implements IPreset {
       data.description = this.description;
     }
     
-    if (this.mode) {
-      data.mode = {
-        type: this.mode.type
+    if (this.cardSetSource) {
+      data.cardSetSource = {
+        type: this.cardSetSource.type
       };
     }
     

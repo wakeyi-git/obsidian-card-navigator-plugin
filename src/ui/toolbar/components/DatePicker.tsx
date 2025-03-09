@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 interface DatePickerProps {
   onSelect: (date: string) => void;
   type: 'start' | 'end';
-  isRangeMode: boolean;
-  onRangeModeToggle: () => void;
+  isRangeCardSetSource: boolean;
+  onRangeCardSetSourceToggle: () => void;
   position?: { top: number; left: number };
 }
 
@@ -14,8 +14,8 @@ interface DatePickerProps {
 const DatePicker: React.FC<DatePickerProps> = ({ 
   onSelect, 
   type, 
-  isRangeMode, 
-  onRangeModeToggle 
+  isRangeCardSetSource, 
+  onRangeCardSetSourceToggle 
 }) => {
   const [date, setDate] = useState<string>('');
   const [showQuickOptions, setShowQuickOptions] = useState<boolean>(true);
@@ -84,7 +84,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
   return (
     <div className="card-navigator-date-picker">
       <div className="card-navigator-date-picker-header">
-        {isRangeMode ? (type === 'start' ? '시작일 선택' : '종료일 선택') : '날짜 선택'}
+        {isRangeCardSetSource ? (type === 'start' ? '시작일 선택' : '종료일 선택') : '날짜 선택'}
       </div>
       
       {showQuickOptions && (
@@ -153,9 +153,9 @@ const DatePicker: React.FC<DatePickerProps> = ({
         <button
           type="button"
           className="card-navigator-date-toggle-range-button"
-          onClick={onRangeModeToggle}
+          onClick={onRangeCardSetSourceToggle}
         >
-          {isRangeMode ? '단일 날짜 모드' : '날짜 범위 모드'}
+          {isRangeCardSetSource ? '단일 날짜 모드' : '날짜 범위 모드'}
         </button>
         <button
           type="button"

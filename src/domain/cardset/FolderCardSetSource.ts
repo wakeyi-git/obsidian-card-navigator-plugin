@@ -1,12 +1,12 @@
 import { App, TFile, TFolder } from 'obsidian';
-import { Mode, ModeType } from './Mode';
+import { CardSetSource, CardSetSourceType } from './CardSet';
 import { ICard } from '../card/Card';
 
 /**
- * 폴더 모드 클래스
- * 폴더를 기반으로 카드 세트를 구성하고, 태그를 필터링 옵션으로 사용합니다.
+ * 폴더 카드셋 소스 클래스
+ * 폴더를 기반으로 카드셋을 구성하고, 태그를 필터링 옵션으로 사용합니다.
  */
-export class FolderMode extends Mode {
+export class FolderCardSetSource extends CardSetSource {
   private app: App;
   private includeSubfolders = true;
   private folderCache: string[] | null = null;
@@ -80,15 +80,36 @@ export class FolderMode extends Mode {
   }
   
   /**
-   * 태그 목록 가져오기
+   * 카드셋 객체 목록 가져오기
+   * UI에서 사용할 수 있는 형태로 카드셋 정보를 반환합니다.
+   */
+  async getCardSetObjects(): Promise<{id: string, name: string, type: string, cardSetSource: string, path: string}[]> {
+    const folders = await this.getCardSets();
+    
+    return folders.map(folder => {
+      const name = folder === '/' ? '루트' : folder.split('/').pop() || folder;
+      return {
+        id: folder,
+        name,
+        type: 'folder',
+        cardSetSource: 'folder',
+        path: folder
+      };
+    });
+  }
+  
+  /**
+   * 필터 옵션 가져오기
    * 현재 볼트의 모든 태그 목록을 가져옵니다.
    */
   async getFilterOptions(): Promise<string[]> {
-    const tags: Set<string> = new Set();
+    // 모든 태그 가져오기
+    const tags = new Set<string>();
     const files = this.app.vault.getMarkdownFiles();
     
     for (const file of files) {
       const cache = this.app.metadataCache.getFileCache(file);
+      
       if (cache && cache.tags) {
         for (const tag of cache.tags) {
           tags.add(tag.tag);
@@ -148,8 +169,8 @@ export class FolderMode extends Mode {
    * 현재 폴더 가져오기
    * @returns 현재 선택된 폴더
    */
-  getCurrentFolder(): string {
-    return this.currentCardSet || '';
+  getCurrentFolder(): string | null {
+    return this.currentCardSet;
   }
   
   /**
@@ -157,34 +178,30 @@ export class FolderMode extends Mode {
    * @returns 폴더 고정 여부
    */
   isFixedFolder(): boolean {
-    return this.isFixed();
+    return this.isCardSetFixed();
   }
   
   /**
    * 폴더 설정
-   * @param folder 설정할 폴더
+   * @param folder 폴더 경로
    * @param isFixed 고정 여부
    */
   setFolder(folder: string, isFixed = false): void {
-    this.currentCardSet = folder;
-    this.setFixed(isFixed);
-    console.log(`[FolderMode] 폴더 설정: ${folder}, 고정=${isFixed}`);
+    this.selectCardSet(folder, isFixed);
   }
   
   /**
    * 카드 목록 가져오기
-   * 현재 선택된 폴더의 카드 목록을 가져옵니다.
    * @param cardService 카드 서비스
    * @returns 카드 목록
    */
   async getCards(cardService: any): Promise<ICard[]> {
-    const filePaths = await this.getFiles();
-    return await cardService.getCardsByPaths(filePaths);
+    const files = await this.getFiles();
+    return cardService.getCardsByPaths(files);
   }
   
   /**
    * 설정 초기화
-   * 현재 모드의 설정을 초기화합니다.
    */
   reset(): void {
     super.reset();

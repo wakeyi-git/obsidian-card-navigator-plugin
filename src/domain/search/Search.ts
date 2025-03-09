@@ -1,6 +1,6 @@
 import { ICard } from '../card/Card';
 import { TFile } from 'obsidian';
-import { ModeType, CardSetType } from '../mode/Mode';
+import { CardSetSourceType, CardSetType } from '../cardset/CardSet';
 
 /**
  * 검색 타입
@@ -18,7 +18,7 @@ export type SearchScope = 'all' | 'current';
  * 검색 모드 상태 인터페이스
  * 검색 모드의 상태를 정의합니다.
  */
-export interface ISearchModeState {
+export interface ISearchCardSetSourceState {
   /**
    * 검색 쿼리
    */
@@ -52,7 +52,7 @@ export interface ISearchModeState {
   /**
    * 검색 모드 전환 전 모드
    */
-  previousMode: ModeType;
+  previousCardSetSource: CardSetSourceType;
   
   /**
    * 검색 모드 전환 전 카드 세트

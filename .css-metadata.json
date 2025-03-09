@@ -1,7 +1,7 @@
 {
   "src/ui/CardNavigator.css": {
-    "hash": "b1470101808059272fd3b8321677af5d",
-    "lastModified": 1741424899320
+    "hash": "9e6c512b5d56bf75db6c7580ca05806d",
+    "lastModified": 1741496625732
   },
   "src/ui/cards-container/Card.css": {
     "hash": "9e985b31c6a4b3c51971749610c14269",
@@ -20,20 +20,16 @@
     "lastModified": 1741183222336
   },
   "src/ui/settings/SettingsModal.css": {
-    "hash": "758e4be97c53400879526d37012846a5",
-    "lastModified": 1741478744463
-  },
-  "src/ui/toolbar/ModeToggle.css": {
-    "hash": "f2693018743eb72c564efa6753cbd4c9",
-    "lastModified": 1741483517652
+    "hash": "cb45f34636e242e1de1de20cec53a691",
+    "lastModified": 1741496625751
   },
   "src/ui/toolbar/SearchBar.css": {
-    "hash": "2deea3e2ecfd27cdecbdbd063063079b",
-    "lastModified": 1741424961020
+    "hash": "593ecee1afd59bf69ab89969ca8f4da6",
+    "lastModified": 1741496625756
   },
   "src/ui/toolbar/Toolbar.css": {
-    "hash": "1dfa239f9979f8292bda2fa4c56681d7",
-    "lastModified": 1741485040837
+    "hash": "9ad661395ee4124f767df5e2063d169d",
+    "lastModified": 1741496625756
   },
   "src/ui/toolbar/components/SearchOptionSuggestStyle.css": {
     "hash": "f8d0072bf6746f3331f4bed5efa44ceb",
@@ -58,5 +54,9 @@
   "src/ui/settings/tabs/CardSettings.css": {
     "hash": "758b492efeffea783fc0f67a07db8b08",
     "lastModified": 1741479576813
+  },
+  "src/ui/toolbar/CardSetToggle.css": {
+    "hash": "53d02a1c7c913e61efe31d05087d633b",
+    "lastModified": 1741496625756
   }
 }

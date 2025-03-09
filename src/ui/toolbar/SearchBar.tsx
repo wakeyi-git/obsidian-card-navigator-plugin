@@ -22,7 +22,7 @@ import useSearchBar from './hooks/useSearchBar';
  * 검색바 컴포넌트 속성
  */
 interface SearchBarProps {
-  cardNavigatorService?: ICardNavigatorService | null;
+  service?: ICardNavigatorService | null;
   onSearch: (query: string, type?: string) => void;
   currentCards?: ICardProps[]; // 현재 표시 중인 카드셋
   
@@ -31,22 +31,26 @@ interface SearchBarProps {
   onCaseSensitiveChange?: (sensitive: boolean) => void;
   onFrontmatterKeyChange?: (key: string) => void;
   onSearchScopeChange?: (scope: 'all' | 'current') => void;
-  onEnterSearchMode?: (query: string, type?: SearchType) => void;
-  onExitSearchMode?: () => void;
+  onEnterSearchCardSetSource?: (query: string, type?: SearchType) => void;
+  onExitSearchCardSetSource?: () => void;
   searchQuery?: string;
   searchType?: SearchType;
   caseSensitive?: boolean;
   frontmatterKey?: string;
   searchScopeProps?: 'all' | 'current';
-  isSearchMode?: boolean;
-  app?: App; // Obsidian App 인스턴스 추가
+  isSearchCardSetSource?: boolean;
+  app?: App; // Obsidian App 인스턴스
+  
+  // 이전 속성 (하위 호환성 유지)
+  cardNavigatorService?: ICardNavigatorService | null;
 }
 
 /**
  * 검색바 컴포넌트
  */
 export const SearchBar: React.FC<SearchBarProps> = ({ 
-  cardNavigatorService, 
+  service,
+  cardNavigatorService, // 이전 속성 (하위 호환성 유지)
   onSearch, 
   currentCards = [],
   
@@ -55,16 +59,19 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onCaseSensitiveChange,
   onFrontmatterKeyChange,
   onSearchScopeChange,
-  onEnterSearchMode,
-  onExitSearchMode,
+  onEnterSearchCardSetSource,
+  onExitSearchCardSetSource,
   searchQuery = '',
   searchType = 'filename',
   caseSensitive = false,
   frontmatterKey = '',
   searchScopeProps = 'current',
-  isSearchMode = false,
+  isSearchCardSetSource = false,
   app
 }) => {
+  // 서비스 결정 (새 속성 또는 이전 속성 사용)
+  const actualService = service || cardNavigatorService;
+  
   // 컨테이너 참조 추가
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState<number>(-1);
@@ -93,7 +100,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     showDatePicker,
     datePickerPosition,
     handleDateSelect,
-    isDateRangeMode,
+    isDateRangeCardSetSource,
     datePickerType,
     datePickerRef,
     showFrontmatterKeySuggestions,
@@ -103,9 +110,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     suggestedValues,
     handleSuggestedValueSelect,
     showSearchSuggestions,
+    setShowSearchSuggestions,
     filteredSuggestions
   } = useSearchBar({
-    cardNavigatorService,
+    cardNavigatorService: actualService,
     onSearch,
     currentCards,
     searchQuery,
@@ -150,30 +158,30 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   /**
    * 검색 모드 진입 처리
    */
-  const handleEnterSearchMode = () => {
+  const handleEnterSearchCardSetSource = () => {
     console.log(`[SearchBar] 검색 모드 진입: 쿼리=${searchText}, 타입=${currentSearchOption?.type}`);
     
-    if (onEnterSearchMode && searchText) {
+    if (onEnterSearchCardSetSource && searchText) {
       const searchTypeValue = currentSearchOption?.type ? 
         convertOptionTypeToSearchType(currentSearchOption.type) : 
         'filename';
       
-      onEnterSearchMode(searchText, searchTypeValue);
+      onEnterSearchCardSetSource(searchText, searchTypeValue);
     }
   };
 
   /**
    * 검색 모드 종료 처리
    */
-  const handleExitSearchMode = () => {
+  const handleExitSearchCardSetSource = () => {
     console.log(`[SearchBar] 검색 모드 종료`);
     
     // 검색 텍스트 초기화
     setSearchText('');
     
     // 검색 모드 종료 콜백 호출
-    if (onExitSearchMode) {
-      onExitSearchMode();
+    if (onExitSearchCardSetSource) {
+      onExitSearchCardSetSource();
     }
   };
 
@@ -190,6 +198,25 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     return optionType as SearchType;
   };
 
+  // 검색 옵션 변경 시 처리
+  const handleOptionChange = (option: SearchOption) => {
+    // MouseEvent 객체 생성
+    const mockEvent = new MouseEvent('click');
+    
+    // 검색 옵션 선택 처리
+    handleSearchOptionSelect(option, mockEvent);
+    
+    // 검색 타입 변경 콜백 호출
+    if (onSearchTypeChange) {
+      onSearchTypeChange(convertOptionTypeToSearchType(option.type));
+    }
+    
+    // 입력 필드에 포커스
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
   return (
     <div className="card-navigator-search-bar" ref={containerRef}>
       <div className="card-navigator-search-container">
@@ -197,8 +224,19 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         <SearchScopeToggle 
           currentScope={searchScope || 'current'} 
           onChange={handleSearchScopeChange}
-          disabled={!isSearchMode}
+          disabled={!isSearchCardSetSource}
         />
+        
+        {/* 검색 옵션 선택 */}
+        <div className="card-navigator-search-option-selector">
+          <div 
+            className="card-navigator-search-option-current"
+            onClick={() => setShowSearchSuggestions(!showSearchSuggestions)}
+            title="검색 옵션 변경"
+          >
+            {currentSearchOption?.prefix || ''}
+          </div>
+        </div>
         
         {/* 검색 입력 필드 */}
         <SearchInput
@@ -210,18 +248,31 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           placeholder={getSearchPlaceholder()}
           onClear={() => {
             setSearchText('');
-            if (isSearchMode) {
-              handleExitSearchMode();
+            if (isSearchCardSetSource) {
+              handleExitSearchCardSetSource();
             }
           }}
-          isSearchMode={isSearchMode}
+          isSearchCardSetSource={isSearchCardSetSource}
         />
         
+        {/* 대소문자 구분 토글 */}
+        <div 
+          className={`card-navigator-case-sensitive-toggle ${caseSensitive ? 'active' : ''}`}
+          onClick={() => {
+            if (onCaseSensitiveChange) {
+              onCaseSensitiveChange(!caseSensitive);
+            }
+          }}
+          title={caseSensitive ? "대소문자 구분 (켜짐)" : "대소문자 구분 (꺼짐)"}
+        >
+          <span className="card-navigator-case-sensitive-icon">Aa</span>
+        </div>
+        
         {/* 검색 모드 전환 버튼 (검색 모드일 때만 표시) */}
-        {isSearchMode && (
+        {isSearchCardSetSource && (
           <button 
-            className="card-navigator-exit-search-mode" 
-            onClick={handleExitSearchMode}
+            className="card-navigator-exit-search-cardSetSource" 
+            onClick={handleExitSearchCardSetSource}
             title="검색 모드 종료"
           >
             <span className="card-navigator-exit-icon">×</span>
@@ -232,14 +283,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       {/* 검색 제안 */}
       {showSearchSuggestions && (
         <div className="card-navigator-search-suggestions">
-          {/* SearchOptionSuggest는 React 컴포넌트가 아니라 Obsidian 클래스이므로 직접 사용할 수 없음 */}
-          {/* 대신 filteredSuggestions를 사용하여 직접 렌더링 */}
           <div className="search-option-suggestions">
             {filteredSuggestions.map((option, index) => (
               <div 
                 key={option.type}
                 className={`search-option-item ${selectedSuggestionIndex === index ? 'selected' : ''} ${currentSearchOption?.type === option.type ? 'current' : ''}`}
-                onClick={(e) => handleSearchOptionSelect(option, e.nativeEvent)}
+                onClick={() => handleOptionChange(option)}
               >
                 <span className="search-option-prefix">{option.prefix}</span>
                 <span className="search-option-label">{option.label}</span>
@@ -260,6 +309,17 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         />
       )}
       
+      {/* 날짜 선택기 */}
+      {showDatePicker && (
+        <DatePicker
+          position={datePickerPosition}
+          onSelect={handleDateSelect}
+          isRangeCardSetSource={isDateRangeCardSetSource}
+          type={datePickerType}
+          onRangeCardSetSourceToggle={() => {}}
+        />
+      )}
+      
       {/* 프론트매터 키 제안 */}
       {showFrontmatterKeySuggestions && (
         <FrontmatterKeySuggestions
@@ -274,17 +334,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           values={suggestedValues}
           onSelect={handleSuggestedValueSelect}
           isVisible={showSuggestedValues}
-        />
-      )}
-      
-      {/* 날짜 선택기 */}
-      {showDatePicker && (
-        <DatePicker
-          position={datePickerPosition}
-          onSelect={handleDateSelect}
-          type={datePickerType}
-          isRangeMode={isDateRangeMode}
-          onRangeModeToggle={() => {}}
         />
       )}
     </div>

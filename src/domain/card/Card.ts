@@ -77,7 +77,7 @@ export interface ICardDisplaySettings {
   /**
    * 렌더링 방식
    */
-  renderingMode?: CardRenderingMode;
+  renderingCardSetSource?: CardRenderingCardSetSource;
   
   /**
    * 카드 스타일
@@ -93,7 +93,7 @@ export type CardContentType = 'filename' | 'title' | 'firstheader' | 'content' |
 /**
  * 카드 렌더링 방식
  */
-export type CardRenderingMode = 'text' | 'html';
+export type CardRenderingCardSetSource = 'text' | 'html';
 
 /**
  * 카드 스타일 인터페이스

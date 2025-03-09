@@ -1,6 +1,7 @@
 import { ILayout, LayoutType } from '../domain/layout/Layout';
 import { GridLayout } from '../domain/layout/GridLayout';
 import { MasonryLayout } from '../domain/layout/MasonryLayout';
+import { CardSetType, CardSetSourceType } from '../domain/cardset/CardSet';
 
 /**
  * 레이아웃 서비스 인터페이스
@@ -64,6 +65,12 @@ export interface ILayoutService {
    * @returns 계산된 열 수
    */
   calculateColumnCount(containerWidth: number): number;
+  
+  /**
+   * 모드 변경 이벤트 처리
+   * @param cardSetSourceType 변경된 모드 타입
+   */
+  onCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void;
 }
 
 /**
@@ -243,5 +250,16 @@ export class LayoutService implements ILayoutService {
     // 동적 열 수 계산
     const maxColumns = Math.floor((containerWidth + gap) / (minCardWidth + gap));
     return Math.max(1, maxColumns);
+  }
+  
+  /**
+   * 모드 변경 이벤트 처리
+   * @param cardSetSourceType 변경된 모드 타입
+   */
+  onCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void {
+    console.log(`[LayoutService] 모드 변경 감지: ${cardSetSourceType}`);
+    
+    // 모드에 따라 적절한 레이아웃 적용
+    // 현재는 모드에 따른 특별한 레이아웃 변경이 없으므로 로깅만 수행
   }
 } 

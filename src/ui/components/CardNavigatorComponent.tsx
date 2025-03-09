@@ -28,7 +28,7 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
   
   // 서비스 초기화 및 관리
   const {
-    currentMode,
+    currentCardSetSource,
     currentCardSet,
     isCardSetFixed,
     includeSubfolders,
@@ -40,7 +40,7 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
     frontmatterKey,
     error: serviceError,
     
-    setCurrentMode,
+    setCurrentCardSetSource,
     setCurrentCardSet,
     setIsCardSetFixed,
     setIncludeSubfolders,
@@ -72,7 +72,7 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
   
   // 카드 이벤트 핸들러
   const {
-    handleModeChange,
+    handleCardSetSourceChange,
     handleCardSetSelect,
     handleIncludeSubfoldersChange,
     handleSortChange,
@@ -89,7 +89,7 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
   } = useCardEvents(
     service,
     loadCards,
-    setCurrentMode,
+    setCurrentCardSetSource,
     setCurrentCardSet,
     setIsCardSetFixed,
     setIncludeSubfolders,
@@ -102,16 +102,16 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
   );
   
   // 검색 모드 여부
-  const [isSearchMode, setIsSearchMode] = useState<boolean>(false);
+  const [isSearchCardSetSource, setIsSearchCardSetSource] = useState<boolean>(false);
   
   // 사용 가능한 폴더와 태그 목록
   const [availableFolders, setAvailableFolders] = useState<string[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   
-  // currentMode 상태가 변경될 때 isSearchMode 상태 업데이트
+  // currentCardSetSource 상태가 변경될 때 isSearchCardSetSource 상태 업데이트
   useEffect(() => {
-    setIsSearchMode(currentMode === 'search');
-  }, [currentMode]);
+    setIsSearchCardSetSource(currentCardSetSource === 'search');
+  }, [currentCardSetSource]);
   
   // 컴포넌트 렌더링 성능 측정
   useEffect(() => {
@@ -240,22 +240,22 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
       loadCards();
       
       // 폴더 및 태그 목록 가져오기
-      const modeService = service.getModeService();
+      const cardSetSourceService = service.getCardSetSourceService();
       
       // 폴더 목록 가져오기
-      modeService.changeMode('folder').then(() => {
-        modeService.getCardSets().then(folders => {
+      cardSetSourceService.changeSource('folder').then(() => {
+        cardSetSourceService.getCardSets().then((folders: string[]) => {
           console.log(`[CardNavigatorView] 폴더 목록 로드: ${folders.length}개`);
           setAvailableFolders(folders);
           
           // 태그 목록 가져오기
-          modeService.changeMode('tag').then(() => {
-            modeService.getCardSets().then(tags => {
+          cardSetSourceService.changeSource('tag').then(() => {
+            cardSetSourceService.getCardSets().then((tags: string[]) => {
               console.log(`[CardNavigatorView] 태그 목록 로드: ${tags.length}개`);
               setAvailableTags(tags);
               
               // 원래 모드로 복원
-              modeService.changeMode(currentMode);
+              cardSetSourceService.changeSource(currentCardSetSource);
             });
           });
         });
@@ -264,11 +264,11 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
   }, [service, loadCards]);
   
   // 모드 토글 핸들러
-  const handleModeToggle = () => {
-    if (currentMode === 'folder') {
-      handleModeChange('tag');
+  const handleCardSetSourceToggle = () => {
+    if (currentCardSetSource === 'folder') {
+      handleCardSetSourceChange('tag');
     } else {
-      handleModeChange('folder');
+      handleCardSetSourceChange('folder');
     }
   };
   
@@ -279,9 +279,9 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
     <div className="card-navigator-container">
       <div className="card-navigator-header">
         <Toolbar
-          currentMode={currentMode}
-          onModeChange={handleModeChange}
-          onModeToggle={handleModeToggle}
+          currentCardSetSource={currentCardSetSource}
+          onCardSetSourceChange={handleCardSetSourceChange}
+          onCardSetSourceToggle={handleCardSetSourceToggle}
           onSearch={handleSearch}
           cardSet={currentCardSet || undefined}
           isCardSetFixed={isCardSetFixed}
@@ -299,11 +299,11 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
             folders: availableFolders,
             tags: availableTags
           }}
-          isSearchMode={isSearchMode}
-          toggleSearchMode={() => setIsSearchMode(!isSearchMode)}
+          isSearchCardSetSource={isSearchCardSetSource}
+          toggleSearchCardSetSource={() => setIsSearchCardSetSource(!isSearchCardSetSource)}
         />
         
-        {isSearchMode && (
+        {isSearchCardSetSource && (
           <div className="card-navigator-search-bar-container">
             <SearchBar
               cardNavigatorService={service}
@@ -341,7 +341,7 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
         )}
         
         {!isLoading && !errorMessage && cards.length === 0 && (
-          <EmptyState mode={currentMode} />
+          <EmptyState cardSetSource={currentCardSetSource} />
         )}
         
         {!isLoading && !errorMessage && cards.length > 0 && (

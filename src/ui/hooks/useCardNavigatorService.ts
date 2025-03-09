@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { App, TFile } from 'obsidian';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
-import { ModeType } from '../../domain/mode/Mode';
+import { CardSetSourceType } from '../../domain/cardset/CardSet';
 import { SortDirection, SortType } from '../../domain/sorting/Sort';
 import { SearchType } from '../../domain/search/Search';
 import { createCardNavigatorService } from '../utils/serviceFactory';
@@ -13,7 +13,7 @@ import { IPreset } from '../../domain/preset/Preset';
  * 서비스 초기화 훅 반환 타입
  */
 interface UseCardNavigatorServiceReturn {
-  currentMode: ModeType;
+  currentCardSetSource: CardSetSourceType;
   currentCardSet: string | null;
   isCardSetFixed: boolean;
   includeSubfolders: boolean;
@@ -25,7 +25,7 @@ interface UseCardNavigatorServiceReturn {
   frontmatterKey: string;
   error: string | null;
   
-  setCurrentMode: (mode: ModeType) => void;
+  setCurrentCardSetSource: (cardSetSource: CardSetSourceType) => void;
   setCurrentCardSet: (cardSet: string | null) => void;
   setIsCardSetFixed: (isFixed: boolean) => void;
   setIncludeSubfolders: (include: boolean) => void;
@@ -50,7 +50,7 @@ interface UseCardNavigatorServiceReturn {
  * @returns 서비스 초기화 관련 상태와 함수
  */
 export const useCardNavigatorService = (service: ICardNavigatorService): UseCardNavigatorServiceReturn => {
-  const [currentMode, setCurrentModeState] = useState<ModeType>('folder');
+  const [currentCardSetSource, setCurrentCardSetSourceState] = useState<CardSetSourceType>('folder');
   const [currentCardSet, setCurrentCardSetState] = useState<string | null>(null);
   const [isCardSetFixed, setIsCardSetFixedState] = useState<boolean>(false);
   const [includeSubfolders, setIncludeSubfoldersState] = useState<boolean>(true);
@@ -68,7 +68,7 @@ export const useCardNavigatorService = (service: ICardNavigatorService): UseCard
       try {
         const settings = await service.getSettings();
         
-        setCurrentModeState(settings.defaultMode);
+        setCurrentCardSetSourceState(settings.defaultCardSetSource);
         setIsCardSetFixedState(settings.isCardSetFixed);
         setIncludeSubfoldersState(settings.includeSubfolders);
         setLayoutState(settings.defaultLayout);
@@ -94,11 +94,51 @@ export const useCardNavigatorService = (service: ICardNavigatorService): UseCard
     loadSettings();
   }, [service]);
   
+  // 현재 카드 세트 정보 업데이트
+  useEffect(() => {
+    const updateCurrentCardSet = () => {
+      try {
+        if (service) {
+          const cardSetSourceService = service.getCardSetSourceService();
+          
+          // 모드 서비스가 초기화되었는지 확인
+          if (!cardSetSourceService) {
+            console.log('[useCardNavigatorService] 모드 서비스가 아직 초기화되지 않았습니다.');
+            return;
+          }
+          
+          const currentCardSetValue = cardSetSourceService.getCurrentCardSet();
+          const isFixed = cardSetSourceService.isCardSetFixed();
+          
+          // 값이 변경된 경우에만 상태 업데이트 및 로그 출력
+          if (currentCardSetValue !== currentCardSet || isFixed !== isCardSetFixed) {
+            console.log(`[useCardNavigatorService] 현재 카드 세트 업데이트: ${currentCardSetValue}, 고정 여부: ${isFixed}`);
+            
+            setCurrentCardSetState(currentCardSetValue);
+            setIsCardSetFixedState(isFixed);
+          }
+        }
+      } catch (error) {
+        console.error('[useCardNavigatorService] 현재 카드 세트 정보 업데이트 중 오류 발생:', error);
+      }
+    };
+    
+    // 초기 업데이트
+    updateCurrentCardSet();
+    
+    // 500ms마다 업데이트 (성능 최적화)
+    const intervalId = setInterval(updateCurrentCardSet, 500);
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [service, currentCardSetSource, currentCardSet, isCardSetFixed]);
+  
   // 모드 변경 핸들러
-  const setCurrentMode = useCallback(async (mode: ModeType) => {
+  const setCurrentCardSetSource = useCallback(async (cardSetSource: CardSetSourceType) => {
     try {
-      await service.changeMode(mode);
-      setCurrentModeState(mode);
+      await service.changeCardSetSource(cardSetSource);
+      setCurrentCardSetSourceState(cardSetSource);
       setCurrentCardSetState(null);
     } catch (error) {
       console.error('모드 변경 중 오류 발생:', error);
@@ -266,7 +306,7 @@ export const useCardNavigatorService = (service: ICardNavigatorService): UseCard
       // 설정 다시 로드
       const settings = await service.getSettings();
       
-      setCurrentModeState(settings.defaultMode);
+      setCurrentCardSetSourceState(settings.defaultCardSetSource);
       setIsCardSetFixedState(settings.isCardSetFixed);
       setIncludeSubfoldersState(settings.includeSubfolders);
       setLayoutState(settings.defaultLayout);
@@ -313,7 +353,7 @@ export const useCardNavigatorService = (service: ICardNavigatorService): UseCard
   }, [service]);
   
   return {
-    currentMode,
+    currentCardSetSource,
     currentCardSet,
     isCardSetFixed,
     includeSubfolders,
@@ -325,7 +365,7 @@ export const useCardNavigatorService = (service: ICardNavigatorService): UseCard
     frontmatterKey,
     error,
     
-    setCurrentMode,
+    setCurrentCardSetSource,
     setCurrentCardSet,
     setIsCardSetFixed,
     setIncludeSubfolders,

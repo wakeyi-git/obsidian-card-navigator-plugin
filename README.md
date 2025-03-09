@@ -4,11 +4,11 @@ A powerful Obsidian plugin that transforms your notes into customizable card vie
 
 ## Features
 
-### 🔄 Dual Mode Support
-- **Folder Mode**: Organize card sets based on folders, using tags as filtering options
-- **Tag Mode**: Organize card sets based on tags, using folders as filtering options
-- **Priority System**: Configure which mode takes precedence when both are applicable
-- **Instant Mode Switching**: Toggle between modes via the toolbar
+### 🔄 Dual CardSetSource Support
+- **Folder CardSetSource**: Organize card sets based on folders, using tags as filtering options
+- **Tag CardSetSource**: Organize card sets based on tags, using folders as filtering options
+- **Priority System**: Configure which cardSetSource takes precedence when both are applicable
+- **Instant CardSetSource Switching**: Toggle between cardSetSources via the toolbar
 
 ### 🎴 Card UI & Interactions
 - **Virtual Scrolling**: Smooth performance even with hundreds of cards
@@ -19,13 +19,13 @@ A powerful Obsidian plugin that transforms your notes into customizable card vie
 ### 🔍 Advanced Organization
 - **Flexible Sorting**: Sort by filename, creation date, modification date, or custom front matter values
 - **Smart Filtering**: 
-  - Folder Mode: Filter by tags
-  - Tag Mode: Filter by folders
+  - Folder CardSetSource: Filter by tags
+  - Tag CardSetSource: Filter by folders
 - **Preset Management**: Save and apply your favorite configurations automatically
 - **Real-time Search**: Instantly filter results as you type with autocomplete and regex support
 
 ### ⚙️ Extensive Customization
-- **Default Mode Selection**: Choose your preferred starting mode
+- **Default CardSetSource Selection**: Choose your preferred starting cardSetSource
 - **Priority Configuration**: Set priority tags and folders manually
 - **Style Customization**: Adjust all card styles and display elements
 - **Layout Options**: Choose between masonry and grid layouts
@@ -33,7 +33,7 @@ A powerful Obsidian plugin that transforms your notes into customizable card vie
 ## Installation
 
 1. Open Obsidian Settings
-2. Go to Community Plugins and disable Safe Mode
+2. Go to Community Plugins and disable Safe CardSetSource
 3. Click Browse and search for "Card Navigator"
 4. Install the plugin and enable it
 
@@ -41,11 +41,11 @@ A powerful Obsidian plugin that transforms your notes into customizable card vie
 
 ### Getting Started
 1. Open the Card Navigator view from the ribbon icon or command palette
-2. Choose your preferred mode (Folder or Tag)
+2. Choose your preferred cardSetSource (Folder or Tag)
 3. Navigate through your notes in a card-based interface
 
 ### Creating Presets
-1. Configure your preferred view settings (mode, filters, sorting, etc.)
+1. Configure your preferred view settings (cardSetSource, filters, sorting, etc.)
 2. Open the preset manager from the toolbar
 3. Save your current configuration as a new preset
 4. Apply presets automatically based on folders or tags

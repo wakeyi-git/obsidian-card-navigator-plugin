@@ -1,11 +1,11 @@
 import React from 'react';
-import { ModeType } from '../../domain/mode/Mode';
+import { CardSetSourceType } from '../../domain/cardset/CardSet';
 
 /**
  * 빈 상태 컴포넌트 속성
  */
 export interface EmptyStateProps {
-  mode: ModeType;
+  cardSetSource: CardSetSourceType;
   message?: string;
 }
 
@@ -13,10 +13,10 @@ export interface EmptyStateProps {
  * 빈 상태 컴포넌트
  * 카드가 없을 때 표시되는 컴포넌트
  */
-export const EmptyState: React.FC<EmptyStateProps> = ({ mode, message }) => {
+export const EmptyState: React.FC<EmptyStateProps> = ({ cardSetSource, message }) => {
   // 모드에 따른 기본 메시지 설정
   const defaultMessage = (() => {
-    switch (mode) {
+    switch (cardSetSource) {
       case 'folder':
         return '이 폴더에 카드가 없습니다.';
       case 'tag':

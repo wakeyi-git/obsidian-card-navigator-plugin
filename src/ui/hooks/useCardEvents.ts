@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { App, TFile } from 'obsidian';
 import { ICard } from '../../domain/card/Card';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
-import { ModeType } from '../../domain/mode/Mode';
+import { CardSetSourceType } from '../../domain/cardset/CardSet';
 import { SortDirection, SortType } from '../../domain/sorting/Sort';
 import { SearchType } from '../../domain/search/Search';
 
@@ -10,7 +10,7 @@ import { SearchType } from '../../domain/search/Search';
  * 카드 이벤트 핸들러 훅 반환 타입
  */
 interface UseCardEventsReturn {
-  handleModeChange: (mode: ModeType) => Promise<void>;
+  handleCardSetSourceChange: (cardSetSource: CardSetSourceType) => Promise<void>;
   handleCardSetSelect: (cardSet: string, isFixed: boolean) => Promise<void>;
   handleIncludeSubfoldersChange: (include: boolean) => Promise<void>;
   handleSortChange: (sortType: SortType, sortDirection: SortDirection) => Promise<void>;
@@ -33,7 +33,7 @@ interface UseCardEventsReturn {
  * 카드 이벤트 핸들러 관련 로직을 관리하는 커스텀 훅
  * @param service 카드 네비게이터 서비스
  * @param loadCards 카드 로드 함수
- * @param setCurrentMode 현재 모드 설정 함수
+ * @param setCurrentCardSetSource 현재 모드 설정 함수
  * @param setCurrentCardSet 현재 카드 세트 설정 함수
  * @param setIsCardSetFixed 카드 세트 고정 여부 설정 함수
  * @param setIncludeSubfolders 하위 폴더 포함 여부 설정 함수
@@ -48,7 +48,7 @@ interface UseCardEventsReturn {
 export const useCardEvents = (
   service: ICardNavigatorService | null,
   loadCards: () => Promise<void>,
-  setCurrentMode: (mode: ModeType) => void,
+  setCurrentCardSetSource: (cardSetSource: CardSetSourceType) => void,
   setCurrentCardSet: (cardSet: string | null) => void,
   setIsCardSetFixed: (isFixed: boolean) => void,
   setIncludeSubfolders: (include: boolean) => void,
@@ -62,20 +62,20 @@ export const useCardEvents = (
   /**
    * 모드 변경 핸들러
    */
-  const handleModeChange = useCallback(async (mode: ModeType) => {
+  const handleCardSetSourceChange = useCallback(async (cardSetSource: CardSetSourceType) => {
     if (!service) return;
     
     try {
-      await service.changeMode(mode);
-      setCurrentMode(mode);
+      await service.changeCardSetSource(cardSetSource);
+      setCurrentCardSetSource(cardSetSource);
       
       // 모드 서비스에서 현재 카드 세트 가져오기
-      const modeService = service.getModeService();
-      const currentSet = modeService.getCurrentCardSet();
+      const cardSetSourceService = service.getCardSetSourceService();
+      const currentSet = cardSetSourceService.getCurrentCardSet();
       setCurrentCardSet(currentSet);
       
       // 카드 세트 고정 여부 가져오기
-      const isFixed = modeService.isCardSetFixed();
+      const isFixed = cardSetSourceService.isCardSetFixed();
       setIsCardSetFixed(isFixed);
       
       // 카드 다시 로드
@@ -83,7 +83,7 @@ export const useCardEvents = (
     } catch (error) {
       console.error('[CardNavigatorView] 모드 변경 중 오류 발생:', error);
     }
-  }, [service, setCurrentMode, setCurrentCardSet, setIsCardSetFixed, loadCards]);
+  }, [service, setCurrentCardSetSource, setCurrentCardSet, setIsCardSetFixed, loadCards]);
   
   /**
    * 카드 세트 선택 핸들러
@@ -93,14 +93,14 @@ export const useCardEvents = (
     
     try {
       // 모드 서비스에서 카드 세트 선택
-      const modeService = service.getModeService();
-      await modeService.selectCardSet(cardSet, isFixed);
+      const cardSetSourceService = service.getCardSetSourceService();
+      await cardSetSourceService.selectCardSet(cardSet, isFixed);
       
       // 현재 카드 세트 업데이트
       setCurrentCardSet(cardSet);
       
       // 카드 세트 고정 여부 업데이트
-      const newIsFixed = modeService.isCardSetFixed();
+      const newIsFixed = cardSetSourceService.isCardSetFixed();
       
       // 이전과 동일한 고정 상태인 경우 상태 업데이트를 건너뛰기
       if (newIsFixed !== isFixed) {
@@ -127,8 +127,8 @@ export const useCardEvents = (
     
     try {
       // 모드 서비스에서 하위 폴더 포함 여부 설정
-      const modeService = service.getModeService();
-      modeService.setIncludeSubfolders(include);
+      const cardSetSourceService = service.getCardSetSourceService();
+      cardSetSourceService.setIncludeSubfolders(include);
       
       // 하위 폴더 포함 여부 업데이트
       setIncludeSubfolders(include);
@@ -313,7 +313,7 @@ export const useCardEvents = (
   }, []);
   
   return {
-    handleModeChange,
+    handleCardSetSourceChange,
     handleCardSetSelect,
     handleIncludeSubfoldersChange,
     handleSortChange,

@@ -88,7 +88,7 @@ const CardSettings: React.FC<ICardSettingsProps> = ({ plugin }) => {
     await plugin.saveSettings();
     
     // 설정 변경 후 필요한 경우 설정 다시 로드
-    if (['renderingMode', 'titleSource', 'includeFrontmatterInContent', 'includeFirstHeaderInContent'].includes(key)) {
+    if (['renderingCardSetSource', 'titleSource', 'includeFrontmatterInContent', 'includeFirstHeaderInContent'].includes(key)) {
       await plugin.loadSettings();
       
       // 설정이 변경된 후 상태 업데이트

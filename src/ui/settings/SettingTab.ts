@@ -1,10 +1,10 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import CardNavigatorPlugin from '../../main';
-import { ModeType } from '../../domain/mode/Mode';
+import { CardSetSourceType } from '../../domain/cardset/CardSet';
 import { renderReactSettings, unmountReactSettings } from './adapters/ReactSettingsAdapter';
 
 // React 컴포넌트 임포트
-import ModeSettings from './tabs/ModeSettings';
+import CardSetSourceSettings from './tabs/CardSetSourceSettings';
 import CardSettings from './tabs/CardSettings';
 import SortSettings from './tabs/SortSettings';
 import LayoutSettings from './tabs/LayoutSettings';
@@ -15,7 +15,7 @@ import PresetSettings from './tabs/PresetSettings';
  */
 export class CardNavigatorSettingTab extends PluginSettingTab {
   plugin: CardNavigatorPlugin;
-  activeTab: 'mode' | 'card' | 'sort' | 'layout' | 'preset' = 'mode';
+  activeTab: 'cardSetSource' | 'card' | 'sort' | 'layout' | 'preset' = 'cardSetSource';
   tabButtons: Record<string, HTMLElement> = {};
   reactContainers: Record<string, HTMLElement> = {};
   
@@ -35,8 +35,8 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
     const contentContainer = containerEl.createDiv('content-container');
     
     switch (this.activeTab) {
-      case 'mode':
-        this.createModeSettings(contentContainer);
+      case 'cardSetSource':
+        this.createCardSetSourceSettings(contentContainer);
         break;
       case 'card':
         this.createCardSettings(contentContainer);
@@ -60,12 +60,12 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
     const tabsContainer = containerEl.createDiv('card-navigator-tabs');
     
     // 모드 설정 탭
-    const modeTab = tabsContainer.createEl('button', {
+    const cardSetSourceTab = tabsContainer.createEl('button', {
       text: '모드 설정',
-      cls: `card-navigator-tab ${this.activeTab === 'mode' ? 'active' : ''}`
+      cls: `card-navigator-tab ${this.activeTab === 'cardSetSource' ? 'active' : ''}`
     });
-    modeTab.addEventListener('click', () => this.switchTab('mode'));
-    this.tabButtons['mode'] = modeTab;
+    cardSetSourceTab.addEventListener('click', () => this.switchTab('cardSetSource'));
+    this.tabButtons['cardSetSource'] = cardSetSourceTab;
     
     // 카드 설정 탭
     const cardTab = tabsContainer.createEl('button', {
@@ -103,7 +103,7 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
   /**
    * 탭 전환
    */
-  switchTab(tab: 'mode' | 'card' | 'sort' | 'layout' | 'preset'): void {
+  switchTab(tab: 'cardSetSource' | 'card' | 'sort' | 'layout' | 'preset'): void {
     // 이전 탭 비활성화
     if (this.tabButtons[this.activeTab]) {
       this.tabButtons[this.activeTab].removeClass('active');
@@ -119,7 +119,7 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
     
     // 선택된 탭에 따라 컨텐츠 생성
     switch (tab) {
-      case 'mode': this.createModeSettings(contentEl); break;
+      case 'cardSetSource': this.createCardSetSourceSettings(contentEl); break;
       case 'card': this.createCardSettings(contentEl); break;
       case 'sort': this.createSortSettings(contentEl); break;
       case 'layout': this.createLayoutSettings(contentEl); break;
@@ -130,11 +130,11 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
   /**
    * 모드 설정 섹션 생성
    */
-  createModeSettings(containerEl: HTMLElement): void {
+  createCardSetSourceSettings(containerEl: HTMLElement): void {
     containerEl.createEl('h3', { text: '모드 설정' });
     
     // React 컴포넌트 렌더링
-    this.reactContainers['mode'] = renderReactSettings(ModeSettings, containerEl, this.plugin);
+    this.reactContainers['cardSetSource'] = renderReactSettings(CardSetSourceSettings, containerEl, this.plugin);
   }
   
   /**

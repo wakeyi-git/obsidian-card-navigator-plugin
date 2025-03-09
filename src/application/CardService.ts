@@ -1,5 +1,5 @@
 import { App } from 'obsidian';
-import { ICard, ICardDisplaySettings, CardContentType, CardRenderingMode, ICardStyle, ICardElementStyle } from '../domain/card/Card';
+import { ICard, ICardDisplaySettings, CardContentType, CardRenderingCardSetSource, ICardStyle, ICardElementStyle } from '../domain/card/Card';
 import { ICardFactory, CardFactory } from '../domain/card/CardFactory';
 import { ICardRepository } from '../domain/card/CardRepository';
 import CardNavigatorPlugin from '../main';
@@ -224,7 +224,7 @@ export class CardService implements ICardService {
       headerContent: settings.cardHeaderContent || 'filename',
       bodyContent: settings.cardBodyContent || 'content',
       footerContent: settings.cardFooterContent || 'tags',
-      renderingMode: settings.renderingMode || 'text',
+      renderingCardSetSource: settings.renderingCardSetSource || 'text',
       cardStyle: this.createCardStyleFromSettings(settings)
     };
     

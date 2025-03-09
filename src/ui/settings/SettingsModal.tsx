@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import TabNavigation from './components/TabNavigation';
-import ModeSettings from './tabs/ModeSettings';
+import CardSetSourceSettings from './tabs/CardSetSourceSettings';
 import CardSettings from './tabs/CardSettings';
 import SortSettings from './tabs/SortSettings';
 import LayoutSettings from './tabs/LayoutSettings';
@@ -38,7 +38,7 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
   onPresetDelete = () => {},
 }) => {
   // 활성 탭 상태
-  const [activeTab, setActiveTab] = useState<'mode' | 'card' | 'sort' | 'layout' | 'preset'>('mode');
+  const [activeTab, setActiveTab] = useState<'cardSetSource' | 'card' | 'sort' | 'layout' | 'preset'>('cardSetSource');
 
   // 설정 로드
   useEffect(() => {
@@ -71,7 +71,7 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
 
   // 탭 정의
   const tabs = [
-    { id: 'mode', label: '모드' },
+    { id: 'cardSetSource', label: '모드' },
     { id: 'card', label: '카드' },
     { id: 'sort', label: '정렬' },
     { id: 'layout', label: '레이아웃' },
@@ -81,14 +81,14 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
   // 현재 활성 탭에 따른 컨텐츠 렌더링
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'mode':
+      case 'cardSetSource':
         return (
           <div className="card-navigator-setting-group">
             <h3>모드 설정</h3>
             <p className="card-navigator-setting-description">
               카드 네비게이터의 모드와 관련된 설정을 변경합니다.
             </p>
-            <ModeSettings plugin={plugin} />
+            <CardSetSourceSettings plugin={plugin} />
           </div>
         );
       case 'card':

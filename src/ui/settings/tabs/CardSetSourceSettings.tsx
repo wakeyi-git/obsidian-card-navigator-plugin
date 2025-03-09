@@ -3,7 +3,7 @@ import CardNavigatorPlugin from '../../../main';
 import SettingItem from '../components/SettingItem';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { App, SuggestModal } from 'obsidian';
-import { ModeType, CardSetType } from '../../../domain/mode/Mode';
+import { CardSetSourceType, CardSetType } from '../../../domain/cardset/CardSet';
 import { SearchScope } from '../../../domain/search/Search';
 import { ICardNavigatorService } from '../../../application/CardNavigatorService';
 
@@ -108,24 +108,25 @@ class TagSuggestModal extends SuggestModal<string> {
 /**
  * 모드 설정 탭 컴포넌트
  */
-const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => {
+const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => {
   const settings = plugin.settings;
   const { 
-    defaultMode: initialDefaultMode, 
-    defaultCardSet: initialDefaultCardSet, 
+    defaultCardSetSource: initialDefaultCardSetSource, 
+    defaultFolderCardSet: initialDefaultFolderCardSet,
+    defaultTagCardSet: initialDefaultTagCardSet,
     isCardSetFixed: initialIsCardSetFixed, 
     includeSubfolders: initialIncludeSubfolders, 
     priorityTags, 
     priorityFolders,
     tagCaseSensitive: initialTagCaseSensitive,
-    defaultSearchScope: initialDefaultSearchScope = 'current'
+    defaultSearchScope: initialDefaultSearchScope = 'current',
+    useLastCardSetSourceOnLoad: initialUseLastCardSetSourceOnLoad = false
   } = settings;
   
   // 로컬 상태 관리
-  const [defaultMode, setDefaultMode] = useState<ModeType>(initialDefaultMode);
-  const [defaultCardSet, setDefaultCardSet] = useState<string>(initialDefaultCardSet || '');
-  const [defaultFolderSet, setDefaultFolderSet] = useState<string>('');
-  const [defaultTagSet, setDefaultTagSet] = useState<string>('');
+  const [defaultCardSetSource, setDefaultCardSetSource] = useState<CardSetSourceType>(initialDefaultCardSetSource);
+  const [defaultFolderCardSet, setDefaultFolderCardSet] = useState<string>(initialDefaultFolderCardSet || '');
+  const [defaultTagCardSet, setDefaultTagCardSet] = useState<string>(initialDefaultTagCardSet || '');
   const [isCardSetFixed, setIsCardSetFixed] = useState<boolean>(initialIsCardSetFixed || false);
   const [includeSubfolders, setIncludeSubfolders] = useState<boolean>(initialIncludeSubfolders || false);
   const [tagCaseSensitive, setTagCaseSensitive] = useState<boolean>(initialTagCaseSensitive || false);
@@ -133,6 +134,7 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
   const [searchCaseSensitive, setSearchCaseSensitive] = useState<boolean>(plugin.settings.searchCaseSensitive || false);
   const [highlightSearchResults, setHighlightSearchResults] = useState<boolean>(plugin.settings.highlightSearchResults !== undefined ? plugin.settings.highlightSearchResults : true);
   const [maxSearchResults, setMaxSearchResults] = useState<number>(plugin.settings.maxSearchResults || 100);
+  const [useLastCardSetSourceOnLoad, setUseLastCardSetSourceOnLoad] = useState<boolean>(initialUseLastCardSetSourceOnLoad || false);
   
   const [cardSets, setCardSets] = React.useState<string[]>([]);
   const [folderSets, setFolderSets] = React.useState<string[]>([]);
@@ -141,8 +143,9 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
   
   // 설정이 변경될 때 로컬 상태 업데이트
   useEffect(() => {
-    setDefaultMode(initialDefaultMode);
-    setDefaultCardSet(initialDefaultCardSet || '');
+    setDefaultCardSetSource(initialDefaultCardSetSource);
+    setDefaultFolderCardSet(initialDefaultFolderCardSet || '');
+    setDefaultTagCardSet(initialDefaultTagCardSet || '');
     setIsCardSetFixed(initialIsCardSetFixed || false);
     setIncludeSubfolders(initialIncludeSubfolders || false);
     setTagCaseSensitive(initialTagCaseSensitive || false);
@@ -150,23 +153,26 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
     setSearchCaseSensitive(plugin.settings.searchCaseSensitive || false);
     setHighlightSearchResults(plugin.settings.highlightSearchResults !== undefined ? plugin.settings.highlightSearchResults : true);
     setMaxSearchResults(plugin.settings.maxSearchResults || 100);
+    setUseLastCardSetSourceOnLoad(initialUseLastCardSetSourceOnLoad || false);
     
     // 모드별 기본 카드 세트 설정
-    if (initialDefaultMode === 'folder') {
-      setDefaultFolderSet(initialDefaultCardSet || '');
-    } else if (initialDefaultMode === 'tag') {
-      setDefaultTagSet(initialDefaultCardSet || '');
+    if (initialDefaultCardSetSource === 'folder') {
+      setDefaultFolderCardSet(initialDefaultFolderCardSet || '');
+    } else if (initialDefaultCardSetSource === 'tag') {
+      setDefaultTagCardSet(initialDefaultTagCardSet || '');
     }
   }, [
-    initialDefaultMode, 
-    initialDefaultCardSet, 
+    initialDefaultCardSetSource, 
+    initialDefaultFolderCardSet,
+    initialDefaultTagCardSet,
     initialIsCardSetFixed, 
     initialIncludeSubfolders, 
     initialTagCaseSensitive, 
     initialDefaultSearchScope,
     plugin.settings.searchCaseSensitive,
     plugin.settings.highlightSearchResults,
-    plugin.settings.maxSearchResults
+    plugin.settings.maxSearchResults,
+    initialUseLastCardSetSourceOnLoad
   ]);
   
   // 카드 세트 목록 로드
@@ -174,64 +180,64 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
     const loadCardSets = async () => {
       const service = plugin.getCardNavigatorService();
       if (service) {
-        const modeService = service.getModeService();
+        const cardSetSourceService = service.getCardSetSourceService();
         
         // 현재 모드 저장
-        const currentMode = modeService.getCurrentModeType();
+        const currentCardSetSource = cardSetSourceService.getCurrentSourceType();
         
         // 폴더 모드로 변경하여 폴더 목록 가져오기
-        await service.changeMode('folder');
-        const folders = await modeService.getCardSets();
+        await service.changeCardSetSource('folder');
+        const folders = await cardSetSourceService.getCardSets();
         setFolderSets(folders);
         
         // 태그 모드로 변경하여 태그 목록 가져오기
-        await service.changeMode('tag');
-        const tags = await modeService.getCardSets();
+        await service.changeCardSetSource('tag');
+        const tags = await cardSetSourceService.getCardSets();
         setTagSets(tags);
         
         // 원래 모드로 복원
-        await service.changeMode(currentMode);
+        await service.changeCardSetSource(currentCardSetSource);
         
         // 현재 모드에 맞는 카드 세트 설정
-        if (currentMode === 'folder') {
+        if (currentCardSetSource === 'folder') {
           setCardSets(folders);
           // 초기 설정에서 폴더 카드 세트 설정
-          if (initialDefaultCardSet) {
-            setDefaultFolderSet(initialDefaultCardSet);
+          if (initialDefaultFolderCardSet) {
+            setDefaultFolderCardSet(initialDefaultFolderCardSet);
           }
-        } else if (currentMode === 'tag') {
+        } else if (currentCardSetSource === 'tag') {
           setCardSets(tags);
           // 초기 설정에서 태그 카드 세트 설정
-          if (initialDefaultCardSet) {
-            setDefaultTagSet(initialDefaultCardSet);
+          if (initialDefaultTagCardSet) {
+            setDefaultTagCardSet(initialDefaultTagCardSet);
           }
         }
       }
     };
     
     loadCardSets();
-  }, [plugin, initialDefaultCardSet]);
+  }, [plugin, initialDefaultFolderCardSet, initialDefaultTagCardSet]);
   
   // 모드 변경 시 카드 세트 목록 업데이트
   React.useEffect(() => {
-    if (defaultMode === 'folder') {
+    if (defaultCardSetSource === 'folder') {
       setCardSets(folderSets);
       // 폴더 모드로 변경 시 폴더 카드 세트 사용
-      if (defaultFolderSet) {
-        setDefaultCardSet(defaultFolderSet);
+      if (defaultFolderCardSet) {
+        setDefaultFolderCardSet(defaultFolderCardSet);
       } else {
-        setDefaultCardSet('');
+        setDefaultFolderCardSet('');
       }
-    } else if (defaultMode === 'tag') {
+    } else if (defaultCardSetSource === 'tag') {
       setCardSets(tagSets);
       // 태그 모드로 변경 시 태그 카드 세트 사용
-      if (defaultTagSet) {
-        setDefaultCardSet(defaultTagSet);
+      if (defaultTagCardSet) {
+        setDefaultTagCardSet(defaultTagCardSet);
       } else {
-        setDefaultCardSet('');
+        setDefaultTagCardSet('');
       }
     }
-  }, [defaultMode, folderSets, tagSets, defaultFolderSet, defaultTagSet]);
+  }, [defaultCardSetSource, folderSets, tagSets, defaultFolderCardSet, defaultTagCardSet]);
   
   // 카드 세트 타입 변경 처리
   const handleCardSetTypeChange = (type: 'active' | 'fixed') => {
@@ -244,43 +250,41 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
   const openCardSetModal = () => {
     const app = plugin.app;
     
-    if (defaultMode === 'folder') {
+    if (defaultCardSetSource === 'folder') {
       // 폴더 선택 모달 열기
       const modal = new FolderSuggestModal(
         app,
         folderSets,
         (folder) => {
-          setDefaultFolderSet(folder);
-          setDefaultCardSet(folder);
-          onChange('defaultCardSet', folder);
+          setDefaultFolderCardSet(folder);
+          onChange('defaultFolderCardSet', folder);
         }
       );
       
       // 현재 폴더 설정
-      if (defaultFolderSet) {
-        modal.setCurrentFolder(defaultFolderSet);
-      } else if (defaultCardSet) {
-        modal.setCurrentFolder(defaultCardSet);
+      if (defaultFolderCardSet) {
+        modal.setCurrentFolder(defaultFolderCardSet);
+      } else if (defaultFolderCardSet) {
+        modal.setCurrentFolder(defaultFolderCardSet);
       }
       
       modal.open();
-    } else if (defaultMode === 'tag') {
+    } else if (defaultCardSetSource === 'tag') {
       // 태그 선택 모달 열기
       const modal = new TagSuggestModal(
         app,
         tagSets,
         (tag) => {
-          setDefaultTagSet(tag);
-          setDefaultCardSet(tag);
-          onChange('defaultCardSet', tag);
+          setDefaultTagCardSet(tag);
+          onChange('defaultTagCardSet', tag);
         }
       );
       
       // 현재 태그 설정
-      if (defaultTagSet) {
-        modal.setCurrentTag(defaultTagSet);
-      } else if (defaultCardSet) {
-        modal.setCurrentTag(defaultCardSet);
+      if (defaultTagCardSet) {
+        modal.setCurrentTag(defaultTagCardSet);
+      } else if (defaultFolderCardSet) {
+        modal.setCurrentTag(defaultFolderCardSet);
       }
       
       modal.open();
@@ -291,11 +295,14 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
   const onChange = async (key: string, value: any) => {
     // 로컬 상태 업데이트
     switch (key) {
-      case 'defaultMode':
-        setDefaultMode(value);
+      case 'defaultCardSetSource':
+        setDefaultCardSetSource(value);
         break;
-      case 'defaultCardSet':
-        setDefaultCardSet(value);
+      case 'defaultFolderCardSet':
+        setDefaultFolderCardSet(value);
+        break;
+      case 'defaultTagCardSet':
+        setDefaultTagCardSet(value);
         break;
       case 'isCardSetFixed':
         setIsCardSetFixed(value);
@@ -318,6 +325,9 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
       case 'maxSearchResults':
         setMaxSearchResults(value);
         break;
+      case 'useLastCardSetSourceOnLoad':
+        setUseLastCardSetSourceOnLoad(value);
+        break;
     }
     
     // 설정 저장
@@ -328,23 +338,23 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
     // 서비스 업데이트
     const service = plugin.getCardNavigatorService();
     if (service) {
-      if (key === 'defaultMode') {
-        await service.changeMode(value as ModeType);
-      } else if (key === 'defaultCardSet') {
+      if (key === 'defaultCardSetSource') {
+        await service.changeCardSetSource(value as CardSetSourceType);
+      } else if (key === 'defaultFolderCardSet' || key === 'defaultTagCardSet') {
         // 카드셋 선택 시 고정 여부도 함께 전달
         const isFixed = plugin.settings.isCardSetFixed || false;
-        service.getModeService().selectCardSet(value, isFixed);
+        service.getCardSetSourceService().selectCardSet(value, isFixed);
       } else if (key === 'isCardSetFixed') {
-        const modeService = service.getModeService();
-        const currentCardSet = modeService.getCurrentCardSet();
+        const cardSetSourceService = service.getCardSetSourceService();
+        const currentCardSet = cardSetSourceService.getCurrentCardSet();
         if (currentCardSet) {
           // 현재 카드셋이 있는 경우에만 고정 상태 변경
-          modeService.selectCardSet(currentCardSet, value);
+          cardSetSourceService.selectCardSet(currentCardSet, value);
         }
       } else if (key === 'includeSubfolders') {
-        service.getModeService().setIncludeSubfolders(value);
+        service.getCardSetSourceService().setIncludeSubfolders(value);
       } else if (key === 'tagCaseSensitive') {
-        service.getModeService().setTagCaseSensitive(value);
+        service.getCardSetSourceService().setTagCaseSensitive(value);
       } else if (key === 'defaultSearchScope') {
         const searchService = service.getSearchService();
         searchService.setSearchScope(value as SearchScope);
@@ -363,40 +373,47 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
         if (plugin.settings.maxSearchResults !== undefined) {
           plugin.settings.maxSearchResults = value;
         }
+      } else if (key === 'useLastCardSetSourceOnLoad') {
+        // 마지막 모드 유지 설정
+        if (plugin.settings.useLastCardSetSourceOnLoad !== undefined) {
+          plugin.settings.useLastCardSetSourceOnLoad = value;
+        }
       }
     }
   };
   
-  const handleModeChange = (mode: ModeType) => {
-    setDefaultMode(mode);
+  const handleCardSetSourceChange = (cardSetSource: CardSetSourceType) => {
+    setDefaultCardSetSource(cardSetSource);
     
     // 모드에 맞는 카드 세트 설정
-    if (mode === 'folder') {
-      const folderSet = defaultFolderSet || '';
-      setDefaultCardSet(folderSet);
-      onChange('defaultCardSet', folderSet);
-    } else if (mode === 'tag') {
-      const tagSet = defaultTagSet || '';
-      setDefaultCardSet(tagSet);
-      onChange('defaultCardSet', tagSet);
+    if (cardSetSource === 'folder') {
+      const folderSet = defaultFolderCardSet || '';
+      setDefaultFolderCardSet(folderSet);
+      onChange('defaultFolderCardSet', folderSet);
+    } else if (cardSetSource === 'tag') {
+      const tagSet = defaultTagCardSet || '';
+      setDefaultTagCardSet(tagSet);
+      onChange('defaultTagCardSet', tagSet);
     } else {
       // 검색 모드인 경우 카드 세트 초기화
-      setDefaultCardSet('');
-      onChange('defaultCardSet', '');
+      setDefaultFolderCardSet('');
+      setDefaultTagCardSet('');
+      onChange('defaultFolderCardSet', '');
+      onChange('defaultTagCardSet', '');
     }
     
-    onChange('defaultMode', mode);
+    onChange('defaultCardSetSource', cardSetSource);
   };
 
-  const renderModeButtons = () => {
+  const renderCardSetSourceButtons = () => {
     return (
-      <div className="card-navigator-mode-toggle">
+      <div className="card-navigator-cardSetSource-toggle">
         <div
-          className={`card-navigator-mode-button ${defaultMode === 'folder' ? 'active' : ''}`}
+          className={`card-navigator-cardSetSource-button ${defaultCardSetSource === 'folder' ? 'active' : ''}`}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            handleModeChange('folder');
+            handleCardSetSourceChange('folder');
           }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -405,11 +422,11 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
           <span>폴더</span>
         </div>
         <div
-          className={`card-navigator-mode-button ${defaultMode === 'tag' ? 'active' : ''}`}
+          className={`card-navigator-cardSetSource-button ${defaultCardSetSource === 'tag' ? 'active' : ''}`}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            handleModeChange('tag');
+            handleCardSetSourceChange('tag');
           }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -419,11 +436,11 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
           <span>태그</span>
         </div>
         <div
-          className={`card-navigator-mode-button ${defaultMode === 'search' ? 'active' : ''}`}
+          className={`card-navigator-cardSetSource-button ${defaultCardSetSource === 'search' ? 'active' : ''}`}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            handleModeChange('search');
+            handleCardSetSourceChange('search');
           }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -436,6 +453,73 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
     );
   };
   
+  // 컴포넌트가 마운트될 때 스타일 추가
+  useEffect(() => {
+    // 스타일 요소 생성
+    const style = document.createElement('style');
+    style.textContent = `
+      .card-navigator-setting-warning {
+        color: var(--text-warning);
+        font-size: 12px;
+        margin-top: 8px;
+        padding: 4px 8px;
+        background-color: var(--background-modifier-error);
+        border-radius: 4px;
+        opacity: 0.8;
+      }
+      
+      .card-navigator-toggle-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      
+      .card-navigator-toggle-label {
+        margin-right: 8px;
+      }
+      
+      .card-navigator-toggle {
+        position: relative;
+        width: 40px;
+        height: 20px;
+        background-color: var(--background-modifier-border);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+      
+      .card-navigator-toggle.is-enabled {
+        background-color: var(--interactive-accent);
+      }
+      
+      .card-navigator-toggle-slider {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        background-color: var(--background-primary);
+        border-radius: 50%;
+        transition: transform 0.3s;
+      }
+      
+      .card-navigator-toggle.is-enabled .card-navigator-toggle-slider {
+        transform: translateX(20px);
+      }
+      
+      .card-navigator-setting-description {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+  
   return (
     <div className="card-navigator-settings-section">
       <h3>모드 설정</h3>
@@ -443,36 +527,99 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
         카드 네비게이터가 노트를 표시하는 방식을 설정합니다.
       </p>
       
-      <SettingItem label="기본 모드 선택">
-        {renderModeButtons()}
-      </SettingItem>
+      <div className="setting-item">
+        <div className="setting-item-info">
+          <div className="setting-item-name">시작 시 모드 설정</div>
+          <div className="setting-item-description">
+            플러그인 로드 시 사용할 모드와 카드 세트를 설정합니다.
+          </div>
+        </div>
+        <div className="setting-item-control">
+          <div className="card-navigator-toggle-container">
+            <div className="card-navigator-toggle-label">마지막 모드 사용</div>
+            <div 
+              className={`card-navigator-toggle ${useLastCardSetSourceOnLoad ? 'is-enabled' : ''}`}
+              onClick={() => onChange('useLastCardSetSourceOnLoad', !useLastCardSetSourceOnLoad)}
+            >
+              <div className="card-navigator-toggle-slider"></div>
+            </div>
+          </div>
+          <div className="card-navigator-setting-description">
+            {useLastCardSetSourceOnLoad ? 
+              '플러그인 로드 시 마지막으로 사용한 모드와 카드 세트를 사용합니다.' : 
+              '플러그인 로드 시 아래에서 설정한 기본 모드와 카드 세트를 사용합니다.'}
+          </div>
+        </div>
+      </div>
+      
+      <div className="setting-item">
+        <div className="setting-item-info">
+          <div className="setting-item-name">기본 모드</div>
+          <div className="setting-item-description">
+            플러그인 로드 시 사용할 기본 모드를 선택합니다.
+            {useLastCardSetSourceOnLoad && <div className="card-navigator-setting-warning">
+              마지막 모드 사용이 활성화되어 있어 이 설정은 마지막 모드가 없을 때만 적용됩니다.
+            </div>}
+          </div>
+        </div>
+        <div className="setting-item-control">
+          {renderCardSetSourceButtons()}
+        </div>
+      </div>
       
       <div className="card-navigator-settings-subsection">
-        <h4>{defaultMode === 'folder' ? "폴더 모드 설정" : defaultMode === 'tag' ? "태그 모드 설정" : "검색 모드 설정"}</h4>
+        <h3>기본 카드 세트 설정</h3>
         
-        <SettingItem label={defaultMode === 'folder' ? "폴더 선택 방식" : defaultMode === 'tag' ? "태그 선택 방식" : "검색 방식"}>
-          <div className="card-navigator-mode-toggle">
-            <button 
-              className={`card-navigator-mode-button ${selectedCardSetType === 'active' ? 'active' : ''}`}
-              onClick={() => handleCardSetTypeChange('active')}
+        <div className="setting-item">
+          <div className="setting-item-info">
+            <div className="setting-item-name">기본 카드 세트</div>
+            <div className="setting-item-description">
+              플러그인 로드 시 사용할 기본 카드 세트를 선택합니다.
+              {useLastCardSetSourceOnLoad && <div className="card-navigator-setting-warning">
+                마지막 모드 사용이 활성화되어 있어 이 설정은 마지막 카드 세트가 없을 때만 적용됩니다.
+              </div>}
+            </div>
+          </div>
+          <div className="setting-item-control">
+            <div className="card-navigator-cardset-selector">
+              <button
+                className="card-navigator-cardset-button"
+                onClick={openCardSetModal}
+              >
+                <span className="card-navigator-cardset-name">
+                  {defaultFolderCardSet || '카드 세트 선택'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <SettingItem label={defaultCardSetSource === 'folder' ? "폴더 선택 방식" : defaultCardSetSource === 'tag' ? "태그 선택 방식" : "검색 방식"}>
+          <div className="card-navigator-toggle-container">
+            <div className="card-navigator-toggle-label">카드 세트 고정</div>
+            <div 
+              className={`card-navigator-toggle ${isCardSetFixed ? 'is-enabled' : ''}`}
+              onClick={() => onChange('isCardSetFixed', !isCardSetFixed)}
             >
-              <span>{defaultMode === 'folder' ? "활성 폴더" : defaultMode === 'tag' ? "활성 태그" : "활성 검색"}</span>
-            </button>
-            <button 
-              className={`card-navigator-mode-button ${selectedCardSetType === 'fixed' ? 'active' : ''}`}
-              onClick={() => handleCardSetTypeChange('fixed')}
-            >
-              <span>{defaultMode === 'folder' ? "지정 폴더" : defaultMode === 'tag' ? "지정 태그" : "지정 검색"}</span>
-            </button>
+              <div className="card-navigator-toggle-slider"></div>
+            </div>
+          </div>
+          <div className="card-navigator-setting-description">
+            {isCardSetFixed ? 
+              '선택한 카드 세트를 고정하여 사용합니다.' : 
+              '활성 파일에 따라 카드 세트가 자동으로 변경됩니다.'}
+            {useLastCardSetSourceOnLoad && <div className="card-navigator-setting-warning">
+              마지막 모드 사용이 활성화되어 있어 이 설정은 마지막 카드 세트 고정 여부가 없을 때만 적용됩니다.
+            </div>}
           </div>
         </SettingItem>
         
         {selectedCardSetType === 'fixed' && (
           <SettingItem 
-            label={defaultMode === 'folder' ? "지정 폴더 선택" : defaultMode === 'tag' ? "지정 태그 선택" : "지정 검색 선택"}
-            description={defaultMode === 'folder' 
+            label={defaultCardSetSource === 'folder' ? "지정 폴더 선택" : defaultCardSetSource === 'tag' ? "지정 태그 선택" : "지정 검색 선택"}
+            description={defaultCardSetSource === 'folder' 
               ? "지정한 폴더의 노트를 표시합니다. 다른 폴더의 노트를 열어도 카드 목록이 변경되지 않습니다." 
-              : defaultMode === 'tag' 
+              : defaultCardSetSource === 'tag' 
                 ? "지정한 태그를 포함하는 노트를 표시합니다. 다른 태그의 노트를 열어도 카드 목록이 변경되지 않습니다."
                 : "지정한 검색을 포함하는 노트를 표시합니다. 다른 검색의 노트를 열어도 카드 목록이 변경되지 않습니다."}
           >
@@ -481,61 +628,69 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
                 className="card-navigator-select-button"
                 onClick={openCardSetModal}
               >
-                {defaultCardSet 
-                  ? (defaultMode === 'folder' && defaultCardSet === '/' 
+                {defaultFolderCardSet 
+                  ? (defaultCardSetSource === 'folder' && defaultFolderCardSet === '/' 
                     ? '루트 폴더' 
-                    : defaultCardSet)
-                  : `${defaultMode === 'folder' ? '폴더' : defaultMode === 'tag' ? '태그' : '검색'} 선택`}
+                    : defaultFolderCardSet)
+                  : `${defaultCardSetSource === 'folder' ? '폴더' : defaultCardSetSource === 'tag' ? '태그' : '검색'} 선택`}
               </button>
             </div>
           </SettingItem>
         )}
         
-        {defaultMode === 'folder' && (
-          <>
-            <SettingItem 
-              label="하위 폴더 포함" 
-              description="선택한 폴더의 하위 폴더에 있는 노트도 함께 표시합니다."
-            >
-              <input
-                type="checkbox"
-                checked={includeSubfolders}
-                onChange={(e) => {
-                  setIncludeSubfolders(e.target.checked);
-                  onChange('includeSubfolders', e.target.checked);
-                }}
-              />
-            </SettingItem>
-          </>
+        {defaultCardSetSource === 'folder' && (
+          <SettingItem label="하위 폴더 포함">
+            <div className="card-navigator-toggle-container">
+              <div className="card-navigator-toggle-label">하위 폴더 포함</div>
+              <div 
+                className={`card-navigator-toggle ${includeSubfolders ? 'is-enabled' : ''}`}
+                onClick={() => onChange('includeSubfolders', !includeSubfolders)}
+              >
+                <div className="card-navigator-toggle-slider"></div>
+              </div>
+            </div>
+            <div className="card-navigator-setting-description">
+              {includeSubfolders ? 
+                '선택한 폴더의 하위 폴더에 있는 파일도 포함합니다.' : 
+                '선택한 폴더에 있는 파일만 포함합니다.'}
+              {useLastCardSetSourceOnLoad && <div className="card-navigator-setting-warning">
+                마지막 모드 사용이 활성화되어 있어 이 설정은 마지막 하위 폴더 포함 여부가 없을 때만 적용됩니다.
+              </div>}
+            </div>
+          </SettingItem>
         )}
         
-        {defaultMode === 'tag' && (
-          <>
-            <SettingItem 
-              label="태그 대소문자 구분" 
-              description="태그 검색 시 대소문자를 구분합니다."
-            >
-              <input
-                type="checkbox"
-                checked={tagCaseSensitive}
-                onChange={(e) => {
-                  setTagCaseSensitive(e.target.checked);
-                  onChange('tagCaseSensitive', e.target.checked);
-                }}
-              />
-            </SettingItem>
-          </>
+        {defaultCardSetSource === 'tag' && (
+          <SettingItem label="태그 대소문자 구분">
+            <div className="card-navigator-toggle-container">
+              <div className="card-navigator-toggle-label">대소문자 구분</div>
+              <div 
+                className={`card-navigator-toggle ${tagCaseSensitive ? 'is-enabled' : ''}`}
+                onClick={() => onChange('tagCaseSensitive', !tagCaseSensitive)}
+              >
+                <div className="card-navigator-toggle-slider"></div>
+              </div>
+            </div>
+            <div className="card-navigator-setting-description">
+              {tagCaseSensitive ? 
+                '태그 검색 시 대소문자를 구분합니다.' : 
+                '태그 검색 시 대소문자를 구분하지 않습니다.'}
+              {useLastCardSetSourceOnLoad && <div className="card-navigator-setting-warning">
+                마지막 모드 사용이 활성화되어 있어 이 설정은 마지막 태그 대소문자 구분 여부가 없을 때만 적용됩니다.
+              </div>}
+            </div>
+          </SettingItem>
         )}
         
-        {defaultMode === 'search' && (
+        {defaultCardSetSource === 'search' && (
           <>
             <SettingItem 
               label="기본 검색 범위" 
               description="검색 시 기본적으로 적용할 검색 범위를 설정합니다."
             >
-              <div className="card-navigator-mode-toggle">
+              <div className="card-navigator-cardSetSource-toggle">
                 <button 
-                  className={`card-navigator-mode-button ${defaultSearchScope === 'current' ? 'active' : ''}`}
+                  className={`card-navigator-cardSetSource-button ${defaultSearchScope === 'current' ? 'active' : ''}`}
                   onClick={() => {
                     setDefaultSearchScope('current');
                     onChange('defaultSearchScope', 'current');
@@ -544,7 +699,7 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
                   <span>현재 카드 세트</span>
                 </button>
                 <button 
-                  className={`card-navigator-mode-button ${defaultSearchScope === 'all' ? 'active' : ''}`}
+                  className={`card-navigator-cardSetSource-button ${defaultSearchScope === 'all' ? 'active' : ''}`}
                   onClick={() => {
                     setDefaultSearchScope('all');
                     onChange('defaultSearchScope', 'all');
@@ -618,23 +773,23 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
             margin-bottom: 8px;
           }
           
-          .card-navigator-mode-toggle {
+          .card-navigator-cardSetSource-toggle {
             display: flex;
             gap: 8px;
             width: 100%;
             background: none !important;
           }
           
-          .card-navigator-mode-toggle:hover {
+          .card-navigator-cardSetSource-toggle:hover {
             background: none !important;
             background-color: transparent !important;
             color: inherit !important;
           }
           
-          .card-navigator-mode-toggle::before,
-          .card-navigator-mode-toggle::after,
-          .card-navigator-mode-toggle:hover::before,
-          .card-navigator-mode-toggle:hover::after {
+          .card-navigator-cardSetSource-toggle::before,
+          .card-navigator-cardSetSource-toggle::after,
+          .card-navigator-cardSetSource-toggle:hover::before,
+          .card-navigator-cardSetSource-toggle:hover::after {
             content: none !important;
             display: none !important;
             opacity: 0 !important;
@@ -650,7 +805,7 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
           }
           
           /* 버튼 기본 스타일 완전 재정의 */
-          .card-navigator-mode-button {
+          .card-navigator-cardSetSource-button {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -677,14 +832,14 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
           }
           
           /* 모든 가상 요소 제거 */
-          .card-navigator-mode-button::before,
-          .card-navigator-mode-button::after,
-          .card-navigator-mode-button:hover::before,
-          .card-navigator-mode-button:hover::after,
-          .card-navigator-mode-button:active::before,
-          .card-navigator-mode-button:active::after,
-          .card-navigator-mode-button:focus::before,
-          .card-navigator-mode-button:focus::after {
+          .card-navigator-cardSetSource-button::before,
+          .card-navigator-cardSetSource-button::after,
+          .card-navigator-cardSetSource-button:hover::before,
+          .card-navigator-cardSetSource-button:hover::after,
+          .card-navigator-cardSetSource-button:active::before,
+          .card-navigator-cardSetSource-button:active::after,
+          .card-navigator-cardSetSource-button:focus::before,
+          .card-navigator-cardSetSource-button:focus::after {
             content: none !important;
             display: none !important;
             opacity: 0 !important;
@@ -700,14 +855,14 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
           }
           
           /* 호버 상태 */
-          .card-navigator-mode-button:hover {
+          .card-navigator-cardSetSource-button:hover {
             background-color: var(--background-modifier-hover) !important;
             box-shadow: none !important;
             text-shadow: none !important;
           }
           
           /* 활성 상태 */
-          .card-navigator-mode-button.active {
+          .card-navigator-cardSetSource-button.active {
             background-color: var(--interactive-accent) !important;
             color: var(--text-on-accent) !important;
             box-shadow: none !important;
@@ -799,8 +954,8 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
           }
           
           /* 버튼 내부 요소 스타일 */
-          .card-navigator-mode-button svg,
-          .card-navigator-mode-button span {
+          .card-navigator-cardSetSource-button svg,
+          .card-navigator-cardSetSource-button span {
             position: relative;
             z-index: 2;
           }
@@ -810,4 +965,4 @@ const ModeSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
   );
 };
 
-export default ModeSettings; 
+export default CardSetSourceSettings; 

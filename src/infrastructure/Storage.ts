@@ -1,13 +1,13 @@
 import { App } from 'obsidian';
 import { PresetData } from '../domain/preset/Preset';
-import { ModeType } from '../domain/mode/Mode';
+import { CardSetSourceType } from '../domain/cardset/CardSet';
 
 /**
  * 플러그인 설정 인터페이스
  */
 export interface CardNavigatorSettings {
   // 기본 설정
-  defaultMode: ModeType;
+  defaultCardSetSource: CardSetSourceType;
   defaultLayout: 'grid' | 'masonry';
   includeSubfolders: boolean;
   defaultCardSet: string;
@@ -24,7 +24,7 @@ export interface CardNavigatorSettings {
   cardHeaderFrontmatterKey?: string;
   cardBodyFrontmatterKey?: string;
   cardFooterFrontmatterKey?: string;
-  renderingMode?: string;
+  renderingCardSetSource?: string;
   titleSource?: 'filename' | 'firstheader';
   includeFrontmatterInContent?: boolean;
   includeFirstHeaderInContent?: boolean;
@@ -74,8 +74,8 @@ export interface CardNavigatorSettings {
   footerBorderRadius?: number;
   
   // 검색 설정
-  tagModeSearchOptions?: string[];
-  folderModeSearchOptions?: string[];
+  tagCardSetSourceSearchOptions?: string[];
+  folderCardSetSourceSearchOptions?: string[];
   priorityTags: string[];
   priorityFolders: string[];
   presets: PresetData[];
@@ -87,7 +87,7 @@ export interface CardNavigatorSettings {
  * 기본 설정
  */
 export const DEFAULT_SETTINGS: CardNavigatorSettings = {
-  defaultMode: 'folder',
+  defaultCardSetSource: 'folder',
   defaultLayout: 'grid',
   includeSubfolders: true,
   defaultCardSet: '',
@@ -242,11 +242,11 @@ export class Storage implements IStorage {
   
   /**
    * 기본 모드 저장
-   * @param mode 모드 타입
+   * @param cardSetSource 모드 타입
    */
-  async saveDefaultMode(mode: ModeType): Promise<void> {
+  async saveDefaultCardSetSource(cardSetSource: CardSetSourceType): Promise<void> {
     const settings = await this.loadSettings();
-    settings.defaultMode = mode;
+    settings.defaultCardSetSource = cardSetSource;
     await this.saveSettings(settings);
   }
   

@@ -25,11 +25,11 @@
  */ 
 
 /* 모드 전환 시 시각적 피드백 */
-.card-navigator-mode-changed {
-  animation: mode-toggle-feedback 0.3s ease-in-out;
+.card-navigator-cardSetSource-changed {
+  animation: cardSetSource-toggle-feedback 0.3s ease-in-out;
 }
 
-@keyframes mode-toggle-feedback {
+@keyframes cardSetSource-toggle-feedback {
   0% {
     opacity: 0.7;
     transform: scale(0.98);

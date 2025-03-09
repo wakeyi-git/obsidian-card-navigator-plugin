@@ -93,8 +93,8 @@ interface UseSearchBarReturn {
   setShowSearchHistory: (show: boolean) => void;
   showDatePicker: boolean;
   setShowDatePicker: (show: boolean) => void;
-  isDateRangeMode: boolean;
-  setIsDateRangeMode: (isRange: boolean) => void;
+  isDateRangeCardSetSource: boolean;
+  setIsDateRangeCardSetSource: (isRange: boolean) => void;
   datePickerType: 'start' | 'end';
   setDatePickerType: (type: 'start' | 'end') => void;
   datePickerPosition: { top: number; left: number };
@@ -182,7 +182,7 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
   const [showSuggestedValues, setShowSuggestedValues] = useState<boolean>(false);
   const [showSearchHistory, setShowSearchHistory] = useState<boolean>(false);
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
-  const [isDateRangeMode, setIsDateRangeMode] = useState<boolean>(false);
+  const [isDateRangeCardSetSource, setIsDateRangeCardSetSource] = useState<boolean>(false);
   const [datePickerType, setDatePickerType] = useState<'start' | 'end'>('start');
   const [datePickerPosition, setDatePickerPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [isComplexSearch, setIsComplexSearch] = useState<boolean>(false);
@@ -284,8 +284,8 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
   const {
     showDatePicker: _showDatePicker,
     setShowDatePicker: _setShowDatePicker,
-    isDateRangeMode: _isDateRangeMode,
-    setIsDateRangeMode: _setIsDateRangeMode,
+    isDateRangeCardSetSource: _isDateRangeCardSetSource,
+    setIsDateRangeCardSetSource: _setIsDateRangeCardSetSource,
     datePickerType: _datePickerType,
     setDatePickerType: _setDatePickerType,
     datePickerPosition: _datePickerPosition,
@@ -711,7 +711,7 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
           newCursorPosition = insertText.length;
           
           setDatePickerType('start');
-          setIsDateRangeMode(true);
+          setIsDateRangeCardSetSource(true);
           
           // 날짜 선택기 표시
           setTimeout(() => {
@@ -957,8 +957,8 @@ export const useSearchBar = (props: UseSearchBarProps): UseSearchBarReturn => {
     setShowSearchHistory,
     showDatePicker,
     setShowDatePicker,
-    isDateRangeMode,
-    setIsDateRangeMode,
+    isDateRangeCardSetSource,
+    setIsDateRangeCardSetSource,
     datePickerType,
     setDatePickerType,
     datePickerPosition,

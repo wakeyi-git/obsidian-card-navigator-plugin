@@ -3,6 +3,7 @@ import { ISort, SortType, SortDirection } from '../domain/sorting/Sort';
 import { FilenameSort } from '../domain/sorting/FilenameSort';
 import { DateSort } from '../domain/sorting/DateSort';
 import { FrontmatterSort } from '../domain/sorting/FrontmatterSort';
+import { CardSetSourceType } from '../domain/cardset/CardSet';
 
 /**
  * 정렬 서비스 인터페이스
@@ -80,6 +81,12 @@ export interface ISortService {
    * @returns 우선 순위 폴더 목록
    */
   getPriorityFolders(): string[];
+  
+  /**
+   * 모드 변경 이벤트 처리
+   * @param cardSetSourceType 변경된 모드 타입
+   */
+  onCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void;
 }
 
 /**
@@ -204,6 +211,16 @@ export class SortService implements ISortService {
         }
         this.currentSort = new FrontmatterSort(newDirection, frontmatterKey);
         break;
+      case 'tag':
+        // 태그 정렬은 현재 파일명 정렬로 대체
+        console.log('태그 정렬은 현재 구현되지 않았습니다. 파일명 정렬을 사용합니다.');
+        this.currentSort = new FilenameSort(newDirection);
+        break;
+      case 'folder':
+        // 폴더 정렬은 현재 파일명 정렬로 대체
+        console.log('폴더 정렬은 현재 구현되지 않았습니다. 파일명 정렬을 사용합니다.');
+        this.currentSort = new FilenameSort(newDirection);
+        break;
       default:
         console.warn(`지원되지 않는 정렬 타입: ${type}`);
         break;
@@ -302,6 +319,35 @@ export class SortService implements ISortService {
     // frontmatter 타입인 경우 키 설정
     if (type === 'frontmatter' && this.currentSort && frontmatterKey) {
       this.currentSort.frontmatterKey = frontmatterKey;
+    }
+  }
+  
+  /**
+   * 모드 변경 이벤트 처리
+   * @param cardSetSourceType 변경된 모드 타입
+   */
+  onCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void {
+    console.log(`[SortService] 모드 변경 감지: ${cardSetSourceType}`);
+    
+    // 모드에 따라 적절한 정렬 방식 적용
+    switch (cardSetSourceType) {
+      case 'folder':
+        // 폴더 모드에서는 기본적으로 파일명 정렬 사용
+        if (!this.currentSort || this.currentSort.type === 'tag') {
+          this.setSortType('filename', 'asc');
+        }
+        break;
+      case 'tag':
+        // 태그 모드에서는 기본적으로 파일명 정렬 사용
+        if (!this.currentSort || this.currentSort.type === 'folder') {
+          this.setSortType('filename', 'asc');
+        }
+        break;
+      case 'search':
+        // 검색 모드에서는 관련성 정렬 사용
+        // 현재 관련성 정렬이 구현되어 있지 않으므로 파일명 정렬 사용
+        this.setSortType('filename', 'asc');
+        break;
     }
   }
 } 

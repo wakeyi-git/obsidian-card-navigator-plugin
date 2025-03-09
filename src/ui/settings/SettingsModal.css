@@ -432,13 +432,13 @@
 }
 
 /* 모드 버튼 스타일 */
-.card-navigator-mode-toggle {
+.card-navigator-cardSetSource-toggle {
   display: flex;
   gap: 8px;
   width: 100%;
 }
 
-.card-navigator-mode-button {
+.card-navigator-cardSetSource-button {
   flex: 1;
   display: flex;
   align-items: center;
@@ -453,11 +453,11 @@
   transition: all 0.2s ease;
 }
 
-.card-navigator-mode-button:hover {
+.card-navigator-cardSetSource-button:hover {
   background-color: var(--background-modifier-hover);
 }
 
-.card-navigator-mode-button.active {
+.card-navigator-cardSetSource-button.active {
   background-color: var(--text-accent);
   color: var(--text-on-accent);
   border-color: var(--text-accent);

@@ -5,20 +5,29 @@ import { ObsidianAdapter } from './infrastructure/ObsidianAdapter';
 import { CardFactory } from './domain/card/CardFactory';
 import { CardNavigatorService } from './application/CardNavigatorService';
 import { CardNavigatorSettingTab } from './ui/settings/SettingTab';
-import { ModeType } from './domain/mode/Mode';
+import { CardSetSourceType } from './domain/cardset/CardSet';
 
 // 뷰 타입 상수 정의
 export const VIEW_TYPE_CARD_NAVIGATOR = 'card-navigator-view-type';
 
 export interface CardNavigatorSettings {
   // 기본 설정
-  defaultMode: ModeType;
+  defaultCardSetSource: CardSetSourceType;
   defaultLayout: 'grid' | 'masonry';
   includeSubfolders: boolean;
-  defaultCardSet: string;
+  defaultFolderCardSet: string;
+  defaultTagCardSet: string;
   isCardSetFixed: boolean;
   defaultSearchScope?: 'all' | 'current';
   tagCaseSensitive?: boolean;
+  useLastCardSetSourceOnLoad?: boolean;
+  
+  // 마지막 상태 저장
+  lastCardSetSource?: CardSetSourceType;
+  lastFolderCardSet?: string;
+  lastFolderCardSetFixed?: boolean;
+  lastTagCardSet?: string;
+  lastTagCardSetFixed?: boolean;
   
   // 카드 설정
   cardWidth: number;
@@ -29,7 +38,7 @@ export interface CardNavigatorSettings {
   cardHeaderFrontmatterKey?: string;
   cardBodyFrontmatterKey?: string;
   cardFooterFrontmatterKey?: string;
-  renderingMode?: string;
+  renderingCardSetSource?: string;
   titleSource?: 'filename' | 'firstheader';
   includeFrontmatterInContent?: boolean;
   includeFirstHeaderInContent?: boolean;
@@ -79,8 +88,8 @@ export interface CardNavigatorSettings {
   footerBorderRadius?: number;
   
   // 검색 설정
-  tagModeSearchOptions?: string[];
-  folderModeSearchOptions?: string[];
+  tagCardSetSourceSearchOptions?: string[];
+  folderCardSetSourceSearchOptions?: string[];
   frontmatterSearchKey?: string;
   searchCaseSensitive?: boolean;
   highlightSearchResults?: boolean;
@@ -113,17 +122,19 @@ export interface CardNavigatorSettings {
 
 // 기본 설정값도 업데이트
 const DEFAULT_SETTINGS: CardNavigatorSettings = {
-  defaultMode: 'folder',
+  defaultCardSetSource: 'folder',
   defaultLayout: 'grid',
   cardWidth: 300,
   cardHeight: 200,
   priorityTags: [],
   priorityFolders: [],
   includeSubfolders: true,
-  defaultCardSet: '/',
+  defaultFolderCardSet: '',
+  defaultTagCardSet: '',
   isCardSetFixed: false,
   defaultSearchScope: 'current',
   tagCaseSensitive: false,
+  useLastCardSetSourceOnLoad: false,
   
   // 새로 추가된 기본값
   cardHeaderContent: ['filename'],
@@ -132,7 +143,7 @@ const DEFAULT_SETTINGS: CardNavigatorSettings = {
   cardHeaderFrontmatterKey: '',
   cardBodyFrontmatterKey: '',
   cardFooterFrontmatterKey: '',
-  renderingMode: 'text',
+  renderingCardSetSource: 'text',
   titleSource: 'filename',
   includeFrontmatterInContent: false,
   includeFirstHeaderInContent: false,
@@ -145,26 +156,40 @@ const DEFAULT_SETTINGS: CardNavigatorSettings = {
   headerFontSize: 16,
   bodyFontSize: 14,
   footerFontSize: 12,
-  tagModeSearchOptions: ['path', 'date'],
-  folderModeSearchOptions: ['tag', 'date'],
-  frontmatterSearchKey: '',
+  normalCardBorderStyle: 'solid',
+  normalCardBorderColor: '#e0e0e0',
+  normalCardBorderWidth: 1,
+  normalCardBorderRadius: 4,
+  activeCardBorderStyle: 'solid',
+  activeCardBorderColor: '#a0a0a0',
+  activeCardBorderWidth: 1,
+  activeCardBorderRadius: 4,
+  focusedCardBorderStyle: 'solid',
+  focusedCardBorderColor: '#606060',
+  focusedCardBorderWidth: 2,
+  focusedCardBorderRadius: 4,
+  headerBorderStyle: 'none',
+  headerBorderColor: '#e0e0e0',
+  headerBorderWidth: 0,
+  headerBorderRadius: 0,
+  bodyBorderStyle: 'none',
+  bodyBorderColor: '#e0e0e0',
+  bodyBorderWidth: 0,
+  bodyBorderRadius: 0,
+  footerBorderStyle: 'none',
+  footerBorderColor: '#e0e0e0',
+  footerBorderWidth: 0,
+  footerBorderRadius: 0,
   searchCaseSensitive: false,
   highlightSearchResults: true,
   maxSearchResults: 100,
   sortBy: 'filename',
   sortOrder: 'asc',
-  customSortKey: '',
-  tagSortBy: 'name',
-  folderSortBy: 'name',
   fixedCardHeight: false,
-  cardMinWidth: 250,
+  cardMinWidth: 200,
   cardMinHeight: 150,
   cardGap: 10,
-  gridColumns: 'auto',
-  folderPresetMappings: [],
-  tagPresetMappings: [],
-  presetPriorities: [],
-  presets: []
+  gridColumns: 'auto-fill'
 };
 
 /**
@@ -186,8 +211,8 @@ export default class CardNavigatorPlugin extends Plugin {
       (leaf: WorkspaceLeaf) => new CardNavigatorView(leaf)
     );
     
-    // 서비스 초기화
-    this.initializeServices();
+    // 서비스 초기화 (비동기 처리)
+    await this.initializeServices();
     
     // 이벤트 리스너 등록
     this.registerEventListeners();
@@ -228,6 +253,34 @@ export default class CardNavigatorPlugin extends Plugin {
 
   onunload() {
     console.log('Card Navigator plugin unloaded');
+    
+    // 현재 모드와 카드 세트 정보를 마지막 상태로 저장
+    if (this.cardNavigatorService) {
+      try {
+        const cardSetSourceService = this.cardNavigatorService.getCardSetSourceService();
+        const currentCardSetSource = cardSetSourceService.getCurrentSourceType();
+        const currentCardSet = cardSetSourceService.getCurrentCardSet();
+        const isFixed = cardSetSourceService.isCardSetFixed();
+        
+        // 마지막 모드 저장
+        this.settings.lastCardSetSource = currentCardSetSource;
+        
+        // 모드에 따라 마지막 카드 세트 저장
+        if (currentCardSetSource === 'folder') {
+          this.settings.lastFolderCardSet = currentCardSet || undefined;
+          this.settings.lastFolderCardSetFixed = isFixed;
+        } else if (currentCardSetSource === 'tag') {
+          this.settings.lastTagCardSet = currentCardSet || undefined;
+          this.settings.lastTagCardSetFixed = isFixed;
+        }
+        
+        // 설정 저장
+        this.saveSettings();
+        console.log('플러그인 종료 시 마지막 상태 저장 완료');
+      } catch (error) {
+        console.error('플러그인 종료 시 상태 저장 중 오류 발생:', error);
+      }
+    }
   }
 
   async loadSettings() {
@@ -360,21 +413,21 @@ export default class CardNavigatorPlugin extends Plugin {
       return;
     }
 
-    const modeService = this.cardNavigatorService.getModeService();
-    const currentMode = modeService.getCurrentModeType();
-    const currentCardSet = modeService.getCurrentCardSet() || '/';
-    const isCardSetFixed = modeService.isCardSetFixed();
-    const includeSubfolders = modeService.getIncludeSubfolders();
+    const cardSetSourceService = this.cardNavigatorService.getCardSetSourceService();
+    const currentCardSetSource = cardSetSourceService.getCurrentSourceType();
+    const currentCardSet = cardSetSourceService.getCurrentCardSet() || '/';
+    const isCardSetFixed = cardSetSourceService.isCardSetFixed();
+    const includeSubfolders = cardSetSourceService.getIncludeSubfolders();
 
     console.log('===== 카드 네비게이터 상태 정보 =====');
-    console.log(`현재 모드: ${currentMode === 'folder' ? '폴더 모드' : '태그 모드'}`);
-    console.log(`현재 ${currentMode === 'folder' ? '폴더 경로' : '태그'}: ${currentCardSet}`);
+    console.log(`현재 모드: ${currentCardSetSource === 'folder' ? '폴더 모드' : '태그 모드'}`);
+    console.log(`현재 ${currentCardSetSource === 'folder' ? '폴더 경로' : '태그'}: ${currentCardSet}`);
     console.log(`카드 세트 고정 여부: ${isCardSetFixed ? '고정됨' : '고정되지 않음'}`);
     console.log(`하위 폴더 포함 여부: ${includeSubfolders ? '포함' : '미포함'}`);
     console.log('===================================');
   }
 
-  private initializeServices() {
+  private async initializeServices() {
     try {
       // 어댑터 생성
       const obsidianAdapter = new ObsidianAdapter(this.app);
@@ -392,8 +445,8 @@ export default class CardNavigatorPlugin extends Plugin {
         this
       );
       
-      // 서비스 초기화
-      this.cardNavigatorService.initialize();
+      // 서비스 초기화 (비동기 처리)
+      await this.cardNavigatorService.initialize();
       console.log('카드 네비게이터 서비스 초기화 완료');
     } catch (error) {
       console.error('카드 네비게이터 서비스 초기화 실패:', error);
@@ -433,6 +486,26 @@ export default class CardNavigatorPlugin extends Plugin {
       this.app.vault.on('rename', (file, oldPath) => {
         if (this.cardNavigatorService) {
           this.cardNavigatorService.refreshCards();
+        }
+      })
+    );
+    
+    // 활성 파일 변경 이벤트 리스너 추가
+    this.registerEvent(
+      this.app.workspace.on('active-leaf-change', async (leaf) => {
+        if (!this.cardNavigatorService) return;
+        
+        const file = this.app.workspace.getActiveFile();
+        if (!file) return;
+        
+        // CardSetSourceService의 handleActiveFileChange 메서드 호출
+        const cardSetSourceService = this.cardNavigatorService.getCardSetSourceService();
+        const cardSetChanged = await cardSetSourceService.handleActiveFileChange(file);
+        
+        // 카드 세트가 변경된 경우 카드 새로고침
+        if (cardSetChanged) {
+          console.log(`[CardNavigatorPlugin] 활성 파일 변경으로 카드 세트 변경됨: ${file.path}`);
+          await this.cardNavigatorService.refreshCards();
         }
       })
     );

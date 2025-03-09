@@ -3,7 +3,7 @@ import { ICard } from '../card/Card';
 /**
  * 정렬 타입 정의
  */
-export type SortType = 'filename' | 'created' | 'modified' | 'frontmatter';
+export type SortType = 'filename' | 'created' | 'modified' | 'frontmatter' | 'tag' | 'folder';
 
 /**
  * 정렬 방향 정의

@@ -40,18 +40,18 @@
   width: 100%;
   box-sizing: border-box;
   background-color: var(--background-primary);
-  border-bottom: 1px solid var(--background-modifier-border);
   padding-top: 8px;
   padding-bottom: 8px;
   height: 40px;
+  gap: 8px;
 }
 
 /* 검색 바 및 폼 스타일 */
 .card-navigator-search-bar {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
   width: 100%;
+  position: relative;
 }
 
 .card-navigator-search-form {
@@ -79,7 +79,7 @@
 
 .card-navigator-search-input {
   width: 100%;
-  padding: 8px 35px 8px 12px !important;
+  padding: 6px 35px 6px 8px !important;
   border-radius: 4px;
   border: 1px solid var(--background-modifier-border);
   background-color: var(--background-primary);
@@ -87,6 +87,7 @@
   font-size: 14px;
   transition: all 0.2s ease;
   box-sizing: border-box;
+  height: 32px;
 }
 
 .card-navigator-search-input:focus {
@@ -161,328 +162,177 @@
 }
 
 .card-navigator-search-scope-toggle.is-all {
-  color: var(--text-muted);
-}
-
-.card-navigator-search-option {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--text-muted);
-  transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-.card-navigator-search-option:hover {
-  background-color: var(--background-modifier-hover);
-  color: var(--text-normal);
-}
-
-.card-navigator-search-option.active {
   color: var(--text-accent);
 }
 
-.card-navigator-search-scope {
+/* 검색 옵션 선택기 스타일 */
+.card-navigator-search-option-selector {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--text-muted);
-  transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-.card-navigator-search-scope:hover {
-  background-color: var(--background-modifier-hover);
-  color: var(--text-normal);
-}
-
-.card-navigator-search-scope.global {
-  color: var(--text-accent);
-}
-
-.card-navigator-search-scope.local {
-  color: var(--text-muted);
-}
-
-/* 검색 타입 및 옵션 드롭다운 스타일 */
-.card-navigator-search-type {
-  padding: 6px;
-  border-radius: 4px;
-  border: 1px solid var(--background-modifier-border);
-  background-color: var(--background-primary);
-  color: var(--text-normal);
-  font-size: 14px;
-  min-width: 80px;
-}
-
-.card-navigator-search-options-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  margin-top: 4px;
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 200;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.card-navigator-search-options-section {
-  padding: 12px;
-  border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.card-navigator-search-options-section:last-child {
-  border-bottom: none;
-}
-
-.card-navigator-search-options-title {
-  margin: 0 0 8px 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.card-navigator-search-options {
-  display: flex;
-  align-items: center;
-}
-
-.card-navigator-search-option:last-child {
-  margin-bottom: 0;
-}
-
-/* 검색 옵션 입력 필드 스타일 */
-.card-navigator-search-option-select,
-.card-navigator-search-option-input {
-  width: 100%;
-  padding: 4px 8px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  background-color: var(--background-secondary);
-  color: var(--text-normal);
-  font-size: 12px;
-}
-
-.card-navigator-search-option-select:focus,
-.card-navigator-search-option-input:focus {
-  outline: none;
-  border-color: var(--interactive-accent);
-}
-
-.card-navigator-search-option-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-normal);
-  cursor: pointer;
-}
-
-.card-navigator-search-option-checkbox input[type="checkbox"] {
-  margin: 0;
-}
-
-/* 최근 검색어 스타일 */
-.card-navigator-recent-searches {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.card-navigator-recent-search-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  font-size: 12px;
-  color: var(--text-normal);
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-.card-navigator-recent-search-item:hover {
-  background-color: var(--background-secondary);
-}
-
-.card-navigator-recent-search-item svg {
-  color: var(--text-muted);
   flex-shrink: 0;
 }
 
-/* 날짜 선택기 스타일 */
-.card-navigator-date-picker-container {
-  background-color: var(--background-primary);
+.card-navigator-search-option-current {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  height: 32px;
+  border-radius: 4px 0 0 4px;
+  background-color: var(--background-secondary);
+  color: var(--text-normal);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
   border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  padding: 12px;
-  width: 240px;
+  border-right: none;
 }
 
-.card-navigator-date-picker {
+.card-navigator-search-option-current:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+/* 대소문자 구분 토글 스타일 */
+.card-navigator-case-sensitive-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background-color 0.2s ease, color 0.2s ease;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-case-sensitive-toggle:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-case-sensitive-toggle.active {
+  color: var(--text-accent);
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-case-sensitive-icon {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 검색 모드 종료 버튼 스타일 */
+.card-navigator-exit-search-cardSetSource {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background-color 0.2s ease, color 0.2s ease;
+  background-color: transparent;
+  border: none;
+}
+
+.card-navigator-exit-search-cardSetSource:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.card-navigator-exit-icon {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* 검색 제안 스타일 */
+.card-navigator-search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
   background-color: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  padding: 12px;
-  width: 280px;
-  z-index: 1000;
+  z-index: 100;
+  margin-top: 4px;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
-.card-navigator-date-picker-header {
-  font-weight: 600;
-  margin-bottom: 12px;
-  text-align: center;
-  color: var(--text-normal);
+.search-option-suggestions {
+  padding: 4px 0;
 }
 
-.card-navigator-date-quick-options {
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--background-modifier-border);
-  padding-bottom: 12px;
-}
-
-.card-navigator-date-quick-options-title {
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: var(--text-muted);
-}
-
-.card-navigator-date-quick-options-buttons {
+.search-option-item {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.card-navigator-date-quick-option-button {
-  background-color: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  color: var(--text-normal);
+  align-items: center;
+  padding: 8px 12px;
   cursor: pointer;
-  font-size: 12px;
-  padding: 4px 8px;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
-.card-navigator-date-quick-option-button:hover {
+.search-option-item:hover {
   background-color: var(--background-modifier-hover);
 }
 
-.card-navigator-date-picker-custom {
-  margin-bottom: 16px;
-}
-
-.card-navigator-date-picker-custom-title {
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: var(--text-muted);
-}
-
-.card-navigator-date-input {
-  width: 100%;
-  padding: 6px;
-  border-radius: 4px;
-  border: 1px solid var(--background-modifier-border);
-  background-color: var(--background-secondary);
-  color: var(--text-normal);
-  font-size: 14px;
-}
-
-.card-navigator-date-picker-buttons {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.card-navigator-date-select-button,
-.card-navigator-date-cancel-button,
-.card-navigator-date-toggle-button {
-  background-color: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  color: var(--text-normal);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 6px 12px;
-  transition: all 0.2s ease;
-}
-
-.card-navigator-date-select-button:hover,
-.card-navigator-date-cancel-button:hover,
-.card-navigator-date-toggle-button:hover {
+.search-option-item.selected,
+.search-option-item.current {
   background-color: var(--background-modifier-hover);
 }
 
-.card-navigator-date-select-button {
-  background-color: var(--interactive-accent);
-  color: var(--text-on-accent);
+.search-option-prefix {
+  font-weight: 600;
+  margin-right: 8px;
+  color: var(--text-accent);
 }
 
-.card-navigator-date-select-button:hover {
-  background-color: var(--interactive-accent-hover);
+.search-option-label {
+  margin-right: 8px;
+  font-weight: 500;
 }
 
-/* 검색 하이라이트 스타일 */
-.card-navigator-highlight {
-  background-color: var(--text-highlight-bg);
-  color: var(--text-highlight-fg);
-  border-radius: 3px;
-  padding: 0 2px;
-  font-weight: bold;
+.search-option-description {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-left: auto;
 }
 
 /* 검색 기록 스타일 */
 .card-navigator-search-history {
   position: absolute;
+  top: 100%;
+  left: 0;
   width: 100%;
-  max-height: 300px;
-  overflow-y: auto;
   background-color: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 100;
   margin-top: 4px;
-  left: 0;
-  right: 0;
-  top: 100%;
-  box-sizing: border-box;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .card-navigator-search-history-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
 .card-navigator-search-history-clear {
-  font-size: 12px;
-  color: var(--text-muted);
   cursor: pointer;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
 }
 
 .card-navigator-search-history-clear:hover {
   color: var(--text-normal);
-  text-decoration: underline;
 }
 
 .card-navigator-search-history-list {
@@ -492,8 +342,7 @@
 .card-navigator-search-history-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   cursor: pointer;
   transition: background-color 0.2s ease;
 }
@@ -503,61 +352,72 @@
 }
 
 .card-navigator-search-history-item svg {
+  margin-right: 8px;
   color: var(--text-muted);
-  flex-shrink: 0;
 }
 
 .card-navigator-search-history-item span {
+  flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* 검색 모드 인디케이터 스타일 */
-.card-navigator-search-mode-indicator {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.card-navigator-search-mode-indicator svg {
-  width: 14px;
-  height: 14px;
-  margin-right: 4px;
-}
-
-/* 애니메이션 */
-@keyframes selectOption {
-  0% {
-    transform: translateX(0);
-  }
-  50% {
-    transform: translateX(5px);
-  }
-  100% {
-    transform: translateX(0);
-  }
-}
-
 /* 반응형 스타일 */
 @media (max-width: 768px) {
   .card-navigator-search-container {
-    max-width: 100%;
-    width: 100%;
+    padding: 6px 8px;
+    height: 36px;
   }
   
   .card-navigator-search-input-container {
-    width: 100%;
+    flex: 1;
+  }
+  
+  .card-navigator-search-option-current {
+    padding: 0 6px;
+    height: 30px;
+    font-size: 12px;
+  }
+  
+  .card-navigator-case-sensitive-toggle,
+  .card-navigator-exit-search-cardSetSource {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .card-navigator-search-input {
+    padding: 4px 30px 4px 6px !important;
+    height: 30px;
+    font-size: 12px;
   }
 }
 
-/* 다크 모드 스타일 */
+@media (max-width: 480px) {
+  .card-navigator-search-scope-toggle {
+    display: none;
+  }
+  
+  .card-navigator-search-option-current {
+    padding: 0 4px;
+    font-size: 11px;
+  }
+  
+  .card-navigator-case-sensitive-toggle {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .card-navigator-case-sensitive-icon {
+    font-size: 12px;
+  }
+}
+
+/* 테마 대응 스타일 */
 .theme-dark .card-navigator-highlight {
-  background-color: rgba(var(--interactive-accent-rgb), 0.4);
+  background-color: rgba(255, 255, 0, 0.2);
 }
 
 .theme-dark .card-navigator-complex-search-indicator {
-  background-color: var(--background-modifier-success);
+  color: var(--text-accent);
 }

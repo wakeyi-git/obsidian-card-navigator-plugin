@@ -11,8 +11,8 @@ interface UseDateSearchProps {
 interface UseDateSearchReturn {
   showDatePicker: boolean;
   setShowDatePicker: (show: boolean) => void;
-  isDateRangeMode: boolean;
-  setIsDateRangeMode: (isRange: boolean) => void;
+  isDateRangeCardSetSource: boolean;
+  setIsDateRangeCardSetSource: (isRange: boolean) => void;
   datePickerType: 'start' | 'end';
   setDatePickerType: (type: 'start' | 'end') => void;
   datePickerPosition: { top: number; left: number };
@@ -30,7 +30,7 @@ export const useDateSearch = (props: UseDateSearchProps): UseDateSearchReturn =>
   
   // 상태
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
-  const [isDateRangeMode, setIsDateRangeMode] = useState<boolean>(false);
+  const [isDateRangeCardSetSource, setIsDateRangeCardSetSource] = useState<boolean>(false);
   const [datePickerType, setDatePickerType] = useState<'start' | 'end'>('start');
   const [datePickerPosition, setDatePickerPosition] = useState<{ top: number, left: number }>({ top: 0, left: 0 });
   
@@ -58,7 +58,7 @@ export const useDateSearch = (props: UseDateSearchProps): UseDateSearchReturn =>
     let newText = '';
     
     // 날짜 범위 검색인 경우
-    if (isDateRangeMode) {
+    if (isDateRangeCardSetSource) {
       if (datePickerType === 'start') {
         // 시작일 선택 후 종료일 선택으로 전환
         if (isCreateDate) {
@@ -126,10 +126,10 @@ export const useDateSearch = (props: UseDateSearchProps): UseDateSearchReturn =>
     // 날짜 검색인 경우 날짜 선택기 표시
     if (isCreateDate || isModifyDate) {
       // 날짜 범위 검색 여부 확인
-      setIsDateRangeMode(text.includes('~'));
+      setIsDateRangeCardSetSource(text.includes('~'));
       
       // 날짜 선택 타입 설정
-      if (isDateRangeMode) {
+      if (isDateRangeCardSetSource) {
         // 시작일이 이미 입력되어 있는지 확인
         const hasStartDate = /create:\s*\d{4}-\d{2}-\d{2}/.test(text) || 
                             /modify:\s*\d{4}-\d{2}-\d{2}/.test(text);
@@ -157,8 +157,8 @@ export const useDateSearch = (props: UseDateSearchProps): UseDateSearchReturn =>
   return {
     showDatePicker,
     setShowDatePicker,
-    isDateRangeMode,
-    setIsDateRangeMode,
+    isDateRangeCardSetSource,
+    setIsDateRangeCardSetSource,
     datePickerType,
     setDatePickerType,
     datePickerPosition,

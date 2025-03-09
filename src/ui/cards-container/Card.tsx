@@ -447,7 +447,7 @@ const Card: React.FC<ICardProps> = ({
   };
   
   // 마크다운 렌더링 여부 확인
-  const isMarkdownRendering = settings?.renderingMode === 'html';
+  const isMarkdownRendering = settings?.renderingCardSetSource === 'html';
   
   // 컴포넌트 마운트 시 스타일 추가
   useEffect(() => {

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import ModeToggle from './ModeToggle';
+import CardSetSourceToggle from './CardSetToggle';
 import SortDropdown from './SortDropdown';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import { SortType, SortDirection } from '../../domain/sorting/Sort';
 import SettingsModal from '../settings/SettingsModal';
 import { App, SuggestModal, TFile, Notice } from 'obsidian';
-import { ModeType } from '../../domain/mode/Mode';
+import { CardSetSourceType } from '../../domain/cardset/CardSet';
 import { SearchBar } from './SearchBar';
 import './Toolbar.css';
 
@@ -13,8 +13,8 @@ import './Toolbar.css';
  * 툴바 컴포넌트 속성 인터페이스
  */
 export interface IToolbarProps {
-  onModeChange: (mode: ModeType) => void;
-  currentMode: ModeType;
+  onCardSetSourceChange: (cardSetSource: CardSetSourceType) => void;
+  currentCardSetSource: CardSetSourceType;
   onSortChange?: (sortType: SortType, sortDirection: SortDirection) => void;
   onLayoutChange?: (layout: 'grid' | 'masonry') => void;
   onCardSetSelect?: (cardSet: string, isFixed: boolean) => void;
@@ -39,10 +39,10 @@ export interface IToolbarProps {
     tags: string[];
   };
   isFixed?: boolean;
-  onModeToggle?: () => void;
+  onCardSetSourceToggle?: () => void;
   onSearch?: (query: string, type: string) => void;
-  isSearchMode?: boolean;
-  toggleSearchMode?: () => void;
+  isSearchCardSetSource?: boolean;
+  toggleSearchCardSetSource?: () => void;
   currentLayout?: 'grid' | 'masonry';
 }
 
@@ -151,8 +151,8 @@ class TagSuggestModal extends SuggestModal<string> {
  * 검색, 모드 전환, 정렬, 레이아웃 변경 등의 컨트롤을 제공합니다.
  */
 const Toolbar: React.FC<IToolbarProps> = ({
-  onModeChange,
-  currentMode,
+  onCardSetSourceChange,
+  currentCardSetSource,
   onSortChange = () => {},
   onLayoutChange = () => {},
   onCardSetSelect = () => {},
@@ -174,17 +174,18 @@ const Toolbar: React.FC<IToolbarProps> = ({
   cardSet = '',
   cardSets = { folders: [], tags: [] },
   isFixed = false,
-  onModeToggle = () => {},
+  onCardSetSourceToggle = () => {},
   onSearch = () => {},
-  isSearchMode = false,
-  toggleSearchMode = () => {},
+  isSearchCardSetSource = false,
+  toggleSearchCardSetSource = () => {},
   currentLayout = 'grid'
 }) => {
   const [availableCardSets, setAvailableCardSets] = useState<string[]>([]);
   const [isCardSetFixed, setIsCardSetFixed] = useState<boolean>(propIsCardSetFixed);
   const [includeSubfolders, setIncludeSubfolders] = useState<boolean>(propIncludeSubfolders);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [showSearchBar, setShowSearchBar] = useState(isSearchMode);
+  const [showSearchBar, setShowSearchBar] = useState(isSearchCardSetSource);
+  const [showSubfolderToggle, setShowSubfolderToggle] = useState(false);
 
   // propIncludeSubfolders props가 변경될 때 includeSubfolders 상태 업데이트
   useEffect(() => {
@@ -203,10 +204,15 @@ const Toolbar: React.FC<IToolbarProps> = ({
     console.log(`[Toolbar] cardSet props 변경: ${cardSet}`);
   }, [cardSet]);
 
-  // isSearchMode 상태가 변경될 때 showSearchBar 상태 업데이트
+  // isSearchCardSetSource 상태가 변경될 때 showSearchBar 상태 업데이트
   useEffect(() => {
-    setShowSearchBar(isSearchMode);
-  }, [isSearchMode]);
+    setShowSearchBar(isSearchCardSetSource);
+  }, [isSearchCardSetSource]);
+
+  // 현재 모드가 폴더 모드일 때만 하위 폴더 토글 표시
+  useEffect(() => {
+    setShowSubfolderToggle(currentCardSetSource === 'folder');
+  }, [currentCardSetSource]);
 
   // 카드셋 로드
   useEffect(() => {
@@ -214,8 +220,8 @@ const Toolbar: React.FC<IToolbarProps> = ({
       if (service) {
         try {
           // 서비스에서 카드셋 목록 가져오기
-          const modeService = service.getModeService();
-          const sets = await modeService.getCardSets();
+          const cardSetSourceService = service.getCardSetSourceService();
+          const sets = await cardSetSourceService.getCardSets();
           setAvailableCardSets(sets);
         } catch (error) {
           console.error('카드 세트 로드 중 오류 발생:', error);
@@ -224,18 +230,18 @@ const Toolbar: React.FC<IToolbarProps> = ({
     };
     
     loadCardSets();
-  }, [service, currentMode]);
+  }, [service, currentCardSetSource]);
 
   // 컴포넌트 마운트 및 props 변경 시 로깅
   useEffect(() => {
-    console.log(`[Toolbar] 컴포넌트 마운트/업데이트: cardSet=${cardSet}, currentMode=${currentMode}, isCardSetFixed=${isCardSetFixed}`);
-  }, [cardSet, currentMode, isCardSetFixed]);
+    console.log(`[Toolbar] 컴포넌트 마운트/업데이트: cardSet=${cardSet}, currentCardSetSource=${currentCardSetSource}, isCardSetFixed=${isCardSetFixed}`);
+  }, [cardSet, currentCardSetSource, isCardSetFixed]);
 
   /**
    * 카드셋 선택 모달 열기
    */
   const openCardSetModal = () => {
-    console.log(`[Toolbar] 카드셋 선택 모달 열기: 현재 모드=${currentMode}`);
+    console.log(`[Toolbar] 카드셋 선택 모달 열기: 현재 모드=${currentCardSetSource}`);
     console.log(`[Toolbar] 사용 가능한 카드셋:`, cardSets);
     
     // App 객체 가져오기 (props에서 직접 또는 service에서)
@@ -246,7 +252,7 @@ const Toolbar: React.FC<IToolbarProps> = ({
       return;
     }
     
-    if (currentMode === 'folder') {
+    if (currentCardSetSource === 'folder') {
       // 폴더 목록 확인
       const folders = cardSets.folders || [];
       console.log(`[Toolbar] 폴더 모드: 사용 가능한 폴더 ${folders.length}개`);
@@ -267,7 +273,7 @@ const Toolbar: React.FC<IToolbarProps> = ({
       }
       
       modal.open();
-    } else if (currentMode === 'tag') {
+    } else if (currentCardSetSource === 'tag') {
       // 태그 목록 확인
       const tags = cardSets.tags || [];
       console.log(`[Toolbar] 태그 모드: 사용 가능한 태그 ${tags.length}개`);
@@ -288,7 +294,7 @@ const Toolbar: React.FC<IToolbarProps> = ({
       }
       
       modal.open();
-    } else if (currentMode === 'search') {
+    } else if (currentCardSetSource === 'search') {
       // 검색 모드에서는 검색바에 포커스
       const searchInput = document.querySelector('.card-navigator-search-input') as HTMLInputElement;
       if (searchInput) {
@@ -299,21 +305,21 @@ const Toolbar: React.FC<IToolbarProps> = ({
 
   /**
    * 모드 변경 처리
-   * @param newMode 새 모드
+   * @param newCardSetSource 새 모드
    */
-  const handleModeChange = (newMode: ModeType) => {
-    console.log(`[Toolbar] 모드 변경: ${currentMode} -> ${newMode}`);
+  const handleCardSetSourceChange = (newCardSetSource: CardSetSourceType) => {
+    console.log(`[Toolbar] 모드 변경: ${currentCardSetSource} -> ${newCardSetSource}`);
     
     // 검색 모드에서 다른 모드로 전환하는 경우 검색 모드 종료
-    if (currentMode === 'search' && newMode !== 'search') {
+    if (currentCardSetSource === 'search' && newCardSetSource !== 'search') {
       const searchService = service?.getSearchService();
       if (searchService) {
-        searchService.exitSearchMode();
+        searchService.exitSearchCardSetSource();
       }
     }
     
     // 모드 변경 콜백 호출
-    onModeChange(newMode);
+    onCardSetSourceChange(newCardSetSource);
   };
 
   /**
@@ -335,12 +341,12 @@ const Toolbar: React.FC<IToolbarProps> = ({
     onCardSetSelect(cardSet, newFixedState);
     
     // 현재 모드가 폴더 모드이고 하위 폴더 포함 옵션이 있는 경우 알림 표시
-    if (currentMode === 'folder' && includeSubfolders) {
+    if (currentCardSetSource === 'folder' && includeSubfolders) {
       const notice = new Notice(
         `${newFixedState ? '고정 폴더' : '활성 폴더'} 모드로 전환되었습니다.${newFixedState ? '\n다른 폴더의 노트를 열어도 카드 목록이 변경되지 않습니다.' : ''}`,
         3000
       );
-    } else if (currentMode === 'tag') {
+    } else if (currentCardSetSource === 'tag') {
       const notice = new Notice(
         `${newFixedState ? '고정 태그' : '활성 태그'} 모드로 전환되었습니다.${newFixedState ? '\n다른 태그의 노트를 열어도 카드 목록이 변경되지 않습니다.' : ''}`,
         3000
@@ -374,17 +380,58 @@ const Toolbar: React.FC<IToolbarProps> = ({
       return '검색 결과';
     }
     
+    // 서비스에서 현재 카드 세트 가져오기
+    if (service) {
+      try {
+        const cardSetSourceService = service.getCardSetSourceService();
+        
+        // 모드 서비스가 초기화되었는지 확인
+        if (!cardSetSourceService) {
+          console.log('[Toolbar] 모드 서비스가 아직 초기화되지 않았습니다.');
+          return currentCardSetSource === 'folder' ? '폴더 선택' : '태그 선택';
+        }
+        
+        const currentCardSet = cardSetSourceService.getCurrentCardSet();
+        const isFixed = cardSetSourceService.isCardSetFixed();
+        
+        // 현재 카드 세트가 있으면 사용
+        if (currentCardSet) {
+          // 고정 여부에 따라 아이콘 추가
+          const fixedPrefix = isFixed ? '📌 ' : '';
+          
+          // 태그 모드에서 # 제거
+          if (currentCardSetSource === 'tag' && currentCardSet.startsWith('#')) {
+            return fixedPrefix + currentCardSet.substring(1);
+          }
+          // 폴더 모드에서 루트 폴더 표시 개선
+          else if (currentCardSetSource === 'folder' && currentCardSet === '/') {
+            return fixedPrefix + '루트 폴더';
+          }
+          // 폴더 모드에서 마지막 폴더 이름만 표시
+          else if (currentCardSetSource === 'folder' && currentCardSet.includes('/')) {
+            const folderName = currentCardSet.split('/').pop() || currentCardSet;
+            return fixedPrefix + folderName;
+          }
+          else {
+            return fixedPrefix + currentCardSet;
+          }
+        }
+      } catch (error) {
+        console.error('[Toolbar] 카드 세트 이름 가져오기 중 오류 발생:', error);
+      }
+    }
+    
     // 실제 사용할 카드셋 값 결정
     if (!cardSet) {
-      return currentMode === 'folder' ? '폴더 선택' : '태그 선택';
+      return currentCardSetSource === 'folder' ? '폴더 선택' : '태그 선택';
     }
     
     // 태그 모드에서 # 제거
-    if (currentMode === 'tag' && cardSet.startsWith('#')) {
+    if (currentCardSetSource === 'tag' && cardSet.startsWith('#')) {
       return cardSet.substring(1);
     }
     // 폴더 모드에서 루트 폴더 표시 개선
-    else if (currentMode === 'folder' && cardSet === '/') {
+    else if (currentCardSetSource === 'folder' && cardSet === '/') {
       return '루트 폴더';
     }
     else {
@@ -398,94 +445,134 @@ const Toolbar: React.FC<IToolbarProps> = ({
   const handleSearchIconClick = () => {
     console.log(`[Toolbar] 검색 아이콘 클릭`);
     
-    // App 객체 가져오기 (props에서 직접 또는 service에서)
-    const obsidianApp = app || (service ? service.getApp() : null);
+    // 검색 모드 토글
+    setShowSearchBar(!showSearchBar);
     
-    if (!obsidianApp) {
-      console.error(`[Toolbar] App 객체가 없습니다. service 또는 app props가 제대로 전달되었는지 확인하세요.`);
-      return;
+    // 검색 모드 토글 콜백 호출
+    if (toggleSearchCardSetSource) {
+      toggleSearchCardSetSource();
     }
     
     // 검색바에 포커스
-    setTimeout(() => {
-      const searchInput = document.querySelector('.card-navigator-search-input') as HTMLInputElement;
-      if (searchInput) {
-        searchInput.focus();
-      }
-    }, 100);
+    if (!showSearchBar) {
+      setTimeout(() => {
+        const searchInput = document.querySelector('.card-navigator-search-input') as HTMLInputElement;
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }, 100);
+    }
   };
 
   return (
-    <div className={`card-navigator-toolbar ${isCardSetFixed ? 'fixed' : ''}`}>
-      <div className="card-navigator-toolbar-left">
-        <ModeToggle
-          currentMode={currentMode}
-          onModeChange={handleModeChange}
-          service={service}
-        />
-        <div className="card-navigator-cardset-selector">
-          <button
-            className={`card-navigator-cardset-button ${isCardSetFixed ? 'card-navigator-fixed-cardset' : 'card-navigator-active-cardset'}`}
-            onClick={openCardSetModal}
-            aria-label="카드셋 선택"
-          >
-            <div 
-              className="card-navigator-cardset-icon-container"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCardSetFixedToggle();
-              }}
-              title={isCardSetFixed ? "고정 해제" : "고정"}
+    <div className="card-navigator-toolbar-container">
+      <div className={`card-navigator-toolbar ${isCardSetFixed ? 'fixed' : ''}`}>
+        <div className="card-navigator-toolbar-left">
+          <CardSetSourceToggle
+            currentCardSetSource={currentCardSetSource}
+            onCardSetSourceChange={handleCardSetSourceChange}
+            service={service}
+          />
+          
+          <div className="card-navigator-cardset-selector">
+            <button
+              className={`card-navigator-cardset-button ${isCardSetFixed ? 'card-navigator-fixed-cardset' : 'card-navigator-active-cardset'}`}
+              onClick={openCardSetModal}
+              aria-label="카드셋 선택"
+              title={isCardSetFixed ? "고정된 카드셋" : "활성 카드셋"}
             >
-              {isCardSetFixed ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-lock card-navigator-lock-icon">
-                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-unlock card-navigator-lock-icon">
-                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
-                  <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
-                </svg>
-              )}
+              <div 
+                className="card-navigator-cardset-icon-container"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCardSetFixedToggle();
+                }}
+                title={isCardSetFixed ? "고정 해제" : "고정"}
+              >
+                {isCardSetFixed ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-lock card-navigator-lock-icon">
+                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-unlock card-navigator-lock-icon">
+                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+                  </svg>
+                )}
+              </div>
+              <span className={`card-navigator-cardset-name ${isCardSetFixed ? 'card-navigator-fixed-cardset-name' : ''}`}>
+                {getDisplayCardSetName()}
+              </span>
+            </button>
+          </div>
+          
+          {showSubfolderToggle && (
+            <div 
+              className={`card-navigator-subfolder-toggle ${includeSubfolders ? 'active' : ''}`}
+              onClick={handleIncludeSubfoldersToggle}
+              title={includeSubfolders ? "하위 폴더 포함" : "하위 폴더 제외"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-folder-tree">
+                <path d="M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/>
+                <path d="M20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.9a1 1 0 0 1-.88-.55l-.42-.85a1 1 0 0 0-.92-.6H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/>
+                <path d="M3 5a2 2 0 0 0 2 2h3"/>
+                <path d="M3 3v13a2 2 0 0 0 2 2h3"/>
+              </svg>
             </div>
-            <span className={`card-navigator-cardset-name ${isCardSetFixed ? 'card-navigator-fixed-cardset-name' : ''}`}>
-              {getDisplayCardSetName()}
-            </span>
-          </button>
+          )}
+        </div>
+        
+        <div className="card-navigator-toolbar-center">
+          {/* 검색바는 CardNavigatorView에서 직접 렌더링됩니다 */}
+        </div>
+        
+        <div className="card-navigator-toolbar-right">
+          <div
+            className={`clickable-icon card-navigator-icon card-navigator-search-icon-button ${showSearchBar ? 'active' : ''}`}
+            onClick={handleSearchIconClick}
+            aria-label="검색"
+            title="검색"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.3-4.3"></path>
+            </svg>
+          </div>
+          
+          <SortDropdown
+            onSortChange={onSortChange}
+            service={service}
+            currentSortType={currentSortType}
+            currentSortDirection={currentSortDirection}
+          />
+          
+          <div
+            className="clickable-icon card-navigator-icon card-navigator-settings-button"
+            onClick={() => setIsSettingsModalOpen(true)}
+            aria-label="설정"
+            title="설정"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-settings">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+          </div>
         </div>
       </div>
-      <div className="card-navigator-toolbar-center">
-        {/* 검색바는 CardNavigatorView에서 직접 렌더링됩니다 */}
-      </div>
-      <div className="card-navigator-toolbar-right">
-        <div
-          className={`clickable-icon card-navigator-icon card-navigator-search-icon-button ${showSearchBar ? 'active' : ''}`}
-          onClick={handleSearchIconClick}
-          aria-label="검색"
-          title="검색"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search">
-            <circle cx="11" cy="11" r="8"></circle>
-            <path d="m21 21-4.3-4.3"></path>
-          </svg>
+      
+      {showSearchBar && (
+        <div className="card-navigator-search-container">
+          <SearchBar 
+            onSearch={(query: string, type?: string) => {
+              if (onSearch) {
+                onSearch(query, type || '');
+              }
+            }}
+            service={service}
+          />
         </div>
-        <SortDropdown
-          onSortChange={onSortChange}
-          service={service}
-        />
-        <div
-          className="clickable-icon card-navigator-icon card-navigator-settings-button"
-          onClick={() => setIsSettingsModalOpen(true)}
-          aria-label="설정"
-          title="설정"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-settings">
-            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-          </svg>
-        </div>
-      </div>
+      )}
       
       {isSettingsModalOpen && service && (
         <SettingsModal

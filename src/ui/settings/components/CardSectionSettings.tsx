@@ -272,14 +272,14 @@ const CardSectionSettings: React.FC<CardSectionSettingsProps> = ({
             <div className="card-navigator-toggle">
               <input
                 type="checkbox"
-                id="renderingModeHtml"
-                checked={settings.renderingMode === 'html'}
+                id="renderingCardSetSourceHtml"
+                checked={settings.renderingCardSetSource === 'html'}
                 onChange={async (e) => {
                   const newValue = e.target.checked ? 'html' : 'text';
-                  await onChange('renderingMode', newValue);
+                  await onChange('renderingCardSetSource', newValue);
                 }}
               />
-              <label htmlFor="renderingModeHtml" className="card-navigator-toggle-slider"></label>
+              <label htmlFor="renderingCardSetSourceHtml" className="card-navigator-toggle-slider"></label>
             </div>
           </div>
         </SettingItem>
