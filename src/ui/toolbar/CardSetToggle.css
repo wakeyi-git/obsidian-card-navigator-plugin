@@ -1,16 +1,16 @@
 /* 
- * 모드 토글 컴포넌트 스타일
- * 폴더/태그 모드 전환 관련 스타일을 포함합니다.
+ * 카드 세트 토글 컴포넌트 스타일
+ * 폴더/태그 카드 세트 전환 관련 스타일을 포함합니다.
  */
 
-/* 모드 토글 컨테이너 스타일 */
+/* 카드 세트 토글 컨테이너 스타일 */
 .card-navigator-cardSetSource-toggle-container {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-/* 모드 토글 기본 스타일 */
+/* 카드 세트 토글 기본 스타일 */
 .card-navigator-cardSetSource-toggle {
   display: flex;
   align-items: center;
@@ -33,7 +33,7 @@
   transform: scale(0.95);
 }
 
-/* 모드 아이콘 스타일 */
+/* 카드 세트 아이콘 스타일 */
 .card-navigator-cardSetSource-icon {
   display: flex;
   align-items: center;
@@ -65,7 +65,7 @@
   color: var(--text-accent);
 }
 
-/* 모드 메뉴 스타일 */
+/* 카드 세트 메뉴 스타일 */
 .card-navigator-cardSetSource-menu {
   position: absolute;
   top: 100%;

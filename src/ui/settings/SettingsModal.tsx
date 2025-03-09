@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ICardNavigatorService } from '../../application/CardNavigatorService';
 import TabNavigation from './components/TabNavigation';
-import CardSetSourceSettings from './tabs/CardSetSourceSettings';
+import CardSetSourceSettings from './tabs/CardSetSettings';
 import CardSettings from './tabs/CardSettings';
 import SortSettings from './tabs/SortSettings';
 import LayoutSettings from './tabs/LayoutSettings';
@@ -81,7 +81,7 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
 
   // 탭 정의
   const tabs = [
-    { id: 'cardSetSource', label: '모드' },
+    { id: 'cardSetSource', label: '카드 세트' },
     { id: 'card', label: '카드' },
     { id: 'sort', label: '정렬' },
     { id: 'layout', label: '레이아웃' },
@@ -94,9 +94,9 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
       case 'cardSetSource':
         return (
           <div className="card-navigator-setting-group">
-            <h3>모드 설정</h3>
+            <h3>카드 세트 설정</h3>
             <p className="card-navigator-setting-description">
-              카드 네비게이터의 모드와 관련된 설정을 변경합니다.
+              카드 네비게이터의 카드 세트와 관련된 설정을 변경합니다.
             </p>
             <CardSetSourceSettings plugin={plugin} />
           </div>

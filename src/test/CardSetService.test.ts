@@ -78,8 +78,8 @@ describe('CardSetService', () => {
       });
     });
     
-    it('카드셋을 고정 모드로 선택할 수 있어야 함', async () => {
-      // 카드셋 고정 모드로 선택
+    it('카드셋을 고정 카드 세트로 선택할 수 있어야 함', async () => {
+      // 카드셋 고정 카드 세트로 선택
       await cardSetService.selectCardSet('test-folder', true);
       
       // 카드셋이 선택되었는지 확인

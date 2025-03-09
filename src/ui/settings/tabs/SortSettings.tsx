@@ -61,12 +61,7 @@ const SortSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
   }, [settings.sortBy]);
   
   return (
-    <div className="card-navigator-settings-section">
-      <h3>정렬 설정</h3>
-      <p className="setting-item-description">
-        카드 네비게이터에서 노트를 정렬하는 방식을 설정합니다.
-      </p>
-      
+    <div className="card-navigator-settings-section">    
       <div className="card-navigator-settings-subsection">
         <h4>기본 정렬 설정</h4>
         
@@ -146,11 +141,11 @@ const SortSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
       </div>
       
       <div className="card-navigator-settings-subsection">
-        <h4>모드별 정렬 설정</h4>
+        <h4>카드 세트별 정렬 설정</h4>
         
         <SettingItem 
           label="태그 정렬 기준" 
-          description="태그 모드에서 태그를 정렬할 기준을 선택합니다."
+          description="태그 카드 세트에서 태그를 정렬할 기준을 선택합니다."
         >
           <select
             value={settings.tagSortBy || 'name'}
@@ -163,7 +158,7 @@ const SortSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => 
         
         <SettingItem 
           label="폴더 정렬 기준" 
-          description="폴더 모드에서 폴더를 정렬할 기준을 선택합니다."
+          description="폴더 카드 세트에서 폴더를 정렬할 기준을 선택합니다."
         >
           <select
             value={settings.folderSortBy || 'name'}

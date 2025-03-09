@@ -67,7 +67,7 @@ export const useDateSearch = (props: UseDateSearchProps): UseDateSearchReturn =>
           newText = text.replace(/modify:(\s*\d{4}-\d{2}-\d{2})?/, `modify:${date}`);
         }
         
-        // 종료일 선택 모드로 전환
+        // 종료일 선택 카드 세트로 전환
         setDatePickerType('end');
         
         // 종료일 입력 필드 추가

@@ -42,7 +42,7 @@ class FolderSuggestModal extends SuggestModal<string> {
     }
   }
 
-  onChooseSuggestion(folder: string, evt: MouseEvent | KeyboardEvent): void {
+  onChooseSuggestion(folder: string, _evt: MouseEvent | KeyboardEvent): void {
     this.onSelect(folder);
   }
 
@@ -91,7 +91,7 @@ class TagSuggestModal extends SuggestModal<string> {
     }
   }
 
-  onChooseSuggestion(tag: string, evt: MouseEvent | KeyboardEvent): void {
+  onChooseSuggestion(tag: string, _evt: MouseEvent | KeyboardEvent): void {
     this.onSelect(tag);
   }
 
@@ -106,9 +106,9 @@ class TagSuggestModal extends SuggestModal<string> {
 }
 
 /**
- * 모드 설정 탭 컴포넌트
+ * 카드 세트 설정 탭 컴포넌트
  */
-const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => {
+const CardSetSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plugin }) => {
   const settings = plugin.settings;
   const { 
     defaultCardSetSource: initialDefaultCardSetSource, 
@@ -139,6 +139,7 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
   const [cardSets, setCardSets] = React.useState<string[]>([]);
   const [folderSets, setFolderSets] = React.useState<string[]>([]);
   const [tagSets, setTagSets] = React.useState<string[]>([]);
+  const [currentCardSetSource, setCurrentCardSetSource] = useState<CardSetSourceType>('folder');
   const [selectedCardSetType, setSelectedCardSetType] = React.useState<'active' | 'fixed'>(isCardSetFixed ? 'fixed' : 'active');
   
   // 설정이 변경될 때 로컬 상태 업데이트
@@ -192,37 +193,42 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
     const loadCardSets = async () => {
       const service = plugin.getCardNavigatorService();
       if (service) {
-        const cardSetSourceService = service.getCardSetSourceService();
-        
-        // 현재 모드 저장
-        const currentCardSetSource = cardSetSourceService.getCurrentSourceType();
-        
-        // 폴더 모드로 변경하여 폴더 목록 가져오기
-        await service.changeCardSetSource('folder');
-        const folders = await cardSetSourceService.getCardSets();
-        setFolderSets(folders);
-        
-        // 태그 모드로 변경하여 태그 목록 가져오기
-        await service.changeCardSetSource('tag');
-        const tags = await cardSetSourceService.getCardSets();
-        setTagSets(tags);
-        
-        // 원래 모드로 복원
-        await service.changeCardSetSource(currentCardSetSource);
-        
-        // 현재 모드에 맞는 카드 세트 설정
-        if (currentCardSetSource === 'folder') {
-          setCardSets(folders);
-          // 초기 설정에서 폴더 카드 세트 설정
-          if (initialDefaultFolderCardSet) {
-            setDefaultFolderCardSet(initialDefaultFolderCardSet);
+        try {
+          const cardSetSourceService = service.getCardSetSourceService();
+          
+          // 폴더 카드 세트로 변경하여 폴더 목록 가져오기
+          await service.changeCardSetSource('folder');
+          const folders = await cardSetSourceService.getCardSets();
+          // ICardSet[]을 string[]으로 변환
+          const folderStrings = folders.map(folder => folder.source);
+          setFolderSets(folderStrings);
+          
+          // 태그 카드 세트로 변경하여 태그 목록 가져오기
+          await service.changeCardSetSource('tag');
+          const tags = await cardSetSourceService.getCardSets();
+          // ICardSet[]을 string[]으로 변환
+          const tagStrings = tags.map(tag => tag.source);
+          setTagSets(tagStrings);
+          
+          // 원래 카드 세트로 복원
+          await service.changeCardSetSource(currentCardSetSource);
+          
+          // 현재 카드 세트에 맞는 카드 세트 설정
+          if (currentCardSetSource === 'folder') {
+            setCardSets(folderStrings);
+            // 초기 설정에서 폴더 카드 세트 설정
+            if (initialDefaultFolderCardSet) {
+              setDefaultFolderCardSet(initialDefaultFolderCardSet);
+            }
+          } else if (currentCardSetSource === 'tag') {
+            setCardSets(tagStrings);
+            // 초기 설정에서 태그 카드 세트 설정
+            if (initialDefaultTagCardSet) {
+              setDefaultTagCardSet(initialDefaultTagCardSet);
+            }
           }
-        } else if (currentCardSetSource === 'tag') {
-          setCardSets(tags);
-          // 초기 설정에서 태그 카드 세트 설정
-          if (initialDefaultTagCardSet) {
-            setDefaultTagCardSet(initialDefaultTagCardSet);
-          }
+        } catch (error) {
+          console.error('카드 세트 로드 중 오류 발생:', error);
         }
       }
     };
@@ -230,11 +236,11 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
     loadCardSets();
   }, [plugin, initialDefaultFolderCardSet, initialDefaultTagCardSet]);
   
-  // 모드 변경 시 카드 세트 목록 업데이트
+  // 카드 세트 변경 시 카드 세트 목록 업데이트
   React.useEffect(() => {
     if (defaultCardSetSource === 'folder') {
       setCardSets(folderSets);
-      // 폴더 모드로 변경 시 폴더 카드 세트 사용
+      // 폴더 카드 세트로 변경 시 폴더 카드 세트 사용
       if (defaultFolderCardSet) {
         setDefaultFolderCardSet(defaultFolderCardSet);
       } else {
@@ -242,7 +248,7 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
       }
     } else if (defaultCardSetSource === 'tag') {
       setCardSets(tagSets);
-      // 태그 모드로 변경 시 태그 카드 세트 사용
+      // 태그 카드 세트로 변경 시 태그 카드 세트 사용
       if (defaultTagCardSet) {
         setDefaultTagCardSet(defaultTagCardSet);
       } else {
@@ -384,7 +390,7 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
   const handleCardSetSourceChange = (cardSetSource: CardSetSourceType) => {
     setDefaultCardSetSource(cardSetSource);
     
-    // 모드에 맞는 카드 세트 설정
+    // 카드 세트에 맞는 카드 세트 설정
     if (cardSetSource === 'folder') {
       const folderSet = defaultFolderCardSet || '';
       setDefaultFolderCardSet(folderSet);
@@ -394,7 +400,7 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
       setDefaultTagCardSet(tagSet);
       onChange('defaultTagCardSet', tagSet);
     } else {
-      // 검색 모드인 경우 카드 세트 초기화
+      // 검색 카드 세트인 경우 카드 세트 초기화
       setDefaultFolderCardSet('');
       setDefaultTagCardSet('');
       onChange('defaultFolderCardSet', '');
@@ -520,22 +526,17 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
   }, []);
   
   return (
-    <div className="card-navigator-settings-section">
-      <h3>모드 설정</h3>
-      <p className="setting-item-description">
-        카드 네비게이터가 노트를 표시하는 방식을 설정합니다.
-      </p>
-      
+    <div className="card-navigator-settings-section">   
       <div className="setting-item">
         <div className="setting-item-info">
-          <div className="setting-item-name">시작 시 모드 설정</div>
+          <div className="setting-item-name">시작 시 카드 세트 설정</div>
           <div className="setting-item-description">
-            플러그인 로드 시 사용할 모드와 카드 세트를 설정합니다.
+            플러그인 로드 시 사용할 카드 세트와 카드 세트를 설정합니다.
           </div>
         </div>
         <div className="setting-item-control">
           <div className="card-navigator-toggle-container">
-            <div className="card-navigator-toggle-label">마지막 모드 사용</div>
+            <div className="card-navigator-toggle-label">마지막 카드 세트 사용</div>
             <div 
               className={`card-navigator-toggle ${useLastCardSetSourceOnLoad ? 'is-enabled' : ''}`}
               onClick={() => onChange('useLastCardSetSourceOnLoad', !useLastCardSetSourceOnLoad)}
@@ -545,19 +546,19 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
           </div>
           <div className="card-navigator-setting-description">
             {useLastCardSetSourceOnLoad ? 
-              '플러그인 로드 시 마지막으로 사용한 모드와 카드 세트를 사용합니다.' : 
-              '플러그인 로드 시 아래에서 설정한 기본 모드와 카드 세트를 사용합니다.'}
+              '플러그인 로드 시 마지막으로 사용한 카드 세트와 카드 세트를 사용합니다.' : 
+              '플러그인 로드 시 아래에서 설정한 기본 카드 세트와 카드 세트를 사용합니다.'}
           </div>
         </div>
       </div>
       
       <div className="setting-item">
         <div className="setting-item-info">
-          <div className="setting-item-name">기본 모드</div>
+          <div className="setting-item-name">기본 카드 세트</div>
           <div className="setting-item-description">
-            플러그인 로드 시 사용할 기본 모드를 선택합니다.
+            플러그인 로드 시 사용할 기본 카드 세트를 선택합니다.
             {useLastCardSetSourceOnLoad && <div className="card-navigator-setting-warning">
-              마지막 모드 사용이 활성화되어 있어 이 설정은 마지막 모드가 없을 때만 적용됩니다.
+              마지막 카드 세트 사용이 활성화되어 있어 이 설정은 마지막 카드 세트가 없을 때만 적용됩니다.
             </div>}
           </div>
         </div>
@@ -575,7 +576,7 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
             <div className="setting-item-description">
               플러그인 로드 시 사용할 기본 카드 세트를 선택합니다.
               {useLastCardSetSourceOnLoad && <div className="card-navigator-setting-warning">
-                마지막 모드 사용이 활성화되어 있어 이 설정은 마지막 카드 세트가 없을 때만 적용됩니다.
+                마지막 카드 세트 사용이 활성화되어 있어 이 설정은 마지막 카드 세트가 없을 때만 적용됩니다.
               </div>}
             </div>
           </div>
@@ -608,7 +609,7 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
               '선택한 카드 세트를 고정하여 사용합니다.' : 
               '활성 파일에 따라 카드 세트가 자동으로 변경됩니다.'}
             {useLastCardSetSourceOnLoad && <div className="card-navigator-setting-warning">
-              마지막 모드 사용이 활성화되어 있어 이 설정은 마지막 카드 세트 고정 여부가 없을 때만 적용됩니다.
+              마지막 카드 세트 사용이 활성화되어 있어 이 설정은 마지막 카드 세트 고정 여부가 없을 때만 적용됩니다.
             </div>}
           </div>
         </SettingItem>
@@ -653,7 +654,7 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
                 '선택한 폴더의 하위 폴더에 있는 파일도 포함합니다.' : 
                 '선택한 폴더에 있는 파일만 포함합니다.'}
               {useLastCardSetSourceOnLoad && <div className="card-navigator-setting-warning">
-                마지막 모드 사용이 활성화되어 있어 이 설정은 마지막 하위 폴더 포함 여부가 없을 때만 적용됩니다.
+                마지막 카드 세트 사용이 활성화되어 있어 이 설정은 마지막 하위 폴더 포함 여부가 없을 때만 적용됩니다.
               </div>}
             </div>
           </SettingItem>
@@ -675,7 +676,7 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
                 '태그 검색 시 대소문자를 구분합니다.' : 
                 '태그 검색 시 대소문자를 구분하지 않습니다.'}
               {useLastCardSetSourceOnLoad && <div className="card-navigator-setting-warning">
-                마지막 모드 사용이 활성화되어 있어 이 설정은 마지막 태그 대소문자 구분 여부가 없을 때만 적용됩니다.
+                마지막 카드 세트 사용이 활성화되어 있어 이 설정은 마지막 태그 대소문자 구분 여부가 없을 때만 적용됩니다.
               </div>}
             </div>
           </SettingItem>
@@ -964,4 +965,4 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
   );
 };
 
-export default CardSetSourceSettings; 
+export default CardSetSettings; 

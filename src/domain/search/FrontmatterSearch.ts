@@ -12,7 +12,7 @@ export class FrontmatterSearch implements ISearch {
   private caseSensitive: boolean;
   private frontmatterKey: string;
 
-  constructor(app: App, query: string = '', frontmatterKey: string = '', caseSensitive: boolean = false) {
+  constructor(app: App, query = '', frontmatterKey = '', caseSensitive = false) {
     this.app = app;
     this.query = query;
     this.frontmatterKey = frontmatterKey;

@@ -168,7 +168,7 @@ export class PresetService implements IPresetService {
     }
     
     // 프리셋 적용 로직
-    // 실제 구현에서는 모드, 레이아웃, 필터, 정렬, 검색 등을 설정
+    // 실제 구현에서는 카드 세트, 레이아웃, 필터, 정렬, 검색 등을 설정
     
     return true;
   }
@@ -179,7 +179,7 @@ export class PresetService implements IPresetService {
     const preset = new Preset(id, name, description);
     
     // 현재 설정 저장
-    // 실제 구현에서는 현재 모드, 레이아웃, 필터, 정렬, 검색 등을 저장
+    // 실제 구현에서는 현재 카드 세트, 레이아웃, 필터, 정렬, 검색 등을 저장
     
     this.addPreset(preset);
     
@@ -206,7 +206,7 @@ export class PresetService implements IPresetService {
       const preset = new Preset(data.id, data.name, data.description);
       
       // 프리셋 데이터 설정
-      // 실제 구현에서는 모드, 레이아웃, 필터, 정렬, 검색 등을 설정
+      // 실제 구현에서는 카드 세트, 레이아웃, 필터, 정렬, 검색 등을 설정
       
       this.addPreset(preset);
       

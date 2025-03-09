@@ -13,24 +13,24 @@ interface CardSetSourceToggleProps {
 }
 
 /**
- * 모드 토글 컴포넌트
- * 폴더 모드와 태그 모드를 전환하는 버튼을 제공합니다.
+ * 카드 세트 토글 컴포넌트
+ * 폴더 카드 세트와 태그 카드 세트를 전환하는 버튼을 제공합니다.
  */
 const CardSetSourceToggle: React.FC<CardSetSourceToggleProps> = ({ currentCardSetSource, onCardSetSourceChange, service }) => {
   const [showCardSetSourceMenu, setShowCardSetSourceMenu] = useState(false);
 
   /**
-   * 모드 토글 처리
-   * 현재 모드에 따라 다음 모드로 전환합니다.
+   * 카드 세트 토글 처리
+   * 현재 카드 세트에 따라 다음 카드 세트로 전환합니다.
    */
   const handleCardSetSourceToggle = () => {
-    // 폴더 모드와 태그 모드 간 직접 전환
+    // 폴더 카드 세트와 태그 카드 세트 간 직접 전환
     if (currentCardSetSource === 'folder') {
       handleSelectCardSetSource('tag');
     } else if (currentCardSetSource === 'tag') {
       handleSelectCardSetSource('folder');
     } else {
-      // 검색 모드인 경우 이전 모드로 복원
+      // 검색 카드 세트인 경우 이전 카드 세트로 복원
       if (service) {
         const cardSetSourceService = service.getCardSetSourceService();
         const previousCardSetSource = cardSetSourceService.getPreviousCardSetSource();
@@ -42,8 +42,8 @@ const CardSetSourceToggle: React.FC<CardSetSourceToggleProps> = ({ currentCardSe
   };
   
   /**
-   * 모드 직접 선택 처리
-   * 특정 모드로 직접 전환합니다.
+   * 카드 세트 직접 선택 처리
+   * 특정 카드 세트로 직접 전환합니다.
    */
   const handleSelectCardSetSource = (cardSetSource: CardSetSourceType) => {
     if (cardSetSource === currentCardSetSource) {
@@ -54,68 +54,68 @@ const CardSetSourceToggle: React.FC<CardSetSourceToggleProps> = ({ currentCardSe
       return;
     }
     
-    // 검색 모드로 전환 시
+    // 검색 카드 세트로 전환 시
     if (cardSetSource === 'search') {
       const searchService = service.getSearchService();
       if (searchService) {
-        // 현재 모드 상태 저장 후 검색 모드로 전환
+        // 현재 카드 세트 상태 저장 후 검색 카드 세트로 전환
         searchService.enterSearchCardSetSource('', 'filename', false);
         onCardSetSourceChange('search');
         return;
       }
     }
     
-    // 검색 모드에서 다른 모드로 전환 시
+    // 검색 카드 세트에서 다른 카드 세트로 전환 시
     if (currentCardSetSource === 'search') {
       const searchService = service.getSearchService();
       if (searchService) {
-        // 검색 모드 종료
+        // 검색 카드 세트 종료
         searchService.exitSearchCardSetSource();
         
-        // 선택한 모드가 이전 모드와 다른 경우 추가 전환
+        // 선택한 카드 세트가 이전 카드 세트와 다른 경우 추가 전환
         if (cardSetSource !== service.getCardSetSourceService().getPreviousCardSetSource()) {
           service.changeCardSetSource(cardSetSource).then(() => {
             onCardSetSourceChange(cardSetSource);
           });
         } else {
-          // 이전 모드로 자동 복원되므로 UI 업데이트만 수행
+          // 이전 카드 세트로 자동 복원되므로 UI 업데이트만 수행
           onCardSetSourceChange(cardSetSource);
         }
         return;
       }
     }
     
-    // 일반적인 모드 전환
+    // 일반적인 카드 세트 전환
     service.changeCardSetSource(cardSetSource).then(() => {
       onCardSetSourceChange(cardSetSource);
     });
   };
   
   /**
-   * 현재 모드에 따른 표시 모드 가져오기
+   * 현재 카드 세트에 따른 표시 카드 세트 가져오기
    */
   const getDisplayCardSetSource = (): CardSetSourceType => {
     return currentCardSetSource;
   };
   
-  // 현재 표시 모드
+  // 현재 표시 카드 세트
   const displayCardSetSource = getDisplayCardSetSource();
   
-  // 모드별 표시 텍스트
+  // 카드 세트별 표시 텍스트
   const getCardSetSourceDisplayText = (cardSetSource: CardSetSourceType): string => {
     switch (cardSetSource) {
       case 'folder':
-        return '폴더 모드';
+        return '폴더 카드 세트';
       case 'tag':
-        return '태그 모드';
+        return '태그 카드 세트';
       case 'search':
-        return '검색 모드';
+        return '검색 카드 세트';
       default:
-        return '모드 선택';
+        return '카드 세트 선택';
     }
   };
   
-  // 모드별 아이콘 가져오기
+  // 카드 세트별 아이콘 가져오기
   const getCardSetSourceIcon = (cardSetSource: CardSetSourceType) => {
     switch (cardSetSource) {
       case 'folder':
@@ -145,7 +145,7 @@ const CardSetSourceToggle: React.FC<CardSetSourceToggleProps> = ({ currentCardSe
     }
   };
   
-  // 다음 모드 아이콘 가져오기 (폴더 <-> 태그)
+  // 다음 카드 세트 아이콘 가져오기 (폴더 <-> 태그)
   const getNextCardSetSourceIcon = () => {
     if (currentCardSetSource === 'folder') {
       return (
@@ -167,7 +167,7 @@ const CardSetSourceToggle: React.FC<CardSetSourceToggleProps> = ({ currentCardSe
       <div 
         className="card-navigator-cardSetSource-toggle" 
         onClick={handleCardSetSourceToggle}
-        title={`${getCardSetSourceDisplayText(displayCardSetSource)} (클릭하여 ${currentCardSetSource === 'folder' ? '태그' : '폴더'} 모드로 전환)`}
+        title={`${getCardSetSourceDisplayText(displayCardSetSource)} (클릭하여 ${currentCardSetSource === 'folder' ? '태그' : '폴더'} 카드 세트로 전환)`}
       >
         <div className="card-navigator-cardSetSource-icon">
           {getCardSetSourceIcon(displayCardSetSource)}

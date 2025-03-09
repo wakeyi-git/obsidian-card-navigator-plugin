@@ -157,7 +157,7 @@ export class CardNavigatorService implements ICardNavigatorService {
   
   /**
    * 카드 목록 가져오기
-   * 현재 모드, 필터, 정렬, 검색 설정에 따라 카드 목록을 가져옵니다.
+   * 현재 카드 세트, 필터, 정렬, 검색 설정에 따라 카드 목록을 가져옵니다.
    * @returns 카드 목록
    */
   async getCards(): Promise<ICard[]> {
@@ -168,9 +168,9 @@ export class CardNavigatorService implements ICardNavigatorService {
         return [];
       }
       
-      // 모드 서비스에서 카드 가져오기
+      // 카드 세트 서비스에서 카드 가져오기
       const cards = await this.cardSetSourceService.getCards();
-      console.log(`[CardNavigatorService] 모드 서비스에서 가져온 카드 수: ${cards.length}`);
+      console.log(`[CardNavigatorService] 카드 세트 서비스에서 가져온 카드 수: ${cards.length}`);
       
       // 정렬 서비스로 카드 정렬
       const sortedCards = this.sortService.applySort(cards);
@@ -185,7 +185,7 @@ export class CardNavigatorService implements ICardNavigatorService {
       
       // 카드가 없는 경우 로그 출력
       if (sortedCards.length === 0) {
-        console.log(`[CardNavigatorService] 최종 카드 목록이 비어 있습니다. 현재 모드: ${this.cardSetSourceService.getCurrentSourceType()}, 카드 세트: ${this.cardSetSourceService.getCurrentCardSet() || '없음'}`);
+        console.log(`[CardNavigatorService] 최종 카드 목록이 비어 있습니다. 현재 카드 세트: ${this.cardSetSourceService.getCurrentSourceType()}, 카드 세트: ${this.cardSetSourceService.getCurrentCardSet() || '없음'}`);
       }
       
       return sortedCards;
@@ -196,11 +196,11 @@ export class CardNavigatorService implements ICardNavigatorService {
   }
   
   /**
-   * 모드 변경
-   * @param type 변경할 모드 타입
+   * 카드 세트 소스 변경
+   * @param type 변경할 카드 세트 타입
    */
   async changeCardSetSource(type: CardSetSourceType): Promise<void> {
-    console.log(`[CardNavigatorService] 모드 변경: ${type}`);
+    console.log(`[CardNavigatorService] 카드 세트 변경: ${type}`);
     
     // cardSetSourceService가 null인지 확인
     if (!this.cardSetSourceService) {
@@ -208,13 +208,13 @@ export class CardNavigatorService implements ICardNavigatorService {
       return;
     }
     
-    // 현재 모드 저장
+    // 현재 카드 세트 저장
     const previousCardSetSource = this.cardSetSourceService.getCurrentSourceType();
     
-    // 모드 변경
-    await this.cardSetSourceService.changeSource(type);
+    // 카드 세트 변경
+    await this.cardSetSourceService.changeCardSetSource(type);
     
-    // 현재 모드를 플러그인 설정에 저장
+    // 현재 카드 세트를 플러그인 설정에 저장
     this.plugin.settings.lastCardSetSource = previousCardSetSource;
     
     // 설정 저장
@@ -235,45 +235,15 @@ export class CardNavigatorService implements ICardNavigatorService {
       return;
     }
     
-    // 현재 모드 확인
-    const currentCardSetSource = this.cardSetSourceService.getCurrentSourceType();
-    console.log(`[CardNavigatorService] 현재 모드: ${currentCardSetSource}`);
-    
     // isFixed가 정의되지 않은 경우 현재 고정 상태 유지
     const fixedState = isFixed !== undefined ? isFixed : this.cardSetSourceService.isCardSetFixed();
     
-    // 모드 서비스에 카드 세트 설정
-    this.cardSetSourceService.selectCardSet(cardSet, fixedState);
-    console.log(`[CardNavigatorService] 모드 서비스에 카드 세트 설정 완료`);
+    // 카드 세트 서비스에 카드 세트 설정
+    await this.cardSetSourceService.selectCardSet(cardSet, fixedState);
+    console.log(`[CardNavigatorService] 카드 세트 서비스에 카드 세트 설정 완료`);
     
     // 카드 세트 변경 후 카드 저장소 새로고침
     await this.refreshCards();
-    
-    // 현재 선택된 카드 세트 확인
-    const currentCardSet = this.cardSetSourceService.getCurrentCardSet();
-    console.log(`[CardNavigatorService] 현재 선택된 카드 세트: ${currentCardSet}`);
-    
-    // 현재 모드에 따라 마지막 카드 세트 저장
-    if (currentCardSetSource === 'folder') {
-      this.plugin.settings.lastFolderCardSet = cardSet;
-      this.plugin.settings.lastFolderCardSetFixed = fixedState;
-      this.plugin.settings.defaultFolderCardSet = cardSet;
-    } else if (currentCardSetSource === 'tag') {
-      this.plugin.settings.lastTagCardSet = cardSet;
-      this.plugin.settings.lastTagCardSetFixed = fixedState;
-      this.plugin.settings.defaultTagCardSet = cardSet;
-    }
-    
-    // 고정 상태 저장
-    this.plugin.settings.isCardSetFixed = fixedState;
-    
-    // 하위 폴더 포함 여부 저장
-    if (currentCardSetSource === 'folder') {
-      this.plugin.settings.includeSubfolders = this.cardSetSourceService.getIncludeSubfolders();
-    }
-    
-    // 설정 저장
-    await this.plugin.saveSettings();
   }
   
   /**
@@ -345,9 +315,9 @@ export class CardNavigatorService implements ICardNavigatorService {
       this.searchService.setCaseSensitive(caseSensitive);
       this.searchService.setQuery(query);
       
-      // 검색 모드로 전환
+      // 검색 카드 세트로 전환
       if (this.cardSetSourceService.getCurrentSourceType() !== 'search') {
-        // 검색 모드로 전환
+        // 검색 카드 세트로 전환
         this.cardSetSourceService.configureSearchCardSetSource(query, searchType, caseSensitive, frontmatterKey);
       }
       
@@ -379,14 +349,14 @@ export class CardNavigatorService implements ICardNavigatorService {
       // 검색 서비스에 검색 타입 설정
       this.searchService.changeSearchType(searchType, frontmatterKey);
       
-      // 현재 카드셋 소스가 검색 모드인 경우에만 처리
+      // 현재 카드셋 소스가 검색 카드 세트인 경우에만 처리
       if (this.cardSetSourceService.getCurrentSourceType() === 'search') {
         // 현재 검색 쿼리 가져오기
         const searchState = this.searchService.getSearchCardSetSourceState();
         const query = searchState.query || '';
         const caseSensitive = searchState.caseSensitive || false;
         
-        // 검색 모드 설정
+        // 검색 카드 세트 설정
         this.cardSetSourceService.configureSearchCardSetSource(query, searchType, caseSensitive, frontmatterKey);
         
         // 카드 저장소 새로고침
@@ -414,7 +384,7 @@ export class CardNavigatorService implements ICardNavigatorService {
       // 검색 서비스에 대소문자 구분 설정
       this.searchService.setCaseSensitive(caseSensitive);
       
-      // 현재 카드셋 소스가 검색 모드인 경우에만 처리
+      // 현재 카드셋 소스가 검색 카드 세트인 경우에만 처리
       if (this.cardSetSourceService.getCurrentSourceType() === 'search') {
         // 현재 검색 쿼리 가져오기
         const searchState = this.searchService.getSearchCardSetSourceState();
@@ -422,7 +392,7 @@ export class CardNavigatorService implements ICardNavigatorService {
         const searchType = searchState.searchType || 'content';
         const frontmatterKey = searchState.frontmatterKey;
         
-        // 검색 모드 설정
+        // 검색 카드 세트 설정
         this.cardSetSourceService.configureSearchCardSetSource(query, searchType, caseSensitive, frontmatterKey);
         
         // 카드 저장소 새로고침
@@ -528,31 +498,31 @@ export class CardNavigatorService implements ICardNavigatorService {
   }
   
   /**
-   * 모드 변경 알림 처리
-   * CardSetSourceService에서 모드가 변경될 때 호출됩니다.
-   * @param cardSetSourceType 변경된 모드 타입
+   * 카드 세트 변경 알림 처리
+   * CardSetSourceService에서 카드 세트가 변경될 때 호출됩니다.
+   * @param cardSetSourceType 변경된 카드 세트 타입
    */
   notifyCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void {
-    console.log(`[CardNavigatorService] 모드 변경 알림 수신: ${cardSetSourceType}`);
+    console.log(`[CardNavigatorService] 카드 세트 변경 알림 수신: ${cardSetSourceType}`);
     
-    // 모드 변경 시 필요한 추가 작업 수행
+    // 카드 세트 변경 시 필요한 추가 작업 수행
     try {
-      // 검색 서비스에 모드 변경 알림
+      // 검색 서비스에 카드 세트 변경 알림
       if (this.searchService) {
         this.searchService.onCardSetSourceChanged(cardSetSourceType);
       }
       
-      // 정렬 서비스에 모드 변경 알림
+      // 정렬 서비스에 카드 세트 변경 알림
       if (this.sortService) {
         this.sortService.onCardSetSourceChanged(cardSetSourceType);
       }
       
-      // 레이아웃 서비스에 모드 변경 알림
+      // 레이아웃 서비스에 카드 세트 변경 알림
       if (this.layoutService) {
         this.layoutService.onCardSetSourceChanged(cardSetSourceType);
       }
     } catch (error) {
-      console.error(`[CardNavigatorService] 모드 변경 알림 처리 중 오류 발생:`, error);
+      console.error(`[CardNavigatorService] 카드 세트 변경 알림 처리 중 오류 발생:`, error);
     }
   }
   
@@ -602,56 +572,66 @@ export class CardNavigatorService implements ICardNavigatorService {
   }>): Promise<void> {
     console.log(`[CardNavigatorService] 설정 업데이트:`, settings);
     
-    // 이전 설정 저장
-    const previousSettings = { ...this.plugin.settings };
-    
-    // 설정 업데이트
+    // 플러그인 설정 업데이트
     Object.assign(this.plugin.settings, settings);
     
     // 설정 저장
     await this.plugin.saveSettings();
     
-    // 레이아웃 변경 처리
-    if (settings.defaultLayout !== undefined && settings.defaultLayout !== previousSettings.defaultLayout) {
-      this.layoutService.changeLayoutType(settings.defaultLayout);
-    }
-    
-    // 카드 크기 변경 처리
-    if ((settings.cardWidth !== undefined && settings.cardWidth !== previousSettings.cardWidth) ||
-        (settings.cardHeight !== undefined && settings.cardHeight !== previousSettings.cardHeight)) {
-      this.layoutService.setCardSize(
-        settings.cardWidth || previousSettings.cardWidth,
-        settings.cardHeight || previousSettings.cardHeight
-      );
-    }
-    
-    // cardSetSourceService가 null인지 확인
+    // 카드 세트 소스 서비스가 초기화되지 않은 경우 처리하지 않음
     if (!this.cardSetSourceService) {
       console.error('[CardNavigatorService] CardSetSourceService가 초기화되지 않았습니다.');
       return;
     }
     
-    // 카드셋 고정 여부 변경 처리
-    if (settings.isCardSetFixed !== undefined && settings.isCardSetFixed !== previousSettings.isCardSetFixed) {
-      const currentCardSet = this.cardSetSourceService.getCurrentCardSet();
-      if (currentCardSet) {
-        // 현재 카드셋을 새로운 고정 상태로 다시 선택
-        await this.cardSetSourceService.selectCardSet(currentCardSet, settings.isCardSetFixed);
+    // 카드 세트 소스 변경
+    if (settings.defaultCardSetSource !== undefined) {
+      const currentSourceType = this.cardSetSourceService.getCurrentSourceType();
+      
+      if (currentSourceType !== settings.defaultCardSetSource) {
+        await this.changeCardSetSource(settings.defaultCardSetSource);
       }
     }
     
-    // 하위 폴더 포함 여부 변경 처리
-    if (settings.includeSubfolders !== undefined && settings.includeSubfolders !== previousSettings.includeSubfolders) {
+    // 하위 폴더 포함 여부 변경
+    if (settings.includeSubfolders !== undefined) {
       this.cardSetSourceService.setIncludeSubfolders(settings.includeSubfolders);
     }
     
-    // 태그 대소문자 구분 여부 변경 처리
-    if (settings.tagCaseSensitive !== undefined && settings.tagCaseSensitive !== previousSettings.tagCaseSensitive) {
+    // 태그 대소문자 구분 여부 변경
+    if (settings.tagCaseSensitive !== undefined) {
       this.cardSetSourceService.setTagCaseSensitive(settings.tagCaseSensitive);
     }
     
+    // 카드 세트 고정 여부 변경
+    if (settings.isCardSetFixed !== undefined) {
+      // 현재 카드셋 가져오기
+      const currentCardSet = this.cardSetSourceService.getCurrentCardSet();
+      
+      if (currentCardSet) {
+        // 현재 카드셋을 새로운 고정 상태로 다시 선택
+        await this.cardSetSourceService.selectCardSet(currentCardSet.source, settings.isCardSetFixed);
+      }
+    }
+    
+    // 레이아웃 변경
+    if (settings.defaultLayout !== undefined) {
+      this.layoutService.changeLayoutType(settings.defaultLayout);
+    }
+    
+    // 카드 크기 변경
+    if (settings.cardWidth !== undefined || settings.cardHeight !== undefined) {
+      this.layoutService.setCardSize(
+        settings.cardWidth || this.plugin.settings.cardWidth,
+        settings.cardHeight || this.plugin.settings.cardHeight
+      );
+    }
+    
     // 설정 변경 이벤트 발생
-    console.log(`[CardNavigatorService] 설정 업데이트 완료`);
+    this.plugin.app.workspace.trigger('card-navigator:settings-changed', settings);
+    
+    // 카드 새로고침
+    await this.refreshCards();
   }
   
   /**
@@ -731,11 +711,11 @@ export class CardNavigatorService implements ICardNavigatorService {
   }
 
   /**
-   * 검색 모드로 전환
+   * 검색 카드 세트로 전환
    * @param query 검색 쿼리
    */
   async enterSearchMode(query: string): Promise<void> {
-    console.log(`[CardNavigatorService] 검색 모드 진입: ${query}`);
+    console.log(`[CardNavigatorService] 검색 카드 세트 진입: ${query}`);
     
     try {
       // searchService와 cardSetSourceService가 null인지 확인
@@ -752,13 +732,13 @@ export class CardNavigatorService implements ICardNavigatorService {
       const searchType = searchState.searchType || 'filename';
       const frontmatterKey = searchState.frontmatterKey;
       
-      // 검색 모드로 전환
+      // 검색 카드 세트로 전환
       this.cardSetSourceService.configureSearchCardSetSource(query, searchType, caseSensitive, frontmatterKey);
       
       // 카드 목록 갱신
       await this.refreshCards();
     } catch (error) {
-      console.error(`[CardNavigatorService] 검색 모드 진입 중 오류 발생:`, error);
+      console.error(`[CardNavigatorService] 검색 카드 세트 진입 중 오류 발생:`, error);
     }
   }
 }

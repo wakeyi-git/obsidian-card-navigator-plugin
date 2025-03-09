@@ -33,7 +33,7 @@ interface UseCardEventsReturn {
  * 카드 이벤트 핸들러 관련 로직을 관리하는 커스텀 훅
  * @param service 카드 네비게이터 서비스
  * @param loadCards 카드 로드 함수
- * @param setCurrentCardSetSource 현재 모드 설정 함수
+ * @param setCurrentCardSetSource 현재 카드 세트 설정 함수
  * @param setCurrentCardSet 현재 카드 세트 설정 함수
  * @param setIsCardSetFixed 카드 세트 고정 여부 설정 함수
  * @param setIncludeSubfolders 하위 폴더 포함 여부 설정 함수
@@ -71,8 +71,8 @@ export const useCardEvents = (
       
       // 모드 서비스에서 현재 카드 세트 가져오기
       const cardSetSourceService = service.getCardSetSourceService();
-      const currentSet = cardSetSourceService.getCurrentCardSet();
-      setCurrentCardSet(currentSet);
+      const currentSetObj = cardSetSourceService.getCurrentCardSet();
+      setCurrentCardSet(currentSetObj?.source || null);
       
       // 카드 세트 고정 여부 가져오기
       const isFixed = cardSetSourceService.isCardSetFixed();
@@ -92,7 +92,7 @@ export const useCardEvents = (
     if (!service) return;
     
     try {
-      // 모드 서비스에서 카드 세트 선택
+      // 카드 세트 서비스에서 카드 세트 선택
       const cardSetSourceService = service.getCardSetSourceService();
       await cardSetSourceService.selectCardSet(cardSet, isFixed);
       
@@ -104,15 +104,10 @@ export const useCardEvents = (
       
       // 이전과 동일한 고정 상태인 경우 상태 업데이트를 건너뛰기
       if (newIsFixed !== isFixed) {
-        console.log(`[CardNavigatorView] 이전과 동일한 고정 상태(${isFixed})이므로 상태 업데이트를 건너뜁니다.`);
-      } else {
         setIsCardSetFixed(newIsFixed);
       }
       
-      console.log(`[CardNavigatorView] 현재 카드 세트 업데이트: ${cardSet}, 고정 여부: ${newIsFixed}`);
-      
-      // 카드 세트가 변경되었으므로 카드 다시 로드
-      console.log('[CardNavigatorView] 카드 세트가 변경되어 카드 목록을 다시 로드합니다.');
+      // 카드 다시 로드
       await loadCards();
     } catch (error) {
       console.error('[CardNavigatorView] 카드 세트 선택 중 오류 발생:', error);
@@ -126,7 +121,7 @@ export const useCardEvents = (
     if (!service) return;
     
     try {
-      // 모드 서비스에서 하위 폴더 포함 여부 설정
+      // 카드 세트 서비스에서 하위 폴더 포함 여부 설정
       const cardSetSourceService = service.getCardSetSourceService();
       cardSetSourceService.setIncludeSubfolders(include);
       
@@ -238,7 +233,7 @@ export const useCardEvents = (
   /**
    * 카드 컨텍스트 메뉴 핸들러
    */
-  const handleCardContextMenu = useCallback((cardId: string, event: React.MouseEvent) => {
+  const handleCardContextMenu = useCallback((cardId: string, _event: React.MouseEvent) => {
     if (!service) return;
     
     // 컨텍스트 메뉴 처리는 Obsidian API에서 직접 지원하지 않으므로 
@@ -265,7 +260,7 @@ export const useCardEvents = (
   /**
    * 카드 드래그 종료 핸들러
    */
-  const handleCardDragEnd = useCallback((cardId: string, event: React.DragEvent) => {
+  const handleCardDragEnd = useCallback((cardId: string, _event: React.DragEvent) => {
     // 드래그 종료 처리
     console.log(`[CardNavigatorView] 카드 드래그 종료: ${cardId}`);
   }, []);
@@ -298,7 +293,7 @@ export const useCardEvents = (
   /**
    * 카드 드래그 엔터 핸들러
    */
-  const handleCardDragEnter = useCallback((cardId: string, event: React.DragEvent) => {
+  const handleCardDragEnter = useCallback((cardId: string, _event: React.DragEvent) => {
     if (!service) return;
     
     // 드래그 엔터 처리
@@ -308,7 +303,7 @@ export const useCardEvents = (
   /**
    * 카드 드래그 리브 핸들러
    */
-  const handleCardDragLeave = useCallback((cardId: string, event: React.DragEvent) => {
+  const handleCardDragLeave = useCallback((_cardId: string, _event: React.DragEvent) => {
     // 필요한 경우 구현
   }, []);
   

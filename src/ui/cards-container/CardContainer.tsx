@@ -82,7 +82,7 @@ useEffect(() => {
   }
 
   // 카드 렌더링 함수
-  const renderCard = (card: ICardProps, index: number) => {
+  const renderCard = (card: ICardProps, _index: number) => {
     return (
       <Card
         key={card.id}

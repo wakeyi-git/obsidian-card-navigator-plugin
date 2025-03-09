@@ -83,8 +83,8 @@ export interface ISortService {
   getPriorityFolders(): string[];
   
   /**
-   * 모드 변경 이벤트 처리
-   * @param cardSetSourceType 변경된 모드 타입
+   * 카드 세트 변경 이벤트 처리
+   * @param cardSetSourceType 변경된 카드 세트 타입
    */
   onCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void;
 }
@@ -323,28 +323,28 @@ export class SortService implements ISortService {
   }
   
   /**
-   * 모드 변경 이벤트 처리
-   * @param cardSetSourceType 변경된 모드 타입
+   * 카드 세트 변경 이벤트 처리
+   * @param cardSetSourceType 변경된 카드 세트 타입
    */
   onCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void {
-    console.log(`[SortService] 모드 변경 감지: ${cardSetSourceType}`);
+    console.log(`[SortService] 카드 세트 변경 감지: ${cardSetSourceType}`);
     
-    // 모드에 따라 적절한 정렬 방식 적용
+    // 카드 세트에 따라 적절한 정렬 방식 적용
     switch (cardSetSourceType) {
       case 'folder':
-        // 폴더 모드에서는 기본적으로 파일명 정렬 사용
+        // 폴더 카드 세트에서는 기본적으로 파일명 정렬 사용
         if (!this.currentSort || this.currentSort.type === 'tag') {
           this.setSortType('filename', 'asc');
         }
         break;
       case 'tag':
-        // 태그 모드에서는 기본적으로 파일명 정렬 사용
+        // 태그 카드 세트에서는 기본적으로 파일명 정렬 사용
         if (!this.currentSort || this.currentSort.type === 'folder') {
           this.setSortType('filename', 'asc');
         }
         break;
       case 'search':
-        // 검색 모드에서는 관련성 정렬 사용
+        // 검색 카드 세트에서는 관련성 정렬 사용
         // 현재 관련성 정렬이 구현되어 있지 않으므로 파일명 정렬 사용
         this.setSortType('filename', 'asc');
         break;

@@ -4,6 +4,32 @@
 export type LayoutType = 'grid' | 'masonry';
 
 /**
+ * 레이아웃 정보 인터페이스
+ * 계산된 레이아웃 정보를 정의합니다.
+ */
+export interface ILayoutInfo {
+  /**
+   * 열 수
+   */
+  columns: number;
+  
+  /**
+   * 행 수
+   */
+  rows: number;
+  
+  /**
+   * 아이템 너비
+   */
+  itemWidth: number;
+  
+  /**
+   * 아이템 높이
+   */
+  itemHeight: number;
+}
+
+/**
  * 레이아웃 인터페이스
  * 카드 레이아웃을 정의하는 인터페이스입니다.
  */
@@ -59,7 +85,7 @@ export interface ILayout {
    * @param itemCount 아이템 수
    * @returns 계산된 레이아웃 정보
    */
-  calculateLayout(containerWidth: number, containerHeight: number, itemCount: number): any;
+  calculateLayout(containerWidth: number, containerHeight: number, itemCount: number): ILayoutInfo;
   
   /**
    * 카드 너비 설정
@@ -200,5 +226,5 @@ export abstract class Layout implements ILayout {
     containerWidth: number,
     containerHeight: number,
     itemCount: number
-  ): { columns: number; rows: number; itemWidth: number; itemHeight: number };
+  ): ILayoutInfo;
 } 

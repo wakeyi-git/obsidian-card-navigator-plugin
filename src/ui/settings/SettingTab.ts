@@ -4,7 +4,7 @@ import { CardSetSourceType } from '../../domain/cardset/CardSet';
 import { renderReactSettings, unmountReactSettings } from './adapters/ReactSettingsAdapter';
 
 // React 컴포넌트 임포트
-import CardSetSourceSettings from './tabs/CardSetSourceSettings';
+import CardSetSourceSettings from './tabs/CardSetSettings';
 import CardSettings from './tabs/CardSettings';
 import SortSettings from './tabs/SortSettings';
 import LayoutSettings from './tabs/LayoutSettings';
@@ -59,9 +59,9 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
   createTabNavigation(containerEl: HTMLElement): void {
     const tabsContainer = containerEl.createDiv('card-navigator-tabs');
     
-    // 모드 설정 탭
+    // 카드 세트 설정 탭
     const cardSetSourceTab = tabsContainer.createEl('button', {
-      text: '모드 설정',
+      text: '카드 세트 설정',
       cls: `card-navigator-tab ${this.activeTab === 'cardSetSource' ? 'active' : ''}`
     });
     cardSetSourceTab.addEventListener('click', () => this.switchTab('cardSetSource'));
@@ -109,12 +109,23 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
       this.tabButtons[this.activeTab].removeClass('active');
     }
     
+    // 이전 탭의 React 컴포넌트 언마운트
+    if (this.reactContainers[this.activeTab]) {
+      unmountReactSettings(this.reactContainers[this.activeTab]);
+      delete this.reactContainers[this.activeTab];
+    }
+    
     // 새 탭 활성화
     this.activeTab = tab;
     this.tabButtons[tab].addClass('active');
     
     // 컨텐츠 영역 초기화
-    const contentEl = this.containerEl.querySelector('.content') as HTMLElement;
+    const contentEl = this.containerEl.querySelector('.content-container') as HTMLElement;
+    if (!contentEl) {
+      console.error('[CardNavigatorSettingTab] 컨텐츠 영역을 찾을 수 없습니다.');
+      return;
+    }
+    
     contentEl.empty();
     
     // 선택된 탭에 따라 컨텐츠 생성
@@ -128,10 +139,10 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
   }
   
   /**
-   * 모드 설정 섹션 생성
+   * 카드 세트 설정 섹션 생성
    */
   createCardSetSourceSettings(containerEl: HTMLElement): void {
-    containerEl.createEl('h3', { text: '모드 설정' });
+    containerEl.createEl('h3', { text: '카드 세트 설정' });
     
     // React 컴포넌트 렌더링
     this.reactContainers['cardSetSource'] = renderReactSettings(CardSetSourceSettings, containerEl, this.plugin);
@@ -182,9 +193,11 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
    */
   hide(): void {
     // 모든 React 컴포넌트 언마운트
-    Object.values(this.reactContainers).forEach(container => {
+    Object.entries(this.reactContainers).forEach(([key, container]) => {
       if (container) {
+        console.log(`[CardNavigatorSettingTab] 언마운트: ${key}`);
         unmountReactSettings(container);
+        delete this.reactContainers[key];
       }
     });
     

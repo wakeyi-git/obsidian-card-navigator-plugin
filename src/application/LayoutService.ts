@@ -67,8 +67,8 @@ export interface ILayoutService {
   calculateColumnCount(containerWidth: number): number;
   
   /**
-   * 모드 변경 이벤트 처리
-   * @param cardSetSourceType 변경된 모드 타입
+   * 카드 세트 변경 이벤트 처리
+   * @param cardSetSourceType 변경된 카드 세트 타입
    */
   onCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void;
   
@@ -260,14 +260,14 @@ export class LayoutService implements ILayoutService {
   }
   
   /**
-   * 모드 변경 이벤트 처리
-   * @param cardSetSourceType 변경된 모드 타입
+   * 카드 세트 변경 이벤트 처리
+   * @param cardSetSourceType 변경된 카드 세트 타입
    */
   onCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void {
-    console.log(`[LayoutService] 모드 변경 감지: ${cardSetSourceType}`);
+    console.log(`[LayoutService] 카드 세트 변경 감지: ${cardSetSourceType}`);
     
-    // 모드에 따라 적절한 레이아웃 적용
-    // 현재는 모드에 따른 특별한 레이아웃 변경이 없으므로 로깅만 수행
+    // 카드 세트에 따라 적절한 레이아웃 적용
+    // 현재는 카드 세트에 따른 특별한 레이아웃 변경이 없으므로 로깅만 수행
   }
   
   /**

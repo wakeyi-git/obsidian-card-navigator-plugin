@@ -262,7 +262,7 @@ export default class CardNavigatorPlugin extends Plugin {
   onunload() {
     console.log('Card Navigator plugin unloaded');
     
-    // 현재 모드와 카드 세트 정보를 마지막 상태로 저장
+    // 현재 카드 세트와 카드 세트 정보를 마지막 상태로 저장
     if (this.cardNavigatorService) {
       try {
         const cardSetSourceService = this.cardNavigatorService.getCardSetSourceService();
@@ -270,15 +270,21 @@ export default class CardNavigatorPlugin extends Plugin {
         const currentCardSet = cardSetSourceService.getCurrentCardSet();
         const isFixed = cardSetSourceService.isCardSetFixed();
         
-        // 마지막 모드 저장
+        // 마지막 카드 세트 저장
         this.settings.lastCardSetSource = currentCardSetSource;
         
-        // 모드에 따라 마지막 카드 세트 저장
+        // 카드 세트에 따라 마지막 카드 세트 저장
         if (currentCardSetSource === 'folder') {
-          this.settings.lastFolderCardSet = currentCardSet || undefined;
+          // currentCardSet이 ICardSet 타입인 경우 source 속성을 사용
+          this.settings.lastFolderCardSet = typeof currentCardSet === 'string' ? 
+            currentCardSet : 
+            (currentCardSet?.source || undefined);
           this.settings.lastFolderCardSetFixed = isFixed;
         } else if (currentCardSetSource === 'tag') {
-          this.settings.lastTagCardSet = currentCardSet || undefined;
+          // currentCardSet이 ICardSet 타입인 경우 source 속성을 사용
+          this.settings.lastTagCardSet = typeof currentCardSet === 'string' ? 
+            currentCardSet : 
+            (currentCardSet?.source || undefined);
           this.settings.lastTagCardSetFixed = isFixed;
         }
         
@@ -442,7 +448,7 @@ export default class CardNavigatorPlugin extends Plugin {
     const includeSubfolders = cardSetSourceService.getIncludeSubfolders();
 
     console.log('===== 카드 네비게이터 상태 정보 =====');
-    console.log(`현재 모드: ${currentCardSetSource === 'folder' ? '폴더 모드' : '태그 모드'}`);
+    console.log(`현재 카드 세트: ${currentCardSetSource === 'folder' ? '폴더 카드 세트' : '태그 카드 세트'}`);
     console.log(`현재 ${currentCardSetSource === 'folder' ? '폴더 경로' : '태그'}: ${currentCardSet}`);
     console.log(`카드 세트 고정 여부: ${isCardSetFixed ? '고정됨' : '고정되지 않음'}`);
     console.log(`하위 폴더 포함 여부: ${includeSubfolders ? '포함' : '미포함'}`);

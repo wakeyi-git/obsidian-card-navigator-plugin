@@ -35,7 +35,7 @@ export interface ICardNavigatorInitializer {
 export interface ICardManager {
   /**
    * 카드 목록 가져오기
-   * 현재 모드, 필터, 정렬, 검색 설정에 따라 카드 목록을 가져옵니다.
+   * 현재 카드 세트, 필터, 정렬, 검색 설정에 따라 카드 목록을 가져옵니다.
    * @returns 카드 목록
    */
   getCards(): Promise<ICard[]>;
@@ -60,8 +60,8 @@ export interface ICardManager {
  */
 export interface ICardSetSourceController {
   /**
-   * 모드 변경
-   * @param type 변경할 모드 타입
+   * 카드 세트 변경
+   * @param type 변경할 카드 세트 타입
    */
   changeCardSetSource(type: CardSetSourceType): Promise<void>;
   
@@ -72,9 +72,9 @@ export interface ICardSetSourceController {
   selectCardSet(cardSet: string, isFixed?: boolean): Promise<void>;
   
   /**
-   * 모드 변경 알림 처리
-   * CardSetSourceService에서 모드가 변경될 때 호출됩니다.
-   * @param cardSetSourceType 변경된 모드 타입
+   * 카드 세트 변경 알림 처리
+   * CardSetSourceService에서 카드 세트가 변경될 때 호출됩니다.
+   * @param cardSetSourceType 변경된 카드 세트 타입
    */
   notifyCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void;
 }
@@ -181,8 +181,8 @@ export interface ISettingsController {
  */
 export interface IServiceProvider {
   /**
-   * 모드 서비스 가져오기
-   * @returns 모드 서비스
+   * 카드 세트 서비스 가져오기
+   * @returns 카드 세트 서비스
    */
   getCardSetSourceService(): ICardSetSourceService;
   

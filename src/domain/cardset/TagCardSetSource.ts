@@ -1,5 +1,5 @@
-import { App, TFile } from 'obsidian';
-import { CardSetSource, CardSetSourceType } from './CardSet';
+import { App, TFile, CachedMetadata } from 'obsidian';
+import { CardSetSource, CardSetSourceType, ICardSet } from './CardSet';
 import { ICard } from '../card/Card';
 
 /**
@@ -9,10 +9,45 @@ import { ICard } from '../card/Card';
 export class TagCardSetSource extends CardSetSource {
   private app: App;
   private tagCaseSensitive = false; // 대소문자 구분 여부
+  private tagCache: Map<string, string[]> = new Map(); // 태그별 파일 경로 캐시
+  private fileTagCache: Map<string, string[]> = new Map(); // 파일별 태그 캐시
+  private allTagsCache: ICardSet[] | null = null; // 모든 태그 캐시
+  private lastTagCacheUpdate = 0; // 마지막 태그 캐시 업데이트 시간
+  private readonly TAG_CACHE_TTL = 60000; // 1분 캐시 유효 시간
   
   constructor(app: App) {
     super('tag');
     this.app = app;
+    
+    // 메타데이터 변경 이벤트 리스너 등록
+    this.app.metadataCache.on('changed', this.handleMetadataChanged.bind(this));
+    this.app.metadataCache.on('resolve', this.handleMetadataResolved.bind(this));
+  }
+  
+  /**
+   * 메타데이터 변경 이벤트 핸들러
+   * @param file 변경된 파일
+   */
+  private handleMetadataChanged(file: TFile): void {
+    // 파일의 태그 캐시 초기화
+    this.fileTagCache.delete(file.path);
+    
+    // 태그 캐시 초기화 (다음 요청 시 재구성)
+    this.allTagsCache = null;
+    
+    // 현재 선택된 태그와 관련된 파일인 경우 태그 캐시 초기화
+    if (this.currentCardSet) {
+      const normalizedTag = this.normalizeTag(this.currentCardSet);
+      this.tagCache.delete(normalizedTag);
+    }
+  }
+  
+  /**
+   * 메타데이터 해결 이벤트 핸들러
+   */
+  private handleMetadataResolved(): void {
+    // 모든 캐시 초기화
+    this.clearCache();
   }
   
   /**
@@ -20,7 +55,12 @@ export class TagCardSetSource extends CardSetSource {
    * @param caseSensitive 대소문자 구분 여부
    */
   setCaseSensitive(caseSensitive: boolean): void {
-    this.tagCaseSensitive = caseSensitive;
+    if (this.tagCaseSensitive !== caseSensitive) {
+      this.tagCaseSensitive = caseSensitive;
+      
+      // 캐시 초기화
+      this.clearCache();
+    }
   }
   
   /**
@@ -32,56 +72,130 @@ export class TagCardSetSource extends CardSetSource {
   }
   
   /**
+   * 캐시 초기화
+   */
+  clearCache(): void {
+    super.clearCache();
+    this.tagCache.clear();
+    this.fileTagCache.clear();
+    this.allTagsCache = null;
+    this.lastTagCacheUpdate = 0;
+  }
+  
+  /**
+   * 태그 정규화
+   * 태그 형식을 일관되게 유지합니다. (항상 # 접두사 포함)
+   * @param tag 정규화할 태그
+   * @returns 정규화된 태그
+   */
+  private normalizeTag(tag: string): string {
+    // 쉼표로 구분된 여러 태그인 경우 첫 번째 태그만 사용
+    if (tag.includes(',')) {
+      tag = tag.split(',')[0].trim();
+    }
+    
+    // # 접두사 추가
+    return tag.startsWith('#') ? tag : `#${tag}`;
+  }
+  
+  /**
+   * 태그 비교
+   * 대소문자 구분 설정에 따라 태그를 비교합니다.
+   * @param tag1 비교할 태그 1
+   * @param tag2 비교할 태그 2
+   * @returns 일치 여부
+   */
+  private compareTag(tag1: string, tag2: string): boolean {
+    // 정규화
+    const normalizedTag1 = this.normalizeTag(tag1);
+    const normalizedTag2 = this.normalizeTag(tag2);
+    
+    if (this.tagCaseSensitive) {
+      // 대소문자 구분
+      return normalizedTag1 === normalizedTag2;
+    } else {
+      // 대소문자 무시
+      return normalizedTag1.toLowerCase() === normalizedTag2.toLowerCase();
+    }
+  }
+  
+  /**
    * 태그 목록 가져오기
    * 현재 볼트의 모든 태그 목록을 가져옵니다.
    */
   async getCardSets(): Promise<string[]> {
+    // 캐시 확인
+    const now = Date.now();
+    if (this.allTagsCache && now - this.lastTagCacheUpdate < this.TAG_CACHE_TTL) {
+      // ICardSet[] 배열에서 source 속성만 추출하여 string[] 배열로 변환
+      return this.allTagsCache.map(cardSet => cardSet.source);
+    }
+    
     const tags: Set<string> = new Set();
     const files = this.app.vault.getMarkdownFiles();
     
     for (const file of files) {
+      // 파일의 메타데이터 캐시 가져오기
       const cache = this.app.metadataCache.getFileCache(file);
+      if (!cache) continue;
       
-      // 인라인 태그 추가
-      if (cache && cache.tags) {
-        for (const tag of cache.tags) {
-          tags.add(tag.tag);
-        }
-      }
+      // 파일의 모든 태그 가져오기
+      const fileTags = this.extractTagsFromCache(cache);
       
-      // 프론트매터 태그 추가
-      if (cache && cache.frontmatter && cache.frontmatter.tags) {
-        const frontmatterTags = Array.isArray(cache.frontmatter.tags) 
-          ? cache.frontmatter.tags 
-          : [cache.frontmatter.tags];
-        
-        for (const tag of frontmatterTags) {
-          const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
-          tags.add(normalizedTag);
-        }
+      // 태그 추가
+      for (const tag of fileTags) {
+        tags.add(tag);
       }
     }
     
-    return Array.from(tags).sort();
-  }
-  
-  /**
-   * 카드셋 객체 목록 가져오기
-   * UI에서 사용할 수 있는 형태로 카드셋 정보를 반환합니다.
-   */
-  async getCardSetObjects(): Promise<{id: string, name: string, type: string, cardSetSource: string, path: string}[]> {
-    const tags = await this.getCardSets();
-    
-    return tags.map(tag => {
+    // 태그를 ICardSet 배열로 변환
+    const cardSets: ICardSet[] = Array.from(tags).sort().map(tag => {
       const name = tag.startsWith('#') ? tag.substring(1) : tag;
       return {
         id: tag,
         name,
-        type: 'tag',
-        cardSetSource: 'tag',
-        path: tag
+        sourceType: 'tag',
+        source: tag,
+        type: 'active'
       };
     });
+    
+    // 캐시 업데이트
+    this.allTagsCache = cardSets;
+    this.lastTagCacheUpdate = now;
+    
+    // ICardSet[] 배열에서 source 속성만 추출하여 string[] 배열로 반환
+    return cardSets.map(cardSet => cardSet.source);
+  }
+  
+  /**
+   * 메타데이터 캐시에서 태그 추출
+   * @param cache 메타데이터 캐시
+   * @returns 태그 목록
+   */
+  private extractTagsFromCache(cache: CachedMetadata): string[] {
+    const tags: Set<string> = new Set();
+    
+    // 인라인 태그 추가
+    if (cache.tags) {
+      for (const tag of cache.tags) {
+        tags.add(tag.tag);
+      }
+    }
+    
+    // 프론트매터 태그 추가
+    if (cache.frontmatter && cache.frontmatter.tags) {
+      const frontmatterTags = Array.isArray(cache.frontmatter.tags) 
+        ? cache.frontmatter.tags 
+        : [cache.frontmatter.tags];
+      
+      for (const tag of frontmatterTags) {
+        const normalizedTag = this.normalizeTag(tag);
+        tags.add(normalizedTag);
+      }
+    }
+    
+    return Array.from(tags);
   }
   
   /**
@@ -89,6 +203,13 @@ export class TagCardSetSource extends CardSetSource {
    * 현재 볼트의 모든 폴더 목록을 가져옵니다.
    */
   async getFilterOptions(): Promise<string[]> {
+    // 캐시 확인
+    const cacheKey = 'filterOptions';
+    const cachedOptions = this.getFromCache<string[]>(cacheKey);
+    if (cachedOptions) {
+      return cachedOptions;
+    }
+    
     const folders: Set<string> = new Set();
     const files = this.app.vault.getMarkdownFiles();
     
@@ -114,7 +235,12 @@ export class TagCardSetSource extends CardSetSource {
       }
     }
     
-    return Array.from(folders).sort();
+    const result = Array.from(folders).sort();
+    
+    // 캐시에 저장
+    this.setCache(cacheKey, result);
+    
+    return result;
   }
   
   /**
@@ -122,98 +248,49 @@ export class TagCardSetSource extends CardSetSource {
    * @param tag 태그
    * @returns 파일 경로 목록
    */
-  async getFilesWithCurrentTag(tag: string): Promise<string[]> {
-    console.log(`[TagCardSetSource] getFilesWithCurrentTag 호출: ${tag}`);
+  async getFilesWithTag(tag: string): Promise<string[]> {
+    if (!tag) return [];
+    
+    // 태그 정규화
+    const normalizedTag = this.normalizeTag(tag);
+    
+    // 캐시 확인
+    const cacheKey = `tag:${normalizedTag}:${this.tagCaseSensitive}`;
+    const cachedFiles = this.getFromCache<string[]>(cacheKey);
+    if (cachedFiles) {
+      return cachedFiles;
+    }
     
     // 결과를 저장할 Set (중복 제거)
     const fileSet = new Set<string>();
     
-    // 쉼표로 구분된 여러 태그 처리
-    const tagList = tag.split(',').map(t => t.trim()).filter(t => t);
-    console.log(`[TagCardSetSource] 처리할 태그 목록: ${tagList.join(', ')}`);
+    // 모든 마크다운 파일 가져오기
+    const allFiles = this.app.vault.getMarkdownFiles();
     
-    // 태그가 없는 경우 빈 배열 반환
-    if (tagList.length === 0) {
-      console.log(`[TagCardSetSource] 처리할 태그가 없습니다.`);
-      return [];
-    }
-    
-    // 각 태그에 대해 파일 검색
-    for (const singleTag of tagList) {
-      // 태그 정규화 (# 접두사 추가)
-      const normalizedTags = [singleTag].map(t => {
-        return t.startsWith('#') ? t : `#${t}`;
-      });
+    // 각 파일에 대해 태그 확인
+    for (const file of allFiles) {
+      // 파일의 메타데이터 캐시 가져오기
+      const cache = this.app.metadataCache.getFileCache(file);
+      if (!cache) continue;
       
-      // 해시 없는 태그 버전도 생성
-      const tagsWithoutHash = normalizedTags.map(t => 
-        t.startsWith('#') ? t.substring(1) : t
+      // 파일의 모든 태그 가져오기
+      const fileTags = this.extractTagsFromCache(cache);
+      
+      // 태그 일치 여부 확인
+      const hasMatchingTag = fileTags.some(fileTag => 
+        this.compareTag(fileTag, normalizedTag)
       );
       
-      console.log(`[TagCardSetSource] 현재 태그 검색: ${singleTag}`);
-      console.log(`[TagCardSetSource] 정규화된 태그 목록: ${normalizedTags.join(', ')}`);
-      console.log(`[TagCardSetSource] 해시 없는 태그 목록: ${tagsWithoutHash.join(', ')}`);
-      
-      // 모든 마크다운 파일 가져오기
-      const allFiles = this.app.vault.getMarkdownFiles();
-      console.log(`[TagCardSetSource] 총 ${allFiles.length}개의 마크다운 파일 검색 중...`);
-      
-      // 각 파일에 대해 태그 확인
-      for (const file of allFiles) {
-        // 파일의 모든 태그(인라인 + 프론트매터)를 가져옵니다.
-        const fileTags = await this.getAllTagsFromFile(file);
-        
-        if (fileTags.length > 0) {
-          console.log(`[TagCardSetSource] 파일 ${file.path}의 태그: ${fileTags.join(', ')}`);
-          
-          // 태그 중 하나라도 일치하는지 확인
-          const hasMatchingTag = normalizedTags.some(searchTag => {
-            const searchTagLower = this.tagCaseSensitive ? searchTag : searchTag.toLowerCase();
-            const searchTagWithoutHash = searchTagLower.startsWith('#') 
-              ? searchTagLower.substring(1) 
-              : searchTagLower;
-            
-            return fileTags.some(fileTag => {
-              const fileTagLower = this.tagCaseSensitive ? fileTag : fileTag.toLowerCase();
-              const fileTagWithoutHash = fileTagLower.startsWith('#') 
-                ? fileTagLower.substring(1) 
-                : fileTagLower;
-              
-              // 대소문자 구분 설정에 따라 비교
-              if (this.tagCaseSensitive) {
-                // 정확한 태그 일치 또는 해시 제외 일치
-                const match = fileTag === searchTag || 
-                             (fileTag.startsWith('#') && fileTag.substring(1) === searchTagWithoutHash) ||
-                             (searchTag.startsWith('#') && searchTag.substring(1) === fileTagWithoutHash);
-                
-                if (match) {
-                  console.log(`[TagCardSetSource] 태그 일치(대소문자 구분): ${fileTag} = ${searchTag}`);
-                }
-                return match;
-              } else {
-                // 대소문자 무시하고 비교 (이미 소문자로 변환됨)
-                const match = fileTagLower === searchTagLower || 
-                             fileTagWithoutHash === searchTagWithoutHash;
-                
-                if (match) {
-                  console.log(`[TagCardSetSource] 태그 일치(대소문자 무시): ${fileTag} = ${searchTag}`);
-                }
-                return match;
-              }
-            });
-          });
-          
-          if (hasMatchingTag) {
-            fileSet.add(file.path);
-          }
-        } else {
-          console.log(`[TagCardSetSource] 파일 ${file.path}에 태그가 없습니다.`);
-        }
+      if (hasMatchingTag) {
+        fileSet.add(file.path);
       }
     }
     
     const result = Array.from(fileSet);
-    console.log(`[TagCardSetSource] 태그 '${tag}'가 포함된 파일 ${result.length}개 찾음`);
+    
+    // 캐시에 저장
+    this.setCache(cacheKey, result);
+    
     return result;
   }
   
@@ -223,7 +300,24 @@ export class TagCardSetSource extends CardSetSource {
    * @returns 태그 목록
    */
   async getActiveFileTags(file: TFile): Promise<string[]> {
-    return await this.getAllTagsFromFile(file);
+    // 캐시 확인
+    const cacheKey = `file:${file.path}:tags`;
+    const cachedTags = this.getFromCache<string[]>(cacheKey);
+    if (cachedTags) {
+      return cachedTags;
+    }
+    
+    // 파일의 메타데이터 캐시 가져오기
+    const cache = this.app.metadataCache.getFileCache(file);
+    if (!cache) return [];
+    
+    // 파일의 모든 태그 가져오기
+    const tags = this.extractTagsFromCache(cache);
+    
+    // 캐시에 저장
+    this.setCache(cacheKey, tags);
+    
+    return tags;
   }
   
   /**
@@ -232,108 +326,7 @@ export class TagCardSetSource extends CardSetSource {
    */
   async getFiles(): Promise<string[]> {
     if (!this.currentCardSet) return [];
-    return this.getFilesWithCurrentTag(this.currentCardSet);
-  }
-  
-  /**
-   * 파일의 모든 태그 가져오기
-   * 파일의 프론트매터와 인라인 태그를 모두 가져옵니다.
-   * @param file 파일
-   * @returns 태그 목록
-   */
-  async getAllTagsFromFile(file: TFile): Promise<string[]> {
-    const tagSet = new Set<string>();
-    
-    try {
-      // 파일 캐시 가져오기
-      const cache = this.app.metadataCache.getFileCache(file);
-      
-      if (!cache) {
-        return [];
-      }
-      
-      // 1. 프론트매터 태그 처리
-      if (cache.frontmatter && cache.frontmatter.tags) {
-        const frontmatterTags = cache.frontmatter.tags;
-        
-        if (Array.isArray(frontmatterTags)) {
-          // 배열 형태의 태그
-          for (const tag of frontmatterTags) {
-            const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
-            tagSet.add(normalizedTag);
-          }
-        } else if (typeof frontmatterTags === 'string') {
-          // 쉼표로 구분된 문자열 형태의 태그
-          const tags = frontmatterTags.split(',').map(t => t.trim());
-          for (const tag of tags) {
-            const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
-            tagSet.add(normalizedTag);
-          }
-        }
-      }
-      
-      // 2. 인라인 태그 처리
-      if (cache.tags) {
-        for (const tagObj of cache.tags) {
-          // 코드 블록 내의 태그는 제외
-          const fileContent = await this.app.vault.read(file);
-          if (!this.isTagInCodeBlock(fileContent, tagObj.tag)) {
-            tagSet.add(tagObj.tag);
-          }
-        }
-      }
-      
-      return Array.from(tagSet);
-    } catch (error) {
-      console.error(`[TagCardSetSource] 파일 ${file.path}의 태그 가져오기 오류:`, error);
-      return [];
-    }
-  }
-  
-  /**
-   * 태그가 코드 블록 내에 있는지 확인
-   * @param content 파일 내용
-   * @param tag 태그
-   * @returns 코드 블록 내 여부
-   */
-  private isTagInCodeBlock(content: string, tag: string): boolean {
-    // 코드 블록 내의 태그인지 확인하는 로직
-    // 간단한 구현: 코드 블록 시작과 끝 사이에 태그가 있는지 확인
-    const codeBlockRegex = /```[\s\S]*?```/g;
-    let match;
-    
-    while ((match = codeBlockRegex.exec(content)) !== null) {
-      if (match[0].includes(tag)) {
-        return true;
-      }
-    }
-    
-    return false;
-  }
-  
-  /**
-   * 현재 태그 가져오기
-   * @returns 현재 선택된 태그
-   */
-  getCurrentTag(): string | null {
-    return this.currentCardSet;
-  }
-  
-  /**
-   * 태그 고정 여부 확인
-   * @returns 태그 고정 여부
-   */
-  isFixedTag(): boolean {
-    return this.isCardSetFixed();
-  }
-  
-  /**
-   * 태그 설정
-   * @param tag 태그
-   * @param isFixed 고정 여부
-   */
-  setTag(tag: string, isFixed = false): void {
-    this.selectCardSet(tag, isFixed);
+    return this.getFilesWithTag(this.currentCardSet);
   }
   
   /**

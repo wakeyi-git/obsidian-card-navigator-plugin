@@ -60,7 +60,7 @@ const cssPlugin = {
 					console.error('styles.css 파일 읽기 오류:', err);
 				}
 			} else if (rebuildCss) {
-				console.log('CSS 전체 재생성 모드로 실행합니다.');
+				console.log('CSS 전체 재생성 카드 세트로 실행합니다.');
 				cssFileMap.clear();
 				cssMetadata = {};
 			}
@@ -129,7 +129,7 @@ const cssPlugin = {
 				}
 			}
 			
-			// 변경사항이 있거나 전체 재생성 모드인 경우 styles.css 파일 생성
+			// 변경사항이 있거나 전체 재생성 카드 세트인 경우 styles.css 파일 생성
 			if (hasChanges || rebuildCss || !fs.existsSync(stylesPath)) {
 				// 정렬된 파일 경로로 최종 CSS 내용 생성
 				const sortedFilePaths = Array.from(cssFileMap.keys()).sort();

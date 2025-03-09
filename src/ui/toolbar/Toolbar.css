@@ -53,7 +53,7 @@
   flex: 0 0 auto;
 }
 
-/* 모드 토글 버튼 스타일 */
+/* 카드 세트 토글 버튼 스타일 */
 .card-navigator-cardSetSource-toggle {
   width: 28px;
   height: 28px;
@@ -71,7 +71,7 @@
   color: var(--text-normal);
 }
 
-/* 모드 아이콘 스타일 */
+/* 카드 세트 아이콘 스타일 */
 .card-navigator-cardSetSource-icon {
   display: flex;
   align-items: center;
@@ -268,12 +268,12 @@
   color: var(--text-accent);
 }
 
-/* 모드 드롭다운 컨텐츠 스타일 */
+/* 카드 세트 드롭다운 컨텐츠 스타일 */
 .card-navigator-cardSetSource-dropdown-content {
   min-width: 200px;
 }
 
-/* 모드 섹션 스타일 */
+/* 카드 세트 섹션 스타일 */
 .card-navigator-cardSetSource-section {
   padding: 8px 0;
   border-bottom: 1px solid var(--background-modifier-border);
@@ -283,7 +283,7 @@
   border-bottom: none;
 }
 
-/* 모드 섹션 헤더 스타일 */
+/* 카드 세트 섹션 헤더 스타일 */
 .card-navigator-cardSetSource-section-header {
   padding: 4px 12px;
   font-size: 11px;
@@ -402,7 +402,7 @@
   }
 }
 
-/* 모드 전환 아이콘 스타일 제거 */
+/* 카드 세트 전환 아이콘 스타일 제거 */
 .card-navigator-cardSetSource-icons {
   display: none;
 }

@@ -59,7 +59,7 @@ export class MasonryLayout implements ILayout {
    * @param itemCount 아이템 수
    * @returns 계산된 레이아웃 정보
    */
-  calculateLayout(containerWidth: number, containerHeight: number, itemCount: number): any {
+  calculateLayout(containerWidth: number, _containerHeight: number, _itemCount: number): ILayoutInfo {
     // 컨테이너 너비에 따라 열 수 계산
     const columns = this.calculateColumnCount(containerWidth);
     

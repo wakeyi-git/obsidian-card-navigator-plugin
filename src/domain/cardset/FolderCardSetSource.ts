@@ -1,5 +1,5 @@
 import { App, TFile, TFolder } from 'obsidian';
-import { CardSetSource, CardSetSourceType } from './CardSet';
+import { CardSetSource, CardSetSourceType, ICardSet } from './CardSet';
 import { ICard } from '../card/Card';
 
 /**
@@ -9,13 +9,38 @@ import { ICard } from '../card/Card';
 export class FolderCardSetSource extends CardSetSource {
   private app: App;
   private includeSubfolders = true;
-  private folderCache: string[] | null = null;
+  private folderCache: ICardSet[] | null = null;
   private lastFolderCacheTime = 0;
-  private FOLDER_CACHE_TTL = 5000; // 5초 캐시 유효 시간
+  private folderFilesCache: Map<string, string[]> = new Map();
+  private readonly FOLDER_CACHE_TTL = 30000; // 30초 캐시 유효 시간
   
   constructor(app: App) {
     super('folder');
     this.app = app;
+    
+    // 파일 변경 이벤트 리스너 등록
+    this.app.vault.on('create', this.handleFileChange.bind(this));
+    this.app.vault.on('delete', this.handleFileChange.bind(this));
+    this.app.vault.on('rename', this.handleFileChange.bind(this));
+    this.app.vault.on('modify', this.handleFileChange.bind(this));
+  }
+  
+  /**
+   * 파일 변경 이벤트 핸들러
+   */
+  private handleFileChange(): void {
+    // 캐시 초기화
+    this.clearCache();
+  }
+  
+  /**
+   * 캐시 초기화
+   */
+  clearCache(): void {
+    super.clearCache();
+    this.folderCache = null;
+    this.lastFolderCacheTime = 0;
+    this.folderFilesCache.clear();
   }
   
   /**
@@ -23,7 +48,12 @@ export class FolderCardSetSource extends CardSetSource {
    * @param include 하위 폴더 포함 여부
    */
   setIncludeSubfolders(include: boolean): void {
-    this.includeSubfolders = include;
+    if (this.includeSubfolders !== include) {
+      this.includeSubfolders = include;
+      
+      // 캐시 초기화
+      this.folderFilesCache.clear();
+    }
   }
   
   /**
@@ -35,14 +65,15 @@ export class FolderCardSetSource extends CardSetSource {
   }
   
   /**
-   * 폴더 목록 가져오기
+   * 카드셋 목록 가져오기
    * 현재 볼트의 모든 폴더 목록을 가져옵니다.
    */
   async getCardSets(): Promise<string[]> {
     // 캐시 확인
     const now = Date.now();
     if (this.folderCache && now - this.lastFolderCacheTime < this.FOLDER_CACHE_TTL) {
-      return this.folderCache;
+      // ICardSet[] 배열에서 source 속성만 추출하여 string[] 배열로 변환
+      return this.folderCache.map(cardSet => cardSet.source);
     }
     
     const folders: Set<string> = new Set();
@@ -70,32 +101,24 @@ export class FolderCardSetSource extends CardSetSource {
       }
     }
     
-    const folderArray = Array.from(folders).sort();
-    
-    // 결과 캐싱
-    this.folderCache = folderArray;
-    this.lastFolderCacheTime = now;
-    
-    return folderArray;
-  }
-  
-  /**
-   * 카드셋 객체 목록 가져오기
-   * UI에서 사용할 수 있는 형태로 카드셋 정보를 반환합니다.
-   */
-  async getCardSetObjects(): Promise<{id: string, name: string, type: string, cardSetSource: string, path: string}[]> {
-    const folders = await this.getCardSets();
-    
-    return folders.map(folder => {
+    // 폴더를 ICardSet 배열로 변환
+    const cardSets: ICardSet[] = Array.from(folders).sort().map(folder => {
       const name = folder === '/' ? '루트' : folder.split('/').pop() || folder;
       return {
         id: folder,
         name,
-        type: 'folder',
-        cardSetSource: 'folder',
-        path: folder
+        sourceType: 'folder',
+        source: folder,
+        type: 'active'
       };
     });
+    
+    // 결과 캐싱
+    this.folderCache = cardSets;
+    this.lastFolderCacheTime = now;
+    
+    // ICardSet[] 배열에서 source 속성만 추출하여 string[] 배열로 반환
+    return cardSets.map(cardSet => cardSet.source);
   }
   
   /**
@@ -103,6 +126,13 @@ export class FolderCardSetSource extends CardSetSource {
    * 현재 볼트의 모든 태그 목록을 가져옵니다.
    */
   async getFilterOptions(): Promise<string[]> {
+    // 캐시 확인
+    const cacheKey = 'filterOptions';
+    const cachedOptions = this.getFromCache<string[]>(cacheKey);
+    if (cachedOptions) {
+      return cachedOptions;
+    }
+    
     // 모든 태그 가져오기
     const tags = new Set<string>();
     const files = this.app.vault.getMarkdownFiles();
@@ -117,7 +147,12 @@ export class FolderCardSetSource extends CardSetSource {
       }
     }
     
-    return Array.from(tags).sort();
+    const result = Array.from(tags).sort();
+    
+    // 캐시에 저장
+    this.setCache(cacheKey, result);
+    
+    return result;
   }
   
   /**
@@ -125,69 +160,55 @@ export class FolderCardSetSource extends CardSetSource {
    * 현재 선택된 폴더의 파일 목록을 가져옵니다.
    */
   async getFiles(): Promise<string[]> {
-    return this.getFilesInCurrentFolder();
+    return this.getFilesInFolder(this.currentCardSet);
   }
   
   /**
-   * 현재 폴더의 파일 목록 가져오기
-   * 현재 선택된 폴더의 파일 목록을 가져옵니다.
+   * 지정된 폴더의 파일 목록 가져오기
+   * @param folder 폴더 경로
+   * @returns 파일 경로 목록
    */
-  async getFilesInCurrentFolder(): Promise<string[]> {
-    if (!this.currentCardSet) return [];
+  async getFilesInFolder(folder: string | null): Promise<string[]> {
+    if (!folder) return [];
+    
+    // 캐시 확인
+    const cacheKey = `folder:${folder}:${this.includeSubfolders}`;
+    const cachedFiles = this.getFromCache<string[]>(cacheKey);
+    if (cachedFiles) {
+      return cachedFiles;
+    }
     
     const files: string[] = [];
     const allFiles = this.app.vault.getMarkdownFiles();
     
     // 정규화된 경로 확보 (끝에 슬래시 제거)
-    const normalizedCardSet = this.currentCardSet.endsWith('/') && this.currentCardSet !== '/' 
-      ? this.currentCardSet.slice(0, -1) 
-      : this.currentCardSet;
+    const normalizedFolder = folder.endsWith('/') && folder !== '/' 
+      ? folder.slice(0, -1) 
+      : folder;
     
     for (const file of allFiles) {
       const filePath = file.path;
       // 파일의 폴더 경로 추출 (파일명 제외)
       const folderPath = filePath.substring(0, Math.max(0, filePath.lastIndexOf('/')));
       
-      if (normalizedCardSet === '/' && folderPath === '') {
+      if (normalizedFolder === '/' && folderPath === '') {
         // 루트 폴더인 경우
         files.push(filePath);
-      } else if (folderPath === normalizedCardSet) {
+      } else if (folderPath === normalizedFolder) {
         // 선택된 폴더인 경우
         files.push(filePath);
       } else if (this.includeSubfolders && 
-                (folderPath.startsWith(normalizedCardSet + '/') || 
-                 (normalizedCardSet === '/' && folderPath !== ''))) {
+                (folderPath.startsWith(normalizedFolder + '/') || 
+                 (normalizedFolder === '/' && folderPath !== ''))) {
         // 하위 폴더인 경우 (하위 폴더 포함 옵션이 켜져 있을 때)
         files.push(filePath);
       }
     }
     
+    // 캐시에 저장
+    this.setCache(cacheKey, files);
+    
     return files;
-  }
-  
-  /**
-   * 현재 폴더 가져오기
-   * @returns 현재 선택된 폴더
-   */
-  getCurrentFolder(): string | null {
-    return this.currentCardSet;
-  }
-  
-  /**
-   * 폴더 고정 여부 확인
-   * @returns 폴더 고정 여부
-   */
-  isFixedFolder(): boolean {
-    return this.isCardSetFixed();
-  }
-  
-  /**
-   * 폴더 설정
-   * @param folder 폴더 경로
-   * @param isFixed 고정 여부
-   */
-  setFolder(folder: string, isFixed = false): void {
-    this.selectCardSet(folder, isFixed);
   }
   
   /**

@@ -14,7 +14,7 @@ export interface EmptyStateProps {
  * 카드가 없을 때 표시되는 컴포넌트
  */
 export const EmptyState: React.FC<EmptyStateProps> = ({ cardSetSource, message }) => {
-  // 모드에 따른 기본 메시지 설정
+  // 카드 세트에 따른 기본 메시지 설정
   const defaultMessage = (() => {
     switch (cardSetSource) {
       case 'folder':

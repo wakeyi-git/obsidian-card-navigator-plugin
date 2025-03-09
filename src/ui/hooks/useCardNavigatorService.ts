@@ -102,20 +102,20 @@ export const useCardNavigatorService = (service: ICardNavigatorService): UseCard
         if (service) {
           const cardSetSourceService = service.getCardSetSourceService();
           
-          // 모드 서비스가 초기화되었는지 확인
+          // 카드 세트 서비스가 초기화되었는지 확인
           if (!cardSetSourceService) {
-            console.log('[useCardNavigatorService] 모드 서비스가 아직 초기화되지 않았습니다.');
+            console.log('[useCardNavigatorService] 카드 세트 서비스가 아직 초기화되지 않았습니다.');
             return;
           }
           
-          const currentCardSetValue = cardSetSourceService.getCurrentCardSet();
+          const currentCardSetObj = cardSetSourceService.getCurrentCardSet();
           const isFixed = cardSetSourceService.isCardSetFixed();
           
           // 값이 변경된 경우에만 상태 업데이트 및 로그 출력
-          if (currentCardSetValue !== currentCardSet || isFixed !== isCardSetFixed) {
-            console.log(`[useCardNavigatorService] 현재 카드 세트 업데이트: ${currentCardSetValue}, 고정 여부: ${isFixed}`);
+          if ((currentCardSetObj?.source !== currentCardSet) || isFixed !== isCardSetFixed) {
+            console.log(`[useCardNavigatorService] 현재 카드 세트 업데이트: ${currentCardSetObj?.source}, 고정 여부: ${isFixed}`);
             
-            setCurrentCardSetState(currentCardSetValue);
+            setCurrentCardSetState(currentCardSetObj?.source || null);
             setIsCardSetFixedState(isFixed);
           }
         }
@@ -191,15 +191,15 @@ export const useCardNavigatorService = (service: ICardNavigatorService): UseCard
     };
   }, [service, currentCardSet, isCardSetFixed]);
   
-  // 모드 변경 핸들러
+  // 카드 세트 변경 핸들러
   const setCurrentCardSetSource = useCallback(async (cardSetSource: CardSetSourceType) => {
     try {
       await service.changeCardSetSource(cardSetSource);
       setCurrentCardSetSourceState(cardSetSource);
       setCurrentCardSetState(null);
     } catch (error) {
-      console.error('모드 변경 중 오류 발생:', error);
-      setError('모드를 변경하는 중 오류가 발생했습니다.');
+      console.error('카드 세트 변경 중 오류 발생:', error);
+      setError('카드 세트를 변경하는 중 오류가 발생했습니다.');
     }
   }, [service]);
   

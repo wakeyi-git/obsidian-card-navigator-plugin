@@ -431,7 +431,7 @@
   color: var(--text-normal);
 }
 
-/* 모드 버튼 스타일 */
+/* 카드 세트 버튼 스타일 */
 .card-navigator-cardSetSource-toggle {
   display: flex;
   gap: 8px;

@@ -241,8 +241,8 @@ export class Storage implements IStorage {
   }
   
   /**
-   * 기본 모드 저장
-   * @param cardSetSource 모드 타입
+   * 기본 카드 세트 저장
+   * @param cardSetSource 카드 세트 타입
    */
   async saveDefaultCardSetSource(cardSetSource: CardSetSourceType): Promise<void> {
     const settings = await this.loadSettings();

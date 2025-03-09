@@ -155,7 +155,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
           className="card-navigator-date-toggle-range-button"
           onClick={onRangeCardSetSourceToggle}
         >
-          {isRangeCardSetSource ? '단일 날짜 모드' : '날짜 범위 모드'}
+          {isRangeCardSetSource ? '단일 날짜 카드 세트' : '날짜 범위 카드 세트'}
         </button>
         <button
           type="button"

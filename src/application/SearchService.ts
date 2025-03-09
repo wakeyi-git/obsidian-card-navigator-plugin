@@ -16,7 +16,7 @@ import { RegexSearch } from '../domain/search/RegexSearch';
 import { PathSearch } from '../domain/search/PathSearch';
 import { ICardNavigatorService } from './CardNavigatorService';
 import { CardNavigatorSettings } from '../main';
-import { CardSetSourceType, CardSetType, ICardSetSource, ICardSetState } from '../domain/cardset/CardSet';
+import { CardSetSourceType, CardSetType, ICardSetSource, ICardSetState, ICardSet } from '../domain/cardset/CardSet';
 import { EventEmitter } from 'events';
 import { 
   ISearchService, 
@@ -55,7 +55,7 @@ export class SearchService implements ISearchService {
   private cardNavigatorService: ICardNavigatorService | null;
   private app: App | null = null;
   
-  // 검색 모드 상태
+  // 검색 카드 세트 상태
   private searchCardSetSourceState: ISearchCardSetSourceState = {
     query: '',
     searchType: 'filename',
@@ -531,7 +531,7 @@ export class SearchService implements ISearchService {
   }
   
   /**
-   * 검색 카드셋 소스 모드로 전환
+   * 검색 카드셋 소스 카드 세트로 전환
    * @param query 검색 쿼리
    * @param searchType 검색 타입
    * @param caseSensitive 대소문자 구분 여부
@@ -539,15 +539,15 @@ export class SearchService implements ISearchService {
    */
   enterSearchCardSetSource(query: string, searchType?: SearchType, caseSensitive?: boolean, frontmatterKey?: string): void {
     try {
-      console.log(`[SearchService] 검색 카드셋 소스 모드 진입: ${query}, 타입: ${searchType}, 대소문자 구분: ${caseSensitive}, 프론트매터 키: ${frontmatterKey || '없음'}`);
+      console.log(`[SearchService] 검색 카드셋 소스 카드 세트 진입: ${query}, 타입: ${searchType}, 대소문자 구분: ${caseSensitive}, 프론트매터 키: ${frontmatterKey || '없음'}`);
       
       // 현재 카드 목록 저장
       const currentCards = this.cardNavigatorService?.getCurrentCards();
       
-      // 검색 모드로 전환
+      // 검색 카드 세트로 전환
       this.isInSearchCardSetSource = true;
       
-      // 이전 모드 정보 저장
+      // 이전 카드 세트 정보 저장
       const cardSetSourceService = this.cardSetService;
       const currentCardSetSource = cardSetSourceService?.getCurrentSourceType();
       if (currentCardSetSource && currentCardSetSource !== 'search') {
@@ -555,8 +555,13 @@ export class SearchService implements ISearchService {
         const safeCardSetSource: CardSetSourceType = currentCardSetSource;
         // cardSet이 undefined일 수 있으므로 null로 기본값 설정
         const cardSet = cardSetSourceService?.getCurrentCardSet() || null;
-        const cardSetType: CardSetType = cardSetSourceService?.isCardSetFixed() ? 'fixed' : 'active';
-        this.setPreviousCardSetSourceInfo(safeCardSetSource, cardSet, cardSetType);
+        
+        // ICardSetSelectionManager 인터페이스에는 isCardSetFixed 메서드가 있으므로 타입 캐스팅 사용
+        const isFixed = cardSetSourceService && 'isCardSetFixed' in cardSetSourceService ? 
+          (cardSetSourceService as any).isCardSetFixed() : false;
+        
+        const cardSetType: CardSetType = isFixed ? 'fixed' : 'active';
+        this.setPreviousCardSetSourceInfo(safeCardSetSource, cardSet?.source || null, cardSetType);
       }
       
       // 검색 설정
@@ -578,23 +583,23 @@ export class SearchService implements ISearchService {
         this.setPreSearchCards(currentCards);
       }
     } catch (error) {
-      console.error('[SearchService] 검색 카드셋 소스 모드 진입 중 오류 발생:', error);
+      console.error('[SearchService] 검색 카드셋 소스 카드 세트 진입 중 오류 발생:', error);
     }
   }
   
   /**
-   * 검색 모드 종료
-   * 이전 모드로 돌아갑니다.
+   * 검색 카드 세트 종료
+   * 이전 카드 세트로 돌아갑니다.
    */
   exitSearchCardSetSource(): void {
     if (!this.isInSearchCardSetSource) {
       return;
     }
     
-    // 검색 모드 종료
+    // 검색 카드 세트 종료
     this.isInSearchCardSetSource = false;
     
-    // 이전 모드로 복원
+    // 이전 카드 세트로 복원
     this.cardSetService?.restorePreviousSourceState();
     
     // 검색 설정 초기화
@@ -602,8 +607,8 @@ export class SearchService implements ISearchService {
   }
   
   /**
-   * 검색 모드 여부 확인
-   * @returns 검색 모드 여부
+   * 검색 카드 세트 여부 확인
+   * @returns 검색 카드 세트 여부
    */
   isSearchCardSetSource(): boolean {
     return this.isInSearchCardSetSource;
@@ -627,7 +632,7 @@ export class SearchService implements ISearchService {
   }
   
   /**
-   * 검색 모드 전환 전 카드셋 설정
+   * 검색 카드 세트 전환 전 카드셋 설정
    * @param cards 저장할 카드 목록
    */
   setPreSearchCards(cards: ICard[] | undefined): void {
@@ -642,7 +647,7 @@ export class SearchService implements ISearchService {
   }
   
   /**
-   * 검색 모드 전환 전 카드셋 가져오기
+   * 검색 카드 세트 전환 전 카드셋 가져오기
    * @returns 저장된 카드셋
    */
   getPreSearchCards(): ICard[] {
@@ -681,7 +686,10 @@ export class SearchService implements ISearchService {
    */
   async getFolderPaths(): Promise<string[]> {
     const cardSets = await this.cardSetService?.getCardSets();
-    return cardSets?.filter(path => path.includes('/')) || [];
+    if (!cardSets) return [];
+    
+    // ICardSet[]을 string[]으로 변환
+    return cardSets.map(cardSet => cardSet.source).filter(path => path.includes('/')) || [];
   }
 
   /**
@@ -1062,7 +1070,6 @@ export class SearchService implements ISearchService {
   getSearchSource(): ICardSetSource {
     try {
       const state = this.getSearchCardSetSourceState();
-      const self = this; // 클로저에서 사용할 this 참조 저장
       
       // 검색 소스 객체 생성
       const searchSource: ICardSetSource = {
@@ -1074,87 +1081,97 @@ export class SearchService implements ISearchService {
           return [];
         },
         
-        // 카드셋 선택 (검색 소스는 카드셋을 선택할 수 없음)
-        selectCardSet(cardSet: string | null, isFixed?: boolean): void {
-          // 아무 작업도 하지 않음
+        selectCardSet(_cardSet: string | null, _isFixed?: boolean): void {
+          // 검색 소스는 카드셋 선택을 지원하지 않음
         },
         
-        // 카드셋 고정 여부 확인 (검색 소스는 항상 고정됨)
         isCardSetFixed(): boolean {
-          return true;
+          return false; // 검색 소스는 고정 카드셋을 지원하지 않음
         },
         
-        // 필터 옵션 가져오기 (검색 소스는 필터 옵션이 없음)
         async getFilterOptions(): Promise<string[]> {
-          return [];
+          return []; // 검색 소스는 필터 옵션을 지원하지 않음
         },
         
-        // 파일 목록 가져오기
-        async getFiles(): Promise<string[]> {
-          // 검색 결과에 해당하는 파일 목록 반환
-          if (self.currentSearch) {
-            return await self.getFilesForSearch(
+        getFiles: async (): Promise<string[]> => {
+          try {
+            // 현재 검색 상태에 따라 파일 목록 가져오기
+            return await this.getFilesForSearch(
               state.query,
               state.searchType,
               state.caseSensitive,
               state.frontmatterKey
             );
+          } catch (error) {
+            console.error('[SearchService] 검색 소스에서 파일 가져오기 오류:', error);
+            return [];
           }
-          return [];
         },
         
-        // 카드 목록 가져오기
-        async getCards(cardService: any): Promise<any[]> {
-          if (self.currentSearch) {
-            // 검색 범위에 따라 대상 카드 결정
-            let targetCards: ICard[] = [];
-            
-            if (state.searchScope === 'all') {
-              // 전체 범위인 경우 모든 카드 가져오기
-              targetCards = await cardService.getAllCards();
-            } else if (self.preSearchCards.length > 0) {
-              // 현재 범위인 경우 이전 카드 사용
-              targetCards = self.preSearchCards;
-            } else if (self.cardNavigatorService) {
-              // 이전 카드가 없는 경우 현재 카드 사용
-              targetCards = self.cardNavigatorService.getCurrentCards();
-            } else {
-              // 모든 카드 가져오기
-              targetCards = await cardService.getAllCards();
+        getCards: async (cardService: ICardService): Promise<ICard[]> => {
+          try {
+            // 현재 검색 상태에 따라 카드 목록 가져오기
+            if (this.currentSearch) {
+              // 검색 범위에 따라 대상 카드 결정
+              let targetCards: ICard[] = [];
+              
+              if (state.searchScope === 'all') {
+                // 전체 범위인 경우 모든 카드 가져오기
+                targetCards = await cardService.getAllCards();
+              } else if (this.preSearchCards.length > 0) {
+                // 현재 범위인 경우 이전 카드 사용
+                targetCards = this.preSearchCards;
+              } else if (this.cardNavigatorService) {
+                // 이전 카드가 없는 경우 현재 카드 사용
+                targetCards = this.cardNavigatorService.getCurrentCards();
+              } else {
+                // 모든 카드 가져오기
+                targetCards = await cardService.getAllCards();
+              }
+              
+              // 검색 실행
+              return await this.currentSearch.search(targetCards);
             }
             
-            // 검색 실행
-            return await self.currentSearch.search(targetCards);
+            return [];
+          } catch (error) {
+            console.error('[SearchService] 검색 소스에서 카드 가져오기 오류:', error);
+            return [];
           }
-          
-          return [];
         },
         
-        // 설정 초기화
         reset(): void {
-          // 검색 초기화
-          self.clearSearch();
+          // 검색 소스는 리셋이 필요 없음
         },
         
-        // 현재 카드셋 상태 가져오기
         getState(): ICardSetState {
           return {
             currentCardSet: null,
-            isFixed: true
+            isFixed: false,
+            metadata: {
+              query: state.query,
+              searchType: state.searchType,
+              caseSensitive: state.caseSensitive,
+              frontmatterKey: state.frontmatterKey
+            }
           };
         },
         
-        // 카드셋 상태 설정하기
-        setState(state: ICardSetState): void {
-          // 아무 작업도 하지 않음
+        setState(_state: ICardSetState): void {
+          // 검색 소스는 상태 설정을 지원하지 않음
+        },
+        
+        clearCache(): void {
+          // 검색 소스는 캐시 클리어가 필요 없음
         }
       };
       
+      // 검색 소스 반환
       return searchSource;
     } catch (error) {
-      console.error('[SearchService] 검색 소스 가져오기 오류:', error);
+      console.error('[SearchService] 검색 소스 생성 중 오류 발생:', error);
       
-      // 기본 검색 소스 반환
+      // 오류 발생 시 기본 검색 소스 반환
       return {
         type: 'search',
         currentCardSet: null,
@@ -1163,12 +1180,12 @@ export class SearchService implements ISearchService {
           return [];
         },
         
-        selectCardSet(cardSet: string | null, isFixed?: boolean): void {
-          // 아무 작업도 하지 않음
+        selectCardSet(_cardSet: string | null, _isFixed?: boolean): void {
+          // 검색 소스는 카드셋 선택을 지원하지 않음
         },
         
         isCardSetFixed(): boolean {
-          return true;
+          return false;
         },
         
         async getFilterOptions(): Promise<string[]> {
@@ -1179,42 +1196,46 @@ export class SearchService implements ISearchService {
           return [];
         },
         
-        async getCards(): Promise<any[]> {
+        async getCards(_cardService: ICardService): Promise<ICard[]> {
           return [];
         },
         
         reset(): void {
-          // 아무 작업도 하지 않음
+          // 검색 소스는 리셋이 필요 없음
         },
         
         getState(): ICardSetState {
           return {
             currentCardSet: null,
-            isFixed: true
+            isFixed: false
           };
         },
         
-        setState(state: ICardSetState): void {
-          // 아무 작업도 하지 않음
+        setState(_state: ICardSetState): void {
+          // 검색 소스는 상태 설정을 지원하지 않음
+        },
+        
+        clearCache(): void {
+          // 검색 소스는 캐시 클리어가 필요 없음
         }
       };
     }
   }
   
   /**
-   * 모드 변경 이벤트 처리
-   * @param cardSetSourceType 변경된 모드 타입
+   * 카드 세트 변경 이벤트 처리
+   * @param cardSetSourceType 변경된 카드 세트 타입
    */
   onCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void {
     try {
-      console.log(`[SearchService] 모드 변경 이벤트 처리: ${cardSetSourceType}`);
+      console.log(`[SearchService] 카드 세트 변경 이벤트 처리: ${cardSetSourceType}`);
       
-      // 검색 모드가 아닌 경우 검색 모드 종료
+      // 검색 카드 세트가 아닌 경우 검색 카드 세트 종료
       if (cardSetSourceType !== 'search' && this.isInSearchCardSetSource) {
         this.exitSearchCardSetSource();
       }
     } catch (error) {
-      console.error('[SearchService] 모드 변경 이벤트 처리 오류:', error);
+      console.error('[SearchService] 카드 세트 변경 이벤트 처리 오류:', error);
     }
   }
 
@@ -1400,8 +1421,8 @@ export class SearchService implements ISearchService {
   }
 
   /**
-   * 이전 모드 정보 설정
-   * @param cardSetSourceType 이전 모드 타입
+   * 이전 카드 세트 정보 설정
+   * @param cardSetSourceType 이전 카드 세트 타입
    * @param cardSet 이전 카드 세트
    * @param cardSetType 이전 카드 세트 타입
    */
@@ -1411,12 +1432,12 @@ export class SearchService implements ISearchService {
     cardSetType: CardSetType
   ): void {
     try {
-      console.log(`[SearchService] 이전 모드 정보 설정: ${cardSetSourceType}, 카드셋: ${cardSet || '없음'}, 타입: ${cardSetType}`);
+      console.log(`[SearchService] 이전 카드 세트 정보 설정: ${cardSetSourceType}, 카드셋: ${cardSet || '없음'}, 타입: ${cardSetType}`);
       this.searchCardSetSourceState.previousCardSetSource = cardSetSourceType;
       this.searchCardSetSourceState.previousCardSet = cardSet;
       this.searchCardSetSourceState.previousCardSetType = cardSetType;
     } catch (error) {
-      console.error('[SearchService] 이전 모드 정보 설정 중 오류 발생:', error);
+      console.error('[SearchService] 이전 카드 세트 정보 설정 중 오류 발생:', error);
     }
   }
 
@@ -1626,14 +1647,14 @@ export class SearchService implements ISearchService {
   }
 
   /**
-   * 이전 모드 가져오기
-   * @returns 이전 모드 타입
+   * 이전 카드 세트 가져오기
+   * @returns 이전 카드 세트 타입
    */
   getPreviousCardSetSource(): CardSetSourceType {
     try {
       return this.searchCardSetSourceState.previousCardSetSource;
     } catch (error) {
-      console.error('[SearchService] 이전 모드 가져오기 중 오류 발생:', error);
+      console.error('[SearchService] 이전 카드 세트 가져오기 중 오류 발생:', error);
       return 'folder'; // 기본값으로 'folder' 반환
     }
   }

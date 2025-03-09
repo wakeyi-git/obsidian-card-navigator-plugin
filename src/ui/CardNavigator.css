@@ -24,7 +24,7 @@
  * - 검색 관련 스타일: src/ui/toolbar/SearchBar.css
  */ 
 
-/* 모드 전환 시 시각적 피드백 */
+/* 카드 세트 전환 시 시각적 피드백 */
 .card-navigator-cardSetSource-changed {
   animation: cardSetSource-toggle-feedback 0.3s ease-in-out;
 }
@@ -44,7 +44,7 @@
   }
 }
 
-/* 태그 모드에서 카드 세트가 없을 때 표시할 메시지 */
+/* 태그 카드 세트에서 카드 세트가 없을 때 표시할 메시지 */
 .card-navigator-empty-tag-message {
   display: flex;
   flex-direction: column;

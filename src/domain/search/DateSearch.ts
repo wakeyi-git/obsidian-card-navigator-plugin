@@ -17,7 +17,7 @@ export class DateSearch implements ISearch {
   private caseSensitive: boolean;
   private dateType: DateSearchType;
 
-  constructor(app: App, query: string = '', dateType: DateSearchType = 'creation', caseSensitive: boolean = false) {
+  constructor(app: App, query = '', dateType: DateSearchType = 'creation', caseSensitive = false) {
     this.app = app;
     this.query = query;
     this.dateType = dateType;

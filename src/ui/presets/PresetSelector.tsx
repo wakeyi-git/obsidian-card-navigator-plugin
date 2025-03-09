@@ -9,7 +9,7 @@ import './PresetSelector.css';
 export interface IPresetSelectorProps {
   service: ICardNavigatorService | null;
   onPresetApply: (presetId: string) => void;
-  onPresetSave: () => void;
+  _onPresetSave: () => void;
   onPresetDelete: (presetId: string) => void;
 }
 
@@ -20,7 +20,7 @@ export interface IPresetSelectorProps {
 const PresetSelector: React.FC<IPresetSelectorProps> = ({
   service,
   onPresetApply,
-  onPresetSave,
+  _onPresetSave,
   onPresetDelete,
 }) => {
   const [presets, setPresets] = useState<IPreset[]>([]);

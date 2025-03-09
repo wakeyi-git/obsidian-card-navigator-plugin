@@ -6,7 +6,7 @@ export class SearchHistory {
   private history: string[] = [];
   private maxSize: number;
 
-  constructor(maxSize: number = 10) {
+  constructor(maxSize = 10) {
     this.maxSize = maxSize;
   }
 

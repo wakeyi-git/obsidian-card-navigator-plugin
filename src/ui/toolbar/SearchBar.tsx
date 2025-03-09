@@ -29,7 +29,7 @@ interface SearchBarProps {
   // 추가 속성
   onSearchTypeChange?: (type: SearchType) => void;
   onCaseSensitiveChange?: (sensitive: boolean) => void;
-  onFrontmatterKeyChange?: (key: string) => void;
+  _onFrontmatterKeyChange?: (key: string) => void;
   onSearchScopeChange?: (scope: 'all' | 'current') => void;
   onEnterSearchCardSetSource?: (query: string, type?: SearchType) => void;
   onExitSearchCardSetSource?: () => void;
@@ -57,7 +57,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   // 추가 속성
   onSearchTypeChange,
   onCaseSensitiveChange,
-  onFrontmatterKeyChange,
+  _onFrontmatterKeyChange,
   onSearchScopeChange,
   onEnterSearchCardSetSource,
   onExitSearchCardSetSource,
@@ -156,10 +156,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   };
 
   /**
-   * 검색 모드 진입 처리
+   * 검색 카드 세트 진입 처리
    */
   const handleEnterSearchCardSetSource = () => {
-    console.log(`[SearchBar] 검색 모드 진입: 쿼리=${searchText}, 타입=${currentSearchOption?.type}`);
+    console.log(`[SearchBar] 검색 카드 세트 진입: 쿼리=${searchText}, 타입=${currentSearchOption?.type}`);
     
     if (onEnterSearchCardSetSource && searchText) {
       const searchTypeValue = currentSearchOption?.type ? 
@@ -171,15 +171,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   };
 
   /**
-   * 검색 모드 종료 처리
+   * 검색 카드 세트 종료 처리
    */
   const handleExitSearchCardSetSource = () => {
-    console.log(`[SearchBar] 검색 모드 종료`);
+    console.log(`[SearchBar] 검색 카드 세트 종료`);
     
     // 검색 텍스트 초기화
     setSearchText('');
     
-    // 검색 모드 종료 콜백 호출
+    // 검색 카드 세트 종료 콜백 호출
     if (onExitSearchCardSetSource) {
       onExitSearchCardSetSource();
     }
@@ -268,12 +268,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           <span className="card-navigator-case-sensitive-icon">Aa</span>
         </div>
         
-        {/* 검색 모드 전환 버튼 (검색 모드일 때만 표시) */}
+        {/* 검색 카드 세트 전환 버튼 (검색 카드 세트일 때만 표시) */}
         {isSearchCardSetSource && (
           <button 
             className="card-navigator-exit-search-cardSetSource" 
             onClick={handleExitSearchCardSetSource}
-            title="검색 모드 종료"
+            title="검색 카드 세트 종료"
           >
             <span className="card-navigator-exit-icon">×</span>
           </button>

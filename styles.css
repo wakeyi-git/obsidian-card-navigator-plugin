@@ -25,7 +25,7 @@
  * - 검색 관련 스타일: src/ui/toolbar/SearchBar.css
  */ 
 
-/* 모드 전환 시 시각적 피드백 */
+/* 카드 세트 전환 시 시각적 피드백 */
 .card-navigator-cardSetSource-changed {
   animation: cardSetSource-toggle-feedback 0.3s ease-in-out;
 }
@@ -45,7 +45,7 @@
   }
 }
 
-/* 태그 모드에서 카드 세트가 없을 때 표시할 메시지 */
+/* 태그 카드 세트에서 카드 세트가 없을 때 표시할 메시지 */
 .card-navigator-empty-tag-message {
   display: flex;
   flex-direction: column;
@@ -74,7 +74,7 @@
   font-size: 0.9rem;
 }
 
-/* 검색 관련 스타일은 src/ui/toolbar/SearchBar.css로 이동했습니다. */
+/* 검색 관련 스타일은 src/ui/toolbar/SearchBar.css로 이동했습니다. */ 
 
 /* src/ui/cards-container/Card.css */
 /* 카드 스타일 */
@@ -1058,7 +1058,7 @@
   color: var(--text-normal);
 }
 
-/* 모드 버튼 스타일 */
+/* 카드 세트 버튼 스타일 */
 .card-navigator-cardSetSource-toggle {
   display: flex;
   gap: 8px;
@@ -1689,7 +1689,7 @@
   color: white;
   width: 20px;
   height: 20px;
-}
+} 
 
 /* src/ui/settings/components/CardPreview.css */
 /* 카드 미리보기 컴포넌트 스타일 - 미니멀 디자인 */
@@ -2549,18 +2549,18 @@
 
 /* src/ui/toolbar/CardSetToggle.css */
 /* 
- * 모드 토글 컴포넌트 스타일
- * 폴더/태그 모드 전환 관련 스타일을 포함합니다.
+ * 카드 세트 토글 컴포넌트 스타일
+ * 폴더/태그 카드 세트 전환 관련 스타일을 포함합니다.
  */
 
-/* 모드 토글 컨테이너 스타일 */
+/* 카드 세트 토글 컨테이너 스타일 */
 .card-navigator-cardSetSource-toggle-container {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-/* 모드 토글 기본 스타일 */
+/* 카드 세트 토글 기본 스타일 */
 .card-navigator-cardSetSource-toggle {
   display: flex;
   align-items: center;
@@ -2583,7 +2583,7 @@
   transform: scale(0.95);
 }
 
-/* 모드 아이콘 스타일 */
+/* 카드 세트 아이콘 스타일 */
 .card-navigator-cardSetSource-icon {
   display: flex;
   align-items: center;
@@ -2615,7 +2615,7 @@
   color: var(--text-accent);
 }
 
-/* 모드 메뉴 스타일 */
+/* 카드 세트 메뉴 스타일 */
 .card-navigator-cardSetSource-menu {
   position: absolute;
   top: 100%;
@@ -2909,7 +2909,7 @@
   font-weight: 600;
 }
 
-/* 검색 모드 종료 버튼 스타일 */
+/* 검색 카드 세트 종료 버튼 스타일 */
 .card-navigator-exit-search-cardSetSource {
   display: flex;
   align-items: center;
@@ -3109,6 +3109,7 @@
   color: var(--text-accent);
 }
 
+
 /* src/ui/toolbar/Toolbar.css */
 /* 
  * 툴바 컴포넌트 스타일
@@ -3165,7 +3166,7 @@
   flex: 0 0 auto;
 }
 
-/* 모드 토글 버튼 스타일 */
+/* 카드 세트 토글 버튼 스타일 */
 .card-navigator-cardSetSource-toggle {
   width: 28px;
   height: 28px;
@@ -3183,7 +3184,7 @@
   color: var(--text-normal);
 }
 
-/* 모드 아이콘 스타일 */
+/* 카드 세트 아이콘 스타일 */
 .card-navigator-cardSetSource-icon {
   display: flex;
   align-items: center;
@@ -3380,12 +3381,12 @@
   color: var(--text-accent);
 }
 
-/* 모드 드롭다운 컨텐츠 스타일 */
+/* 카드 세트 드롭다운 컨텐츠 스타일 */
 .card-navigator-cardSetSource-dropdown-content {
   min-width: 200px;
 }
 
-/* 모드 섹션 스타일 */
+/* 카드 세트 섹션 스타일 */
 .card-navigator-cardSetSource-section {
   padding: 8px 0;
   border-bottom: 1px solid var(--background-modifier-border);
@@ -3395,7 +3396,7 @@
   border-bottom: none;
 }
 
-/* 모드 섹션 헤더 스타일 */
+/* 카드 세트 섹션 헤더 스타일 */
 .card-navigator-cardSetSource-section-header {
   padding: 4px 12px;
   font-size: 11px;
@@ -3514,7 +3515,7 @@
   }
 }
 
-/* 모드 전환 아이콘 스타일 제거 */
+/* 카드 세트 전환 아이콘 스타일 제거 */
 .card-navigator-cardSetSource-icons {
   display: none;
 }
@@ -3529,7 +3530,7 @@
 
 .card-navigator-cardSetSource-icon-button.active {
   display: none;
-}
+} 
 
 /* src/ui/toolbar/components/SearchOptionSuggestStyle.css */
 /* 

@@ -81,7 +81,7 @@ class FolderSuggestModal extends SuggestModal<string> {
     }
   }
 
-  onChooseSuggestion(folder: string, evt: MouseEvent | KeyboardEvent): void {
+  onChooseSuggestion(folder: string, _evt: MouseEvent | KeyboardEvent): void {
     this.onSelect(folder, true);
   }
 
@@ -131,7 +131,7 @@ class TagSuggestModal extends SuggestModal<string> {
     }
   }
 
-  onChooseSuggestion(tag: string, evt: MouseEvent | KeyboardEvent): void {
+  onChooseSuggestion(tag: string, _evt: MouseEvent | KeyboardEvent): void {
     this.onSelect(tag, true);
   }
 
@@ -148,7 +148,7 @@ class TagSuggestModal extends SuggestModal<string> {
 
 /**
  * 툴바 컴포넌트
- * 검색, 모드 전환, 정렬, 레이아웃 변경 등의 컨트롤을 제공합니다.
+ * 검색, 카드 세트 전환, 정렬, 레이아웃 변경 등의 컨트롤을 제공합니다.
  */
 const Toolbar: React.FC<IToolbarProps> = ({
   onCardSetSourceChange,
@@ -209,7 +209,7 @@ const Toolbar: React.FC<IToolbarProps> = ({
     setShowSearchBar(isSearchCardSetSource);
   }, [isSearchCardSetSource]);
 
-  // 현재 모드가 폴더 모드일 때만 하위 폴더 토글 표시
+  // 현재 카드 세트가 폴더 카드 세트일 때만 하위 폴더 토글 표시
   useEffect(() => {
     setShowSubfolderToggle(currentCardSetSource === 'folder');
   }, [currentCardSetSource]);
@@ -219,10 +219,11 @@ const Toolbar: React.FC<IToolbarProps> = ({
     const loadCardSets = async () => {
       if (service) {
         try {
-          // 서비스에서 카드셋 목록 가져오기
           const cardSetSourceService = service.getCardSetSourceService();
           const sets = await cardSetSourceService.getCardSets();
-          setAvailableCardSets(sets);
+          // ICardSet[]을 string[]으로 변환
+          const cardSetStrings = sets.map(set => set.source);
+          setAvailableCardSets(cardSetStrings);
         } catch (error) {
           console.error('카드 세트 로드 중 오류 발생:', error);
         }
@@ -241,64 +242,39 @@ const Toolbar: React.FC<IToolbarProps> = ({
    * 카드셋 선택 모달 열기
    */
   const openCardSetModal = () => {
-    console.log(`[Toolbar] 카드셋 선택 모달 열기: 현재 모드=${currentCardSetSource}`);
-    console.log(`[Toolbar] 사용 가능한 카드셋:`, availableCardSets);
-    
-    // App 객체 가져오기 (props에서 직접 또는 service에서)
-    const obsidianApp = app || (service ? service.getApp() : null);
-    
-    if (!obsidianApp) {
-      console.error('[Toolbar] App 객체를 가져올 수 없습니다.');
-      return;
-    }
-    
-    // 현재 카드셋 가져오기
-    let currentCardSet = '';
-    if (service) {
-      const cardSetSourceService = service.getCardSetSourceService();
-      currentCardSet = cardSetSourceService.getCurrentCardSet() || '';
-      console.log(`[Toolbar] 현재 카드셋: ${currentCardSet}`);
-    }
-    
-    // 모드에 따라 다른 모달 열기
+    // 카드셋 소스에 따라 적절한 모달 열기
     if (currentCardSetSource === 'folder') {
-      // 폴더 선택 모달
-      const modal = new FolderSuggestModal(
-        obsidianApp,
-        availableCardSets,
-        (folder) => {
-          console.log(`[Toolbar] 폴더 선택: ${folder}`);
-          onCardSetSelect(folder, isCardSetFixed);
-        }
-      );
-      
-      // 현재 폴더 설정
-      modal.setCurrentFolder(currentCardSet);
-      
-      // 모달 열기
-      modal.open();
+      // 폴더 선택 모달 열기
+      if (app) {
+        new FolderSuggestModal(
+          app,
+          availableCardSets,
+          (folder, isFixed) => {
+            onCardSetSelect(folder, isFixed);
+          }
+        ).open();
+      } else {
+        console.error('[Toolbar] 폴더 선택 모달을 열 수 없습니다: app이 정의되지 않았습니다.');
+      }
     } else if (currentCardSetSource === 'tag') {
-      // 태그 선택 모달
-      const modal = new TagSuggestModal(
-        obsidianApp,
-        availableCardSets,
-        (tag, isFixed) => {
-          console.log(`[Toolbar] 태그 선택: ${tag}, 고정: ${isFixed}`);
-          onCardSetSelect(tag, isCardSetFixed);
-        }
-      );
-      
-      // 현재 태그 설정
-      modal.setCurrentTag(currentCardSet);
-      
-      // 모달 열기
-      modal.open();
+      // 태그 선택 모달 열기
+      if (app) {
+        new TagSuggestModal(
+          app,
+          availableCardSets,
+          (tag, isFixed) => {
+            onCardSetSelect(tag, isFixed);
+          }
+        ).open();
+      } else {
+        console.error('[Toolbar] 태그 선택 모달을 열 수 없습니다: app이 정의되지 않았습니다.');
+      }
     }
   };
 
   /**
-   * 모드 변경 처리
-   * @param newCardSetSource 새 모드
+   * 카드 세트 변경 처리
+   * @param newCardSetSource 새 카드 세트
    */
   const handleCardSetSourceChange = (newCardSetSource: CardSetSourceType) => {
     console.log(`[Toolbar] 카드셋 소스 변경: ${currentCardSetSource} -> ${newCardSetSource}`);
@@ -379,69 +355,49 @@ const Toolbar: React.FC<IToolbarProps> = ({
 
   // 카드셋 표시 이름 가져오기
   const getDisplayCardSetName = () => {
-    // 검색 모드인 경우 '검색 결과' 표시
-    if (showSearchBar) {
-      return '검색 결과';
-    }
+    // 현재 카드셋 가져오기
+    let currentCardSet = '';
     
-    // 서비스에서 현재 카드 세트 가져오기
     if (service) {
-      try {
-        const cardSetSourceService = service.getCardSetSourceService();
-        
-        // 모드 서비스가 초기화되었는지 확인
-        if (!cardSetSourceService) {
-          console.log('[Toolbar] 모드 서비스가 아직 초기화되지 않았습니다.');
-          return currentCardSetSource === 'folder' ? '폴더 선택' : '태그 선택';
-        }
-        
-        const currentCardSet = cardSetSourceService.getCurrentCardSet();
-        const isFixed = cardSetSourceService.isCardSetFixed();
-        
-        console.log(`[Toolbar] 현재 카드셋 정보: ${currentCardSet}, 소스: ${currentCardSetSource}, 고정: ${isFixed}`);
-        
-        // 현재 카드 세트가 있으면 사용
-        if (currentCardSet) {
-          // 고정 여부에 따라 아이콘 추가
-          const fixedPrefix = isFixed ? '📌 ' : '';
-          
-          // 태그 모드에서 # 제거
-          if (currentCardSetSource === 'tag' && currentCardSet.startsWith('#')) {
-            return fixedPrefix + currentCardSet.substring(1);
-          }
-          // 폴더 모드에서 루트 폴더 표시 개선
-          else if (currentCardSetSource === 'folder' && currentCardSet === '/') {
-            return fixedPrefix + '루트 폴더';
-          }
-          // 폴더 모드에서 마지막 폴더 이름만 표시
-          else if (currentCardSetSource === 'folder' && currentCardSet.includes('/')) {
-            const folderName = currentCardSet.split('/').pop() || currentCardSet;
-            return fixedPrefix + folderName;
-          }
-          else {
-            return fixedPrefix + currentCardSet;
-          }
-        }
-      } catch (error) {
-        console.error('[Toolbar] 카드 세트 이름 가져오기 중 오류 발생:', error);
-      }
+      const cardSetSourceService = service.getCardSetSourceService();
+      const cardSetObj = cardSetSourceService.getCurrentCardSet();
+      currentCardSet = cardSetObj?.source || '';
     }
     
-    // 실제 사용할 카드셋 값 결정
-    if (!cardSet) {
-      return currentCardSetSource === 'folder' ? '폴더 선택' : '태그 선택';
+    // 카드셋이 없는 경우
+    if (!currentCardSet) {
+      return '카드셋 없음';
     }
     
-    // 태그 모드에서 # 제거
-    if (currentCardSetSource === 'tag' && cardSet.startsWith('#')) {
-      return cardSet.substring(1);
-    }
-    // 폴더 모드에서 루트 폴더 표시 개선
-    else if (currentCardSetSource === 'folder' && cardSet === '/') {
-      return '루트 폴더';
-    }
-    else {
-      return cardSet;
+    // 고정 상태에 따른 접두사
+    const fixedPrefix = isCardSetFixed ? '📌 ' : '';
+    
+    // 카드셋 소스에 따라 표시 이름 변경
+    switch (currentCardSetSource) {
+      case 'folder':
+        // 폴더 카드셋에서 루트 폴더 표시 개선
+        if (currentCardSet === '/') {
+          return fixedPrefix + '루트 폴더';
+        }
+        // 폴더 카드셋에서 마지막 폴더 이름만 표시
+        else if (currentCardSet.includes('/')) {
+          const folderName = currentCardSet.split('/').pop() || currentCardSet;
+          return fixedPrefix + folderName;
+        }
+        return fixedPrefix + currentCardSet;
+        
+      case 'tag':
+        // 태그 카드셋에서 # 제거
+        if (currentCardSet.startsWith('#')) {
+          return fixedPrefix + currentCardSet.substring(1);
+        }
+        return fixedPrefix + currentCardSet;
+        
+      case 'search':
+        return '검색 결과';
+        
+      default:
+        return fixedPrefix + currentCardSet;
     }
   };
 
@@ -451,10 +407,10 @@ const Toolbar: React.FC<IToolbarProps> = ({
   const handleSearchIconClick = () => {
     console.log(`[Toolbar] 검색 아이콘 클릭`);
     
-    // 검색 모드 토글
+    // 검색 카드 세트 토글
     setShowSearchBar(!showSearchBar);
     
-    // 검색 모드 토글 콜백 호출
+    // 검색 카드 세트 토글 콜백 호출
     if (toggleSearchCardSetSource) {
       toggleSearchCardSetSource();
     }

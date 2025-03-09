@@ -15,7 +15,7 @@ export class ComplexSearch implements ISearch {
   private caseSensitive: boolean;
   private searches: ISearch[] = [];
 
-  constructor(app: App, query: string = '', caseSensitive: boolean = false) {
+  constructor(app: App, query = '', caseSensitive = false) {
     this.app = app;
     this.query = query;
     this.caseSensitive = caseSensitive;

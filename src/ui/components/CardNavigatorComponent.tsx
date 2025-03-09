@@ -101,7 +101,7 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
     setFrontmatterKey
   );
   
-  // 검색 모드 여부
+  // 검색 카드 세트 여부
   const [isSearchCardSetSource, setIsSearchCardSetSource] = useState<boolean>(false);
   
   // 사용 가능한 폴더와 태그 목록
@@ -127,6 +127,14 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
     console.log('[CardNavigatorView] currentCardSet 상태 변경:', currentCardSet);
     console.log('[CardNavigatorView] Toolbar 렌더링 시 전달되는 cardSet:', currentCardSet);
   }, [currentCardSet]);
+  
+  // 컴포넌트 마운트 시 카드 로드
+  useEffect(() => {
+    if (service) {
+      console.log('[CardNavigatorView] 컴포넌트 마운트, 카드 로드 시작');
+      loadCards();
+    }
+  }, [service, loadCards]);
   
   // 컴포넌트 렌더링 성능 측정
   useEffect(() => {
@@ -252,19 +260,19 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
       const cardSetSourceService = service.getCardSetSourceService();
       
       // 폴더 목록 가져오기
-      cardSetSourceService.changeSource('folder').then(() => {
+      cardSetSourceService.changeCardSetSource('folder').then(() => {
         cardSetSourceService.getCardSets().then((folders: string[]) => {
           console.log(`[CardNavigatorView] 폴더 목록 로드: ${folders.length}개`);
           setAvailableFolders(folders);
           
           // 태그 목록 가져오기
-          cardSetSourceService.changeSource('tag').then(() => {
+          cardSetSourceService.changeCardSetSource('tag').then(() => {
             cardSetSourceService.getCardSets().then((tags: string[]) => {
               console.log(`[CardNavigatorView] 태그 목록 로드: ${tags.length}개`);
               setAvailableTags(tags);
               
-              // 원래 모드로 복원
-              cardSetSourceService.changeSource(currentCardSetSource);
+              // 원래 카드 세트로 복원
+              cardSetSourceService.changeCardSetSource(currentCardSetSource);
             });
           });
         });
@@ -272,7 +280,7 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
     }
   }, [service, loadCards]);
   
-  // 모드 토글 핸들러
+  // 카드 세트 토글 핸들러
   const handleCardSetSourceToggle = () => {
     if (currentCardSetSource === 'folder') {
       handleCardSetSourceChange('tag');

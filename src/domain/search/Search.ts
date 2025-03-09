@@ -15,8 +15,8 @@ export type SearchType = 'filename' | 'content' | 'tag' | 'path' | 'frontmatter'
 export type SearchScope = 'all' | 'current';
 
 /**
- * 검색 모드 상태 인터페이스
- * 검색 모드의 상태를 정의합니다.
+ * 검색 카드 세트 상태 인터페이스
+ * 검색 카드 세트의 상태를 정의합니다.
  */
 export interface ISearchCardSetSourceState {
   /**
@@ -45,22 +45,22 @@ export interface ISearchCardSetSourceState {
   searchScope: SearchScope;
   
   /**
-   * 검색 모드 전환 전 카드셋
+   * 검색 카드 세트 전환 전 카드셋
    */
   preSearchCards: ICard[];
   
   /**
-   * 검색 모드 전환 전 모드
+   * 검색 카드 세트 전환 전 카드 세트
    */
   previousCardSetSource: CardSetSourceType;
   
   /**
-   * 검색 모드 전환 전 카드 세트
+   * 검색 카드 세트 전환 전 카드 세트
    */
   previousCardSet: string | null;
   
   /**
-   * 검색 모드 전환 전 카드 세트 타입
+   * 검색 카드 세트 전환 전 카드 세트 타입
    */
   previousCardSetType: CardSetType;
 }

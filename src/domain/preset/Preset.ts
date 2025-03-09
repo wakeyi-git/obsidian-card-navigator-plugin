@@ -24,7 +24,7 @@ export interface IPreset {
   description?: string;
   
   /**
-   * 모드
+   * 카드 세트
    */
   cardSetSource?: ICardSetSource;
   

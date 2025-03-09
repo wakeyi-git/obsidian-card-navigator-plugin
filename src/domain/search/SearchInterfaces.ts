@@ -240,13 +240,13 @@ export interface ISearchMetadataProvider {
  */
 export interface ISearchCardSetSourceManager {
   /**
-   * 검색 모드 여부 확인
-   * @returns 검색 모드 여부
+   * 검색 카드 세트 여부 확인
+   * @returns 검색 카드 세트 여부
    */
   isSearchCardSetSource(): boolean;
   
   /**
-   * 검색 모드로 전환
+   * 검색 카드 세트로 전환
    * @param query 검색 쿼리
    * @param searchType 검색 타입
    * @param caseSensitive 대소문자 구분 여부
@@ -255,8 +255,8 @@ export interface ISearchCardSetSourceManager {
   enterSearchCardSetSource(query: string, searchType?: SearchType, caseSensitive?: boolean, frontmatterKey?: string): void;
   
   /**
-   * 검색 모드 종료
-   * 이전 모드로 돌아갑니다.
+   * 검색 카드 세트 종료
+   * 이전 카드 세트로 돌아갑니다.
    */
   exitSearchCardSetSource(): void;
   
@@ -288,8 +288,8 @@ export interface ISearchCardSetSourceManager {
  */
 export interface IPreviousCardSetSourceManager {
   /**
-   * 이전 모드 정보 설정
-   * @param cardSetSourceType 이전 모드 타입
+   * 이전 카드 세트 정보 설정
+   * @param cardSetSourceType 이전 카드 세트 타입
    * @param cardSet 이전 카드 세트
    * @param cardSetType 이전 카드 세트 타입
    */
@@ -300,14 +300,14 @@ export interface IPreviousCardSetSourceManager {
   ): void;
   
   /**
-   * 이전 모드 가져오기
-   * @returns 이전 모드 타입
+   * 이전 카드 세트 가져오기
+   * @returns 이전 카드 세트 타입
    */
   getPreviousCardSetSource(): CardSetSourceType;
   
   /**
-   * 모드 변경 이벤트 처리
-   * @param cardSetSourceType 변경된 모드 타입
+   * 카드 세트 변경 이벤트 처리
+   * @param cardSetSourceType 변경된 카드 세트 타입
    */
   onCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void;
 }
