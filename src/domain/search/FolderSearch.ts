@@ -19,27 +19,44 @@ export class FolderSearch extends Search {
    * @param cards 검색할 카드 목록
    * @returns 검색 결과 카드 목록
    */
-  search(cards: ICard[]): ICard[] {
+  async search(cards: ICard[]): Promise<ICard[]> {
     if (!this.query) return cards;
     
-    return cards.filter(card => {
-      // 파일 경로에서 폴더 부분만 추출
-      const folderPath = card.path.substring(0, card.path.lastIndexOf('/'));
-      return this.matches(folderPath);
-    });
+    const results: ICard[] = [];
+    for (const card of cards) {
+      if (await this.match(card)) {
+        results.push(card);
+      }
+    }
+    return results;
   }
   
   /**
-   * 파일이 검색 조건과 일치하는지 확인
-   * @param file 확인할 파일
+   * 카드가 검색 조건과 일치하는지 확인
+   * @param card 확인할 카드
    * @returns 일치 여부
    */
-  async match(file: TFile): Promise<boolean> {
+  async match(card: ICard): Promise<boolean> {
     if (!this.query) return true;
     
-    // 파일 경로에서 폴더 부분만 추출
-    const folderPath = file.path.substring(0, file.path.lastIndexOf('/'));
-    return this.matches(folderPath);
+    try {
+      // 카드 경로에서 폴더 부분만 추출
+      if (card.path) {
+        const folderPath = card.path.substring(0, card.path.lastIndexOf('/'));
+        return this.matches(folderPath);
+      }
+      
+      // 카드에 file 속성이 있고 TFile 인스턴스인 경우 파일 경로에서 폴더 추출
+      if (card.file && card.file instanceof TFile) {
+        const folderPath = card.file.path.substring(0, card.file.path.lastIndexOf('/'));
+        return this.matches(folderPath);
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`[FolderSearch] 카드 폴더 검색 오류:`, error);
+      return false;
+    }
   }
   
   /**

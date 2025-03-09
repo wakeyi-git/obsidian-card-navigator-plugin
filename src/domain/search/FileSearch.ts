@@ -3,10 +3,10 @@ import { ICard } from '../card/Card';
 import { ISearch, SearchType } from './Search';
 
 /**
- * 파일명 검색 클래스
- * 파일명을 기준으로 검색합니다.
+ * 파일 검색 클래스
+ * 파일 경로를 기준으로 검색합니다.
  */
-export class FilenameSearch implements ISearch {
+export class FileSearch implements ISearch {
   private app: App;
   private query: string;
   private caseSensitive: boolean;
@@ -18,7 +18,7 @@ export class FilenameSearch implements ISearch {
   }
 
   getType(): SearchType {
-    return 'filename';
+    return 'file';
   }
 
   getQuery(): string {
@@ -40,12 +40,12 @@ export class FilenameSearch implements ISearch {
   async match(card: ICard): Promise<boolean> {
     if (!this.query) return true;
     
-    const filename = card.title || '';
+    const path = card.path || '';
     
     if (this.caseSensitive) {
-      return filename.includes(this.query);
+      return path.includes(this.query);
     } else {
-      return filename.toLowerCase().includes(this.query.toLowerCase());
+      return path.toLowerCase().includes(this.query.toLowerCase());
     }
   }
 

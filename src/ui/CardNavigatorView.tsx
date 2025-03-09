@@ -15,6 +15,7 @@ import CardNavigatorPlugin from '../main';
  */
 export class CardNavigatorView extends ItemView {
   private reactComponent: Root | null = null;
+  private service: ICardNavigatorService | null = null;
   
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -41,16 +42,21 @@ export class CardNavigatorView extends ItemView {
       containerEl.addClass('card-navigator-container');
       
       // 서비스 생성
-      const service = await createCardNavigatorService(this.app);
+      this.service = await createCardNavigatorService(this.app);
       
       // React 컴포넌트 렌더링
       const rootEl = containerEl.createDiv('card-navigator-root');
       this.reactComponent = createRoot(rootEl);
-      this.reactComponent.render(
-        <CardNavigatorComponent service={service} />
-      );
+      this.renderComponent();
       
-      console.log('카드 네비게이터 뷰 열림');
+      // 파일 열림 이벤트 리스너 등록
+      this.registerEvent(
+        this.app.workspace.on('file-open', async () => {
+          // 서비스 업데이트 후 컴포넌트 다시 렌더링
+          await this.updateService();
+          this.renderComponent();
+        })
+      );
     } catch (error) {
       console.error('카드 네비게이터 뷰 초기화 오류:', error);
       this.handleRenderError(containerEl, error);
@@ -79,24 +85,33 @@ export class CardNavigatorView extends ItemView {
     });
     
     retryButton.addEventListener('click', () => {
-      this.reRenderComponent(container as HTMLElement);
+      this.reInitialize();
     });
   }
   
-  private reRenderComponent(rootEl: HTMLElement) {
-    rootEl.empty();
+  private renderComponent() {
+    if (!this.reactComponent || !this.service) return;
+    
+    // 컴포넌트 렌더링
+    this.reactComponent.render(
+      <CardNavigatorComponent service={this.service} />
+    );
+  }
+  
+  private reInitialize() {
+    const { containerEl } = this;
+    containerEl.empty();
     
     createCardNavigatorService(this.app)
       .then(service => {
-        rootEl.empty();
+        this.service = service;
+        const rootEl = containerEl.createDiv('card-navigator-root');
         this.reactComponent = createRoot(rootEl);
-        this.reactComponent.render(
-          <CardNavigatorComponent service={service} />
-        );
+        this.renderComponent();
       })
       .catch(error => {
         console.error('카드 네비게이터 재시도 오류:', error);
-        this.handleRenderError(rootEl, error);
+        this.handleRenderError(containerEl, error);
       });
   }
   
@@ -109,66 +124,76 @@ export class CardNavigatorView extends ItemView {
     
     console.log('카드 네비게이터 뷰 닫힘');
   }
+  
+  // 서비스 인스턴스 업데이트 메서드
+  private async updateService() {
+    try {
+      // 서비스 다시 생성
+      this.service = await createCardNavigatorService(this.app);
+    } catch (error) {
+      console.error('[CardNavigatorView] 서비스 업데이트 오류:', error);
+    }
+  }
 }
 
 // 캐싱된 서비스 인스턴스
 let cachedNavigatorService: ICardNavigatorService | null = null;
-// 서비스 초기화 Promise
-let serviceInitializationPromise: Promise<ICardNavigatorService> | null = null;
 
 /**
  * 카드 네비게이터 서비스 생성 함수
- * 싱글톤 패턴으로 구현되어 있어 한 번 생성된 서비스는 재사용됩니다.
  * @param app Obsidian App 인스턴스
  * @returns 카드 네비게이터 서비스
  */
 export const createCardNavigatorService = async (app: App): Promise<ICardNavigatorService> => {
-  const initTimerId = TimerUtil.startTimer('[성능] CardNavigatorService 생성 시간');
-  
-  // 이미 초기화된 서비스가 있으면 재사용
-  if (cachedNavigatorService) {
-    console.log(`[CardNavigatorView] 캐시된 서비스 인스턴스 재사용`);
-    TimerUtil.endTimer(initTimerId);
-    return cachedNavigatorService;
-  }
-  
-  // 초기화 중인 서비스가 있으면 해당 Promise 반환
-  if (serviceInitializationPromise) {
-    console.log(`[CardNavigatorView] 서비스 초기화 중... 기존 초기화 작업 대기`);
-    return serviceInitializationPromise;
-  }
-  
-  // 새로운 초기화 작업 시작
-  serviceInitializationPromise = (async () => {
-    try {
-      // 인프라스트럭처 레이어 초기화
-      const obsidianAdapter = new ObsidianAdapter(app);
-      const cardFactory = new CardFactory(obsidianAdapter);
-      const cardRepository = new CardRepositoryImpl(app);
-      
-      // 서비스 레이어 초기화
-      console.log(`[CardNavigatorView] 서비스 초기화 시작`);
-      
-      // 플러그인 인스턴스 가져오기
-      const plugin = (app as any).plugins.plugins['card-navigator'] as CardNavigatorPlugin;
-      
-      const navigatorService = new CardNavigatorService(app, cardRepository, plugin);
-      
-      await navigatorService.initialize();
-      
-      console.log(`[CardNavigatorView] 서비스 초기화 완료`);
-      
-      // 서비스 인스턴스 캐싱
-      cachedNavigatorService = navigatorService;
-      
-      TimerUtil.endTimer(initTimerId);
-      return navigatorService;
-    } catch (error) {
-      console.error(`[CardNavigatorView] 서비스 초기화 실패:`, error);
-      serviceInitializationPromise = null;
-      throw error;
+  try {
+    // 캐시된 서비스 인스턴스가 있으면 재사용
+    if (cachedNavigatorService) {
+      return cachedNavigatorService;
     }
-  })();
-  
-  return serviceInitializationPromise;
+    
+    // 플러그인 인스턴스 가져오기 시도
+    // @ts-ignore - app.plugins.plugins는 타입 정의에 없을 수 있음
+    const pluginInstance = app.plugins.plugins['card-navigator'];
+    
+    if (pluginInstance && pluginInstance.getCardNavigatorService && pluginInstance.getCardNavigatorService()) {
+      const pluginService = pluginInstance.getCardNavigatorService();
+      if (pluginService) {
+        // 타입 단언을 사용하여 null이 아님을 명시
+        cachedNavigatorService = pluginService as ICardNavigatorService;
+        return cachedNavigatorService;
+      }
+    }
+    
+    // 새 서비스 인스턴스 생성
+    const obsidianAdapter = new ObsidianAdapter(app);
+    const cardFactory = new CardFactory(obsidianAdapter);
+    const cardRepository = new CardRepositoryImpl(obsidianAdapter, cardFactory);
+    
+    // 플러그인 인스턴스를 찾지 못한 경우 임시 플러그인 객체 생성
+    const plugin = pluginInstance || {
+      settings: {
+        defaultCardSetSource: 'folder',
+        defaultLayout: 'grid',
+        cardWidth: 300,
+        cardHeight: 200,
+        priorityTags: [],
+        priorityFolders: [],
+        includeSubfolders: true,
+        defaultFolderCardSet: '',
+        defaultTagCardSet: '',
+        isCardSetFixed: false
+      },
+      saveSettings: async () => {}
+    };
+    
+    const service = new CardNavigatorService(app, cardRepository, plugin);
+    await service.initialize();
+    
+    // 캐시에 저장
+    cachedNavigatorService = service;
+    return service;
+  } catch (error) {
+    console.error('서비스 생성 오류:', error);
+    throw error;
+  }
 }; 

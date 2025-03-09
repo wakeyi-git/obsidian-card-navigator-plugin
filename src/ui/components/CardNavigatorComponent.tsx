@@ -113,6 +113,21 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
     setIsSearchCardSetSource(currentCardSetSource === 'search');
   }, [currentCardSetSource]);
   
+  // 카드 세트가 변경될 때만 카드 다시 로드
+  // 향후 정렬 기능이 추가되면 이 부분을 currentCardList 상태로 대체하는 것이 좋음
+  useEffect(() => {
+    if (service && currentCardSet !== null) {
+      console.log('[CardNavigatorView] 카드 세트 변경으로 카드 다시 로드:', currentCardSet);
+      loadCards();
+    }
+  }, [currentCardSet, service, loadCards]);
+  
+  // 로깅용 useEffect
+  useEffect(() => {
+    console.log('[CardNavigatorView] currentCardSet 상태 변경:', currentCardSet);
+    console.log('[CardNavigatorView] Toolbar 렌더링 시 전달되는 cardSet:', currentCardSet);
+  }, [currentCardSet]);
+  
   // 컴포넌트 렌더링 성능 측정
   useEffect(() => {
     setRenderCount(prev => prev + 1);
@@ -226,12 +241,6 @@ export const CardNavigatorComponent: React.FC<CardNavigatorComponentProps> = ({ 
       document.head.removeChild(style);
     };
   }, []);
-  
-  // currentCardSet 상태가 변경될 때 로그 출력
-  useEffect(() => {
-    console.log('[CardNavigatorView] currentCardSet 상태 변경:', currentCardSet);
-    console.log('[CardNavigatorView] Toolbar 렌더링 시 전달되는 cardSet:', currentCardSet);
-  }, [currentCardSet]);
   
   // 서비스가 초기화되면 카드 로드 및 폴더/태그 목록 가져오기
   useEffect(() => {

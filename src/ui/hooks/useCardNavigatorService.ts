@@ -74,8 +74,13 @@ export const useCardNavigatorService = (service: ICardNavigatorService): UseCard
         setLayoutState(settings.defaultLayout);
         setCaseSensitiveState(settings.tagCaseSensitive || false);
         
-        if (settings.isCardSetFixed && settings.defaultCardSet) {
-          setCurrentCardSetState(settings.defaultCardSet);
+        if (settings.isCardSetFixed) {
+          // 고정된 카드셋 설정
+          if (settings.defaultCardSetSource === 'folder' && settings.defaultFolderCardSet) {
+            setCurrentCardSetState(settings.defaultFolderCardSet);
+          } else if (settings.defaultCardSetSource === 'tag' && settings.defaultTagCardSet) {
+            setCurrentCardSetState(settings.defaultTagCardSet);
+          }
         }
         
         // 정렬 설정 가져오기
@@ -91,11 +96,7 @@ export const useCardNavigatorService = (service: ICardNavigatorService): UseCard
       }
     };
     
-    loadSettings();
-  }, [service]);
-  
-  // 현재 카드 세트 정보 업데이트
-  useEffect(() => {
+    // 현재 카드 세트 정보 업데이트 함수
     const updateCurrentCardSet = () => {
       try {
         if (service) {
@@ -119,20 +120,55 @@ export const useCardNavigatorService = (service: ICardNavigatorService): UseCard
           }
         }
       } catch (error) {
-        console.error('[useCardNavigatorService] 현재 카드 세트 정보 업데이트 중 오류 발생:', error);
+        console.error('[useCardNavigatorService] 현재 카드 세트 업데이트 중 오류 발생:', error);
       }
     };
     
-    // 초기 업데이트
-    updateCurrentCardSet();
+    // 초기 로드
+    loadSettings();
     
-    // 500ms마다 업데이트 (성능 최적화)
-    const intervalId = setInterval(updateCurrentCardSet, 500);
-    
-    return () => {
-      clearInterval(intervalId);
+    // 설정 변경 감지를 위한 이벤트 리스너 등록
+    const settingsChangeHandler = (changedSettings?: any) => {
+      console.log('[useCardNavigatorService] 설정 변경 감지, 설정 다시 로드', changedSettings);
+      
+      // 변경된 설정이 있는 경우 해당 설정만 업데이트
+      if (changedSettings) {
+        if (changedSettings.defaultCardSetSource !== undefined) {
+          setCurrentCardSetSourceState(changedSettings.defaultCardSetSource);
+        }
+        
+        if (changedSettings.isCardSetFixed !== undefined) {
+          setIsCardSetFixedState(changedSettings.isCardSetFixed);
+        }
+        
+        if (changedSettings.includeSubfolders !== undefined) {
+          setIncludeSubfoldersState(changedSettings.includeSubfolders);
+        }
+        
+        if (changedSettings.defaultLayout !== undefined) {
+          setLayoutState(changedSettings.defaultLayout);
+        }
+        
+        if (changedSettings.tagCaseSensitive !== undefined) {
+          setCaseSensitiveState(changedSettings.tagCaseSensitive);
+        }
+        
+        // 카드셋 업데이트
+        updateCurrentCardSet();
+      } else {
+        // 변경된 설정이 없는 경우 전체 설정 다시 로드
+        loadSettings();
+      }
     };
-  }, [service, currentCardSetSource, currentCardSet, isCardSetFixed]);
+    
+    // 이벤트 리스너 등록
+    service.getApp().workspace.on('card-navigator:settings-changed', settingsChangeHandler);
+    
+    // 컴포넌트 언마운트 시 이벤트 리스너 제거
+    return () => {
+      service.getApp().workspace.off('card-navigator:settings-changed', settingsChangeHandler);
+    };
+  }, [service, currentCardSet, isCardSetFixed]);
   
   // 모드 변경 핸들러
   const setCurrentCardSetSource = useCallback(async (cardSetSource: CardSetSourceType) => {
@@ -312,8 +348,13 @@ export const useCardNavigatorService = (service: ICardNavigatorService): UseCard
       setLayoutState(settings.defaultLayout);
       setCaseSensitiveState(settings.tagCaseSensitive || false);
       
-      if (settings.isCardSetFixed && settings.defaultCardSet) {
-        setCurrentCardSetState(settings.defaultCardSet);
+      if (settings.isCardSetFixed) {
+        // 고정된 카드셋 설정
+        if (settings.defaultCardSetSource === 'folder' && settings.defaultFolderCardSet) {
+          setCurrentCardSetState(settings.defaultFolderCardSet);
+        } else if (settings.defaultCardSetSource === 'tag' && settings.defaultTagCardSet) {
+          setCurrentCardSetState(settings.defaultTagCardSet);
+        }
       }
       
       // 정렬 설정 가져오기

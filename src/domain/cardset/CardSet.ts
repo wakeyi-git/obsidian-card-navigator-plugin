@@ -11,6 +11,22 @@ export type CardSetSourceType = 'folder' | 'tag' | 'search';
 export type CardSetType = 'active' | 'fixed';
 
 /**
+ * 카드셋 상태 인터페이스
+ * 카드셋의 현재 상태를 나타내는 인터페이스입니다.
+ */
+export interface ICardSetState {
+  /**
+   * 현재 선택된 카드셋
+   */
+  currentCardSet: string | null;
+  
+  /**
+   * 카드셋 고정 여부
+   */
+  isFixed: boolean;
+}
+
+/**
  * 카드셋 소스 인터페이스
  * 폴더 소스, 태그 소스, 검색 소스의 공통 인터페이스를 정의합니다.
  * 카드셋 소스는 카드셋을 구성하는 방식을 나타냅니다.
@@ -68,6 +84,18 @@ export interface ICardSetSource {
    * 설정 초기화
    */
   reset(): void;
+  
+  /**
+   * 현재 카드셋 상태 가져오기
+   * @returns 카드셋 상태 객체
+   */
+  getState(): ICardSetState;
+  
+  /**
+   * 카드셋 상태 설정하기
+   * @param state 카드셋 상태 객체
+   */
+  setState(state: ICardSetState): void;
 }
 
 /**
@@ -99,6 +127,26 @@ export abstract class CardSetSource implements ICardSetSource {
    */
   isCardSetFixed(): boolean {
     return this.isFixed;
+  }
+  
+  /**
+   * 카드셋 상태 가져오기
+   * @returns 카드셋 상태 객체
+   */
+  getState(): ICardSetState {
+    return {
+      currentCardSet: this.currentCardSet,
+      isFixed: this.isFixed
+    };
+  }
+  
+  /**
+   * 카드셋 상태 설정하기
+   * @param state 카드셋 상태 객체
+   */
+  setState(state: ICardSetState): void {
+    this.currentCardSet = state.currentCardSet;
+    this.isFixed = state.isFixed;
   }
   
   /**

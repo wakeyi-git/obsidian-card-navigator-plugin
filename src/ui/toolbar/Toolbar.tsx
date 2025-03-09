@@ -242,64 +242,57 @@ const Toolbar: React.FC<IToolbarProps> = ({
    */
   const openCardSetModal = () => {
     console.log(`[Toolbar] 카드셋 선택 모달 열기: 현재 모드=${currentCardSetSource}`);
-    console.log(`[Toolbar] 사용 가능한 카드셋:`, cardSets);
+    console.log(`[Toolbar] 사용 가능한 카드셋:`, availableCardSets);
     
     // App 객체 가져오기 (props에서 직접 또는 service에서)
     const obsidianApp = app || (service ? service.getApp() : null);
     
     if (!obsidianApp) {
-      console.error(`[Toolbar] App 객체가 없습니다. service 또는 app props가 제대로 전달되었는지 확인하세요.`);
+      console.error('[Toolbar] App 객체를 가져올 수 없습니다.');
       return;
     }
     
+    // 현재 카드셋 가져오기
+    let currentCardSet = '';
+    if (service) {
+      const cardSetSourceService = service.getCardSetSourceService();
+      currentCardSet = cardSetSourceService.getCurrentCardSet() || '';
+      console.log(`[Toolbar] 현재 카드셋: ${currentCardSet}`);
+    }
+    
+    // 모드에 따라 다른 모달 열기
     if (currentCardSetSource === 'folder') {
-      // 폴더 목록 확인
-      const folders = cardSets.folders || [];
-      console.log(`[Toolbar] 폴더 모드: 사용 가능한 폴더 ${folders.length}개`);
-      
-      // 폴더 선택 모달 열기
+      // 폴더 선택 모달
       const modal = new FolderSuggestModal(
         obsidianApp,
-        folders,
-        (folder, isFixed) => {
-          console.log(`[Toolbar] 폴더 선택: ${folder}, 고정=${isFixed}`);
-          onCardSetSelect(folder, isFixed);
+        availableCardSets,
+        (folder) => {
+          console.log(`[Toolbar] 폴더 선택: ${folder}`);
+          onCardSetSelect(folder, isCardSetFixed);
         }
       );
       
       // 현재 폴더 설정
-      if (cardSet) {
-        modal.setCurrentFolder(cardSet);
-      }
+      modal.setCurrentFolder(currentCardSet);
       
+      // 모달 열기
       modal.open();
     } else if (currentCardSetSource === 'tag') {
-      // 태그 목록 확인
-      const tags = cardSets.tags || [];
-      console.log(`[Toolbar] 태그 모드: 사용 가능한 태그 ${tags.length}개`);
-      
-      // 태그 선택 모달 열기
+      // 태그 선택 모달
       const modal = new TagSuggestModal(
         obsidianApp,
-        tags,
+        availableCardSets,
         (tag, isFixed) => {
-          console.log(`[Toolbar] 태그 선택: ${tag}, 고정=${isFixed}`);
-          onCardSetSelect(tag, isFixed);
+          console.log(`[Toolbar] 태그 선택: ${tag}, 고정: ${isFixed}`);
+          onCardSetSelect(tag, isCardSetFixed);
         }
       );
       
       // 현재 태그 설정
-      if (cardSet) {
-        modal.setCurrentTag(cardSet);
-      }
+      modal.setCurrentTag(currentCardSet);
       
+      // 모달 열기
       modal.open();
-    } else if (currentCardSetSource === 'search') {
-      // 검색 모드에서는 검색바에 포커스
-      const searchInput = document.querySelector('.card-navigator-search-input') as HTMLInputElement;
-      if (searchInput) {
-        searchInput.focus();
-      }
     }
   };
 
@@ -308,69 +301,80 @@ const Toolbar: React.FC<IToolbarProps> = ({
    * @param newCardSetSource 새 모드
    */
   const handleCardSetSourceChange = (newCardSetSource: CardSetSourceType) => {
-    console.log(`[Toolbar] 모드 변경: ${currentCardSetSource} -> ${newCardSetSource}`);
+    console.log(`[Toolbar] 카드셋 소스 변경: ${currentCardSetSource} -> ${newCardSetSource}`);
     
-    // 검색 모드에서 다른 모드로 전환하는 경우 검색 모드 종료
-    if (currentCardSetSource === 'search' && newCardSetSource !== 'search') {
-      const searchService = service?.getSearchService();
-      if (searchService) {
-        searchService.exitSearchCardSetSource();
+    try {
+      // 상태 업데이트
+      if (service) {
+        // 서비스를 통해 설정 업데이트
+        service.updateSettings({
+          defaultCardSetSource: newCardSetSource
+        });
       }
+      
+      // 콜백 호출
+      onCardSetSourceChange(newCardSetSource);
+    } catch (error) {
+      console.error('카드셋 소스 변경 중 오류 발생:', error);
     }
-    
-    // 모드 변경 콜백 호출
-    onCardSetSourceChange(newCardSetSource);
   };
 
   /**
    * 카드셋 고정 상태 토글
    */
   const handleCardSetFixedToggle = async () => {
-    console.log(`[Toolbar] 카드셋 고정 상태 토글: 현재=${isCardSetFixed}`);
+    console.log(`[Toolbar] 카드셋 고정 여부 토글: ${!isCardSetFixed}`);
     
-    // 카드셋이 없는 경우 모달 열기
-    if (!cardSet) {
-      openCardSetModal();
-      return;
-    }
-    
-    // 고정 상태 토글
-    const newFixedState = !isCardSetFixed;
-    
-    // 카드셋 선택 콜백 호출
-    onCardSetSelect(cardSet, newFixedState);
-    
-    // 현재 모드가 폴더 모드이고 하위 폴더 포함 옵션이 있는 경우 알림 표시
-    if (currentCardSetSource === 'folder' && includeSubfolders) {
-      const notice = new Notice(
-        `${newFixedState ? '고정 폴더' : '활성 폴더'} 모드로 전환되었습니다.${newFixedState ? '\n다른 폴더의 노트를 열어도 카드 목록이 변경되지 않습니다.' : ''}`,
-        3000
-      );
-    } else if (currentCardSetSource === 'tag') {
-      const notice = new Notice(
-        `${newFixedState ? '고정 태그' : '활성 태그'} 모드로 전환되었습니다.${newFixedState ? '\n다른 태그의 노트를 열어도 카드 목록이 변경되지 않습니다.' : ''}`,
-        3000
-      );
+    try {
+      // 상태 업데이트
+      setIsCardSetFixed(!isCardSetFixed);
+      
+      // 서비스를 통해 설정 업데이트
+      if (service) {
+        await service.updateSettings({
+          isCardSetFixed: !isCardSetFixed
+        });
+        
+        // 현재 카드셋이 있는 경우 카드셋 선택 함수 호출
+        if (cardSet) {
+          // 카드셋 소스 서비스를 통해 카드셋 선택 상태 업데이트
+          await service.selectCardSet(cardSet, !isCardSetFixed);
+          
+          // 콜백 호출
+          onCardSetSelect(cardSet, !isCardSetFixed);
+        }
+      }
+    } catch (error) {
+      console.error('카드셋 고정 여부 변경 중 오류 발생:', error);
+      // 오류 발생 시 상태 복원
+      setIsCardSetFixed(isCardSetFixed);
     }
   };
 
   /**
-   * 하위 폴더 포함 옵션 토글
+   * 하위 폴더 포함 여부 토글
    */
   const handleIncludeSubfoldersToggle = () => {
-    console.log(`[Toolbar] 하위 폴더 포함 옵션 토글: 현재=${includeSubfolders}`);
+    console.log(`[Toolbar] 하위 폴더 포함 여부 토글: ${!includeSubfolders}`);
     
-    // 하위 폴더 포함 옵션 토글
-    const newIncludeState = !includeSubfolders;
-    
-    // 콜백 호출
-    onIncludeSubfoldersChange(newIncludeState);
-    
-    // 알림 표시
-    const notice = new Notice(
-      `하위 폴더 ${newIncludeState ? '포함' : '제외'} 모드로 전환되었습니다.`,
-      3000
-    );
+    try {
+      // 상태 업데이트
+      setIncludeSubfolders(!includeSubfolders);
+      
+      // 서비스를 통해 설정 업데이트
+      if (service) {
+        service.updateSettings({
+          includeSubfolders: !includeSubfolders
+        });
+      }
+      
+      // 콜백 호출
+      onIncludeSubfoldersChange(!includeSubfolders);
+    } catch (error) {
+      console.error('하위 폴더 포함 여부 변경 중 오류 발생:', error);
+      // 오류 발생 시 상태 복원
+      setIncludeSubfolders(includeSubfolders);
+    }
   };
 
   // 카드셋 표시 이름 가져오기
@@ -393,6 +397,8 @@ const Toolbar: React.FC<IToolbarProps> = ({
         
         const currentCardSet = cardSetSourceService.getCurrentCardSet();
         const isFixed = cardSetSourceService.isCardSetFixed();
+        
+        console.log(`[Toolbar] 현재 카드셋 정보: ${currentCardSet}, 소스: ${currentCardSetSource}, 고정: ${isFixed}`);
         
         // 현재 카드 세트가 있으면 사용
         if (currentCardSet) {
@@ -513,7 +519,7 @@ const Toolbar: React.FC<IToolbarProps> = ({
               onClick={handleIncludeSubfoldersToggle}
               title={includeSubfolders ? "하위 폴더 포함" : "하위 폴더 제외"}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-folder-tree">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-folder-tree">
                 <path d="M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/>
                 <path d="M20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.9a1 1 0 0 1-.88-.55l-.42-.85a1 1 0 0 0-.92-.6H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/>
                 <path d="M3 5a2 2 0 0 0 2 2h3"/>

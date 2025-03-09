@@ -19,33 +19,43 @@ export class TagSearch extends Search {
    * @param cards 검색할 카드 목록
    * @returns 검색 결과 카드 목록
    */
-  search(cards: ICard[]): ICard[] {
+  async search(cards: ICard[]): Promise<ICard[]> {
     if (!this.query) return cards;
     
-    return cards.filter(card => {
-      if (!card.tags || card.tags.length === 0) return false;
-      
-      return card.tags.some(tag => this.matches(tag));
-    });
+    const results: ICard[] = [];
+    for (const card of cards) {
+      if (await this.match(card)) {
+        results.push(card);
+      }
+    }
+    return results;
   }
   
   /**
-   * 파일이 검색 조건과 일치하는지 확인
-   * @param file 확인할 파일
+   * 카드가 검색 조건과 일치하는지 확인
+   * @param card 확인할 카드
    * @returns 일치 여부
    */
-  async match(file: TFile): Promise<boolean> {
+  async match(card: ICard): Promise<boolean> {
     if (!this.query) return true;
     
     try {
-      // 파일의 캐시된 메타데이터에서 태그 가져오기
-      const cache = this.app.metadataCache.getFileCache(file);
-      if (!cache || !cache.tags || cache.tags.length === 0) return false;
+      // 카드에 태그가 있는 경우 직접 확인
+      if (card.tags && card.tags.length > 0) {
+        return card.tags.some(tag => this.matches(tag));
+      }
       
-      // 태그 목록에서 검색어와 일치하는 태그 찾기
-      return cache.tags.some(tagCache => this.matches(tagCache.tag));
+      // 카드에 file 속성이 있고 TFile 인스턴스인 경우 메타데이터에서 태그 확인
+      if (card.file && card.file instanceof TFile) {
+        const cache = this.app.metadataCache.getFileCache(card.file);
+        if (!cache || !cache.tags || cache.tags.length === 0) return false;
+        
+        return cache.tags.some(tagCache => this.matches(tagCache.tag));
+      }
+      
+      return false;
     } catch (error) {
-      console.error(`[TagSearch] 파일 태그 검색 오류 (${file.path}):`, error);
+      console.error(`[TagSearch] 카드 태그 검색 오류:`, error);
       return false;
     }
   }

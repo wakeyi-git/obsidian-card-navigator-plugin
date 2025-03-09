@@ -62,53 +62,18 @@ export class RegexSearch extends Search {
    * @param cards 검색할 카드 목록
    * @returns 검색 결과 카드 목록
    */
-  search(cards: ICard[]): ICard[] {
+  async search(cards: ICard[]): Promise<ICard[]> {
     if (!this.regex) {
       return cards;
     }
 
-    return cards.filter(card => {
-      // 파일명 검색
-      if (this.regex!.test(card.title)) {
-        this.regex!.lastIndex = 0; // 정규식 인덱스 초기화
-        return true;
+    const results: ICard[] = [];
+    for (const card of cards) {
+      if (await this.match(card)) {
+        results.push(card);
       }
-
-      // 내용 검색
-      if (card.content && this.regex!.test(card.content)) {
-        this.regex!.lastIndex = 0;
-        return true;
-      }
-
-      // 태그 검색
-      if (card.tags && card.tags.length > 0) {
-        for (const tag of card.tags) {
-          if (this.regex!.test(tag)) {
-            this.regex!.lastIndex = 0;
-            return true;
-          }
-        }
-      }
-
-      // 경로 검색
-      if (this.regex!.test(card.path)) {
-        this.regex!.lastIndex = 0;
-        return true;
-      }
-
-      // 프론트매터 검색
-      if (card.frontmatter) {
-        for (const key in card.frontmatter) {
-          const value = card.frontmatter[key];
-          if (value !== null && value !== undefined && this.regex!.test(String(value))) {
-            this.regex!.lastIndex = 0;
-            return true;
-          }
-        }
-      }
-
-      return false;
-    });
+    }
+    return results;
   }
 
   /**
@@ -131,21 +96,68 @@ export class RegexSearch extends Search {
   }
 
   /**
-   * 파일이 검색 조건과 일치하는지 확인
-   * @param file 확인할 파일
+   * 카드가 검색 조건과 일치하는지 확인
+   * @param card 확인할 카드
    * @returns 일치 여부
    */
-  async match(file: TFile): Promise<boolean> {
+  async match(card: ICard): Promise<boolean> {
     if (!this.regex) return true;
     
     try {
-      // 파일 내용 읽기
-      const content = await this.app.vault.read(file);
+      // 정규식 인덱스 초기화
+      this.regex.lastIndex = 0;
       
-      // 정규식 검색 수행
-      return this.regex.test(content);
+      // 파일명 검색
+      if (card.title && this.regex.test(card.title)) {
+        this.regex.lastIndex = 0;
+        return true;
+      }
+      
+      // 내용 검색
+      if (card.content) {
+        if (this.regex.test(card.content)) {
+          this.regex.lastIndex = 0;
+          return true;
+        }
+      } else if (card.file && card.file instanceof TFile) {
+        // 파일 내용 읽기
+        const content = await this.app.vault.read(card.file);
+        if (this.regex.test(content)) {
+          this.regex.lastIndex = 0;
+          return true;
+        }
+      }
+      
+      // 태그 검색
+      if (card.tags && card.tags.length > 0) {
+        for (const tag of card.tags) {
+          if (this.regex.test(tag)) {
+            this.regex.lastIndex = 0;
+            return true;
+          }
+        }
+      }
+      
+      // 경로 검색
+      if (card.path && this.regex.test(card.path)) {
+        this.regex.lastIndex = 0;
+        return true;
+      }
+      
+      // 프론트매터 검색
+      if (card.frontmatter) {
+        for (const key in card.frontmatter) {
+          const value = card.frontmatter[key];
+          if (value !== null && value !== undefined && this.regex.test(String(value))) {
+            this.regex.lastIndex = 0;
+            return true;
+          }
+        }
+      }
+      
+      return false;
     } catch (error) {
-      console.error(`[RegexSearch] 파일 정규식 검색 오류 (${file.path}):`, error);
+      console.error(`[RegexSearch] 카드 정규식 검색 오류:`, error);
       return false;
     }
   }

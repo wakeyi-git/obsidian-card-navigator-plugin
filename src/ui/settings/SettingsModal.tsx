@@ -59,7 +59,17 @@ const SettingsModal: React.FC<ISettingsModalProps> = ({
   const handleSave = async () => {
     if (plugin) {
       try {
+        // 플러그인 설정 저장
         await plugin.saveSettings();
+        
+        // CardNavigatorService 업데이트
+        const service = plugin.getCardNavigatorService();
+        if (service) {
+          // 전체 설정을 업데이트하여 모든 서비스에 변경 사항 알림
+          await service.updateSettings(plugin.settings);
+        }
+        
+        // 모달 닫기
         onClose();
       } catch (error) {
         console.error('설정 저장 실패:', error);

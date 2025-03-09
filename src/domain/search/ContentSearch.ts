@@ -19,28 +19,41 @@ export class ContentSearch extends Search {
    * @param cards 검색할 카드 목록
    * @returns 검색 결과 카드 목록
    */
-  search(cards: ICard[]): ICard[] {
+  async search(cards: ICard[]): Promise<ICard[]> {
     if (!this.query) return cards;
     
-    return cards.filter(card => {
-      const content = card.content || '';
-      return this.matches(content);
-    });
+    const results: ICard[] = [];
+    for (const card of cards) {
+      if (await this.match(card)) {
+        results.push(card);
+      }
+    }
+    return results;
   }
   
   /**
-   * 파일이 검색 조건과 일치하는지 확인
-   * @param file 확인할 파일
+   * 카드가 검색 조건과 일치하는지 확인
+   * @param card 확인할 카드
    * @returns 일치 여부
    */
-  async match(file: TFile): Promise<boolean> {
+  async match(card: ICard): Promise<boolean> {
     if (!this.query) return true;
     
     try {
-      const content = await this.app.vault.read(file);
-      return this.matches(content);
+      // 카드의 내용이 이미 있는 경우 사용
+      if (card.content) {
+        return this.matches(card.content);
+      }
+      
+      // 카드에 file 속성이 있고 TFile 인스턴스인 경우 파일 내용 읽기
+      if (card.file && card.file instanceof TFile) {
+        const content = await this.app.vault.read(card.file);
+        return this.matches(content);
+      }
+      
+      return false;
     } catch (error) {
-      console.error(`[ContentSearch] 파일 읽기 오류 (${file.path}):`, error);
+      console.error(`[ContentSearch] 카드 내용 읽기 오류:`, error);
       return false;
     }
   }

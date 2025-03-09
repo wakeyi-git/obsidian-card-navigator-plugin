@@ -1,199 +1,73 @@
 import { App, TFile } from 'obsidian';
-import { ICardSetSource, CardSetSourceType, CardSetType } from '../domain/cardset/CardSet';
+import { ICard } from '../domain/card/Card';
+import { CardSetSourceType, ICardSetSource, ICardSetState } from '../domain/cardset/CardSet';
 import { FolderCardSetSource } from '../domain/cardset/FolderCardSetSource';
 import { TagCardSetSource } from '../domain/cardset/TagCardSetSource';
-import { SearchType, SearchScope } from '../domain/search/Search';
-import { ICard } from '../domain/card/Card';
+import { SearchType } from '../domain/search/Search';
 import { ICardService } from './CardService';
 import { ISearchService } from './SearchService';
+import { EventType, EventListener } from '../domain/events/EventTypes';
+import { TypedEventEmitter } from '../infrastructure/EventEmitter';
+import { 
+  ICardSetService,
+  ICardSetSourceManager, 
+  ICardSetSelectionManager, 
+  ICardSetFilterManager, 
+  ICardSetFileManager, 
+  ICardSetStateManager, 
+  ICardSetSearchManager, 
+  ICardSetEventManager 
+} from '../domain/cardset/CardSetInterfaces';
 
 /**
- * 카드셋 서비스 인터페이스
- * 카드셋 관리를 위한 인터페이스입니다.
+ * 카드셋 서비스 이벤트 타입
  */
-export interface ICardSetService {
-  /**
-   * 현재 카드셋 소스 가져오기
-   * @returns 현재 카드셋 소스
-   */
-  getCurrentSource(): ICardSetSource;
-  
-  /**
-   * 현재 카드셋 소스 타입 가져오기
-   * @returns 현재 카드셋 소스 타입
-   */
-  getCurrentSourceType(): CardSetSourceType;
-  
-  /**
-   * 카드셋 소스 변경
-   * @param sourceType 변경할 카드셋 소스 타입
-   */
-  changeSource(sourceType: CardSetSourceType): Promise<void>;
-  
-  /**
-   * 카드셋 선택
-   * @param cardSet 선택할 카드셋
-   * @param isFixed 고정 여부 (true: 지정 폴더/태그, false: 활성 폴더/태그)
-   */
-  selectCardSet(cardSet: string, isFixed?: boolean): void;
-  
-  /**
-   * 현재 선택된 카드셋 가져오기
-   * @returns 현재 선택된 카드셋
-   */
-  getCurrentCardSet(): string | null;
-  
-  /**
-   * 카드셋 고정 여부 가져오기
-   * @returns 카드셋 고정 여부
-   */
-  isCardSetFixed(): boolean;
-  
-  /**
-   * 하위 폴더 포함 여부 설정
-   * @param include 하위 폴더 포함 여부
-   */
-  setIncludeSubfolders(include: boolean): void;
-  
-  /**
-   * 하위 폴더 포함 여부 가져오기
-   * @returns 하위 폴더 포함 여부
-   */
-  getIncludeSubfolders(): boolean;
-  
-  /**
-   * 카드셋 목록 가져오기
-   * @returns 카드셋 목록
-   */
-  getCardSets(): Promise<string[]>;
-  
-  /**
-   * 필터 옵션 목록 가져오기
-   * @returns 필터 옵션 목록
-   */
-  getFilterOptions(): Promise<string[]>;
-  
-  /**
-   * 현재 카드셋 소스에 따라 파일 목록 가져오기
-   * @returns 파일 경로 목록
-   */
-  getFiles(): Promise<string[]>;
-  
-  /**
-   * 현재 카드셋 소스를 카드 목록에 적용
-   * @param cards 카드 목록
-   * @returns 필터링된 카드 목록
-   */
-  applySource(cards: ICard[]): Promise<ICard[]>;
-  
-  /**
-   * 서비스 초기화
-   */
-  initialize(): Promise<void>;
-  
-  /**
-   * 설정 초기화
-   */
-  reset(): void;
-  
-  /**
-   * 활성 파일 변경 이벤트 처리
-   * @param file 활성 파일
-   * @returns 카드셋이 변경되었는지 여부
-   */
-  handleActiveFileChange(file: TFile | null): Promise<boolean>;
-  
-  /**
-   * 현재 카드셋 소스에 따라 카드 목록을 가져옵니다.
-   * @returns 카드 목록
-   */
-  getCards(): Promise<ICard[]>;
-  
-  /**
-   * 검색 소스 설정
-   * @param query 검색 쿼리
-   * @param searchType 검색 타입
-   * @param caseSensitive 대소문자 구분 여부
-   * @param frontmatterKey 프론트매터 키 (검색 타입이 frontmatter인 경우)
-   */
-  configureSearchSource(query: string, searchType?: SearchType, caseSensitive?: boolean, frontmatterKey?: string): void;
-  
-  /**
-   * 폴더 카드셋 소스 가져오기
-   * @returns 폴더 카드셋 소스 객체
-   */
-  getFolderSource(): FolderCardSetSource;
-  
-  /**
-   * 태그 카드셋 소스 가져오기
-   * @returns 태그 카드셋 소스 객체
-   */
-  getTagSource(): TagCardSetSource;
-  
-  /**
-   * 이전 카드셋 소스 가져오기
-   * @returns 이전 카드셋 소스
-   */
-  getPreviousSourceType(): CardSetSourceType;
-  
-  /**
-   * 태그 대소문자 구분 여부 설정
-   * @param caseSensitive 대소문자 구분 여부
-   */
-  setTagCaseSensitive(caseSensitive: boolean): void;
-  
-  /**
-   * 태그 대소문자 구분 여부 확인
-   * @returns 대소문자 구분 여부
-   */
-  isTagCaseSensitive(): boolean;
-  
-  /**
-   * 현재 카드셋 소스 상태 저장
-   * 검색 소스로 전환하기 전에 현재 카드셋 소스 상태를 저장합니다.
-   */
-  saveCurrentSourceState(): void;
-  
-  /**
-   * 이전 카드셋 소스 상태 복원
-   * 검색 소스에서 이전 카드셋 소스로 돌아갑니다.
-   */
-  restorePreviousSourceState(): void;
-  
-  /**
-   * 검색 서비스 설정
-   * @param searchService 검색 서비스
-   */
-  setSearchService(searchService: ISearchService): void;
-  
-  /**
-   * 이전 카드셋 소스 타입 가져오기
-   * @returns 이전 카드셋 소스 타입
-   */
-  getPreviousCardSetSource(): CardSetSourceType;
+export type CardSetServiceEvent = 
+  | 'cardSetChanged'
+  | 'sourceChanged'
+  | 'includeSubfoldersChanged'
+  | 'tagCaseSensitiveChanged';
+
+/**
+ * 카드셋 변경 이벤트 데이터 인터페이스
+ */
+export interface CardSetChangedEventData {
+  cardSet: string | null;
+  sourceType: CardSetSourceType;
+  isFixed: boolean;
 }
 
 /**
- * 카드셋 서비스 클래스
- * 카드셋 관리를 위한 서비스 클래스입니다.
+ * 소스 변경 이벤트 데이터 인터페이스
+ */
+export interface SourceChangedEventData {
+  previousSourceType: CardSetSourceType;
+  newSourceType: CardSetSourceType;
+}
+
+// 기존 ICardSetService 인터페이스는 CardSetInterfaces.ts로 이동했으므로 여기서는 export type만 함
+export type { ICardSetService };
+
+/**
+ * 카드셋 서비스 구현 클래스
+ * 카드셋 관리를 위한 서비스입니다.
  */
 export class CardSetService implements ICardSetService {
   private app: App;
   private currentSource: ICardSetSource;
   private folderSource: FolderCardSetSource;
   private tagSource: TagCardSetSource;
-  private isFixed = false;
   private includeSubfolders = true;
   private cardService: ICardService;
-  private previousSource: { type: CardSetSourceType; state: any } | null = null;
+  private previousSource: { type: CardSetSourceType; state: ICardSetState } | null = null;
   private previousCardSet: { [key in CardSetSourceType]?: string } = {}; // 소스별 이전 카드셋 저장
-  private service: any; // 임시로 any 타입 사용
   private searchService: ISearchService | null = null;
+  protected eventEmitter: TypedEventEmitter;
   
-  constructor(app: App, cardService: ICardService, defaultSourceType: CardSetSourceType = 'folder', service?: any) {
+  constructor(app: App, cardService: ICardService, defaultSourceType: CardSetSourceType = 'folder') {
     this.app = app;
     this.cardService = cardService;
-    this.service = service;
+    this.eventEmitter = new TypedEventEmitter();
     
     // 폴더 카드셋 소스 생성
     this.folderSource = new FolderCardSetSource(app);
@@ -294,9 +168,15 @@ export class CardSetService implements ICardSetService {
     // 이전에 저장된 카드셋이 있으면 복원
     const savedCardSet = this.previousCardSet[sourceType];
     if (savedCardSet) {
-      this.currentSource.selectCardSet(savedCardSet, this.isFixed);
+      await this.selectCardSet(savedCardSet, this.isCardSetFixed());
       console.log(`[CardSetService] 이전 카드셋 복원: ${savedCardSet}`);
     }
+    
+    // 이벤트 발생
+    this.eventEmitter.emit(EventType.SOURCE_CHANGED, {
+      previousSourceType,
+      newSourceType: sourceType
+    });
     
     console.log(`[CardSetService] 카드셋 소스 변경 완료: ${previousSourceType} -> ${this.currentSource.type}`);
   }
@@ -306,16 +186,20 @@ export class CardSetService implements ICardSetService {
    * @param cardSet 선택할 카드셋
    * @param isFixed 고정 여부
    */
-  selectCardSet(cardSet: string, isFixed?: boolean): void {
+  async selectCardSet(cardSet: string, isFixed?: boolean): Promise<void> {
     console.log(`[CardSetService] 카드셋 선택: ${cardSet}, 고정 여부: ${isFixed}`);
     
     // 현재 카드셋 소스에 카드셋 설정
     this.currentSource.selectCardSet(cardSet, isFixed);
     
-    // 고정 여부 설정
-    if (isFixed !== undefined) {
-      this.isFixed = isFixed;
-    }
+    // 이벤트 발생
+    this.eventEmitter.emit(EventType.CARD_SET_CHANGED, {
+      cardSet,
+      sourceType: this.getCurrentSourceType(),
+      isFixed: this.isCardSetFixed()
+    });
+    
+    console.log(`[CardSetService] 카드셋 선택 완료: ${cardSet}`);
   }
   
   /**
@@ -347,6 +231,9 @@ export class CardSetService implements ICardSetService {
     if (this.folderSource) {
       this.folderSource.setIncludeSubfolders(include);
     }
+    
+    // 이벤트 발생
+    this.eventEmitter.emit(EventType.INCLUDE_SUBFOLDERS_CHANGED, include);
   }
   
   /**
@@ -374,7 +261,7 @@ export class CardSetService implements ICardSetService {
   }
   
   /**
-   * 파일 목록 가져오기
+   * 현재 카드셋 소스에 따라 파일 목록 가져오기
    * @returns 파일 경로 목록
    */
   async getFiles(): Promise<string[]> {
@@ -382,42 +269,28 @@ export class CardSetService implements ICardSetService {
   }
   
   /**
-   * 카드셋 소스 적용
+   * 현재 카드셋 소스를 카드 목록에 적용
    * @param cards 카드 목록
    * @returns 필터링된 카드 목록
    */
   async applySource(cards: ICard[]): Promise<ICard[]> {
-    try {
-      console.log(`[CardSetService] 카드셋 소스 적용: ${this.currentSource.type}, 카드 수: ${cards.length}`);
-      
-      if (this.currentSource.type === 'search' && this.searchService) {
-        // 검색 소스인 경우 검색 서비스를 통해 카드 필터링
-        const query = this.searchService.getQuery();
-        const searchType = this.searchService.getSearchType();
-        const caseSensitive = this.searchService.isCaseSensitive();
-        const frontmatterKey = this.searchService.getFrontmatterKey();
-        
-        // 검색 서비스를 통해 파일 목록 가져오기
-        const filePaths = await this.searchService.getFilesForSearch(
-          query, 
-          searchType, 
-          caseSensitive, 
-          frontmatterKey
-        );
-        
-        // 파일 경로로 카드 필터링
-        return cards.filter(card => filePaths.includes(card.path));
-      }
-      
-      // 현재 카드셋 소스에 따라 카드 필터링
-      const files = await this.currentSource.getFiles();
-      
-      // 파일 경로로 카드 필터링
-      return cards.filter(card => files.includes(card.path));
-    } catch (error) {
-      console.error(`[CardSetService] 카드셋 소스 적용 오류:`, error);
-      return cards;
+    // 현재 카드셋 소스에 따라 카드 목록 필터링
+    if (this.currentSource.type === 'folder') {
+      // 폴더 소스인 경우
+      const folderFiles = await this.getFiles();
+      return cards.filter(card => folderFiles.includes(card.path));
+    } else if (this.currentSource.type === 'tag') {
+      // 태그 소스인 경우
+      const tagFiles = await this.getFiles();
+      return cards.filter(card => tagFiles.includes(card.path));
+    } else if (this.currentSource.type === 'search') {
+      // 검색 소스인 경우
+      const searchFiles = await this.getFiles();
+      return cards.filter(card => searchFiles.includes(card.path));
     }
+    
+    // 기본적으로 모든 카드 반환
+    return cards;
   }
   
   /**
@@ -426,66 +299,50 @@ export class CardSetService implements ICardSetService {
    * @returns 카드셋이 변경되었는지 여부
    */
   async handleActiveFileChange(file: TFile | null): Promise<boolean> {
-    if (!file) {
-      return false;
-    }
-    
-    // 카드셋이 고정된 경우 변경하지 않음
+    // 카드셋이 고정되어 있으면 변경하지 않음
     if (this.isCardSetFixed()) {
       return false;
     }
     
-    try {
-      let newCardSet: string | null = null;
-      
-      // 현재 카드셋 소스에 따라 활성 카드셋 결정
-      if (this.currentSource.type === 'folder') {
-        // 폴더 소스인 경우 파일의 폴더 경로를 활성 카드셋으로 설정
-        const folderPath = file.parent ? file.parent.path : '';
-        newCardSet = folderPath;
-      } else if (this.currentSource.type === 'tag') {
-        // 태그 소스인 경우 파일의 모든 태그를 활성 카드셋으로 설정
-        // TagCardSetSource의 getAllTagsFromFile 메서드를 사용하여 모든 태그 가져오기
-        const tagSource = this.currentSource as TagCardSetSource;
-        const allTags = await tagSource.getAllTagsFromFile(file);
-        
-        if (allTags.length > 0) {
-          // 중복 제거 후 쉼표로 구분하여 하나의 문자열로 결합
-          newCardSet = [...new Set(allTags)].join(',');
-        } else {
-          // 태그가 없는 경우 null로 설정
-          newCardSet = null;
-        }
-      }
-      
-      // 카드셋이 변경된 경우 업데이트
-      if (newCardSet !== this.currentSource.currentCardSet) {
-        this.currentSource.selectCardSet(newCardSet, false);
-        return true;
-      }
-      
-      return false;
-    } catch (error) {
-      console.error(`[CardSetService] 활성 파일 변경 처리 오류:`, error);
+    // 파일이 없으면 처리하지 않음
+    if (!file) {
       return false;
     }
+    
+    // 현재 카드셋 소스 타입에 따라 처리
+    if (this.currentSource.type === 'folder') {
+      // 폴더 소스인 경우 파일의 폴더 경로 가져오기
+      const folderPath = file.parent ? file.parent.path : '/';
+      
+      // 현재 카드셋과 다른 경우에만 변경
+      if (this.currentSource.currentCardSet !== folderPath) {
+        await this.selectCardSet(folderPath, false);
+        return true;
+      }
+    } else if (this.currentSource.type === 'tag') {
+      // 태그 소스인 경우 파일의 태그 목록 가져오기
+      const fileCache = this.app.metadataCache.getFileCache(file);
+      if (fileCache && fileCache.tags && fileCache.tags.length > 0) {
+        // 첫 번째 태그 사용
+        const firstTag = fileCache.tags[0].tag;
+        
+        // 현재 카드셋과 다른 경우에만 변경
+        if (this.currentSource.currentCardSet !== firstTag) {
+          await this.selectCardSet(firstTag, false);
+          return true;
+        }
+      }
+    }
+    
+    return false;
   }
   
   /**
-   * 카드 목록 가져오기
+   * 현재 카드셋 소스에 따라 카드 목록을 가져옵니다.
    * @returns 카드 목록
    */
   async getCards(): Promise<ICard[]> {
-    try {
-      // 카드 서비스를 통해 모든 카드 가져오기
-      const allCards = await this.cardService.getAllCards();
-      
-      // 현재 카드셋 소스에 따라 카드 필터링
-      return this.applySource(allCards);
-    } catch (error) {
-      console.error(`[CardSetService] 카드 가져오기 오류:`, error);
-      return [];
-    }
+    return this.currentSource.getCards(this.cardService);
   }
   
   /**
@@ -495,25 +352,15 @@ export class CardSetService implements ICardSetService {
    * @param caseSensitive 대소문자 구분 여부
    * @param frontmatterKey 프론트매터 키 (검색 타입이 frontmatter인 경우)
    */
-  configureSearchSource(query: string, searchType: SearchType = 'filename', caseSensitive = false, frontmatterKey?: string): void {
-    if (!this.searchService) {
-      console.error(`[CardSetService] 검색 서비스가 설정되지 않았습니다.`);
-      return;
-    }
-    
-    // 검색 서비스 설정
-    this.searchService.setQuery(query);
-    this.searchService.setSearchType(searchType);
-    this.searchService.setCaseSensitive(caseSensitive);
-    
-    if (frontmatterKey) {
-      this.searchService.setFrontmatterKey(frontmatterKey);
+  configureSearchSource(query: string, searchType?: SearchType, caseSensitive?: boolean, frontmatterKey?: string): void {
+    if (this.searchService) {
+      this.searchService.configureSearchSource(query, searchType, caseSensitive, frontmatterKey);
     }
   }
   
   /**
    * 폴더 카드셋 소스 가져오기
-   * @returns 폴더 카드셋 소스
+   * @returns 폴더 카드셋 소스 객체
    */
   getFolderSource(): FolderCardSetSource {
     return this.folderSource;
@@ -521,7 +368,7 @@ export class CardSetService implements ICardSetService {
   
   /**
    * 태그 카드셋 소스 가져오기
-   * @returns 태그 카드셋 소스
+   * @returns 태그 카드셋 소스 객체
    */
   getTagSource(): TagCardSetSource {
     return this.tagSource;
@@ -540,11 +387,11 @@ export class CardSetService implements ICardSetService {
    * @param caseSensitive 대소문자 구분 여부
    */
   setTagCaseSensitive(caseSensitive: boolean): void {
-    console.log(`[CardSetService] 태그 대소문자 구분 여부 설정: ${caseSensitive}`);
-    
-    // 태그 카드셋 소스에 설정 적용
     if (this.tagSource) {
       this.tagSource.setCaseSensitive(caseSensitive);
+      
+      // 이벤트 발생
+      this.eventEmitter.emit(EventType.TAG_CASE_SENSITIVE_CHANGED, caseSensitive);
     }
   }
   
@@ -561,12 +408,9 @@ export class CardSetService implements ICardSetService {
    * 검색 소스로 전환하기 전에 현재 카드셋 소스 상태를 저장합니다.
    */
   saveCurrentSourceState(): void {
-    console.log(`[CardSetService] 현재 카드셋 소스 상태 저장: ${this.currentSource.type}`);
-    
-    // 현재 카드셋 소스 상태 저장
     this.previousSource = {
       type: this.currentSource.type,
-      state: this.serializeSourceState(this.currentSource)
+      state: this.currentSource.getState()
     };
   }
   
@@ -575,66 +419,18 @@ export class CardSetService implements ICardSetService {
    * 검색 소스에서 이전 카드셋 소스로 돌아갑니다.
    */
   restorePreviousSourceState(): void {
-    if (!this.previousSource) {
-      console.log(`[CardSetService] 복원할 이전 카드셋 소스 상태가 없습니다.`);
-      return;
-    }
-    
-    console.log(`[CardSetService] 이전 카드셋 소스 상태 복원: ${this.previousSource.type}`);
-    
-    // 이전 카드셋 소스로 변경
-    switch (this.previousSource.type) {
-      case 'folder':
+    if (this.previousSource) {
+      const { type, state } = this.previousSource;
+      
+      // 이전 소스 타입으로 변경
+      if (type === 'folder') {
         this.currentSource = this.folderSource;
-        break;
-      case 'tag':
+      } else if (type === 'tag') {
         this.currentSource = this.tagSource;
-        break;
-      default:
-        console.error(`[CardSetService] 알 수 없는 카드셋 소스 타입: ${this.previousSource.type}`);
-        return;
-    }
-    
-    // 이전 상태 복원
-    this.deserializeSourceState(this.currentSource, this.previousSource.state);
-    
-    // 이전 상태 초기화
-    this.previousSource = null;
-  }
-  
-  /**
-   * 카드셋 소스 상태 직렬화
-   * @param source 카드셋 소스
-   * @returns 직렬화된 상태
-   */
-  private serializeSourceState(source: ICardSetSource): any {
-    return {
-      currentCardSet: source.currentCardSet,
-      isFixed: source.isCardSetFixed(),
-      // 소스별 추가 상태 저장
-      folderState: source.type === 'folder' ? {
-        includeSubfolders: (source as FolderCardSetSource).getIncludeSubfolders()
-      } : null,
-      tagState: source.type === 'tag' ? {
-        caseSensitive: (source as TagCardSetSource).isCaseSensitive()
-      } : null
-    };
-  }
-  
-  /**
-   * 카드셋 소스 상태 역직렬화
-   * @param source 카드셋 소스
-   * @param state 직렬화된 상태
-   */
-  private deserializeSourceState(source: ICardSetSource, state: any): void {
-    // 기본 상태 복원
-    source.selectCardSet(state.currentCardSet, state.isFixed);
-    
-    // 소스별 추가 상태 복원
-    if (source.type === 'folder' && state.folderState) {
-      (source as FolderCardSetSource).setIncludeSubfolders(state.folderState.includeSubfolders);
-    } else if (source.type === 'tag' && state.tagState) {
-      (source as TagCardSetSource).setCaseSensitive(state.tagState.caseSensitive);
+      }
+      
+      // 이전 상태 복원
+      this.currentSource.setState(state);
     }
   }
   
@@ -644,5 +440,51 @@ export class CardSetService implements ICardSetService {
    */
   getPreviousCardSetSource(): CardSetSourceType {
     return this.previousSource ? this.previousSource.type : 'folder';
+  }
+  
+  /**
+   * 이벤트 리스너 등록
+   * @param event 이벤트 이름
+   * @param listener 리스너 함수
+   */
+  on(event: CardSetServiceEvent, listener: (...args: any[]) => void): void {
+    // EventType으로 변환
+    const eventType = this.convertToEventType(event);
+    if (eventType) {
+      this.eventEmitter.on(eventType, listener as EventListener<any>);
+    }
+  }
+  
+  /**
+   * 이벤트 리스너 제거
+   * @param event 이벤트 이름
+   * @param listener 리스너 함수
+   */
+  off(event: CardSetServiceEvent, listener: (...args: any[]) => void): void {
+    // EventType으로 변환
+    const eventType = this.convertToEventType(event);
+    if (eventType) {
+      this.eventEmitter.off(eventType, listener as EventListener<any>);
+    }
+  }
+  
+  /**
+   * CardSetServiceEvent를 EventType으로 변환
+   * @param event CardSetServiceEvent
+   * @returns EventType 또는 undefined
+   */
+  private convertToEventType(event: CardSetServiceEvent): EventType | undefined {
+    switch (event) {
+      case 'cardSetChanged':
+        return EventType.CARD_SET_CHANGED;
+      case 'sourceChanged':
+        return EventType.SOURCE_CHANGED;
+      case 'includeSubfoldersChanged':
+        return EventType.INCLUDE_SUBFOLDERS_CHANGED;
+      case 'tagCaseSensitiveChanged':
+        return EventType.TAG_CASE_SENSITIVE_CHANGED;
+      default:
+        return undefined;
+    }
   }
 } 

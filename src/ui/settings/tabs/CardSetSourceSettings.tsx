@@ -143,37 +143,49 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
   
   // 설정이 변경될 때 로컬 상태 업데이트
   useEffect(() => {
-    setDefaultCardSetSource(initialDefaultCardSetSource);
-    setDefaultFolderCardSet(initialDefaultFolderCardSet || '');
-    setDefaultTagCardSet(initialDefaultTagCardSet || '');
-    setIsCardSetFixed(initialIsCardSetFixed || false);
-    setIncludeSubfolders(initialIncludeSubfolders || false);
-    setTagCaseSensitive(initialTagCaseSensitive || false);
-    setDefaultSearchScope(initialDefaultSearchScope || 'all');
-    setSearchCaseSensitive(plugin.settings.searchCaseSensitive || false);
-    setHighlightSearchResults(plugin.settings.highlightSearchResults !== undefined ? plugin.settings.highlightSearchResults : true);
-    setMaxSearchResults(plugin.settings.maxSearchResults || 100);
-    setUseLastCardSetSourceOnLoad(initialUseLastCardSetSourceOnLoad || false);
-    
-    // 모드별 기본 카드 세트 설정
-    if (initialDefaultCardSetSource === 'folder') {
-      setDefaultFolderCardSet(initialDefaultFolderCardSet || '');
-    } else if (initialDefaultCardSetSource === 'tag') {
-      setDefaultTagCardSet(initialDefaultTagCardSet || '');
+    // 플러그인 설정에서 초기값 로드
+    if (plugin && plugin.settings) {
+      setDefaultCardSetSource(plugin.settings.defaultCardSetSource || 'folder');
+      setDefaultFolderCardSet(plugin.settings.defaultFolderCardSet || '');
+      setDefaultTagCardSet(plugin.settings.defaultTagCardSet || '');
+      setIsCardSetFixed(plugin.settings.isCardSetFixed || false);
+      setIncludeSubfolders(plugin.settings.includeSubfolders || false);
+      setTagCaseSensitive(plugin.settings.tagCaseSensitive || false);
+      setDefaultSearchScope(plugin.settings.defaultSearchScope || 'all');
+      setSearchCaseSensitive(plugin.settings.searchCaseSensitive || false);
+      setHighlightSearchResults(plugin.settings.highlightSearchResults || true);
+      setMaxSearchResults(plugin.settings.maxSearchResults || 50);
+      setUseLastCardSetSourceOnLoad(plugin.settings.useLastCardSetSourceOnLoad || false);
     }
-  }, [
-    initialDefaultCardSetSource, 
-    initialDefaultFolderCardSet,
-    initialDefaultTagCardSet,
-    initialIsCardSetFixed, 
-    initialIncludeSubfolders, 
-    initialTagCaseSensitive, 
-    initialDefaultSearchScope,
-    plugin.settings.searchCaseSensitive,
-    plugin.settings.highlightSearchResults,
-    plugin.settings.maxSearchResults,
-    initialUseLastCardSetSourceOnLoad
-  ]);
+    
+    // 설정 변경 이벤트 리스너 등록
+    const handleSettingsChanged = () => {
+      console.log('[CardSetSourceSettings] 설정 변경 감지, 설정 다시 로드');
+      if (plugin && plugin.settings) {
+        setDefaultCardSetSource(plugin.settings.defaultCardSetSource || 'folder');
+        setDefaultFolderCardSet(plugin.settings.defaultFolderCardSet || '');
+        setDefaultTagCardSet(plugin.settings.defaultTagCardSet || '');
+        setIsCardSetFixed(plugin.settings.isCardSetFixed || false);
+        setIncludeSubfolders(plugin.settings.includeSubfolders || false);
+        setTagCaseSensitive(plugin.settings.tagCaseSensitive || false);
+        setDefaultSearchScope(plugin.settings.defaultSearchScope || 'all');
+        setSearchCaseSensitive(plugin.settings.searchCaseSensitive || false);
+        setHighlightSearchResults(plugin.settings.highlightSearchResults || true);
+        setMaxSearchResults(plugin.settings.maxSearchResults || 50);
+        setUseLastCardSetSourceOnLoad(plugin.settings.useLastCardSetSourceOnLoad || false);
+      }
+    };
+    
+    // 이벤트 리스너 등록
+    if (plugin) {
+      const eventRef = plugin.app.workspace.on('card-navigator:settings-changed', handleSettingsChanged);
+      plugin.registerEvent(eventRef);
+    }
+    
+    return () => {
+      // 컴포넌트 언마운트 시 필요한 정리 작업
+    };
+  }, [plugin]);
   
   // 카드 세트 목록 로드
   React.useEffect(() => {
@@ -293,92 +305,79 @@ const CardSetSourceSettings: React.FC<{ plugin: CardNavigatorPlugin }> = ({ plug
   
   // 설정 변경 핸들러
   const onChange = async (key: string, value: any) => {
-    // 로컬 상태 업데이트
-    switch (key) {
-      case 'defaultCardSetSource':
-        setDefaultCardSetSource(value);
-        break;
-      case 'defaultFolderCardSet':
-        setDefaultFolderCardSet(value);
-        break;
-      case 'defaultTagCardSet':
-        setDefaultTagCardSet(value);
-        break;
-      case 'isCardSetFixed':
-        setIsCardSetFixed(value);
-        break;
-      case 'includeSubfolders':
-        setIncludeSubfolders(value);
-        break;
-      case 'tagCaseSensitive':
-        setTagCaseSensitive(value);
-        break;
-      case 'defaultSearchScope':
-        setDefaultSearchScope(value);
-        break;
-      case 'searchCaseSensitive':
-        setSearchCaseSensitive(value);
-        break;
-      case 'highlightSearchResults':
-        setHighlightSearchResults(value);
-        break;
-      case 'maxSearchResults':
-        setMaxSearchResults(value);
-        break;
-      case 'useLastCardSetSourceOnLoad':
-        setUseLastCardSetSourceOnLoad(value);
-        break;
-    }
-    
-    // 설정 저장
-    // @ts-ignore
-    plugin.settings[key] = value;
-    await plugin.saveSettings();
-    
-    // 서비스 업데이트
-    const service = plugin.getCardNavigatorService();
-    if (service) {
-      if (key === 'defaultCardSetSource') {
-        await service.changeCardSetSource(value as CardSetSourceType);
-      } else if (key === 'defaultFolderCardSet' || key === 'defaultTagCardSet') {
-        // 카드셋 선택 시 고정 여부도 함께 전달
-        const isFixed = plugin.settings.isCardSetFixed || false;
-        service.getCardSetSourceService().selectCardSet(value, isFixed);
-      } else if (key === 'isCardSetFixed') {
-        const cardSetSourceService = service.getCardSetSourceService();
-        const currentCardSet = cardSetSourceService.getCurrentCardSet();
-        if (currentCardSet) {
-          // 현재 카드셋이 있는 경우에만 고정 상태 변경
-          cardSetSourceService.selectCardSet(currentCardSet, value);
+    try {
+      console.log(`[CardSetSourceSettings] 설정 변경: ${key} = ${value}`);
+      
+      // 설정 업데이트
+      if (plugin) {
+        // 설정 객체 생성
+        const settingsUpdate: any = {
+          [key]: value
+        };
+        
+        // 카드 네비게이터 서비스 가져오기
+        const cardNavigatorService = plugin.getCardNavigatorService();
+        
+        // 특별한 처리가 필요한 설정들
+        if (key === 'defaultCardSetSource') {
+          // 카드셋 소스 변경 시 관련 설정도 함께 업데이트
+          if (value === 'folder') {
+            settingsUpdate.defaultFolderCardSet = defaultFolderCardSet;
+          } else if (value === 'tag') {
+            settingsUpdate.defaultTagCardSet = defaultTagCardSet;
+          }
+          
+          // 상태 업데이트
+          setDefaultCardSetSource(value);
+        } else if (key === 'defaultFolderCardSet') {
+          setDefaultFolderCardSet(value);
+        } else if (key === 'defaultTagCardSet') {
+          setDefaultTagCardSet(value);
+        } else if (key === 'isCardSetFixed') {
+          setIsCardSetFixed(value);
+          
+          // 현재 선택된 카드셋이 있는 경우 카드셋 선택 상태 업데이트
+          if (cardNavigatorService) {
+            const currentCardSetSource = plugin.settings.defaultCardSetSource;
+            let currentCardSet = '';
+            
+            if (currentCardSetSource === 'folder') {
+              currentCardSet = plugin.settings.defaultFolderCardSet;
+            } else if (currentCardSetSource === 'tag') {
+              currentCardSet = plugin.settings.defaultTagCardSet;
+            }
+            
+            if (currentCardSet) {
+              await cardNavigatorService.selectCardSet(currentCardSet, value);
+            }
+          }
+        } else if (key === 'includeSubfolders') {
+          setIncludeSubfolders(value);
+        } else if (key === 'tagCaseSensitive') {
+          setTagCaseSensitive(value);
+        } else if (key === 'defaultSearchScope') {
+          setDefaultSearchScope(value);
+        } else if (key === 'searchCaseSensitive') {
+          setSearchCaseSensitive(value);
+        } else if (key === 'highlightSearchResults') {
+          setHighlightSearchResults(value);
+        } else if (key === 'maxSearchResults') {
+          setMaxSearchResults(value);
+        } else if (key === 'useLastCardSetSourceOnLoad') {
+          setUseLastCardSetSourceOnLoad(value);
         }
-      } else if (key === 'includeSubfolders') {
-        service.getCardSetSourceService().setIncludeSubfolders(value);
-      } else if (key === 'tagCaseSensitive') {
-        service.getCardSetSourceService().setTagCaseSensitive(value);
-      } else if (key === 'defaultSearchScope') {
-        const searchService = service.getSearchService();
-        searchService.setSearchScope(value as SearchScope);
-      } else if (key === 'searchCaseSensitive') {
-        // 검색 대소문자 구분 설정
-        if (plugin.settings.searchCaseSensitive !== undefined) {
-          plugin.settings.searchCaseSensitive = value;
-        }
-      } else if (key === 'highlightSearchResults') {
-        // 검색 결과 하이라이트 설정
-        if (plugin.settings.highlightSearchResults !== undefined) {
-          plugin.settings.highlightSearchResults = value;
-        }
-      } else if (key === 'maxSearchResults') {
-        // 검색 결과 최대 개수 설정
-        if (plugin.settings.maxSearchResults !== undefined) {
-          plugin.settings.maxSearchResults = value;
-        }
-      } else if (key === 'useLastCardSetSourceOnLoad') {
-        // 마지막 모드 유지 설정
-        if (plugin.settings.useLastCardSetSourceOnLoad !== undefined) {
-          plugin.settings.useLastCardSetSourceOnLoad = value;
+        
+        // 서비스를 통해 설정 업데이트
+        if (cardNavigatorService) {
+          await cardNavigatorService.updateSettings(settingsUpdate);
+        } else {
+          // 서비스가 없는 경우 직접 설정 업데이트
+          Object.assign(plugin.settings, settingsUpdate);
+          await plugin.saveSettings();
         }
       }
+    } catch (error) {
+      console.error('설정 변경 중 오류 발생:', error);
     }
   };
   

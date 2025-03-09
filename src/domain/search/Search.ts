@@ -6,7 +6,7 @@ import { CardSetSourceType, CardSetType } from '../cardset/CardSet';
  * 검색 타입
  * 검색 대상을 정의합니다.
  */
-export type SearchType = 'filename' | 'content' | 'tag' | 'path' | 'frontmatter' | 'create' | 'modify' | 'regex' | 'folder';
+export type SearchType = 'filename' | 'content' | 'tag' | 'path' | 'frontmatter' | 'create' | 'modify' | 'regex' | 'folder' | 'title' | 'file' | 'complex' | 'date';
 
 /**
  * 검색 범위 타입
@@ -101,18 +101,18 @@ export interface ISearch {
   setCaseSensitive(caseSensitive: boolean): void;
   
   /**
-   * 파일이 검색 조건과 일치하는지 확인
-   * @param file 확인할 파일
+   * 카드가 검색 조건과 일치하는지 확인
+   * @param card 확인할 카드
    * @returns 일치 여부
    */
-  match(file: TFile): Promise<boolean>;
+  match(card: ICard): Promise<boolean>;
   
   /**
    * 검색 수행
    * @param cards 검색할 카드 목록
    * @returns 검색 결과 카드 목록
    */
-  search(cards: ICard[]): ICard[];
+  search(cards: ICard[]): Promise<ICard[]>;
   
   /**
    * 검색 객체 직렬화
@@ -156,14 +156,14 @@ export abstract class Search implements ISearch {
     this.caseSensitive = caseSensitive;
   }
   
-  abstract match(file: TFile): Promise<boolean>;
+  abstract match(card: ICard): Promise<boolean>;
   
   /**
    * 검색 수행
    * @param cards 검색할 카드 목록
    * @returns 검색 결과 카드 목록
    */
-  abstract search(cards: ICard[]): ICard[];
+  abstract search(cards: ICard[]): Promise<ICard[]>;
   
   serialize(): any {
     return {

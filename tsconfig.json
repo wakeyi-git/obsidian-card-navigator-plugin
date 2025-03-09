@@ -4,7 +4,7 @@
 	  "inlineSourceMap": true,
 	  "inlineSources": true,
 	  "module": "ESNext",
-	  "target": "ES6",
+	  "target": "ES5",
 	  "strict": true,
 	  "allowJs": true,
 	  "noImplicitAny": true,
@@ -21,6 +21,7 @@
 	  "resolveJsonModule": true,
 	  "rootDir": "./",
 	  "jsx": "react-jsx",
+	  "downlevelIteration": true,
 	  "lib": [
 		"DOM",
 		"ES5",

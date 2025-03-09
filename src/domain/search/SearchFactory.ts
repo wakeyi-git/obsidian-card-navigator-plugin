@@ -1,12 +1,15 @@
 import { App } from 'obsidian';
 import { ISearch, SearchType } from './Search';
-import { FilenameSearch } from './FilenameSearch';
+import { FileSearch } from './FileSearch';
 import { ContentSearch } from './ContentSearch';
 import { TagSearch } from './TagSearch';
 import { PathSearch } from './PathSearch';
 import { FrontmatterSearch } from './FrontmatterSearch';
 import { DateSearch } from './DateSearch';
 import { RegexSearch } from './RegexSearch';
+import { TitleSearch } from './TitleSearch';
+import { FolderSearch } from './FolderSearch';
+import { ComplexSearch } from './ComplexSearch';
 
 /**
  * 검색 팩토리 클래스
@@ -30,7 +33,7 @@ export class SearchFactory {
   createSearch(type: SearchType, query: string, caseSensitive = false, frontmatterKey?: string): ISearch {
     switch (type) {
       case 'filename':
-        return new FilenameSearch(this.app, query, caseSensitive);
+        return new FileSearch(this.app, query, caseSensitive);
       case 'content':
         return new ContentSearch(this.app, query, caseSensitive);
       case 'tag':
@@ -38,25 +41,38 @@ export class SearchFactory {
       case 'path':
         return new PathSearch(this.app, query, caseSensitive);
       case 'frontmatter':
-        return new FrontmatterSearch(this.app, query, caseSensitive, frontmatterKey);
+        return new FrontmatterSearch(this.app, query, frontmatterKey || '', caseSensitive);
       case 'create':
         return new DateSearch(this.app, query, 'creation', caseSensitive);
       case 'modify':
         return new DateSearch(this.app, query, 'modification', caseSensitive);
       case 'regex':
         return new RegexSearch(this.app, query, caseSensitive);
+      case 'folder':
+        return new FolderSearch(this.app, query, caseSensitive);
+      case 'title':
+        return new TitleSearch(this.app, query, caseSensitive);
+      case 'file':
+        return new FileSearch(this.app, query, caseSensitive);
+      case 'complex':
+        return new ComplexSearch(this.app, query, caseSensitive);
+      case 'date':
+        return new DateSearch(this.app, query, 'creation', caseSensitive);
       default:
         // 기본값은 파일명 검색
-        return new FilenameSearch(this.app, query, caseSensitive);
+        return new FileSearch(this.app, query, caseSensitive);
     }
   }
   
   /**
-   * 검색 타입 목록 가져오기
+   * 사용 가능한 검색 타입 목록 가져오기
    * @returns 검색 타입 목록
    */
   getSearchTypes(): SearchType[] {
-    return ['filename', 'content', 'tag', 'path', 'frontmatter', 'create', 'modify', 'regex'];
+    return [
+      'filename', 'content', 'tag', 'path', 'frontmatter', 
+      'create', 'modify', 'regex', 'folder', 'title', 'file', 'complex', 'date'
+    ];
   }
   
   /**
@@ -74,7 +90,12 @@ export class SearchFactory {
       case 'create': return '생성일';
       case 'modify': return '수정일';
       case 'regex': return '정규식';
-      default: return type;
+      case 'folder': return '폴더';
+      case 'title': return '제목';
+      case 'file': return '파일';
+      case 'complex': return '복합 검색';
+      case 'date': return '날짜';
+      default: return '파일명';
     }
   }
 } 

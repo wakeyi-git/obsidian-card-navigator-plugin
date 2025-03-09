@@ -1,3 +1,5 @@
+import { TFile } from 'obsidian';
+
 /**
  * 카드 인터페이스
  * 노트의 정보를 카드 형태로 표현하기 위한 인터페이스입니다.
@@ -52,6 +54,11 @@ export interface ICard {
    * 카드 표시 설정
    */
   displaySettings?: ICardDisplaySettings;
+  
+  /**
+   * 원본 파일 객체
+   */
+  file?: TFile;
 }
 
 /**
@@ -180,6 +187,7 @@ export class Card implements ICard {
   frontmatter?: Record<string, any>;
   firstHeader?: string;
   displaySettings?: ICardDisplaySettings;
+  file?: TFile;
   
   constructor(
     id: string,
@@ -191,7 +199,8 @@ export class Card implements ICard {
     modified: number,
     frontmatter?: Record<string, any>,
     firstHeader?: string,
-    displaySettings?: ICardDisplaySettings
+    displaySettings?: ICardDisplaySettings,
+    file?: TFile
   ) {
     this.id = id;
     this.title = title;
@@ -203,6 +212,7 @@ export class Card implements ICard {
     this.frontmatter = frontmatter;
     this.firstHeader = firstHeader;
     this.displaySettings = displaySettings;
+    this.file = file;
   }
   
   /**

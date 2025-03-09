@@ -219,7 +219,6 @@ The core layer that contains business logic and entities:
 	•	card/: Domain models related to cards
 	•	cardset/: Domain models related to card sets
 	•	layout/: Domain models related to layout
-	•	mode/: Domain models related to modes (folder/tag)
 	•	preset/: Domain models related to presets
 	•	search/: Domain models related to search
 	•	sorting/: Domain models related to sorting
@@ -230,9 +229,7 @@ This layer coordinates domain logic and acts as an intermediary between the UI a
 	•	CardNavigatorService.ts: Main service class managing the overall plugin functionality
 	•	CardService.ts: Handles card-related operations
 	•	CardSetService.ts: Manages card sets (folder/tag-based)
-	•	FilterService.ts: Provides card filtering functionality
 	•	LayoutService.ts: Manages grid/masonry layouts
-	•	ModeService.ts: Handles mode switching and management (folder/tag)
 	•	PresetService.ts: Manages user-defined preset configurations
 	•	SearchService.ts: Provides card search functionality
 	•	SortService.ts: Handles card sorting

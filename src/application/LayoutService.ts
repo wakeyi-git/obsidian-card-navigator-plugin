@@ -71,6 +71,13 @@ export interface ILayoutService {
    * @param cardSetSourceType 변경된 모드 타입
    */
   onCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void;
+  
+  /**
+   * 카드 크기 설정
+   * @param width 카드 너비
+   * @param height 카드 높이
+   */
+  setCardSize(width: number, height: number): void;
 }
 
 /**
@@ -261,5 +268,15 @@ export class LayoutService implements ILayoutService {
     
     // 모드에 따라 적절한 레이아웃 적용
     // 현재는 모드에 따른 특별한 레이아웃 변경이 없으므로 로깅만 수행
+  }
+  
+  /**
+   * 카드 크기 설정
+   * @param width 카드 너비
+   * @param height 카드 높이
+   */
+  setCardSize(width: number, height: number): void {
+    this.setCardWidth(width);
+    this.setCardHeight(height);
   }
 } 
