@@ -9,13 +9,14 @@ import {
   ICardSetSearchManager, 
   ICardSetEventManager,
   ICardSetSourceManager,
-  ICardSetService as ICardSetServiceInterface
 } from '../domain/cardset/CardSetInterfaces';
 import { SearchType } from '../domain/search/index';
 import { ICardService } from './CardService';
 import { ISearchService } from './SearchService';
 import { EventType, EventListener } from '../domain/events/EventTypes';
 import { TypedEventEmitter } from '../infrastructure/EventEmitter';
+import { DomainEventBus } from '../domain/events/DomainEventBus';
+import { CardSetError, InitializationError } from '../domain/errors';
 
 /**
  * 카드셋 서비스 이벤트 타입
@@ -304,6 +305,7 @@ export class CardSetService implements ICardSetService {
   private previousState: ICardSetState | null = null;
   private tagCaseSensitive = false;
   private eventEmitter = new CardSetEventEmitter();
+  private eventBus = DomainEventBus.getInstance();
   
   // 카드 세트 관리를 위한 변수
   private currentCardSet: ICardSet | null = null;
@@ -338,31 +340,22 @@ export class CardSetService implements ICardSetService {
    * 서비스 초기화
    */
   async initialize(): Promise<void> {
-    console.log('[CardSetService] 초기화 시작');
+    if (this.isInitialized) {
+      return;
+    }
     
     try {
-      // 이미 초기화된 경우 중복 초기화 방지
-      if (this.isInitialized) {
-        console.log('[CardSetService] 이미 초기화되었습니다.');
-        return;
-      }
-      
-      // 초기화 플래그 설정
-      this.isInitialized = true;
-      
-      // 폴더 카드셋 소스 초기화
+      // 폴더 소스 초기화
       await this.folderSource.initialize();
       
-      // 태그 카드셋 소스 초기화
+      // 태그 소스 초기화
       await this.tagSource.initialize();
       
-      // 현재 카드셋 소스 초기화
-      await this.currentSource.initialize();
-      
-      console.log('[CardSetService] 초기화 완료');
+      // 초기화 완료
+      this.isInitialized = true;
     } catch (error) {
-      console.error('[CardSetService] 초기화 중 오류 발생:', error);
-      throw error;
+      console.error('[CardSetService] 초기화 오류:', error);
+      throw new InitializationError('카드셋 서비스 초기화 중 오류가 발생했습니다.');
     }
   }
   
@@ -532,12 +525,14 @@ export class CardSetService implements ICardSetService {
       case 'search':
         // 검색 서비스가 설정되지 않은 경우 오류
         if (!this.searchService) {
-          throw new Error('검색 서비스가 설정되지 않았습니다.');
+          throw new CardSetError('검색 서비스가 설정되지 않았습니다.');
         }
         
         // 검색 소스 가져오기
         this.currentSource = this.searchService.getSearchSource();
         break;
+      default:
+        throw new CardSetError(`지원하지 않는 카드셋 소스 타입: ${sourceType}`);
     }
     
     // 이벤트 발생
@@ -826,6 +821,24 @@ export class CardSetService implements ICardSetService {
    */
   private emit(event: CardSetServiceEvent, ...args: any[]): void {
     this.eventEmitter.emit(event, ...args);
+    
+    // 도메인 이벤트 버스로도 이벤트 발생
+    switch (event) {
+      case 'cardSetChanged':
+        const cardSetData = args[0] as CardSetChangedEventData;
+        this.eventBus.emit(EventType.CARD_SET_CHANGED, cardSetData);
+        break;
+      case 'sourceChanged':
+        const sourceData = args[0] as SourceChangedEventData;
+        this.eventBus.emit(EventType.SOURCE_CHANGED, sourceData);
+        break;
+      case 'includeSubfoldersChanged':
+        this.eventBus.emit(EventType.INCLUDE_SUBFOLDERS_CHANGED, args[0] as boolean);
+        break;
+      case 'tagCaseSensitiveChanged':
+        this.eventBus.emit(EventType.TAG_CASE_SENSITIVE_CHANGED, args[0] as boolean);
+        break;
+    }
   }
 
   /**

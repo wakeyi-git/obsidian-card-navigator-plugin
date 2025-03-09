@@ -6,6 +6,16 @@ import { TFile, CachedMetadata } from 'obsidian';
  */
 export interface ICard {
   /**
+   * 카드 ID (파일 경로)
+   */
+  id?: string;
+  
+  /**
+   * 카드 경로 (파일 경로)
+   */
+  path?: string;
+  
+  /**
    * 원본 파일 객체
    * Obsidian TFile 객체를 직접 참조합니다.
    */
@@ -45,6 +55,16 @@ export interface ICard {
    * 캐시된 메타데이터
    */
   metadata?: CachedMetadata;
+  
+  /**
+   * 생성 시간
+   */
+  created?: number;
+  
+  /**
+   * 수정 시간
+   */
+  modified?: number;
   
   /**
    * 카드 ID 가져오기 (파일 경로)
@@ -187,6 +207,8 @@ export interface ICardElementStyle {
  * 노트의 정보를 카드 형태로 표현하는 클래스입니다.
  */
 export class Card implements ICard {
+  id: string;
+  path: string;
   file: TFile;
   title: string;
   content: string;
@@ -195,6 +217,8 @@ export class Card implements ICard {
   firstHeader?: string;
   displaySettings?: ICardDisplaySettings;
   metadata?: CachedMetadata;
+  created: number;
+  modified: number;
   
   /**
    * 생성자
@@ -223,6 +247,10 @@ export class Card implements ICard {
     this.firstHeader = firstHeader;
     this.displaySettings = displaySettings;
     this.metadata = metadata;
+    this.id = file.path;
+    this.path = file.path;
+    this.created = file.stat.ctime;
+    this.modified = file.stat.mtime;
   }
   
   /**

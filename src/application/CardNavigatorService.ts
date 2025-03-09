@@ -3,29 +3,31 @@ import { ICard } from '../domain/card/index';
 import { CardSetSourceType, CardSetType } from '../domain/cardset/index';
 import { LayoutType } from '../domain/layout/index';
 import { SearchType, SearchScope } from '../domain/search/index';
-
-import { ICardService } from './CardService';
-import { ICardSetService } from './CardSetService';
-import { ILayoutService } from './LayoutService';
-import { ISearchService } from './SearchService';
-import { IInteractionService } from './InteractionService';
-
 import { 
-  ICardNavigatorService, 
+  ICardNavigatorService,
   ICardNavigatorInitializer, 
   ICardManager, 
   ICardSetSourceController, 
   ILayoutController, 
   IPresetController, 
   ISearchController, 
-  ISettingsController, 
-  IServiceProvider, 
+  ISettingsController,
+  IServiceProvider,
   IMarkdownRenderer,
   ICardInteraction,
   IKeyboardNavigation,
   IMultiSelection,
   KeyboardNavigationDirection
 } from '../domain/interaction/InteractionInterfaces';
+import { EventType, CardsChangedEventData, LayoutChangedEventData } from '../domain/events/EventTypes';
+import { DomainEventBus } from '../domain/events/DomainEventBus';
+import { InitializationError, CardError, LayoutError } from '../domain/errors';
+
+import { ICardService } from './CardService';
+import { ICardSetService } from './CardSetService';
+import { ILayoutService } from './LayoutService';
+import { ISearchService } from './SearchService';
+import { IInteractionService } from './InteractionService';
 
 /**
  * 카드 내비게이터 서비스 클래스
@@ -38,6 +40,7 @@ export class CardNavigatorService implements ICardNavigatorService {
   private layoutService: ILayoutService;
   private searchService: ISearchService;
   private interactionService: IInteractionService;
+  private eventBus = DomainEventBus.getInstance();
   
   private currentCards: ICard[] = [];
   private isInitialized: boolean = false;
@@ -75,13 +78,17 @@ export class CardNavigatorService implements ICardNavigatorService {
       return;
     }
     
-    // 기본 카드셋 소스 설정
-    await this.setCardSetSource('folder');
-    
-    // 카드 로드
-    await this.refreshCards();
-    
-    this.isInitialized = true;
+    try {
+      // 카드셋 서비스 초기화
+      await this.cardSetService.initialize();
+      
+      // 초기화 완료
+      this.isInitialized = true;
+    } catch (error: unknown) {
+      console.error('카드 네비게이터 서비스 초기화 오류:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      throw new InitializationError(`카드 네비게이터 서비스 초기화 중 오류가 발생했습니다: ${errorMessage}`);
+    }
   }
   
   /**
@@ -100,20 +107,26 @@ export class CardNavigatorService implements ICardNavigatorService {
    * @returns 카드 목록
    */
   async getCards(): Promise<ICard[]> {
-    // 현재 카드셋 가져오기
-    const currentCardSet = this.cardSetService.getCurrentCardSet();
-    if (!currentCardSet) {
-      this.currentCards = [];
+    try {
+      // 카드셋 서비스에서 카드 목록 가져오기
+      const cards = await this.cardSetService.getCards();
+      
+      // 현재 카드 목록 업데이트
+      this.currentCards = cards;
+      
+      // 카드 변경 이벤트 발생
+      const cardsChangedData: CardsChangedEventData = {
+        cards: this.currentCards,
+        totalCount: this.currentCards.length,
+        filteredCount: this.currentCards.length
+      };
+      this.eventBus.emit(EventType.CARDS_CHANGED, cardsChangedData);
+      
+      return this.currentCards;
+    } catch (error) {
+      console.error('카드 목록 가져오기 오류:', error);
       return [];
     }
-    
-    // 카드셋의 카드 가져오기
-    const cards = await this.cardSetService.getCards();
-    
-    // 카드 목록 업데이트
-    this.currentCards = cards;
-    
-    return cards;
   }
   
   /**
@@ -170,7 +183,21 @@ export class CardNavigatorService implements ICardNavigatorService {
    * @param type 변경할 레이아웃 타입
    */
   async changeLayout(type: LayoutType): Promise<void> {
-    this.layoutService.changeLayoutType(type);
+    try {
+      // 레이아웃 서비스에서 레이아웃 변경
+      await this.layoutService.changeLayoutType(type);
+      
+      // 레이아웃 변경 이벤트 발생
+      const layoutChangedData: LayoutChangedEventData = {
+        previousLayout: type, // 이전 레이아웃 정보가 없으므로 현재 레이아웃으로 대체
+        newLayout: type
+      };
+      this.eventBus.emit(EventType.LAYOUT_CHANGED, layoutChangedData);
+    } catch (error: unknown) {
+      console.error('레이아웃 변경 오류:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      throw new LayoutError(`레이아웃 변경 중 오류가 발생했습니다: ${errorMessage}`);
+    }
   }
   
   /**
@@ -515,17 +542,22 @@ export class CardNavigatorService implements ICardNavigatorService {
   /**
    * 카드 열기
    * @param card 열 카드
-   * @param newLeaf 새 탭에서 열지 여부
+   * @param newLeaf 새 창에서 열기 여부
    * @returns 성공 여부
    */
   async openCard(card: ICard, newLeaf: boolean = false): Promise<boolean> {
+    if (!card) {
+      throw new CardError('카드가 제공되지 않았습니다.');
+    }
+    
     try {
-      // 카드 서비스를 통해 카드 열기
-      await this.cardService.openCard(card, newLeaf);
+      // 파일 열기
+      await this.app.workspace.getLeaf(newLeaf).openFile(card.file);
       return true;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('카드 열기 오류:', error);
-      return false;
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      throw new CardError(`카드를 열 수 없습니다: ${errorMessage}`);
     }
   }
   

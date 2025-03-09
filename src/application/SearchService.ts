@@ -4,6 +4,9 @@ import { SearchType, SearchScope } from '../domain/search/index';
 import { CardSetSourceType, CardSetType } from '../domain/cardset/index';
 import { ICardService } from './CardService';
 import { IExtendedCardSetSource } from './CardSetService';
+import { EventType, SearchChangedEventData } from '../domain/events/EventTypes';
+import { DomainEventBus } from '../domain/events/DomainEventBus';
+import { SearchError } from '../domain/errors';
 
 // 검색 필드 인터페이스
 export interface ISearchField {
@@ -607,6 +610,7 @@ export class SearchService implements ISearchService {
   private searchType: SearchType = 'content';
   private caseSensitive: boolean = false;
   private frontmatterKey: string | undefined;
+  private eventBus = DomainEventBus.getInstance();
   
   /**
    * 생성자
@@ -647,16 +651,29 @@ export class SearchService implements ISearchService {
    * @returns 검색 결과 카드 목록
    */
   async executeSearch(search: ISearch, cards: ICard[]): Promise<ICard[]> {
-    const results: ICard[] = [];
-    
-    for (const card of cards) {
-      const matches = await search.match(card);
-      if (matches) {
-        results.push(card);
-      }
+    if (!search) {
+      throw new SearchError('검색 객체가 제공되지 않았습니다.');
     }
     
-    return results;
+    if (!cards || cards.length === 0) {
+      return [];
+    }
+    
+    try {
+      const results: ICard[] = [];
+      
+      for (const card of cards) {
+        if (await search.match(card)) {
+          results.push(card);
+        }
+      }
+      
+      return results;
+    } catch (error: unknown) {
+      console.error('검색 실행 중 오류 발생:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      throw new SearchError(`검색 실행 중 오류가 발생했습니다: ${errorMessage}`);
+    }
   }
   
   /**
@@ -739,6 +756,7 @@ export class SearchService implements ISearchService {
    */
   setSearchQuery(query: string): void {
     this.searchQuery = query;
+    this.emitSearchChanged();
   }
   
   /**
@@ -747,6 +765,10 @@ export class SearchService implements ISearchService {
    */
   setSearchType(type: SearchType): void {
     this.searchType = type;
+    this.emitSearchChanged();
+    
+    // 검색 타입 변경 이벤트 발생
+    this.eventBus.emit(EventType.SEARCH_TYPE_CHANGED, type);
   }
   
   /**
@@ -755,6 +777,10 @@ export class SearchService implements ISearchService {
    */
   setCaseSensitive(caseSensitive: boolean): void {
     this.caseSensitive = caseSensitive;
+    this.emitSearchChanged();
+    
+    // 대소문자 구분 변경 이벤트 발생
+    this.eventBus.emit(EventType.SEARCH_CASE_SENSITIVE_CHANGED, caseSensitive);
   }
   
   /**
@@ -763,6 +789,21 @@ export class SearchService implements ISearchService {
    */
   setFrontmatterKey(key: string): void {
     this.frontmatterKey = key;
+    this.emitSearchChanged();
+  }
+  
+  /**
+   * 검색 변경 이벤트 발생
+   */
+  private emitSearchChanged(): void {
+    const searchData: SearchChangedEventData = {
+      query: this.searchQuery,
+      searchType: this.searchType,
+      caseSensitive: this.caseSensitive,
+      frontmatterKey: this.frontmatterKey
+    };
+    
+    this.eventBus.emit(EventType.SEARCH_CHANGED, searchData);
   }
   
   /**
@@ -771,7 +812,7 @@ export class SearchService implements ISearchService {
    */
   getSearchSource(): IExtendedCardSetSource {
     if (!this.searchSource) {
-      throw new Error('검색 소스가 설정되지 않았습니다.');
+      throw new SearchError('검색 소스가 설정되지 않았습니다.');
     }
     return this.searchSource;
   }
