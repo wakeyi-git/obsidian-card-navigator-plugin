@@ -25,12 +25,12 @@ export class DomainEventBus implements IEventEmitter {
    * @param event 이벤트 타입
    * @param listener 리스너 함수
    */
-  on<T extends EventType>(event: T, listener: EventListener<T>): void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
+  on<T extends EventType>(event: T | string, listener: EventListener<any>): void {
+    if (!this.listeners.has(event as EventType)) {
+      this.listeners.set(event as EventType, new Set());
     }
     
-    this.listeners.get(event)!.add(listener);
+    this.listeners.get(event as EventType)!.add(listener);
   }
   
   /**
@@ -38,16 +38,16 @@ export class DomainEventBus implements IEventEmitter {
    * @param event 이벤트 타입
    * @param listener 리스너 함수
    */
-  off<T extends EventType>(event: T, listener: EventListener<T>): void {
-    if (!this.listeners.has(event)) {
+  off<T extends EventType>(event: T | string, listener: EventListener<any>): void {
+    if (!this.listeners.has(event as EventType)) {
       return;
     }
     
-    this.listeners.get(event)!.delete(listener);
+    this.listeners.get(event as EventType)!.delete(listener);
     
     // 리스너가 없으면 맵에서 제거
-    if (this.listeners.get(event)!.size === 0) {
-      this.listeners.delete(event);
+    if (this.listeners.get(event as EventType)!.size === 0) {
+      this.listeners.delete(event as EventType);
     }
   }
   
@@ -56,15 +56,15 @@ export class DomainEventBus implements IEventEmitter {
    * @param event 이벤트 타입
    * @param data 이벤트 데이터
    */
-  emit<T extends EventType>(event: T, data: EventDataMap[T]): void {
-    if (!this.listeners.has(event)) {
+  emit<T extends EventType>(event: T | string, data: any): void {
+    if (!this.listeners.has(event as EventType)) {
       return;
     }
     
     console.log(`[DomainEventBus] 이벤트 발생: ${event}`);
     
     // 이벤트 리스너 호출
-    this.listeners.get(event)!.forEach(listener => {
+    this.listeners.get(event as EventType)!.forEach(listener => {
       try {
         listener(data);
       } catch (error) {

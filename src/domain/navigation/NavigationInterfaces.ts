@@ -12,6 +12,11 @@ export type KeyboardNavigationDirection = 'up' | 'down' | 'left' | 'right';
 export type ScrollBehavior = 'smooth' | 'instant';
 
 /**
+ * 내비게이션 모드
+ */
+export type NavigationMode = 'grid' | 'linear';
+
+/**
  * 포커스 관리자 인터페이스
  * 카드 포커스 관련 기능을 제공합니다.
  */

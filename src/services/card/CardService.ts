@@ -200,7 +200,7 @@ export class CardService implements ICardService {
       frontmatter,
       firstHeader,
       displaySettings,
-      metadata
+      metadata || undefined
     );
   }
   

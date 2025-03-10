@@ -41,6 +41,11 @@ export interface ICardSet {
   type: CardSetType;
   
   /**
+   * 파일 목록
+   */
+  files: any[];
+  
+  /**
    * 추가 메타데이터 (선택 사항)
    */
   metadata?: Record<string, any>;

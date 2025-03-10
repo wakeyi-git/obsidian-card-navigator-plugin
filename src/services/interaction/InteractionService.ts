@@ -1,12 +1,9 @@
-import { DomainEventBus } from '../../events/DomainEventBus';
-import { ISettingsService } from '../core/SettingsService';
-import { ICard } from '../../models/Card';
+import { DomainEventBus } from '../../domain/events/DomainEventBus';
+import { EventType } from '../../domain/events/EventTypes';
+import { ICard } from '../../domain/card/Card';
 import { INavigationService } from '../navigation/NavigationService';
-
-/**
- * 선택 모드
- */
-export type SelectionMode = 'single' | 'multiple';
+import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
+import { SelectionMode } from '../../domain/interaction/SelectionState';
 
 /**
  * 드래그 모드
@@ -119,15 +116,16 @@ export interface IInteractionService {
 }
 
 /**
- * 상호작용 서비스 구현
+ * 상호작용 서비스
+ * 카드 상호작용 관련 기능을 관리합니다.
  */
 export class InteractionService implements IInteractionService {
   private settingsService: ISettingsService;
   private navigationService: INavigationService;
   private eventBus: DomainEventBus;
   private selectedCardIds: Set<string> = new Set();
-  private selectionMode: SelectionMode;
-  private dragMode: DragMode;
+  private selectionMode: SelectionMode = 'single';
+  private dragMode: DragMode = 'none';
   private isDragging: boolean = false;
   private dragSourceId: string | null = null;
   
@@ -146,44 +144,41 @@ export class InteractionService implements IInteractionService {
     this.navigationService = navigationService;
     this.eventBus = eventBus;
     
-    // 설정에서 선택 모드와 드래그 모드 로드
-    this.selectionMode = this.settingsService.getSetting('selectionMode', 'single');
-    this.dragMode = this.settingsService.getSetting('dragMode', 'none');
+    // 설정에서 초기 선택 모드 가져오기
+    const settings = this.settingsService.getSettings();
+    this.selectionMode = (settings.selectionMode as SelectionMode) || 'single';
     
-    // 설정 변경 이벤트 구독
-    this.eventBus.subscribe('settings:changed', (data: any) => {
-      if (data.key === 'selectionMode') {
-        this.selectionMode = data.value;
-        // 다중 선택 모드가 아닌 경우 선택 초기화
-        if (this.selectionMode !== 'multiple' && this.selectedCardIds.size > 1) {
-          this.deselectAll();
-        }
-      } else if (data.key === 'dragMode') {
-        this.dragMode = data.value;
-      }
-    });
+    // 설정에서 초기 드래그 모드 가져오기
+    this.dragMode = (settings.dragMode as DragMode) || 'none';
     
-    // 내비게이션 선택 변경 이벤트 구독
-    this.eventBus.subscribe('navigation:selection-changed', (data: any) => {
-      if (data.card && this.selectionMode === 'single') {
-        this.deselectAll();
-        this.selectedCardIds.add(data.card.id);
-        this.eventBus.publish('interaction:selection-changed', {
-          selectedCardIds: Array.from(this.selectedCardIds)
-        });
-      }
-    });
+    // 이벤트 리스너 등록
+    this.eventBus.on(EventType.CARDS_CHANGED, this.onCardsChanged.bind(this));
+    this.eventBus.on(EventType.SETTINGS_CHANGED, this.onSettingsChanged.bind(this));
   }
   
+  /**
+   * 선택된 카드 목록 가져오기
+   * @returns 선택된 카드 목록
+   */
   getSelectedCards(): ICard[] {
-    const allCards = this.navigationService.getCards();
-    return allCards.filter(card => this.selectedCardIds.has(card.id));
+    const cards = this.navigationService.getCards();
+    return cards.filter(card => this.selectedCardIds.has(card.getId()));
   }
   
+  /**
+   * 카드 선택 여부 확인
+   * @param cardId 카드 ID
+   * @returns 선택 여부
+   */
   isCardSelected(cardId: string): boolean {
     return this.selectedCardIds.has(cardId);
   }
   
+  /**
+   * 카드 선택
+   * @param cardId 카드 ID
+   * @param addToSelection 기존 선택에 추가 여부
+   */
   selectCard(cardId: string, addToSelection: boolean = false): void {
     // 단일 선택 모드이고 추가 선택이 아닌 경우 기존 선택 해제
     if (this.selectionMode === 'single' && !addToSelection) {
@@ -193,218 +188,283 @@ export class InteractionService implements IInteractionService {
     // 카드 선택
     this.selectedCardIds.add(cardId);
     
-    // 내비게이션 서비스에 현재 카드 설정
-    this.navigationService.selectCardById(cardId);
-    
     // 선택 변경 이벤트 발생
-    this.eventBus.publish('interaction:selection-changed', {
-      selectedCardIds: Array.from(this.selectedCardIds)
+    this.eventBus.emit(EventType.CARD_SELECTION_CHANGED, {
+      selectedCardIds: Array.from(this.selectedCardIds),
+      selectionMode: this.selectionMode
     });
   }
   
+  /**
+   * 카드 선택 해제
+   * @param cardId 카드 ID
+   */
   deselectCard(cardId: string): void {
-    if (this.selectedCardIds.has(cardId)) {
-      this.selectedCardIds.delete(cardId);
-      
-      // 선택 변경 이벤트 발생
-      this.eventBus.publish('interaction:selection-changed', {
-        selectedCardIds: Array.from(this.selectedCardIds)
-      });
-    }
-  }
-  
-  selectAll(): void {
-    const allCards = this.navigationService.getCards();
-    allCards.forEach(card => this.selectedCardIds.add(card.id));
+    // 카드 선택 해제
+    this.selectedCardIds.delete(cardId);
     
     // 선택 변경 이벤트 발생
-    this.eventBus.publish('interaction:selection-changed', {
-      selectedCardIds: Array.from(this.selectedCardIds)
+    this.eventBus.emit(EventType.CARD_SELECTION_CHANGED, {
+      selectedCardIds: Array.from(this.selectedCardIds),
+      selectionMode: this.selectionMode
     });
   }
   
-  deselectAll(): void {
-    if (this.selectedCardIds.size > 0) {
-      this.selectedCardIds.clear();
-      
-      // 선택 변경 이벤트 발생
-      this.eventBus.publish('interaction:selection-changed', {
-        selectedCardIds: Array.from(this.selectedCardIds)
-      });
-    }
+  /**
+   * 모든 카드 선택
+   */
+  selectAll(): void {
+    // 모든 카드 선택
+    const cards = this.navigationService.getCards();
+    cards.forEach(card => this.selectedCardIds.add(card.getId()));
+    
+    // 선택 변경 이벤트 발생
+    this.eventBus.emit(EventType.CARD_SELECTION_CHANGED, {
+      selectedCardIds: Array.from(this.selectedCardIds),
+      selectionMode: this.selectionMode
+    });
   }
   
+  /**
+   * 모든 카드 선택 해제
+   */
+  deselectAll(): void {
+    // 모든 카드 선택 해제
+    this.selectedCardIds.clear();
+    
+    // 선택 변경 이벤트 발생
+    this.eventBus.emit(EventType.CARD_SELECTION_CHANGED, {
+      selectedCardIds: Array.from(this.selectedCardIds),
+      selectionMode: this.selectionMode
+    });
+  }
+  
+  /**
+   * 선택 모드 가져오기
+   * @returns 선택 모드
+   */
   getSelectionMode(): SelectionMode {
     return this.selectionMode;
   }
   
+  /**
+   * 선택 모드 설정
+   * @param mode 선택 모드
+   */
   async setSelectionMode(mode: SelectionMode): Promise<void> {
-    if (this.selectionMode !== mode) {
-      this.selectionMode = mode;
-      await this.settingsService.updateSetting('selectionMode', mode);
-      
-      // 다중 선택 모드가 아닌 경우 선택 초기화
-      if (mode !== 'multiple' && this.selectedCardIds.size > 1) {
-        // 현재 선택된 카드 하나만 유지
-        const currentCard = this.navigationService.getCurrentCard();
-        this.deselectAll();
-        if (currentCard) {
-          this.selectedCardIds.add(currentCard.id);
-        }
-        
-        // 선택 변경 이벤트 발생
-        this.eventBus.publish('interaction:selection-changed', {
-          selectedCardIds: Array.from(this.selectedCardIds)
-        });
-      }
+    // 선택 모드 변경
+    this.selectionMode = mode;
+    
+    // 다중 선택 모드가 아닌 경우 선택 초기화
+    if (this.selectionMode !== 'multiple' && this.selectedCardIds.size > 1) {
+      this.deselectAll();
     }
+    
+    // 설정 업데이트
+    await this.settingsService.updateSettings({ selectionMode: mode });
+    
+    // 선택 모드 변경 이벤트 발생
+    this.eventBus.emit(EventType.SELECTION_MODE_CHANGED, {
+      mode: this.selectionMode
+    });
   }
   
+  /**
+   * 드래그 모드 가져오기
+   * @returns 드래그 모드
+   */
   getDragMode(): DragMode {
     return this.dragMode;
   }
   
+  /**
+   * 드래그 모드 설정
+   * @param mode 드래그 모드
+   */
   async setDragMode(mode: DragMode): Promise<void> {
-    if (this.dragMode !== mode) {
-      this.dragMode = mode;
-      await this.settingsService.updateSetting('dragMode', mode);
-      
-      // 드래그 모드 변경 이벤트 발생
-      this.eventBus.publish('interaction:drag-mode-changed', { mode });
-    }
+    // 드래그 모드 변경
+    this.dragMode = mode;
+    
+    // 설정 업데이트
+    await this.settingsService.updateSettings({ dragMode: mode });
   }
   
+  /**
+   * 드래그 시작
+   * @param cardId 드래그 시작 카드 ID
+   * @param event 드래그 이벤트
+   */
   startDrag(cardId: string, event: any): void {
-    if (this.dragMode === 'none') return;
-    
-    this.isDragging = true;
-    this.dragSourceId = cardId;
-    
-    // 드래그 중인 카드가 선택되지 않은 경우 선택
-    if (!this.isCardSelected(cardId)) {
-      this.selectCard(cardId, event.ctrlKey || event.metaKey);
-    }
-    
-    // 드래그 시작 이벤트 발생
-    this.eventBus.publish('interaction:drag-start', {
-      sourceCardId: cardId,
-      selectedCardIds: Array.from(this.selectedCardIds),
-      dragMode: this.dragMode
-    });
-  }
-  
-  endDrag(targetCardId: string, event: any): void {
-    if (!this.isDragging || !this.dragSourceId || this.dragMode === 'none') {
-      this.cancelDrag();
+    // 드래그 모드가 none인 경우 무시
+    if (this.dragMode === 'none') {
       return;
     }
     
+    // 드래그 시작
+    this.isDragging = true;
+    this.dragSourceId = cardId;
+    
+    // 드래그 시작 이벤트 발생
+    this.eventBus.emit(EventType.CARD_DRAG_STARTED, {
+      cardId: cardId,
+      dragMode: this.dragMode
+    });
+  }
+  
+  /**
+   * 드래그 종료
+   * @param targetCardId 드래그 종료 카드 ID
+   * @param event 드래그 이벤트
+   */
+  endDrag(targetCardId: string, event: any): void {
+    // 드래그 중이 아니거나 드래그 소스가 없는 경우 무시
+    if (!this.isDragging || !this.dragSourceId) {
+      return;
+    }
+    
+    // 드래그 종료
+    this.isDragging = false;
+    
     // 드래그 종료 이벤트 발생
-    this.eventBus.publish('interaction:drag-end', {
+    this.eventBus.emit(EventType.CARD_DRAG_ENDED, {
       sourceCardId: this.dragSourceId,
-      targetCardId,
-      selectedCardIds: Array.from(this.selectedCardIds),
+      targetCardId: targetCardId,
       dragMode: this.dragMode
     });
     
-    // 드래그 상태 초기화
-    this.isDragging = false;
+    // 드래그 소스 초기화
     this.dragSourceId = null;
   }
   
+  /**
+   * 드래그 취소
+   */
   cancelDrag(): void {
-    if (this.isDragging) {
-      // 드래그 취소 이벤트 발생
-      this.eventBus.publish('interaction:drag-cancel', {
-        sourceCardId: this.dragSourceId,
-        selectedCardIds: Array.from(this.selectedCardIds)
-      });
-      
-      // 드래그 상태 초기화
-      this.isDragging = false;
-      this.dragSourceId = null;
+    // 드래그 중이 아닌 경우 무시
+    if (!this.isDragging || !this.dragSourceId) {
+      return;
     }
+    
+    // 드래그 취소
+    this.isDragging = false;
+    
+    // 드래그 취소 이벤트 발생
+    this.eventBus.emit(EventType.CARD_DRAG_CANCELLED, {
+      sourceCardId: this.dragSourceId,
+      dragMode: this.dragMode
+    });
+    
+    // 드래그 소스 초기화
+    this.dragSourceId = null;
   }
   
+  /**
+   * 카드 클릭 처리
+   * @param cardId 카드 ID
+   * @param event 클릭 이벤트
+   */
   handleCardClick(cardId: string, event: any): void {
-    // Ctrl 또는 Command 키를 누른 경우 다중 선택
+    // Shift 키를 누른 경우 범위 선택
+    if (event.shiftKey && this.selectionMode === 'multiple') {
+      const cards = this.navigationService.getCards();
+      const currentIndex = cards.findIndex(card => card.getId() === cardId);
+      const lastSelectedIndex = cards.findIndex(card => 
+        this.selectedCardIds.size > 0 && 
+        Array.from(this.selectedCardIds).includes(card.getId())
+      );
+      
+      if (lastSelectedIndex !== -1) {
+        // 범위 선택
+        const start = Math.min(currentIndex, lastSelectedIndex);
+        const end = Math.max(currentIndex, lastSelectedIndex);
+        
+        for (let i = start; i <= end; i++) {
+          this.selectedCardIds.add(cards[i].getId());
+        }
+        
+        // 선택 변경 이벤트 발생
+        this.eventBus.emit(EventType.CARD_SELECTION_CHANGED, {
+          selectedCardIds: Array.from(this.selectedCardIds),
+          selectionMode: this.selectionMode
+        });
+        
+        return;
+      }
+    }
+    
+    // Ctrl 키를 누른 경우 다중 선택
     if (event.ctrlKey || event.metaKey) {
       if (this.isCardSelected(cardId)) {
         this.deselectCard(cardId);
       } else {
         this.selectCard(cardId, true);
       }
-    } 
-    // Shift 키를 누른 경우 범위 선택
-    else if (event.shiftKey && this.selectionMode === 'multiple') {
-      const currentCard = this.navigationService.getCurrentCard();
-      if (currentCard) {
-        const allCards = this.navigationService.getCards();
-        const currentIndex = allCards.findIndex(card => card.id === currentCard.id);
-        const targetIndex = allCards.findIndex(card => card.id === cardId);
-        
-        if (currentIndex !== -1 && targetIndex !== -1) {
-          const startIndex = Math.min(currentIndex, targetIndex);
-          const endIndex = Math.max(currentIndex, targetIndex);
-          
-          for (let i = startIndex; i <= endIndex; i++) {
-            this.selectedCardIds.add(allCards[i].id);
-          }
-          
-          // 내비게이션 서비스에 현재 카드 설정
-          this.navigationService.selectCardById(cardId);
-          
-          // 선택 변경 이벤트 발생
-          this.eventBus.publish('interaction:selection-changed', {
-            selectedCardIds: Array.from(this.selectedCardIds)
-          });
-        }
-      }
-    } 
-    // 일반 클릭
-    else {
-      this.selectCard(cardId);
+      return;
     }
+    
+    // 일반 클릭
+    this.selectCard(cardId);
     
     // 카드 클릭 이벤트 발생
-    this.eventBus.publish('interaction:card-click', {
-      cardId,
-      selectedCardIds: Array.from(this.selectedCardIds),
-      event: {
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        shiftKey: event.shiftKey
-      }
+    this.eventBus.emit(EventType.CARD_CLICKED, {
+      cardId: cardId
     });
   }
   
+  /**
+   * 카드 더블 클릭 처리
+   * @param cardId 카드 ID
+   * @param event 더블 클릭 이벤트
+   */
   handleCardDoubleClick(cardId: string, event: any): void {
     // 카드 더블 클릭 이벤트 발생
-    this.eventBus.publish('interaction:card-double-click', {
-      cardId,
-      selectedCardIds: Array.from(this.selectedCardIds),
-      event: {
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        shiftKey: event.shiftKey
-      }
+    this.eventBus.emit(EventType.CARD_DOUBLE_CLICKED, {
+      cardId: cardId
     });
   }
   
+  /**
+   * 카드 컨텍스트 메뉴 처리
+   * @param cardId 카드 ID
+   * @param event 컨텍스트 메뉴 이벤트
+   */
   handleCardContextMenu(cardId: string, event: any): void {
-    // 선택되지 않은 카드에서 컨텍스트 메뉴를 열면 해당 카드 선택
-    if (!this.isCardSelected(cardId)) {
-      this.selectCard(cardId);
+    // 카드 컨텍스트 메뉴 이벤트 발생
+    this.eventBus.emit(EventType.CARD_CONTEXT_MENU, {
+      cardId: cardId,
+      event: event
+    });
+  }
+  
+  /**
+   * 카드 변경 이벤트 처리
+   * @param data 이벤트 데이터
+   */
+  private onCardsChanged(data: any): void {
+    // 카드가 변경되면 선택 초기화
+    this.deselectAll();
+  }
+  
+  /**
+   * 설정 변경 이벤트 처리
+   * @param data 이벤트 데이터
+   */
+  private onSettingsChanged(data: any): void {
+    const settings = this.settingsService.getSettings();
+    
+    // 선택 모드 설정이 변경된 경우
+    if (data.changedKeys.includes('selectionMode')) {
+      this.selectionMode = (settings.selectionMode as SelectionMode) || 'single';
+      
+      // 다중 선택 모드가 아닌 경우 선택 초기화
+      if (this.selectionMode !== 'multiple' && this.selectedCardIds.size > 1) {
+        this.deselectAll();
+      }
     }
     
-    // 카드 컨텍스트 메뉴 이벤트 발생
-    this.eventBus.publish('interaction:card-context-menu', {
-      cardId,
-      selectedCardIds: Array.from(this.selectedCardIds),
-      event: {
-        x: event.clientX,
-        y: event.clientY
-      }
-    });
+    // 드래그 모드 설정이 변경된 경우
+    if (data.changedKeys.includes('dragMode')) {
+      this.dragMode = (settings.dragMode as DragMode) || 'none';
+    }
   }
 } 

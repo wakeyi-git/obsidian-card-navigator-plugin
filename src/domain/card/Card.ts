@@ -16,6 +16,11 @@ export interface ICard {
   path?: string;
   
   /**
+   * 파일 이름
+   */
+  filename: string;
+  
+  /**
    * 원본 파일 객체
    * Obsidian TFile 객체를 직접 참조합니다.
    */
@@ -209,6 +214,7 @@ export interface ICardElementStyle {
 export class Card implements ICard {
   id: string;
   path: string;
+  filename: string;
   file: TFile;
   title: string;
   content: string;
@@ -249,6 +255,7 @@ export class Card implements ICard {
     this.metadata = metadata;
     this.id = file.path;
     this.path = file.path;
+    this.filename = file.basename;
     this.created = file.stat.ctime;
     this.modified = file.stat.mtime;
   }

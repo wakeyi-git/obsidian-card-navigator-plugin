@@ -1,11 +1,30 @@
 import { TFile } from 'obsidian';
-import { CardSetSourceType, ICardSet } from '../../domain/cardset/CardSet';
+import { CardSetSourceType, ICardSet, ICardSetSource, ICardSetState } from '../../domain/cardset/CardSet';
 import { ICardSetSourceManager } from '../../domain/cardset/CardSetInterfaces';
 import { DomainEventBus } from '../../domain/events/DomainEventBus';
 import { EventType, SettingsChangedEventData } from '../../domain/events/EventTypes';
 import { ICardSetSourceController } from '../../domain/interaction/InteractionInterfaces';
 import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
 import { ObsidianService } from '../core/ObsidianService';
+
+/**
+ * 빈 카드셋 소스 클래스
+ */
+class EmptyCardSetSource implements ICardSetSource {
+  type: CardSetSourceType = 'folder';
+  currentCardSet: string | null = null;
+  
+  isCardSetFixed(): boolean {
+    return false;
+  }
+  
+  getState(): ICardSetState {
+    return {
+      currentCardSet: null,
+      isFixed: false
+    };
+  }
+}
 
 /**
  * 카드셋 서비스 인터페이스
@@ -35,9 +54,9 @@ export class CardSetService implements ICardSetService {
   private currentCardSetSource: CardSetSourceType;
   private previousCardSetSource: CardSetSourceType;
   private currentCardSet: ICardSet | null = null;
-  private folderCardSet: ICardSet | null = null;
-  private tagCardSet: ICardSet | null = null;
-  private searchCardSet: ICardSet | null = null;
+  private folderCardSet: ICardSetSource | null = null;
+  private tagCardSet: ICardSetSource | null = null;
+  private searchCardSet: ICardSetSource | null = null;
   
   /**
    * 생성자
@@ -69,8 +88,17 @@ export class CardSetService implements ICardSetService {
    * 현재 카드셋 소스 가져오기
    * @returns 현재 카드셋 소스
    */
-  getCurrentSource(): ICardSet {
-    return this.currentCardSet || this.createEmptyCardSet();
+  getCurrentSource(): ICardSetSource {
+    switch (this.currentCardSetSource) {
+      case 'folder':
+        return this.folderCardSet || this.createEmptyCardSet();
+      case 'tag':
+        return this.tagCardSet || this.createEmptyCardSet();
+      case 'search':
+        return this.searchCardSet || this.createEmptyCardSet();
+      default:
+        return this.createEmptyCardSet();
+    }
   }
   
   /**
@@ -83,12 +111,10 @@ export class CardSetService implements ICardSetService {
   
   /**
    * 카드셋 소스 변경
-   * @param sourceType 변경할 카드셋 소스 타입
+   * @param sourceType 변경할 소스 타입
    */
   async changeSource(sourceType: CardSetSourceType): Promise<void> {
-    if (this.currentCardSetSource === sourceType) {
-      return;
-    }
+    if (this.currentCardSetSource === sourceType) return;
     
     this.previousCardSetSource = this.currentCardSetSource;
     this.currentCardSetSource = sourceType;
@@ -98,29 +124,28 @@ export class CardSetService implements ICardSetService {
       lastCardSetSource: sourceType
     });
     
+    // 이벤트 발생
+    this.eventBus.emit(EventType.CARD_SET_SOURCE_CHANGED, {
+      source: sourceType
+    });
+    
     // 카드셋 새로고침
     await this.refreshCardSet();
-    
-    // 이벤트 발생
-    this.eventBus.emit(EventType.CARDSET_SOURCE_CHANGED, {
-      previousSourceType: this.previousCardSetSource,
-      newSourceType: sourceType
-    });
   }
   
   /**
    * 폴더 카드셋 소스 가져오기
-   * @returns 폴더 카드셋 소스 객체
+   * @returns 폴더 카드셋 소스
    */
-  getFolderSource(): ICardSet {
+  getFolderSource(): ICardSetSource {
     return this.folderCardSet || this.createEmptyCardSet();
   }
   
   /**
    * 태그 카드셋 소스 가져오기
-   * @returns 태그 카드셋 소스 객체
+   * @returns 태그 카드셋 소스
    */
-  getTagSource(): ICardSet {
+  getTagSource(): ICardSetSource {
     return this.tagCardSet || this.createEmptyCardSet();
   }
   
@@ -195,12 +220,13 @@ export class CardSetService implements ICardSetService {
   }
   
   /**
-   * 카드셋 소스 변경 알림 처리
-   * @param cardSetSourceType 변경된 카드셋 소스 타입
+   * 카드셋 소스 변경 알림
+   * @param sourceType 소스 타입
    */
-  notifyCardSetSourceChanged(cardSetSourceType: CardSetSourceType): void {
-    this.currentCardSetSource = cardSetSourceType;
-    this.refreshCardSet();
+  notifyCardSetSourceChanged(sourceType: CardSetSourceType): void {
+    this.eventBus.emit(EventType.CARD_SET_SOURCE_CHANGED, {
+      source: sourceType
+    });
   }
   
   /**
@@ -211,7 +237,20 @@ export class CardSetService implements ICardSetService {
     if (!this.currentCardSet) {
       await this.refreshCardSet();
     }
-    return this.currentCardSet || this.createEmptyCardSet();
+    
+    if (this.currentCardSet) {
+      return this.currentCardSet;
+    }
+    
+    // 빈 카드셋 생성
+    return {
+      id: 'empty',
+      name: '빈 카드셋',
+      sourceType: this.currentCardSetSource,
+      source: '',
+      type: 'active',
+      files: []
+    };
   }
   
   /**
@@ -258,43 +297,67 @@ export class CardSetService implements ICardSetService {
   
   /**
    * 폴더 카드셋 새로고침
-   * @returns 새로고침된 폴더 카드셋
+   * @returns 폴더 카드셋
    */
   private async refreshFolderCardSet(): Promise<ICardSet> {
-    // 구현 필요
-    return this.createEmptyCardSet();
+    if (this.folderCardSet) {
+      const cardSet = await (this.folderCardSet as any).getCardSet();
+      return cardSet;
+    }
+    return {
+      id: 'empty-folder',
+      name: '빈 폴더 카드셋',
+      sourceType: 'folder',
+      source: '',
+      type: 'active',
+      files: []
+    };
   }
   
   /**
    * 태그 카드셋 새로고침
-   * @returns 새로고침된 태그 카드셋
+   * @returns 태그 카드셋
    */
   private async refreshTagCardSet(): Promise<ICardSet> {
-    // 구현 필요
-    return this.createEmptyCardSet();
+    if (this.tagCardSet) {
+      const cardSet = await (this.tagCardSet as any).getCardSet();
+      return cardSet;
+    }
+    return {
+      id: 'empty-tag',
+      name: '빈 태그 카드셋',
+      sourceType: 'tag',
+      source: '',
+      type: 'active',
+      files: []
+    };
   }
   
   /**
    * 검색 카드셋 새로고침
-   * @returns 새로고침된 검색 카드셋
+   * @returns 검색 카드셋
    */
   private async refreshSearchCardSet(): Promise<ICardSet> {
-    // 구현 필요
-    return this.createEmptyCardSet();
+    if (this.searchCardSet) {
+      const cardSet = await (this.searchCardSet as any).getCardSet();
+      return cardSet;
+    }
+    return {
+      id: 'empty-search',
+      name: '빈 검색 카드셋',
+      sourceType: 'search',
+      source: '',
+      type: 'active',
+      files: []
+    };
   }
   
   /**
    * 빈 카드셋 생성
    * @returns 빈 카드셋
    */
-  private createEmptyCardSet(): ICardSet {
-    return {
-      getType: () => 'empty',
-      getSource: () => '',
-      getFiles: () => [],
-      getCards: () => [],
-      isEmpty: () => true
-    };
+  private createEmptyCardSet(): ICardSetSource {
+    return new EmptyCardSetSource();
   }
   
   /**

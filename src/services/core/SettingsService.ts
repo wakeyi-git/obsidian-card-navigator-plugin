@@ -12,6 +12,7 @@ export class SettingsService implements ISettingsService {
   private plugin: Plugin;
   private settings: ICardNavigatorSettings;
   private eventBus: DomainEventBus;
+  private settingsChangedListeners: ((settings: ICardNavigatorSettings) => void)[] = [];
   
   /**
    * 생성자
@@ -33,7 +34,7 @@ export class SettingsService implements ISettingsService {
     this.settings = { ...DEFAULT_SETTINGS, ...loadedData };
     
     // 설정 로드 이벤트 발생
-    this.eventBus.emit(EventType.SETTINGS_LOADED, this.settings);
+    this.emit(EventType.SETTINGS_LOADED, undefined);
     
     return this.settings;
   }
@@ -50,7 +51,7 @@ export class SettingsService implements ISettingsService {
     await this.plugin.saveData(this.settings);
     
     // 설정 저장 이벤트 발생
-    this.eventBus.emit(EventType.SETTINGS_SAVED, this.settings);
+    this.emit(EventType.SETTINGS_SAVED, undefined);
   }
   
   /**
@@ -64,15 +65,17 @@ export class SettingsService implements ISettingsService {
     await this.plugin.saveData(this.settings);
     
     // 설정 변경 이벤트 발생
-    this.eventBus.emit(EventType.SETTINGS_CHANGED, {
+    this.emit(EventType.SETTINGS_CHANGED, {
       settings: this.settings,
-      changedKeys: Object.keys(settings),
-      previousSettings
+      changedKeys: Object.keys(settings)
     });
+    
+    // 설정 변경 리스너 호출
+    this.settingsChangedListeners.forEach(listener => listener(this.settings));
   }
   
   /**
-   * 설정 가져오기
+   * 현재 설정 가져오기
    * @returns 현재 설정
    */
   getSettings(): ICardNavigatorSettings {
@@ -82,20 +85,39 @@ export class SettingsService implements ISettingsService {
   /**
    * 특정 설정 값 가져오기
    * @param key 설정 키
+   * @param defaultValue 기본값
    * @returns 설정 값
    */
-  getSetting<K extends keyof ICardNavigatorSettings>(key: K): ICardNavigatorSettings[K] {
-    return this.settings[key];
+  getSetting<K extends keyof ICardNavigatorSettings>(key: K, defaultValue?: ICardNavigatorSettings[K]): ICardNavigatorSettings[K] {
+    if (this.settings[key] !== undefined) {
+      return this.settings[key];
+    }
+    return defaultValue as ICardNavigatorSettings[K];
   }
   
   /**
-   * 특정 설정 값 설정하기
+   * 특정 설정 값 설정
    * @param key 설정 키
    * @param value 설정 값
    */
   async setSetting<K extends keyof ICardNavigatorSettings>(key: K, value: ICardNavigatorSettings[K]): Promise<void> {
-    const settings = { [key]: value } as Partial<ICardNavigatorSettings>;
-    await this.updateSettings(settings);
+    // 이전 값과 다른 경우에만 업데이트
+    if (this.settings[key] !== value) {
+      const oldValue = this.settings[key];
+      this.settings[key] = value;
+      
+      // 설정 저장
+      await this.plugin.saveData(this.settings);
+      
+      // 설정 변경 이벤트 발생
+      this.emit(EventType.SETTINGS_CHANGED, {
+        settings: this.settings,
+        changedKeys: [key]
+      });
+      
+      // 설정 변경 리스너 호출
+      this.settingsChangedListeners.forEach(listener => listener(this.settings));
+    }
   }
   
   /**
@@ -103,9 +125,58 @@ export class SettingsService implements ISettingsService {
    */
   async resetSettings(): Promise<void> {
     this.settings = { ...DEFAULT_SETTINGS };
-    await this.saveSettings();
+    await this.plugin.saveData(this.settings);
     
     // 설정 초기화 이벤트 발생
-    this.eventBus.emit(EventType.SETTINGS_RESET, this.settings);
+    this.emit(EventType.SETTINGS_RESET, undefined);
+    
+    // 설정 변경 리스너 호출
+    this.settingsChangedListeners.forEach(listener => listener(this.settings));
+  }
+  
+  /**
+   * 이벤트 리스너 등록
+   * @param event 이벤트 이름
+   * @param listener 리스너 함수
+   */
+  on(event: EventType, listener: (...args: any[]) => void): void {
+    this.eventBus.on(event, listener);
+  }
+  
+  /**
+   * 이벤트 리스너 제거
+   * @param event 이벤트 이름
+   * @param listener 리스너 함수
+   */
+  off(event: EventType, listener: (...args: any[]) => void): void {
+    this.eventBus.off(event, listener);
+  }
+  
+  /**
+   * 이벤트 발생
+   * @param event 이벤트 이름
+   * @param data 이벤트 데이터
+   */
+  emit(event: EventType, data: any): void {
+    this.eventBus.emit(event, data);
+  }
+  
+  /**
+   * 설정 변경 이벤트 리스너 등록
+   * @param listener 리스너 함수
+   */
+  onSettingsChanged(listener: (settings: ICardNavigatorSettings) => void): void {
+    this.settingsChangedListeners.push(listener);
+  }
+  
+  /**
+   * 설정 변경 이벤트 리스너 제거
+   * @param listener 리스너 함수
+   */
+  offSettingsChanged(listener: (settings: ICardNavigatorSettings) => void): void {
+    const index = this.settingsChangedListeners.indexOf(listener);
+    if (index !== -1) {
+      this.settingsChangedListeners.splice(index, 1);
+    }
   }
 } 

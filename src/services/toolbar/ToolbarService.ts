@@ -1,14 +1,20 @@
-import { DomainEventBus } from '../../events/DomainEventBus';
-import { ISettingsService } from '../core/SettingsService';
+import { DomainEventBus } from '../../domain/events/DomainEventBus';
+import { EventType } from '../../domain/events/EventTypes';
+import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
+import { ToolbarItemType } from '../../domain/toolbar/ToolbarInterfaces';
 
-/**
- * 툴바 아이템 타입
- */
-export type ToolbarItemType = 'button' | 'select' | 'input' | 'separator' | 'spacer';
+// 툴바 관련 이벤트 타입 상수
+const TOOLBAR_ITEM_REGISTERED = 'toolbar:item-registered';
+const TOOLBAR_ITEM_UPDATED = 'toolbar:item-updated';
+const TOOLBAR_ITEM_REMOVED = 'toolbar:item-removed';
+const TOOLBAR_ITEM_VALUE_CHANGED = 'toolbar:item-value-changed';
+const TOOLBAR_ITEM_DISABLED_CHANGED = 'toolbar:item-disabled-changed';
+const TOOLBAR_ITEM_VISIBLE_CHANGED = 'toolbar:item-visible-changed';
+const TOOLBAR_POPUP_SHOWN = 'toolbar:popup-shown';
+const TOOLBAR_POPUP_CLOSED = 'toolbar:popup-closed';
+const TOOLBAR_ACTION_EXECUTED = 'toolbar:action-executed';
 
-/**
- * 툴바 아이템 위치
- */
+// 툴바 아이템 위치 타입 정의
 export type ToolbarItemPosition = 'left' | 'center' | 'right';
 
 /**
@@ -16,7 +22,7 @@ export type ToolbarItemPosition = 'left' | 'center' | 'right';
  */
 export interface IToolbarItem {
   id: string;
-  type: ToolbarItemType;
+  type: string;
   position: ToolbarItemPosition;
   icon?: string;
   label?: string;
@@ -157,9 +163,10 @@ export class ToolbarService implements IToolbarService {
     this.settingsService = settingsService;
     this.eventBus = eventBus;
     
-    // 설정에서 툴바 아이템 로드
-    const savedItems = this.settingsService.getSetting('toolbarItems', []);
-    savedItems.forEach(item => this.items.set(item.id, item));
+    // 저장된 툴바 아이템 로드
+    const settings = this.settingsService.getSettings();
+    const savedItems = settings.toolbarItems || [];
+    savedItems.forEach((item: IToolbarItem) => this.items.set(item.id, item));
   }
   
   registerItem(item: IToolbarItem): string {
@@ -200,8 +207,8 @@ export class ToolbarService implements IToolbarService {
     // 아이템 등록
     this.items.set(defaultItem.id, defaultItem);
     
-    // 툴바 아이템 등록 이벤트 발생
-    this.eventBus.publish('toolbar:item-registered', { item: defaultItem });
+    // 이벤트 발생
+    this.eventBus.emit(TOOLBAR_ITEM_REGISTERED, { item: defaultItem });
     
     // 설정 저장
     this.saveToolbarItems();
@@ -217,8 +224,8 @@ export class ToolbarService implements IToolbarService {
     const updatedItem = { ...item, ...updates };
     this.items.set(itemId, updatedItem);
     
-    // 툴바 아이템 업데이트 이벤트 발생
-    this.eventBus.publish('toolbar:item-updated', { item: updatedItem });
+    // 이벤트 발생
+    this.eventBus.emit(TOOLBAR_ITEM_UPDATED, { item: updatedItem });
     
     // 설정 저장
     this.saveToolbarItems();
@@ -233,8 +240,8 @@ export class ToolbarService implements IToolbarService {
     const item = this.items.get(itemId);
     this.items.delete(itemId);
     
-    // 툴바 아이템 제거 이벤트 발생
-    this.eventBus.publish('toolbar:item-removed', { itemId, item });
+    // 이벤트 발생
+    this.eventBus.emit(TOOLBAR_ITEM_REMOVED, { itemId, item });
     
     // 설정 저장
     this.saveToolbarItems();
@@ -267,8 +274,8 @@ export class ToolbarService implements IToolbarService {
     // 값 설정
     item.value = value;
     
-    // 툴바 아이템 값 변경 이벤트 발생
-    this.eventBus.publish('toolbar:item-value-changed', { itemId, value });
+    // 이벤트 발생
+    this.eventBus.emit(TOOLBAR_ITEM_VALUE_CHANGED, { itemId, value });
     
     // 설정 저장
     this.saveToolbarItems();
@@ -288,8 +295,8 @@ export class ToolbarService implements IToolbarService {
     // 비활성화 설정
     item.disabled = disabled;
     
-    // 툴바 아이템 비활성화 변경 이벤트 발생
-    this.eventBus.publish('toolbar:item-disabled-changed', { itemId, disabled });
+    // 이벤트 발생
+    this.eventBus.emit(TOOLBAR_ITEM_DISABLED_CHANGED, { itemId, disabled });
     
     // 설정 저장
     this.saveToolbarItems();
@@ -304,8 +311,8 @@ export class ToolbarService implements IToolbarService {
     // 표시 설정
     item.visible = visible;
     
-    // 툴바 아이템 표시 변경 이벤트 발생
-    this.eventBus.publish('toolbar:item-visible-changed', { itemId, visible });
+    // 이벤트 발생
+    this.eventBus.emit(TOOLBAR_ITEM_VISIBLE_CHANGED, { itemId, visible });
     
     // 설정 저장
     this.saveToolbarItems();
@@ -322,8 +329,8 @@ export class ToolbarService implements IToolbarService {
     // 현재 팝업 설정
     this.currentPopup = popup;
     
-    // 툴바 팝업 표시 이벤트 발생
-    this.eventBus.publish('toolbar:popup-shown', { popup });
+    // 이벤트 발생
+    this.eventBus.emit(TOOLBAR_POPUP_SHOWN, { popup });
     
     return popup.id;
   }
@@ -335,8 +342,8 @@ export class ToolbarService implements IToolbarService {
     const popup = this.currentPopup;
     this.currentPopup = undefined;
     
-    // 툴바 팝업 닫기 이벤트 발생
-    this.eventBus.publish('toolbar:popup-closed', { popupId, popup });
+    // 이벤트 발생
+    this.eventBus.emit(TOOLBAR_POPUP_CLOSED, { popupId, popup });
     
     return true;
   }
@@ -349,8 +356,8 @@ export class ToolbarService implements IToolbarService {
     const item = this.items.get(itemId);
     if (!item || !item.action) return;
     
-    // 툴바 아이템 액션 실행 이벤트 발생
-    this.eventBus.publish('toolbar:action-executed', {
+    // 이벤트 발생
+    this.eventBus.emit(TOOLBAR_ACTION_EXECUTED, {
       itemId,
       action: item.action,
       data
@@ -362,6 +369,8 @@ export class ToolbarService implements IToolbarService {
    */
   private saveToolbarItems(): void {
     const itemsToSave = Array.from(this.items.values());
-    this.settingsService.updateSetting('toolbarItems', itemsToSave);
+    this.settingsService.updateSettings({
+      toolbarItems: itemsToSave
+    });
   }
 } 

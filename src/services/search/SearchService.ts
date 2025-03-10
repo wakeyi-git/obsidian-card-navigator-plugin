@@ -8,6 +8,8 @@ import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
 import { CardSetService } from '../cardset/CardSetService';
 import { ISearchHistoryService } from './SearchHistoryService';
 import { ISearchSuggestionService } from './SearchSuggestionService';
+import { TFile } from 'obsidian';
+import { ObsidianService } from '../core/ObsidianService';
 
 /**
  * 검색 서비스 인터페이스
@@ -76,7 +78,7 @@ export interface ISearchService {
 
 /**
  * 검색 서비스
- * 검색 기능을 관리합니다.
+ * 검색 관련 기능을 관리합니다.
  */
 export class SearchService implements ISearchService {
   private cardSetService: CardSetService;
@@ -89,6 +91,7 @@ export class SearchService implements ISearchService {
   private currentScope: SearchScope = 'current';
   private searchResults: ICard[] = [];
   private highlightInfoMap: Map<string, ISearchHighlightInfo> = new Map();
+  private obsidianService: ObsidianService;
   
   /**
    * 생성자
@@ -97,19 +100,22 @@ export class SearchService implements ISearchService {
    * @param eventBus 이벤트 버스
    * @param searchHistoryService 검색 히스토리 서비스
    * @param searchSuggestionService 검색 제안 서비스
+   * @param obsidianService Obsidian 서비스
    */
   constructor(
     cardSetService: CardSetService,
     settingsService: ISettingsService,
     eventBus: DomainEventBus,
     searchHistoryService: ISearchHistoryService,
-    searchSuggestionService: ISearchSuggestionService
+    searchSuggestionService: ISearchSuggestionService,
+    obsidianService: ObsidianService
   ) {
     this.cardSetService = cardSetService;
     this.settingsService = settingsService;
     this.eventBus = eventBus;
     this.searchHistoryService = searchHistoryService;
     this.searchSuggestionService = searchSuggestionService;
+    this.obsidianService = obsidianService;
     
     // 설정에서 기본 검색 범위 가져오기
     const settings = this.settingsService.getSettings();
@@ -123,81 +129,41 @@ export class SearchService implements ISearchService {
    * @param scope 검색 범위
    * @returns 검색 결과
    */
-  async search(query: string, searchType: SearchType = 'content', scope: SearchScope = this.currentScope): Promise<ICard[]> {
+  async search(query: string, searchType: SearchType = 'filename', scope: SearchScope = 'current'): Promise<ICard[]> {
     if (!query) {
-      this.searchResults = [];
-      this.currentQuery = '';
-      this.currentSearchType = 'content';
-      this.highlightInfoMap.clear();
-      
-      // 검색 변경 이벤트 발생
-      this.eventBus.emit(EventType.SEARCH_CHANGED, {
-        query: '',
-        searchType: 'content',
-        caseSensitive: false
-      });
-      
       return [];
     }
-    
-    this.currentQuery = query;
-    this.currentSearchType = searchType;
-    this.currentScope = scope;
     
     // 검색 히스토리에 추가
     this.searchHistoryService.addToHistory(query);
     
-    // 설정 가져오기
+    // 검색 범위에 따라 파일 가져오기
+    let files: TFile[] = [];
     const settings = this.settingsService.getSettings();
     const caseSensitive = settings.searchCaseSensitive || false;
     
-    // 카드셋 가져오기
-    let cardSet: ICardSet;
     if (scope === 'all') {
-      // 모든 파일 대상
-      const files = this.cardSetService.getVaultFiles();
-      cardSet = {
-        getType: () => 'all',
-        getSource: () => 'vault',
-        getFiles: () => files,
-        getCards: () => [],
-        isEmpty: () => files.length === 0
-      };
+      // 모든 마크다운 파일 가져오기
+      files = this.obsidianService.getMarkdownFiles();
     } else {
-      // 현재 카드셋 대상
-      cardSet = await this.cardSetService.getCurrentCardSet();
+      // 현재 카드셋의 파일만 가져오기
+      const cardSet = await this.cardSetService.getCurrentCardSet();
+      files = this.obsidianService.getMarkdownFiles().filter((file: TFile) => {
+        return cardSet.files.some(cardFile => cardFile.path === file.path);
+      });
     }
     
-    // 검색 로직 구현
-    const files = cardSet.getFiles();
-    const cards: ICard[] = [];
-    this.highlightInfoMap.clear();
+    // 검색 수행
+    const results = await this.performSearch(files, query, searchType, caseSensitive);
     
-    // 파일로부터 카드 생성 및 검색
-    for (const file of files) {
-      const card = await this.createCardFromFile(file);
-      
-      // 검색 조건에 맞는지 확인
-      if (this.matchesSearch(card, query, searchType, caseSensitive)) {
-        cards.push(card);
-        
-        // 강조 정보 저장
-        this.highlightInfoMap.set(card.getId(), this.createHighlightInfo(card, query, searchType, caseSensitive));
-      }
-    }
-    
-    // 검색 결과 저장
-    this.searchResults = cards;
-    
-    // 검색 변경 이벤트 발생
-    this.eventBus.emit(EventType.SEARCH_CHANGED, {
+    // 검색 결과 이벤트 발생
+    this.eventBus.emit(EventType.SEARCH_RESULTS, {
+      results,
       query,
-      searchType,
-      caseSensitive,
-      frontmatterKey: searchType === 'frontmatter' ? this.extractFrontmatterKey(query) : undefined
+      searchType
     });
     
-    return cards;
+    return results;
   }
   
   /**
@@ -206,69 +172,39 @@ export class SearchService implements ISearchService {
    * @param scope 검색 범위
    * @returns 검색 결과
    */
-  async searchMultipleFields(fields: ISearchField[], scope: SearchScope = this.currentScope): Promise<ICard[]> {
+  async searchMultipleFields(fields: ISearchField[], scope: SearchScope = 'current'): Promise<ICard[]> {
     if (fields.length === 0) {
       return [];
     }
     
-    // 카드셋 가져오기
-    let cardSet: ICardSet;
+    // 검색 히스토리에 추가
+    this.searchHistoryService.addToHistory(fields.map(f => `${f.type}:${f.query}`).join(' '));
+    
+    // 검색 범위에 따라 파일 가져오기
+    let files: TFile[] = [];
+    
     if (scope === 'all') {
-      // 모든 파일 대상
-      const files = this.cardSetService.getVaultFiles();
-      cardSet = {
-        getType: () => 'all',
-        getSource: () => 'vault',
-        getFiles: () => files,
-        getCards: () => [],
-        isEmpty: () => files.length === 0
-      };
+      // 모든 마크다운 파일 가져오기
+      files = this.obsidianService.getMarkdownFiles();
     } else {
-      // 현재 카드셋 대상
-      cardSet = await this.cardSetService.getCurrentCardSet();
+      // 현재 카드셋의 파일만 가져오기
+      const cardSet = await this.cardSetService.getCurrentCardSet();
+      files = this.obsidianService.getMarkdownFiles().filter((file: TFile) => {
+        return cardSet.files.some(cardFile => cardFile.path === file.path);
+      });
     }
     
-    // 설정 가져오기
-    const settings = this.settingsService.getSettings();
-    const caseSensitive = settings.searchCaseSensitive || false;
+    // 검색 수행
+    const results = await this.performMultiFieldSearch(files, fields);
     
-    // 검색 로직 구현
-    const files = cardSet.getFiles();
-    const cards: ICard[] = [];
-    this.highlightInfoMap.clear();
-    
-    // 파일로부터 카드 생성 및 검색
-    for (const file of files) {
-      const card = await this.createCardFromFile(file);
-      
-      // 모든 필드에 대해 검색 조건 확인
-      let matches = true;
-      for (const field of fields) {
-        if (!this.matchesSearch(card, field.query, field.type, caseSensitive, field.frontmatterKey)) {
-          matches = false;
-          break;
-        }
-      }
-      
-      if (matches) {
-        cards.push(card);
-        
-        // 강조 정보 저장 (첫 번째 필드 기준)
-        this.highlightInfoMap.set(card.getId(), this.createHighlightInfo(card, fields[0].query, fields[0].type, caseSensitive));
-      }
-    }
-    
-    // 검색 결과 저장
-    this.searchResults = cards;
-    
-    // 검색 변경 이벤트 발생
-    this.eventBus.emit(EventType.SEARCH_CHANGED, {
+    // 검색 결과 이벤트 발생
+    this.eventBus.emit(EventType.SEARCH_RESULTS, {
+      results,
       query: fields.map(f => `${f.type}:${f.query}`).join(' '),
-      searchType: 'complex',
-      caseSensitive
+      searchType: 'multi'
     });
     
-    return cards;
+    return results;
   }
   
   /**
@@ -599,6 +535,67 @@ export class SearchService implements ISearchService {
   }
   
   /**
+   * 검색 수행
+   * @param files 검색할 파일 목록
+   * @param query 검색어
+   * @param searchType 검색 타입
+   * @param caseSensitive 대소문자 구분 여부
+   * @returns 검색 결과
+   */
+  private async performSearch(files: TFile[], query: string, searchType: SearchType, caseSensitive: boolean): Promise<ICard[]> {
+    const results: ICard[] = [];
+    
+    for (const file of files) {
+      const card = await this.createCardFromFile(file);
+      
+      if (this.matchesSearch(card, query, searchType, caseSensitive)) {
+        // 검색 강조 정보 생성
+        const highlightInfo = this.createHighlightInfo(card, query, searchType, caseSensitive);
+        
+        // card.id가 없는 경우 파일 경로를 ID로 사용
+        const cardId = card.id || card.path || file.path;
+        this.highlightInfoMap.set(cardId, highlightInfo);
+        
+        results.push(card);
+      }
+    }
+    
+    return results;
+  }
+  
+  /**
+   * 복합 필드 검색 수행
+   * @param files 검색할 파일 목록
+   * @param fields 검색 필드 목록
+   * @returns 검색 결과
+   */
+  private async performMultiFieldSearch(files: TFile[], fields: ISearchField[]): Promise<ICard[]> {
+    const results: ICard[] = [];
+    
+    for (const file of files) {
+      const card = await this.createCardFromFile(file);
+      
+      // 모든 필드에 대해 검색 조건 확인
+      let matches = true;
+      
+      for (const field of fields) {
+        const { query, searchType, caseSensitive, frontmatterKey } = field;
+        
+        if (!this.matchesSearch(card, query, searchType, caseSensitive, frontmatterKey)) {
+          matches = false;
+          break;
+        }
+      }
+      
+      if (matches) {
+        results.push(card);
+      }
+    }
+    
+    return results;
+  }
+  
+  /**
    * 검색 강조 정보 생성
    * @param card 카드
    * @param query 검색어
@@ -612,98 +609,61 @@ export class SearchService implements ISearchService {
     searchType: SearchType,
     caseSensitive: boolean
   ): ISearchHighlightInfo {
-    const highlightInfo: ISearchHighlightInfo = {
-      query,
-      searchType,
-      caseSensitive,
-      matches: []
-    };
+    let text = '';
+    const positions: number[] = [];
+    const matches: Array<{ text: string; position: number; length: number }> = [];
     
-    // 검색 타입에 따라 다른 처리
+    // 검색 타입에 따라 텍스트 결정
     switch (searchType) {
-      case 'content':
-        this.addContentMatches(highlightInfo, card.content, query, caseSensitive);
-        break;
       case 'filename':
-        this.addMatches(highlightInfo, card.title, query, caseSensitive);
+        text = card.filename;
+        break;
+      case 'content':
+        text = card.content;
         break;
       case 'tag':
-        card.tags.forEach(tag => {
-          this.addMatches(highlightInfo, tag, query, caseSensitive);
-        });
-        break;
-      case 'path':
-        this.addMatches(highlightInfo, card.getPath(), query, caseSensitive);
+        text = (card.tags || []).join(' ');
         break;
       case 'frontmatter':
         if (card.frontmatter) {
-          const frontmatterKey = this.extractFrontmatterKey(query);
-          if (frontmatterKey && card.frontmatter[frontmatterKey] !== undefined) {
-            this.addMatches(highlightInfo, String(card.frontmatter[frontmatterKey]), query.substring(frontmatterKey.length + 2), caseSensitive);
-          } else {
-            for (const key in card.frontmatter) {
-              this.addMatches(highlightInfo, String(card.frontmatter[key]), query, caseSensitive);
-            }
-          }
+          const frontmatterValues = Object.values(card.frontmatter).join(' ');
+          text = frontmatterValues;
         }
         break;
+      default:
+        text = card.content;
     }
     
-    return highlightInfo;
-  }
-  
-  /**
-   * 내용 매치 추가
-   * @param highlightInfo 강조 정보
-   * @param content 내용
-   * @param query 검색어
-   * @param caseSensitive 대소문자 구분 여부
-   */
-  private addContentMatches(
-    highlightInfo: ISearchHighlightInfo,
-    content: string,
-    query: string,
-    caseSensitive: boolean
-  ): void {
-    const lines = content.split('\n');
+    // 검색어 위치 찾기
+    const flags = caseSensitive ? 'g' : 'gi';
+    const regex = new RegExp(this.escapeRegExp(query), flags);
+    let match;
     
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      this.addMatches(highlightInfo, line, query, caseSensitive, i);
-    }
-  }
-  
-  /**
-   * 매치 추가
-   * @param highlightInfo 강조 정보
-   * @param text 텍스트
-   * @param query 검색어
-   * @param caseSensitive 대소문자 구분 여부
-   * @param lineNumber 라인 번호
-   */
-  private addMatches(
-    highlightInfo: ISearchHighlightInfo,
-    text: string,
-    query: string,
-    caseSensitive: boolean,
-    lineNumber?: number
-  ): void {
-    const searchText = caseSensitive ? text : text.toLowerCase();
-    const searchQuery = caseSensitive ? query : query.toLowerCase();
-    
-    let startIndex = 0;
-    while (startIndex < searchText.length) {
-      const index = searchText.indexOf(searchQuery, startIndex);
-      if (index === -1) break;
-      
-      highlightInfo.matches.push({
-        text: text.substring(index, index + query.length),
-        startIndex: index,
-        endIndex: index + query.length,
-        lineNumber
+    while ((match = regex.exec(text)) !== null) {
+      positions.push(match.index);
+      matches.push({
+        text: match[0],
+        position: match.index,
+        length: match[0].length
       });
-      
-      startIndex = index + 1;
     }
+    
+    return {
+      query,
+      searchType,
+      caseSensitive,
+      text,
+      positions,
+      matches
+    };
+  }
+  
+  /**
+   * 정규식 이스케이프
+   * @param str 문자열
+   * @returns 이스케이프된 문자열
+   */
+  private escapeRegExp(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 } 

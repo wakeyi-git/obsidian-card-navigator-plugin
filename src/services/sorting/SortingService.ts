@@ -69,13 +69,8 @@ export class SortingService implements ISortingService {
    * @param frontmatterKey 프론트매터 키
    */
   async changeSort(type: SortType, direction: SortDirection, frontmatterKey?: string): Promise<void> {
-    // 현재 정렬 설정 업데이트
-    this.currentSort = this.createSort(
-      type,
-      direction,
-      frontmatterKey,
-      this.currentSort.prioritySettings
-    );
+    // 정렬 설정 업데이트
+    this.currentSort = this.createSort(type, direction, frontmatterKey);
     
     // 설정 업데이트
     await this.settingsService.updateSettings({
@@ -85,10 +80,13 @@ export class SortingService implements ISortingService {
     });
     
     // 정렬 변경 이벤트 발생
-    this.eventBus.emit(EventType.SORT_CHANGED, {
-      sortType: type,
-      sortDirection: direction,
-      frontmatterKey
+    this.eventBus.emit(EventType.SORT_TYPE_CHANGED, {
+      sortType: type
+    });
+    
+    // 정렬 방향 변경 이벤트 발생
+    this.eventBus.emit(EventType.SORT_DIRECTION_CHANGED, {
+      sortDirection: direction
     });
   }
   
@@ -107,7 +105,9 @@ export class SortingService implements ISortingService {
     });
     
     // 정렬 변경 이벤트 발생
-    this.eventBus.emit(EventType.PRIORITY_SETTINGS_CHANGED, prioritySettings);
+    this.eventBus.emit(EventType.LAYOUT_SETTINGS_CHANGED, {
+      settings: prioritySettings
+    });
   }
   
   /**

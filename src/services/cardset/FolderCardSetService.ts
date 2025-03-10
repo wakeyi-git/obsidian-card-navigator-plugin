@@ -1,10 +1,11 @@
 import { TFile } from 'obsidian';
-import { CardSet, CardSetType, ICardSet } from '../../domain/cardset/CardSet';
+import { CardSetType, ICardSet, ICardSetSource, ICardSetState } from '../../domain/cardset/CardSet';
 import { ICardSetSelectionManager } from '../../domain/cardset/CardSetInterfaces';
 import { DomainEventBus } from '../../domain/events/DomainEventBus';
 import { EventType } from '../../domain/events/EventTypes';
 import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
 import { ObsidianService } from '../core/ObsidianService';
+import { CardSet } from '../../domain/cardset/CardSetModel';
 
 /**
  * 폴더 카드셋 서비스 인터페이스
@@ -52,7 +53,7 @@ export interface IFolderCardSetService {
  * 폴더 카드셋 서비스
  * 폴더 카드셋 관련 기능을 관리합니다.
  */
-export class FolderCardSetService implements IFolderCardSetService, ICardSetSelectionManager {
+export class FolderCardSetService implements IFolderCardSetService, ICardSetSelectionManager, ICardSetSource {
   private obsidianService: ObsidianService;
   private settingsService: ISettingsService;
   private eventBus: DomainEventBus;
@@ -60,6 +61,7 @@ export class FolderCardSetService implements IFolderCardSetService, ICardSetSele
   private isFixed: boolean = false;
   private includeSubfolders: boolean = true;
   private folders: string[] = [];
+  public currentCardSet: string | null = null;
   
   /**
    * 생성자
@@ -98,19 +100,21 @@ export class FolderCardSetService implements IFolderCardSetService, ICardSetSele
    * @returns 폴더 카드셋
    */
   async getCardSet(): Promise<ICardSet> {
-    // 현재 폴더 결정
-    const folder = this.getCurrentFolder();
-    
-    // 파일 목록 가져오기
-    const files = this.getFilesInFolder(folder, this.includeSubfolders);
+    // 현재 폴더에 있는 파일 가져오기
+    const files = this.getFilesInFolder(this.currentFolder, this.includeSubfolders);
     
     // 카드셋 생성
-    return new CardSet(
-      'folder',
-      folder,
-      files,
-      []
-    );
+    return new CardSet({
+      id: `folder:${this.currentFolder}`,
+      name: this.currentFolder || '루트',
+      sourceType: 'folder',
+      source: this.currentFolder,
+      type: this.isFixed ? 'fixed' : 'active',
+      files: files,
+      metadata: {
+        includeSubfolders: this.includeSubfolders
+      }
+    });
   }
   
   /**
@@ -245,5 +249,32 @@ export class FolderCardSetService implements IFolderCardSetService, ICardSetSele
    */
   private getFilesInFolder(folderPath: string, includeSubfolders: boolean): TFile[] {
     return this.obsidianService.getMarkdownFilesInFolder(folderPath, includeSubfolders);
+  }
+
+  /**
+   * 카드셋 선택
+   * @param cardSet 카드셋 (폴더 경로)
+   * @param isFixed 고정 여부
+   */
+  async selectCardSet(cardSet: string, isFixed: boolean = false): Promise<void> {
+    await this.selectFolder(cardSet, isFixed);
+  }
+
+  /**
+   * 현재 카드셋 상태 가져오기
+   * @returns 카드셋 상태 객체
+   */
+  getState(): ICardSetState {
+    return {
+      currentCardSet: this.currentFolder,
+      isFixed: this.isFixed
+    };
+  }
+
+  /**
+   * 소스 타입 가져오기
+   */
+  get type() {
+    return 'folder' as const;
   }
 } 

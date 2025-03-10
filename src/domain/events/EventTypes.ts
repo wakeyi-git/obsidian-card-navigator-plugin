@@ -576,9 +576,9 @@ export interface CardDragStartedEventData {
   cardId: string;
   
   /**
-   * 카드 데이터
+   * 드래그 모드
    */
-  card: ICard;
+  dragMode: string;
 }
 
 /**
@@ -586,19 +586,109 @@ export interface CardDragStartedEventData {
  */
 export interface CardDragEndedEventData {
   /**
+   * 소스 카드 ID
+   */
+  sourceCardId: string;
+  
+  /**
+   * 타겟 카드 ID
+   */
+  targetCardId: string;
+  
+  /**
+   * 드래그 모드
+   */
+  dragMode: string;
+}
+
+/**
+ * 카드 드래그 취소 이벤트 데이터 인터페이스
+ */
+export interface CardDragCancelledEventData {
+  /**
+   * 소스 카드 ID
+   */
+  sourceCardId: string;
+  
+  /**
+   * 드래그 모드
+   */
+  dragMode: string;
+}
+
+/**
+ * 스크롤 이벤트 데이터 인터페이스
+ */
+export interface ScrollToCardEventData {
+  /**
+   * 스크롤할 카드 인덱스
+   */
+  index: number;
+  
+  /**
+   * 스크롤 동작
+   */
+  behavior: 'smooth' | 'instant';
+}
+
+/**
+ * 내비게이션 모드 변경 이벤트 데이터 인터페이스
+ */
+export interface NavigationModeChangedEventData {
+  /**
+   * 내비게이션 모드
+   */
+  navigationMode: string;
+}
+
+/**
+ * 카드 선택 변경 이벤트 데이터 인터페이스
+ */
+export interface CardSelectionChangedEventData {
+  /**
+   * 선택된 카드 ID 목록
+   */
+  selectedCardIds: string[];
+  
+  /**
+   * 선택 모드
+   */
+  selectionMode: SelectionMode;
+}
+
+/**
+ * 카드 클릭 이벤트 데이터 인터페이스
+ */
+export interface CardClickedEventData {
+  /**
+   * 클릭된 카드 ID
+   */
+  cardId: string;
+}
+
+/**
+ * 카드 더블 클릭 이벤트 데이터 인터페이스
+ */
+export interface CardDoubleClickedEventData {
+  /**
+   * 더블 클릭된 카드 ID
+   */
+  cardId: string;
+}
+
+/**
+ * 카드 컨텍스트 메뉴 이벤트 데이터 인터페이스
+ */
+export interface CardContextMenuEventData {
+  /**
    * 카드 ID
    */
   cardId: string;
   
   /**
-   * 카드 데이터
+   * 이벤트 객체
    */
-  card: ICard;
-  
-  /**
-   * 성공 여부
-   */
-  success: boolean;
+  event: any;
 }
 
 /**
@@ -692,7 +782,18 @@ export enum EventType {
   TAG_CLICKED = 'tag-clicked',
   CARD_DRAG_STARTED = 'card-drag-started',
   CARD_DRAG_ENDED = 'card-drag-ended',
-  CARD_EDITED = 'card-edited'
+  CARD_EDITED = 'card-edited',
+  
+  // 카드 상호작용 관련 이벤트
+  CARD_SELECTION_CHANGED = 'card-selection-changed',
+  CARD_CLICKED = 'card-clicked',
+  CARD_DOUBLE_CLICKED = 'card-double-clicked',
+  CARD_CONTEXT_MENU = 'card-context-menu',
+  CARD_DRAG_CANCELLED = 'card-drag-cancelled',
+  
+  // 내비게이션 관련 이벤트
+  SCROLL_TO_CARD = 'scroll-to-card',
+  NAVIGATION_MODE_CHANGED = 'navigation-mode-changed'
 }
 
 /**
@@ -719,9 +820,9 @@ export type EventDataMap = {
   [EventType.SEARCH_CASE_SENSITIVE_CHANGED]: boolean;
   [EventType.SEARCH_QUERY_CHANGED]: SearchQueryChangedEventData;
   [EventType.SETTINGS_CHANGED]: SettingsChangedEventData;
-  [EventType.SETTINGS_LOADED]: void;
-  [EventType.SETTINGS_SAVED]: void;
-  [EventType.SETTINGS_RESET]: void;
+  [EventType.SETTINGS_LOADED]: undefined;
+  [EventType.SETTINGS_SAVED]: undefined;
+  [EventType.SETTINGS_RESET]: undefined;
   [EventType.PLUGIN_LOADED]: void;
   [EventType.PLUGIN_UNLOADED]: void;
   [EventType.SELECTION_CHANGED]: SelectionChangedEventData;
@@ -762,6 +863,13 @@ export type EventDataMap = {
   [EventType.CARD_DRAG_STARTED]: CardDragStartedEventData;
   [EventType.CARD_DRAG_ENDED]: CardDragEndedEventData;
   [EventType.CARD_EDITED]: void;
+  [EventType.CARD_SELECTION_CHANGED]: CardSelectionChangedEventData;
+  [EventType.CARD_CLICKED]: CardClickedEventData;
+  [EventType.CARD_DOUBLE_CLICKED]: CardDoubleClickedEventData;
+  [EventType.CARD_CONTEXT_MENU]: CardContextMenuEventData;
+  [EventType.CARD_DRAG_CANCELLED]: CardDragCancelledEventData;
+  [EventType.SCROLL_TO_CARD]: ScrollToCardEventData;
+  [EventType.NAVIGATION_MODE_CHANGED]: NavigationModeChangedEventData;
 }
 
 /**

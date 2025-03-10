@@ -1,9 +1,17 @@
-import { DomainEventBus } from '../../events/DomainEventBus';
-import { ISettingsService } from '../core/SettingsService';
+import { DomainEventBus } from '../../domain/events/DomainEventBus';
+import { EventType } from '../../domain/events/EventTypes';
+import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
 import { ICardSetService } from '../cardset/CardSetService';
 import { ILayoutService } from '../layout/LayoutService';
-import { ISortingService } from '../sorting/SortingService';
+import { SortingService } from '../sorting/SortingService';
 import { ISearchService } from '../search/SearchService';
+import { CardSetSourceType } from '../../domain/cardset/CardSet';
+import { LayoutType } from '../../domain/layout/Layout';
+import { SortType, SortDirection } from '../../domain/sorting/SortingInterfaces';
+
+// 프리셋 관련 이벤트 타입 상수
+const PRESET_UPDATED = 'preset:updated';
+const PRESET_DELETED = 'preset:deleted';
 
 /**
  * 프리셋 타입
@@ -92,7 +100,7 @@ export class PresetService implements IPresetService {
   private settingsService: ISettingsService;
   private cardSetService: ICardSetService;
   private layoutService: ILayoutService;
-  private sortingService: ISortingService;
+  private sortingService: SortingService;
   private searchService: ISearchService;
   private eventBus: DomainEventBus;
   private presets: IPreset[] = [];
@@ -111,7 +119,7 @@ export class PresetService implements IPresetService {
     settingsService: ISettingsService,
     cardSetService: ICardSetService,
     layoutService: ILayoutService,
-    sortingService: ISortingService,
+    sortingService: SortingService,
     searchService: ISearchService,
     eventBus: DomainEventBus
   ) {
@@ -122,32 +130,32 @@ export class PresetService implements IPresetService {
     this.searchService = searchService;
     this.eventBus = eventBus;
     
-    // 설정에서 프리셋 로드
-    this.presets = this.settingsService.getSetting('presets', []);
-    this.currentPresetId = this.settingsService.getSetting('currentPresetId', null);
+    // 저장된 프리셋 로드
+    const settings = this.settingsService.getSettings();
+    this.presets = settings.presets || [];
+    this.currentPresetId = settings.currentPresetId || null;
     
     // 설정 변경 이벤트 구독
-    this.eventBus.subscribe('settings:changed', (data: any) => {
-      if (data.key === 'presets') {
-        this.presets = data.value;
-      } else if (data.key === 'currentPresetId') {
-        this.currentPresetId = data.value;
+    this.eventBus.on(EventType.SETTINGS_CHANGED, (data: any) => {
+      if (data.changedKeys.includes('presets')) {
+        this.presets = data.settings.presets || [];
+      }
+      
+      if (data.changedKeys.includes('currentPresetId')) {
+        this.currentPresetId = data.settings.currentPresetId;
       }
     });
     
-    // 다양한 설정 변경 이벤트 구독하여 현재 프리셋 상태 업데이트
-    const settingsToWatch = [
-      'cardSetType', 'cardSetSource', 'layoutType', 'sortType', 
-      'sortDirection', 'cardWidth', 'cardHeight', 'fixedHeight'
-    ];
-    
-    this.eventBus.subscribe('settings:changed', (data: any) => {
-      if (settingsToWatch.includes(data.key) && this.currentPresetId) {
-        // 현재 설정이 활성 프리셋과 일치하는지 확인
-        if (!this.isCurrentSettingsMatchPreset(this.currentPresetId)) {
-          // 일치하지 않으면 현재 프리셋 ID 초기화
-          this.currentPresetId = null;
-          this.settingsService.updateSetting('currentPresetId', null);
+    // 카드셋 변경 이벤트 구독
+    this.eventBus.on(EventType.CARD_SET_CHANGED, (data: any) => {
+      // 현재 프리셋이 있는 경우 일치 여부 확인
+      if (this.currentPresetId) {
+        const isMatch = this.isCurrentSettingsMatchPreset(this.currentPresetId);
+        if (!isMatch) {
+          // 설정이 변경되었으므로 현재 프리셋 해제
+          this.settingsService.updateSettings({
+            currentPresetId: null
+          });
         }
       }
     });
@@ -162,33 +170,58 @@ export class PresetService implements IPresetService {
   }
   
   async createPresetFromCurrentSettings(name: string, description?: string): Promise<IPreset> {
-    // 현재 설정으로 새 프리셋 생성
-    const newPreset: IPreset = {
-      id: `preset_${Date.now()}`,
+    // 현재 설정 가져오기
+    const settings = this.settingsService.getSettings();
+    
+    // 현재 카드셋 타입 및 소스 가져오기
+    const cardSetType = settings.defaultCardSetSource || 'folder';
+    const cardSetSource = cardSetType === 'folder' ? 
+      settings.defaultFolderCardSet || '' : 
+      settings.defaultTagCardSet || '';
+    
+    // 현재 레이아웃 타입 가져오기
+    const layoutType = settings.defaultLayout || 'grid';
+    
+    // 현재 정렬 설정 가져오기
+    const sortType = settings.defaultSortType || 'filename';
+    const sortDirection = settings.defaultSortDirection || 'asc';
+    
+    // 현재 카드 크기 설정 가져오기
+    const cardWidth = settings.cardWidth || 200;
+    const cardHeight = settings.cardHeight || 150;
+    const fixedHeight = settings.fixedCardHeight || true;
+    
+    // 프리셋 생성
+    const preset: IPreset = {
+      id: Date.now().toString(),
       name,
       description,
-      cardSetType: this.cardSetService.getCardSetType(),
-      cardSetSource: this.cardSetService.getCardSetSource(),
-      layoutType: this.layoutService.getLayoutType(),
-      sortType: this.sortingService.getCurrentSort().type,
-      sortDirection: this.sortingService.getCurrentSort().direction,
-      cardWidth: this.layoutService.getCardWidth(),
-      cardHeight: this.layoutService.getCardHeight(),
-      fixedHeight: this.layoutService.isFixedHeight(),
+      cardSetType,
+      cardSetSource,
+      layoutType,
+      sortType,
+      sortDirection,
+      cardWidth,
+      cardHeight,
+      fixedHeight,
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
     
-    // 프리셋 목록에 추가
-    this.presets.push(newPreset);
+    // 프리셋 저장
+    this.presets.push(preset);
+    await this.savePresets();
     
-    // 설정 저장
-    await this.settingsService.updateSetting('presets', this.presets);
-    
-    // 프리셋 생성 이벤트 발생
-    this.eventBus.publish('preset:created', { preset: newPreset });
-    
-    return newPreset;
+    return preset;
+  }
+  
+  /**
+   * 프리셋 저장
+   */
+  private async savePresets(): Promise<void> {
+    await this.settingsService.updateSettings({
+      presets: this.presets
+    });
   }
   
   async updatePreset(presetId: string, updates: Partial<IPreset>): Promise<IPreset | undefined> {
@@ -204,11 +237,13 @@ export class PresetService implements IPresetService {
     
     this.presets[presetIndex] = updatedPreset;
     
-    // 설정 저장
-    await this.settingsService.updateSetting('presets', this.presets);
+    // 프리셋 저장
+    await this.settingsService.updateSettings({
+      presets: this.presets
+    });
     
-    // 프리셋 업데이트 이벤트 발생
-    this.eventBus.publish('preset:updated', { preset: updatedPreset });
+    // 이벤트 발생
+    this.eventBus.emit(PRESET_UPDATED, { preset: updatedPreset });
     
     return updatedPreset;
   }
@@ -221,72 +256,90 @@ export class PresetService implements IPresetService {
     const deletedPreset = this.presets[presetIndex];
     this.presets.splice(presetIndex, 1);
     
-    // 현재 프리셋이 삭제된 경우 현재 프리셋 ID 초기화
+    // 현재 프리셋인 경우 해제
     if (this.currentPresetId === presetId) {
-      this.currentPresetId = null;
-      await this.settingsService.updateSetting('currentPresetId', null);
+      await this.settingsService.updateSettings({
+        currentPresetId: null
+      });
     }
     
-    // 설정 저장
-    await this.settingsService.updateSetting('presets', this.presets);
+    // 프리셋 저장
+    await this.settingsService.updateSettings({
+      presets: this.presets
+    });
     
-    // 프리셋 삭제 이벤트 발생
-    this.eventBus.publish('preset:deleted', { presetId, preset: deletedPreset });
+    // 이벤트 발생
+    this.eventBus.emit(PRESET_DELETED, { presetId, preset: deletedPreset });
     
     return true;
   }
   
   async applyPreset(presetId: string): Promise<boolean> {
     const preset = this.getPreset(presetId);
-    if (!preset) return false;
+    if (!preset) {
+      return false;
+    }
     
-    // 카드셋 설정 적용
-    await this.cardSetService.changeCardSetSource(preset.cardSetType, preset.cardSetSource);
-    
-    // 레이아웃 설정 적용
-    await this.layoutService.changeLayout(preset.layoutType);
-    await this.layoutService.setCardWidth(preset.cardWidth);
-    await this.layoutService.setCardHeight(preset.cardHeight);
-    await this.layoutService.setFixedHeight(preset.fixedHeight);
-    
-    // 정렬 설정 적용
-    await this.sortingService.changeSort(preset.sortType, preset.sortDirection);
-    
-    // 현재 프리셋 ID 설정
-    this.currentPresetId = presetId;
-    await this.settingsService.updateSetting('currentPresetId', presetId);
-    
-    // 프리셋 적용 이벤트 발생
-    this.eventBus.publish('preset:applied', { presetId, preset });
-    
-    return true;
+    try {
+      // 카드셋 타입 및 소스 설정
+      await this.cardSetService.changeSource(preset.cardSetType as CardSetSourceType);
+      await this.cardSetService.selectCardSet(preset.cardSetSource, true);
+      
+      // 레이아웃 설정
+      await this.layoutService.changeLayout(preset.layoutType as LayoutType);
+      
+      // 정렬 설정
+      await this.sortingService.changeSort(
+        preset.sortType as SortType,
+        preset.sortDirection as SortDirection
+      );
+      
+      // 현재 프리셋 ID 설정
+      this.currentPresetId = presetId;
+      
+      return true;
+    } catch (error) {
+      console.error('프리셋 적용 중 오류 발생:', error);
+      return false;
+    }
   }
   
   isCurrentSettingsMatchPreset(presetId: string): boolean {
     const preset = this.getPreset(presetId);
-    if (!preset) return false;
+    if (!preset) {
+      return false;
+    }
     
-    // 현재 설정과 프리셋 비교
-    const currentSettings = {
-      cardSetType: this.cardSetService.getCardSetType(),
-      cardSetSource: this.cardSetService.getCardSetSource(),
-      layoutType: this.layoutService.getLayoutType(),
-      sortType: this.sortingService.getCurrentSort().type,
-      sortDirection: this.sortingService.getCurrentSort().direction,
-      cardWidth: this.layoutService.getCardWidth(),
-      cardHeight: this.layoutService.getCardHeight(),
-      fixedHeight: this.layoutService.isFixedHeight()
-    };
+    const settings = this.settingsService.getSettings();
     
+    // 현재 카드셋 타입 및 소스 가져오기
+    const cardSetType = settings.defaultCardSetSource || 'folder';
+    const cardSetSource = cardSetType === 'folder' ? 
+      settings.defaultFolderCardSet || '' : 
+      settings.defaultTagCardSet || '';
+    
+    // 현재 레이아웃 타입 가져오기
+    const layoutType = settings.defaultLayout || 'grid';
+    
+    // 현재 정렬 설정 가져오기
+    const sortType = settings.defaultSortType || 'filename';
+    const sortDirection = settings.defaultSortDirection || 'asc';
+    
+    // 현재 카드 크기 설정 가져오기
+    const cardWidth = settings.cardWidth || 200;
+    const cardHeight = settings.cardHeight || 150;
+    const fixedHeight = settings.fixedCardHeight || true;
+    
+    // 설정 비교
     return (
-      currentSettings.cardSetType === preset.cardSetType &&
-      currentSettings.cardSetSource === preset.cardSetSource &&
-      currentSettings.layoutType === preset.layoutType &&
-      currentSettings.sortType === preset.sortType &&
-      currentSettings.sortDirection === preset.sortDirection &&
-      currentSettings.cardWidth === preset.cardWidth &&
-      currentSettings.cardHeight === preset.cardHeight &&
-      currentSettings.fixedHeight === preset.fixedHeight
+      preset.cardSetType === cardSetType &&
+      preset.cardSetSource === cardSetSource &&
+      preset.layoutType === layoutType &&
+      preset.sortType === sortType &&
+      preset.sortDirection === sortDirection &&
+      preset.cardWidth === cardWidth &&
+      preset.cardHeight === cardHeight &&
+      preset.fixedHeight === fixedHeight
     );
   }
   

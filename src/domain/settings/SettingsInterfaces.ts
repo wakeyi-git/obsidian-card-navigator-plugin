@@ -1,5 +1,7 @@
 import { CardSetSourceType } from '../cardset/CardSet';
 import { EventType } from '../events/EventTypes';
+import { SelectionMode } from '../interaction/SelectionState';
+import { NavigationMode } from '../navigation';
 
 /**
  * 카드 네비게이터 설정 인터페이스
@@ -82,20 +84,24 @@ export interface ICardNavigatorSettings {
   footerBorderWidth?: number;
   footerBorderRadius?: number;
   
-  // 검색 설정
-  tagCardSetSourceSearchOptions?: string[];
-  folderCardSetSourceSearchOptions?: string[];
-  frontmatterSearchKey?: string;
-  searchCaseSensitive?: boolean;
-  highlightSearchResults?: boolean;
-  maxSearchResults?: number;
-  
   // 정렬 설정
+  defaultSortType?: string;
+  defaultSortDirection?: 'asc' | 'desc';
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   customSortKey?: string;
   tagSortBy?: string;
   folderSortBy?: string;
+  
+  // 검색 설정
+  defaultSearchType?: string;
+  defaultSearchCaseSensitive?: boolean;
+  searchCaseSensitive?: boolean;
+  highlightSearchResults?: boolean;
+  maxSearchResults?: number;
+  tagCardSetSourceSearchOptions?: string[];
+  folderCardSetSourceSearchOptions?: string[];
+  frontmatterSearchKey?: string;
   
   // 레이아웃 설정
   fixedCardHeight?: boolean;
@@ -104,15 +110,33 @@ export interface ICardNavigatorSettings {
   cardGap?: number;
   gridColumns?: string;
   
+  // 내비게이션 설정
+  navigationMode?: NavigationMode;
+  
+  // 상호작용 설정
+  selectionMode?: SelectionMode;
+  dragMode?: 'none' | 'move' | 'copy';
+  
   // 우선 순위 설정
-  priorityTags: string[];
-  priorityFolders: string[];
+  priorityTags?: string[];
+  priorityFolders?: string[];
   
   // 프리셋 설정
+  presets?: any[];
   folderPresetMappings?: {folder: string, presetId: string}[];
   tagPresetMappings?: {tag: string, presetId: string}[];
   presetPriorities?: {id: string, type: 'folder' | 'tag', target: string}[];
-  presets?: string[];
+  
+  // 검색 히스토리 설정
+  searchHistory?: string[];
+  maxSearchHistory?: number;
+  
+  // 카드셋 설정
+  cardSetSourceType?: CardSetSourceType;
+  currentPresetId?: string | null;
+  
+  // 툴바 설정
+  toolbarItems?: any[];
 }
 
 /**

@@ -1,10 +1,11 @@
 import { TFile } from 'obsidian';
-import { CardSet, ICardSet } from '../../domain/cardset/CardSet';
+import { ICardSet, ICardSetSource, ICardSetState, CardSetSourceType } from '../../domain/cardset/CardSet';
 import { ICardSetSelectionManager } from '../../domain/cardset/CardSetInterfaces';
 import { DomainEventBus } from '../../domain/events/DomainEventBus';
 import { EventType } from '../../domain/events/EventTypes';
 import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
 import { ObsidianService } from '../core/ObsidianService';
+import { CardSet } from '../../domain/cardset/CardSetModel';
 
 /**
  * 태그 카드셋 서비스 인터페이스
@@ -52,7 +53,7 @@ export interface ITagCardSetService {
  * 태그 카드셋 서비스
  * 태그 카드셋 관련 기능을 관리합니다.
  */
-export class TagCardSetService implements ITagCardSetService, ICardSetSelectionManager {
+export class TagCardSetService implements ITagCardSetService, ICardSetSelectionManager, ICardSetSource {
   private obsidianService: ObsidianService;
   private settingsService: ISettingsService;
   private eventBus: DomainEventBus;
@@ -60,6 +61,7 @@ export class TagCardSetService implements ITagCardSetService, ICardSetSelectionM
   private isFixed: boolean = false;
   private caseSensitive: boolean = false;
   private allTags: string[] = [];
+  public currentCardSet: string | null = null;
   
   /**
    * 생성자
@@ -98,19 +100,21 @@ export class TagCardSetService implements ITagCardSetService, ICardSetSelectionM
    * @returns 태그 카드셋
    */
   async getCardSet(): Promise<ICardSet> {
-    // 현재 태그 결정
-    const tags = this.getCurrentTags();
-    
-    // 파일 목록 가져오기
-    const files = this.getFilesWithTags(tags);
+    // 현재 태그에 해당하는 파일 가져오기
+    const files = this.getFilesWithTags(this.currentTags);
     
     // 카드셋 생성
-    return new CardSet(
-      'tag',
-      tags.join(', '),
-      files,
-      tags
-    );
+    return new CardSet({
+      id: `tag:${this.currentTags.join(',')}`,
+      name: this.currentTags.join(', ') || '모든 태그',
+      sourceType: 'tag',
+      source: this.currentTags.join(','),
+      type: this.isFixed ? 'fixed' : 'active',
+      files: files,
+      metadata: {
+        caseSensitive: this.caseSensitive
+      }
+    });
   }
   
   /**
@@ -288,5 +292,33 @@ export class TagCardSetService implements ITagCardSetService, ICardSetSelectionM
         return tags.some(tag => lowerFileTags.includes(tag.toLowerCase()));
       }
     });
+  }
+
+  /**
+   * 카드셋 선택
+   * @param cardSet 카드셋 (태그 문자열, 쉼표로 구분)
+   * @param isFixed 고정 여부
+   */
+  async selectCardSet(cardSet: string, isFixed: boolean = false): Promise<void> {
+    const tags = cardSet.split(',').map(tag => tag.trim()).filter(tag => tag);
+    await this.selectTags(tags, isFixed);
+  }
+
+  /**
+   * 현재 카드셋 상태 가져오기
+   * @returns 카드셋 상태 객체
+   */
+  getState(): ICardSetState {
+    return {
+      currentCardSet: this.currentTags.join(','),
+      isFixed: this.isFixed
+    };
+  }
+
+  /**
+   * 소스 타입 가져오기
+   */
+  get type() {
+    return 'tag' as const;
   }
 } 

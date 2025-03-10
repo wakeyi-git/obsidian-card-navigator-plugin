@@ -205,12 +205,19 @@ export class CardRenderingService implements ICardRenderingService {
    */
   private renderMarkdown(markdown: string, container: HTMLElement, file: any): void {
     try {
-      MarkdownRenderer.renderMarkdown(
-        markdown,
-        container,
-        file.path,
-        this.obsidianService.getWorkspace().activeLeaf
-      );
+      const activeLeaf = this.obsidianService.getWorkspace().activeLeaf;
+      
+      if (activeLeaf) {
+        MarkdownRenderer.renderMarkdown(
+          markdown,
+          container,
+          file.path,
+          activeLeaf as any
+        );
+      } else {
+        // activeLeaf가 없는 경우 텍스트로 표시
+        container.setText(markdown);
+      }
     } catch (error) {
       console.error('마크다운 렌더링 오류:', error);
       container.setText(markdown);

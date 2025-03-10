@@ -19,14 +19,24 @@ export type SearchScope = 'all' | 'current';
  */
 export interface ISearchField {
   /**
-   * 검색 타입
+   * 검색 필드 타입
    */
-  type: SearchType;
+  type: string;
   
   /**
    * 검색어
    */
   query: string;
+  
+  /**
+   * 검색 타입
+   */
+  searchType: SearchType;
+  
+  /**
+   * 대소문자 구분 여부
+   */
+  caseSensitive: boolean;
   
   /**
    * 프론트매터 키 (frontmatter 타입인 경우)

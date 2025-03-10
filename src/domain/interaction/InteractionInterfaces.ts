@@ -4,7 +4,6 @@ import { CardSetSourceType } from '../cardset/index';
 import { LayoutType } from '../layout/index';
 import { IPreset } from '../preset/index';
 import { SearchType } from '../search/index';
-import CardNavigatorPlugin from '../../main';
 import { BatchActionType, IBatchActionParams, IBatchActionResult } from './BatchActions';
 import { SelectionMode } from './SelectionState';
 import { KeyboardNavigationDirection } from '../navigation';
