@@ -109,26 +109,29 @@ export interface IWorkspace {
   getActiveFile(): TFile | null;
   
   /**
-   * 이벤트 리스너 등록
-   * @param event 이벤트 이름
-   * @param callback 콜백 함수
+   * 이벤트 등록
+   * @param event 이벤트 참조
    */
-  on(event: string, callback: (...args: any[]) => any): EventRef;
-  
-  /**
-   * 이벤트 리스너 제거
-   * @param event 이벤트 이름
-   * @param callback 콜백 함수
-   */
-  off(event: string, callback: (...args: any[]) => any): void;
-  
-  /**
-   * 이벤트 트리거
-   * @param event 이벤트 이름
-   * @param args 이벤트 인자
-   */
-  trigger(event: string, ...args: any[]): void;
+  registerEvent(event: EventRef): void;
 }
+
+/**
+ * Workspace 이벤트 타입
+ */
+export type WorkspaceEventType = 
+  | 'quick-preview'
+  | 'file-open'
+  | 'file-menu'
+  | 'folder-menu'
+  | 'active-leaf-change'
+  | 'layout-change'
+  | 'css-change'
+  | 'resize'
+  | 'click'
+  | 'editor-change'
+  | 'editor-paste'
+  | 'editor-drop'
+  | 'quit';
 
 /**
  * MetadataCache 인터페이스
