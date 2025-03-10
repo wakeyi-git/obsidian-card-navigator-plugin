@@ -4,11 +4,10 @@ import { CardSetSourceType } from '../cardset/index';
 import { LayoutType } from '../layout/index';
 import { IPreset } from '../preset/index';
 import { SearchType } from '../search/index';
-import { ICardService } from '../../application/CardService';
-import { ICardSetService } from '../../application/CardSetService';
-import { ISearchService } from '../../application/SearchService';
-import { ILayoutService } from '../../application/LayoutService';
 import CardNavigatorPlugin from '../../main';
+import { BatchActionType, IBatchActionParams, IBatchActionResult } from './BatchActions';
+import { SelectionMode } from './SelectionState';
+import { KeyboardNavigationDirection } from '../navigation';
 
 /**
  * 카드 네비게이터 초기화 인터페이스
@@ -174,60 +173,6 @@ export interface ISettingsController {
 }
 
 /**
- * 서비스 제공 인터페이스
- * 다양한 서비스를 제공합니다.
- */
-export interface IServiceProvider {
-  /**
-   * 카드 세트 서비스 가져오기
-   * @returns 카드 세트 서비스
-   */
-  getCardSetSourceService(): ICardSetService;
-  
-  /**
-   * 카드 서비스 가져오기
-   * @returns 카드 서비스
-   */
-  getCardService(): ICardService;
-  
-  /**
-   * 검색 서비스 가져오기
-   * @returns 검색 서비스
-   */
-  getSearchService(): ISearchService;
-  
-  /**
-   * 정렬 서비스 가져오기
-   * @returns 정렬 서비스
-   */
-  getSortService(): ICardSetService;
-  
-  /**
-   * 레이아웃 서비스 가져오기
-   * @returns 레이아웃 서비스
-   */
-  getLayoutService(): ILayoutService;
-  
-  /**
-   * 프리셋 서비스 가져오기
-   * @returns 프리셋 서비스
-   */
-  getPresetService(): ICardSetService;
-  
-  /**
-   * Obsidian App 객체 가져오기
-   * @returns Obsidian App 객체
-   */
-  getApp(): App;
-  
-  /**
-   * 플러그인 인스턴스 가져오기
-   * @returns 플러그인 인스턴스
-   */
-  getPlugin(): any;
-}
-
-/**
  * 마크다운 렌더링 인터페이스
  * 마크다운 렌더링 관련 기능을 제공합니다.
  */
@@ -242,9 +187,62 @@ export interface IMarkdownRenderer {
 }
 
 /**
- * 키보드 내비게이션 방향
+ * 카드 상호작용 핸들러 인터페이스
+ * 카드와의 상호작용을 처리하는 핸들러를 정의합니다.
  */
-export type KeyboardNavigationDirection = 'up' | 'down' | 'left' | 'right';
+export interface ICardInteractionHandler {
+  /**
+   * 카드 클릭 처리
+   * @param card 카드 데이터
+   */
+  onCardClick(card: ICard): void;
+  
+  /**
+   * 카드 더블 클릭 처리
+   * @param card 카드 데이터
+   */
+  onCardDoubleClick(card: ICard): void;
+  
+  /**
+   * 카드 컨텍스트 메뉴 처리
+   * @param card 카드 데이터
+   * @param event 이벤트
+   */
+  onCardContextMenu(card: ICard, event: MouseEvent): void;
+  
+  /**
+   * 카드 드래그 시작 처리
+   * @param card 카드 데이터
+   * @param event 드래그 이벤트
+   */
+  onCardDragStart(card: ICard, event: DragEvent): void;
+  
+  /**
+   * 카드 드래그 종료 처리
+   * @param card 카드 데이터
+   * @param event 드래그 이벤트
+   */
+  onCardDragEnd(card: ICard, event: DragEvent): void;
+  
+  /**
+   * 태그 클릭 처리
+   * @param tag 태그
+   * @param card 카드 데이터
+   */
+  onTagClick(tag: string, card: ICard): void;
+  
+  /**
+   * 편집 버튼 클릭 처리
+   * @param card 카드 데이터
+   */
+  onEditClick(card: ICard): void;
+  
+  /**
+   * 열기 버튼 클릭 처리
+   * @param card 카드 데이터
+   */
+  onOpenClick(card: ICard): void;
+}
 
 /**
  * 카드 상호작용 인터페이스
@@ -293,52 +291,24 @@ export interface ICardInteraction {
 }
 
 /**
- * 키보드 내비게이션 인터페이스
- * 키보드를 이용한 카드 내비게이션을 정의합니다.
- */
-export interface IKeyboardNavigation {
-  /**
-   * 키보드 이벤트 처리
-   * @param event 키보드 이벤트
-   * @returns 이벤트 처리 여부
-   */
-  handleKeyEvent(event: KeyboardEvent): Promise<boolean>;
-  
-  /**
-   * 방향키 이동
-   * @param direction 이동 방향
-   * @returns 이동 성공 여부
-   */
-  navigate(direction: KeyboardNavigationDirection): boolean;
-  
-  /**
-   * 현재 포커스된 카드 열기
-   * @returns 성공 여부
-   */
-  openFocusedCard(): Promise<boolean>;
-  
-  /**
-   * 현재 포커스된 카드 편집
-   * @returns 성공 여부
-   */
-  editFocusedCard(): Promise<boolean>;
-  
-  /**
-   * 현재 포커스된 카드 인덱스 가져오기
-   * @returns 포커스된 카드 인덱스 또는 -1
-   */
-  getFocusedIndex(): number;
-}
-
-/**
  * 다중 선택 인터페이스
- * 카드의 다중 선택 기능을 정의합니다.
+ * 다중 선택 관련 기능을 제공합니다.
  */
 export interface IMultiSelection {
   /**
    * 선택된 카드 목록
    */
   selectedCards: ICard[];
+  
+  /**
+   * 마지막으로 선택된 카드
+   */
+  lastSelectedCard: ICard | null;
+  
+  /**
+   * 현재 선택 모드
+   */
+  selectionMode: SelectionMode;
   
   /**
    * 카드 선택
@@ -392,39 +362,35 @@ export interface IMultiSelection {
   getSelectedCards(): ICard[];
   
   /**
+   * 선택 모드 변경
+   * @param mode 변경할 선택 모드
+   */
+  setSelectionMode(mode: SelectionMode): void;
+  
+  /**
+   * 현재 선택 모드 가져오기
+   * @returns 현재 선택 모드
+   */
+  getSelectionMode(): SelectionMode;
+  
+  /**
    * 선택된 카드에 대한 일괄 작업 수행
    * @param action 수행할 작업 함수
+   * @deprecated 대신 performBatchActionWithParams 사용
    */
   performBatchAction(action: (cards: ICard[]) => Promise<void>): Promise<void>;
-}
-
-/**
- * 통합 카드 네비게이터 서비스 인터페이스
- * 모든 카드 네비게이터 관련 인터페이스를 통합합니다.
- */
-export interface ICardNavigatorService extends 
-  ICardNavigatorInitializer,
-  ICardManager,
-  ICardSetSourceController,
-  ILayoutController,
-  IPresetController,
-  ISearchController,
-  ISettingsController,
-  IServiceProvider,
-  IMarkdownRenderer,
-  ICardInteraction,
-  IKeyboardNavigation,
-  IMultiSelection {
   
   /**
-   * 카드셋 소스 서비스 설정
-   * @param service 카드셋 소스 서비스
+   * 선택된 카드에 대한 일괄 작업 수행
+   * @param params 일괄 작업 매개변수
+   * @returns 일괄 작업 결과
    */
-  setCardSetSourceService(service: ICardSetService): void;
+  performBatchActionWithParams(params: IBatchActionParams): Promise<IBatchActionResult>;
   
   /**
-   * 검색 서비스 설정
-   * @param service 검색 서비스
+   * 특정 일괄 작업 타입이 현재 선택에 적용 가능한지 확인
+   * @param actionType 확인할 일괄 작업 타입
+   * @returns 적용 가능 여부
    */
-  setSearchService(service: ISearchService): void;
+  isBatchActionAvailable(actionType: BatchActionType): boolean;
 } 

@@ -1,0 +1,447 @@
+/* 카드 네비게이터 기본 스타일 */
+.card-navigator-container-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  font-family: var(--font-interface);
+}
+
+/* 헤더 스타일 */
+.card-navigator-header {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+}
+
+/* 툴바 스타일 */
+.card-navigator-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+/* 레이아웃 토글 스타일 */
+.card-navigator-layout-toggle {
+  display: flex;
+  gap: 5px;
+}
+
+.card-navigator-layout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.card-navigator-layout-btn:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-layout-btn.active {
+  color: var(--text-normal);
+  background-color: var(--background-modifier-active);
+}
+
+/* 정렬 옵션 스타일 */
+.card-navigator-sort-options {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.card-navigator-sort-label {
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+.card-navigator-sort-select {
+  font-size: 0.9em;
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.card-navigator-sort-direction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.card-navigator-sort-direction:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+/* 검색 컨테이너 스타일 */
+.card-navigator-search-container {
+  width: 100%;
+}
+
+.card-navigator-search-input-container {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 5px;
+  background-color: var(--background-primary);
+}
+
+.card-navigator-search-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text-muted);
+}
+
+.card-navigator-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 5px;
+  font-size: 0.9em;
+  color: var(--text-normal);
+}
+
+.card-navigator-search-input:focus {
+  outline: none;
+}
+
+.card-navigator-search-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.card-navigator-search-button:hover {
+  color: var(--text-normal);
+}
+
+/* 제안 목록 스타일 */
+.card-navigator-suggestion-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.card-navigator-suggestion-item {
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.card-navigator-suggestion-item:hover,
+.card-navigator-suggestion-item.selected {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-suggestion-text {
+  font-size: 0.9em;
+  color: var(--text-normal);
+}
+
+.card-navigator-suggestion-highlight {
+  color: var(--text-accent);
+  font-weight: bold;
+}
+
+.card-navigator-suggestion-description {
+  font-size: 0.8em;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* 카드 컨테이너 스타일 */
+.card-navigator-cards-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+/* 그리드 레이아웃 스타일 */
+.card-navigator-grid-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-gap: 10px;
+}
+
+/* 매스너리 레이아웃 스타일 */
+.card-navigator-masonry-layout {
+  column-count: auto;
+  column-width: 300px;
+  column-gap: 10px;
+}
+
+.card-navigator-masonry-layout .card-navigator-card {
+  break-inside: avoid;
+  margin-bottom: 10px;
+}
+
+/* 카드 스타일 */
+.card-navigator-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background-color: var(--background-primary);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.card-navigator-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.card-navigator-card.selected {
+  border-color: var(--text-accent);
+  box-shadow: 0 0 0 2px rgba(var(--text-accent-rgb), 0.2);
+}
+
+/* 카드 헤더 스타일 */
+.card-navigator-card-header {
+  padding: 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: var(--background-secondary);
+}
+
+.card-navigator-card-title {
+  font-size: 1em;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: var(--text-normal);
+}
+
+.card-navigator-card-meta {
+  font-size: 0.8em;
+  color: var(--text-muted);
+}
+
+/* 카드 태그 스타일 */
+.card-navigator-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-card-tag {
+  font-size: 0.8em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: var(--background-modifier-hover);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.card-navigator-card-tag:hover {
+  background-color: var(--background-modifier-active);
+  color: var(--text-normal);
+}
+
+/* 카드 내용 스타일 */
+.card-navigator-card-content {
+  flex: 1;
+  padding: 10px;
+  font-size: 0.9em;
+  color: var(--text-normal);
+  overflow: hidden;
+}
+
+/* 카드 푸터 스타일 */
+.card-navigator-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-top: 1px solid var(--background-modifier-border);
+  background-color: var(--background-secondary);
+  font-size: 0.8em;
+  color: var(--text-muted);
+}
+
+.card-navigator-card-created,
+.card-navigator-card-modified {
+  font-size: 0.8em;
+}
+
+.card-navigator-card-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.card-navigator-card-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.card-navigator-card-action:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* 카드 리스트 스타일 */
+.card-navigator-card-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.card-navigator-card-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: var(--background-secondary);
+}
+
+.card-navigator-card-list-title {
+  font-size: 1.1em;
+  font-weight: bold;
+  color: var(--text-normal);
+}
+
+.card-navigator-card-list-count {
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+.card-navigator-card-list-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-top: 1px solid var(--background-modifier-border);
+  background-color: var(--background-secondary);
+}
+
+/* 페이지네이션 스타일 */
+.card-navigator-pagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.card-navigator-pagination-prev,
+.card-navigator-pagination-next {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.card-navigator-pagination-prev:hover,
+.card-navigator-pagination-next:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.card-navigator-pagination-prev.disabled,
+.card-navigator-pagination-next.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.card-navigator-pagination-info {
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+/* 빈 메시지 스타일 */
+.card-navigator-empty-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+/* 모달 스타일 */
+.card-navigator-new-file-modal {
+  padding: 20px;
+}
+
+.card-navigator-new-file-modal h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 1.2em;
+  color: var(--text-normal);
+}
+
+.card-navigator-new-file-modal label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+.card-navigator-new-file-modal input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 20px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.card-navigator-modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.card-navigator-modal-buttons button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.card-navigator-modal-buttons button.mod-cta {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+} 

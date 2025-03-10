@@ -1,1 +1,1 @@
-export type { ICardList, ISort, SortDirection, SortType, IPrioritySettings } from './CardListInterfaces'; 
+export type { ICardList } from './CardListInterfaces'; 

@@ -1,9 +1,6 @@
 export type { 
   ICardInteraction, 
-  IKeyboardNavigation, 
-  KeyboardNavigationDirection, 
   IMultiSelection,
-  ICardNavigatorService,
   ICardNavigatorInitializer,
   ICardManager,
   ICardSetSourceController,
@@ -11,6 +8,23 @@ export type {
   IPresetController,
   ISearchController,
   ISettingsController,
-  IServiceProvider,
   IMarkdownRenderer
-} from './InteractionInterfaces'; 
+} from './InteractionInterfaces';
+
+export type {
+  ISelectionState,
+  SelectionMode,
+  SelectionChangedEventData
+} from './SelectionState';
+
+export type {
+  BatchActionType,
+  IBatchActionParams,
+  IBatchActionResult,
+  BatchActionHandler,
+  IBatchActionManager,
+  IBatchActionAdditionalData,
+  IBatchActionResultData
+} from './BatchActions';
+
+export { BatchActionManager } from './BatchActionManager'; 

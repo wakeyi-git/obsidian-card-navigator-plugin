@@ -1,12 +1,26 @@
 import { App, Plugin, WorkspaceLeaf, PluginSettingTab, Setting, TFolder, TFile, Notice, SuggestModal, Modal, MarkdownRenderer, MarkdownView, Menu, MenuItem, TAbstractFile, Workspace } from 'obsidian';
 import { CardNavigatorView } from './ui/CardNavigatorView';
-import { CardRepositoryImpl } from './infrastructure/CardRepositoryImpl';
-import { ObsidianAdapter } from './infrastructure/ObsidianAdapter';
-import { CardFactory } from './domain/card/CardFactory';
-import { CardNavigatorService } from './application/CardNavigatorService';
 import { CardNavigatorSettingTab } from './ui/settings/SettingTab';
 import { CardSetSourceType } from './domain/cardset/CardSet';
-import { ServiceFactory } from './application/ServiceFactory';
+
+// 서비스 및 어댑터 임포트
+import { ObsidianAdapter } from './services/ObsidianAdapter';
+import { SearchService } from './services/SearchService';
+import { CardService } from './services/CardService';
+import { PresetService } from './services/PresetService';
+import { CardInteractionService } from './services/CardInteractionService';
+
+// 도메인 임포트
+import { CardManager } from './domain/card/CardManager';
+import { CardListManager } from './domain/cardlist/CardListManager';
+import { PresetManager } from './domain/preset/PresetManager';
+import { SearchSuggestionProvider } from './domain/search/SearchSuggestionProvider';
+import { DomainEventBus } from './domain/events/DomainEventBus';
+
+// UI 컴포넌트 임포트
+import { SearchView } from './ui/components/SearchView';
+import { CardListView } from './ui/components/CardListView';
+import { CardView } from './ui/components/CardView';
 
 // 뷰 타입 상수 정의
 export const VIEW_TYPE_CARD_NAVIGATOR = 'card-navigator-view-type';
@@ -197,7 +211,9 @@ const DEFAULT_SETTINGS: CardNavigatorSettings = {
 declare module 'obsidian' {
   interface Workspace {
     on(name: 'card-navigator:settings-changed', callback: (settings: any) => any): EventRef;
+    on(name: 'file-open', callback: (file: TFile | null) => any): EventRef;
     off(name: 'card-navigator:settings-changed', callback: (settings: any) => any): void;
+    off(name: 'file-open', callback: (file: TFile | null) => any): void;
     trigger(name: 'card-navigator:settings-changed', settings: any): void;
   }
 }
@@ -207,8 +223,24 @@ declare module 'obsidian' {
  */
 export default class CardNavigatorPlugin extends Plugin {
   settings: CardNavigatorSettings = DEFAULT_SETTINGS;
-  private cardNavigatorService: CardNavigatorService | null = null;
-  private serviceFactory: ServiceFactory | null = null;
+  
+  // 서비스 인스턴스
+  private obsidianAdapter: ObsidianAdapter;
+  private searchService: SearchService;
+  private cardService: CardService;
+  private presetService: PresetService;
+  private cardInteractionService: CardInteractionService;
+  
+  // 도메인 인스턴스
+  private cardManager: CardManager;
+  private cardListManager: CardListManager;
+  private presetManager: PresetManager;
+  private searchSuggestionProvider: SearchSuggestionProvider;
+  private eventBus: DomainEventBus;
+  
+  // UI 컴포넌트 인스턴스
+  private searchView: SearchView;
+  private cardListView: CardListView;
 
   async onload() {
     console.log('카드 네비게이터 플러그인 로드 중...');
@@ -219,7 +251,7 @@ export default class CardNavigatorPlugin extends Plugin {
     // 뷰 등록
     this.registerView(
       VIEW_TYPE_CARD_NAVIGATOR,
-      (leaf: WorkspaceLeaf) => new CardNavigatorView(leaf)
+      (leaf: WorkspaceLeaf) => new CardNavigatorView(leaf, this)
     );
     
     // 서비스 초기화 (비동기 처리)
@@ -250,51 +282,25 @@ export default class CardNavigatorPlugin extends Plugin {
     
     // 설정 탭 추가
     this.addSettingTab(new CardNavigatorSettingTab(this.app, this));
-
-    // 플러그인 로드 시 뷰 활성화
-    setTimeout(() => {
-      this.activateView();
-    }, 300);
+    
+    // 이벤트 리스너 등록
+    this.registerEventListeners();
     
     console.log('카드 네비게이터 플러그인 로드 완료');
   }
 
-  onunload() {
-    console.log('Card Navigator plugin unloaded');
+  async onunload() {
+    console.log('카드 네비게이터 플러그인 언로드 중...');
     
-    // 현재 카드 세트와 카드 세트 정보를 마지막 상태로 저장
-    if (this.cardNavigatorService) {
-      try {
-        const cardSetSourceService = this.cardNavigatorService.getCardSetSourceService();
-        const currentCardSetSource = cardSetSourceService.getCurrentSourceType();
-        const currentCardSet = cardSetSourceService.getCurrentCardSet();
-        const isFixed = cardSetSourceService.isCardSetFixed();
-        
-        // 마지막 카드 세트 저장
-        this.settings.lastCardSetSource = currentCardSetSource;
-        
-        // 카드 세트에 따라 마지막 카드 세트 저장
-        if (currentCardSetSource === 'folder') {
-          // currentCardSet이 ICardSet 타입인 경우 source 속성을 사용
-          this.settings.lastFolderCardSet = typeof currentCardSet === 'string' ? 
-            currentCardSet : 
-            (currentCardSet?.source || undefined);
-          this.settings.lastFolderCardSetFixed = isFixed;
-        } else if (currentCardSetSource === 'tag') {
-          // currentCardSet이 ICardSet 타입인 경우 source 속성을 사용
-          this.settings.lastTagCardSet = typeof currentCardSet === 'string' ? 
-            currentCardSet : 
-            (currentCardSet?.source || undefined);
-          this.settings.lastTagCardSetFixed = isFixed;
-        }
-        
-        // 설정 저장
-        this.saveSettings();
-        console.log('플러그인 종료 시 마지막 상태 저장 완료');
-      } catch (error) {
-        console.error('플러그인 종료 시 상태 저장 중 오류 발생:', error);
-      }
+    // 뷰 분리
+    this.app.workspace.detachLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+    
+    // 이벤트 어댑터 언로드
+    if (this.obsidianAdapter) {
+      this.obsidianAdapter.unregisterEvents();
     }
+    
+    console.log('카드 네비게이터 플러그인 언로드 완료');
   }
 
   async loadSettings() {
@@ -373,212 +379,141 @@ export default class CardNavigatorPlugin extends Plugin {
    * 카드 네비게이터 뷰 활성화
    */
   async activateView() {
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-  
-    // 오른쪽 사이드바에 뷰 추가 시도
-    try {
-      const leaf = this.app.workspace.getRightLeaf(false);
-      
-      // leaf가 null인 경우 새 leaf 생성
-      if (!leaf) {
-        console.log('오른쪽 사이드바 leaf를 찾을 수 없어 새로 생성합니다.');
-        const newLeaf = this.app.workspace.createLeafInParent(
-          this.app.workspace.rightSplit, 0
-        );
-        
-        if (newLeaf) {
-          await newLeaf.setViewState({
-            type: VIEW_TYPE_CARD_NAVIGATOR,
-            active: true,
-          });
-        } else {
-          console.error('새 leaf를 생성할 수 없습니다.');
-          return;
-        }
-      } else {
-        // 기존 leaf가 있는 경우
-        await leaf.setViewState({
-          type: VIEW_TYPE_CARD_NAVIGATOR,
-          active: true,
-        });
-      }
-      
-      // 뷰가 활성화되면 서비스 초기화
-      this.app.workspace.revealLeaf(
-        this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR)[0]
-      );
-    } catch (error) {
-      console.error('카드 네비게이터 뷰 활성화 중 오류 발생:', error);
-      
-      // 대체 방법: 새 탭에 뷰 열기
-      try {
-        await this.app.workspace.getLeaf(true).setViewState({
-          type: VIEW_TYPE_CARD_NAVIGATOR,
-          active: true,
-        });
-      } catch (fallbackError) {
-        console.error('대체 방법으로 뷰 활성화 시도 중 오류 발생:', fallbackError);
-      }
+    // 이미 열려있는 뷰 확인
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
+    
+    if (leaves.length > 0) {
+      // 이미 열려있는 뷰가 있으면 활성화
+      this.app.workspace.revealLeaf(leaves[0]);
+      return;
     }
-  }
-  
-  /**
-   * 카드 네비게이터 서비스 가져오기
-   * @returns 카드 네비게이터 서비스
-   */
-  getCardNavigatorService(): CardNavigatorService | null {
-    return this.cardNavigatorService;
-  }
-
-  /**
-   * 카드 네비게이터 서비스 가져오기 (별칭)
-   * @returns 카드 네비게이터 서비스
-   */
-  getService(): CardNavigatorService | null {
-    return this.cardNavigatorService;
+    
+    // 새 뷰 생성
+    const leaf = this.app.workspace.getRightLeaf(false);
+    await leaf.setViewState({
+      type: VIEW_TYPE_CARD_NAVIGATOR,
+      active: true
+    });
+    
+    // 뷰 활성화
+    this.app.workspace.revealLeaf(leaf);
   }
 
-  getServiceFactory(): ServiceFactory | null {
-    return this.serviceFactory;
+  /**
+   * 이벤트 리스너 등록
+   */
+  private registerEventListeners() {
+    // 파일 변경 이벤트 리스너
+    this.registerEvent(
+      this.app.vault.on('create', (file) => {
+        if (file instanceof TFile && file.extension === 'md') {
+          this.cardService.syncCards();
+        }
+      })
+    );
+    
+    this.registerEvent(
+      this.app.vault.on('delete', (file) => {
+        if (file instanceof TFile && file.extension === 'md') {
+          this.cardService.syncCards();
+        }
+      })
+    );
+    
+    this.registerEvent(
+      this.app.vault.on('modify', (file) => {
+        if (file instanceof TFile && file.extension === 'md') {
+          this.cardService.syncCards();
+        }
+      })
+    );
+    
+    this.registerEvent(
+      this.app.vault.on('rename', (file) => {
+        if (file instanceof TFile && file.extension === 'md') {
+          this.cardService.syncCards();
+        }
+      })
+    );
+    
+    // 설정 변경 이벤트 리스너
+    this.registerEvent(
+      this.app.workspace.on('card-navigator:settings-changed', (settings) => {
+        this.settings = settings;
+        this.saveSettings();
+      })
+    );
   }
 
   /**
    * 현재 카드 네비게이터 상태 정보를 콘솔에 출력
    */
   showStatus(): void {
-    if (!this.cardNavigatorService) {
-      console.log('카드 네비게이터 서비스가 초기화되지 않았습니다.');
-      return;
-    }
-
-    const cardSetSourceService = this.cardNavigatorService.getCardSetSourceService();
-    const currentCardSetSource = cardSetSourceService.getCurrentSourceType();
-    const currentCardSet = cardSetSourceService.getCurrentCardSet() || '/';
-    const isCardSetFixed = cardSetSourceService.isCardSetFixed();
-    const includeSubfolders = cardSetSourceService.getIncludeSubfolders();
-
     console.log('===== 카드 네비게이터 상태 정보 =====');
-    console.log(`현재 카드 세트: ${currentCardSetSource === 'folder' ? '폴더 카드 세트' : '태그 카드 세트'}`);
-    console.log(`현재 ${currentCardSetSource === 'folder' ? '폴더 경로' : '태그'}: ${currentCardSet}`);
-    console.log(`카드 세트 고정 여부: ${isCardSetFixed ? '고정됨' : '고정되지 않음'}`);
-    console.log(`하위 폴더 포함 여부: ${includeSubfolders ? '포함' : '미포함'}`);
+    console.log(`카드 매니저에 등록된 카드 수: ${this.cardManager.getAllCards().length}`);
+    console.log(`카드 리스트 매니저에 등록된 리스트 수: ${this.cardListManager.getAllCardLists().length}`);
+    console.log(`프리셋 매니저에 등록된 프리셋 수: ${this.presetManager.getAllPresets().length}`);
     console.log('===================================');
   }
 
+  /**
+   * 서비스 초기화
+   * 플러그인에서 사용하는 서비스를 초기화합니다.
+   */
   private async initializeServices() {
     try {
-      // 어댑터 생성
-      const obsidianAdapter = new ObsidianAdapter(this.app);
+      console.log('서비스 초기화 중...');
       
-      // 카드 팩토리 생성
-      const cardFactory = new CardFactory(obsidianAdapter);
+      // 이벤트 버스 초기화
+      this.eventBus = DomainEventBus.getInstance();
       
-      // 카드 저장소 생성
-      const cardRepository = new CardRepositoryImpl(obsidianAdapter, cardFactory);
+      // 도메인 객체 초기화
+      this.cardManager = new CardManager();
+      this.cardListManager = new CardListManager(this.cardManager);
+      this.presetManager = new PresetManager();
       
-      // 서비스 팩토리 생성
-      this.serviceFactory = new ServiceFactory(this.app, this, cardRepository);
+      // Obsidian 어댑터 초기화
+      this.obsidianAdapter = new ObsidianAdapter(this.app);
       
-      // 카드 네비게이터 서비스 가져오기
-      this.cardNavigatorService = this.serviceFactory.getCardNavigatorService() as CardNavigatorService;
+      // 검색 제안 제공자 초기화
+      this.searchSuggestionProvider = new SearchSuggestionProvider(this.obsidianAdapter);
       
-      // 모든 서비스 초기화
-      await this.serviceFactory.initializeServices();
+      // 서비스 초기화
+      this.searchService = new SearchService(this.searchSuggestionProvider, this.obsidianAdapter);
+      this.cardService = new CardService(this.cardManager, this.cardListManager, this.obsidianAdapter);
+      this.presetService = new PresetService(this.presetManager, this.eventBus);
+      this.cardInteractionService = new CardInteractionService(this.cardService, this.searchService);
       
-      // 서비스 초기화 후 이벤트 리스너 등록
-      this.registerEventListeners();
+      // 초기 카드 동기화
+      await this.cardService.syncCards();
       
-      console.log('카드 네비게이터 서비스 초기화 완료');
+      console.log('서비스 초기화 완료');
     } catch (error) {
-      console.error('카드 네비게이터 서비스 초기화 실패:', error);
+      console.error('서비스 초기화 중 오류 발생:', error);
+      new Notice('카드 네비게이터 플러그인 초기화 중 오류가 발생했습니다.');
     }
   }
 
-  private registerEventListeners() {
-    // 파일 변경 이벤트 리스너
-    this.registerEvent(
-      this.app.vault.on('modify', (file) => {
-        if (this.cardNavigatorService) {
-          this.cardNavigatorService.refreshCards();
-        }
-      })
-    );
-    
-    // 파일 생성 이벤트 리스너
-    this.registerEvent(
-      this.app.vault.on('create', (file) => {
-        if (this.cardNavigatorService) {
-          this.cardNavigatorService.refreshCards();
-        }
-      })
-    );
-    
-    // 파일 삭제 이벤트 리스너
-    this.registerEvent(
-      this.app.vault.on('delete', (file) => {
-        if (this.cardNavigatorService) {
-          this.cardNavigatorService.refreshCards();
-        }
-      })
-    );
-    
-    // 파일 이름 변경 이벤트 리스너
-    this.registerEvent(
-      this.app.vault.on('rename', (file, oldPath) => {
-        if (this.cardNavigatorService) {
-          this.cardNavigatorService.refreshCards();
-        }
-      })
-    );
-    
-    // file-open 이벤트 리스너 추가 (파일이 직접 열릴 때 발생)
-    this.registerEvent(
-      this.app.workspace.on('file-open', async (file) => {
-        if (!this.cardNavigatorService || !file) return;
-        
-        // 카드 세트 변경 처리
-        const cardSetSourceService = this.cardNavigatorService.getCardSetSourceService();
-        const cardSetChanged = await cardSetSourceService.handleActiveFileChange(file);
-        
-        // 카드 세트가 변경된 경우에만 카드 새로고침
-        if (cardSetChanged) {
-          await this.cardNavigatorService.refreshCards();
-        }
-      })
-    );
-    
-    // 카드 세트 변경 이벤트 리스너 추가
-    if (this.cardNavigatorService) {
-      const cardSetSourceService = this.cardNavigatorService.getCardSetSourceService();
-      
-      // 카드 세트 변경 이벤트 리스너
-      cardSetSourceService.on('cardSetChanged', async () => {
-        console.log('[CardNavigatorPlugin] 카드 세트 변경 감지, 카드 새로고침');
-        if (this.cardNavigatorService) {
-          await this.cardNavigatorService.refreshCards();
-        }
-      });
-      
-      // 소스 변경 이벤트 리스너
-      cardSetSourceService.on('sourceChanged', async () => {
-        console.log('[CardNavigatorPlugin] 카드 세트 소스 변경 감지, 카드 새로고침');
-        if (this.cardNavigatorService) {
-          await this.cardNavigatorService.refreshCards();
-        }
-      });
-    }
-    
-    console.log('카드 네비게이터 이벤트 리스너 등록 완료');
+  /**
+   * 서비스 인스턴스 가져오기
+   */
+  getSearchService(): SearchService {
+    return this.searchService;
   }
-
-  // 설정 모달을 여는 메서드 추가
-  openSettingsModal(): void {
-    // React 컴포넌트를 렌더링하는 코드
-    console.log('고급 설정 모달 열기');
-    
-    // 임시 구현: 기본 설정 탭 열기
-    // 타입 단언 사용
-    (this.app as any).setting.open();
-    (this.app as any).setting.openTabById(this.manifest.id);
+  
+  getCardService(): CardService {
+    return this.cardService;
+  }
+  
+  getPresetService(): PresetService {
+    return this.presetService;
+  }
+  
+  getCardInteractionService(): CardInteractionService {
+    return this.cardInteractionService;
+  }
+  
+  getObsidianAdapter(): ObsidianAdapter {
+    return this.obsidianAdapter;
   }
 }

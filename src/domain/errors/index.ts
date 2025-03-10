@@ -5,5 +5,6 @@ export {
   SearchError,
   LayoutError,
   InitializationError,
-  SettingsError
+  SettingsError,
+  CardListError
 } from './DomainError'; 

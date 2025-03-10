@@ -26,25 +26,25 @@ Card Navigator is an Obsidian plugin supporting both folder-based and tag-based 
 - **Data Caching:** Reduce unnecessary API calls and file access
 
 ### 3. Context Expansion and Reduction in Card Sets
-Card Navigator’s folder mode, tag mode, search, and sorting functions can be understood in terms of expanding and reducing the context of card sets. These features help users dynamically adjust the scope of their information based on their navigation needs.
+Card Navigator’s folder/tag cardset, search, and sorting functions can be understood in terms of expanding and reducing the context of card sets. These features help users dynamically adjust the scope of their information based on their navigation needs.
 
-#### Folder Mode & Tag Mode: Structural vs. Semantic Context Expansion
+#### Folder CardSset & Tag CardSset: Structural vs. Semantic Context Expansion
 
-Folder and tag modes define the primary context of a card set, determining the boundaries of the displayed notes.
+Folder and tag CardSsets define the primary context of a card set, determining the boundaries of the displayed notes.
 
-##### Folder Mode: Structural Context (Hierarchy-Based Expansion)
+##### Folder CardSset: Structural Context (Hierarchy-Based Expansion)
 
-Folder mode relies on a physical hierarchy to organize notes, meaning context expansion and reduction follow the folder structure.
+Folder cardset relies on a physical hierarchy to organize notes, meaning context expansion and reduction follow the folder structure.
 	•	Context Expansion: Enabling the “include subfolders” option broadens the context, incorporating notes from deeper folder structures.
 	•	Context Reduction: Selecting a specific subfolder without including subfolders narrows the context, restricting the card set to a smaller, more focused selection.
 
-##### Tag Mode: Semantic Context (Meaning-Based Expansion)
+##### Tag CardSset: Semantic Context (Meaning-Based Expansion)
 
-Tag mode groups notes based on semantic meaning rather than physical structure.
+Tag cardset groups notes based on semantic meaning rather than physical structure.
 	•	Context Expansion: Selecting multiple tags includes all notes associated with those tags, expanding the contextual scope.
 	•	Context Reduction: Using AND logic for multiple tags limits the card set to notes containing all selected tags, narrowing the context to a more specific subset.
 
-✅ Folder mode follows physical boundaries, while tag mode follows semantic boundaries for context expansion and reduction.
+✅ Folder cardset follows physical boundaries, while tag cardset follows semantic boundaries for context expansion and reduction.
 
 #### Search: Instantaneous Context Expansion and Reduction
 
@@ -73,7 +73,7 @@ Sorting does not alter the card set’s boundaries but reorganizes meaning withi
 
 #### Overall Flow: Organic Context Expansion and Reduction
 
-Folder mode, tag mode, search, and sorting interact dynamically based on the user’s navigation process.
+Folder cardset, tag cardset, search, and sorting interact dynamically based on the user’s navigation process.
 
 ##### Context Expansion Flow:
 	1.	Broaden folder/tag range → Include subfolders / Select multiple tags
@@ -88,7 +88,7 @@ Folder mode, tag mode, search, and sorting interact dynamically based on the use
 #### Conclusion
 
 Card Navigator’s core functions serve as tools for context expansion and reduction, allowing users to tailor their note exploration experience.
-	•	Folder/Tag Mode: Establishes the primary context based on structure (folder) or meaning (tag).
+	•	Folder/Tag CardSset: Establishes the primary context based on structure (folder) or meaning (tag).
 	•	Search: Overrides existing contexts for dynamic and flexible exploration.
 	•	Sorting: Adjusts emphasis within a given context without altering its scope.
 
@@ -109,12 +109,12 @@ By combining these functions, users can organize, explore, and restructure their
   - General, active, and focused card styles (background, font size, borders)
   - Header, body, and footer styles
 
-#### 4.3 Modes
-- **Folder Mode:**
+#### 4.3 CardSset
+- **Folder CardSset:**
   - Show notes in the active folder or a specified folder (with subfolder inclusion option)
-- **Tag Mode:**
+- **Tag CardSset:**
   - Show notes containing active file tags or specified tags
-- **Search Mode:**
+- **Search CardSset:**
   - Automatically activate upon entering a search query
 
 #### 4.4 Search
@@ -167,12 +167,12 @@ By combining these functions, users can organize, explore, and restructure their
 - **Toggle Icons:**
   - **Filter Toggle:** Show pop-up for filters
   - **Sort Toggle:** Show sorting options (filename, update date, creation date, custom value)
-  - **Mode Toggle:** Folder/tag icons switch accordingly
+  - **CardSset Toggle:** Folder/tag icons switch accordingly
   - **Settings Toggle:** Quick access to frequently used settings (mode change, preset management, rendering options)
 
 ### 5. Settings
-#### 5.1 Modes
-- Toggle between folder and tag modes
+#### 5.1 CardSsets
+- Toggle between folder and tag CardSsets
 
 #### 5.2 Cards
 - **Content Selection:** Customize header, body, footer elements
@@ -198,67 +198,67 @@ By combining these functions, users can organize, explore, and restructure their
   - Assign presets to folders/tags
   - Adjust priority order
 
-### 6. Folder Structure
+### 6. Card Navigator Plugin Architecture Overview
+The Card Navigator plugin has been refactored into a more modular and maintainable architecture. This architecture follows the principles of separation of concerns and dependency injection, consisting of the following key layers:
 
-#### 6.1 Root Directory
-	•	main.js: Compiled plugin file
-	•	styles.css: Plugin stylesheet
-	•	manifest.json: Obsidian plugin metadata
-	•	package.json: Defines project dependencies and scripts
-	•	tsconfig.json: TypeScript configuration
-	•	esbuild.config.mjs: Build configuration
-	•	README.md / README-ko.md: Documentation in English and Korean
+#### 6.1 Domain Layer
+The domain layer contains business logic and core models. This layer has no external dependencies and focuses solely on pure business logic.
+- Key Components:
+  - Models: Core data structures such as ICard, ICardList, IPreset
+  - Interfaces: Definitions like ICardManager, ICardInteractionHandler
+  - Events: Event-related elements like EventType, DomainEventBus
+- Subdirectories:
+  - card/: Card-related models and interfaces
+  - cardlist/: Card list models and interfaces
+  - cardset/: Card set models and interfaces
+  - preset/: Preset models and interfaces
+  - events/: Event types and event bus
+  - interaction/: User interaction interfaces
+  - search/: Search-related models and interfaces
+  - obsidian/: Obsidian API abstraction interfaces
 
-#### 6.2 Source Code Structure (src/)
+#### 6.2 Service Layer
+The service layer acts as an intermediary between the domain and UI layers, handling application logic. This layer manipulates domain objects and provides functionality needed by the UI layer.
+- Key Components:
+  - CardService: Handles card-related business logic
+  - SearchService: Provides search functionality
+  - PresetService: Manages preset functionality
+  - CardInteractionService: Processes card interactions
+  - ObsidianAdapter: Manages interactions with the Obsidian API
+- Characteristics:
+  - Creates and manipulates domain objects
+  - Communicates with the UI layer through event-based communication
+  - Enhances testability through dependency injection
 
-The project follows the Clean Architecture pattern with clearly separated layers:
+#### 6.3 UI Component Layer
+The UI component layer is responsible for the user interface. This layer accesses domain objects through the service layer and handles user input.
+- Key Components:
+  - CardNavigatorView: Main view component
+  - SearchView: Search UI component
+  - CardView: Individual card UI component
+  - CardListView: Card list UI component
+- Characteristics:
+  - Depends on the service layer
+  - Receives domain events through event listeners
+  - Converts user input into events for the service layer
 
-##### 6.2.1 Domain Layer (src/domain/)
+#### 6.4 Event-Based Communication
+This architecture uses event-based communication to reduce coupling between components and increase flexibility.
+- Key Components:
+  - DomainEventBus: Provides event publishing and subscription mechanism
+  - EventType: Defines various event types
+  - EventDataMap: Maps event types to their respective data types
+- Event Flow Example:
+  - User clicks a card → UI component publishes CARD_SELECT_REQUESTED event
+  - CardService receives event → processes card selection → publishes CARD_SELECTED event
+  - UI component receives CARD_SELECTED event → updates UI
 
-The core layer that contains business logic and entities:
-	•	card/: Domain models related to cards
-	•	cardset/: Domain models related to card sets
-	•	layout/: Domain models related to layout
-	•	preset/: Domain models related to presets
-	•	search/: Domain models related to search
-	•	sorting/: Domain models related to sorting
-
-##### 6.2.2 Application Layer (src/application/)
-
-This layer coordinates domain logic and acts as an intermediary between the UI and infrastructure layers:
-	•	CardNavigatorService.ts: Main service class managing the overall plugin functionality
-	•	CardService.ts: Handles card-related operations
-	•	CardSetService.ts: Manages card sets (folder/tag-based)
-	•	LayoutService.ts: Manages grid/masonry layouts
-	•	PresetService.ts: Manages user-defined preset configurations
-	•	SearchService.ts: Provides card search functionality
-	•	SortService.ts: Handles card sorting
-
-##### 6.2.3 Infrastructure Layer (src/infrastructure/)
-
-This layer manages integration with external systems and technical details:
-	•	ObsidianAdapter.ts: Interface for integrating with the Obsidian API
-	•	CardRepositoryImpl.ts: Implementation of the card data repository
-	•	Storage.ts: Manages plugin settings and data storage
-	•	Cache.ts: Implements caching mechanisms for performance optimization
-	•	EventManager.ts: Manages event-driven communication between components
-
-##### 6.2.4 User Interface Layer (src/ui/)
-
-React-based UI components:
-	•	CardNavigatorView.tsx: Main view component
-	•	CardNavigator.css: Defines base styles
-	•	cards-container/: Components related to the card container
-	•	layout/: UI components for layout management
-	•	presets/: UI components for preset management
-	•	settings/: UI components for settings management
-	•	SettingTab.ts: Implements the Obsidian settings tab
-	•	SettingsModal.tsx: Modal component for settings
-	•	SettingsModal.css: Styles for settings modal
-	•	toolbar/: UI components for the toolbar
-
-##### 6.2.5 Entry Point
-	•	main.ts: Plugin entry point, defining and initializing the Obsidian plugin
+#### 6.5 Dependency Injection
+This architecture uses the dependency injection pattern to reduce coupling between components and enhance testability.
+- Key Characteristics:
+  - Dependency injection through constructors
+  - Loose coupling through interfaces
+  - Dependency graph constructed in the main plugin class
 
 ### 7. Technology Stack
 	•	Language: TypeScript

@@ -1,6 +1,6 @@
 import { CardSetSourceType } from '../cardset/CardSet';
 import { LayoutType } from '../layout/Layout';
-import { SortType } from '../cardlist/CardListInterfaces';
+import { SortType } from '../sorting/SortingInterfaces';
 
 /**
  * 프리셋 인터페이스
@@ -18,39 +18,67 @@ export interface IPreset {
   name: string;
   
   /**
-   * 카드셋 소스 타입
+   * 프리셋 설명
    */
-  cardSetSourceType: CardSetSourceType;
+  description?: string;
   
   /**
-   * 카드셋 소스
+   * 카드셋 소스 타입 (선택적)
    */
-  cardSetSource: string;
+  cardSetSourceType?: CardSetSourceType;
   
   /**
-   * 레이아웃 타입
+   * 카드셋 소스 (선택적)
    */
-  layoutType: LayoutType;
+  cardSetSource?: string;
   
   /**
-   * 정렬 타입
+   * 레이아웃 타입 (선택적)
    */
-  sortType: SortType;
+  layoutType?: LayoutType;
   
   /**
-   * 정렬 방향 (오름차순/내림차순)
+   * 정렬 타입 (선택적)
    */
-  sortDirection: 'asc' | 'desc';
+  sortType?: SortType;
   
   /**
-   * 카드 표시 설정
+   * 정렬 방향 (선택적)
    */
-  cardDisplaySettings: any;
+  sortDirection?: 'asc' | 'desc';
   
   /**
-   * 레이아웃 설정
+   * 카드 표시 설정 (선택적)
    */
-  layoutSettings: any;
+  cardDisplaySettings?: {
+    header?: {
+      enabled: boolean;
+      content?: string[];
+      style?: any;
+    };
+    body?: {
+      enabled: boolean;
+      content?: string[];
+      style?: any;
+    };
+    footer?: {
+      enabled: boolean;
+      content?: string[];
+      style?: any;
+    };
+    renderingMode?: 'plain' | 'markdown';
+  };
+  
+  /**
+   * 레이아웃 설정 (선택적)
+   */
+  layoutSettings?: {
+    gridMode?: boolean;
+    cardWidth?: number;
+    cardHeight?: number;
+    columns?: number;
+    rows?: number;
+  };
   
   /**
    * 생성일
@@ -61,4 +89,35 @@ export interface IPreset {
    * 수정일
    */
   updatedAt: number;
+}
+
+/**
+ * 프리셋 설정 적용 결과 인터페이스
+ * 프리셋 적용 결과를 정의합니다.
+ */
+export interface IPresetApplyResult {
+  /**
+   * 적용된 프리셋 ID
+   */
+  presetId: string;
+  
+  /**
+   * 적용된 프리셋 이름
+   */
+  presetName: string;
+  
+  /**
+   * 적용 성공 여부
+   */
+  success: boolean;
+  
+  /**
+   * 적용된 설정 키 목록
+   */
+  appliedSettings: string[];
+  
+  /**
+   * 오류 메시지 (실패 시)
+   */
+  errorMessage?: string;
 } 

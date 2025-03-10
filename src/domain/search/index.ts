@@ -1,3 +1,4 @@
-export type { ISearch, SearchType, SearchScope, ISearchCardSetSourceState } from './Search';
-export type { ISearchHistory } from './SearchHistory';
-export type { ISearchHighlightInfo } from './SearchHighlightInfo'; 
+export * from './Search';
+export * from './SearchSuggestionProvider';
+export * from './SearchHighlightInfo';
+export * from './SearchHistory'; 

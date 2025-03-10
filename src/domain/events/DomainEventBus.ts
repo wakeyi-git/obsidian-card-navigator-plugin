@@ -7,6 +7,7 @@ import { EventType, EventListener, EventDataMap, IEventEmitter } from './EventTy
 export class DomainEventBus implements IEventEmitter {
   private static instance: DomainEventBus;
   private listeners: Map<EventType, Set<EventListener<any>>> = new Map();
+  private state: Map<string, any> = new Map();
   
   /**
    * 싱글톤 인스턴스 가져오기
@@ -60,13 +61,16 @@ export class DomainEventBus implements IEventEmitter {
       return;
     }
     
-    for (const listener of this.listeners.get(event)!) {
+    console.log(`[DomainEventBus] 이벤트 발생: ${event}`);
+    
+    // 이벤트 리스너 호출
+    this.listeners.get(event)!.forEach(listener => {
       try {
         listener(data);
       } catch (error) {
         console.error(`[DomainEventBus] 이벤트 처리 중 오류 발생: ${event}`, error);
       }
-    }
+    });
   }
   
   /**
@@ -103,5 +107,67 @@ export class DomainEventBus implements IEventEmitter {
    */
   eventNames(): EventType[] {
     return Array.from(this.listeners.keys());
+  }
+  
+  /**
+   * 상태 가져오기
+   * @param key 상태 키
+   * @returns 상태 값
+   */
+  getState(key: string): any {
+    return this.state.get(key);
+  }
+  
+  /**
+   * 상태 설정하기
+   * @param key 상태 키
+   * @param value 상태 값
+   */
+  setState(key: string, value: any): void {
+    this.state.set(key, value);
+  }
+  
+  /**
+   * 이벤트에 따라 상태 업데이트
+   * @param event 이벤트 타입
+   * @param data 이벤트 데이터
+   */
+  private updateState<T extends EventType>(event: T, data: EventDataMap[T]): void {
+    switch (event) {
+      case EventType.CARD_SET_SOURCE_TYPE_CHANGED:
+        this.setState('cardSetSourceType', (data as any).sourceType);
+        break;
+      case EventType.CARD_SET_SOURCE_CHANGED:
+        this.setState('cardSetSource', (data as any).source);
+        break;
+      case EventType.LAYOUT_TYPE_CHANGED:
+        this.setState('layoutType', (data as any).layoutType);
+        break;
+      case EventType.LAYOUT_SETTINGS_CHANGED:
+        this.setState('layoutSettings', (data as any).settings);
+        break;
+      case EventType.CARD_DISPLAY_SETTINGS_CHANGED:
+        this.setState('cardDisplaySettings', (data as any).settings);
+        break;
+      case EventType.SORT_TYPE_CHANGED:
+        this.setState('sortType', (data as any).sortType);
+        break;
+      case EventType.SORT_DIRECTION_CHANGED:
+        this.setState('sortDirection', (data as any).sortDirection);
+        break;
+      case EventType.SETTINGS_CHANGED:
+        // 설정 변경 이벤트는 여러 설정을 한 번에 변경할 수 있음
+        const settings = (data as any).settings;
+        const changedKeys = (data as any).changedKeys;
+        
+        if (settings && changedKeys) {
+          for (const key of changedKeys) {
+            if (settings[key] !== undefined) {
+              this.setState(key, settings[key]);
+            }
+          }
+        }
+        break;
+    }
   }
 } 

@@ -4,7 +4,7 @@
 	  "inlineSourceMap": true,
 	  "inlineSources": true,
 	  "module": "ESNext",
-	  "target": "ES5",
+	  "target": "ES6",
 	  "strict": true,
 	  "allowJs": true,
 	  "noImplicitAny": true,
@@ -20,14 +20,15 @@
 	  "forceConsistentCasingInFileNames": true,
 	  "resolveJsonModule": true,
 	  "rootDir": "./",
-	  "jsx": "react-jsx",
+	  "jsx": "react",
 	  "downlevelIteration": true,
 	  "lib": [
 		"DOM",
 		"ES5",
 		"ES6",
 		"ES7"
-	  ]
+	  ],
+	  "types": ["node", "jest"]
 	},
 	"include": ["src/**/*.ts", "src/**/*.tsx", "src/main.ts"]
   }

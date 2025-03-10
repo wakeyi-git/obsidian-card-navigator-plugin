@@ -95,4 +95,18 @@ export class SettingsError extends DomainError {
     super(message);
     this.name = 'SettingsError';
   }
+}
+
+/**
+ * 카드 리스트 관련 오류 클래스
+ */
+export class CardListError extends DomainError {
+  /**
+   * 생성자
+   * @param message 오류 메시지
+   */
+  constructor(message: string) {
+    super(message);
+    this.name = 'CardListError';
+  }
 } 
