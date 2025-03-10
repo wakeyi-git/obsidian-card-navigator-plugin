@@ -109,7 +109,7 @@ export class LayoutService implements ILayoutService {
     this.scrollDirection = 'vertical'; // 기본값
     this.cardWidth = settings.cardWidth || 250;
     this.cardHeight = settings.cardHeight || 150;
-    this.fixedHeight = settings.fixedCardHeight || true;
+    this.fixedHeight = settings.fixedCardHeight !== undefined ? settings.fixedCardHeight : false;
     this.gap = settings.cardGap || 10;
   }
   
@@ -127,12 +127,51 @@ export class LayoutService implements ILayoutService {
     // 스크롤 방향 결정
     this.scrollDirection = this.layoutDirection === 'horizontal' ? 'horizontal' : 'vertical';
     
-    // 열 수 계산
-    let columns = Math.floor(containerWidth / this.cardWidth);
-    columns = Math.max(1, columns);
+    // 최소 카드 너비 (반응형 디자인을 위해)
+    const minCardWidth = 250;
+    
+    // 화면 너비 확인
+    const windowWidth = window.innerWidth;
+    const isMobileView = windowWidth <= 600;
+    
+    // 열 수 계산 (반응형)
+    let columns;
+    
+    if (isMobileView) {
+      // 모바일 뷰에서는 1열로 강제
+      columns = 1;
+    } else {
+      // 컨테이너 너비에 따른 최대 열 수 계산
+      // 컨테이너 너비, 최소 카드 너비, 간격을 고려하여 열 수 계산
+      const availableWidth = Math.max(0, containerWidth - this.gap * 2); // 좌우 여백 고려
+      const columnWithGap = minCardWidth + this.gap; // 카드 너비 + 간격
+      
+      // 열 수 계산 (최소 1, 최대 4)
+      columns = Math.floor(availableWidth / columnWithGap);
+      columns = Math.max(1, Math.min(4, columns)); // 최소 1열, 최대 4열로 제한
+      
+      // 컨테이너가 너무 좁으면 1열로 강제
+      if (containerWidth < minCardWidth + this.gap * 2) {
+        columns = 1;
+      }
+      
+      // 컨테이너 너비에 따른 열 수 조정
+      if (containerWidth < 500) {
+        columns = 1; // 500px 미만은 1열
+      } else if (containerWidth < 800) {
+        columns = Math.min(2, columns); // 800px 미만은 최대 2열
+      } else if (containerWidth < 1200) {
+        columns = Math.min(3, columns); // 1200px 미만은 최대 3열
+      }
+      
+      // 아이템 수가 열 수보다 적으면 아이템 수로 제한
+      if (itemCount > 0) {
+        columns = Math.min(columns, itemCount);
+      }
+    }
     
     // 행 수 계산
-    let rows = Math.ceil(itemCount / columns);
+    let rows = Math.ceil(itemCount / Math.max(1, columns));
     
     // 가로 모드인 경우 행과 열 교환
     if (this.layoutDirection === 'horizontal') {
@@ -141,15 +180,50 @@ export class LayoutService implements ILayoutService {
       rows = temp;
     }
     
-    // 아이템 너비 계산
-    const itemWidth = Math.floor((containerWidth - (columns - 1) * this.gap) / columns);
+    // 아이템 너비 계산 (동적)
+    let itemWidth;
     
-    // 아이템 높이 계산
-    let itemHeight = this.cardHeight;
-    if (!this.fixedHeight && this.layoutType === 'masonry') {
-      // 메이슨리 모드에서는 높이가 가변적
-      itemHeight = 0; // 실제로는 각 아이템마다 다른 높이를 가짐
+    if (columns <= 1) {
+      // 1열인 경우 컨테이너 너비에서 여백만 뺀 값
+      itemWidth = Math.max(minCardWidth, containerWidth - this.gap * 2);
+    } else {
+      // 여러 열인 경우 균등 분배
+      const totalGapWidth = (columns - 1) * this.gap + this.gap * 2;
+      itemWidth = Math.floor((containerWidth - totalGapWidth) / columns);
+      
+      // 최소 너비 보장
+      if (itemWidth < minCardWidth * 0.8) {
+        // 너비가 최소 너비의 80%보다 작으면 열 수 감소
+        columns = Math.max(1, columns - 1);
+        // 너비 재계산
+        const newTotalGapWidth = (columns - 1) * this.gap + this.gap * 2;
+        itemWidth = Math.floor((containerWidth - newTotalGapWidth) / columns);
+      }
     }
+    
+    // 아이템 높이 계산 (동적)
+    let itemHeight = this.cardHeight;
+    if (!this.fixedHeight) {
+      // 동적 높이 모드
+      if (this.layoutType === 'masonry') {
+        // 메이슨리 모드에서는 높이가 가변적
+        itemHeight = 0; // 실제로는 각 아이템마다 다른 높이를 가짐
+      } else {
+        // 그리드 모드에서도 컨텐츠에 따라 높이 조정 가능
+        itemHeight = Math.floor(itemWidth * 0.6); // 너비의 60% 정도로 높이 설정 (황금비율)
+      }
+    }
+    
+    // 디버깅 정보 출력
+    console.log('레이아웃 계산:', {
+      containerWidth,
+      columns,
+      itemWidth,
+      itemHeight,
+      isMobileView,
+      availableWidth: containerWidth - this.gap * 2,
+      minCardWidth
+    });
     
     return {
       columns,

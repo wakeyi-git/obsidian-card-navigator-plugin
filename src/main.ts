@@ -24,6 +24,8 @@ import { ToolbarComponent } from './components/toolbar/ToolbarComponent';
 import { NavigationMode } from './domain/navigation';
 import { ICardSet } from './domain/cardset/CardSet';
 import { CardNavigatorSettingTab } from './ui/CardNavigatorSettingTab';
+import { LayoutComponent } from './components/layout/LayoutComponent';
+import { NavigationComponent } from './components/navigation/NavigationComponent';
 
 // 기본 설정값
 const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
@@ -276,6 +278,14 @@ export class CardNavigatorPlugin extends Plugin {
       this.searchHistoryService
     );
     this.searchComponent.render(containerEl);
+    
+    // 레이아웃 컴포넌트 생성
+    const layoutComponent = new LayoutComponent(this.layoutService, this.eventBus);
+    layoutComponent.render(containerEl);
+    
+    // 내비게이션 컴포넌트 생성
+    const navigationComponent = new NavigationComponent(this.navigationService, this.eventBus);
+    navigationComponent.render(containerEl);
     
     // 카드셋 컴포넌트 생성
     const cardSet = await this.cardSetService.getCurrentCardSet();

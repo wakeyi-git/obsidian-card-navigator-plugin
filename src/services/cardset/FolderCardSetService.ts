@@ -89,6 +89,12 @@ export class FolderCardSetService implements IFolderCardSetService, ICardSetSele
     } else if (settings.lastFolderCardSet) {
       this.currentFolder = settings.lastFolderCardSet;
       this.isFixed = settings.lastFolderCardSetFixed || false;
+    } else {
+      // 활성 파일의 폴더 가져오기
+      const activeFile = this.obsidianService.getActiveFile();
+      if (activeFile && activeFile.parent) {
+        this.currentFolder = activeFile.parent.path;
+      }
     }
     
     // 폴더 목록 초기화

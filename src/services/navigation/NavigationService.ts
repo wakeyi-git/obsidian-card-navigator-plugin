@@ -77,6 +77,13 @@ export interface INavigationService {
   scrollToIndex(index: number): void;
   
   /**
+   * 특정 카드 ID로 스크롤
+   * @param cardId 스크롤할 카드 ID
+   * @returns 스크롤 성공 여부
+   */
+  scrollToCard(cardId: string): boolean;
+  
+  /**
    * 내비게이션 모드 가져오기
    * @returns 내비게이션 모드
    */
@@ -291,7 +298,25 @@ export class NavigationService implements INavigationService {
   }
   
   navigateToCard(cardId: string): boolean {
-    return this.selectCardById(cardId);
+    const index = this.cards.findIndex(card => card.getId() === cardId);
+    if (index !== -1) {
+      return this.navigateToIndex(index);
+    }
+    return false;
+  }
+  
+  /**
+   * 특정 카드 ID로 스크롤
+   * @param cardId 스크롤할 카드 ID
+   * @returns 스크롤 성공 여부
+   */
+  scrollToCard(cardId: string): boolean {
+    const index = this.cards.findIndex(card => card.getId() === cardId);
+    if (index !== -1) {
+      this.scrollToIndex(index);
+      return true;
+    }
+    return false;
   }
   
   scrollToCurrentCard(): void {

@@ -332,6 +332,24 @@ export class CardSetService implements ICardSetService {
       const cardSet = await (this.folderCardSet as any).getCardSet();
       return cardSet;
     }
+    
+    // 활성 파일의 폴더 가져오기
+    const activeFile = this.obsidianService.getActiveFile();
+    const folderPath = activeFile?.parent?.path || '';
+    
+    // 활성 파일의 폴더가 있는 경우 해당 폴더의 카드셋 반환
+    if (folderPath) {
+      return {
+        id: `folder:${folderPath}`,
+        name: folderPath || '루트',
+        sourceType: 'folder',
+        source: folderPath,
+        type: 'active',
+        files: this.obsidianService.getMarkdownFilesInFolder(folderPath, true)
+      };
+    }
+    
+    // 활성 파일이 없는 경우 빈 카드셋 반환
     return {
       id: 'empty-folder',
       name: '빈 폴더 카드셋',

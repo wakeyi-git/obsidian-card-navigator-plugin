@@ -692,6 +692,16 @@ export interface CardContextMenuEventData {
 }
 
 /**
+ * 레이아웃 적용 이벤트 데이터 인터페이스
+ */
+export interface LayoutAppliedEventData {
+  /**
+   * 레이아웃 정보
+   */
+  layoutInfo: any;
+}
+
+/**
  * 이벤트 타입 열거형
  */
 export enum EventType {
@@ -713,6 +723,7 @@ export enum EventType {
   LAYOUT_CHANGED = 'layout-changed',
   LAYOUT_TYPE_CHANGED = 'layout-type-changed',
   LAYOUT_SETTINGS_CHANGED = 'layout-settings-changed',
+  LAYOUT_APPLIED = 'layout-applied',
   
   // 정렬 관련 이벤트
   SORT_TYPE_CHANGED = 'sort-type-changed',
@@ -807,6 +818,7 @@ export interface EventDataMap {
   [EventType.SOURCE_CHANGED]: SourceChangedEventData;
   [EventType.CARDS_CHANGED]: CardsChangedEventData;
   [EventType.LAYOUT_CHANGED]: LayoutChangedEventData;
+  [EventType.LAYOUT_APPLIED]: LayoutAppliedEventData;
   [EventType.SEARCH_CHANGED]: SearchChangedEventData;
   [EventType.SETTINGS_CHANGED]: SettingsChangedEventData;
   [EventType.SELECTION_CHANGED]: SelectionChangedEventData;
