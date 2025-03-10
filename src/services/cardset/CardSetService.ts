@@ -178,7 +178,7 @@ export class CardSetService implements ICardSetService {
    * @param cardSet 선택할 카드 세트
    * @param isFixed 고정 여부
    */
-  async selectCardSet(cardSet: string, isFixed: boolean = false): Promise<void> {
+  async selectCardSet(cardSet: string, isFixed = false): Promise<void> {
     const settings = this.settingsService.getSettings();
     
     // 현재 카드셋 소스에 따라 다른 처리

@@ -58,8 +58,8 @@ export class TagCardSetService implements ITagCardSetService, ICardSetSelectionM
   private settingsService: ISettingsService;
   private eventBus: DomainEventBus;
   private currentTags: string[] = [];
-  private isFixed: boolean = false;
-  private caseSensitive: boolean = false;
+  private isFixed = false;
+  private caseSensitive = false;
   private allTags: string[] = [];
   public currentCardSet: string | null = null;
   
@@ -145,7 +145,7 @@ export class TagCardSetService implements ITagCardSetService, ICardSetSelectionM
    * @param tags 태그 목록
    * @param isFixed 고정 여부
    */
-  async selectTags(tags: string[], isFixed: boolean = false): Promise<void> {
+  async selectTags(tags: string[], isFixed = false): Promise<void> {
     this.currentTags = tags;
     this.isFixed = isFixed;
     
@@ -299,7 +299,7 @@ export class TagCardSetService implements ITagCardSetService, ICardSetSelectionM
    * @param cardSet 카드셋 (태그 문자열, 쉼표로 구분)
    * @param isFixed 고정 여부
    */
-  async selectCardSet(cardSet: string, isFixed: boolean = false): Promise<void> {
+  async selectCardSet(cardSet: string, isFixed = false): Promise<void> {
     const tags = cardSet.split(',').map(tag => tag.trim()).filter(tag => tag);
     await this.selectTags(tags, isFixed);
   }

@@ -91,7 +91,7 @@ export class SearchService implements ISearchService {
   private eventBus: DomainEventBus;
   private searchHistoryService: ISearchHistoryService;
   private searchSuggestionService: ISearchSuggestionService;
-  private currentQuery: string = '';
+  private currentQuery = '';
   private currentSearchType: SearchType = 'content';
   private currentScope: SearchScope = 'current';
   private searchResults: ICard[] = [];

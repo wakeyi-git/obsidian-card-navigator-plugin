@@ -17,7 +17,7 @@ export interface ICardSetComponent {
    * 카드셋 데이터 설정
    * @param cardSet 카드셋 데이터
    */
-  setCardSet(cardSet: ICardSet): void;
+  setCardSet(cardSet: ICardSet): Promise<void>;
   
   /**
    * 카드 선택
@@ -83,9 +83,9 @@ export class CardSetComponent extends Component implements ICardSetComponent {
    * 카드셋 데이터 설정
    * @param cardSet 카드셋 데이터
    */
-  setCardSet(cardSet: ICardSet): void {
+  async setCardSet(cardSet: ICardSet): Promise<void> {
     this.cardSet = cardSet;
-    this.update();
+    await this.update();
   }
   
   /**
@@ -136,7 +136,7 @@ export class CardSetComponent extends Component implements ICardSetComponent {
    * 컴포넌트 생성
    * @returns 생성된 HTML 요소
    */
-  protected createComponent(): HTMLElement {
+  protected async createComponent(): Promise<HTMLElement> {
     const cardSetElement = document.createElement('div');
     cardSetElement.className = 'card-navigator-cardset';
     cardSetElement.dataset.id = this.cardSet.id;
@@ -154,7 +154,7 @@ export class CardSetComponent extends Component implements ICardSetComponent {
     cardSetElement.classList.add(`scroll-${scrollDirection}`);
     
     // 카드 렌더링
-    this.renderCards(cardSetElement);
+    await this.renderCards(cardSetElement);
     
     // ResizeObserver 설정
     this.setupResizeObserver(cardSetElement);
@@ -173,17 +173,15 @@ export class CardSetComponent extends Component implements ICardSetComponent {
     }
     
     // 새 ResizeObserver 생성
-    this.resizeObserver = new ResizeObserver((entries) => {
+    this.resizeObserver = new ResizeObserver((_entries) => {
       // 디바운스 처리
       if (this.resizeTimeout) {
         clearTimeout(this.resizeTimeout);
       }
       
-      this.resizeTimeout = setTimeout(() => {
-        for (const entry of entries) {
-          // 요소 크기가 변경되면 카드 다시 렌더링
-          this.renderCards(element);
-        }
+      this.resizeTimeout = setTimeout(async () => {
+        // 요소 크기가 변경되면 카드 다시 렌더링
+        await this.renderCards(element);
       }, 100); // 100ms 디바운스
     });
     
@@ -195,7 +193,7 @@ export class CardSetComponent extends Component implements ICardSetComponent {
    * 카드 렌더링
    * @param container 컨테이너 요소
    */
-  private renderCards(container: HTMLElement): void {
+  private async renderCards(container: HTMLElement): Promise<void> {
     // 기존 컨테이너 내용 모두 제거
     container.innerHTML = '';
     
@@ -215,10 +213,13 @@ export class CardSetComponent extends Component implements ICardSetComponent {
       return;
     }
     
-    // 정렬된 카드 목록 가져오기
-    const cards = this.cardSet.files.map(file => 
+    // 정렬된 카드 목록 가져오기 (비동기 처리)
+    const cardPromises = this.cardSet.files.map(file => 
       this.cardService.getCardByPath(file.path)
-    ).filter(card => card !== null) as ICard[];
+    );
+    
+    const cardResults = await Promise.all(cardPromises);
+    const cards = cardResults.filter(card => card !== null) as ICard[];
     
     if (cards.length === 0) {
       const emptyMessage = document.createElement('div');
@@ -282,7 +283,7 @@ export class CardSetComponent extends Component implements ICardSetComponent {
     }
     
     // 아이템 너비 계산 (동적)
-    let itemWidth: number = layoutInfo.itemWidth;
+    const itemWidth: number = layoutInfo.itemWidth;
     
     // 디버깅 정보 출력
     console.log('카드셋 렌더링:', {
@@ -296,7 +297,7 @@ export class CardSetComponent extends Component implements ICardSetComponent {
     });
     
     // 카드 컴포넌트 생성 및 렌더링
-    sortedCards.forEach(card => {
+    for (const card of sortedCards) {
       // 카드 컨테이너 생성
       const cardContainer = document.createElement('div');
       cardContainer.className = 'card-container';
@@ -345,11 +346,11 @@ export class CardSetComponent extends Component implements ICardSetComponent {
       }
       
       // 카드 렌더링
-      cardComponent.render(cardContainer);
+      await cardComponent.render(cardContainer);
       
       // 카드 컴포넌트 저장
       this.cardComponents.set(cardId, cardComponent);
-    });
+    }
   }
   
   /**
@@ -399,9 +400,9 @@ export class CardSetComponent extends Component implements ICardSetComponent {
       clearTimeout(this.resizeTimeout);
     }
     
-    this.resizeTimeout = setTimeout(() => {
+    this.resizeTimeout = setTimeout(async () => {
       if (this.element) {
-        this.renderCards(this.element);
+        await this.renderCards(this.element);
       }
     }, 100); // 100ms 디바운스
   };
@@ -412,7 +413,9 @@ export class CardSetComponent extends Component implements ICardSetComponent {
    */
   private handleDragOver = (event: DragEvent): void => {
     event.preventDefault();
-    event.dataTransfer!.dropEffect = 'move';
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
   };
   
   /**
@@ -422,9 +425,11 @@ export class CardSetComponent extends Component implements ICardSetComponent {
   private handleDrop = (event: DragEvent): void => {
     event.preventDefault();
     
-    const cardId = event.dataTransfer!.getData('text/plain');
-    if (cardId) {
-      this.interactionService.handleCardDrop(cardId, event);
+    if (event.dataTransfer) {
+      const cardId = event.dataTransfer.getData('text/plain');
+      if (cardId) {
+        this.interactionService.handleCardDrop(cardId, event);
+      }
     }
   };
 } 

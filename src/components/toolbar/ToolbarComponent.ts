@@ -86,7 +86,7 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
    * 컴포넌트 생성
    * @returns 생성된 HTML 요소
    */
-  protected createComponent(): HTMLElement {
+  protected async createComponent(): Promise<HTMLElement> {
     const toolbarElement = document.createElement('div');
     toolbarElement.className = 'card-navigator-toolbar';
     

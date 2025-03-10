@@ -20,7 +20,7 @@ export class Navigation implements INavigationService {
   /**
    * 포커스된 카드 인덱스
    */
-  private focusedIndex: number = -1;
+  private focusedIndex = -1;
   
   /**
    * 활성 카드
@@ -30,7 +30,7 @@ export class Navigation implements INavigationService {
   /**
    * 활성 카드 인덱스
    */
-  private activeCardIndex: number = -1;
+  private activeCardIndex = -1;
   
   /**
    * 스크롤 동작

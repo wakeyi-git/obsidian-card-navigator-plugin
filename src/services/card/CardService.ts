@@ -22,7 +22,7 @@ export interface ICardService extends ICardManager {
    * @param path 파일 경로
    * @returns 카드 또는 null
    */
-  getCardByPath(path: string): ICard | null;
+  getCardByPath(path: string): Promise<ICard | null>;
   
   /**
    * 파일로부터 카드 생성
@@ -114,11 +114,11 @@ export class CardService implements ICardService {
    * @param path 파일 경로
    * @returns 카드 또는 null
    */
-  getCardByPath(path: string): ICard | null {
+  async getCardByPath(path: string): Promise<ICard | null> {
     try {
       const file = this.obsidianService.getVault().getAbstractFileByPath(path);
       if (file instanceof TFile) {
-        return this.obsidianService.getCardFromFile(file);
+        return await this.obsidianService.getCardFromFile(file);
       }
     } catch (error) {
       console.error('카드 가져오기 오류:', error);
@@ -232,7 +232,7 @@ export class CardService implements ICardService {
    * 카드셋 변경 이벤트 처리
    * @param data 이벤트 데이터
    */
-  private onCardSetChanged(data: CardSetChangedEventData): void {
+  private onCardSetChanged(_data: CardSetChangedEventData): void {
     this.refreshCards();
   }
   

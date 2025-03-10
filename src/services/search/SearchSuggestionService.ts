@@ -73,7 +73,7 @@ export class SearchSuggestionService implements ISearchSuggestionService {
    * @param caseSensitive 대소문자 구분 여부
    * @returns 검색 제안 목록
    */
-  async getSuggestions(query: string, searchType: SearchType = 'filename', caseSensitive: boolean = false): Promise<ISearchSuggestion[]> {
+  async getSuggestions(query: string, searchType: SearchType = 'filename', caseSensitive = false): Promise<ISearchSuggestion[]> {
     if (!query) {
       return [];
     }

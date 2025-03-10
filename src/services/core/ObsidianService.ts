@@ -318,26 +318,24 @@ export class ObsidianService implements IObsidianApp, IVault, IWorkspace {
    * @param file 파일
    * @returns 카드 객체
    */
-  getCardFromFile(file: TFile): any {
+  async getCardFromFile(file: TFile): Promise<any> {
     const metadata = this.app.metadataCache.getFileCache(file);
     const frontmatter = metadata?.frontmatter || {};
     const firstHeader = metadata?.headings?.[0]?.heading || '';
     
-    // 간단한 미리보기 텍스트 생성 (실제 파일 내용은 비동기적으로 가져와야 하므로 여기서는 간단한 미리보기만 제공)
-    let previewContent = '카드 내용 미리보기...';
-    if (metadata?.sections && metadata.sections.length > 0) {
-      // 첫 번째 섹션의 내용 사용 (프론트매터 제외)
-      const firstNonFrontmatterSection = metadata.sections.find(s => s.type !== 'frontmatter');
-      if (firstNonFrontmatterSection) {
-        previewContent = '이 카드에는 내용이 있습니다. 클릭하여 확인하세요.';
-      }
+    // 실제 파일 내용 읽기
+    let content = await this.read(file);
+    
+    // 내용이 없는 경우 기본 메시지 표시
+    if (!content || content.trim() === '') {
+      content = '카드 내용이 없습니다.';
     }
     
     return {
       id: file.path,
       path: file.path,
       title: file.basename,
-      content: previewContent,
+      content: content,
       tags: this.getTagsFromFile(file),
       frontmatter: frontmatter,
       firstHeader: firstHeader,

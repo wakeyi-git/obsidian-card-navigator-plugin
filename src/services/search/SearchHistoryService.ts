@@ -40,7 +40,7 @@ export interface ISearchHistoryService {
  */
 export class SearchHistoryService implements ISearchHistoryService {
   private history: string[] = [];
-  private maxHistorySize: number = 10;
+  private maxHistorySize = 10;
   private settingsService: ISettingsService;
   
   /**

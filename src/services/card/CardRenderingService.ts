@@ -250,14 +250,44 @@ export class CardRenderingService implements ICardRenderingService {
   private getContentPreview(content: string): string {
     const settings = this.settingsService.getSettings();
     
-    // 내용 길이 제한
-    if (settings.limitContentLength && settings.contentMaxLength) {
-      if (content.length > settings.contentMaxLength) {
-        return content.substring(0, settings.contentMaxLength) + '...';
-      }
+    if (!content || content.trim() === '') {
+      return '내용이 없습니다.';
     }
     
-    return content;
+    // 프론트매터 제거 (--- 또는 +++ 사이의 내용)
+    let cleanContent = content.replace(/^---[\s\S]*?---\n/m, '');
+    cleanContent = cleanContent.replace(/^\+\+\+[\s\S]*?\+\+\+\n/m, '');
+    
+    // 빈 줄 제거 및 공백 정리
+    cleanContent = cleanContent.split('\n')
+      .filter(line => line.trim() !== '')
+      .join('\n')
+      .trim();
+    
+    // 내용이 없는 경우
+    if (!cleanContent || cleanContent.trim() === '') {
+      return '내용이 없습니다.';
+    }
+    
+    // 내용 길이 제한
+    if (settings.limitContentLength && settings.contentMaxLength) {
+      // 줄 단위로 제한
+      const lines = cleanContent.split('\n');
+      const maxLines = Math.min(5, lines.length); // 최대 5줄까지만 표시
+      
+      let preview = lines.slice(0, maxLines).join('\n');
+      
+      // 글자 수 제한
+      if (preview.length > settings.contentMaxLength) {
+        preview = preview.substring(0, settings.contentMaxLength) + '...';
+      } else if (lines.length > maxLines) {
+        preview += '...';
+      }
+      
+      return preview;
+    }
+    
+    return cleanContent;
   }
   
   /**

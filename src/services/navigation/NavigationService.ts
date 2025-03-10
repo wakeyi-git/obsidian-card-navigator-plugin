@@ -117,7 +117,7 @@ export class NavigationService implements INavigationService {
   private layoutService: ILayoutService;
   private eventBus: DomainEventBus;
   private cards: ICard[] = [];
-  private currentIndex: number = -1;
+  private currentIndex = -1;
   private navigationMode: NavigationMode = 'grid';
   
   /**

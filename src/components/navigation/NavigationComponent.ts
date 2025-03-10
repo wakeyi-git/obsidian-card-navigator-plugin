@@ -66,7 +66,7 @@ export class NavigationComponent extends Component implements INavigationCompone
    * 컴포넌트 생성
    * @returns 생성된 HTML 요소
    */
-  protected createComponent(): HTMLElement {
+  protected async createComponent(): Promise<HTMLElement> {
     const navigationElement = document.createElement('div');
     navigationElement.className = 'card-navigator-navigation';
     

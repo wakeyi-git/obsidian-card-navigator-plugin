@@ -43,8 +43,8 @@ export class LayoutComponent extends Component implements ILayoutComponent {
   private layoutService: ILayoutService;
   private eventBus: DomainEventBus;
   private resizeObserver: ResizeObserver | null = null;
-  private containerWidth: number = 0;
-  private containerHeight: number = 0;
+  private containerWidth = 0;
+  private containerHeight = 0;
   
   /**
    * 생성자
@@ -125,7 +125,7 @@ export class LayoutComponent extends Component implements ILayoutComponent {
    * 컴포넌트 생성
    * @returns 생성된 HTML 요소
    */
-  protected createComponent(): HTMLElement {
+  protected async createComponent(): Promise<HTMLElement> {
     const layoutElement = document.createElement('div');
     layoutElement.className = 'card-navigator-layout';
     
@@ -133,28 +133,89 @@ export class LayoutComponent extends Component implements ILayoutComponent {
     const controlsElement = document.createElement('div');
     controlsElement.className = 'layout-controls';
     
-    // 레이아웃 타입 토글 버튼
-    const toggleButton = document.createElement('button');
-    toggleButton.className = 'layout-type-toggle';
-    toggleButton.textContent = this.layoutService.getLayoutType() === 'grid' ? '그리드' : '메이슨리';
-    toggleButton.addEventListener('click', () => {
-      const currentType = this.layoutService.getLayoutType();
-      const newType = currentType === 'grid' ? 'masonry' : 'grid';
-      this.setLayoutType(newType);
-      toggleButton.textContent = newType === 'grid' ? '그리드' : '메이슨리';
+    // 레이아웃 타입 컨트롤
+    const layoutTypeControl = document.createElement('div');
+    layoutTypeControl.className = 'layout-type-control';
+    
+    // 레이아웃 타입 버튼 추가
+    const layoutTypes: LayoutType[] = ['grid', 'masonry'];
+    layoutTypes.forEach(type => {
+      const button = document.createElement('button');
+      button.className = `layout-type-button ${type}`;
+      button.dataset.type = type;
+      button.title = `${type} 레이아웃`;
+      
+      // 현재 레이아웃 타입에 active 클래스 추가
+      if (this.layoutService.getLayoutType() === type) {
+        button.classList.add('active');
+      }
+      
+      // 클릭 이벤트 핸들러
+      button.addEventListener('click', () => {
+        this.setLayoutType(type);
+      });
+      
+      layoutTypeControl.appendChild(button);
     });
     
-    controlsElement.appendChild(toggleButton);
+    controlsElement.appendChild(layoutTypeControl);
+    
+    // 레이아웃 방향 컨트롤
+    const layoutDirectionControl = document.createElement('div');
+    layoutDirectionControl.className = 'layout-direction-control';
+    
+    // 레이아웃 방향 버튼 추가
+    const layoutDirections: LayoutDirection[] = ['horizontal', 'vertical'];
+    layoutDirections.forEach(direction => {
+      const button = document.createElement('button');
+      button.className = `layout-direction-button ${direction}`;
+      button.dataset.direction = direction;
+      button.title = `${direction} 방향`;
+      
+      // 현재 레이아웃 방향에 active 클래스 추가
+      if (this.layoutService.getLayoutDirection() === direction) {
+        button.classList.add('active');
+      }
+      
+      // 클릭 이벤트 핸들러
+      button.addEventListener('click', () => {
+        this.setLayoutDirection(direction);
+      });
+      
+      layoutDirectionControl.appendChild(button);
+    });
+    
+    controlsElement.appendChild(layoutDirectionControl);
+    
+    // 스크롤 방향 컨트롤
+    const scrollDirectionControl = document.createElement('div');
+    scrollDirectionControl.className = 'scroll-direction-control';
+    
+    // 스크롤 방향 버튼 추가
+    const scrollDirections: ScrollDirection[] = ['vertical', 'horizontal'];
+    scrollDirections.forEach(direction => {
+      const button = document.createElement('button');
+      button.className = `scroll-direction-button ${direction}`;
+      button.dataset.direction = direction;
+      button.title = `${direction} 스크롤`;
+      
+      // 현재 스크롤 방향에 active 클래스 추가
+      if (this.layoutService.getScrollDirection() === direction) {
+        button.classList.add('active');
+      }
+      
+      // 클릭 이벤트 핸들러
+      button.addEventListener('click', () => {
+        this.setScrollDirection(direction);
+      });
+      
+      scrollDirectionControl.appendChild(button);
+    });
+    
+    controlsElement.appendChild(scrollDirectionControl);
+    
+    // 컨트롤 추가
     layoutElement.appendChild(controlsElement);
-    
-    // 레이아웃 컨테이너 추가
-    const containerElement = document.createElement('div');
-    containerElement.className = 'layout-container';
-    containerElement.classList.add(`layout-${this.layoutService.getLayoutType()}`);
-    containerElement.classList.add(`direction-${this.layoutService.getLayoutDirection()}`);
-    containerElement.classList.add(`scroll-${this.layoutService.getScrollDirection()}`);
-    
-    layoutElement.appendChild(containerElement);
     
     return layoutElement;
   }
@@ -163,8 +224,8 @@ export class LayoutComponent extends Component implements ILayoutComponent {
    * 컴포넌트 렌더링
    * @param container 컨테이너 요소
    */
-  render(container: HTMLElement): void {
-    super.render(container);
+  async render(container: HTMLElement): Promise<void> {
+    await super.render(container);
     
     // ResizeObserver 설정
     if (this.element) {

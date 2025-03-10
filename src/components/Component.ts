@@ -7,12 +7,12 @@ export interface IComponent {
    * 컴포넌트 렌더링
    * @param container 컨테이너 요소
    */
-  render(container: HTMLElement): void;
+  render(container: HTMLElement): Promise<void>;
   
   /**
    * 컴포넌트 업데이트
    */
-  update(): void;
+  update(): Promise<void>;
   
   /**
    * 컴포넌트 제거
@@ -42,9 +42,9 @@ export abstract class Component implements IComponent {
    * 컴포넌트 렌더링
    * @param container 컨테이너 요소
    */
-  render(container: HTMLElement): void {
+  async render(container: HTMLElement): Promise<void> {
     this.container = container;
-    this.element = this.createComponent();
+    this.element = await this.createComponent();
     if (this.element) {
       container.appendChild(this.element);
       this.registerEventListeners();
@@ -55,14 +55,14 @@ export abstract class Component implements IComponent {
    * 컴포넌트 생성
    * @returns 생성된 HTML 요소
    */
-  protected abstract createComponent(): HTMLElement;
+  protected abstract createComponent(): Promise<HTMLElement>;
   
   /**
    * 컴포넌트 업데이트
    */
-  update(): void {
+  async update(): Promise<void> {
     if (this.container && this.element) {
-      const newElement = this.createComponent();
+      const newElement = await this.createComponent();
       this.container.replaceChild(newElement, this.element);
       this.element = newElement;
       this.registerEventListeners();

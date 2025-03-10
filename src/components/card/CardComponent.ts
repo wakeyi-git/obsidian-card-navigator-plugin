@@ -36,8 +36,8 @@ export class CardComponent extends Component implements ICardComponent {
   private cardService: ICardService;
   private cardRenderingService: ICardRenderingService;
   private interactionService: IInteractionService;
-  private isSelected: boolean = false;
-  private isFocused: boolean = false;
+  private isSelected = false;
+  private isFocused = false;
   
   /**
    * 생성자
@@ -108,7 +108,7 @@ export class CardComponent extends Component implements ICardComponent {
    * 컴포넌트 생성
    * @returns 생성된 HTML 요소
    */
-  protected createComponent(): HTMLElement {
+  protected async createComponent(): Promise<HTMLElement> {
     const cardElement = document.createElement('div');
     cardElement.className = 'card-navigator-card';
     cardElement.dataset.id = this.card.id;

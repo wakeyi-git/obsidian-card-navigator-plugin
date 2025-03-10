@@ -57,9 +57,9 @@ export class FolderCardSetService implements IFolderCardSetService, ICardSetSele
   private obsidianService: ObsidianService;
   private settingsService: ISettingsService;
   private eventBus: DomainEventBus;
-  private currentFolder: string = '';
-  private isFixed: boolean = false;
-  private includeSubfolders: boolean = true;
+  private currentFolder = '';
+  private isFixed = false;
+  private includeSubfolders = true;
   private folders: string[] = [];
   public currentCardSet: string | null = null;
   
@@ -149,7 +149,7 @@ export class FolderCardSetService implements IFolderCardSetService, ICardSetSele
    * @param folderPath 폴더 경로
    * @param isFixed 고정 여부
    */
-  async selectFolder(folderPath: string, isFixed: boolean = false): Promise<void> {
+  async selectFolder(folderPath: string, isFixed = false): Promise<void> {
     this.currentFolder = folderPath;
     this.isFixed = isFixed;
     
@@ -262,7 +262,7 @@ export class FolderCardSetService implements IFolderCardSetService, ICardSetSele
    * @param cardSet 카드셋 (폴더 경로)
    * @param isFixed 고정 여부
    */
-  async selectCardSet(cardSet: string, isFixed: boolean = false): Promise<void> {
+  async selectCardSet(cardSet: string, isFixed = false): Promise<void> {
     await this.selectFolder(cardSet, isFixed);
   }
 

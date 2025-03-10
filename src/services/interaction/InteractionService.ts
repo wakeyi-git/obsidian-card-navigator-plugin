@@ -161,7 +161,7 @@ export class InteractionService implements IInteractionService {
   private selectedCardIds: Set<string> = new Set();
   private selectionMode: SelectionMode = 'single';
   private dragMode: DragMode = 'none';
-  private isDragging: boolean = false;
+  private isDragging = false;
   private dragSourceId: string | null = null;
   
   /**
@@ -214,7 +214,7 @@ export class InteractionService implements IInteractionService {
    * @param cardId 카드 ID
    * @param addToSelection 기존 선택에 추가 여부
    */
-  selectCard(cardId: string, addToSelection: boolean = false): void {
+  selectCard(cardId: string, addToSelection = false): void {
     // 단일 선택 모드이고 추가 선택이 아닌 경우 기존 선택 해제
     if (this.selectionMode === 'single' && !addToSelection) {
       this.deselectAll();
