@@ -8,6 +8,13 @@ import { ObsidianService } from '../core/ObsidianService';
  */
 export interface ICardRenderingService {
   /**
+   * 카드 렌더링
+   * @param card 카드
+   * @param container 컨테이너 요소
+   */
+  renderCard(card: ICard, container: HTMLElement): void;
+  
+  /**
    * 카드 헤더 렌더링
    * @param card 카드
    * @param container 컨테이너 요소
@@ -54,6 +61,17 @@ export class CardRenderingService implements ICardRenderingService {
   constructor(obsidianService: ObsidianService, settingsService: ISettingsService) {
     this.obsidianService = obsidianService;
     this.settingsService = settingsService;
+  }
+  
+  /**
+   * 카드 렌더링
+   * @param card 카드
+   * @param container 컨테이너 요소
+   */
+  renderCard(card: ICard, container: HTMLElement): void {
+    this.renderHeader(card, container);
+    this.renderBody(card, container);
+    this.renderFooter(card, container);
   }
   
   /**

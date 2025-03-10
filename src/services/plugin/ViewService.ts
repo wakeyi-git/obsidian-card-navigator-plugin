@@ -118,7 +118,7 @@ export class CardNavigatorView extends ItemView {
    * @returns 아이콘 ID
    */
   getIcon(): string {
-    return 'cards';
+    return 'layers-3';
   }
   
   /**

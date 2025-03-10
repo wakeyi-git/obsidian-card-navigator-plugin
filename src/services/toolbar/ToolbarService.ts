@@ -84,7 +84,7 @@ export interface IToolbarService {
    * 모든 툴바 아이템 가져오기
    * @returns 툴바 아이템 목록
    */
-  getAllItems(): IToolbarItem[];
+  getItems(): IToolbarItem[];
   
   /**
    * 툴바 아이템 값 설정
@@ -143,6 +143,20 @@ export interface IToolbarService {
    * @param data 액션 데이터
    */
   executeItemAction(itemId: string, data?: any): void;
+  
+  /**
+   * 이벤트 리스너 등록
+   * @param event 이벤트 타입
+   * @param listener 리스너 함수
+   */
+  on(event: string, listener: (data: any) => void): void;
+  
+  /**
+   * 이벤트 리스너 제거
+   * @param event 이벤트 타입
+   * @param listener 리스너 함수
+   */
+  off(event: string, listener: (data: any) => void): void;
 }
 
 /**
@@ -253,18 +267,8 @@ export class ToolbarService implements IToolbarService {
     return this.items.get(itemId);
   }
   
-  getAllItems(): IToolbarItem[] {
-    return Array.from(this.items.values())
-      .filter(item => item.visible)
-      .sort((a, b) => {
-        // 위치별 정렬
-        const positionOrder = { left: 0, center: 1, right: 2 };
-        const positionDiff = positionOrder[a.position] - positionOrder[b.position];
-        if (positionDiff !== 0) return positionDiff;
-        
-        // 같은 위치 내에서는 order 값으로 정렬
-        return (a.order || 0) - (b.order || 0);
-      });
+  getItems(): IToolbarItem[] {
+    return Array.from(this.items.values());
   }
   
   setItemValue(itemId: string, value: string): boolean {
@@ -372,5 +376,23 @@ export class ToolbarService implements IToolbarService {
     this.settingsService.updateSettings({
       toolbarItems: itemsToSave
     });
+  }
+  
+  /**
+   * 이벤트 리스너 등록
+   * @param event 이벤트 타입
+   * @param listener 리스너 함수
+   */
+  on(event: string, listener: (data: any) => void): void {
+    this.eventBus.on(event as any, listener);
+  }
+  
+  /**
+   * 이벤트 리스너 제거
+   * @param event 이벤트 타입
+   * @param listener 리스너 함수
+   */
+  off(event: string, listener: (data: any) => void): void {
+    this.eventBus.off(event as any, listener);
   }
 } 

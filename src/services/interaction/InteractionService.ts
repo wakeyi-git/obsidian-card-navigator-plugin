@@ -113,6 +113,41 @@ export interface IInteractionService {
    * @param event 컨텍스트 메뉴 이벤트
    */
   handleCardContextMenu(cardId: string, event: any): void;
+  
+  /**
+   * 카드 마우스 진입 처리
+   * @param cardId 카드 ID
+   * @param event 마우스 이벤트
+   */
+  handleCardMouseEnter(cardId: string, event: any): void;
+  
+  /**
+   * 카드 마우스 이탈 처리
+   * @param cardId 카드 ID
+   * @param event 마우스 이벤트
+   */
+  handleCardMouseLeave(cardId: string, event: any): void;
+  
+  /**
+   * 카드 드래그 시작 처리
+   * @param cardId 카드 ID
+   * @param event 드래그 이벤트
+   */
+  handleCardDragStart(cardId: string, event: any): void;
+  
+  /**
+   * 카드 드래그 종료 처리
+   * @param cardId 카드 ID
+   * @param event 드래그 이벤트
+   */
+  handleCardDragEnd(cardId: string, event: any): void;
+  
+  /**
+   * 카드 드롭 처리
+   * @param cardId 카드 ID
+   * @param event 드롭 이벤트
+   */
+  handleCardDrop(cardId: string, event: any): void;
 }
 
 /**
@@ -434,6 +469,51 @@ export class InteractionService implements IInteractionService {
       cardId: cardId,
       event: event
     });
+  }
+  
+  /**
+   * 카드 마우스 진입 처리
+   * @param cardId 카드 ID
+   * @param event 마우스 이벤트
+   */
+  handleCardMouseEnter(cardId: string, event: any): void {
+    // 구현 필요
+  }
+  
+  /**
+   * 카드 마우스 이탈 처리
+   * @param cardId 카드 ID
+   * @param event 마우스 이벤트
+   */
+  handleCardMouseLeave(cardId: string, event: any): void {
+    // 구현 필요
+  }
+  
+  /**
+   * 카드 드래그 시작 처리
+   * @param cardId 카드 ID
+   * @param event 드래그 이벤트
+   */
+  handleCardDragStart(cardId: string, event: any): void {
+    this.startDrag(cardId, event);
+  }
+  
+  /**
+   * 카드 드래그 종료 처리
+   * @param cardId 카드 ID
+   * @param event 드래그 이벤트
+   */
+  handleCardDragEnd(cardId: string, event: any): void {
+    this.cancelDrag();
+  }
+  
+  /**
+   * 카드 드롭 처리
+   * @param cardId 카드 ID
+   * @param event 드롭 이벤트
+   */
+  handleCardDrop(cardId: string, event: any): void {
+    this.endDrag(cardId, event);
   }
   
   /**

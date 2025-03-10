@@ -134,14 +134,14 @@ export class Sort implements ISort {
    */
   applyPriorities(cards: ICard[]): ICard[] {
     if (!this.prioritySettings) {
-      return this.apply(cards);
+      return [...cards].sort((a, b) => this.compare(a, b));
     }
     
     const { priorityTags, priorityFolders } = this.prioritySettings;
     
     // 우선 순위 태그 또는 폴더가 없는 경우 일반 정렬 적용
     if (priorityTags.length === 0 && priorityFolders.length === 0) {
-      return this.apply(cards);
+      return [...cards].sort((a, b) => this.compare(a, b));
     }
     
     // 우선 순위 태그를 포함하는 카드와 그렇지 않은 카드로 분리

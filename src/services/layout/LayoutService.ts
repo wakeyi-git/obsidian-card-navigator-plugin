@@ -70,6 +70,12 @@ export interface ILayoutService extends ILayoutController {
    * @param fixed 카드 높이 고정 여부
    */
   setFixedHeight(fixed: boolean): Promise<void>;
+  
+  /**
+   * 현재 레이아웃 가져오기
+   * @returns 현재 레이아웃 타입
+   */
+  getCurrentLayout(): LayoutType;
 }
 
 /**
@@ -286,5 +292,13 @@ export class LayoutService implements ILayoutService {
       previousLayout,
       newLayout: type
     });
+  }
+  
+  /**
+   * 현재 레이아웃 가져오기
+   * @returns 현재 레이아웃 타입
+   */
+  getCurrentLayout(): LayoutType {
+    return this.layoutType;
   }
 } 

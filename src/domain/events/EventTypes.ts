@@ -723,6 +723,8 @@ export enum EventType {
   SEARCH_TYPE_CHANGED = 'search-type-changed',
   SEARCH_CASE_SENSITIVE_CHANGED = 'search-case-sensitive-changed',
   SEARCH_QUERY_CHANGED = 'search-query-changed',
+  SEARCH_RESULTS_CHANGED = 'search:results-changed',
+  SEARCH_HISTORY_CHANGED = 'search:history-changed',
   
   // 설정 관련 이벤트
   SETTINGS_CHANGED = 'settings-changed',
@@ -797,79 +799,38 @@ export enum EventType {
 }
 
 /**
- * 이벤트 데이터 타입 매핑
+ * 이벤트 데이터 맵 타입
+ * 이벤트 타입에 따른 이벤트 데이터 타입을 매핑합니다.
  */
-export type EventDataMap = {
+export interface EventDataMap {
   [EventType.CARD_SET_CHANGED]: CardSetChangedEventData;
   [EventType.SOURCE_CHANGED]: SourceChangedEventData;
-  [EventType.INCLUDE_SUBFOLDERS_CHANGED]: boolean;
-  [EventType.TAG_CASE_SENSITIVE_CHANGED]: boolean;
-  [EventType.CARD_SET_SOURCE_TYPE_CHANGED]: CardSetSourceTypeChangedEventData;
-  [EventType.CARD_SET_SOURCE_CHANGED]: CardSetSourceChangedEventData;
   [EventType.CARDS_CHANGED]: CardsChangedEventData;
-  [EventType.CARD_SELECTION]: ICard;
-  [EventType.CARD_DESELECTED]: ICard;
-  [EventType.CARD_DISPLAY_SETTINGS_CHANGED]: CardDisplaySettingsChangedEventData;
   [EventType.LAYOUT_CHANGED]: LayoutChangedEventData;
-  [EventType.LAYOUT_TYPE_CHANGED]: LayoutTypeChangedEventData;
-  [EventType.LAYOUT_SETTINGS_CHANGED]: LayoutSettingsChangedEventData;
-  [EventType.SORT_TYPE_CHANGED]: SortTypeChangedEventData;
-  [EventType.SORT_DIRECTION_CHANGED]: SortDirectionChangedEventData;
   [EventType.SEARCH_CHANGED]: SearchChangedEventData;
-  [EventType.SEARCH_TYPE_CHANGED]: SearchType;
-  [EventType.SEARCH_CASE_SENSITIVE_CHANGED]: boolean;
-  [EventType.SEARCH_QUERY_CHANGED]: SearchQueryChangedEventData;
   [EventType.SETTINGS_CHANGED]: SettingsChangedEventData;
-  [EventType.SETTINGS_LOADED]: undefined;
-  [EventType.SETTINGS_SAVED]: undefined;
-  [EventType.SETTINGS_RESET]: undefined;
-  [EventType.PLUGIN_LOADED]: void;
-  [EventType.PLUGIN_UNLOADED]: void;
   [EventType.SELECTION_CHANGED]: SelectionChangedEventData;
   [EventType.SELECTION_MODE_CHANGED]: SelectionModeChangedEventData;
+  [EventType.CARD_SET_SOURCE_TYPE_CHANGED]: CardSetSourceTypeChangedEventData;
+  [EventType.CARD_SET_SOURCE_CHANGED]: CardSetSourceChangedEventData;
+  [EventType.LAYOUT_TYPE_CHANGED]: LayoutTypeChangedEventData;
+  [EventType.LAYOUT_SETTINGS_CHANGED]: LayoutSettingsChangedEventData;
+  [EventType.CARD_DISPLAY_SETTINGS_CHANGED]: CardDisplaySettingsChangedEventData;
+  [EventType.SORT_TYPE_CHANGED]: SortTypeChangedEventData;
+  [EventType.SORT_DIRECTION_CHANGED]: SortDirectionChangedEventData;
   [EventType.FOCUS_CHANGED]: FocusChangedEventData;
   [EventType.ACTIVE_CARD_CHANGED]: ActiveCardChangedEventData;
   [EventType.CARD_OPENED]: CardOpenedEventData;
   [EventType.NAVIGATION_ERROR]: NavigationErrorEventData;
   [EventType.TOOLBAR_ITEM_CLICKED]: ToolbarItemClickedEventData;
+  [EventType.SEARCH_QUERY_CHANGED]: SearchQueryChangedEventData;
   [EventType.POPUP_SHOWN]: PopupShownEventData;
   [EventType.POPUP_HIDDEN]: PopupHiddenEventData;
-  [EventType.SOURCE_TYPE_CHANGED]: SourceChangedEventData;
-  [EventType.CARDSET_CHANGED]: CardSetChangedEventData;
-  [EventType.CARDS_UPDATED]: CardsChangedEventData;
-  [EventType.FILTER_CHANGED]: any;
-  [EventType.FILE_OPENED]: FileOpenedEventData;
-  [EventType.FILE_CREATED]: FileCreatedEventData;
-  [EventType.FILE_MODIFIED]: FileModifiedEventData;
-  [EventType.FILE_DELETED]: FileDeletedEventData;
-  [EventType.FILE_RENAMED]: FileRenamedEventData;
-  [EventType.ACTIVE_LEAF_CHANGED]: ActiveLeafChangedEventData;
-  [EventType.CARD_LIST_UPDATED]: CardListUpdatedEventData;
-  [EventType.CARD_ADDED]: CardAddedEventData;
-  [EventType.CARD_REMOVED]: CardRemovedEventData;
-  [EventType.CARD_UPDATED]: CardUpdatedEventData;
-  [EventType.CARD_SELECTED]: CardSelectedEventData;
-  [EventType.CARDS_SORTED]: CardsSortedEventData;
-  [EventType.SORT_REQUESTED]: SortRequestedEventData;
-  [EventType.PAGE_CHANGED]: PageChangedEventData;
-  [EventType.NEW_CARD_REQUESTED]: NewCardRequestedEventData;
-  [EventType.CARD_SELECT_REQUESTED]: CardSelectRequestedEventData;
-  [EventType.CARD_OPEN_REQUESTED]: CardOpenRequestedEventData;
-  [EventType.CARD_EDIT_REQUESTED]: CardEditRequestedEventData;
-  [EventType.SEARCH_RESULTS]: SearchResultsEventData;
-  [EventType.NOTIFICATION]: NotificationEventData;
-  [EventType.CONTEXT_MENU_REQUESTED]: ContextMenuRequestedEventData;
-  [EventType.TAG_CLICKED]: TagClickedEventData;
-  [EventType.CARD_DRAG_STARTED]: CardDragStartedEventData;
-  [EventType.CARD_DRAG_ENDED]: CardDragEndedEventData;
-  [EventType.CARD_EDITED]: void;
-  [EventType.CARD_SELECTION_CHANGED]: CardSelectionChangedEventData;
-  [EventType.CARD_CLICKED]: CardClickedEventData;
-  [EventType.CARD_DOUBLE_CLICKED]: CardDoubleClickedEventData;
-  [EventType.CARD_CONTEXT_MENU]: CardContextMenuEventData;
-  [EventType.CARD_DRAG_CANCELLED]: CardDragCancelledEventData;
-  [EventType.SCROLL_TO_CARD]: ScrollToCardEventData;
-  [EventType.NAVIGATION_MODE_CHANGED]: NavigationModeChangedEventData;
+  [EventType.SEARCH_RESULTS_CHANGED]: any;
+  [EventType.SEARCH_HISTORY_CHANGED]: any;
+  
+  // 인덱스 시그니처 추가
+  [key: string]: any;
 }
 
 /**

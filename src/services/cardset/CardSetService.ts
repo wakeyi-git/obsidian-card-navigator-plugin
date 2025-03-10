@@ -244,7 +244,7 @@ export class CardSetService implements ICardSetService {
     
     // 빈 카드셋 생성
     return {
-      id: 'empty',
+      id: 'empty-folder',
       name: '빈 카드셋',
       sourceType: this.currentCardSetSource,
       source: '',
@@ -281,17 +281,45 @@ export class CardSetService implements ICardSetService {
    * 카드셋 새로고침
    */
   private async refreshCardSet(): Promise<void> {
-    // 현재 카드셋 소스에 따라 다른 처리
-    switch (this.currentCardSetSource) {
-      case 'folder':
-        this.currentCardSet = await this.refreshFolderCardSet();
-        break;
-      case 'tag':
-        this.currentCardSet = await this.refreshTagCardSet();
-        break;
-      case 'search':
-        this.currentCardSet = await this.refreshSearchCardSet();
-        break;
+    try {
+      // 현재 소스 타입에 따라 카드셋 새로고침
+      switch (this.currentCardSetSource) {
+        case 'folder':
+          this.currentCardSet = await this.refreshFolderCardSet();
+          break;
+        case 'tag':
+          this.currentCardSet = await this.refreshTagCardSet();
+          break;
+        case 'search':
+          this.currentCardSet = await this.refreshSearchCardSet();
+          break;
+        default:
+          // 기본값은 폴더 카드셋
+          this.currentCardSet = await this.refreshFolderCardSet();
+      }
+      
+      // 카드셋 변경 이벤트 발생
+      if (this.currentCardSet) {
+        this.eventBus.emit(EventType.CARDS_CHANGED, {
+          cards: this.currentCardSet.files.map(file => this.obsidianService.getCardFromFile(file)),
+          totalCount: this.currentCardSet.files.length,
+          filteredCount: this.currentCardSet.files.length
+        });
+        
+        console.log('카드셋 새로고침 완료:', this.currentCardSet);
+      }
+    } catch (error) {
+      console.error('카드셋 새로고침 오류:', error);
+      
+      // 오류 발생 시 빈 카드셋 생성
+      this.currentCardSet = {
+        id: 'error-cardset',
+        name: '오류 발생',
+        sourceType: this.currentCardSetSource,
+        source: '',
+        type: 'active',
+        files: []
+      };
     }
   }
   

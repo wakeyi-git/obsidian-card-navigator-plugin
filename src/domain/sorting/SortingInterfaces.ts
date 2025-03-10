@@ -136,4 +136,11 @@ export interface ISortingService {
    * 정렬 방향 전환
    */
   toggleSortDirection(): void;
+  
+  /**
+   * 카드 정렬
+   * @param cards 카드 목록
+   * @returns 정렬된 카드 목록
+   */
+  sortCards(cards: ICard[]): ICard[];
 } 

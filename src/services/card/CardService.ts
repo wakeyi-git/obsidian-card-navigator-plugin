@@ -18,6 +18,13 @@ export interface ICardService extends ICardManager {
   getCardById(id: string): Promise<ICard | undefined>;
   
   /**
+   * 경로로 카드 가져오기
+   * @param path 파일 경로
+   * @returns 카드 또는 null
+   */
+  getCardByPath(path: string): ICard | null;
+  
+  /**
    * 파일로부터 카드 생성
    * @param file 파일
    * @returns 생성된 카드
@@ -100,6 +107,23 @@ export class CardService implements ICardService {
   async getCardById(id: string): Promise<ICard | undefined> {
     const cards = await this.getCards();
     return cards.find(card => card.getId() === id);
+  }
+  
+  /**
+   * 경로로 카드 가져오기
+   * @param path 파일 경로
+   * @returns 카드 또는 null
+   */
+  getCardByPath(path: string): ICard | null {
+    try {
+      const file = this.obsidianService.getVault().getAbstractFileByPath(path);
+      if (file instanceof TFile) {
+        return this.obsidianService.getCardFromFile(file);
+      }
+    } catch (error) {
+      console.error('카드 가져오기 오류:', error);
+    }
+    return null;
   }
   
   /**

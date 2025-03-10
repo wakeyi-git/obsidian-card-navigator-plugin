@@ -8,9 +8,11 @@ export interface ISearchSuggestionService {
   /**
    * 검색 제안 가져오기
    * @param query 검색어
+   * @param searchType 검색 타입
+   * @param caseSensitive 대소문자 구분 여부
    * @returns 검색 제안 목록
    */
-  getSuggestions(query: string): Promise<ISearchSuggestion[]>;
+  getSuggestions(query: string, searchType?: SearchType, caseSensitive?: boolean): Promise<ISearchSuggestion[]>;
   
   /**
    * 파일 경로 제안 가져오기
@@ -67,45 +69,26 @@ export class SearchSuggestionService implements ISearchSuggestionService {
   /**
    * 검색 제안 가져오기
    * @param query 검색어
+   * @param searchType 검색 타입
+   * @param caseSensitive 대소문자 구분 여부
    * @returns 검색 제안 목록
    */
-  async getSuggestions(query: string): Promise<ISearchSuggestion[]> {
-    // 검색 타입 감지
-    if (query.startsWith('path:')) {
-      return this.getPathSuggestions(query.substring(5).trim());
-    } else if (query.startsWith('file:')) {
-      return this.getFileSuggestions(query.substring(5).trim());
-    } else if (query.startsWith('tag:')) {
-      return this.getTagSuggestions(query.substring(4).trim());
-    } else if (query.match(/^\[([^\]]+)\]/)) {
-      const property = query.match(/^\[([^\]]+)\]/)?.[1] || '';
-      const valueQuery = query.substring(property.length + 2).trim();
-      return this.getPropertyValueSuggestions(property, valueQuery);
-    } else if (query.startsWith('[')) {
-      return this.getPropertySuggestions(query.substring(1).trim());
-    } else {
-      // 일반 검색어인 경우 모든 타입의 제안 반환
-      const suggestions: ISearchSuggestion[] = [];
-      
-      // 검색 타입 제안
-      suggestions.push(
-        { text: 'path:', type: 'path', description: '파일 경로로 검색' },
-        { text: 'file:', type: 'file', description: '파일 이름으로 검색' },
-        { text: 'tag:', type: 'tag', description: '태그로 검색' },
-        { text: '[', type: 'frontmatter', description: '속성으로 검색' },
-        { text: 'create:', type: 'create', description: '생성일로 검색' },
-        { text: 'modify:', type: 'modify', description: '수정일로 검색' }
-      );
-      
-      // 파일 이름 제안
-      const fileSuggestions = await this.getFileSuggestions(query);
-      suggestions.push(...fileSuggestions);
-      
-      // 태그 제안
-      const tagSuggestions = await this.getTagSuggestions(query);
-      suggestions.push(...tagSuggestions);
-      
-      return suggestions;
+  async getSuggestions(query: string, searchType: SearchType = 'filename', caseSensitive: boolean = false): Promise<ISearchSuggestion[]> {
+    if (!query) {
+      return [];
+    }
+    
+    // 검색 타입에 따라 다른 제안 가져오기
+    switch (searchType) {
+      case 'filename':
+        return this.getFileSuggestions(query);
+      case 'tag':
+        return this.getTagSuggestions(query);
+      case 'frontmatter':
+        return this.getPropertySuggestions(query);
+      default:
+        // 기본적으로 파일 이름 제안 반환
+        return this.getFileSuggestions(query);
     }
   }
   

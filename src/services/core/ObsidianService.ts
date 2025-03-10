@@ -312,4 +312,52 @@ export class ObsidianService implements IObsidianApp, IVault, IWorkspace {
       callback
     });
   }
+  
+  /**
+   * 파일에서 카드 생성
+   * @param file 파일
+   * @returns 카드 객체
+   */
+  getCardFromFile(file: TFile): any {
+    const metadata = this.app.metadataCache.getFileCache(file);
+    const frontmatter = metadata?.frontmatter || {};
+    
+    return {
+      id: file.path,
+      path: file.path,
+      title: file.basename,
+      content: '',
+      tags: this.getTagsFromFile(file),
+      frontmatter: frontmatter,
+      getPath: () => file.path,
+      getCreatedTime: () => file.stat.ctime,
+      getModifiedTime: () => file.stat.mtime
+    };
+  }
+  
+  /**
+   * 파일에서 태그 가져오기
+   * @param file 파일
+   * @returns 태그 목록
+   */
+  private getTagsFromFile(file: TFile): string[] {
+    const metadata = this.app.metadataCache.getFileCache(file);
+    const tags: string[] = [];
+    
+    // 프론트매터 태그
+    if (metadata?.frontmatter?.tags) {
+      if (Array.isArray(metadata.frontmatter.tags)) {
+        tags.push(...metadata.frontmatter.tags);
+      } else if (typeof metadata.frontmatter.tags === 'string') {
+        tags.push(metadata.frontmatter.tags);
+      }
+    }
+    
+    // 인라인 태그
+    if (metadata?.tags) {
+      tags.push(...metadata.tags.map(t => t.tag.substring(1)));
+    }
+    
+    return tags;
+  }
 } 

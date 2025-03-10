@@ -74,6 +74,11 @@ export interface ISearchService {
    * @returns 검색 강조 정보
    */
   getHighlightInfo(cardId: string): ISearchHighlightInfo | undefined;
+  
+  /**
+   * 검색 결과 초기화
+   */
+  clearResults(): void;
 }
 
 /**
@@ -262,6 +267,20 @@ export class SearchService implements ISearchService {
    */
   getHighlightInfo(cardId: string): ISearchHighlightInfo | undefined {
     return this.highlightInfoMap.get(cardId);
+  }
+  
+  /**
+   * 검색 결과 초기화
+   */
+  clearResults(): void {
+    this.searchResults = [];
+    this.highlightInfoMap.clear();
+    this.eventBus.emit(EventType.SEARCH_RESULTS_CHANGED, {
+      results: [],
+      query: '',
+      searchType: 'filename',
+      caseSensitive: false
+    });
   }
   
   /**

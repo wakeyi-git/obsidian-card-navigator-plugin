@@ -120,7 +120,7 @@ export class SortingService implements ISortingService {
   }
   
   /**
-   * 카드 목록 정렬
+   * 카드 정렬
    * @param cards 카드 목록
    * @returns 정렬된 카드 목록
    */
