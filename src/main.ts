@@ -140,13 +140,47 @@ export class CardNavigatorPlugin extends Plugin {
   onunload() {
     console.log('카드 네비게이터 플러그인 언로드 중...');
     
+    // 이벤트 리스너 제거
+    this.eventBus.removeAllListeners();
+    
+    // 컴포넌트 정리
+    if (this.cardSetComponent) {
+      this.cardSetComponent.remove();
+    }
+    
+    if (this.searchComponent) {
+      this.searchComponent.remove();
+    }
+    
+    if (this.toolbarComponent) {
+      this.toolbarComponent.remove();
+    }
+    
     // 뷰 비활성화
     this.viewService.deactivateView();
     
     // 리본 아이콘 제거
     this.ribbonService.removeRibbonIcon();
     
+    // 서비스 정리
+    this.layoutService.cleanup();
+    this.navigationService.cleanup();
+    this.interactionService.cleanup();
+    this.searchService.cleanup();
+    this.cardSetService.cleanup();
+    
+    // 전역 이벤트 리스너 제거
+    window.removeEventListener('resize', this.handleWindowResize);
+    
     console.log('카드 네비게이터 플러그인 언로드 완료');
+  }
+
+  // 윈도우 리사이즈 이벤트 핸들러
+  private handleWindowResize = () => {
+    // 플러그인이 언로드된 후에는 무시
+    if (!this.app) return;
+    
+    // 필요한 경우 리사이즈 처리
   }
 
   async loadSettings() {

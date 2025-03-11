@@ -79,6 +79,11 @@ export interface ISearchService {
    * 검색 결과 초기화
    */
   clearResults(): void;
+  
+  /**
+   * 서비스 정리 및 리소스 해제
+   */
+  cleanup(): void;
 }
 
 /**
@@ -275,12 +280,17 @@ export class SearchService implements ISearchService {
   clearResults(): void {
     this.searchResults = [];
     this.highlightInfoMap.clear();
-    this.eventBus.emit(EventType.SEARCH_RESULTS_CHANGED, {
-      results: [],
-      query: '',
-      searchType: 'filename',
-      caseSensitive: false
-    });
+    this.currentQuery = '';
+    this.eventBus.emit(EventType.SEARCH_RESULTS_CHANGED, { results: [] });
+  }
+  
+  /**
+   * 서비스 정리 및 리소스 해제
+   */
+  cleanup(): void {
+    this.clearResults();
+    this.highlightInfoMap.clear();
+    console.log('검색 서비스 정리 완료');
   }
   
   /**

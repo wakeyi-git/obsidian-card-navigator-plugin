@@ -106,6 +106,12 @@ export interface INavigationService {
    * @returns 카드 목록
    */
   getCards(): ICard[];
+  
+  /**
+   * 리소스 정리
+   * 서비스가 사용한 모든 리소스를 정리합니다.
+   */
+  cleanup(): void;
 }
 
 /**
@@ -373,6 +379,22 @@ export class NavigationService implements INavigationService {
   
   getCards(): ICard[] {
     return this.cards;
+  }
+  
+  /**
+   * 리소스 정리
+   * 서비스가 사용한 모든 리소스를 정리합니다.
+   */
+  cleanup(): void {
+    // 이벤트 리스너 제거
+    this.eventBus.off(EventType.CARDS_CHANGED, this.onCardsChanged);
+    this.eventBus.off(EventType.SETTINGS_CHANGED, this.onSettingsChanged);
+    
+    // 카드 목록 정리
+    this.cards = [];
+    this.currentIndex = -1;
+    
+    console.log('내비게이션 서비스 정리 완료');
   }
   
   /**

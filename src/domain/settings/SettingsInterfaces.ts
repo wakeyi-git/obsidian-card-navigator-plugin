@@ -110,6 +110,12 @@ export interface ICardNavigatorSettings {
   cardGap?: number;
   gridColumns?: string;
   
+  /**
+   * 레이아웃 설정
+   * 카드 레이아웃 관련 설정을 포함합니다.
+   */
+  layout?: ILayoutSettings;
+  
   // 내비게이션 설정
   navigationMode?: NavigationMode;
   
@@ -221,4 +227,84 @@ export interface ISettingsService extends ISettingsManager {
    * @param data 이벤트 데이터
    */
   emit(event: EventType, data: any): void;
+}
+
+/**
+ * 레이아웃 방향 선호도
+ */
+export enum LayoutDirectionPreference {
+  AUTO = 'auto',         // 뷰포트 비율에 따라 자동 결정
+  VERTICAL = 'vertical', // 항상 세로 레이아웃 사용
+  HORIZONTAL = 'horizontal'  // 항상 가로 레이아웃 사용
+}
+
+/**
+ * 레이아웃 설정 인터페이스
+ */
+export interface ILayoutSettings {
+  /**
+   * 카드 높이 고정 여부
+   * - true: 그리드 레이아웃 (고정 높이)
+   * - false: 메이슨리 레이아웃 (가변 높이)
+   */
+  fixedCardHeight: boolean;
+  
+  /**
+   * 레이아웃 방향 선호도
+   */
+  layoutDirectionPreference: LayoutDirectionPreference;
+  
+  /**
+   * 카드 최소 너비 (px)
+   */
+  cardMinWidth: number;
+  
+  /**
+   * 카드 최대 너비 (px)
+   */
+  cardMaxWidth: number;
+  
+  /**
+   * 카드 최소 높이 (px)
+   */
+  cardMinHeight: number;
+  
+  /**
+   * 카드 최대 높이 (px)
+   */
+  cardMaxHeight: number;
+  
+  /**
+   * 카드 간 간격 (px)
+   */
+  cardGap: number;
+  
+  /**
+   * 카드셋 패딩 (px)
+   */
+  cardsetPadding: number;
+  
+  /**
+   * 카드 크기 조정 팩터 (0.8 ~ 1.2)
+   */
+  cardSizeFactor: number;
+  
+  /**
+   * 레이아웃 전환 애니메이션 사용 여부
+   */
+  useLayoutTransition: boolean;
+}
+
+/**
+ * 플러그인 설정 인터페이스
+ */
+export interface IPluginSettings {
+  // ... existing code ...
+  
+  /**
+   * 레이아웃 설정
+   */
+  layout: ILayoutSettings;
+  
+  // ... existing code ...
 } 

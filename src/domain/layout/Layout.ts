@@ -58,6 +58,41 @@ export interface ILayoutInfo {
    * - vertical: 세로 스크롤
    */
   scrollDirection: ScrollDirection;
+  
+  /**
+   * 아이템 수
+   * 레이아웃에 포함된 총 아이템 수
+   */
+  itemCount: number;
+  
+  /**
+   * 컨테이너 너비
+   * 레이아웃 계산에 사용된 컨테이너 너비
+   */
+  containerWidth: number;
+  
+  /**
+   * 컨테이너 높이
+   * 레이아웃 계산에 사용된 컨테이너 높이
+   */
+  containerHeight: number;
+  
+  /**
+   * 레이아웃 설정
+   * 레이아웃 계산에 사용된 설정 정보
+   */
+  settings?: {
+    fixedCardHeight: boolean;
+    layoutDirectionPreference: string;
+    cardMinWidth: number;
+    cardMaxWidth: number;
+    cardMinHeight: number;
+    cardMaxHeight: number;
+    cardGap: number;
+    cardsetPadding: number;
+    cardSizeFactor: number;
+    useLayoutTransition: boolean;
+  };
 }
 
 /**

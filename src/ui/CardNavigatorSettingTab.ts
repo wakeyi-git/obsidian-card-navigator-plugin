@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import { CardNavigatorPlugin } from '../main';
+import { LayoutDirectionPreference } from '../domain/settings/SettingsInterfaces';
 
 /**
  * 카드 네비게이터 설정 탭
@@ -83,14 +84,269 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
     containerEl.createEl('h3', { text: '레이아웃 설정' });
     
     new Setting(containerEl)
-      .setName('레이아웃 모드')
-      .setDesc('카드 레이아웃 모드를 선택합니다.')
-      .addDropdown(dropdown => dropdown
-        .addOption('grid', '그리드 (고정 높이)')
-        .addOption('masonry', '메이슨리 (가변 높이)')
-        .setValue(this.plugin.settings.defaultLayout || 'grid')
+      .setName('카드 높이 고정')
+      .setDesc('카드 높이를 고정할지 여부를 설정합니다. 활성화하면 그리드 레이아웃, 비활성화하면 메이슨리 레이아웃이 적용됩니다.')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.layout?.fixedCardHeight ?? true)
         .onChange(async (value) => {
-          this.plugin.settings.defaultLayout = value as 'grid' | 'masonry';
+          if (!this.plugin.settings.layout) {
+            this.plugin.settings.layout = {
+              fixedCardHeight: value,
+              layoutDirectionPreference: LayoutDirectionPreference.AUTO,
+              cardMinWidth: 200,
+              cardMaxWidth: 400,
+              cardMinHeight: 100,
+              cardMaxHeight: 300,
+              cardGap: 10,
+              cardsetPadding: 10,
+              cardSizeFactor: 1.0,
+              useLayoutTransition: true
+            };
+          } else {
+            this.plugin.settings.layout.fixedCardHeight = value;
+          }
+          await this.plugin.saveSettings();
+        }));
+    
+    new Setting(containerEl)
+      .setName('레이아웃 방향 선호도')
+      .setDesc('레이아웃 방향을 자동으로 결정할지, 항상 세로 또는 가로 방향을 사용할지 설정합니다.')
+      .addDropdown(dropdown => dropdown
+        .addOption(LayoutDirectionPreference.AUTO, '자동 (뷰포트 비율에 따라)')
+        .addOption(LayoutDirectionPreference.VERTICAL, '항상 세로 레이아웃')
+        .addOption(LayoutDirectionPreference.HORIZONTAL, '항상 가로 레이아웃')
+        .setValue(this.plugin.settings.layout?.layoutDirectionPreference ?? LayoutDirectionPreference.AUTO)
+        .onChange(async (value) => {
+          if (!this.plugin.settings.layout) {
+            this.plugin.settings.layout = {
+              fixedCardHeight: true,
+              layoutDirectionPreference: value as LayoutDirectionPreference,
+              cardMinWidth: 200,
+              cardMaxWidth: 400,
+              cardMinHeight: 100,
+              cardMaxHeight: 300,
+              cardGap: 10,
+              cardsetPadding: 10,
+              cardSizeFactor: 1.0,
+              useLayoutTransition: true
+            };
+          } else {
+            this.plugin.settings.layout.layoutDirectionPreference = value as LayoutDirectionPreference;
+          }
+          await this.plugin.saveSettings();
+        }));
+    
+    new Setting(containerEl)
+      .setName('카드 최소 너비')
+      .setDesc('카드의 최소 너비를 설정합니다.')
+      .addSlider(slider => slider
+        .setLimits(100, 400, 10)
+        .setValue(this.plugin.settings.layout?.cardMinWidth ?? 200)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          if (!this.plugin.settings.layout) {
+            this.plugin.settings.layout = {
+              fixedCardHeight: true,
+              layoutDirectionPreference: LayoutDirectionPreference.AUTO,
+              cardMinWidth: value,
+              cardMaxWidth: 400,
+              cardMinHeight: 100,
+              cardMaxHeight: 300,
+              cardGap: 10,
+              cardsetPadding: 10,
+              cardSizeFactor: 1.0,
+              useLayoutTransition: true
+            };
+          } else {
+            this.plugin.settings.layout.cardMinWidth = value;
+          }
+          await this.plugin.saveSettings();
+        }));
+    
+    new Setting(containerEl)
+      .setName('카드 최대 너비')
+      .setDesc('카드의 최대 너비를 설정합니다.')
+      .addSlider(slider => slider
+        .setLimits(200, 800, 10)
+        .setValue(this.plugin.settings.layout?.cardMaxWidth ?? 400)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          if (!this.plugin.settings.layout) {
+            this.plugin.settings.layout = {
+              fixedCardHeight: true,
+              layoutDirectionPreference: LayoutDirectionPreference.AUTO,
+              cardMinWidth: 200,
+              cardMaxWidth: value,
+              cardMinHeight: 100,
+              cardMaxHeight: 300,
+              cardGap: 10,
+              cardsetPadding: 10,
+              cardSizeFactor: 1.0,
+              useLayoutTransition: true
+            };
+          } else {
+            this.plugin.settings.layout.cardMaxWidth = value;
+          }
+          await this.plugin.saveSettings();
+        }));
+    
+    new Setting(containerEl)
+      .setName('카드 최소 높이')
+      .setDesc('카드의 최소 높이를 설정합니다.')
+      .addSlider(slider => slider
+        .setLimits(50, 200, 10)
+        .setValue(this.plugin.settings.layout?.cardMinHeight ?? 100)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          if (!this.plugin.settings.layout) {
+            this.plugin.settings.layout = {
+              fixedCardHeight: true,
+              layoutDirectionPreference: LayoutDirectionPreference.AUTO,
+              cardMinWidth: 200,
+              cardMaxWidth: 400,
+              cardMinHeight: value,
+              cardMaxHeight: 300,
+              cardGap: 10,
+              cardsetPadding: 10,
+              cardSizeFactor: 1.0,
+              useLayoutTransition: true
+            };
+          } else {
+            this.plugin.settings.layout.cardMinHeight = value;
+          }
+          await this.plugin.saveSettings();
+        }));
+    
+    new Setting(containerEl)
+      .setName('카드 최대 높이')
+      .setDesc('카드의 최대 높이를 설정합니다.')
+      .addSlider(slider => slider
+        .setLimits(100, 500, 10)
+        .setValue(this.plugin.settings.layout?.cardMaxHeight ?? 300)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          if (!this.plugin.settings.layout) {
+            this.plugin.settings.layout = {
+              fixedCardHeight: true,
+              layoutDirectionPreference: LayoutDirectionPreference.AUTO,
+              cardMinWidth: 200,
+              cardMaxWidth: 400,
+              cardMinHeight: 100,
+              cardMaxHeight: value,
+              cardGap: 10,
+              cardsetPadding: 10,
+              cardSizeFactor: 1.0,
+              useLayoutTransition: true
+            };
+          } else {
+            this.plugin.settings.layout.cardMaxHeight = value;
+          }
+          await this.plugin.saveSettings();
+        }));
+    
+    new Setting(containerEl)
+      .setName('카드 간 간격')
+      .setDesc('카드 사이의 간격을 설정합니다.')
+      .addSlider(slider => slider
+        .setLimits(0, 30, 2)
+        .setValue(this.plugin.settings.layout?.cardGap ?? 10)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          if (!this.plugin.settings.layout) {
+            this.plugin.settings.layout = {
+              fixedCardHeight: true,
+              layoutDirectionPreference: LayoutDirectionPreference.AUTO,
+              cardMinWidth: 200,
+              cardMaxWidth: 400,
+              cardMinHeight: 100,
+              cardMaxHeight: 300,
+              cardGap: value,
+              cardsetPadding: 10,
+              cardSizeFactor: 1.0,
+              useLayoutTransition: true
+            };
+          } else {
+            this.plugin.settings.layout.cardGap = value;
+          }
+          await this.plugin.saveSettings();
+        }));
+    
+    new Setting(containerEl)
+      .setName('카드셋 패딩')
+      .setDesc('카드셋 컨테이너의 패딩을 설정합니다.')
+      .addSlider(slider => slider
+        .setLimits(0, 30, 2)
+        .setValue(this.plugin.settings.layout?.cardsetPadding ?? 10)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          if (!this.plugin.settings.layout) {
+            this.plugin.settings.layout = {
+              fixedCardHeight: true,
+              layoutDirectionPreference: LayoutDirectionPreference.AUTO,
+              cardMinWidth: 200,
+              cardMaxWidth: 400,
+              cardMinHeight: 100,
+              cardMaxHeight: 300,
+              cardGap: 10,
+              cardsetPadding: value,
+              cardSizeFactor: 1.0,
+              useLayoutTransition: true
+            };
+          } else {
+            this.plugin.settings.layout.cardsetPadding = value;
+          }
+          await this.plugin.saveSettings();
+        }));
+    
+    new Setting(containerEl)
+      .setName('카드 크기 조정 팩터')
+      .setDesc('카드 크기를 미세 조정하기 위한 배율 팩터를 설정합니다. (0.8 ~ 1.2)')
+      .addSlider(slider => slider
+        .setLimits(0.8, 1.2, 0.05)
+        .setValue(this.plugin.settings.layout?.cardSizeFactor ?? 1.0)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          if (!this.plugin.settings.layout) {
+            this.plugin.settings.layout = {
+              fixedCardHeight: true,
+              layoutDirectionPreference: LayoutDirectionPreference.AUTO,
+              cardMinWidth: 200,
+              cardMaxWidth: 400,
+              cardMinHeight: 100,
+              cardMaxHeight: 300,
+              cardGap: 10,
+              cardsetPadding: 10,
+              cardSizeFactor: value,
+              useLayoutTransition: true
+            };
+          } else {
+            this.plugin.settings.layout.cardSizeFactor = value;
+          }
+          await this.plugin.saveSettings();
+        }));
+    
+    new Setting(containerEl)
+      .setName('레이아웃 전환 애니메이션')
+      .setDesc('레이아웃이 변경될 때 부드러운 전환 애니메이션을 사용할지 여부를 설정합니다.')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.layout?.useLayoutTransition ?? true)
+        .onChange(async (value) => {
+          if (!this.plugin.settings.layout) {
+            this.plugin.settings.layout = {
+              fixedCardHeight: true,
+              layoutDirectionPreference: LayoutDirectionPreference.AUTO,
+              cardMinWidth: 200,
+              cardMaxWidth: 400,
+              cardMinHeight: 100,
+              cardMaxHeight: 300,
+              cardGap: 10,
+              cardsetPadding: 10,
+              cardSizeFactor: 1.0,
+              useLayoutTransition: value
+            };
+          } else {
+            this.plugin.settings.layout.useLayoutTransition = value;
+          }
           await this.plugin.saveSettings();
         }));
     

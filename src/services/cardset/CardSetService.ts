@@ -41,6 +41,11 @@ export interface ICardSetService extends ICardSetSourceManager, ICardSetSourceCo
    * @param file 활성 파일
    */
   handleActiveFileChanged(file: TFile | null): Promise<void>;
+  
+  /**
+   * 서비스 정리 및 리소스 해제
+   */
+  cleanup(): void;
 }
 
 /**
@@ -436,5 +441,18 @@ export class CardSetService implements ICardSetService {
     }
     
     return Promise.resolve();
+  }
+  
+  /**
+   * 서비스 정리 및 리소스 해제
+   */
+  cleanup(): void {
+    this.currentCardSet = null;
+    this.folderCardSet = null;
+    this.tagCardSet = null;
+    this.searchCardSet = null;
+    
+    this.eventBus.off(EventType.SETTINGS_CHANGED, this.onSettingsChanged);
+    console.log('카드셋 서비스 정리 완료');
   }
 } 

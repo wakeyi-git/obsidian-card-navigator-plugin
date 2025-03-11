@@ -62,10 +62,22 @@ export abstract class Component implements IComponent {
    */
   async update(): Promise<void> {
     if (this.container && this.element) {
-      const newElement = await this.createComponent();
-      this.container.replaceChild(newElement, this.element);
-      this.element = newElement;
-      this.registerEventListeners();
+      try {
+        const newElement = await this.createComponent();
+        
+        // 요소가 여전히 컨테이너의 자식인지 확인
+        if (this.element.parentNode === this.container) {
+          this.container.replaceChild(newElement, this.element);
+        } else {
+          // 부모-자식 관계가 깨진 경우 새 요소를 추가
+          this.container.appendChild(newElement);
+        }
+        
+        this.element = newElement;
+        this.registerEventListeners();
+      } catch (error) {
+        console.error('컴포넌트 업데이트 중 오류 발생:', error);
+      }
     }
   }
   

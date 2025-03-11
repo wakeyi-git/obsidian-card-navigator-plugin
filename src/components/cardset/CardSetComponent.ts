@@ -8,6 +8,7 @@ import { CardComponent } from '../card/CardComponent';
 import { ICardService } from '../../services/card/CardService';
 import { ICardRenderingService } from '../../services/card/CardRenderingService';
 import { IInteractionService } from '../../services/interaction/InteractionService';
+import { ILayoutInfo } from '../../domain/layout/Layout';
 
 /**
  * 카드셋 컴포넌트 인터페이스
@@ -49,7 +50,14 @@ export class CardSetComponent extends Component implements ICardSetComponent {
   private focusedCardId: string | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private resizeTimeout: NodeJS.Timeout | null = null;
+  private lastContainerWidth = 0;
+  private lastContainerHeight = 0;
   
+  // 바인딩된 이벤트 핸들러
+  private boundHandleWindowResize: () => void;
+  private boundHandleDragOver: (event: DragEvent) => void;
+  private boundHandleDrop: (event: DragEvent) => void;
+
   /**
    * 생성자
    * @param cardSet 카드셋 데이터
@@ -77,6 +85,11 @@ export class CardSetComponent extends Component implements ICardSetComponent {
     this.cardService = cardService;
     this.cardRenderingService = cardRenderingService;
     this.interactionService = interactionService;
+    
+    // 이벤트 핸들러 바인딩
+    this.boundHandleWindowResize = this.handleWindowResize.bind(this);
+    this.boundHandleDragOver = this.handleDragOver.bind(this);
+    this.boundHandleDrop = this.handleDrop.bind(this);
   }
   
   /**
@@ -167,25 +180,22 @@ export class CardSetComponent extends Component implements ICardSetComponent {
    * @param element 관찰할 요소
    */
   private setupResizeObserver(element: HTMLElement): void {
-    // 기존 ResizeObserver 정리
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
-    }
-    
-    // 새 ResizeObserver 생성
-    this.resizeObserver = new ResizeObserver((_entries) => {
+    // ResizeObserver 설정
+    this.resizeObserver = new ResizeObserver((entries) => {
       // 디바운스 처리
       if (this.resizeTimeout) {
         clearTimeout(this.resizeTimeout);
       }
       
-      this.resizeTimeout = setTimeout(async () => {
-        // 요소 크기가 변경되면 카드 다시 렌더링
-        await this.renderCards(element);
-      }, 100); // 100ms 디바운스
+      this.resizeTimeout = setTimeout(() => {
+        for (const entry of entries) {
+          if (entry.target === element) {
+            this.renderCards(element);
+          }
+        }
+      }, 300); // 300ms 디바운스
     });
     
-    // 요소 관찰 시작
     this.resizeObserver.observe(element);
   }
   
@@ -194,107 +204,73 @@ export class CardSetComponent extends Component implements ICardSetComponent {
    * @param container 컨테이너 요소
    */
   private async renderCards(container: HTMLElement): Promise<void> {
-    // 기존 컨테이너 내용 모두 제거
-    container.innerHTML = '';
+    // 컨테이너가 없으면 무시
+    if (!container) return;
     
-    // 기존 카드 컴포넌트 정리
-    this.cardComponents.forEach(component => {
-      component.remove();
-    });
-    this.cardComponents.clear();
+    // 카드셋이 없으면 무시
+    if (!this.cardSet) return;
     
-    // 카드셋이 비어있거나 파일이 없는 경우
-    if (!this.cardSet || !this.cardSet.files || this.cardSet.files.length === 0) {
-      const emptyMessage = document.createElement('div');
-      emptyMessage.className = 'card-navigator-empty-message';
-      emptyMessage.textContent = '표시할 카드가 없습니다.';
-      container.appendChild(emptyMessage);
-      console.log('카드셋이 비어있습니다:', this.cardSet);
+    // 카드 목록 가져오기
+    const files = this.cardSet.files || [];
+    
+    // 파일이 없으면 빈 메시지 표시
+    if (files.length === 0) {
+      container.innerHTML = '<div class="card-navigator-empty-message">카드가 없습니다.</div>';
       return;
     }
     
-    // 정렬된 카드 목록 가져오기 (비동기 처리)
-    const cardPromises = this.cardSet.files.map(file => 
-      this.cardService.getCardByPath(file.path)
-    );
-    
+    // 파일 목록을 카드로 변환
+    const cardPromises = files.map(file => this.cardService.getCardByPath(file.path));
     const cardResults = await Promise.all(cardPromises);
     const cards = cardResults.filter(card => card !== null) as ICard[];
     
-    if (cards.length === 0) {
-      const emptyMessage = document.createElement('div');
-      emptyMessage.className = 'card-navigator-empty-message';
-      emptyMessage.textContent = '표시할 카드가 없습니다.';
-      container.appendChild(emptyMessage);
-      console.log('카드 목록이 비어있습니다:', this.cardSet);
-      return;
-    }
-    
+    // 정렬된 카드 목록 가져오기
     const sortedCards = this.sortingService.sortCards(cards);
-    console.log('정렬된 카드 목록:', sortedCards);
     
-    // 컨테이너 크기 가져오기
+    // 컨테이너 크기 측정
     const containerRect = container.getBoundingClientRect();
     const containerWidth = containerRect.width || 800;
     const containerHeight = containerRect.height || 600;
     
-    // 화면 너비 확인
-    const windowWidth = window.innerWidth;
+    // 컨테이너 크기가 유효하지 않으면 무시
+    if (containerWidth <= 0 || containerHeight <= 0) return;
     
-    // 패딩 및 여백 고려
-    const containerPadding = 20; // 좌우 패딩 합계
-    const effectiveWidth = Math.max(250, containerWidth - containerPadding);
+    // 레이아웃 타입에 따른 클래스 추가
+    container.className = 'card-navigator-cardset';
     
-    // 화면 너비에 따라 열 수 결정
-    let forceSingleColumn = false;
-    if (windowWidth <= 600 || effectiveWidth < 500) {
-      forceSingleColumn = true;
-    }
-    
-    // 레이아웃 계산
-    const layoutInfo = this.layoutService.calculateLayout(
-      effectiveWidth,
-      containerHeight,
+    // 레이아웃 계산이 필요한지 확인
+    const lastCalc = this.layoutService.getLastCalculation();
+    const needsRecalculation = this.isLayoutRecalculationNeeded(
+      lastCalc, 
+      containerWidth, 
+      containerHeight, 
       sortedCards.length
     );
     
-    // 열 수 조정 (화면이 좁으면 1열로 강제)
-    const columns = forceSingleColumn ? 1 : layoutInfo.columns;
-    
-    // 그리드 레이아웃 스타일 적용
-    if (this.layoutService.getLayoutType() === 'grid') {
-      // 컨테이너에 패딩 추가
-      container.style.padding = '10px';
-      container.style.boxSizing = 'border-box';
+    if (!needsRecalculation && lastCalc) {
+      // 레이아웃 계산이 필요 없으면 기존 레이아웃 정보 사용
+      this.layoutService.applyCssVariables(container, lastCalc);
+    } else {
+      // 레이아웃 계산
+      const layoutInfo = this.layoutService.calculateLayout(
+        containerWidth,
+        containerHeight,
+        sortedCards.length
+      );
       
-      if (columns === 1) {
-        // 1열인 경우 단순 설정
-        container.style.gridTemplateColumns = '1fr';
-      } else {
-        // 여러 열인 경우 균등 분배
-        container.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
-      }
+      // CSS 변수 적용
+      this.layoutService.applyCssVariables(container, layoutInfo);
       
-      if (layoutInfo.fixedHeight) {
-        container.style.gridAutoRows = `${layoutInfo.itemHeight}px`;
-      } else {
-        container.style.gridAutoRows = 'minmax(120px, auto)';
-      }
+      // 디버깅 정보 출력
+      console.log('카드셋 렌더링:', {
+        containerWidth,
+        cardCount: sortedCards.length,
+        layoutType: this.layoutService.getLayoutType()
+      });
     }
     
-    // 아이템 너비 계산 (동적)
-    const itemWidth: number = layoutInfo.itemWidth;
-    
-    // 디버깅 정보 출력
-    console.log('카드셋 렌더링:', {
-      containerWidth,
-      effectiveWidth,
-      columns,
-      itemWidth,
-      cardCount: sortedCards.length,
-      forceSingleColumn,
-      layoutColumns: layoutInfo.columns
-    });
+    // 컨테이너 초기화 (기존 카드 제거)
+    container.innerHTML = '';
     
     // 카드 컴포넌트 생성 및 렌더링
     for (const card of sortedCards) {
@@ -302,110 +278,183 @@ export class CardSetComponent extends Component implements ICardSetComponent {
       const cardContainer = document.createElement('div');
       cardContainer.className = 'card-container';
       
-      // 동적 크기 적용
-      if (this.layoutService.getLayoutType() === 'grid') {
-        if (columns === 1) {
-          // 1열인 경우 너비를 100%로 설정하고 최대 너비 제한
-          cardContainer.style.width = '100%';
-          cardContainer.style.maxWidth = '100%';
-        } else if (layoutInfo.fixedHeight) {
-          // 여러 열이고 고정 높이인 경우
-          // 너비를 계산된 아이템 너비로 설정 (오버플로우 방지)
-          cardContainer.style.width = `${itemWidth}px`;
-          cardContainer.style.height = `${layoutInfo.itemHeight}px`;
-          
-          // 너비가 너무 작으면 최소 너비 보장
-          if (itemWidth < 200) {
-            cardContainer.style.minWidth = '200px';
-          }
-        }
-      }
-      
-      // 카드 컨테이너에 패딩 추가
-      cardContainer.style.boxSizing = 'border-box';
-      
-      // 컨테이너에 추가
-      container.appendChild(cardContainer);
-      
-      // 카드 컴포넌트 생성
-      const cardComponent = new CardComponent(
-        card,
-        this.cardService,
-        this.cardRenderingService,
-        this.interactionService
-      );
-      
-      // 선택 및 포커스 상태 설정
+      // 카드 ID 확인 (undefined 방지)
       const cardId = card.id || card.path || '';
-      if (this.selectedCardIds.has(cardId)) {
-        cardComponent.setSelected(true);
+      
+      // 카드 컴포넌트 생성 또는 재사용
+      let cardComponent = this.cardComponents.get(cardId);
+      
+      if (!cardComponent) {
+        // 새 카드 컴포넌트 생성
+        cardComponent = new CardComponent(
+          card,
+          this.cardService,
+          this.cardRenderingService,
+          this.interactionService
+        );
+        this.cardComponents.set(cardId, cardComponent);
+      } else {
+        // 기존 컴포넌트 정리 후 재사용
+        cardComponent.remove(); // DOM 요소 정리
+        cardComponent.setCard(card);
       }
       
-      if (this.focusedCardId === cardId) {
-        cardComponent.setFocused(true);
+      // 카드 컴포넌트 렌더링
+      try {
+        await cardComponent.render(cardContainer);
+        
+        // 선택 상태 적용
+        if (this.selectedCardIds.has(cardId)) {
+          cardComponent.setSelected(true);
+        }
+        
+        // 포커스 상태 적용
+        if (this.focusedCardId === cardId) {
+          cardComponent.setFocused(true);
+        }
+        
+        // 컨테이너에 추가
+        container.appendChild(cardContainer);
+      } catch (error) {
+        console.error(`카드 렌더링 중 오류 발생 (ID: ${cardId}):`, error);
       }
-      
-      // 카드 렌더링
-      await cardComponent.render(cardContainer);
-      
-      // 카드 컴포넌트 저장
-      this.cardComponents.set(cardId, cardComponent);
     }
+  }
+  
+  /**
+   * 레이아웃 재계산이 필요한지 확인
+   * @param lastCalc 마지막 계산 결과
+   * @param containerWidth 현재 컨테이너 너비
+   * @param containerHeight 현재 컨테이너 높이
+   * @param itemCount 현재 아이템 수
+   * @returns 재계산 필요 여부
+   */
+  private isLayoutRecalculationNeeded(
+    lastCalc: ILayoutInfo | null,
+    containerWidth: number,
+    containerHeight: number,
+    itemCount: number
+  ): boolean {
+    // 마지막 계산 결과가 없으면 계산 필요
+    if (!lastCalc) return true;
+    
+    // 아이템 수가 변경되었으면 계산 필요
+    if (lastCalc.itemCount !== itemCount) return true;
+    
+    // 컨테이너 크기가 크게 변경되었으면 계산 필요 (20px 이상)
+    if (Math.abs(containerWidth - lastCalc.containerWidth) > 20 ||
+        Math.abs(containerHeight - lastCalc.containerHeight) > 20) {
+      return true;
+    }
+    
+    // 레이아웃 타입이 변경되었으면 계산 필요
+    if (lastCalc.fixedHeight !== (this.layoutService.getLayoutType() === 'grid')) {
+      return true;
+    }
+    
+    // 그 외의 경우 재계산 불필요
+    return false;
+  }
+  
+  /**
+   * 컴포넌트 제거
+   * 이벤트 리스너 제거 및 리소스 정리
+   */
+  remove(): void {
+    // 이벤트 리스너 제거
+    this.removeEventListeners();
+    
+    // ResizeObserver 정리
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+    
+    // 타임아웃 정리
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+      this.resizeTimeout = null;
+    }
+    
+    // 카드 컴포넌트 정리
+    this.cardComponents.forEach(cardComponent => {
+      cardComponent.remove();
+    });
+    this.cardComponents.clear();
+    
+    // 컨테이너 참조 제거
+    this.container = null;
+    
+    console.log('카드셋 컴포넌트 제거 완료');
   }
   
   /**
    * 이벤트 리스너 등록
    */
   registerEventListeners(): void {
-    if (this.element) {
-      this.element.addEventListener('dragover', this.handleDragOver);
-      this.element.addEventListener('drop', this.handleDrop);
-      
-      // 윈도우 리사이즈 이벤트 리스너 등록
-      window.addEventListener('resize', this.handleWindowResize);
+    // 이벤트 리스너가 중복 등록되지 않도록 먼저 제거
+    this.removeEventListeners();
+    
+    // 윈도우 리사이즈 이벤트 리스너 등록
+    window.addEventListener('resize', this.boundHandleWindowResize);
+    
+    // 드래그 앤 드롭 이벤트 리스너 등록
+    if (this.container) {
+      this.container.addEventListener('dragover', this.boundHandleDragOver);
+      this.container.addEventListener('drop', this.boundHandleDrop);
     }
+    
+    console.log('카드셋 컴포넌트 이벤트 리스너 등록 완료');
   }
   
   /**
    * 이벤트 리스너 제거
    */
   removeEventListeners(): void {
-    if (this.element) {
-      this.element.removeEventListener('dragover', this.handleDragOver);
-      this.element.removeEventListener('drop', this.handleDrop);
-      
-      // 윈도우 리사이즈 이벤트 리스너 제거
-      window.removeEventListener('resize', this.handleWindowResize);
-      
-      // ResizeObserver 정리
-      if (this.resizeObserver) {
-        this.resizeObserver.disconnect();
-        this.resizeObserver = null;
-      }
-      
-      // 타임아웃 정리
-      if (this.resizeTimeout) {
-        clearTimeout(this.resizeTimeout);
-        this.resizeTimeout = null;
-      }
+    // 윈도우 리사이즈 이벤트 리스너 제거
+    window.removeEventListener('resize', this.boundHandleWindowResize);
+    
+    // 드래그 앤 드롭 이벤트 리스너 제거
+    if (this.container) {
+      this.container.removeEventListener('dragover', this.boundHandleDragOver);
+      this.container.removeEventListener('drop', this.boundHandleDrop);
     }
+    
+    console.log('카드셋 컴포넌트 이벤트 리스너 제거 완료');
   }
   
   /**
    * 윈도우 리사이즈 이벤트 핸들러
    */
-  private handleWindowResize = (): void => {
-    // 디바운스 처리
-    if (this.resizeTimeout) {
-      clearTimeout(this.resizeTimeout);
-    }
+  private handleWindowResize(): void {
+    // 플러그인이 언로드된 경우 무시
+    if (!this.container) return;
     
-    this.resizeTimeout = setTimeout(async () => {
-      if (this.element) {
-        await this.renderCards(this.element);
-      }
-    }, 100); // 100ms 디바운스
-  };
+    const cardSetContainer = this.container.querySelector('.card-navigator-cardset');
+    if (!cardSetContainer) return;
+    
+    // 컨테이너 크기 확인
+    const rect = cardSetContainer.getBoundingClientRect();
+    const currentWidth = rect.width;
+    const currentHeight = rect.height;
+    
+    // 컨테이너 크기가 유효하지 않으면 무시
+    if (currentWidth <= 0 || currentHeight <= 0) return;
+    
+    // 레이아웃 계산이 필요한지 확인
+    const lastCalc = this.layoutService.getLastCalculation();
+    const needsRecalculation = this.isLayoutRecalculationNeeded(
+      lastCalc, 
+      currentWidth, 
+      currentHeight, 
+      this.cardSet?.files?.length || 0
+    );
+    
+    // 레이아웃 계산이 필요하면 카드 다시 렌더링
+    if (needsRecalculation) {
+      this.renderCards(cardSetContainer as HTMLElement);
+    }
+  }
   
   /**
    * 드래그 오버 이벤트 핸들러

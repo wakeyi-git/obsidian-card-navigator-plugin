@@ -71,8 +71,23 @@ export class ViewService implements IViewService {
     const leaves = workspace.getLeavesOfType(this.viewType);
     
     for (const leaf of leaves) {
-      await leaf.detach();
+      try {
+        // 뷰 인스턴스 가져오기
+        const view = leaf.view;
+        
+        // 뷰가 CardNavigatorView 인스턴스인 경우 onunload 호출
+        if (view instanceof CardNavigatorView) {
+          await view.onunload();
+        }
+        
+        // 리프 분리
+        await leaf.detach();
+      } catch (error) {
+        console.error('뷰 비활성화 중 오류 발생:', error);
+      }
     }
+    
+    console.log('뷰 비활성화 완료');
   }
   
   /**
@@ -137,6 +152,13 @@ export class CardNavigatorView extends ItemView {
    * 뷰 언로드
    */
   async onunload(): Promise<void> {
-    // 정리 작업 수행
+    // 컨테이너 비우기
+    const container = this.containerEl.children[1];
+    container.empty();
+    
+    // 부모 클래스의 onunload 호출
+    await super.onunload();
+    
+    console.log('카드 네비게이터 뷰 언로드 완료');
   }
 } 

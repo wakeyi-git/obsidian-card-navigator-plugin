@@ -2,7 +2,7 @@ import { Component } from '../Component';
 import { DomainEventBus } from '../../domain/events/DomainEventBus';
 import { EventType } from '../../domain/events/EventTypes';
 import { ILayoutService } from '../../services/layout/LayoutService';
-import { LayoutDirection, LayoutType, ScrollDirection } from '../../domain/layout/Layout';
+import { ILayoutInfo, LayoutDirection, LayoutType, ScrollDirection } from '../../domain/layout/Layout';
 import './layout.css';
 
 /**
@@ -45,7 +45,14 @@ export class LayoutComponent extends Component implements ILayoutComponent {
   private resizeObserver: ResizeObserver | null = null;
   private containerWidth = 0;
   private containerHeight = 0;
+  private resizeTimeout: NodeJS.Timeout | null = null;
+  private lastCalculation: ILayoutInfo | null = null;
   
+  // 이벤트 핸들러를 바인딩된 클래스 속성으로 정의
+  private boundHandleLayoutChanged: () => void;
+  private boundHandleCardSetChanged: () => void;
+  private boundHandleWindowResize: () => void;
+
   /**
    * 생성자
    * @param layoutService 레이아웃 서비스
@@ -55,6 +62,11 @@ export class LayoutComponent extends Component implements ILayoutComponent {
     super();
     this.layoutService = layoutService;
     this.eventBus = eventBus;
+    
+    // 이벤트 핸들러 바인딩
+    this.boundHandleLayoutChanged = this.handleLayoutChanged.bind(this);
+    this.boundHandleCardSetChanged = this.handleCardSetChanged.bind(this);
+    this.boundHandleWindowResize = this.handleWindowResize.bind(this);
     
     // 초기 레이아웃 설정 가져오기
     const layoutType = this.layoutService.getLayoutType();
@@ -245,33 +257,50 @@ export class LayoutComponent extends Component implements ILayoutComponent {
   
   /**
    * 컴포넌트 제거
+   * 이벤트 리스너 제거 및 리소스 정리
    */
   remove(): void {
-    // ResizeObserver 해제
-    if (this.resizeObserver && this.element) {
-      this.resizeObserver.unobserve(this.element);
+    // 이벤트 리스너 제거
+    this.removeEventListeners();
+    
+    // ResizeObserver 정리
+    if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
     }
     
-    // 이벤트 리스너 제거
-    this.removeEventListeners();
+    // 타임아웃 정리
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+      this.resizeTimeout = null;
+    }
     
-    super.remove();
+    // 마지막 계산 결과 정리
+    this.lastCalculation = null;
+    
+    // 컨테이너 참조 제거
+    this.container = null;
+    
+    console.log('레이아웃 컴포넌트 제거 완료');
   }
   
   /**
    * 이벤트 리스너 등록
    */
   registerEventListeners(): void {
-    // 레이아웃 변경 이벤트 리스너
-    this.eventBus.on(EventType.LAYOUT_CHANGED, this.handleLayoutChanged.bind(this));
+    // 이벤트 리스너가 중복 등록되지 않도록 먼저 제거
+    this.removeEventListeners();
     
-    // 카드셋 변경 이벤트 리스너
-    this.eventBus.on(EventType.CARD_SET_CHANGED, this.handleCardSetChanged.bind(this));
+    // 레이아웃 변경 이벤트 리스너 등록
+    this.eventBus.on(EventType.LAYOUT_CHANGED, this.boundHandleLayoutChanged);
     
-    // 윈도우 리사이즈 이벤트 리스너
-    window.addEventListener('resize', this.handleWindowResize.bind(this));
+    // 카드셋 변경 이벤트 리스너 등록
+    this.eventBus.on(EventType.CARDSET_CHANGED, this.boundHandleCardSetChanged);
+    
+    // 윈도우 리사이즈 이벤트 리스너 등록
+    window.addEventListener('resize', this.boundHandleWindowResize);
+    
+    console.log('레이아웃 컴포넌트 이벤트 리스너 등록 완료');
   }
   
   /**
@@ -279,13 +308,15 @@ export class LayoutComponent extends Component implements ILayoutComponent {
    */
   removeEventListeners(): void {
     // 레이아웃 변경 이벤트 리스너 제거
-    this.eventBus.off(EventType.LAYOUT_CHANGED, this.handleLayoutChanged.bind(this));
+    this.eventBus.off(EventType.LAYOUT_CHANGED, this.boundHandleLayoutChanged);
     
     // 카드셋 변경 이벤트 리스너 제거
-    this.eventBus.off(EventType.CARD_SET_CHANGED, this.handleCardSetChanged.bind(this));
+    this.eventBus.off(EventType.CARDSET_CHANGED, this.boundHandleCardSetChanged);
     
     // 윈도우 리사이즈 이벤트 리스너 제거
-    window.removeEventListener('resize', this.handleWindowResize.bind(this));
+    window.removeEventListener('resize', this.boundHandleWindowResize);
+    
+    console.log('레이아웃 컴포넌트 이벤트 리스너 제거 완료');
   }
   
   /**
@@ -306,23 +337,40 @@ export class LayoutComponent extends Component implements ILayoutComponent {
    * 윈도우 리사이즈 이벤트 핸들러
    */
   private handleWindowResize(): void {
-    if (this.element) {
-      const { width, height } = this.element.getBoundingClientRect();
-      this.updateContainerSize(width, height);
+    // 디바운스 처리
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
     }
+    
+    this.resizeTimeout = setTimeout(() => {
+      // container가 null이 아닌지 확인
+      if (this.container) {
+        const layoutContainer = this.container.querySelector('.card-navigator-layout');
+        if (layoutContainer) {
+          const rect = layoutContainer.getBoundingClientRect();
+          this.updateContainerSize(rect.width, rect.height);
+        }
+      }
+    }, 300); // 300ms 디바운스
   }
   
   /**
    * 레이아웃 적용
    */
   private applyLayout(): void {
-    if (!this.element || this.containerWidth === 0 || this.containerHeight === 0) {
-      return;
-    }
+    // 컨테이너가 없으면 무시
+    if (!this.container) return;
     
-    // 카드 수 가져오기
+    // 컨테이너 크기가 유효하지 않으면 무시
+    if (this.containerWidth <= 0 || this.containerHeight <= 0) return;
+    
+    // 현재 카드 수 가져오기
     const cards = this.eventBus.getState('currentCards') || [];
     const itemCount = cards.length;
+    
+    // 레이아웃 계산이 필요한지 확인
+    const needsRecalculation = this.isLayoutRecalculationNeeded(itemCount);
+    if (!needsRecalculation) return;
     
     // 레이아웃 계산
     const layoutInfo = this.layoutService.calculateLayout(
@@ -331,7 +379,38 @@ export class LayoutComponent extends Component implements ILayoutComponent {
       itemCount
     );
     
+    // CSS 변수 적용
+    this.layoutService.applyCssVariables(this.container, layoutInfo);
+    
     // 레이아웃 적용 이벤트 발생
-    this.eventBus.emit(EventType.LAYOUT_APPLIED, { layoutInfo });
+    this.eventBus.emit(EventType.LAYOUT_APPLIED, layoutInfo);
+  }
+  
+  /**
+   * 레이아웃 재계산이 필요한지 확인
+   * @param itemCount 현재 아이템 수
+   * @returns 재계산 필요 여부
+   */
+  private isLayoutRecalculationNeeded(itemCount: number): boolean {
+    // 마지막 계산 결과가 없으면 계산 필요
+    const lastCalc = this.layoutService.getLastCalculation();
+    if (!lastCalc) return true;
+    
+    // 아이템 수가 변경되었으면 계산 필요
+    if (lastCalc.itemCount !== itemCount) return true;
+    
+    // 컨테이너 크기가 크게 변경되었으면 계산 필요 (20px 이상)
+    if (Math.abs(this.containerWidth - lastCalc.containerWidth) > 20 ||
+        Math.abs(this.containerHeight - lastCalc.containerHeight) > 20) {
+      return true;
+    }
+    
+    // 레이아웃 타입이 변경되었으면 계산 필요
+    if (lastCalc.fixedHeight !== (this.layoutService.getLayoutType() === 'grid')) {
+      return true;
+    }
+    
+    // 그 외의 경우 재계산 불필요
+    return false;
   }
 } 

@@ -148,6 +148,12 @@ export interface IInteractionService {
    * @param event 드롭 이벤트
    */
   handleCardDrop(cardId: string, event: any): void;
+  
+  /**
+   * 리소스 정리
+   * 서비스가 사용한 모든 리소스를 정리합니다.
+   */
+  cleanup(): void;
 }
 
 /**
@@ -546,5 +552,22 @@ export class InteractionService implements IInteractionService {
     if (data.changedKeys.includes('dragMode')) {
       this.dragMode = (settings.dragMode as DragMode) || 'none';
     }
+  }
+  
+  /**
+   * 리소스 정리
+   * 서비스가 사용한 모든 리소스를 정리합니다.
+   */
+  cleanup(): void {
+    // 이벤트 리스너 제거
+    this.eventBus.off(EventType.CARDS_CHANGED, this.onCardsChanged);
+    this.eventBus.off(EventType.SETTINGS_CHANGED, this.onSettingsChanged);
+    
+    // 선택된 카드 목록 정리
+    this.selectedCardIds.clear();
+    this.dragSourceId = null;
+    this.isDragging = false;
+    
+    console.log('상호작용 서비스 정리 완료');
   }
 } 
