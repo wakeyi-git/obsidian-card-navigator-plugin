@@ -4,6 +4,7 @@
   position: relative;
   width: 100%;
   height: 100%;
+  min-height: var(--card-min-height, 100px);
   border: 1px solid var(--background-modifier-border);
   border-radius: 5px;
   background-color: var(--background-primary);
@@ -13,7 +14,6 @@
   flex-direction: column;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   box-sizing: border-box;
-  transform: scale(var(--card-size-factor));
 }
 
 .card-navigator-card:hover {
@@ -29,90 +29,27 @@
   box-shadow: 0 0 0 2px var(--interactive-accent);
 }
 
-/* 카드 네비게이터 컨테이너 */
-.card-navigator-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-}
-
-/* 카드셋 컨테이너 - 기본 스타일 */
-.card-navigator-cardset {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  overflow: auto;
-  box-sizing: border-box;
-  padding: var(--card-padding, 10px);
-}
-
-/* 세로 레이아웃 (기본값) */
-.card-navigator-cardset.direction-vertical {
-  display: grid;
-  grid-template-columns: repeat(var(--columns, 3), minmax(var(--card-min-width, 200px), 1fr));
-  grid-auto-rows: minmax(var(--card-min-height, 100px), auto);
-  gap: var(--card-gap, 10px);
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-/* 가로 레이아웃 */
-.card-navigator-cardset.direction-horizontal {
-  display: grid;
-  grid-template-rows: repeat(var(--rows, 3), minmax(var(--card-min-height, 100px), 1fr));
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(var(--card-min-width, 200px), auto);
-  gap: var(--card-gap, 10px);
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-/* 그리드 레이아웃 (고정 높이) */
-.card-navigator-cardset.layout-grid.direction-vertical .card-container {
-  height: var(--card-min-height, 100px);
-}
-
-.card-navigator-cardset.layout-grid.direction-horizontal .card-container {
-  width: var(--card-min-width, 200px);
-}
-
-/* 메이슨리 레이아웃 (가변 높이) */
-.card-navigator-cardset.layout-masonry.direction-vertical .card-container {
-  height: auto;
-}
-
-.card-navigator-cardset.layout-masonry.direction-horizontal .card-container {
-  width: auto;
-}
-
-/* 카드 컨테이너 */
+/* 카드 컨테이너 스타일 */
 .card-container {
-  position: relative;
+  padding: 5px;
+  box-sizing: border-box;
+  min-width: var(--card-min-width, 200px);
+  min-height: var(--card-min-height, 100px);
+  max-width: 100%;
   width: 100%;
   height: 100%;
-  min-width: var(--card-min-width, 200px);
-  max-width: var(--card-max-width, 400px);
-  min-height: var(--card-min-height, 100px);
-  max-height: var(--card-max-height, 300px);
-  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  flex: 1;
+  display: flex;
+  overflow: hidden;
 }
 
-/* 애니메이션 효과 */
-.card-navigator-cardset.use-transition .card-container {
-  transition: all 0.3s ease-in-out;
-}
-
-/* 반응형 레이아웃 */
-@media (max-width: 768px) {
-  .card-navigator-cardset.direction-vertical {
-    grid-template-columns: repeat(auto-fill, minmax(var(--card-min-width, 200px), 1fr));
-  }
-  
-  .card-navigator-cardset.direction-horizontal {
-    grid-template-rows: repeat(auto-fill, minmax(var(--card-min-height, 100px), 1fr));
+/* 작은 화면에서 카드 컨테이너 스타일 */
+@media (max-width: 600px) {
+  .card-container {
+    width: 100% !important;
+    min-width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
   }
 }
 
@@ -138,6 +75,7 @@
   line-height: 1.4;
   color: var(--text-normal);
   box-sizing: border-box;
+  min-height: calc(var(--card-min-height, 100px) - 60px);
 }
 
 /* 카드 푸터 스타일 */
@@ -151,6 +89,45 @@
   overflow: hidden;
   text-overflow: ellipsis;
   box-sizing: border-box;
+}
+
+/* 카드셋 스타일 */
+.card-navigator-cardset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--card-gap, 10px);
+  padding: var(--card-padding, 10px);
+  overflow: auto;
+  max-height: calc(100vh - 200px);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 그리드 레이아웃 스타일 */
+.card-navigator-cardset.layout-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--columns, auto-fill), minmax(var(--card-min-width, 200px), 1fr));
+  grid-auto-rows: minmax(var(--card-min-height, 100px), auto);
+  grid-gap: var(--card-gap, 10px);
+  width: 100%;
+  box-sizing: border-box;
+  align-items: stretch;
+  justify-items: center;
+}
+
+/* 작은 화면에서 그리드 레이아웃 스타일 */
+@media (max-width: 600px) {
+  .card-navigator-cardset.layout-grid {
+    grid-template-columns: 1fr;
+    padding: var(--card-padding, 10px);
+  }
+}
+
+/* 중간 크기 화면에서 그리드 레이아웃 스타일 */
+@media (min-width: 601px) and (max-width: 900px) {
+  .card-navigator-cardset.layout-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* 빈 메시지 스타일 */

@@ -55,6 +55,12 @@ export interface ILayoutService extends ILayoutController {
   getLastCalculation(): ILayoutInfo | null;
   
   /**
+   * 레이아웃 전환 애니메이션 사용 여부 확인
+   * @returns 레이아웃 전환 애니메이션 사용 여부
+   */
+  useLayoutTransition(): boolean;
+  
+  /**
    * 리소스 정리
    * 서비스가 사용한 모든 리소스를 정리합니다.
    */
@@ -75,6 +81,7 @@ export class LayoutService implements ILayoutService {
   private lastContainerWidth: number = 0;
   private lastContainerHeight: number = 0;
   private calculationDebounceTimeout: NodeJS.Timeout | null = null;
+  private lastCalculationTime: number = 0;
   
   /**
    * 생성자
@@ -113,6 +120,17 @@ export class LayoutService implements ILayoutService {
    * @returns 계산된 레이아웃 정보
    */
   calculateLayout(containerWidth: number, containerHeight: number, itemCount: number): ILayoutInfo {
+    // 디바운스 처리: 이전 계산 후 짧은 시간 내에 다시 계산 요청이 오면 이전 결과 반환
+    const now = Date.now();
+    const lastCalculationTime = this.lastCalculationTime || 0;
+    const timeSinceLastCalculation = now - lastCalculationTime;
+    
+    // 300ms 이내에 다시 계산 요청이 오면 이전 결과 반환 (단, 이전 결과가 있는 경우에만)
+    if (this.lastCalculation && timeSinceLastCalculation < 300) {
+      console.log('레이아웃 계산 디바운스: 이전 결과 재사용 (마지막 계산 후 ' + timeSinceLastCalculation + 'ms)');
+      return this.lastCalculation;
+    }
+    
     // 컨테이너 크기가 유효하지 않으면 기본값 반환
     if (containerWidth <= 0 || containerHeight <= 0) {
       return {
@@ -162,8 +180,8 @@ export class LayoutService implements ILayoutService {
     
     // 컨테이너 크기가 크게 변하지 않았으면 마지막 계산 결과 재사용
     if (this.lastCalculation && 
-        Math.abs(this.lastContainerWidth - containerWidth) < 10 && 
-        Math.abs(this.lastContainerHeight - containerHeight) < 10 &&
+        Math.abs(this.lastContainerWidth - containerWidth) < 20 && 
+        Math.abs(this.lastContainerHeight - containerHeight) < 20 &&
         this.lastCalculation.itemCount === itemCount) {
       return this.lastCalculation;
     }
@@ -184,12 +202,23 @@ export class LayoutService implements ILayoutService {
     // 레이아웃 방향 결정 (가로 vs 세로)
     if (layoutSettings.layoutDirectionPreference === LayoutDirectionPreference.AUTO) {
       // 자동 방향 결정 (뷰포트 비율에 따라)
-      // 가로 길이가 세로 길이보다 1.5배 이상 크면 가로 레이아웃, 그렇지 않으면 세로 레이아웃
-      this.layoutDirection = containerWidth > containerHeight * 1.5 ? 'horizontal' : 'vertical';
+      const ratio = containerWidth / containerHeight;
+      
+      // 히스테리시스 적용: 현재 방향에 따라 다른 임계값 사용
+      // 수평->수직 전환 임계값: 1.3, 수직->수평 전환 임계값: 1.7
+      if (this.layoutDirection === 'horizontal') {
+        // 현재 수평 방향인 경우, 비율이 1.3 미만일 때만 수직으로 전환
+        this.layoutDirection = ratio < 1.3 ? 'vertical' : 'horizontal';
+      } else {
+        // 현재 수직 방향인 경우, 비율이 1.7 초과일 때만 수평으로 전환
+        this.layoutDirection = ratio > 1.7 ? 'horizontal' : 'vertical';
+      }
+      
       console.log('자동 레이아웃 방향 결정:', {
         containerWidth,
         containerHeight,
-        비율: containerWidth / containerHeight,
+        비율: ratio,
+        이전방향: this.lastCalculation?.direction || '없음',
         결정방향: this.layoutDirection
       });
     } else {
@@ -254,8 +283,9 @@ export class LayoutService implements ILayoutService {
       type: this.layoutType
     });
     
-    // 마지막 계산 결과 저장
+    // 마지막 계산 결과 및 시간 저장
     this.lastCalculation = layoutInfo;
+    this.lastCalculationTime = now;
     
     return layoutInfo;
   }
@@ -292,32 +322,14 @@ export class LayoutService implements ILayoutService {
     container.style.setProperty('--card-padding', `${layoutSettings.cardsetPadding}px`);
     container.style.setProperty('--card-size-factor', layoutSettings.cardSizeFactor.toString());
     
-    // 레이아웃 클래스 설정
-    container.className = 'card-navigator-cardset';
-    
-    // 레이아웃 타입 클래스 추가
-    const layoutType = layoutInfo.fixedHeight ? 'grid' : 'masonry';
-    container.classList.add(`layout-${layoutType}`);
-    
-    // 레이아웃 방향 클래스 추가
-    container.classList.add(`direction-${layoutInfo.direction}`);
-    
-    // 스크롤 방향 클래스 추가
-    container.classList.add(`scroll-${layoutInfo.scrollDirection}`);
-    
-    // 애니메이션 설정
-    if (layoutSettings.useLayoutTransition) {
-      container.classList.add('use-transition');
-    } else {
-      container.classList.remove('use-transition');
-    }
-    
+    // 디버깅 정보 출력
     console.log('CSS 변수 적용:', {
       columns: layoutInfo.columns,
       rows: layoutInfo.rows,
-      layoutType,
+      layoutType: layoutInfo.fixedHeight ? 'grid' : 'masonry',
       direction: layoutInfo.direction,
-      scrollDirection: layoutInfo.scrollDirection
+      scrollDirection: layoutInfo.scrollDirection,
+      cardMinHeight: layoutSettings.cardMinHeight
     });
   }
   
@@ -359,6 +371,15 @@ export class LayoutService implements ILayoutService {
    */
   getLastCalculation(): ILayoutInfo | null {
     return this.lastCalculation;
+  }
+  
+  /**
+   * 레이아웃 전환 애니메이션 사용 여부 확인
+   * @returns 레이아웃 전환 애니메이션 사용 여부
+   */
+  useLayoutTransition(): boolean {
+    const settings = this.settingsService.getSettings();
+    return settings.layout?.useLayoutTransition ?? true;
   }
   
   /**

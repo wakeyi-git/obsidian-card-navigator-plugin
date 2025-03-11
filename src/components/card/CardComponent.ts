@@ -114,6 +114,17 @@ export class CardComponent extends Component implements ICardComponent {
     cardElement.dataset.id = this.card.id;
     cardElement.dataset.path = this.card.path;
     
+    // 설정 가져오기
+    const settings = this.cardService.getSettings();
+    const layoutSettings = settings.layout || {
+      cardMinHeight: 100,
+      cardMaxHeight: 300
+    };
+    
+    // 카드 높이 설정 (CSS 변수 사용)
+    cardElement.style.setProperty('--card-min-height', `${layoutSettings.cardMinHeight}px`);
+    cardElement.style.setProperty('--card-max-height', `${layoutSettings.cardMaxHeight}px`);
+    
     if (this.isSelected) {
       cardElement.classList.add('selected');
     }

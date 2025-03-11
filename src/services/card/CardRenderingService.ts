@@ -108,6 +108,20 @@ export class CardRenderingService implements ICardRenderingService {
   renderBody(card: ICard, container: HTMLElement): void {
     const bodyContainer = container.createDiv({ cls: 'card-body' });
     
+    // 설정에서 카드 높이 가져오기
+    const settings = this.settingsService.getSettings();
+    const layoutSettings = settings.layout || {
+      cardMinHeight: 100,
+      cardMaxHeight: 300
+    };
+    
+    // 본문 최소 높이 계산 (헤더와 푸터 높이를 고려)
+    const headerFooterHeight = 60; // 헤더와 푸터의 대략적인 높이 (패딩 포함)
+    const minBodyHeight = Math.max(20, layoutSettings.cardMinHeight - headerFooterHeight);
+    
+    // 본문 최소 높이 설정
+    bodyContainer.style.minHeight = `${minBodyHeight}px`;
+    
     // 본문 스타일 적용
     const bodyStyle = card.displaySettings?.cardStyle?.body;
     if (bodyStyle) {

@@ -30,6 +30,12 @@ export interface ICardService extends ICardManager {
    * @returns 생성된 카드
    */
   createCardFromFile(file: TFile): Promise<ICard>;
+  
+  /**
+   * 설정 가져오기
+   * @returns 플러그인 설정
+   */
+  getSettings(): any;
 }
 
 /**
@@ -258,5 +264,13 @@ export class CardService implements ICardService {
     if (data.changedKeys.some(key => cardDisplaySettings.includes(key))) {
       this.refreshCards();
     }
+  }
+  
+  /**
+   * 설정 가져오기
+   * @returns 플러그인 설정
+   */
+  getSettings(): any {
+    return this.settingsService.getSettings();
   }
 } 

@@ -193,7 +193,7 @@ export class CardSetComponent extends Component implements ICardSetComponent {
             this.renderCards(element);
           }
         }
-      }, 300); // 300ms 디바운스
+      }, 500); // 500ms 디바운스 (기존 300ms에서 증가)
     });
     
     this.resizeObserver.observe(element);
@@ -238,6 +238,24 @@ export class CardSetComponent extends Component implements ICardSetComponent {
     // 레이아웃 타입에 따른 클래스 추가
     container.className = 'card-navigator-cardset';
     
+    // 레이아웃 타입 및 방향 클래스 추가
+    const layoutType = this.layoutService.getLayoutType();
+    container.classList.add(`layout-${layoutType}`);
+    
+    const layoutDirection = this.layoutService.getLayoutDirection();
+    container.classList.add(`direction-${layoutDirection}`);
+    
+    const scrollDirection = this.layoutService.getScrollDirection();
+    container.classList.add(`scroll-${scrollDirection}`);
+    
+    // 트랜지션 클래스 추가
+    if (this.layoutService.useLayoutTransition()) {
+      container.classList.add('use-transition');
+    }
+    
+    // 카드셋 ID 설정
+    container.dataset.id = this.cardSet.id;
+    
     // 레이아웃 계산이 필요한지 확인
     const lastCalc = this.layoutService.getLastCalculation();
     const needsRecalculation = this.isLayoutRecalculationNeeded(
@@ -247,19 +265,19 @@ export class CardSetComponent extends Component implements ICardSetComponent {
       sortedCards.length
     );
     
+    // 레이아웃 정보 가져오기 또는 계산하기
+    let layoutInfo: ILayoutInfo;
+    
     if (!needsRecalculation && lastCalc) {
       // 레이아웃 계산이 필요 없으면 기존 레이아웃 정보 사용
-      this.layoutService.applyCssVariables(container, lastCalc);
+      layoutInfo = lastCalc;
     } else {
       // 레이아웃 계산
-      const layoutInfo = this.layoutService.calculateLayout(
+      layoutInfo = this.layoutService.calculateLayout(
         containerWidth,
         containerHeight,
         sortedCards.length
       );
-      
-      // CSS 변수 적용
-      this.layoutService.applyCssVariables(container, layoutInfo);
       
       // 디버깅 정보 출력
       console.log('카드셋 렌더링:', {
@@ -268,6 +286,9 @@ export class CardSetComponent extends Component implements ICardSetComponent {
         layoutType: this.layoutService.getLayoutType()
       });
     }
+    
+    // CSS 변수 적용
+    this.layoutService.applyCssVariables(container, layoutInfo);
     
     // 컨테이너 초기화 (기존 카드 제거)
     container.innerHTML = '';
@@ -341,9 +362,15 @@ export class CardSetComponent extends Component implements ICardSetComponent {
     // 아이템 수가 변경되었으면 계산 필요
     if (lastCalc.itemCount !== itemCount) return true;
     
-    // 컨테이너 크기가 크게 변경되었으면 계산 필요 (20px 이상)
-    if (Math.abs(containerWidth - lastCalc.containerWidth) > 20 ||
-        Math.abs(containerHeight - lastCalc.containerHeight) > 20) {
+    // 컨테이너 크기가 크게 변경되었으면 계산 필요
+    // 너비/높이가 10% 이상 변경되었거나 절대값으로 30px 이상 변경된 경우
+    const widthChange = Math.abs(containerWidth - lastCalc.containerWidth);
+    const heightChange = Math.abs(containerHeight - lastCalc.containerHeight);
+    const widthChangePercent = widthChange / lastCalc.containerWidth * 100;
+    const heightChangePercent = heightChange / lastCalc.containerHeight * 100;
+    
+    if (widthChange > 30 || heightChange > 30 || 
+        widthChangePercent > 10 || heightChangePercent > 10) {
       return true;
     }
     
