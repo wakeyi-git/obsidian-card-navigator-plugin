@@ -702,6 +702,36 @@ export interface LayoutAppliedEventData {
 }
 
 /**
+ * 설정 UI 변경 이벤트 데이터
+ */
+export interface SettingsUIChangedEventData {
+  /**
+   * 변경된 설정 키
+   */
+  key: string;
+  
+  /**
+   * 변경된 설정 값
+   */
+  value: any;
+  
+  /**
+   * 설정 섹션
+   */
+  section: string;
+}
+
+/**
+ * 설정 미리보기 업데이트 이벤트 데이터
+ */
+export interface SettingsPreviewUpdateEventData {
+  /**
+   * 업데이트 요청 소스
+   */
+  source: string;
+}
+
+/**
  * 이벤트 타입 열거형
  */
 export enum EventType {
@@ -742,6 +772,8 @@ export enum EventType {
   SETTINGS_LOADED = 'settings-loaded',
   SETTINGS_SAVED = 'settings-saved',
   SETTINGS_RESET = 'settings-reset',
+  SETTINGS_UI_CHANGED = 'settings-ui-changed',
+  SETTINGS_PREVIEW_UPDATE = 'settings-preview-update',
   
   // 플러그인 관련 이벤트
   PLUGIN_LOADED = 'pluginLoaded',
@@ -821,6 +853,8 @@ export interface EventDataMap {
   [EventType.LAYOUT_APPLIED]: LayoutAppliedEventData;
   [EventType.SEARCH_CHANGED]: SearchChangedEventData;
   [EventType.SETTINGS_CHANGED]: SettingsChangedEventData;
+  [EventType.SETTINGS_UI_CHANGED]: SettingsUIChangedEventData;
+  [EventType.SETTINGS_PREVIEW_UPDATE]: SettingsPreviewUpdateEventData;
   [EventType.SELECTION_CHANGED]: SelectionChangedEventData;
   [EventType.SELECTION_MODE_CHANGED]: SelectionModeChangedEventData;
   [EventType.CARD_SET_SOURCE_TYPE_CHANGED]: CardSetSourceTypeChangedEventData;

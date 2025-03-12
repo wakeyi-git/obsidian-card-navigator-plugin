@@ -3,95 +3,7 @@ import { ICardNavigatorSettings, ISettingsService } from './SettingsInterfaces';
 import { DomainEventBus } from '../events/DomainEventBus';
 import { CardSetSourceType } from '../cardset/CardSet';
 import { EventType } from '../events/EventTypes';
-
-/**
- * 기본 설정
- */
-export const DEFAULT_SETTINGS: ICardNavigatorSettings = {
-  // 기본 설정
-  defaultCardSetSource: 'folder',
-  defaultLayout: 'grid',
-  includeSubfolders: true,
-  defaultFolderCardSet: '',
-  defaultTagCardSet: '',
-  isCardSetFixed: false,
-  defaultSearchScope: 'current',
-  tagCaseSensitive: false,
-  useLastCardSetSourceOnLoad: true,
-  
-  // 카드 설정
-  cardWidth: 250,
-  cardHeight: 150,
-  cardHeaderContent: 'filename',
-  cardBodyContent: 'content',
-  cardFooterContent: 'tags',
-  titleSource: 'filename',
-  includeFrontmatterInContent: false,
-  includeFirstHeaderInContent: true,
-  limitContentLength: true,
-  contentMaxLength: 200,
-  
-  // 카드 스타일 설정
-  normalCardBgColor: '',
-  activeCardBgColor: '',
-  focusedCardBgColor: '',
-  headerBgColor: '',
-  bodyBgColor: '',
-  footerBgColor: '',
-  headerFontSize: 16,
-  bodyFontSize: 14,
-  footerFontSize: 12,
-  
-  // 테두리 스타일 설정
-  normalCardBorderStyle: 'solid',
-  normalCardBorderColor: '',
-  normalCardBorderWidth: 1,
-  normalCardBorderRadius: 5,
-  
-  activeCardBorderStyle: 'solid',
-  activeCardBorderColor: 'var(--interactive-accent)',
-  activeCardBorderWidth: 2,
-  activeCardBorderRadius: 5,
-  
-  focusedCardBorderStyle: 'solid',
-  focusedCardBorderColor: 'var(--interactive-accent)',
-  focusedCardBorderWidth: 2,
-  focusedCardBorderRadius: 5,
-  
-  headerBorderStyle: 'none',
-  headerBorderColor: '',
-  headerBorderWidth: 0,
-  headerBorderRadius: 0,
-  
-  bodyBorderStyle: 'none',
-  bodyBorderColor: '',
-  bodyBorderWidth: 0,
-  bodyBorderRadius: 0,
-  
-  footerBorderStyle: 'none',
-  footerBorderColor: '',
-  footerBorderWidth: 0,
-  footerBorderRadius: 0,
-  
-  // 검색 설정
-  searchCaseSensitive: false,
-  highlightSearchResults: true,
-  maxSearchResults: 100,
-  
-  // 정렬 설정
-  sortBy: 'filename',
-  sortOrder: 'asc',
-  
-  // 레이아웃 설정
-  fixedCardHeight: true,
-  cardMinWidth: 200,
-  cardMinHeight: 100,
-  cardGap: 10,
-  
-  // 우선 순위 설정
-  priorityTags: [],
-  priorityFolders: [],
-};
+import { DEFAULT_SETTINGS } from './DefaultSettings';
 
 /**
  * 설정 클래스
@@ -121,7 +33,7 @@ export class Settings implements ISettingsService {
   constructor(plugin: Plugin, eventBus: DomainEventBus) {
     this.plugin = plugin;
     this.eventBus = eventBus;
-    this.settings = { ...DEFAULT_SETTINGS };
+    this.settings = { ...DEFAULT_SETTINGS } as ICardNavigatorSettings;
   }
   
   /**
@@ -130,7 +42,7 @@ export class Settings implements ISettingsService {
    */
   async loadSettings(): Promise<ICardNavigatorSettings> {
     const loadedData = await this.plugin.loadData();
-    this.settings = { ...DEFAULT_SETTINGS, ...loadedData };
+    this.settings = { ...DEFAULT_SETTINGS, ...loadedData } as ICardNavigatorSettings;
     this.emit(EventType.SETTINGS_LOADED, null);
     return this.settings;
   }
@@ -162,7 +74,7 @@ export class Settings implements ISettingsService {
    * 설정 초기화
    */
   async resetSettings(): Promise<void> {
-    this.settings = { ...DEFAULT_SETTINGS };
+    this.settings = { ...DEFAULT_SETTINGS } as ICardNavigatorSettings;
     await this.plugin.saveData(this.settings);
     this.emit(EventType.SETTINGS_RESET, null);
   }
@@ -173,6 +85,14 @@ export class Settings implements ISettingsService {
    */
   getSettings(): ICardNavigatorSettings {
     return { ...this.settings };
+  }
+  
+  /**
+   * 플러그인 인스턴스 가져오기
+   * @returns 플러그인 인스턴스
+   */
+  getPlugin(): any {
+    return this.plugin;
   }
   
   /**

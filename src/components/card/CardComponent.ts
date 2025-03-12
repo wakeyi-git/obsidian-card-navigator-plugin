@@ -3,6 +3,7 @@ import { Component } from '../Component';
 import { ICardRenderingService } from '../../services/card/CardRenderingService';
 import { ICardService } from '../../services/card/CardService';
 import { IInteractionService } from '../../services/interaction/InteractionService';
+import { EventType, SettingsChangedEventData } from '../../domain/events/EventTypes';
 
 /**
  * 카드 컴포넌트 인터페이스
@@ -57,7 +58,52 @@ export class CardComponent extends Component implements ICardComponent {
     this.cardService = cardService;
     this.cardRenderingService = cardRenderingService;
     this.interactionService = interactionService;
+    
+    // 설정 변경 이벤트 구독
+    this.cardService.getEventBus().on(EventType.SETTINGS_CHANGED, this.handleSettingsChanged);
   }
+  
+  /**
+   * 컴포넌트 제거
+   */
+  onRemove(): void {
+    // 이벤트 리스너 제거
+    this.removeEventListeners();
+    
+    // 설정 변경 이벤트 구독 해제
+    this.cardService.getEventBus().off(EventType.SETTINGS_CHANGED, this.handleSettingsChanged);
+    
+    super.onRemove();
+  }
+  
+  /**
+   * 설정 변경 이벤트 핸들러
+   * @param data 이벤트 데이터
+   */
+  private handleSettingsChanged = (data: SettingsChangedEventData) => {
+    console.log('카드 컴포넌트: 설정 변경됨', data.changedKeys);
+    
+    // 카드 스타일 관련 설정이 변경된 경우에만 업데이트
+    const cardStyleSettings = [
+      'cardWidth', 'cardHeight', 'cardGap',
+      'normalCardBgColor', 'activeCardBgColor', 'focusedCardBgColor', 'hoverCardBgColor',
+      'normalCardBorderStyle', 'normalCardBorderColor', 'normalCardBorderWidth', 'normalCardBorderRadius',
+      'activeCardBorderStyle', 'activeCardBorderColor', 'activeCardBorderWidth', 'activeCardBorderRadius',
+      'focusedCardBorderStyle', 'focusedCardBorderColor', 'focusedCardBorderWidth', 'focusedCardBorderRadius',
+      'hoverCardBorderStyle', 'hoverCardBorderColor', 'hoverCardBorderWidth', 'hoverCardBorderRadius',
+      'headerBgColor', 'bodyBgColor', 'footerBgColor',
+      'headerFontSize', 'bodyFontSize', 'footerFontSize',
+      'headerBorderStyle', 'headerBorderColor', 'headerBorderWidth', 'headerBorderRadius',
+      'bodyBorderStyle', 'bodyBorderColor', 'bodyBorderWidth', 'bodyBorderRadius',
+      'footerBorderStyle', 'footerBorderColor', 'footerBorderWidth', 'footerBorderRadius',
+      'card', 'card-header', 'card-body', 'card-footer', 'card-general'
+    ];
+    
+    if (data.changedKeys.some(key => cardStyleSettings.includes(key))) {
+      // 카드 업데이트
+      this.update();
+    }
+  };
   
   /**
    * 카드 데이터 설정
@@ -105,6 +151,82 @@ export class CardComponent extends Component implements ICardComponent {
   }
   
   /**
+   * 컴포넌트 업데이트
+   * 설정 변경 시 호출되어 카드를 업데이트합니다.
+   */
+  update(): void {
+    if (!this.element) return;
+    
+    // 설정 가져오기
+    const settings = this.cardService.getSettings();
+    const layoutSettings = settings.layout || {
+      cardMinHeight: 100,
+      cardMaxHeight: 300
+    };
+    
+    // CSS 변수 업데이트
+    // 카드 크기 설정
+    this.element.style.setProperty('--card-width', `${settings.cardWidth || 250}px`);
+    this.element.style.setProperty('--card-min-height', `${layoutSettings.cardMinHeight}px`);
+    this.element.style.setProperty('--card-max-height', `${layoutSettings.cardMaxHeight}px`);
+    this.element.style.setProperty('--card-gap', `${settings.cardGap || 10}px`);
+    
+    // 카드 기본 스타일 설정
+    this.element.style.setProperty('--card-bg-color', settings.normalCardBgColor || 'var(--background-primary)');
+    this.element.style.setProperty('--card-border-style', settings.normalCardBorderStyle || 'solid');
+    this.element.style.setProperty('--card-border-color', settings.normalCardBorderColor || 'var(--background-modifier-border)');
+    this.element.style.setProperty('--card-border-width', `${settings.normalCardBorderWidth || 1}px`);
+    this.element.style.setProperty('--card-border-radius', `${settings.normalCardBorderRadius || 5}px`);
+    
+    // 카드 호버 스타일 설정
+    this.element.style.setProperty('--card-hover-bg-color', settings.hoverCardBgColor || 'var(--background-primary-alt)');
+    this.element.style.setProperty('--card-hover-border-color', settings.hoverCardBorderColor || 'var(--interactive-accent)');
+    
+    // 카드 활성 스타일 설정
+    this.element.style.setProperty('--card-active-bg-color', settings.activeCardBgColor || 'var(--background-primary-alt)');
+    this.element.style.setProperty('--card-active-border-color', settings.activeCardBorderColor || 'var(--interactive-accent)');
+    this.element.style.setProperty('--card-active-border-style', settings.activeCardBorderStyle || 'solid');
+    this.element.style.setProperty('--card-active-border-width', `${settings.activeCardBorderWidth || 2}px`);
+    
+    // 카드 포커스 스타일 설정
+    this.element.style.setProperty('--card-focused-bg-color', settings.focusedCardBgColor || 'var(--background-primary-alt)');
+    this.element.style.setProperty('--card-focused-border-color', settings.focusedCardBorderColor || 'var(--interactive-accent)');
+    
+    // 헤더 스타일 설정
+    this.element.style.setProperty('--header-bg-color', settings.headerBgColor || 'var(--background-secondary)');
+    this.element.style.setProperty('--header-font-size', `${settings.headerFontSize || 14}px`);
+    this.element.style.setProperty('--header-border-style', settings.headerBorderStyle || 'solid');
+    this.element.style.setProperty('--header-border-color', settings.headerBorderColor || 'var(--background-modifier-border)');
+    this.element.style.setProperty('--header-border-width', `${settings.headerBorderWidth || 0}px`);
+    this.element.style.setProperty('--header-border-radius', `${settings.headerBorderRadius || 0}px`);
+    
+    // 본문 스타일 설정
+    this.element.style.setProperty('--body-bg-color', settings.bodyBgColor || 'transparent');
+    this.element.style.setProperty('--body-font-size', `${settings.bodyFontSize || 12}px`);
+    this.element.style.setProperty('--body-border-style', settings.bodyBorderStyle || 'solid');
+    this.element.style.setProperty('--body-border-color', settings.bodyBorderColor || 'var(--background-modifier-border)');
+    this.element.style.setProperty('--body-border-width', `${settings.bodyBorderWidth || 0}px`);
+    this.element.style.setProperty('--body-border-radius', `${settings.bodyBorderRadius || 0}px`);
+    
+    // 푸터 스타일 설정
+    this.element.style.setProperty('--footer-bg-color', settings.footerBgColor || 'var(--background-secondary-alt)');
+    this.element.style.setProperty('--footer-font-size', `${settings.footerFontSize || 11}px`);
+    this.element.style.setProperty('--footer-border-style', settings.footerBorderStyle || 'solid');
+    this.element.style.setProperty('--footer-border-color', settings.footerBorderColor || 'var(--background-modifier-border)');
+    this.element.style.setProperty('--footer-border-width', `${settings.footerBorderWidth || 0}px`);
+    this.element.style.setProperty('--footer-border-radius', `${settings.footerBorderRadius || 0}px`);
+    
+    // 카드 내용 다시 렌더링
+    this.element.empty();
+    this.cardRenderingService.renderCard(this.card, this.element);
+    
+    // 카드 상태 업데이트
+    this.updateCardState();
+    
+    console.log('카드 컴포넌트 업데이트 완료');
+  }
+  
+  /**
    * 컴포넌트 생성
    * @returns 생성된 HTML 요소
    */
@@ -121,10 +243,59 @@ export class CardComponent extends Component implements ICardComponent {
       cardMaxHeight: 300
     };
     
-    // 카드 높이 설정 (CSS 변수 사용)
+    // CSS 변수 설정
+    // 카드 크기 설정
+    cardElement.style.setProperty('--card-width', `${settings.cardWidth || 250}px`);
     cardElement.style.setProperty('--card-min-height', `${layoutSettings.cardMinHeight}px`);
     cardElement.style.setProperty('--card-max-height', `${layoutSettings.cardMaxHeight}px`);
+    cardElement.style.setProperty('--card-gap', `${settings.cardGap || 10}px`);
     
+    // 카드 기본 스타일 설정
+    cardElement.style.setProperty('--card-bg-color', settings.normalCardBgColor || 'var(--background-primary)');
+    cardElement.style.setProperty('--card-border-style', settings.normalCardBorderStyle || 'solid');
+    cardElement.style.setProperty('--card-border-color', settings.normalCardBorderColor || 'var(--background-modifier-border)');
+    cardElement.style.setProperty('--card-border-width', `${settings.normalCardBorderWidth || 1}px`);
+    cardElement.style.setProperty('--card-border-radius', `${settings.normalCardBorderRadius || 5}px`);
+    
+    // 카드 호버 스타일 설정
+    cardElement.style.setProperty('--card-hover-bg-color', settings.hoverCardBgColor || 'var(--background-primary-alt)');
+    cardElement.style.setProperty('--card-hover-border-color', settings.hoverCardBorderColor || 'var(--interactive-accent)');
+    
+    // 카드 활성 스타일 설정
+    cardElement.style.setProperty('--card-active-bg-color', settings.activeCardBgColor || 'var(--background-primary-alt)');
+    cardElement.style.setProperty('--card-active-border-color', settings.activeCardBorderColor || 'var(--interactive-accent)');
+    cardElement.style.setProperty('--card-active-border-style', settings.activeCardBorderStyle || 'solid');
+    cardElement.style.setProperty('--card-active-border-width', `${settings.activeCardBorderWidth || 2}px`);
+    
+    // 카드 포커스 스타일 설정
+    cardElement.style.setProperty('--card-focused-bg-color', settings.focusedCardBgColor || 'var(--background-primary-alt)');
+    cardElement.style.setProperty('--card-focused-border-color', settings.focusedCardBorderColor || 'var(--interactive-accent)');
+    
+    // 헤더 스타일 설정
+    cardElement.style.setProperty('--header-bg-color', settings.headerBgColor || 'var(--background-secondary)');
+    cardElement.style.setProperty('--header-font-size', `${settings.headerFontSize || 14}px`);
+    cardElement.style.setProperty('--header-border-style', settings.headerBorderStyle || 'solid');
+    cardElement.style.setProperty('--header-border-color', settings.headerBorderColor || 'var(--background-modifier-border)');
+    cardElement.style.setProperty('--header-border-width', `${settings.headerBorderWidth || 0}px`);
+    cardElement.style.setProperty('--header-border-radius', `${settings.headerBorderRadius || 0}px`);
+    
+    // 본문 스타일 설정
+    cardElement.style.setProperty('--body-bg-color', settings.bodyBgColor || 'transparent');
+    cardElement.style.setProperty('--body-font-size', `${settings.bodyFontSize || 12}px`);
+    cardElement.style.setProperty('--body-border-style', settings.bodyBorderStyle || 'solid');
+    cardElement.style.setProperty('--body-border-color', settings.bodyBorderColor || 'var(--background-modifier-border)');
+    cardElement.style.setProperty('--body-border-width', `${settings.bodyBorderWidth || 0}px`);
+    cardElement.style.setProperty('--body-border-radius', `${settings.bodyBorderRadius || 0}px`);
+    
+    // 푸터 스타일 설정
+    cardElement.style.setProperty('--footer-bg-color', settings.footerBgColor || 'var(--background-secondary-alt)');
+    cardElement.style.setProperty('--footer-font-size', `${settings.footerFontSize || 11}px`);
+    cardElement.style.setProperty('--footer-border-style', settings.footerBorderStyle || 'solid');
+    cardElement.style.setProperty('--footer-border-color', settings.footerBorderColor || 'var(--background-modifier-border)');
+    cardElement.style.setProperty('--footer-border-width', `${settings.footerBorderWidth || 0}px`);
+    cardElement.style.setProperty('--footer-border-radius', `${settings.footerBorderRadius || 0}px`);
+    
+    // 카드 상태 클래스 추가
     if (this.isSelected) {
       cardElement.classList.add('selected');
     }

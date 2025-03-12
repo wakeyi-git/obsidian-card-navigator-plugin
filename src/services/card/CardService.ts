@@ -36,6 +36,12 @@ export interface ICardService extends ICardManager {
    * @returns 플러그인 설정
    */
   getSettings(): any;
+  
+  /**
+   * 이벤트 버스 가져오기
+   * @returns 이벤트 버스
+   */
+  getEventBus(): DomainEventBus;
 }
 
 /**
@@ -250,18 +256,33 @@ export class CardService implements ICardService {
     // 카드 표시 관련 설정이 변경된 경우에만 카드 새로고침
     const cardDisplaySettings = [
       'cardHeaderContent', 'cardBodyContent', 'cardFooterContent',
-      'normalCardBgColor', 'activeCardBgColor', 'focusedCardBgColor',
+      'normalCardBgColor', 'activeCardBgColor', 'focusedCardBgColor', 'hoverCardBgColor',
       'headerBgColor', 'bodyBgColor', 'footerBgColor',
       'headerFontSize', 'bodyFontSize', 'footerFontSize',
       'normalCardBorderStyle', 'normalCardBorderColor', 'normalCardBorderWidth', 'normalCardBorderRadius',
       'activeCardBorderStyle', 'activeCardBorderColor', 'activeCardBorderWidth', 'activeCardBorderRadius',
       'focusedCardBorderStyle', 'focusedCardBorderColor', 'focusedCardBorderWidth', 'focusedCardBorderRadius',
+      'hoverCardBorderStyle', 'hoverCardBorderColor', 'hoverCardBorderWidth', 'hoverCardBorderRadius',
       'headerBorderStyle', 'headerBorderColor', 'headerBorderWidth', 'headerBorderRadius',
       'bodyBorderStyle', 'bodyBorderColor', 'bodyBorderWidth', 'bodyBorderRadius',
-      'footerBorderStyle', 'footerBorderColor', 'footerBorderWidth', 'footerBorderRadius'
+      'footerBorderStyle', 'footerBorderColor', 'footerBorderWidth', 'footerBorderRadius',
+      'cardWidth', 'cardHeight', 'cardGap'
     ];
     
-    if (data.changedKeys.some(key => cardDisplaySettings.includes(key))) {
+    // 섹션 ID도 처리
+    const cardSectionIds = [
+      'card', 'card-header', 'card-body', 'card-footer', 'card-general'
+    ];
+    
+    // 설정 변경 로그 출력 (디버깅용)
+    console.log('설정 변경됨:', data.changedKeys);
+    
+    // 카드 표시 관련 설정이 변경되었거나 섹션 ID가 카드 관련 섹션인 경우 카드 새로고침
+    if (
+      data.changedKeys.some(key => cardDisplaySettings.includes(key)) ||
+      data.changedKeys.some(key => cardSectionIds.includes(key))
+    ) {
+      console.log('카드 새로고침 실행');
       this.refreshCards();
     }
   }
@@ -272,5 +293,13 @@ export class CardService implements ICardService {
    */
   getSettings(): any {
     return this.settingsService.getSettings();
+  }
+  
+  /**
+   * 이벤트 버스 가져오기
+   * @returns 이벤트 버스
+   */
+  getEventBus(): DomainEventBus {
+    return this.eventBus;
   }
 } 

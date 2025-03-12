@@ -2,6 +2,7 @@ import { CardSetSourceType } from '../cardset/CardSet';
 import { EventType } from '../events/EventTypes';
 import { SelectionMode } from '../interaction/SelectionState';
 import { NavigationMode } from '../navigation';
+import { CardRenderingMode } from '../card/Card';
 
 /**
  * 카드 네비게이터 설정 인터페이스
@@ -41,11 +42,14 @@ export interface ICardNavigatorSettings {
   includeFirstHeaderInContent?: boolean;
   limitContentLength?: boolean;
   contentMaxLength?: number;
+  cardRenderingMode?: CardRenderingMode;
+  frontmatterKey?: string;
   
   // 카드 스타일 설정
   normalCardBgColor?: string;
   activeCardBgColor?: string;
   focusedCardBgColor?: string;
+  hoverCardBgColor?: string;
   headerBgColor?: string;
   bodyBgColor?: string;
   footerBgColor?: string;
@@ -69,6 +73,8 @@ export interface ICardNavigatorSettings {
   focusedCardBorderWidth?: number;
   focusedCardBorderRadius?: number;
   
+  hoverCardBorderColor?: string;
+  
   headerBorderStyle?: string;
   headerBorderColor?: string;
   headerBorderWidth?: number;
@@ -87,11 +93,24 @@ export interface ICardNavigatorSettings {
   // 정렬 설정
   defaultSortType?: string;
   defaultSortDirection?: 'asc' | 'desc';
+  defaultSortBy?: 'filename' | 'title' | 'created' | 'modified' | 'random' | 'custom';
+  customSortFrontmatterKey?: string;
+  customSortValueType?: 'string' | 'number' | 'date';
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   customSortKey?: string;
   tagSortBy?: string;
   folderSortBy?: string;
+  
+  // 필터 설정
+  defaultFilterEnabled?: boolean;
+  defaultFilterType?: 'tag' | 'text' | 'frontmatter';
+  defaultTagFilter?: string;
+  defaultTextFilter?: string;
+  defaultFrontmatterFilterKey?: string;
+  defaultFrontmatterFilterValue?: string;
+  defaultFilterOperator?: 'AND' | 'OR';
+  filterCaseSensitive?: boolean;
   
   // 검색 설정
   defaultSearchType?: string;
@@ -143,6 +162,9 @@ export interface ICardNavigatorSettings {
   
   // 툴바 설정
   toolbarItems?: any[];
+  
+  // 미리보기 설정
+  previewSampleType?: string;
 }
 
 /**
@@ -227,6 +249,12 @@ export interface ISettingsService extends ISettingsManager {
    * @param data 이벤트 데이터
    */
   emit(event: EventType, data: any): void;
+  
+  /**
+   * 플러그인 인스턴스 가져오기
+   * @returns 플러그인 인스턴스
+   */
+  getPlugin(): any;
 }
 
 /**

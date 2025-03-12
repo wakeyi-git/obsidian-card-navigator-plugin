@@ -1,12 +1,14 @@
 /* 카드 컴포넌트 스타일 */
 .card-navigator-card {
   position: relative;
-  width: 100%;
+  width: var(--card-width, 250px);
   height: 100%;
   min-height: var(--card-min-height, 100px);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 5px;
-  background-color: var(--background-primary);
+  border-width: var(--card-border-width, 1px);
+  border-style: var(--card-border-style, solid);
+  border-color: var(--card-border-color, var(--background-modifier-border));
+  border-radius: var(--card-border-radius, 5px);
+  background-color: var(--card-bg-color, var(--background-primary));
   overflow: hidden;
   transition: all 0.2s ease;
   display: flex;
@@ -18,14 +20,21 @@
 .card-navigator-card:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
+  border-color: var(--card-hover-border-color, var(--interactive-accent));
+  background-color: var(--card-hover-bg-color, var(--background-primary-alt));
 }
 
 .card-navigator-card.selected {
-  border: 2px solid var(--interactive-accent);
+  border-width: var(--card-active-border-width, 2px);
+  border-style: var(--card-active-border-style, solid);
+  border-color: var(--card-active-border-color, var(--interactive-accent));
+  background-color: var(--card-active-bg-color, var(--background-primary-alt));
 }
 
 .card-navigator-card.focused {
-  box-shadow: 0 0 0 2px var(--interactive-accent);
+  box-shadow: 0 0 0 2px var(--card-focused-border-color, var(--interactive-accent));
+  border-color: var(--card-focused-border-color, var(--interactive-accent));
+  background-color: var(--card-focused-bg-color, var(--background-primary-alt));
 }
 
 /* 카드 컨테이너 스타일 */
@@ -57,12 +66,16 @@
   padding: 8px;
   border-bottom: 1px solid var(--background-modifier-border);
   font-weight: bold;
-  font-size: 14px;
+  font-size: var(--header-font-size, 14px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  background-color: var(--background-secondary);
+  background-color: var(--header-bg-color, var(--background-secondary));
   box-sizing: border-box;
+  border-width: var(--header-border-width, 0);
+  border-style: var(--header-border-style, solid);
+  border-color: var(--header-border-color, var(--background-modifier-border));
+  border-radius: var(--header-border-radius, 0);
 }
 
 /* 카드 본문 스타일 */
@@ -70,24 +83,33 @@
   padding: 8px;
   flex: 1;
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--body-font-size, 12px);
   line-height: 1.4;
   color: var(--text-normal);
   box-sizing: border-box;
   min-height: calc(var(--card-min-height, 100px) - 60px);
+  background-color: var(--body-bg-color, transparent);
+  border-width: var(--body-border-width, 0);
+  border-style: var(--body-border-style, solid);
+  border-color: var(--body-border-color, var(--background-modifier-border));
+  border-radius: var(--body-border-radius, 0);
 }
 
 /* 카드 푸터 스타일 */
 .card-footer {
   padding: 8px;
   border-top: 1px solid var(--background-modifier-border);
-  font-size: 11px;
+  font-size: var(--footer-font-size, 11px);
   color: var(--text-muted);
-  background-color: var(--background-secondary-alt);
+  background-color: var(--footer-bg-color, var(--background-secondary-alt));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   box-sizing: border-box;
+  border-width: var(--footer-border-width, 0);
+  border-style: var(--footer-border-style, solid);
+  border-color: var(--footer-border-color, var(--background-modifier-border));
+  border-radius: var(--footer-border-radius, 0);
 }
 
 /* 카드셋 스타일 */

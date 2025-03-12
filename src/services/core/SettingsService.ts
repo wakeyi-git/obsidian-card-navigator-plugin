@@ -1,5 +1,5 @@
 import { Plugin } from 'obsidian';
-import { DEFAULT_SETTINGS } from '../../domain/settings/Settings';
+import { DEFAULT_SETTINGS } from '../../domain/settings/DefaultSettings';
 import { ICardNavigatorSettings, ISettingsService } from '../../domain/settings/SettingsInterfaces';
 import { DomainEventBus } from '../../domain/events/DomainEventBus';
 import { EventType } from '../../domain/events/EventTypes';
@@ -22,7 +22,15 @@ export class SettingsService implements ISettingsService {
   constructor(plugin: Plugin, eventBus: DomainEventBus) {
     this.plugin = plugin;
     this.eventBus = eventBus;
-    this.settings = { ...DEFAULT_SETTINGS };
+    this.settings = { ...DEFAULT_SETTINGS } as ICardNavigatorSettings;
+  }
+  
+  /**
+   * 플러그인 인스턴스 가져오기
+   * @returns 플러그인 인스턴스
+   */
+  getPlugin(): any {
+    return this.plugin;
   }
   
   /**
@@ -31,7 +39,7 @@ export class SettingsService implements ISettingsService {
    */
   async loadSettings(): Promise<ICardNavigatorSettings> {
     const loadedData = await this.plugin.loadData();
-    this.settings = { ...DEFAULT_SETTINGS, ...loadedData };
+    this.settings = { ...DEFAULT_SETTINGS, ...loadedData } as ICardNavigatorSettings;
     
     // 설정 로드 이벤트 발생
     this.emit(EventType.SETTINGS_LOADED, undefined);
@@ -124,7 +132,7 @@ export class SettingsService implements ISettingsService {
    * 설정 초기화
    */
   async resetSettings(): Promise<void> {
-    this.settings = { ...DEFAULT_SETTINGS };
+    this.settings = { ...DEFAULT_SETTINGS } as ICardNavigatorSettings;
     await this.plugin.saveData(this.settings);
     
     // 설정 초기화 이벤트 발생

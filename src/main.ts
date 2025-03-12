@@ -23,47 +23,10 @@ import { SearchComponent } from './components/search/SearchComponent';
 import { ToolbarComponent } from './components/toolbar/ToolbarComponent';
 import { NavigationMode } from './domain/navigation';
 import { ICardSet } from './domain/cardset/CardSet';
-import { CardNavigatorSettingTab } from './ui/CardNavigatorSettingTab';
+import { SettingTab } from './ui/settings/SettingTab';
 import { LayoutComponent } from './components/layout/LayoutComponent';
 import { NavigationComponent } from './components/navigation/NavigationComponent';
-
-// 기본 설정값
-const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
-  defaultCardSetSource: 'folder',
-  defaultLayout: 'grid',
-  includeSubfolders: true,
-  defaultFolderCardSet: '',
-  defaultTagCardSet: '',
-  isCardSetFixed: false,
-  defaultSearchScope: 'current',
-  tagCaseSensitive: false,
-  useLastCardSetSourceOnLoad: true,
-  cardWidth: 250,
-  cardHeight: 150,
-  cardHeaderContent: ['filename'],
-  cardBodyContent: ['content'],
-  cardFooterContent: ['tags'],
-  renderingCardSetSource: 'plain',
-  titleSource: 'filename',
-  includeFrontmatterInContent: false,
-  includeFirstHeaderInContent: true,
-  limitContentLength: true,
-  contentMaxLength: 200,
-  fixedCardHeight: true,
-  cardMinWidth: 200,
-  cardMinHeight: 100,
-  cardGap: 10,
-  defaultSortType: 'filename',
-  defaultSortDirection: 'asc',
-  highlightSearchResults: true,
-  maxSearchResults: 100,
-  maxSearchHistory: 10,
-  navigationMode: 'grid' as NavigationMode,
-  selectionMode: 'single',
-  dragMode: 'copy',
-  priorityTags: [],
-  priorityFolders: []
-};
+import { DEFAULT_SETTINGS } from './domain/settings/DefaultSettings';
 
 export class CardNavigatorPlugin extends Plugin {
   settings!: ICardNavigatorSettings;
@@ -124,7 +87,7 @@ export class CardNavigatorPlugin extends Plugin {
     this.addCommands();
     
     // 설정 탭 추가
-    this.addSettingTab(new CardNavigatorSettingTab(this.app, this));
+    this.addSettingTab(new SettingTab(this.app, this, this.settingsService, this.eventBus));
     
     // 이벤트 리스너 등록
     this.registerEventListeners();
@@ -184,7 +147,7 @@ export class CardNavigatorPlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()) as ICardNavigatorSettings;
   }
 
   async saveSettings() {
