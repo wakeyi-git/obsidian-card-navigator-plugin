@@ -95,6 +95,10 @@ export class CardRenderingService implements ICardRenderingService {
     
     // 헤더 콘텐츠 렌더링
     const headerContent = card.displaySettings?.headerContent;
+    
+    // 디버깅: 헤더 콘텐츠 타입 로깅
+    console.log('헤더 콘텐츠 타입:', headerContent);
+    
     if (headerContent) {
       this.renderContent(card, headerContent, headerContainer, card.displaySettings?.renderingMode);
     }
@@ -141,6 +145,10 @@ export class CardRenderingService implements ICardRenderingService {
     
     // 본문 콘텐츠 렌더링
     const bodyContent = card.displaySettings?.bodyContent;
+    
+    // 디버깅: 본문 콘텐츠 타입 로깅
+    console.log('본문 콘텐츠 타입:', bodyContent);
+    
     if (bodyContent) {
       this.renderContent(card, bodyContent, bodyContainer, card.displaySettings?.renderingMode);
     }
@@ -171,6 +179,10 @@ export class CardRenderingService implements ICardRenderingService {
     
     // 푸터 콘텐츠 렌더링
     const footerContent = card.displaySettings?.footerContent;
+    
+    // 디버깅: 푸터 콘텐츠 타입 로깅
+    console.log('푸터 콘텐츠 타입:', footerContent);
+    
     if (footerContent) {
       this.renderContent(card, footerContent, footerContainer, card.displaySettings?.renderingMode);
     }

@@ -53,6 +53,7 @@ export class CardService implements ICardService {
   private settingsService: ISettingsService;
   private eventBus: DomainEventBus;
   private cards: ICard[] = [];
+  private cardCache: Map<string, ICard> = new Map();
   
   /**
    * 생성자
@@ -128,9 +129,20 @@ export class CardService implements ICardService {
    */
   async getCardByPath(path: string): Promise<ICard | null> {
     try {
+      // 캐시에서 카드 확인
+      if (this.cardCache.has(path)) {
+        return this.cardCache.get(path) || null;
+      }
+      
       const file = this.obsidianService.getVault().getAbstractFileByPath(path);
       if (file instanceof TFile) {
-        return await this.obsidianService.getCardFromFile(file);
+        // 파일로부터 카드 생성
+        const card = await this.createCardFromFile(file);
+        
+        // 캐시에 저장
+        this.cardCache.set(path, card);
+        
+        return card;
       }
     } catch (error) {
       console.error('카드 가져오기 오류:', error);
@@ -241,9 +253,9 @@ export class CardService implements ICardService {
     
     // 카드 표시 설정
     const displaySettings: ICardDisplaySettings = {
-      headerContent: String(settings.cardHeaderContent || 'filename') as CardContentType,
-      bodyContent: String(settings.cardBodyContent || 'content') as CardContentType,
-      footerContent: String(settings.cardFooterContent || 'tags') as CardContentType,
+      headerContent: settings.cardHeaderContent as CardContentType,
+      bodyContent: settings.cardBodyContent as CardContentType,
+      footerContent: settings.cardFooterContent as CardContentType,
       renderingMode: settings.cardRenderingMode || 'text',
       cardStyle: {
         normal: {
@@ -354,15 +366,26 @@ export class CardService implements ICardService {
       console.log('푸터 콘텐츠 설정 변경됨:', data.settings.cardFooterContent);
     }
     
-    // 카드 표시 관련 설정이 변경되었거나 섹션 ID가 카드 관련 섹션인 경우 카드 새로고침
-    const shouldRefresh = data.changedKeys.some(key => cardDisplaySettings.includes(key)) ||
-                          data.changedKeys.some(key => cardSectionIds.includes(key));
+    // 카드 표시 관련 설정이 변경된 경우 카드 새로고침
+    const hasDisplaySettingsChanged = data.changedKeys.some(key => 
+      cardDisplaySettings.includes(key) || cardSectionIds.includes(key)
+    );
     
-    console.log('카드 새로고침 필요:', shouldRefresh);
-    
-    if (shouldRefresh) {
-      console.log('카드 새로고침 실행');
-      this.refreshCards();
+    if (hasDisplaySettingsChanged) {
+      console.log('카드 표시 설정이 변경되었습니다.');
+      
+      // 카드 콘텐츠 타입 관련 설정이 변경된 경우
+      const contentTypeChanged = data.changedKeys.some(key => 
+        ['cardHeaderContent', 'cardBodyContent', 'cardFooterContent'].includes(key)
+      );
+      
+      if (contentTypeChanged) {
+        console.log('카드 콘텐츠 타입 설정이 변경되었습니다. 카드 컴포넌트에서 처리합니다.');
+        // 카드 컴포넌트에서 처리하도록 이벤트만 발생시키고 캐시는 초기화하지 않음
+      } else {
+        // 스타일 관련 설정만 변경된 경우 캐시 초기화 없이 카드 새로고침
+        console.log('카드 스타일 설정이 변경되었습니다. 카드 컴포넌트에서 처리합니다.');
+      }
     }
   }
   
@@ -380,5 +403,15 @@ export class CardService implements ICardService {
    */
   getEventBus(): DomainEventBus {
     return this.eventBus;
+  }
+  
+  /**
+   * 카드 캐시 초기화
+   * 설정 변경 시 카드를 새로 생성하기 위해 캐시를 초기화합니다.
+   */
+  clearCardCache(): void {
+    console.log('카드 캐시 초기화');
+    this.cards = [];
+    this.cardCache.clear();
   }
 } 

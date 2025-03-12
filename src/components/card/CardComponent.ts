@@ -97,7 +97,26 @@ export class CardComponent extends Component implements ICardComponent {
       'card', 'card-header', 'card-body', 'card-footer', 'card-general'
     ];
     
-    if (data.changedKeys.some(key => cardStyleSettings.includes(key))) {
+    // 카드 콘텐츠 타입 관련 설정
+    const cardContentSettings = [
+      'cardHeaderContent', 'cardBodyContent', 'cardFooterContent',
+      'cardHeaderFrontmatterKey', 'cardBodyFrontmatterKey', 'cardFooterFrontmatterKey'
+    ];
+    
+    // 스타일 또는 콘텐츠 타입 설정이 변경된 경우 즉시 업데이트
+    if (data.changedKeys.some(key => cardStyleSettings.includes(key) || cardContentSettings.includes(key))) {
+      // 설정 변경 시 카드 displaySettings 업데이트
+      const settings = this.cardService.getSettings();
+      if (this.card.displaySettings) {
+        // 콘텐츠 타입 설정이 변경된 경우 카드 displaySettings 업데이트
+        if (data.changedKeys.some(key => cardContentSettings.includes(key))) {
+          this.card.displaySettings.headerContent = settings.cardHeaderContent;
+          this.card.displaySettings.bodyContent = settings.cardBodyContent;
+          this.card.displaySettings.footerContent = settings.cardFooterContent;
+          console.log('카드 콘텐츠 설정 업데이트됨:', this.card.displaySettings);
+        }
+      }
+      
       // 카드 업데이트
       this.update();
     }
@@ -161,6 +180,24 @@ export class CardComponent extends Component implements ICardComponent {
       cardMinHeight: 100,
       cardMaxHeight: 300
     };
+    
+    // 디버깅: 카드 업데이트 시 displaySettings 값 확인
+    console.log('카드 업데이트 - 카드 ID:', this.card.getId());
+    console.log('카드 displaySettings:', this.card.displaySettings);
+    console.log('현재 설정 값:', {
+      headerContent: settings.cardHeaderContent,
+      bodyContent: settings.cardBodyContent,
+      footerContent: settings.cardFooterContent
+    });
+    
+    // 카드 displaySettings 업데이트
+    if (this.card.displaySettings) {
+      this.card.displaySettings.headerContent = settings.cardHeaderContent;
+      this.card.displaySettings.bodyContent = settings.cardBodyContent;
+      this.card.displaySettings.footerContent = settings.cardFooterContent;
+      
+      console.log('카드 displaySettings 업데이트 완료:', this.card.displaySettings);
+    }
     
     // CSS 변수 업데이트
     // 카드 크기 설정
