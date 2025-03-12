@@ -83,6 +83,10 @@ export abstract class BaseSettingSection implements ISettingSection {
    * @param changedKey 변경된 설정 키 (지정하지 않으면 섹션 ID 사용)
    */
   protected notifySettingsChanged(changedKey?: string): void {
+    // 디버깅: 설정 변경 알림 로깅
+    console.log(`설정 변경 알림 호출 - 섹션: ${this.id}, 변경된 키: ${changedKey || this.id}`);
+    console.log('현재 설정 값:', this.settingsService.getSettings());
+    
     // UI 설정 변경 이벤트 발생
     this.eventBus.emit(EventType.SETTINGS_UI_CHANGED, {
       sectionId: this.id,

@@ -29,16 +29,16 @@ export class CardPreview {
     this.container = container;
     
     // 카드 요소 생성
-    this.cardElement = container.createDiv({ cls: 'card-navigator-preview-card' });
+    this.cardElement = container.createDiv({ cls: 'card-navigator-card' });
     
     // 헤더 요소 생성
-    this.headerElement = this.cardElement.createDiv({ cls: 'card-navigator-preview-header' });
+    this.headerElement = this.cardElement.createDiv({ cls: 'card-header' });
     
     // 바디 요소 생성
-    this.bodyElement = this.cardElement.createDiv({ cls: 'card-navigator-preview-body' });
+    this.bodyElement = this.cardElement.createDiv({ cls: 'card-body' });
     
     // 풋터 요소 생성
-    this.footerElement = this.cardElement.createDiv({ cls: 'card-navigator-preview-footer' });
+    this.footerElement = this.cardElement.createDiv({ cls: 'card-footer' });
     
     // 미리보기 업데이트
     this.update();
@@ -77,39 +77,83 @@ export class CardPreview {
     
     const settings = this.plugin.settings;
     
-    // 카드 스타일 적용
-    this.cardElement.style.width = `${settings.cardWidth}px`;
-    this.cardElement.style.height = `${settings.cardHeight}px`;
-    this.cardElement.style.backgroundColor = settings.normalCardBgColor || 'var(--background-primary)';
-    this.cardElement.style.borderStyle = settings.normalCardBorderStyle || 'solid';
-    this.cardElement.style.borderColor = settings.normalCardBorderColor || 'var(--background-modifier-border)';
-    this.cardElement.style.borderWidth = `${settings.normalCardBorderWidth || 1}px`;
-    this.cardElement.style.borderRadius = `${settings.normalCardBorderRadius || 5}px`;
+    // 클래스 이름 변경
+    this.cardElement.className = 'card-navigator-card card';
+    this.headerElement.className = 'card-header';
+    this.bodyElement.className = 'card-body';
+    this.footerElement.className = 'card-footer';
+    
+    // CSS 변수 설정
+    // 카드 크기 설정
+    this.cardElement.style.setProperty('--card-width', `${settings.cardWidth || 250}px`);
+    this.cardElement.style.setProperty('--card-min-height', `${settings.cardHeight || 200}px`);
+    this.cardElement.style.setProperty('--card-max-height', `${settings.cardHeight || 200}px`);
+    this.cardElement.style.setProperty('--card-gap', `${settings.cardGap || 10}px`);
+    
+    // 카드 기본 스타일 설정
+    this.cardElement.style.setProperty('--card-bg-color', settings.normalCardBgColor || 'var(--background-primary)');
+    this.cardElement.style.setProperty('--card-border-style', settings.normalCardBorderStyle || 'solid');
+    this.cardElement.style.setProperty('--card-border-color', settings.normalCardBorderColor || 'var(--background-modifier-border)');
+    this.cardElement.style.setProperty('--card-border-width', `${settings.normalCardBorderWidth || 1}px`);
+    this.cardElement.style.setProperty('--card-border-radius', `${settings.normalCardBorderRadius || 5}px`);
+    
+    // 카드 호버 스타일 설정
+    this.cardElement.style.setProperty('--card-hover-bg-color', settings.hoverCardBgColor || 'var(--background-primary-alt)');
+    this.cardElement.style.setProperty('--card-hover-border-color', settings.hoverCardBorderColor || 'var(--interactive-accent)');
+    
+    // 카드 활성 스타일 설정
+    this.cardElement.style.setProperty('--card-active-bg-color', settings.activeCardBgColor || 'var(--background-primary-alt)');
+    this.cardElement.style.setProperty('--card-active-border-color', settings.activeCardBorderColor || 'var(--interactive-accent)');
+    this.cardElement.style.setProperty('--card-active-border-style', settings.activeCardBorderStyle || 'solid');
+    this.cardElement.style.setProperty('--card-active-border-width', `${settings.activeCardBorderWidth || 2}px`);
+    
+    // 카드 포커스 스타일 설정
+    this.cardElement.style.setProperty('--card-focused-bg-color', settings.focusedCardBgColor || 'var(--background-primary-alt)');
+    this.cardElement.style.setProperty('--card-focused-border-color', settings.focusedCardBorderColor || 'var(--interactive-accent)');
+    
+    // 헤더 스타일 설정
+    this.cardElement.style.setProperty('--header-bg-color', settings.headerBgColor || 'var(--background-secondary)');
+    this.cardElement.style.setProperty('--header-font-size', `${settings.headerFontSize || 14}px`);
+    this.cardElement.style.setProperty('--header-border-style', settings.headerBorderStyle || 'solid');
+    this.cardElement.style.setProperty('--header-border-color', settings.headerBorderColor || 'var(--background-modifier-border)');
+    this.cardElement.style.setProperty('--header-border-width', `${settings.headerBorderWidth || 0}px`);
+    this.cardElement.style.setProperty('--header-border-radius', `${settings.headerBorderRadius || 0}px`);
+    
+    // 본문 스타일 설정
+    this.cardElement.style.setProperty('--body-bg-color', settings.bodyBgColor || 'transparent');
+    this.cardElement.style.setProperty('--body-font-size', `${settings.bodyFontSize || 12}px`);
+    this.cardElement.style.setProperty('--body-border-style', settings.bodyBorderStyle || 'solid');
+    this.cardElement.style.setProperty('--body-border-color', settings.bodyBorderColor || 'var(--background-modifier-border)');
+    this.cardElement.style.setProperty('--body-border-width', `${settings.bodyBorderWidth || 0}px`);
+    this.cardElement.style.setProperty('--body-border-radius', `${settings.bodyBorderRadius || 0}px`);
+    
+    // 푸터 스타일 설정
+    this.cardElement.style.setProperty('--footer-bg-color', settings.footerBgColor || 'var(--background-secondary-alt)');
+    this.cardElement.style.setProperty('--footer-font-size', `${settings.footerFontSize || 11}px`);
+    this.cardElement.style.setProperty('--footer-border-style', settings.footerBorderStyle || 'solid');
+    this.cardElement.style.setProperty('--footer-border-color', settings.footerBorderColor || 'var(--background-modifier-border)');
+    this.cardElement.style.setProperty('--footer-border-width', `${settings.footerBorderWidth || 0}px`);
+    this.cardElement.style.setProperty('--footer-border-radius', `${settings.footerBorderRadius || 0}px`);
+    
+    // 기본 스타일 설정
+    this.cardElement.style.width = `${settings.cardWidth || 250}px`;
+    this.cardElement.style.height = `${settings.cardHeight || 200}px`;
     this.cardElement.style.display = 'flex';
     this.cardElement.style.flexDirection = 'column';
     this.cardElement.style.overflow = 'hidden';
-    this.cardElement.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.1)';
     
-    // 헤더 스타일 적용
-    this.headerElement.style.backgroundColor = settings.headerBgColor || 'var(--background-secondary)';
-    this.headerElement.style.fontSize = `${settings.headerFontSize || 16}px`;
+    // 헤더 기본 스타일
     this.headerElement.style.padding = '8px';
     this.headerElement.style.fontWeight = 'bold';
-    this.headerElement.style.borderBottom = `${settings.headerBorderWidth || 1}px ${settings.headerBorderStyle || 'solid'} ${settings.headerBorderColor || 'var(--background-modifier-border)'}`;
     
-    // 바디 스타일 적용
-    this.bodyElement.style.backgroundColor = settings.bodyBgColor || 'var(--background-primary)';
-    this.bodyElement.style.fontSize = `${settings.bodyFontSize || 14}px`;
+    // 바디 기본 스타일
     this.bodyElement.style.padding = '10px';
     this.bodyElement.style.flex = '1';
     this.bodyElement.style.overflow = 'hidden';
     this.bodyElement.style.textOverflow = 'ellipsis';
     
-    // 풋터 스타일 적용
-    this.footerElement.style.backgroundColor = settings.footerBgColor || 'var(--background-secondary-alt)';
-    this.footerElement.style.fontSize = `${settings.footerFontSize || 12}px`;
+    // 풋터 기본 스타일
     this.footerElement.style.padding = '6px 8px';
-    this.footerElement.style.borderTop = `${settings.footerBorderWidth || 1}px ${settings.footerBorderStyle || 'solid'} ${settings.footerBorderColor || 'var(--background-modifier-border)'}`;
     this.footerElement.style.color = 'var(--text-muted)';
   }
   

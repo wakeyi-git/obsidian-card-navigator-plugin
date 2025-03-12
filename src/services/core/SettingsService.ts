@@ -44,6 +44,15 @@ export class SettingsService implements ISettingsService {
     // 설정 로드 이벤트 발생
     this.emit(EventType.SETTINGS_LOADED, undefined);
     
+    // 설정 변경 이벤트 발생 (모든 설정이 변경된 것으로 간주)
+    this.emit(EventType.SETTINGS_CHANGED, {
+      settings: this.settings,
+      changedKeys: Object.keys(this.settings)
+    });
+    
+    // 설정 변경 리스너 호출
+    this.settingsChangedListeners.forEach(listener => listener(this.settings));
+    
     return this.settings;
   }
   
@@ -69,6 +78,13 @@ export class SettingsService implements ISettingsService {
   async updateSettings(settings: Partial<ICardNavigatorSettings>): Promise<void> {
     const previousSettings = { ...this.settings };
     this.settings = { ...this.settings, ...settings };
+    
+    // 디버깅: 업데이트되는 설정 값 로깅
+    console.log('설정 업데이트:');
+    Object.keys(settings).forEach(key => {
+      const settingKey = key as keyof ICardNavigatorSettings;
+      console.log(`${key}: ${JSON.stringify(previousSettings[settingKey])} -> ${JSON.stringify(settings[settingKey])}`);
+    });
     
     await this.plugin.saveData(this.settings);
     

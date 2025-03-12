@@ -322,6 +322,37 @@ export class CardSetComponent extends Component implements ICardSetComponent {
       
       // 카드 컴포넌트 렌더링
       try {
+        // 카드 객체 유효성 검사
+        if (!card || typeof card !== 'object') {
+          console.error(`유효하지 않은 카드 객체 (ID: ${cardId}):`, card);
+          continue;
+        }
+        
+        // 필수 메서드 확인 및 추가
+        if (!card.getId && (card.id || card.path)) {
+          card.getId = function() {
+            return this.id || this.path || '';
+          };
+        }
+        
+        if (!card.getPath && card.path) {
+          card.getPath = function() {
+            return this.path || '';
+          };
+        }
+        
+        if (!card.getCreatedTime && card.created) {
+          card.getCreatedTime = function() {
+            return this.created || 0;
+          };
+        }
+        
+        if (!card.getModifiedTime && card.modified) {
+          card.getModifiedTime = function() {
+            return this.modified || 0;
+          };
+        }
+        
         await cardComponent.render(cardContainer);
         
         // 선택 상태 적용

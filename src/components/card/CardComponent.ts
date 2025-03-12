@@ -66,14 +66,12 @@ export class CardComponent extends Component implements ICardComponent {
   /**
    * 컴포넌트 제거
    */
-  onRemove(): void {
+  remove(): void {
     // 이벤트 리스너 제거
-    this.removeEventListeners();
-    
-    // 설정 변경 이벤트 구독 해제
     this.cardService.getEventBus().off(EventType.SETTINGS_CHANGED, this.handleSettingsChanged);
     
-    super.onRemove();
+    // 기본 제거 로직 실행
+    super.remove();
   }
   
   /**
@@ -154,7 +152,7 @@ export class CardComponent extends Component implements ICardComponent {
    * 컴포넌트 업데이트
    * 설정 변경 시 호출되어 카드를 업데이트합니다.
    */
-  update(): void {
+  async update(): Promise<void> {
     if (!this.element) return;
     
     // 설정 가져오기
@@ -216,14 +214,27 @@ export class CardComponent extends Component implements ICardComponent {
     this.element.style.setProperty('--footer-border-width', `${settings.footerBorderWidth || 0}px`);
     this.element.style.setProperty('--footer-border-radius', `${settings.footerBorderRadius || 0}px`);
     
-    // 카드 내용 다시 렌더링
-    this.element.empty();
+    // 기존 내용 제거
+    this.element.innerHTML = '';
+    
+    // 카드 렌더링 서비스를 사용하여 카드 다시 렌더링
     this.cardRenderingService.renderCard(this.card, this.element);
     
-    // 카드 상태 업데이트
-    this.updateCardState();
+    // 카드 상태 클래스 추가
+    if (this.isSelected) {
+      this.element.classList.add('selected');
+    } else {
+      this.element.classList.remove('selected');
+    }
     
-    console.log('카드 컴포넌트 업데이트 완료');
+    if (this.isFocused) {
+      this.element.classList.add('focused');
+    } else {
+      this.element.classList.remove('focused');
+    }
+    
+    // 이벤트 리스너 다시 등록
+    this.registerEventListeners();
   }
   
   /**
@@ -304,8 +315,12 @@ export class CardComponent extends Component implements ICardComponent {
       cardElement.classList.add('focused');
     }
     
-    // 카드 내용 렌더링
+    // 카드 렌더링 서비스를 사용하여 카드 렌더링
     this.cardRenderingService.renderCard(this.card, cardElement);
+    
+    // 요소 저장 후 이벤트 리스너 등록
+    this.element = cardElement;
+    this.registerEventListeners();
     
     return cardElement;
   }
@@ -314,101 +329,46 @@ export class CardComponent extends Component implements ICardComponent {
    * 이벤트 리스너 등록
    */
   registerEventListeners(): void {
-    if (this.element) {
-      this.element.addEventListener('click', this.handleClick);
-      this.element.addEventListener('dblclick', this.handleDoubleClick);
-      this.element.addEventListener('contextmenu', this.handleContextMenu);
-      this.element.addEventListener('mouseenter', this.handleMouseEnter);
-      this.element.addEventListener('mouseleave', this.handleMouseLeave);
-      this.element.addEventListener('dragstart', this.handleDragStart);
-      this.element.addEventListener('dragend', this.handleDragEnd);
-    }
+    if (!this.element) return;
+    
+    // 클릭 이벤트 리스너
+    this.element.onclick = (event) => {
+      // 이벤트 버블링 방지
+      event.stopPropagation();
+      
+      // 카드 선택 이벤트 발생
+      this.interactionService.handleCardClick(this.card.getId(), event);
+    };
+    
+    // 더블 클릭 이벤트 리스너
+    this.element.ondblclick = (event) => {
+      // 이벤트 버블링 방지
+      event.stopPropagation();
+      
+      // 카드 더블 클릭 이벤트 발생
+      this.interactionService.handleCardDoubleClick(this.card.getId(), event);
+    };
+    
+    // 컨텍스트 메뉴 이벤트 리스너
+    this.element.oncontextmenu = (event) => {
+      // 이벤트 버블링 방지
+      event.stopPropagation();
+      event.preventDefault();
+      
+      // 카드 컨텍스트 메뉴 이벤트 발생
+      this.interactionService.handleCardContextMenu(this.card.getId(), event);
+    };
+    
+    // 마우스 오버 이벤트 리스너
+    this.element.onmouseenter = (event) => {
+      // 카드 마우스 오버 이벤트 발생
+      this.interactionService.handleCardMouseEnter(this.card.getId(), event);
+    };
+    
+    // 마우스 아웃 이벤트 리스너
+    this.element.onmouseleave = (event) => {
+      // 카드 마우스 아웃 이벤트 발생
+      this.interactionService.handleCardMouseLeave(this.card.getId(), event);
+    };
   }
-  
-  /**
-   * 이벤트 리스너 제거
-   */
-  removeEventListeners(): void {
-    if (this.element) {
-      this.element.removeEventListener('click', this.handleClick);
-      this.element.removeEventListener('dblclick', this.handleDoubleClick);
-      this.element.removeEventListener('contextmenu', this.handleContextMenu);
-      this.element.removeEventListener('mouseenter', this.handleMouseEnter);
-      this.element.removeEventListener('mouseleave', this.handleMouseLeave);
-      this.element.removeEventListener('dragstart', this.handleDragStart);
-      this.element.removeEventListener('dragend', this.handleDragEnd);
-    }
-  }
-  
-  /**
-   * 클릭 이벤트 핸들러
-   * @param event 마우스 이벤트
-   */
-  private handleClick = (event: MouseEvent): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const cardId = this.card.id || this.card.path || '';
-    this.interactionService.handleCardClick(cardId, event);
-  };
-  
-  /**
-   * 더블 클릭 이벤트 핸들러
-   * @param event 마우스 이벤트
-   */
-  private handleDoubleClick = (event: MouseEvent): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const cardId = this.card.id || this.card.path || '';
-    this.interactionService.handleCardDoubleClick(cardId, event);
-  };
-  
-  /**
-   * 컨텍스트 메뉴 이벤트 핸들러
-   * @param event 마우스 이벤트
-   */
-  private handleContextMenu = (event: MouseEvent): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const cardId = this.card.id || this.card.path || '';
-    this.interactionService.handleCardContextMenu(cardId, event);
-  };
-  
-  /**
-   * 마우스 진입 이벤트 핸들러
-   * @param event 마우스 이벤트
-   */
-  private handleMouseEnter = (event: MouseEvent): void => {
-    const cardId = this.card.id || this.card.path || '';
-    this.interactionService.handleCardMouseEnter(cardId, event);
-  };
-  
-  /**
-   * 마우스 이탈 이벤트 핸들러
-   * @param event 마우스 이벤트
-   */
-  private handleMouseLeave = (event: MouseEvent): void => {
-    const cardId = this.card.id || this.card.path || '';
-    this.interactionService.handleCardMouseLeave(cardId, event);
-  };
-  
-  /**
-   * 드래그 시작 이벤트 핸들러
-   * @param event 드래그 이벤트
-   */
-  private handleDragStart = (event: DragEvent): void => {
-    const cardId = this.card.id || this.card.path || '';
-    this.interactionService.handleCardDragStart(cardId, event);
-  };
-  
-  /**
-   * 드래그 종료 이벤트 핸들러
-   * @param event 드래그 이벤트
-   */
-  private handleDragEnd = (event: DragEvent): void => {
-    const cardId = this.card.id || this.card.path || '';
-    this.interactionService.handleCardDragEnd(cardId, event);
-  };
 } 

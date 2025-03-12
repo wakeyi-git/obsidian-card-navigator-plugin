@@ -114,3 +114,9 @@ export const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
   selectionMode: 'single',
   dragMode: 'copy',
 }; 
+
+// 디버깅: 기본 설정 값 로깅
+console.log('기본 설정 값:');
+console.log('cardHeaderContent:', DEFAULT_SETTINGS.cardHeaderContent);
+console.log('cardBodyContent:', DEFAULT_SETTINGS.cardBodyContent);
+console.log('cardFooterContent:', DEFAULT_SETTINGS.cardFooterContent); 

@@ -43,11 +43,15 @@ export class CardBodySection extends BaseSettingSection {
           dropdown.addOption(key, `프론트매터: ${key}`);
         });
         
+        const currentValue = this.settingsService.getSettings().cardBodyContent as string || 'content';
+        console.log('바디 콘텐츠 현재 값:', currentValue);
+        
         dropdown
-          .setValue(this.settingsService.getSettings().cardBodyContent as string || 'content')
+          .setValue(currentValue)
           .onChange(async (value) => {
-            await this.settingsService.updateSettings({ cardBodyContent: value as CardContentType });
-            this.notifySettingsChanged();
+            console.log('바디 콘텐츠 변경:', value);
+            await this.settingsService.updateSettings({ cardBodyContent: value });
+            this.notifySettingsChanged('cardBodyContent');
           });
         
         return dropdown;
@@ -60,7 +64,7 @@ export class CardBodySection extends BaseSettingSection {
           .setValue(this.settingsService.getSettings().cardBodyFrontmatterKey || '')
           .onChange(async (value) => {
             await this.settingsService.updateSettings({ cardBodyFrontmatterKey: value });
-            this.notifySettingsChanged();
+            this.notifySettingsChanged('cardBodyFrontmatterKey');
           }));
     }
     

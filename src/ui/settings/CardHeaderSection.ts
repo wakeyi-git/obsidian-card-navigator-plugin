@@ -43,11 +43,15 @@ export class CardHeaderSection extends BaseSettingSection {
           dropdown.addOption(key, `프론트매터: ${key}`);
         });
         
+        const currentValue = this.settingsService.getSettings().cardHeaderContent as string || 'filename';
+        console.log('헤더 콘텐츠 현재 값:', currentValue);
+        
         dropdown
-          .setValue(this.settingsService.getSettings().cardHeaderContent as string || 'filename')
+          .setValue(currentValue)
           .onChange(async (value) => {
-            await this.settingsService.updateSettings({ cardHeaderContent: value as CardContentType });
-            this.notifySettingsChanged();
+            console.log('헤더 콘텐츠 변경:', value);
+            await this.settingsService.updateSettings({ cardHeaderContent: value });
+            this.notifySettingsChanged('cardHeaderContent');
           });
         
         return dropdown;
@@ -60,7 +64,7 @@ export class CardHeaderSection extends BaseSettingSection {
           .setValue(this.settingsService.getSettings().cardHeaderFrontmatterKey || '')
           .onChange(async (value) => {
             await this.settingsService.updateSettings({ cardHeaderFrontmatterKey: value });
-            this.notifySettingsChanged();
+            this.notifySettingsChanged('cardHeaderFrontmatterKey');
           }));
     }
     

@@ -144,14 +144,72 @@ export class CardService implements ICardService {
    * @returns 생성된 카드
    */
   async createCardFromFile(file: TFile): Promise<ICard> {
-    // 파일 내용 읽기
-    const content = await this.obsidianService.read(file);
+    try {
+      // 파일 내용 가져오기
+      const content = await this.obsidianService.read(file);
+      
+      // 메타데이터 가져오기
+      const metadata = this.obsidianService.getMetadataCache().getFileCache(file);
+      
+      // 카드 생성
+      const card = this.createCard(file, content, metadata);
+      
+      // 카드 메서드 확인 및 추가
+      this.ensureCardMethods(card);
+      
+      return card;
+    } catch (error) {
+      console.error('카드 생성 오류:', error);
+      
+      // 최소한의 카드 객체 생성
+      const fallbackCard: ICard = {
+        id: file.path,
+        path: file.path,
+        filename: file.basename,
+        file: file,
+        title: file.basename,
+        content: '',
+        tags: [],
+        created: file.stat.ctime,
+        modified: file.stat.mtime,
+        getId: function() { return this.id || ''; },
+        getPath: function() { return this.path || ''; },
+        getCreatedTime: function() { return this.created || 0; },
+        getModifiedTime: function() { return this.modified || 0; }
+      };
+      
+      return fallbackCard;
+    }
+  }
+  
+  /**
+   * 카드 메서드 확인 및 추가
+   * @param card 카드 객체
+   */
+  private ensureCardMethods(card: ICard): void {
+    if (!card.getId) {
+      card.getId = function() {
+        return this.id || this.path || '';
+      };
+    }
     
-    // 메타데이터 가져오기
-    const metadata = this.obsidianService.getMetadataCache().getFileCache(file);
+    if (!card.getPath) {
+      card.getPath = function() {
+        return this.path || '';
+      };
+    }
     
-    // 카드 생성
-    return this.createCard(file, content, metadata);
+    if (!card.getCreatedTime) {
+      card.getCreatedTime = function() {
+        return this.created || 0;
+      };
+    }
+    
+    if (!card.getModifiedTime) {
+      card.getModifiedTime = function() {
+        return this.modified || 0;
+      };
+    }
   }
   
   /**
@@ -174,12 +232,19 @@ export class CardService implements ICardService {
     // 첫 번째 헤더 추출
     const firstHeader = metadata?.headings?.[0]?.heading || '';
     
+    // 디버깅: 설정에서 가져온 콘텐츠 타입 값 로깅
+    console.log('카드 생성 - 설정에서 가져온 콘텐츠 타입:');
+    console.log('headerContent:', settings.cardHeaderContent);
+    console.log('bodyContent:', settings.cardBodyContent);
+    console.log('footerContent:', settings.cardFooterContent);
+    console.log('설정 타입:', typeof settings.cardHeaderContent, typeof settings.cardBodyContent, typeof settings.cardFooterContent);
+    
     // 카드 표시 설정
     const displaySettings: ICardDisplaySettings = {
-      headerContent: settings.cardHeaderContent as CardContentType,
-      bodyContent: settings.cardBodyContent as CardContentType,
-      footerContent: settings.cardFooterContent as CardContentType,
-      renderingMode: 'text', // 기본값
+      headerContent: String(settings.cardHeaderContent || 'filename') as CardContentType,
+      bodyContent: String(settings.cardBodyContent || 'content') as CardContentType,
+      footerContent: String(settings.cardFooterContent || 'tags') as CardContentType,
+      renderingMode: settings.cardRenderingMode || 'text',
       cardStyle: {
         normal: {
           backgroundColor: settings.normalCardBgColor,
@@ -256,6 +321,7 @@ export class CardService implements ICardService {
     // 카드 표시 관련 설정이 변경된 경우에만 카드 새로고침
     const cardDisplaySettings = [
       'cardHeaderContent', 'cardBodyContent', 'cardFooterContent',
+      'cardHeaderFrontmatterKey', 'cardBodyFrontmatterKey', 'cardFooterFrontmatterKey',
       'normalCardBgColor', 'activeCardBgColor', 'focusedCardBgColor', 'hoverCardBgColor',
       'headerBgColor', 'bodyBgColor', 'footerBgColor',
       'headerFontSize', 'bodyFontSize', 'footerFontSize',
@@ -277,11 +343,24 @@ export class CardService implements ICardService {
     // 설정 변경 로그 출력 (디버깅용)
     console.log('설정 변경됨:', data.changedKeys);
     
+    // 변경된 설정 값 확인
+    if (data.changedKeys.includes('cardHeaderContent')) {
+      console.log('헤더 콘텐츠 설정 변경됨:', data.settings.cardHeaderContent);
+    }
+    if (data.changedKeys.includes('cardBodyContent')) {
+      console.log('바디 콘텐츠 설정 변경됨:', data.settings.cardBodyContent);
+    }
+    if (data.changedKeys.includes('cardFooterContent')) {
+      console.log('푸터 콘텐츠 설정 변경됨:', data.settings.cardFooterContent);
+    }
+    
     // 카드 표시 관련 설정이 변경되었거나 섹션 ID가 카드 관련 섹션인 경우 카드 새로고침
-    if (
-      data.changedKeys.some(key => cardDisplaySettings.includes(key)) ||
-      data.changedKeys.some(key => cardSectionIds.includes(key))
-    ) {
+    const shouldRefresh = data.changedKeys.some(key => cardDisplaySettings.includes(key)) ||
+                          data.changedKeys.some(key => cardSectionIds.includes(key));
+    
+    console.log('카드 새로고침 필요:', shouldRefresh);
+    
+    if (shouldRefresh) {
       console.log('카드 새로고침 실행');
       this.refreshCards();
     }

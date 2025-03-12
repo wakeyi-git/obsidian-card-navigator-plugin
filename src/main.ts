@@ -73,6 +73,9 @@ export class CardNavigatorPlugin extends Plugin {
     // 서비스 초기화
     this.initializeServices();
     
+    // 서비스 초기화 후 설정 다시 로드하여 모든 서비스에 설정 적용
+    await this.loadSettings();
+    
     // 뷰 등록
     this.registerView(
       CardNavigatorPlugin.CARD_NAVIGATOR_VIEW,
@@ -148,6 +151,11 @@ export class CardNavigatorPlugin extends Plugin {
 
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()) as ICardNavigatorSettings;
+    
+    // 설정 서비스가 초기화된 경우 설정 서비스에도 설정 적용
+    if (this.settingsService) {
+      await this.settingsService.loadSettings();
+    }
   }
 
   async saveSettings() {

@@ -133,6 +133,12 @@ export class CardRenderingService implements ICardRenderingService {
       if (bodyStyle.borderRadius) bodyContainer.style.borderRadius = `${bodyStyle.borderRadius}px`;
     }
     
+    // 기본 스타일 설정
+    bodyContainer.style.padding = '10px';
+    bodyContainer.style.flex = '1';
+    bodyContainer.style.overflow = 'hidden';
+    bodyContainer.style.textOverflow = 'ellipsis';
+    
     // 본문 콘텐츠 렌더링
     const bodyContent = card.displaySettings?.bodyContent;
     if (bodyContent) {
@@ -159,6 +165,10 @@ export class CardRenderingService implements ICardRenderingService {
       if (footerStyle.borderRadius) footerContainer.style.borderRadius = `${footerStyle.borderRadius}px`;
     }
     
+    // 기본 스타일 설정
+    footerContainer.style.padding = '6px 8px';
+    footerContainer.style.color = 'var(--text-muted)';
+    
     // 푸터 콘텐츠 렌더링
     const footerContent = card.displaySettings?.footerContent;
     if (footerContent) {
@@ -175,6 +185,15 @@ export class CardRenderingService implements ICardRenderingService {
    */
   renderContent(card: ICard, contentType: CardContentType, container: HTMLElement, renderingMode: CardRenderingMode = 'text'): void {
     let content = '';
+    
+    // 디버깅: 콘텐츠 타입 로깅
+    try {
+      const cardId = card.getId ? card.getId() : (card.id || card.path || '알 수 없음');
+      console.log(`카드 콘텐츠 렌더링 - 카드 ID: ${cardId}, 콘텐츠 타입: ${contentType}`);
+    } catch (error) {
+      console.error('카드 ID 가져오기 오류:', error);
+      console.log(`카드 콘텐츠 렌더링 - 카드 ID: ${card.id || card.path || '알 수 없음'}, 콘텐츠 타입: ${contentType}`);
+    }
     
     // 콘텐츠 타입에 따라 내용 가져오기
     switch (contentType) {
@@ -194,13 +213,13 @@ export class CardRenderingService implements ICardRenderingService {
         content = card.tags.join(', ');
         break;
       case 'path':
-        content = card.getPath();
+        content = card.getPath ? card.getPath() : (card.path || '');
         break;
       case 'created':
-        content = this.formatDate(card.getCreatedTime());
+        content = card.getCreatedTime ? this.formatDate(card.getCreatedTime()) : '';
         break;
       case 'modified':
-        content = this.formatDate(card.getModifiedTime());
+        content = card.getModifiedTime ? this.formatDate(card.getModifiedTime()) : '';
         break;
       case 'frontmatter':
         // 프론트매터 키가 지정되지 않은 경우 모든 프론트매터 표시
@@ -218,6 +237,9 @@ export class CardRenderingService implements ICardRenderingService {
           content = '';
         }
     }
+    
+    // 디버깅: 최종 콘텐츠 로깅
+    console.log(`카드 콘텐츠 결과 - 콘텐츠 타입: ${contentType}, 내용: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`);
     
     // 렌더링 모드에 따라 렌더링
     if (renderingMode === 'html') {

@@ -75,13 +75,21 @@ export class CardPreviewSection extends BaseSettingSection {
    * 이벤트 리스너 등록
    */
   private registerEventListeners(): void {
+    // 설정 UI 변경 이벤트 리스너 등록
+    this.eventBus.on(EventType.SETTINGS_UI_CHANGED, (data) => {
+      console.log('설정 UI 변경 이벤트 발생:', data);
+      this.updateCardPreview();
+    });
+    
     // 설정 미리보기 업데이트 이벤트 리스너 등록
-    this.eventBus.on(EventType.SETTINGS_PREVIEW_UPDATE, () => {
+    this.eventBus.on(EventType.SETTINGS_PREVIEW_UPDATE, (data) => {
+      console.log('설정 미리보기 업데이트 이벤트 발생:', data);
       this.updateCardPreview();
     });
     
     // 설정 변경 이벤트 리스너 등록
-    this.eventBus.on(EventType.SETTINGS_CHANGED, () => {
+    this.eventBus.on(EventType.SETTINGS_CHANGED, (data) => {
+      console.log('설정 변경 이벤트 발생:', data);
       this.updateCardPreview();
     });
   }
@@ -122,7 +130,19 @@ export class CardPreviewSection extends BaseSettingSection {
    */
   unload(): void {
     // 이벤트 리스너 제거
-    this.eventBus.off(EventType.SETTINGS_PREVIEW_UPDATE, this.updateCardPreview);
-    this.eventBus.off(EventType.SETTINGS_CHANGED, this.updateCardPreview);
+    this.eventBus.off(EventType.SETTINGS_UI_CHANGED, () => {});
+    this.eventBus.off(EventType.SETTINGS_PREVIEW_UPDATE, () => {});
+    this.eventBus.off(EventType.SETTINGS_CHANGED, () => {});
+    
+    // 카드 미리보기 제거
+    if (this.cardPreview) {
+      this.cardPreview = null;
+    }
+    
+    // 컨테이너 초기화
+    if (this.previewContainer) {
+      this.previewContainer.empty();
+      this.previewContainer = null;
+    }
   }
 } 

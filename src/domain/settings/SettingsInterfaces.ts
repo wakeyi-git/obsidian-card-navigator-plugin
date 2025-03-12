@@ -30,9 +30,9 @@ export interface ICardNavigatorSettings {
   // 카드 설정
   cardWidth: number;
   cardHeight: number;
-  cardHeaderContent?: string[] | string;
-  cardBodyContent?: string[] | string;
-  cardFooterContent?: string[] | string;
+  cardHeaderContent: string;
+  cardBodyContent: string;
+  cardFooterContent: string;
   cardHeaderFrontmatterKey?: string;
   cardBodyFrontmatterKey?: string;
   cardFooterFrontmatterKey?: string;

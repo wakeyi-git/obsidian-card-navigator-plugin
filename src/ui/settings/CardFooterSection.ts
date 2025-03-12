@@ -43,11 +43,15 @@ export class CardFooterSection extends BaseSettingSection {
           dropdown.addOption(key, `프론트매터: ${key}`);
         });
         
+        const currentValue = this.settingsService.getSettings().cardFooterContent as string || 'modified';
+        console.log('푸터 콘텐츠 현재 값:', currentValue);
+        
         dropdown
-          .setValue(this.settingsService.getSettings().cardFooterContent as string || 'modified')
+          .setValue(currentValue)
           .onChange(async (value) => {
-            await this.settingsService.updateSettings({ cardFooterContent: value as CardContentType });
-            this.notifySettingsChanged();
+            console.log('푸터 콘텐츠 변경:', value);
+            await this.settingsService.updateSettings({ cardFooterContent: value });
+            this.notifySettingsChanged('cardFooterContent');
           });
         
         return dropdown;
@@ -60,7 +64,7 @@ export class CardFooterSection extends BaseSettingSection {
           .setValue(this.settingsService.getSettings().cardFooterFrontmatterKey || '')
           .onChange(async (value) => {
             await this.settingsService.updateSettings({ cardFooterFrontmatterKey: value });
-            this.notifySettingsChanged();
+            this.notifySettingsChanged('cardFooterFrontmatterKey');
           }));
     }
     
