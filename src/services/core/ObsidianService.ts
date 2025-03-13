@@ -114,20 +114,39 @@ export class ObsidianService implements IObsidianApp, IVault, IWorkspace {
   getMarkdownFilesInFolder(folderPath: string, recursive: boolean): TFile[] {
     const files = this.app.vault.getMarkdownFiles();
     
-    if (folderPath === '/') {
-      return recursive ? files : files.filter(file => !file.path.includes('/'));
+    // 디버그 로그 추가
+    console.log('폴더 경로:', folderPath);
+    console.log('하위 폴더 포함 여부:', recursive);
+    console.log('전체 마크다운 파일 수:', files.length);
+    
+    // 루트 폴더인 경우
+    if (folderPath === '/' || folderPath === '') {
+      const result = recursive ? files : files.filter(file => !file.path.includes('/') || file.path.lastIndexOf('/') === 0);
+      console.log('루트 폴더 파일 수:', result.length);
+      return result;
     }
     
-    return files.filter(file => {
+    // 폴더 경로가 '/'로 끝나지 않으면 추가
+    const normalizedPath = folderPath.endsWith('/') ? folderPath : folderPath + '/';
+    console.log('정규화된 폴더 경로:', normalizedPath);
+    
+    const result = files.filter(file => {
       const filePath = file.path;
-      const fileDir = filePath.substring(0, filePath.lastIndexOf('/') + 1);
       
       if (recursive) {
-        return fileDir.startsWith(folderPath);
+        // 하위 폴더 포함: 파일 경로가 지정된 폴더 경로로 시작하는지 확인
+        return filePath === normalizedPath.slice(0, -1) || filePath.startsWith(normalizedPath);
       } else {
-        return fileDir === folderPath;
+        // 하위 폴더 미포함: 파일이 정확히 지정된 폴더에 있는지 확인
+        const fileDir = filePath.substring(0, filePath.lastIndexOf('/') + 1);
+        return fileDir === normalizedPath;
       }
     });
+    
+    console.log('필터링된 파일 수:', result.length);
+    console.log('필터링된 파일 목록:', result.map(f => f.path));
+    
+    return result;
   }
   
   /**
@@ -345,6 +364,7 @@ export class ObsidianService implements IObsidianApp, IVault, IWorkspace {
         footerContent: 'tags',
         renderingMode: 'text'
       },
+      getId: () => file.path,
       getPath: () => file.path,
       getCreatedTime: () => file.stat.ctime,
       getModifiedTime: () => file.stat.mtime

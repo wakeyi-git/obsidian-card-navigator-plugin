@@ -65,6 +65,34 @@ export interface ILayoutService extends ILayoutController {
    * 서비스가 사용한 모든 리소스를 정리합니다.
    */
   cleanup(): void;
+  
+  /**
+   * 레이아웃 정보 가져오기
+   * 현재 설정에 따른 레이아웃 정보를 반환합니다.
+   * @returns 레이아웃 정보
+   */
+  getLayoutInfo(): ILayoutInfo;
+  
+  /**
+   * 카드 너비 가져오기
+   * 현재 설정에 따른 카드 너비를 반환합니다.
+   * @returns 카드 너비
+   */
+  getCardWidth(): number;
+  
+  /**
+   * 카드 높이 가져오기
+   * 현재 설정에 따른 카드 높이를 반환합니다.
+   * @returns 카드 높이
+   */
+  getCardHeight(): number;
+  
+  /**
+   * 카드 간격 가져오기
+   * 현재 설정에 따른 카드 간격을 반환합니다.
+   * @returns 카드 간격
+   */
+  getCardGap(): number;
 }
 
 /**
@@ -447,5 +475,55 @@ export class LayoutService implements ILayoutService {
       // 이벤트 발생
       this.eventBus.emit(EventType.LAYOUT_CHANGED, { type });
     }
+  }
+  
+  /**
+   * 레이아웃 정보 가져오기
+   * 현재 설정에 따른 레이아웃 정보를 반환합니다.
+   * @returns 레이아웃 정보
+   */
+  getLayoutInfo(): ILayoutInfo {
+    return this.lastCalculation || {
+      columns: 1,
+      rows: 1,
+      itemWidth: 200,
+      itemHeight: 100,
+      fixedHeight: true,
+      direction: 'vertical',
+      scrollDirection: 'vertical',
+      itemCount: 0,
+      containerWidth: 0,
+      containerHeight: 0
+    };
+  }
+  
+  /**
+   * 카드 너비 가져오기
+   * 현재 설정에 따른 카드 너비를 반환합니다.
+   * @returns 카드 너비
+   */
+  getCardWidth(): number {
+    const layoutInfo = this.getLayoutInfo();
+    return layoutInfo.itemWidth;
+  }
+  
+  /**
+   * 카드 높이 가져오기
+   * 현재 설정에 따른 카드 높이를 반환합니다.
+   * @returns 카드 높이
+   */
+  getCardHeight(): number {
+    const layoutInfo = this.getLayoutInfo();
+    return layoutInfo.itemHeight;
+  }
+  
+  /**
+   * 카드 간격 가져오기
+   * 현재 설정에 따른 카드 간격을 반환합니다.
+   * @returns 카드 간격
+   */
+  getCardGap(): number {
+    const settings = this.settingsService.getSettings();
+    return settings.cardGap || 10;
   }
 } 

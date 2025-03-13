@@ -88,7 +88,7 @@ export class CardComponent extends Component implements ICardComponent {
       'normalCardBorderStyle', 'normalCardBorderColor', 'normalCardBorderWidth', 'normalCardBorderRadius',
       'activeCardBorderStyle', 'activeCardBorderColor', 'activeCardBorderWidth', 'activeCardBorderRadius',
       'focusedCardBorderStyle', 'focusedCardBorderColor', 'focusedCardBorderWidth', 'focusedCardBorderRadius',
-      'hoverCardBorderStyle', 'hoverCardBorderColor', 'hoverCardBorderWidth', 'hoverCardBorderRadius',
+      'hoverCardBorderColor',
       'headerBgColor', 'bodyBgColor', 'footerBgColor',
       'headerFontSize', 'bodyFontSize', 'footerFontSize',
       'headerBorderStyle', 'headerBorderColor', 'headerBorderWidth', 'headerBorderRadius',
@@ -106,7 +106,7 @@ export class CardComponent extends Component implements ICardComponent {
     // 스타일 또는 콘텐츠 타입 설정이 변경된 경우 즉시 업데이트
     if (data.changedKeys.some(key => cardStyleSettings.includes(key) || cardContentSettings.includes(key))) {
       // 설정 변경 시 카드 displaySettings 업데이트
-      const settings = this.cardService.getSettings();
+      const settings = this.cardService.getSettingsService().getSettings();
       if (this.card.displaySettings) {
         // 콘텐츠 타입 설정이 변경된 경우 카드 displaySettings 업데이트
         if (data.changedKeys.some(key => cardContentSettings.includes(key))) {
@@ -175,35 +175,84 @@ export class CardComponent extends Component implements ICardComponent {
     if (!this.element) return;
     
     // 설정 가져오기
-    const settings = this.cardService.getSettings();
+    const settings = this.cardService.getSettingsService().getSettings();
     const layoutSettings = settings.layout || {
       cardMinHeight: 100,
       cardMaxHeight: 300
     };
     
     // 디버깅: 카드 업데이트 시 displaySettings 값 확인
-    console.log('카드 업데이트 - 카드 ID:', this.card.getId());
-    console.log('카드 displaySettings:', this.card.displaySettings);
-    console.log('현재 설정 값:', {
-      headerContent: settings.cardHeaderContent,
-      bodyContent: settings.cardBodyContent,
-      footerContent: settings.cardFooterContent
-    });
-    
-    // 카드 displaySettings 업데이트
-    if (this.card.displaySettings) {
-      this.card.displaySettings.headerContent = settings.cardHeaderContent;
-      this.card.displaySettings.bodyContent = settings.cardBodyContent;
-      this.card.displaySettings.footerContent = settings.cardFooterContent;
+    try {
+      const cardId = this.card.getId ? this.card.getId() : (this.card.id || this.card.path || '알 수 없음');
+      console.log('카드 업데이트 - 카드 ID:', cardId);
       
-      console.log('카드 displaySettings 업데이트 완료:', this.card.displaySettings);
+      // 현재 카드 displaySettings와 설정 값 비교
+      const currentHeaderContent = this.card.displaySettings?.headerContent;
+      const currentBodyContent = this.card.displaySettings?.bodyContent;
+      const currentFooterContent = this.card.displaySettings?.footerContent;
+      
+      const settingsHeaderContent = settings.cardHeaderContent;
+      const settingsBodyContent = settings.cardBodyContent;
+      const settingsFooterContent = settings.cardFooterContent;
+      
+      // 콘텐츠 타입이 변경된 경우에만 업데이트
+      const contentChanged = 
+        currentHeaderContent !== settingsHeaderContent ||
+        currentBodyContent !== settingsBodyContent ||
+        currentFooterContent !== settingsFooterContent;
+      
+      if (contentChanged) {
+        console.log('카드 콘텐츠 타입 변경됨, 업데이트 필요');
+        console.log('현재 설정 값:', {
+          headerContent: settingsHeaderContent,
+          bodyContent: settingsBodyContent,
+          footerContent: settingsFooterContent
+        });
+        console.log('카드 displaySettings:', this.card.displaySettings);
+        
+        // 카드 displaySettings 업데이트
+        if (this.card.displaySettings) {
+          this.card.displaySettings.headerContent = settingsHeaderContent;
+          this.card.displaySettings.bodyContent = settingsBodyContent;
+          this.card.displaySettings.footerContent = settingsFooterContent;
+          
+          console.log('카드 displaySettings 업데이트 완료:', this.card.displaySettings);
+        }
+      } else {
+        console.log('카드 콘텐츠 타입 변경 없음, 스타일만 업데이트');
+      }
+    } catch (error) {
+      console.error('카드 ID 가져오기 오류:', error);
     }
     
     // CSS 변수 업데이트
     // 카드 크기 설정
     this.element.style.setProperty('--card-width', `${settings.cardWidth || 250}px`);
-    this.element.style.setProperty('--card-min-height', `${layoutSettings.cardMinHeight}px`);
-    this.element.style.setProperty('--card-max-height', `${layoutSettings.cardMaxHeight}px`);
+    
+    // 카드 높이 설정 개선
+    const cardHeight = settings.cardHeight || 150;
+    const cardMinHeight = layoutSettings.cardMinHeight || 100;
+    const cardMaxHeight = layoutSettings.cardMaxHeight || 300;
+    
+    // 고정 높이 또는 최소/최대 높이 설정
+    if (typeof cardHeight === 'number' && cardHeight > 0) {
+      // 고정 높이 설정
+      this.element.style.setProperty('--card-height', `${cardHeight}px`);
+      this.element.style.setProperty('--card-min-height', `${cardHeight}px`);
+      this.element.style.setProperty('--card-max-height', `${cardHeight}px`);
+      this.element.classList.add('fixed-height');
+      
+      console.log('카드 고정 높이 설정:', cardHeight);
+    } else {
+      // 최소/최대 높이 설정
+      this.element.style.setProperty('--card-height', 'auto');
+      this.element.style.setProperty('--card-min-height', `${cardMinHeight}px`);
+      this.element.style.setProperty('--card-max-height', `${cardMaxHeight}px`);
+      this.element.classList.remove('fixed-height');
+      
+      console.log('카드 가변 높이 설정:', { 최소: cardMinHeight, 최대: cardMaxHeight });
+    }
+    
     this.element.style.setProperty('--card-gap', `${settings.cardGap || 10}px`);
     
     // 카드 기본 스타일 설정
@@ -285,7 +334,7 @@ export class CardComponent extends Component implements ICardComponent {
     cardElement.dataset.path = this.card.path;
     
     // 설정 가져오기
-    const settings = this.cardService.getSettings();
+    const settings = this.cardService.getSettingsService().getSettings();
     const layoutSettings = settings.layout || {
       cardMinHeight: 100,
       cardMaxHeight: 300
@@ -294,8 +343,31 @@ export class CardComponent extends Component implements ICardComponent {
     // CSS 변수 설정
     // 카드 크기 설정
     cardElement.style.setProperty('--card-width', `${settings.cardWidth || 250}px`);
-    cardElement.style.setProperty('--card-min-height', `${layoutSettings.cardMinHeight}px`);
-    cardElement.style.setProperty('--card-max-height', `${layoutSettings.cardMaxHeight}px`);
+    
+    // 카드 높이 설정 개선
+    const cardHeight = settings.cardHeight || 150;
+    const cardMinHeight = layoutSettings.cardMinHeight || 100;
+    const cardMaxHeight = layoutSettings.cardMaxHeight || 300;
+    
+    // 고정 높이 또는 최소/최대 높이 설정
+    if (typeof cardHeight === 'number' && cardHeight > 0) {
+      // 고정 높이 설정
+      cardElement.style.setProperty('--card-height', `${cardHeight}px`);
+      cardElement.style.setProperty('--card-min-height', `${cardHeight}px`);
+      cardElement.style.setProperty('--card-max-height', `${cardHeight}px`);
+      cardElement.classList.add('fixed-height');
+      
+      console.log('카드 고정 높이 설정:', cardHeight);
+    } else {
+      // 최소/최대 높이 설정
+      cardElement.style.setProperty('--card-height', 'auto');
+      cardElement.style.setProperty('--card-min-height', `${cardMinHeight}px`);
+      cardElement.style.setProperty('--card-max-height', `${cardMaxHeight}px`);
+      cardElement.classList.remove('fixed-height');
+      
+      console.log('카드 가변 높이 설정:', { 최소: cardMinHeight, 최대: cardMaxHeight });
+    }
+    
     cardElement.style.setProperty('--card-gap', `${settings.cardGap || 10}px`);
     
     // 카드 기본 스타일 설정
@@ -373,8 +445,11 @@ export class CardComponent extends Component implements ICardComponent {
       // 이벤트 버블링 방지
       event.stopPropagation();
       
+      // 카드 ID 가져오기
+      const cardId = this.getCardId();
+      
       // 카드 선택 이벤트 발생
-      this.interactionService.handleCardClick(this.card.getId(), event);
+      this.interactionService.handleCardClick(cardId, event);
     };
     
     // 더블 클릭 이벤트 리스너
@@ -382,8 +457,11 @@ export class CardComponent extends Component implements ICardComponent {
       // 이벤트 버블링 방지
       event.stopPropagation();
       
+      // 카드 ID 가져오기
+      const cardId = this.getCardId();
+      
       // 카드 더블 클릭 이벤트 발생
-      this.interactionService.handleCardDoubleClick(this.card.getId(), event);
+      this.interactionService.handleCardDoubleClick(cardId, event);
     };
     
     // 컨텍스트 메뉴 이벤트 리스너
@@ -392,20 +470,47 @@ export class CardComponent extends Component implements ICardComponent {
       event.stopPropagation();
       event.preventDefault();
       
+      // 카드 ID 가져오기
+      const cardId = this.getCardId();
+      
       // 카드 컨텍스트 메뉴 이벤트 발생
-      this.interactionService.handleCardContextMenu(this.card.getId(), event);
+      this.interactionService.handleCardContextMenu(cardId, event);
     };
     
     // 마우스 오버 이벤트 리스너
     this.element.onmouseenter = (event) => {
+      // 카드 ID 가져오기
+      const cardId = this.getCardId();
+      
       // 카드 마우스 오버 이벤트 발생
-      this.interactionService.handleCardMouseEnter(this.card.getId(), event);
+      this.interactionService.handleCardMouseEnter(cardId, event);
     };
     
     // 마우스 아웃 이벤트 리스너
     this.element.onmouseleave = (event) => {
+      // 카드 ID 가져오기
+      const cardId = this.getCardId();
+      
       // 카드 마우스 아웃 이벤트 발생
-      this.interactionService.handleCardMouseLeave(this.card.getId(), event);
+      this.interactionService.handleCardMouseLeave(cardId, event);
     };
+  }
+  
+  /**
+   * 카드 ID 가져오기
+   * @returns 카드 ID
+   */
+  private getCardId(): string {
+    return this.card.getId ? this.card.getId() : (this.card.id || this.card.path || '알 수 없음');
+  }
+  
+  /**
+   * 컴포넌트 렌더링
+   * @param container 컨테이너 요소 (선택 사항)
+   * @returns 생성된 컴포넌트 요소
+   */
+  async render(container?: HTMLElement): Promise<HTMLElement> {
+    // 기본 렌더링 로직 실행
+    return super.render(container);
   }
 } 

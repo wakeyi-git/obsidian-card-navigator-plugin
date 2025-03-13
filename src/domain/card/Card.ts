@@ -133,7 +133,7 @@ export type CardContentType = 'filename' | 'title' | 'firstheader' | 'content' |
  * 카드 렌더링 모드
  * 카드 렌더링 방식을 정의합니다.
  */
-export type CardRenderingMode = 'text' | 'html';
+export type CardRenderingMode = 'text' | 'html' | 'markdown';
 
 /**
  * 카드 스타일 인터페이스

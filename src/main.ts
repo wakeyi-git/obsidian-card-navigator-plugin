@@ -28,7 +28,11 @@ import { LayoutComponent } from './components/layout/LayoutComponent';
 import { NavigationComponent } from './components/navigation/NavigationComponent';
 import { DEFAULT_SETTINGS } from './domain/settings/DefaultSettings';
 
-export class CardNavigatorPlugin extends Plugin {
+/**
+ * 카드 네비게이터 플러그인
+ * 카드 형태로 노트를 탐색할 수 있는 플러그인입니다.
+ */
+export default class CardNavigatorPlugin extends Plugin {
   settings!: ICardNavigatorSettings;
   eventBus!: DomainEventBus;
   
@@ -61,8 +65,36 @@ export class CardNavigatorPlugin extends Plugin {
   // 뷰 타입
   static CARD_NAVIGATOR_VIEW = 'card-navigator';
 
+  view!: CardNavigatorView;
+  
+  /**
+   * 로그 출력 함수
+   * 디버그 모드에서만 로그를 출력합니다.
+   * @param message 로그 메시지
+   * @param args 추가 인자
+   */
+  log(message: string, ...args: any[]): void {
+    if (this.settings?.debugMode) {
+      console.log(`plugin:card-navigator: ${message}`, ...args);
+    }
+  }
+  
+  /**
+   * 에러 로그 출력 함수
+   * 항상 에러 로그를 출력합니다.
+   * @param message 에러 메시지
+   * @param args 추가 인자
+   */
+  logError(message: string, ...args: any[]): void {
+    console.error(`plugin:card-navigator: ${message}`, ...args);
+  }
+  
+  /**
+   * 플러그인 로드
+   */
   async onload() {
-    console.log('카드 네비게이터 플러그인 로드 중...');
+    // 로그 출력
+    this.log('카드 네비게이터 플러그인 로드 중...');
     
     // 이벤트 버스 초기화
     this.eventBus = new DomainEventBus();
@@ -301,7 +333,8 @@ export class CardNavigatorPlugin extends Plugin {
       this.sortingService,
       this.cardService,
       this.cardRenderingService,
-      this.interactionService
+      this.interactionService,
+      this.obsidianService
     );
     this.cardSetComponent.render(containerEl);
   }
@@ -358,7 +391,4 @@ export class CardNavigatorPlugin extends Plugin {
       })
     );
   }
-}
-
-// Obsidian 플러그인 시스템에서 사용할 기본 내보내기
-export default CardNavigatorPlugin; 
+} 

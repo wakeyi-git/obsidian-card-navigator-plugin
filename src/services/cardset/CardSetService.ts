@@ -267,51 +267,125 @@ export class CardSetService implements ICardSetService {
     
     // 고정된 카드셋이 아닌 경우에만 활성 파일 변경에 따라 카드셋 변경
     if (!settings.isCardSetFixed) {
+      // 이전 카드셋 ID 저장
+      const previousCardSetId = this.currentCardSet?.id;
+      
+      // 카드셋 새로고침
       await this.refreshCardSet();
       
-      // 이벤트 발생
-      const cardSet = this.currentCardSetSource === 'folder'
-        ? file?.parent?.path || ''
-        : this.getTagsFromFile(file).join(', ');
-      
-      this.eventBus.emit(EventType.CARDSET_CHANGED, {
-        cardSet,
-        sourceType: this.currentCardSetSource,
-        isFixed: false
-      });
+      // 카드셋이 실제로 변경된 경우에만 이벤트 발생
+      if (this.currentCardSet && previousCardSetId !== this.currentCardSet.id) {
+        // 이벤트 발생
+        const cardSet = this.currentCardSetSource === 'folder'
+          ? file?.parent?.path || ''
+          : this.getTagsFromFile(file).join(', ');
+        
+        console.log('활성 파일 변경으로 카드셋 변경됨:', previousCardSetId, '->', this.currentCardSet.id);
+        
+        this.eventBus.emit(EventType.CARDSET_CHANGED, {
+          cardSet,
+          sourceType: this.currentCardSetSource,
+          isFixed: false
+        });
+      } else {
+        console.log('활성 파일 변경되었으나 카드셋 ID 변경 없음, 이벤트 발생 생략');
+      }
     }
   }
   
   /**
    * 카드셋 새로고침
    */
-  private async refreshCardSet(): Promise<void> {
+  async refreshCardSet(): Promise<void> {
     try {
-      // 현재 소스 타입에 따라 카드셋 새로고침
+      console.log('카드셋 새로고침 시작');
+      console.log('현재 카드셋 소스:', this.currentCardSetSource);
+      
+      // 이전 카드셋 저장
+      const previousCardSet = this.currentCardSet;
+      const previousCardSetId = previousCardSet?.id;
+      const previousCardSetFiles = previousCardSet?.files?.length || 0;
+      
+      // 카드셋 소스에 따라 카드셋 새로고침
       switch (this.currentCardSetSource) {
         case 'folder':
+          console.log('폴더 카드셋 새로고침 시작');
           this.currentCardSet = await this.refreshFolderCardSet();
+          console.log('폴더 카드셋 새로고침 완료:', this.currentCardSet);
           break;
         case 'tag':
+          console.log('태그 카드셋 새로고침 시작');
           this.currentCardSet = await this.refreshTagCardSet();
+          console.log('태그 카드셋 새로고침 완료:', this.currentCardSet);
           break;
         case 'search':
+          console.log('검색 카드셋 새로고침 시작');
           this.currentCardSet = await this.refreshSearchCardSet();
+          console.log('검색 카드셋 새로고침 완료:', this.currentCardSet);
           break;
         default:
           // 기본값은 폴더 카드셋
+          console.log('기본 폴더 카드셋 새로고침 시작');
           this.currentCardSet = await this.refreshFolderCardSet();
+          console.log('기본 폴더 카드셋 새로고침 완료:', this.currentCardSet);
       }
       
-      // 카드셋 변경 이벤트 발생
-      if (this.currentCardSet) {
-        this.eventBus.emit(EventType.CARDS_CHANGED, {
-          cards: this.currentCardSet.files.map(file => this.obsidianService.getCardFromFile(file)),
-          totalCount: this.currentCardSet.files.length,
-          filteredCount: this.currentCardSet.files.length
+      // 중복 파일 제거
+      if (this.currentCardSet && this.currentCardSet.files && this.currentCardSet.files.length > 0) {
+        const uniqueFiles = new Map<string, TFile>();
+        
+        // 중복 제거를 위해 Map 사용
+        this.currentCardSet.files.forEach(file => {
+          uniqueFiles.set(file.path, file);
         });
         
+        // 중복 제거된 파일 배열로 변환
+        this.currentCardSet.files = Array.from(uniqueFiles.values());
+        
+        console.log('카드셋 파일 수(중복 제거 후):', this.currentCardSet.files.length);
+      }
+      
+      // 카드셋 변경 이벤트 발생 (카드셋이 변경된 경우에만)
+      if (this.currentCardSet) {
+        const currentCardSetFiles = this.currentCardSet.files.length;
+        console.log('카드셋 파일 수:', currentCardSetFiles);
+        
+        if (currentCardSetFiles > 0) {
+          console.log('첫 번째 파일:', this.currentCardSet.files[0].path);
+        } else {
+          console.log('카드셋에 파일이 없습니다.');
+        }
+        
+        // 카드셋 ID가 변경되었거나 파일 수가 변경된 경우에만 이벤트 발생
+        const isCardSetIdChanged = !previousCardSetId || previousCardSetId !== this.currentCardSet.id;
+        const isFileCountChanged = previousCardSetFiles !== currentCardSetFiles;
+        
+        if (isCardSetIdChanged || isFileCountChanged) {
+          if (isCardSetIdChanged) {
+            console.log('카드셋 ID 변경됨:', previousCardSetId, '->', this.currentCardSet.id);
+          }
+          
+          if (isFileCountChanged) {
+            console.log('카드셋 파일 수 변경됨:', previousCardSetFiles, '->', currentCardSetFiles);
+          }
+          
+          // 이벤트 발생 전 추가 검증
+          if (this.currentCardSet.id) {
+            this.eventBus.emit(EventType.CARDS_CHANGED, {
+              cards: this.currentCardSet.files.map(file => this.obsidianService.getCardFromFile(file)),
+              totalCount: currentCardSetFiles,
+              filteredCount: currentCardSetFiles
+            });
+          } else {
+            console.log('카드셋 ID가 없어 이벤트 발생 생략');
+          }
+        } else {
+          console.log('카드셋 ID와 파일 수 변경 없음, 이벤트 발생 생략');
+        }
+        
         console.log('카드셋 새로고침 완료:', this.currentCardSet);
+      } else {
+        console.log('카드셋이 null입니다.');
       }
     } catch (error) {
       console.error('카드셋 새로고침 오류:', error);
@@ -325,6 +399,8 @@ export class CardSetService implements ICardSetService {
         type: 'active',
         files: []
       };
+      
+      console.log('오류로 인해 빈 카드셋 생성:', this.currentCardSet);
     }
   }
   
@@ -333,28 +409,85 @@ export class CardSetService implements ICardSetService {
    * @returns 폴더 카드셋
    */
   private async refreshFolderCardSet(): Promise<ICardSet> {
+    console.log('폴더 카드셋 새로고침 시작');
+    
+    // 폴더 카드셋 소스가 있는 경우 해당 소스에서 카드셋 가져오기
     if (this.folderCardSet) {
+      console.log('폴더 카드셋 소스 사용');
       const cardSet = await (this.folderCardSet as any).getCardSet();
       return cardSet;
+    }
+    
+    // 설정에서 기본 폴더 카드셋 가져오기
+    const settings = this.settingsService.getSettings();
+    const defaultFolderCardSet = settings.defaultFolderCardSet;
+    const includeSubfolders = settings.includeSubfolders;
+    
+    console.log('설정 정보:', {
+      defaultFolderCardSet,
+      includeSubfolders,
+      isCardSetFixed: settings.isCardSetFixed
+    });
+    
+    // 고정된 카드셋이고 기본 폴더가 설정되어 있는 경우
+    if (settings.isCardSetFixed && defaultFolderCardSet) {
+      console.log('고정된 폴더 카드셋 사용:', defaultFolderCardSet);
+      const files = this.obsidianService.getMarkdownFilesInFolder(defaultFolderCardSet, includeSubfolders);
+      console.log('고정된 폴더에서 찾은 파일 수:', files.length);
+      
+      return {
+        id: `folder:${defaultFolderCardSet}`,
+        name: defaultFolderCardSet || '루트',
+        sourceType: 'folder',
+        source: defaultFolderCardSet,
+        type: 'fixed',
+        files: files
+      };
     }
     
     // 활성 파일의 폴더 가져오기
     const activeFile = this.obsidianService.getActiveFile();
     const folderPath = activeFile?.parent?.path || '';
     
+    console.log('활성 파일 정보:', {
+      activeFile: activeFile?.path,
+      folderPath: folderPath
+    });
+    
     // 활성 파일의 폴더가 있는 경우 해당 폴더의 카드셋 반환
     if (folderPath) {
+      console.log('활성 파일 폴더 카드셋 사용:', folderPath);
+      const files = this.obsidianService.getMarkdownFilesInFolder(folderPath, includeSubfolders);
+      console.log('활성 파일 폴더에서 찾은 파일 수:', files.length);
+      
       return {
         id: `folder:${folderPath}`,
         name: folderPath || '루트',
         sourceType: 'folder',
         source: folderPath,
         type: 'active',
-        files: this.obsidianService.getMarkdownFilesInFolder(folderPath, true)
+        files: files
       };
     }
     
-    // 활성 파일이 없는 경우 빈 카드셋 반환
+    // 활성 파일이 없는 경우 루트 폴더 사용
+    console.log('활성 파일이 없어 루트 폴더 사용');
+    const rootFiles = this.obsidianService.getMarkdownFilesInFolder('/', includeSubfolders);
+    console.log('루트 폴더에서 찾은 파일 수:', rootFiles.length);
+    
+    if (rootFiles.length > 0) {
+      return {
+        id: 'folder:/',
+        name: '/',
+        sourceType: 'folder',
+        source: '/',
+        type: 'active',
+        files: rootFiles
+      };
+    }
+    
+    // 파일이 없는 경우 빈 카드셋 반환
+    console.log('파일을 찾을 수 없어 빈 카드셋 반환');
     return {
       id: 'empty-folder',
       name: '빈 폴더 카드셋',
@@ -370,10 +503,131 @@ export class CardSetService implements ICardSetService {
    * @returns 태그 카드셋
    */
   private async refreshTagCardSet(): Promise<ICardSet> {
+    console.log('태그 카드셋 새로고침 시작');
+    
+    // 태그 카드셋 소스가 있는 경우 해당 소스에서 카드셋 가져오기
     if (this.tagCardSet) {
+      console.log('태그 카드셋 소스 사용');
       const cardSet = await (this.tagCardSet as any).getCardSet();
       return cardSet;
     }
+    
+    // 설정에서 기본 태그 카드셋 가져오기
+    const settings = this.settingsService.getSettings();
+    const defaultTagCardSet = settings.defaultTagCardSet;
+    const tagCaseSensitive = settings.tagCaseSensitive;
+    
+    console.log('태그 설정 정보:', {
+      defaultTagCardSet,
+      tagCaseSensitive,
+      isCardSetFixed: settings.isCardSetFixed
+    });
+    
+    // 고정된 카드셋이고 기본 태그가 설정되어 있는 경우
+    if (settings.isCardSetFixed && defaultTagCardSet) {
+      console.log('고정된 태그 카드셋 사용:', defaultTagCardSet);
+      
+      // 태그로 파일 필터링
+      const allFiles = this.obsidianService.getMarkdownFiles();
+      console.log('전체 마크다운 파일 수:', allFiles.length);
+      
+      const taggedFiles = allFiles.filter(file => {
+        const metadata = this.obsidianService.getMetadataCache().getFileCache(file);
+        if (!metadata) return false;
+        
+        // 프론트매터 태그 확인
+        const frontmatterTags = metadata.frontmatter?.tags || [];
+        const tags = Array.isArray(frontmatterTags) ? frontmatterTags : [frontmatterTags];
+        
+        // 인라인 태그 확인
+        const inlineTags = metadata.tags?.map(t => t.tag.substring(1)) || [];
+        
+        // 모든 태그 합치기
+        const allTags = [...tags, ...inlineTags];
+        
+        // 태그 비교 함수
+        const compareTag = tagCaseSensitive 
+          ? (tag: string) => tag === defaultTagCardSet
+          : (tag: string) => tag.toLowerCase() === defaultTagCardSet.toLowerCase();
+        
+        return allTags.some(compareTag);
+      });
+      
+      console.log('태그가 있는 파일 수:', taggedFiles.length);
+      
+      return {
+        id: `tag:${defaultTagCardSet}`,
+        name: `#${defaultTagCardSet}`,
+        sourceType: 'tag',
+        source: defaultTagCardSet,
+        type: 'fixed',
+        files: taggedFiles
+      };
+    }
+    
+    // 활성 파일의 태그 가져오기
+    const activeFile = this.obsidianService.getActiveFile();
+    console.log('활성 파일:', activeFile?.path);
+    
+    if (activeFile) {
+      const metadata = this.obsidianService.getMetadataCache().getFileCache(activeFile);
+      console.log('활성 파일 메타데이터:', metadata);
+      
+      if (metadata) {
+        // 프론트매터 태그 확인
+        const frontmatterTags = metadata.frontmatter?.tags || [];
+        const tags = Array.isArray(frontmatterTags) ? frontmatterTags : [frontmatterTags];
+        
+        // 인라인 태그 확인
+        const inlineTags = metadata.tags?.map(t => t.tag.substring(1)) || [];
+        
+        // 모든 태그 합치기
+        const allTags = [...tags, ...inlineTags];
+        console.log('활성 파일 태그:', allTags);
+        
+        if (allTags.length > 0) {
+          const firstTag = allTags[0];
+          console.log('첫 번째 태그 사용:', firstTag);
+          
+          // 태그로 파일 필터링
+          const allFiles = this.obsidianService.getMarkdownFiles();
+          const taggedFiles = allFiles.filter(file => {
+            const fileMetadata = this.obsidianService.getMetadataCache().getFileCache(file);
+            if (!fileMetadata) return false;
+            
+            // 프론트매터 태그 확인
+            const fileFrontmatterTags = fileMetadata.frontmatter?.tags || [];
+            const fileTags = Array.isArray(fileFrontmatterTags) ? fileFrontmatterTags : [fileFrontmatterTags];
+            
+            // 인라인 태그 확인
+            const fileInlineTags = fileMetadata.tags?.map(t => t.tag.substring(1)) || [];
+            
+            // 모든 태그 합치기
+            const fileAllTags = [...fileTags, ...fileInlineTags];
+            
+            // 태그 비교 함수
+            const compareTag = tagCaseSensitive 
+              ? (tag: string) => tag === firstTag
+              : (tag: string) => tag.toLowerCase() === firstTag.toLowerCase();
+            
+            return fileAllTags.some(compareTag);
+          });
+          
+          console.log('태그가 있는 파일 수:', taggedFiles.length);
+          
+          return {
+            id: `tag:${firstTag}`,
+            name: `#${firstTag}`,
+            sourceType: 'tag',
+            source: firstTag,
+            type: 'active',
+            files: taggedFiles
+          };
+        }
+      }
+    }
+    
+    console.log('태그를 찾을 수 없어 빈 카드셋 반환');
     return {
       id: 'empty-tag',
       name: '빈 태그 카드셋',

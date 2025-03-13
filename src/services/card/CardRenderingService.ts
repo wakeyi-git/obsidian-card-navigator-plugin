@@ -43,7 +43,17 @@ export interface ICardRenderingService {
    * @param renderingMode 렌더링 모드
    */
   renderContent(card: ICard, contentType: CardContentType, container: HTMLElement, renderingMode?: CardRenderingMode): void;
+  
+  /**
+   * 캐시 초기화
+   */
+  clearCache(): void;
 }
+
+// 캐시 키 생성 함수
+const createCacheKey = (cardId: string, contentType: string, renderingMode: string): string => {
+  return `${cardId}:${contentType}:${renderingMode}`;
+};
 
 /**
  * 카드 렌더링 서비스
@@ -53,6 +63,9 @@ export class CardRenderingService implements ICardRenderingService {
   private obsidianService: ObsidianService;
   private settingsService: ISettingsService;
   
+  // 콘텐츠 렌더링 결과 캐시
+  private contentCache: Map<string, string> = new Map();
+  
   /**
    * 생성자
    * @param obsidianService Obsidian 서비스
@@ -61,6 +74,13 @@ export class CardRenderingService implements ICardRenderingService {
   constructor(obsidianService: ObsidianService, settingsService: ISettingsService) {
     this.obsidianService = obsidianService;
     this.settingsService = settingsService;
+  }
+  
+  /**
+   * 캐시 초기화
+   */
+  clearCache(): void {
+    this.contentCache.clear();
   }
   
   /**
@@ -96,11 +116,8 @@ export class CardRenderingService implements ICardRenderingService {
     // 헤더 콘텐츠 렌더링
     const headerContent = card.displaySettings?.headerContent;
     
-    // 디버깅: 헤더 콘텐츠 타입 로깅
-    console.log('헤더 콘텐츠 타입:', headerContent);
-    
     if (headerContent) {
-      this.renderContent(card, headerContent, headerContainer, card.displaySettings?.renderingMode);
+      this.renderContent(card, headerContent, headerContainer);
     }
   }
   
@@ -146,11 +163,8 @@ export class CardRenderingService implements ICardRenderingService {
     // 본문 콘텐츠 렌더링
     const bodyContent = card.displaySettings?.bodyContent;
     
-    // 디버깅: 본문 콘텐츠 타입 로깅
-    console.log('본문 콘텐츠 타입:', bodyContent);
-    
     if (bodyContent) {
-      this.renderContent(card, bodyContent, bodyContainer, card.displaySettings?.renderingMode);
+      this.renderContent(card, bodyContent, bodyContainer);
     }
   }
   
@@ -180,11 +194,8 @@ export class CardRenderingService implements ICardRenderingService {
     // 푸터 콘텐츠 렌더링
     const footerContent = card.displaySettings?.footerContent;
     
-    // 디버깅: 푸터 콘텐츠 타입 로깅
-    console.log('푸터 콘텐츠 타입:', footerContent);
-    
     if (footerContent) {
-      this.renderContent(card, footerContent, footerContainer, card.displaySettings?.renderingMode);
+      this.renderContent(card, footerContent, footerContainer);
     }
   }
   
@@ -196,16 +207,41 @@ export class CardRenderingService implements ICardRenderingService {
    * @param renderingMode 렌더링 모드
    */
   renderContent(card: ICard, contentType: CardContentType, container: HTMLElement, renderingMode: CardRenderingMode = 'text'): void {
-    let content = '';
+    const cardId = card.getId ? card.getId() : (card.id || card.path || '알 수 없음');
+    const cacheKey = createCacheKey(cardId, contentType, renderingMode);
     
-    // 디버깅: 콘텐츠 타입 로깅
-    try {
-      const cardId = card.getId ? card.getId() : (card.id || card.path || '알 수 없음');
-      console.log(`카드 콘텐츠 렌더링 - 카드 ID: ${cardId}, 콘텐츠 타입: ${contentType}`);
-    } catch (error) {
-      console.error('카드 ID 가져오기 오류:', error);
-      console.log(`카드 콘텐츠 렌더링 - 카드 ID: ${card.id || card.path || '알 수 없음'}, 콘텐츠 타입: ${contentType}`);
+    // 캐시에서 콘텐츠 확인
+    let content = this.contentCache.get(cacheKey);
+    
+    // 캐시에 없는 경우 콘텐츠 생성
+    if (content === undefined) {
+      content = this.generateContent(card, contentType);
+      
+      // 캐시에 저장
+      this.contentCache.set(cacheKey, content);
     }
+    
+    // 콘텐츠 렌더링
+    if (renderingMode === 'markdown' && content) {
+      this.renderMarkdown(content, container, card.file);
+    } else {
+      container.setText(content || '');
+    }
+    
+    // 디버깅: 콘텐츠 결과 로깅 (개발 모드에서만)
+    if (this.settingsService.getSettings().debugMode) {
+      console.log(`카드 콘텐츠 결과 - 콘텐츠 타입: ${contentType}, 내용: ${content}`);
+    }
+  }
+  
+  /**
+   * 콘텐츠 생성
+   * @param card 카드
+   * @param contentType 콘텐츠 타입
+   * @returns 생성된 콘텐츠
+   */
+  private generateContent(card: ICard, contentType: CardContentType): string {
+    let content = '';
     
     // 콘텐츠 타입에 따라 내용 가져오기
     switch (contentType) {
@@ -250,17 +286,7 @@ export class CardRenderingService implements ICardRenderingService {
         }
     }
     
-    // 디버깅: 최종 콘텐츠 로깅
-    console.log(`카드 콘텐츠 결과 - 콘텐츠 타입: ${contentType}, 내용: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`);
-    
-    // 렌더링 모드에 따라 렌더링
-    if (renderingMode === 'html') {
-      // HTML 렌더링
-      this.renderMarkdown(content, container, card.file);
-    } else {
-      // 일반 텍스트 렌더링
-      container.setText(content);
-    }
+    return content;
   }
   
   /**

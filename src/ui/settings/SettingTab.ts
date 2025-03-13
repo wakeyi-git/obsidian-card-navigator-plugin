@@ -1,5 +1,5 @@
-import { App, PluginSettingTab } from 'obsidian';
-import { CardNavigatorPlugin } from '../../main';
+import { App, PluginSettingTab, Setting } from 'obsidian';
+import CardNavigatorPlugin from '../../main';
 import { CardSection } from './CardSection';
 import { CardHeaderSection } from './CardHeaderSection';
 import { CardBodySection } from './CardBodySection';
@@ -161,6 +161,22 @@ export class SettingTab extends PluginSettingTab {
     if (cardGeneralSection) {
       cardGeneralSection.display(cardGeneralSectionContainer);
     }
+    
+    // 고급 설정 섹션 추가
+    const advancedSettingsContainer = settingsContainer.createDiv({ cls: 'card-navigator-section-container' });
+    advancedSettingsContainer.createEl('h2', { text: '고급 설정' });
+    
+    // 디버그 모드 설정 추가
+    new Setting(advancedSettingsContainer)
+      .setName('디버그 모드')
+      .setDesc('개발 중 디버깅을 위한 로그를 출력합니다.')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.debugMode || false)
+        .onChange(async (value) => {
+          this.plugin.settings.debugMode = value;
+          await this.plugin.saveSettings();
+        })
+      );
   }
   
   /**

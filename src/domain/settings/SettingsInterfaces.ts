@@ -19,6 +19,7 @@ export interface ICardNavigatorSettings {
   defaultSearchScope?: 'all' | 'current';
   tagCaseSensitive?: boolean;
   useLastCardSetSourceOnLoad?: boolean;
+  debugMode?: boolean;
   
   // 마지막 상태 저장
   lastCardSetSource?: CardSetSourceType;
@@ -333,6 +334,12 @@ export interface IPluginSettings {
    * 레이아웃 설정
    */
   layout: ILayoutSettings;
+  
+  /**
+   * 디버그 모드 활성화 여부
+   * 개발 중 디버깅을 위한 로그 출력 여부를 결정합니다.
+   */
+  debugMode: boolean;
   
   // ... existing code ...
 } 

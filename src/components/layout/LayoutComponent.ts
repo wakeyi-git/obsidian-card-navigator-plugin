@@ -52,6 +52,9 @@ export class LayoutComponent extends Component implements ILayoutComponent {
   private boundHandleLayoutChanged: () => void;
   private boundHandleCardSetChanged: () => void;
   private boundHandleWindowResize: () => void;
+  
+  // 이벤트 리스너 등록 상태 추적
+  private eventListenersRegistered = false;
 
   /**
    * 생성자
@@ -235,9 +238,11 @@ export class LayoutComponent extends Component implements ILayoutComponent {
   /**
    * 컴포넌트 렌더링
    * @param container 컨테이너 요소
+   * @returns 생성된 컴포넌트 요소
    */
-  async render(container: HTMLElement): Promise<void> {
-    await super.render(container);
+  async render(container?: HTMLElement): Promise<HTMLElement> {
+    // 기본 렌더링 로직 실행
+    const element = await super.render(container);
     
     // ResizeObserver 설정
     if (this.element) {
@@ -253,6 +258,8 @@ export class LayoutComponent extends Component implements ILayoutComponent {
     
     // 이벤트 리스너 등록
     this.registerEventListeners();
+    
+    return element;
   }
   
   /**
@@ -288,8 +295,8 @@ export class LayoutComponent extends Component implements ILayoutComponent {
    * 이벤트 리스너 등록
    */
   registerEventListeners(): void {
-    // 이벤트 리스너가 중복 등록되지 않도록 먼저 제거
-    this.removeEventListeners();
+    // 이미 등록된 경우 중복 등록 방지
+    if (this.eventListenersRegistered) return;
     
     // 레이아웃 변경 이벤트 리스너 등록
     this.eventBus.on(EventType.LAYOUT_CHANGED, this.boundHandleLayoutChanged);
@@ -300,13 +307,17 @@ export class LayoutComponent extends Component implements ILayoutComponent {
     // 윈도우 리사이즈 이벤트 리스너 등록
     window.addEventListener('resize', this.boundHandleWindowResize);
     
-    console.log('레이아웃 컴포넌트 이벤트 리스너 등록 완료');
+    // 이벤트 리스너 등록 상태 업데이트
+    this.eventListenersRegistered = true;
   }
   
   /**
    * 이벤트 리스너 제거
    */
   removeEventListeners(): void {
+    // 등록되지 않은 경우 무시
+    if (!this.eventListenersRegistered) return;
+    
     // 레이아웃 변경 이벤트 리스너 제거
     this.eventBus.off(EventType.LAYOUT_CHANGED, this.boundHandleLayoutChanged);
     
@@ -316,7 +327,8 @@ export class LayoutComponent extends Component implements ILayoutComponent {
     // 윈도우 리사이즈 이벤트 리스너 제거
     window.removeEventListener('resize', this.boundHandleWindowResize);
     
-    console.log('레이아웃 컴포넌트 이벤트 리스너 제거 완료');
+    // 이벤트 리스너 등록 상태 업데이트
+    this.eventListenersRegistered = false;
   }
   
   /**
@@ -373,7 +385,7 @@ export class LayoutComponent extends Component implements ILayoutComponent {
     if (!needsRecalculation) return;
     
     // 레이아웃 계산
-    const layoutInfo = this.layoutService.calculateLayout(
+    const layoutInfo = this.calculateLayout(
       this.containerWidth,
       this.containerHeight,
       itemCount
@@ -412,5 +424,65 @@ export class LayoutComponent extends Component implements ILayoutComponent {
     
     // 그 외의 경우 재계산 불필요
     return false;
+  }
+  
+  /**
+   * 레이아웃 계산
+   * @param containerWidth 컨테이너 너비
+   * @param containerHeight 컨테이너 높이
+   * @param itemCount 아이템 수
+   * @returns 레이아웃 정보
+   */
+  private calculateLayout(containerWidth: number, containerHeight: number, itemCount: number): ILayoutInfo {
+    return this.memoize('calculateLayout', (width, height, count) => {
+      // 레이아웃 타입 가져오기
+      const layoutType = this.layoutService.getLayoutType();
+      
+      // 레이아웃 방향 가져오기
+      const direction = this.layoutService.getLayoutDirection();
+      
+      // 스크롤 방향 가져오기
+      const scrollDirection = this.layoutService.getScrollDirection();
+      
+      // 카드 너비 가져오기
+      const cardWidth = this.layoutService.getCardWidth();
+      
+      // 카드 높이 가져오기
+      const cardHeight = this.layoutService.getCardHeight();
+      
+      // 카드 간격 가져오기
+      const cardGap = this.layoutService.getCardGap();
+      
+      // 열 수 계산
+      const columns = Math.max(1, Math.floor((width + cardGap) / (cardWidth + cardGap)));
+      
+      // 행 수 계산
+      const rows = Math.max(1, Math.ceil(count / columns));
+      
+      return {
+        columns,
+        rows,
+        itemWidth: cardWidth,
+        itemHeight: cardHeight,
+        fixedHeight: layoutType === 'grid',
+        direction,
+        scrollDirection,
+        itemCount: count,
+        containerWidth: width,
+        containerHeight: height,
+        settings: {
+          fixedCardHeight: layoutType === 'grid',
+          layoutDirectionPreference: direction,
+          cardMinWidth: cardWidth,
+          cardMaxWidth: cardWidth,
+          cardMinHeight: cardHeight,
+          cardMaxHeight: cardHeight,
+          cardGap,
+          cardsetPadding: 10,
+          cardSizeFactor: 1,
+          useLayoutTransition: true
+        }
+      };
+    }, containerWidth, containerHeight, itemCount);
   }
 } 

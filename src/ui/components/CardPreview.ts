@@ -1,4 +1,4 @@
-import { CardNavigatorPlugin } from '../../main';
+import CardNavigatorPlugin from '../../main';
 import { CardContentType } from '../../domain/card/Card';
 
 /**

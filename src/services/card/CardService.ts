@@ -32,16 +32,16 @@ export interface ICardService extends ICardManager {
   createCardFromFile(file: TFile): Promise<ICard>;
   
   /**
-   * 설정 가져오기
-   * @returns 플러그인 설정
-   */
-  getSettings(): any;
-  
-  /**
    * 이벤트 버스 가져오기
    * @returns 이벤트 버스
    */
   getEventBus(): DomainEventBus;
+  
+  /**
+   * 설정 서비스 가져오기
+   * @returns 설정 서비스
+   */
+  getSettingsService(): ISettingsService;
 }
 
 /**
@@ -390,19 +390,19 @@ export class CardService implements ICardService {
   }
   
   /**
-   * 설정 가져오기
-   * @returns 플러그인 설정
-   */
-  getSettings(): any {
-    return this.settingsService.getSettings();
-  }
-  
-  /**
    * 이벤트 버스 가져오기
    * @returns 이벤트 버스
    */
   getEventBus(): DomainEventBus {
     return this.eventBus;
+  }
+  
+  /**
+   * 설정 서비스 가져오기
+   * @returns 설정 서비스
+   */
+  getSettingsService(): ISettingsService {
+    return this.settingsService;
   }
   
   /**

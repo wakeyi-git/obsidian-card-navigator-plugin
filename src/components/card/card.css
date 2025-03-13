@@ -2,26 +2,44 @@
 .card-navigator-card {
   position: relative;
   width: var(--card-width, 250px);
-  height: 100%;
   min-height: var(--card-min-height, 100px);
-  border-width: var(--card-border-width, 1px);
+  max-height: var(--card-max-height, 300px);
+  margin: var(--card-margin, 5px);
+  padding: var(--card-padding, 10px);
+  background-color: var(--card-bg-color, var(--background-primary));
   border-style: var(--card-border-style, solid);
   border-color: var(--card-border-color, var(--background-modifier-border));
+  border-width: var(--card-border-width, 1px);
   border-radius: var(--card-border-radius, 5px);
-  background-color: var(--card-bg-color, var(--background-primary));
-  overflow: hidden;
+  box-shadow: var(--card-box-shadow, 0 2px 5px rgba(0, 0, 0, 0.1));
   transition: all 0.2s ease;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   box-sizing: border-box;
 }
 
+/* 고정 높이 카드 스타일 */
+.card-navigator-card.fixed-height {
+  height: var(--card-height, auto);
+  min-height: var(--card-min-height, 100px);
+  max-height: var(--card-max-height, 300px);
+}
+
+/* 자동 높이 카드 스타일 */
+.card-navigator-card:not(.fixed-height) {
+  height: auto;
+  min-height: var(--card-min-height, 100px);
+  max-height: var(--card-max-height, 300px);
+}
+
+/* 카드 호버 스타일 */
 .card-navigator-card:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
-  border-color: var(--card-hover-border-color, var(--interactive-accent));
   background-color: var(--card-hover-bg-color, var(--background-primary-alt));
+  border-color: var(--card-hover-border-color, var(--interactive-accent));
+  transform: translateY(-2px);
+  box-shadow: var(--card-hover-box-shadow, 0 4px 8px rgba(0, 0, 0, 0.15));
+  z-index: 1;
 }
 
 .card-navigator-card.selected {

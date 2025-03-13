@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
   defaultSearchScope: 'current',
   tagCaseSensitive: false,
   useLastCardSetSourceOnLoad: true,
+  debugMode: false,
   
   // 카드 설정
   cardWidth: 250,

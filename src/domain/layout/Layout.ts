@@ -6,7 +6,7 @@ export type LayoutType = 'grid' | 'masonry';
 /**
  * 레이아웃 방향 정의
  */
-export type LayoutDirection = 'horizontal' | 'vertical';
+export type LayoutDirection = 'horizontal' | 'vertical' | 'auto';
 
 /**
  * 스크롤 방향 정의
