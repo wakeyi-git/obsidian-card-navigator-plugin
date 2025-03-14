@@ -742,6 +742,21 @@ export interface SettingsTabChangedEventData {
 }
 
 /**
+ * 설정 프리셋 적용 이벤트 데이터 인터페이스
+ */
+export interface SettingsPresetAppliedEventData {
+  /**
+   * 프리셋 이름
+   */
+  presetName: string;
+  
+  /**
+   * 설정 데이터
+   */
+  settings: any;
+}
+
+/**
  * 이벤트 타입 열거형
  */
 export enum EventType {
@@ -785,6 +800,7 @@ export enum EventType {
   SETTINGS_UI_CHANGED = 'settings-ui-changed',
   SETTINGS_PREVIEW_UPDATE = 'settings-preview-update',
   SETTINGS_TAB_CHANGED = 'settings-tab-changed',
+  SETTINGS_PRESET_APPLIED = 'settings-preset-applied',
   
   // 플러그인 관련 이벤트
   PLUGIN_LOADED = 'pluginLoaded',
@@ -886,6 +902,7 @@ export interface EventDataMap {
   [EventType.SEARCH_RESULTS_CHANGED]: any;
   [EventType.SEARCH_HISTORY_CHANGED]: any;
   [EventType.SETTINGS_TAB_CHANGED]: SettingsTabChangedEventData;
+  [EventType.SETTINGS_PRESET_APPLIED]: SettingsPresetAppliedEventData;
   
   // 인덱스 시그니처 추가
   [key: string]: any;

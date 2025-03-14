@@ -1,4 +1,4 @@
-import { ICardNavigatorSettings } from './SettingsInterfaces';
+import { ICardNavigatorSettings, LayoutDirectionPreference } from './SettingsInterfaces';
 import { NavigationMode } from '../navigation';
 
 /**
@@ -121,13 +121,38 @@ export const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
   maxSearchHistory: 10,
   navigationMode: 'grid' as NavigationMode,
   selectionMode: 'single',
-  dragMode: 'copy',
+  dragMode: 'none',
   
   // 미리보기 설정
   showHeader: true,
   showFooter: true,
   bodyMaxLength: 200,
   borderRadius: 5,
+  
+  // 상호작용 설정
+  clickAction: 'select',
+  doubleClickAction: 'open',
+  rightClickAction: 'menu',
+  hoverEffect: 'highlight',
+  enableKeyboardNavigation: true,
+  autoFocus: true,
+  
+  // 프리셋 설정
+  activePreset: 'default',
+  
+  // 레이아웃 설정
+  layout: {
+    fixedCardHeight: true,
+    layoutDirectionPreference: LayoutDirectionPreference.AUTO,
+    cardMinWidth: 200,
+    cardMaxWidth: 400,
+    cardMinHeight: 150,
+    cardMaxHeight: 600,
+    cardGap: 10,
+    cardsetPadding: 10,
+    cardSizeFactor: 1.0,
+    useLayoutTransition: true
+  },
 }; 
 
 // 디버깅: 기본 설정 값 로깅

@@ -25,6 +25,12 @@ export interface ISettingSection {
    * @param containerEl 컨테이너 요소
    */
   display(containerEl: HTMLElement): void;
+  
+  /**
+   * 섹션 언로드
+   * 이벤트 리스너 등 정리 작업을 수행합니다.
+   */
+  unload?(): void;
 }
 
 /**
@@ -122,5 +128,14 @@ export abstract class BaseSettingSection implements ISettingSection {
     return new Setting(containerEl)
       .setName(name)
       .setDesc(desc);
+  }
+  
+  /**
+   * 섹션 언로드
+   * 이벤트 리스너 등 정리 작업을 수행합니다.
+   */
+  unload(): void {
+    // 기본 언로드 구현
+    // 하위 클래스에서 필요에 따라 오버라이드
   }
 } 

@@ -350,6 +350,18 @@ export class LayoutService implements ILayoutService {
     container.style.setProperty('--card-padding', `${layoutSettings.cardsetPadding}px`);
     container.style.setProperty('--card-size-factor', layoutSettings.cardSizeFactor.toString());
     
+    // 레이아웃 타입에 따른 클래스 설정
+    container.classList.remove('layout-grid', 'layout-masonry');
+    container.classList.add(layoutInfo.fixedHeight ? 'layout-grid' : 'layout-masonry');
+    
+    // 레이아웃 방향에 따른 클래스 설정
+    container.classList.remove('direction-horizontal', 'direction-vertical');
+    container.classList.add(`direction-${layoutInfo.direction}`);
+    
+    // 스크롤 방향에 따른 클래스 설정
+    container.classList.remove('scroll-horizontal', 'scroll-vertical');
+    container.classList.add(`scroll-${layoutInfo.scrollDirection}`);
+    
     // 디버깅 정보 출력
     console.log('CSS 변수 적용:', {
       columns: layoutInfo.columns,

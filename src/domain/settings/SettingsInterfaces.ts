@@ -148,8 +148,14 @@ export interface ICardNavigatorSettings {
   navigationMode?: NavigationMode;
   
   // 상호작용 설정
-  selectionMode?: SelectionMode;
+  selectionMode?: 'single' | 'multiple';
   dragMode?: 'none' | 'move' | 'copy';
+  clickAction?: 'select' | 'open' | 'preview';
+  doubleClickAction?: 'open' | 'preview' | 'none';
+  rightClickAction?: 'menu' | 'select' | 'none';
+  hoverEffect?: 'highlight' | 'zoom' | 'none';
+  enableKeyboardNavigation?: boolean;
+  autoFocus?: boolean;
   
   // 우선 순위 설정
   priorityTags?: string[];
@@ -160,6 +166,8 @@ export interface ICardNavigatorSettings {
   folderPresetMappings?: {folder: string, presetId: string}[];
   tagPresetMappings?: {tag: string, presetId: string}[];
   presetPriorities?: {id: string, type: 'folder' | 'tag', target: string}[];
+  activePreset?: string;
+  customPreset?: Partial<ICardNavigatorSettings>;
   
   // 검색 히스토리 설정
   searchHistory?: string[];

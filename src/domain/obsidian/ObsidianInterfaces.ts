@@ -1,6 +1,26 @@
 import { App, TFile, TFolder, CachedMetadata, Workspace, Vault, MetadataCache, EventRef } from 'obsidian';
 
 /**
+ * Obsidian 서비스 인터페이스
+ * Obsidian 관련 기능을 제공하는 통합 인터페이스입니다.
+ */
+export interface IObsidianService extends IObsidianApp, IVault, IWorkspace, IMetadataCache {
+  /**
+   * 파일 내용 읽기
+   * @param file 파일 객체
+   * @returns 파일 내용
+   */
+  readFile(file: TFile): Promise<string>;
+  
+  /**
+   * 파일 캐시 가져오기
+   * @param file 파일 객체
+   * @returns 파일 캐시 메타데이터
+   */
+  getFileCache(file: TFile): Promise<CachedMetadata>;
+}
+
+/**
  * Obsidian 앱 인터페이스
  * Obsidian 앱의 주요 기능을 추상화합니다.
  */

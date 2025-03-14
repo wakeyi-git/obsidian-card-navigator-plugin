@@ -21,8 +21,14 @@ export class CardSetSection extends BaseSettingSection {
    * @param containerEl 컨테이너 요소
    */
   display(containerEl: HTMLElement): void {
+
+    // 섹션 제목
     containerEl.createEl('h3', { text: '카드셋 설정' });
-    
+    containerEl.createEl('p', { 
+      text: '카드셋 관련 설정을 구성합니다. 카드셋 소스와 기본 카드셋 등을 설정할 수 있습니다.',
+      cls: 'setting-item-description'
+    });
+
     // 기본 카드셋 소스 설정
     this.createSetting(containerEl, '기본 카드셋 소스', '플러그인 로드 시 사용할 기본 카드셋 소스를 설정합니다.')
       .addDropdown(dropdown => dropdown

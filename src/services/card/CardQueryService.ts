@@ -24,51 +24,51 @@ interface ICardCreator {
  */
 export interface ICardQueryService {
   /**
-   * 모든 카드 가져오기
+   * 모든 카드를 가져옵니다.
    * @returns 카드 배열
    */
-  getCards(): Promise<ICard[]>;
+  getCards(): ICard[];
   
   /**
-   * 현재 카드 가져오기
-   * @returns 현재 카드 배열
+   * 현재 카드 세트의 카드를 가져옵니다.
+   * @returns 카드 배열
    */
   getCurrentCards(): ICard[];
   
   /**
-   * 카드 가져오기
+   * ID로 카드를 가져옵니다.
    * @param id 카드 ID
    * @returns 카드 또는 undefined
    */
-  getCardById(id: string): Promise<ICard | undefined>;
+  getCardById(id: string): ICard | undefined;
   
   /**
-   * 경로로 카드 가져오기
-   * @param path 파일 경로
-   * @returns 카드 또는 null
+   * 경로로 카드를 가져옵니다.
+   * @param path 카드 경로
+   * @returns 카드 또는 undefined
    */
-  getCardByPath(path: string): Promise<ICard | null>;
+  getCardByPath(path: string): ICard | undefined;
   
   /**
-   * 태그로 카드 필터링
+   * 태그로 카드를 필터링합니다.
    * @param tag 태그
    * @returns 필터링된 카드 배열
    */
-  filterCardsByTag(tag: string): Promise<ICard[]>;
+  filterCardsByTag(tag: string): ICard[];
   
   /**
-   * 폴더로 카드 필터링
+   * 폴더로 카드를 필터링합니다.
    * @param folder 폴더 경로
    * @returns 필터링된 카드 배열
    */
-  filterCardsByFolder(folder: string): Promise<ICard[]>;
+  filterCardsByFolder(folder: string): ICard[];
   
   /**
-   * 텍스트로 카드 검색
+   * 텍스트로 카드를 검색합니다.
    * @param text 검색 텍스트
    * @returns 검색된 카드 배열
    */
-  searchCardsByText(text: string): Promise<ICard[]>;
+  searchCardsByText(text: string): ICard[];
   
   /**
    * 카드 저장소 새로고침
@@ -87,7 +87,8 @@ export class CardQueryService implements ICardQueryService {
   private settingsService: ISettingsService;
   private eventBus: DomainEventBus;
   
-  private cards: ICard[] = [];
+  private allCards: ICard[] = [];
+  private currentCards: ICard[] = [];
   
   /**
    * 생성자
@@ -127,22 +128,19 @@ export class CardQueryService implements ICardQueryService {
   }
   
   /**
-   * 모든 카드 가져오기
+   * 모든 카드를 가져옵니다.
    * @returns 카드 배열
    */
-  async getCards(): Promise<ICard[]> {
-    if (this.cards.length === 0) {
-      await this.refreshCards();
-    }
-    return this.cards;
+  getCards(): ICard[] {
+    return this.allCards;
   }
   
   /**
-   * 현재 카드 가져오기
-   * @returns 현재 카드 배열
+   * 현재 카드 세트의 카드를 가져옵니다.
+   * @returns 카드 배열
    */
   getCurrentCards(): ICard[] {
-    return this.cards;
+    return this.currentCards;
   }
   
   /**
@@ -157,15 +155,15 @@ export class CardQueryService implements ICardQueryService {
       const files = this.obsidianService.getMarkdownFiles();
       
       // 파일로부터 카드 생성
-      this.cards = await Promise.all(files.map(file => this.cardCreator.createCardFromFile(file)));
+      this.allCards = await Promise.all(files.map(file => this.cardCreator.createCardFromFile(file)));
       
-      console.log(`카드 저장소 새로고침 완료: ${this.cards.length}개의 카드 생성됨`);
+      console.log(`카드 저장소 새로고침 완료: ${this.allCards.length}개의 카드 생성됨`);
       
       // 카드 변경 이벤트 발생
       this.eventBus.emit(EventType.CARDS_CHANGED, {
-        cards: this.cards,
-        totalCount: this.cards.length,
-        filteredCount: this.cards.length
+        cards: this.allCards,
+        totalCount: this.allCards.length,
+        filteredCount: this.allCards.length
       });
     } catch (error) {
       console.error('카드 저장소 새로고침 오류:', error);
@@ -173,81 +171,99 @@ export class CardQueryService implements ICardQueryService {
   }
   
   /**
-   * 카드 가져오기
+   * ID로 카드를 가져옵니다.
    * @param id 카드 ID
    * @returns 카드 또는 undefined
    */
-  async getCardById(id: string): Promise<ICard | undefined> {
-    const cards = await this.getCards();
-    return cards.find(card => card.getId() === id);
+  getCardById(id: string): ICard | undefined {
+    return this.allCards.find(card => card.getId() === id);
   }
   
   /**
-   * 경로로 카드 가져오기
-   * @param path 파일 경로
-   * @returns 카드 또는 null
+   * 경로로 카드를 가져옵니다.
+   * @param path 카드 경로
+   * @returns 카드 또는 undefined
    */
-  async getCardByPath(path: string): Promise<ICard | null> {
-    try {
-      const file = this.obsidianService.getVault().getAbstractFileByPath(path);
-      if (file instanceof TFile) {
-        // 파일로부터 카드 생성
-        return await this.cardCreator.createCardFromFile(file);
-      }
-    } catch (error) {
-      console.error('카드 가져오기 오류:', error);
-    }
-    return null;
+  getCardByPath(path: string): ICard | undefined {
+    return this.allCards.find(card => card.path === path);
   }
   
   /**
-   * 태그로 카드 필터링
+   * 태그로 카드를 필터링합니다.
    * @param tag 태그
    * @returns 필터링된 카드 배열
    */
-  async filterCardsByTag(tag: string): Promise<ICard[]> {
-    const cards = await this.getCards();
-    return cards.filter(card => {
-      const cardTags = card.tags || [];
-      return cardTags.includes(tag);
+  filterCardsByTag(tag: string): ICard[] {
+    if (!tag) {
+      return this.allCards;
+    }
+
+    // 태그 앞에 #이 있는 경우 제거
+    const normalizedTag = tag.startsWith('#') ? tag.substring(1) : tag;
+
+    return this.allCards.filter(card => {
+      if (!card.tags) {
+        return false;
+      }
+
+      return card.tags.some(cardTag => {
+        // 태그 앞에 #이 있는 경우 제거
+        const normalizedCardTag = cardTag.startsWith('#') ? cardTag.substring(1) : cardTag;
+        return normalizedCardTag.toLowerCase() === normalizedTag.toLowerCase();
+      });
     });
   }
   
   /**
-   * 폴더로 카드 필터링
+   * 폴더로 카드를 필터링합니다.
    * @param folder 폴더 경로
    * @returns 필터링된 카드 배열
    */
-  async filterCardsByFolder(folder: string): Promise<ICard[]> {
-    const cards = await this.getCards();
-    return cards.filter(card => {
+  filterCardsByFolder(folder: string): ICard[] {
+    if (!folder) {
+      return this.allCards;
+    }
+
+    return this.allCards.filter(card => {
       const filePath = card.path;
+      if (!filePath) {
+        return false;
+      }
+      
       return filePath.startsWith(folder);
     });
   }
   
   /**
-   * 텍스트로 카드 검색
+   * 텍스트로 카드를 검색합니다.
    * @param text 검색 텍스트
    * @returns 검색된 카드 배열
    */
-  async searchCardsByText(text: string): Promise<ICard[]> {
-    const cards = await this.getCards();
-    const searchLower = text.toLowerCase();
-    
-    return cards.filter(card => {
+  searchCardsByText(text: string): ICard[] {
+    if (!text) {
+      return this.allCards;
+    }
+
+    const searchText = text.toLowerCase();
+
+    return this.allCards.filter(card => {
       // 제목 검색
-      if (card.title && card.title.toLowerCase().includes(searchLower)) {
+      if (card.title && card.title.toLowerCase().includes(searchText)) {
         return true;
       }
       
       // 내용 검색
-      if (card.content && card.content.toLowerCase().includes(searchLower)) {
+      if (card.content && card.content.toLowerCase().includes(searchText)) {
         return true;
       }
       
       // 태그 검색
-      if (card.tags && card.tags.some(tag => tag.toLowerCase().includes(searchLower))) {
+      if (card.tags && card.tags.some(tag => tag.toLowerCase().includes(searchText))) {
+        return true;
+      }
+      
+      // 경로 검색
+      if (card.path && card.path.toLowerCase().includes(searchText)) {
         return true;
       }
       

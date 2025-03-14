@@ -121,7 +121,11 @@ export class CardService implements ICardService {
     
     // 서비스 초기화
     this.cardCreationService = new CardCreationService(obsidianService, settingsService, eventBus);
-    this.cardInteractionService = new CardInteractionService(obsidianService, settingsService, eventBus);
+    this.cardInteractionService = new CardInteractionService(
+      obsidianService,
+      settingsService,
+      eventBus
+    );
     this.cardQueryService = new CardQueryService(this, obsidianService, settingsService, eventBus);
     
     // 이벤트 리스너 등록
@@ -179,7 +183,8 @@ export class CardService implements ICardService {
    * @returns 카드 또는 null
    */
   async getCardByPath(path: string): Promise<ICard | null> {
-    return this.cardQueryService.getCardByPath(path);
+    const card = this.cardQueryService.getCardByPath(path);
+    return card || null;
   }
   
   /**
@@ -251,10 +256,9 @@ export class CardService implements ICardService {
   
   /**
    * 카드 비활성화
-   * @param card 카드
    */
-  deactivateCard(card: ICard): void {
-    this.cardInteractionService.deactivateCard(card);
+  deactivateCard(): void {
+    this.cardInteractionService.deactivateCard();
   }
   
   /**
@@ -267,10 +271,9 @@ export class CardService implements ICardService {
   
   /**
    * 카드 포커스 해제
-   * @param card 카드
    */
-  unfocusCard(card: ICard): void {
-    this.cardInteractionService.unfocusCard(card);
+  unfocusCard(): void {
+    this.cardInteractionService.unfocusCard();
   }
   
   /**
@@ -295,7 +298,8 @@ export class CardService implements ICardService {
    * @returns 활성 카드 또는 null
    */
   getActiveCard(): ICard | null {
-    return this.cardInteractionService.getActiveCard();
+    const activeCard = this.cardInteractionService.getActiveCard();
+    return activeCard || null;
   }
   
   /**
@@ -303,7 +307,8 @@ export class CardService implements ICardService {
    * @returns 포커스 카드 또는 null
    */
   getFocusedCard(): ICard | null {
-    return this.cardInteractionService.getFocusedCard();
+    const focusedCard = this.cardInteractionService.getFocusedCard();
+    return focusedCard || null;
   }
   
   /**

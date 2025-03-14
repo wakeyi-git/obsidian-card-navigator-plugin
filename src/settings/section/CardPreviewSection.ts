@@ -14,14 +14,9 @@ import { ICardNavigatorSettings } from '../../domain/settings/SettingsInterfaces
  * 카드 미리보기 섹션
  * 카드 미리보기를 표시하는 섹션입니다.
  */
-export class CardPreviewSection implements SettingSection {
+export class CardPreviewSection extends SettingSection {
   private plugin: CardNavigatorPlugin;
-  private eventBus: DomainEventBus;
-  private settingsService: ISettingsService;
   private settings: ICardNavigatorSettings;
-  
-  // 컨테이너 요소
-  public containerEl: HTMLElement;
   
   // 미리보기 요소
   private cardPreview: CardPreview | null = null;
@@ -40,15 +35,69 @@ export class CardPreviewSection implements SettingSection {
   
   /**
    * 생성자
+   * @param containerEl 컨테이너 요소
+   * @param settingsService 설정 서비스
+   * @param eventBus 이벤트 버스
    * @param plugin 플러그인 인스턴스
    */
-  constructor(plugin: CardNavigatorPlugin) {
+  constructor(
+    containerEl: HTMLElement,
+    settingsService: ISettingsService,
+    eventBus: DomainEventBus,
+    plugin: CardNavigatorPlugin
+  ) {
+    super(containerEl, settingsService, eventBus);
     this.plugin = plugin;
-    this.eventBus = plugin.eventBus;
-    this.settingsService = plugin.settingsService;
     this.settings = this.settingsService.getSettings();
-    this.containerEl = document.createElement('div');
-    this.containerEl.addClass('card-navigator-preview-section-container');
+  }
+  
+  /**
+   * 섹션 초기화
+   */
+  initialize(): void {
+    // 초기화 로직
+  }
+  
+  /**
+   * 설정 표시
+   */
+  displayContent(): void {
+    this.containerEl.empty();
+    
+    // 미리보기 섹션 컨테이너 생성
+    const previewSectionContainer = this.containerEl.createDiv({ cls: 'card-navigator-preview-section' });
+    
+    // 미리보기 카드 생성
+    this.previewContainer = previewSectionContainer.createDiv();
+    this.createCardPreview(this.previewContainer);
+    
+    // 설정 컨테이너 생성
+    const settingsContainer = this.containerEl.createDiv({ cls: 'card-navigator-component-settings' });
+    
+    // 헤더 설정 컨테이너
+    this.headerSettingsContainer = settingsContainer.createDiv();
+    this.headerSettingsContainer.style.display = 'none';
+    
+    // 바디 설정 컨테이너
+    this.bodySettingsContainer = settingsContainer.createDiv();
+    this.bodySettingsContainer.style.display = 'none';
+    
+    // 풋터 설정 컨테이너
+    this.footerSettingsContainer = settingsContainer.createDiv();
+    this.footerSettingsContainer.style.display = 'none';
+    
+    // 카드 설정 컨테이너
+    this.cardSettingsContainer = settingsContainer.createDiv();
+    this.cardSettingsContainer.style.display = 'none';
+    
+    // 기본적으로 카드 설정 표시
+    this.selectComponent('card');
+    
+    // 설정 컨테이너 생성
+    this.createHeaderSettings(this.headerSettingsContainer);
+    this.createBodySettings(this.bodySettingsContainer);
+    this.createFooterSettings(this.footerSettingsContainer);
+    this.createCardSettings(this.cardSettingsContainer);
   }
   
   /**
@@ -65,77 +114,6 @@ export class CardPreviewSection implements SettingSection {
     
     // 미리보기 업데이트
     this.updateCardPreview();
-  }
-  
-  /**
-   * 섹션 표시
-   */
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
-
-    // 스타일 추가
-    this.addStyles();
-
-    // 카드 미리보기 섹션 생성
-    const previewSection = containerEl.createDiv({ cls: 'card-navigator-preview-section' });
-    
-    // 도움말 텍스트 추가
-    const helpText = previewSection.createDiv({ cls: 'card-navigator-component-help-text' });
-    helpText.setText('카드 구성요소를 클릭하여 해당 설정을 변경하세요.');
-
-    // 카드 미리보기 생성
-    this.createCardPreview(previewSection);
-
-    // 개별 설정 컨테이너 생성
-    this.headerSettingsContainer = containerEl.createDiv({ cls: 'card-navigator-component-settings' });
-    this.headerSettingsContainer.style.display = 'none';
-    
-    this.bodySettingsContainer = containerEl.createDiv({ cls: 'card-navigator-component-settings' });
-    this.bodySettingsContainer.style.display = 'none';
-    
-    this.footerSettingsContainer = containerEl.createDiv({ cls: 'card-navigator-component-settings' });
-    this.footerSettingsContainer.style.display = 'none';
-    
-    this.cardSettingsContainer = containerEl.createDiv({ cls: 'card-navigator-component-settings' });
-    
-    // 각 설정 섹션 생성
-    this.createHeaderSettings(this.headerSettingsContainer);
-    this.createBodySettings(this.bodySettingsContainer);
-    this.createFooterSettings(this.footerSettingsContainer);
-    this.createCardSettings(this.cardSettingsContainer);
-    
-    // 이벤트 리스너 등록
-    this.registerEventListeners();
-    
-    // 기본적으로 카드 설정 표시
-    this.selectComponent('card');
-  }
-  
-  /**
-   * 스타일 추가
-   */
-  private addStyles(): void {
-    // 이 메서드는 더 이상 스타일을 직접 추가하지 않습니다.
-    // 스타일은 CardPreviewSection.css 파일에서 관리됩니다.
-    // 필요한 경우 동적으로 추가해야 하는 스타일만 여기서 처리합니다.
-    
-    // 이미 동적 스타일이 추가되어 있는지 확인
-    if (document.getElementById('card-navigator-dynamic-styles')) {
-      return;
-    }
-    
-    // 동적 스타일 요소 생성 (필요한 경우)
-    const styleEl = document.createElement('style');
-    styleEl.id = 'card-navigator-dynamic-styles';
-    
-    // 동적으로 생성해야 하는 스타일만 추가
-    styleEl.textContent = `
-      /* 동적으로 생성해야 하는 스타일만 여기에 추가 */
-    `;
-    
-    // 문서에 스타일 추가
-    document.head.appendChild(styleEl);
   }
   
   /**
@@ -683,20 +661,46 @@ export class CardPreviewSection implements SettingSection {
           });
       });
     
-    // 날짜 옵션
+    // 생성일 옵션
     new Setting(footerContentContainer)
-      .setName('날짜')
+      .setName('생성일')
       .addToggle(toggle => {
-        const isSelected = this.settings.cardFooterContentMultiple?.includes('date') ?? false;
+        const isSelected = this.settings.cardFooterContentMultiple?.includes('created') ?? false;
         toggle
           .setValue(isSelected)
           .onChange(async (value) => {
             let contentTypes = this.settings.cardFooterContentMultiple || [this.settings.cardFooterContent || 'tags'];
             
-            if (value && !contentTypes.includes('date')) {
-              contentTypes.push('date');
-            } else if (!value && contentTypes.includes('date')) {
-              contentTypes = contentTypes.filter(type => type !== 'date');
+            if (value && !contentTypes.includes('created')) {
+              contentTypes.push('created');
+            } else if (!value && contentTypes.includes('created')) {
+              contentTypes = contentTypes.filter(type => type !== 'created');
+            }
+            
+            // 선택된 값이 없으면 'none'으로 설정
+            if (contentTypes.length === 0) {
+              contentTypes = ['none'];
+            }
+            
+            await this.updateSetting('cardFooterContentMultiple', contentTypes);
+            await this.updateSetting('cardFooterContent', contentTypes[0]);
+          });
+      });
+    
+    // 수정일 옵션
+    new Setting(footerContentContainer)
+      .setName('수정일')
+      .addToggle(toggle => {
+        const isSelected = this.settings.cardFooterContentMultiple?.includes('modified') ?? false;
+        toggle
+          .setValue(isSelected)
+          .onChange(async (value) => {
+            let contentTypes = this.settings.cardFooterContentMultiple || [this.settings.cardFooterContent || 'tags'];
+            
+            if (value && !contentTypes.includes('modified')) {
+              contentTypes.push('modified');
+            } else if (!value && contentTypes.includes('modified')) {
+              contentTypes = contentTypes.filter(type => type !== 'modified');
             }
             
             // 선택된 값이 없으면 'none'으로 설정
@@ -858,48 +862,6 @@ export class CardPreviewSection implements SettingSection {
     containerEl.empty();
     containerEl.createEl('h4', { text: '카드 기본 설정' });
     
-    // 카드 너비 설정
-    new Setting(containerEl)
-      .setName('카드 너비')
-      .setDesc('카드의 너비를 설정합니다.')
-      .addSlider(slider => slider
-        .setLimits(200, 800, 50)
-        .setValue(this.settings.cardWidth || 400)
-        .setDynamicTooltip()
-        .onChange(async (value) => {
-          await this.updateSetting('cardWidth', value);
-        })
-      );
-    
-    // 카드 높이 설정
-    new Setting(containerEl)
-      .setName('카드 높이')
-      .setDesc('카드의 높이를 설정합니다.')
-      .addSlider(slider => slider
-        .setLimits(100, 500, 50)
-        .setValue(this.settings.cardHeight || 150)
-        .setDynamicTooltip()
-        .onChange(async (value) => {
-          await this.updateSetting('cardHeight', value);
-        })
-      );
-    
-    // 카드 테두리 반경 설정
-    new Setting(containerEl)
-      .setName('카드 테두리 반경')
-      .setDesc('카드 모서리의 둥근 정도를 설정합니다.')
-      .addSlider(slider => slider
-        .setLimits(0, 20, 1)
-        .setValue(this.settings.borderRadius || 5)
-        .setDynamicTooltip()
-        .onChange(async (value) => {
-          await this.updateSetting('borderRadius', value);
-        })
-      );
-    
-    // 일반 카드 스타일 설정
-    containerEl.createEl('h5', { text: '일반 카드 스타일' });
-    
     // 카드 테두리 종류 설정
     new Setting(containerEl)
       .setName('테두리 종류')
@@ -965,144 +927,19 @@ export class CardPreviewSection implements SettingSection {
           await this.updateSetting('normalCardBorderWidth', value);
         })
       );
-    
-    // 활성 카드 스타일 설정
-    containerEl.createEl('h5', { text: '활성 카드 스타일' });
-    
-    // 활성 카드 테두리 종류 설정
+
+    // 카드 테두리 반경 설정
     new Setting(containerEl)
-      .setName('테두리 종류')
-      .setDesc('활성 카드의 테두리 종류를 설정합니다.')
-      .addDropdown(dropdown => dropdown
-        .addOption('solid', '실선')
-        .addOption('dashed', '파선')
-        .addOption('dotted', '점선')
-        .addOption('double', '이중선')
-        .addOption('groove', '홈선')
-        .addOption('ridge', '돌출선')
-        .setValue(this.settings.activeCardBorderStyle || 'solid')
-        .onChange(async (value) => {
-          await this.updateSetting('activeCardBorderStyle', value);
-        })
-      );
-    
-    // 활성 카드 배경색 설정
-    new Setting(containerEl)
-      .setName('배경색')
-      .setDesc('활성 카드의 배경색을 설정합니다. 라이트/다크 테마에 따라 다른 색상을 설정할 수 있습니다.')
-      .addColorPicker(color => color
-        .setValue(this.settings.activeCardBgColor || '')
-        .onChange(async (value) => {
-          await this.updateSetting('activeCardBgColor', value);
-        })
-      )
-      .addExtraButton(button => button
-        .setIcon('reset')
-        .setTooltip('기본값으로 되돌리기')
-        .onClick(async () => {
-          await this.updateSetting('activeCardBgColor', '');
-        })
-      );
-    
-    // 활성 카드 테두리 색상 설정
-    new Setting(containerEl)
-      .setName('테두리 색상')
-      .setDesc('활성 카드의 테두리 색상을 설정합니다. 라이트/다크 테마에 따라 다른 색상을 설정할 수 있습니다.')
-      .addColorPicker(color => color
-        .setValue(this.settings.activeCardBorderColor || '')
-        .onChange(async (value) => {
-          await this.updateSetting('activeCardBorderColor', value);
-        })
-      )
-      .addExtraButton(button => button
-        .setIcon('reset')
-        .setTooltip('기본값으로 되돌리기')
-        .onClick(async () => {
-          await this.updateSetting('activeCardBorderColor', '');
-        })
-      );
-    
-    // 활성 카드 테두리 두께 설정
-    new Setting(containerEl)
-      .setName('테두리 두께')
-      .setDesc('활성 카드의 테두리 두께를 설정합니다.')
-      .addSlider(slider => slider
-        .setLimits(0, 5, 1)
-        .setValue(this.settings.activeCardBorderWidth || 2)
-        .setDynamicTooltip()
-        .onChange(async (value) => {
-          await this.updateSetting('activeCardBorderWidth', value);
-        })
-      );
-    
-    // 포커스 카드 스타일 설정
-    containerEl.createEl('h5', { text: '포커스 카드 스타일' });
-    
-    // 포커스 카드 테두리 종류 설정
-    new Setting(containerEl)
-      .setName('테두리 종류')
-      .setDesc('포커스 카드의 테두리 종류를 설정합니다.')
-      .addDropdown(dropdown => dropdown
-        .addOption('solid', '실선')
-        .addOption('dashed', '파선')
-        .addOption('dotted', '점선')
-        .addOption('double', '이중선')
-        .addOption('groove', '홈선')
-        .addOption('ridge', '돌출선')
-        .setValue(this.settings.focusedCardBorderStyle || 'solid')
-        .onChange(async (value) => {
-          await this.updateSetting('focusedCardBorderStyle', value);
-        })
-      );
-    
-    // 포커스 카드 배경색 설정
-    new Setting(containerEl)
-      .setName('배경색')
-      .setDesc('포커스 카드의 배경색을 설정합니다. 라이트/다크 테마에 따라 다른 색상을 설정할 수 있습니다.')
-      .addColorPicker(color => color
-        .setValue(this.settings.focusedCardBgColor || '')
-        .onChange(async (value) => {
-          await this.updateSetting('focusedCardBgColor', value);
-        })
-      )
-      .addExtraButton(button => button
-        .setIcon('reset')
-        .setTooltip('기본값으로 되돌리기')
-        .onClick(async () => {
-          await this.updateSetting('focusedCardBgColor', '');
-        })
-      );
-    
-    // 포커스 카드 테두리 색상 설정
-    new Setting(containerEl)
-      .setName('테두리 색상')
-      .setDesc('포커스 카드의 테두리 색상을 설정합니다. 라이트/다크 테마에 따라 다른 색상을 설정할 수 있습니다.')
-      .addColorPicker(color => color
-        .setValue(this.settings.focusedCardBorderColor || '')
-        .onChange(async (value) => {
-          await this.updateSetting('focusedCardBorderColor', value);
-        })
-      )
-      .addExtraButton(button => button
-        .setIcon('reset')
-        .setTooltip('기본값으로 되돌리기')
-        .onClick(async () => {
-          await this.updateSetting('focusedCardBorderColor', '');
-        })
-      );
-    
-    // 포커스 카드 테두리 두께 설정
-    new Setting(containerEl)
-      .setName('테두리 두께')
-      .setDesc('포커스 카드의 테두리 두께를 설정합니다.')
-      .addSlider(slider => slider
-        .setLimits(0, 5, 1)
-        .setValue(this.settings.focusedCardBorderWidth || 3)
-        .setDynamicTooltip()
-        .onChange(async (value) => {
-          await this.updateSetting('focusedCardBorderWidth', value);
-        })
-      );
+    .setName('카드 테두리 반경')
+    .setDesc('카드 모서리의 둥근 정도를 설정합니다.')
+    .addSlider(slider => slider
+      .setLimits(0, 20, 1)
+      .setValue(this.settings.borderRadius || 5)
+      .setDynamicTooltip()
+      .onChange(async (value) => {
+        await this.updateSetting('borderRadius', value);
+      })
+    );
   }
   
   /**
@@ -1133,330 +970,180 @@ export class CardPreviewSection implements SettingSection {
    * 카드 미리보기 업데이트
    */
   private updateCardPreview(): void {
-    if (!this.cardEl || !this.headerEl || !this.bodyEl || !this.footerEl) return;
+    if (!this.headerEl || !this.bodyEl || !this.footerEl || !this.cardEl) return;
     
     const settings = this.settings;
     
     // 카드 스타일 업데이트
-    this.cardEl.style.width = `${settings.cardWidth || 400}px`;
-    this.cardEl.style.height = `${settings.cardHeight || 150}px`;
-    this.cardEl.style.borderRadius = `${settings.borderRadius || 5}px`;
-    
-    // 선택된 컴포넌트에 따라 스타일 적용
-    if (this.selectedComponent === 'card') {
-      // 활성 카드 스타일 적용
-      if (settings.activeCardBgColor) {
-        this.cardEl.style.backgroundColor = settings.activeCardBgColor;
-      } else {
-        // 기본 카드 배경색 설정
-        this.cardEl.style.backgroundColor = settings.normalCardBgColor || '';
-      }
+    if (this.cardEl) {
+      // 카드 크기 설정 (레이아웃 설정에서 가져옴)
+      const layout = settings.layout || {
+        fixedCardHeight: false,
+        layoutDirectionPreference: 'auto',
+        cardMinWidth: 250,
+        cardMaxWidth: 400,
+        cardMinHeight: 150,
+        cardMaxHeight: 300,
+        cardGap: 10,
+        cardsetPadding: 10,
+        cardSizeFactor: 1.0,
+        useLayoutTransition: true
+      };
       
-      // 활성 카드 테두리 설정
-      if (settings.activeCardBorderColor) {
-        this.cardEl.style.borderColor = settings.activeCardBorderColor;
-      } else {
-        this.cardEl.style.borderColor = settings.normalCardBorderColor || '';
-      }
+      // 미리보기 카드는 더 크게 표시하여 모든 요소가 보이도록 함
+      const cardWidth = Math.min(Math.max(layout.cardMinWidth, 300), 450);
+      const cardHeight = Math.min(Math.max(layout.cardMinHeight, 200), 350);
       
-      if (settings.activeCardBorderWidth !== undefined) {
-        this.cardEl.style.borderWidth = `${settings.activeCardBorderWidth}px`;
-      } else {
-        this.cardEl.style.borderWidth = `${settings.normalCardBorderWidth || 1}px`;
-      }
-      
-      // 활성 카드 테두리 스타일 설정
-      if (settings.activeCardBorderStyle) {
-        this.cardEl.style.borderStyle = settings.activeCardBorderStyle;
-      } else {
-        this.cardEl.style.borderStyle = settings.normalCardBorderStyle || 'solid';
-      }
-    } else {
-      // 일반 카드 스타일 적용
-      // 카드 배경색 설정
-      if (settings.normalCardBgColor) {
-        this.cardEl.style.backgroundColor = settings.normalCardBgColor;
-      } else {
-        this.cardEl.style.backgroundColor = '';
-      }
+      this.cardEl.style.width = `${cardWidth}px`;
+      this.cardEl.style.maxWidth = '100%';
+      this.cardEl.style.height = `${cardHeight}px`;
       
       // 카드 테두리 설정
-      if (settings.normalCardBorderColor) {
-        this.cardEl.style.borderColor = settings.normalCardBorderColor;
-      } else {
-        this.cardEl.style.borderColor = '';
-      }
+      this.cardEl.style.borderStyle = settings.normalCardBorderStyle || 'solid';
+      this.cardEl.style.borderColor = settings.normalCardBorderColor || '#cccccc';
+      this.cardEl.style.borderWidth = `${settings.normalCardBorderWidth || 1}px`;
+      this.cardEl.style.borderRadius = `${settings.borderRadius || 5}px`;
       
-      if (settings.normalCardBorderWidth !== undefined) {
-        this.cardEl.style.borderWidth = `${settings.normalCardBorderWidth}px`;
-      } else {
-        this.cardEl.style.borderWidth = '1px';
-      }
-      
-      // 일반 카드 테두리 스타일 설정
-      if (settings.normalCardBorderStyle) {
-        this.cardEl.style.borderStyle = settings.normalCardBorderStyle;
-      } else {
-        this.cardEl.style.borderStyle = 'solid';
-      }
+      // 카드 배경색 설정
+      this.cardEl.style.backgroundColor = settings.normalCardBgColor || '';
     }
     
-    // 선택된 컴포넌트에 포커스 스타일 적용
-    if (this.selectedComponent === 'header') {
-      // 헤더에 포커스 스타일 적용
-      if (settings.focusedCardBgColor) {
-        this.headerEl.style.backgroundColor = settings.focusedCardBgColor;
-      }
+    // 헤더 스타일 업데이트
+    if (this.headerEl) {
+      // 헤더 표시 여부
+      this.headerEl.style.display = settings.showHeader === false ? 'none' : 'block';
       
-      if (settings.focusedCardBorderColor) {
-        this.headerEl.style.borderColor = settings.focusedCardBorderColor;
-        this.headerEl.style.boxShadow = `inset 0 0 0 ${settings.focusedCardBorderWidth || 3}px ${settings.focusedCardBorderColor}`;
-      }
+      // 헤더 테두리 설정
+      this.headerEl.style.borderBottomStyle = settings.headerBorderStyle || 'solid';
+      this.headerEl.style.borderBottomColor = settings.headerBorderColor || '#dddddd';
+      this.headerEl.style.borderBottomWidth = `${settings.headerBorderWidth || 1}px`;
       
-      // 포커스 테두리 스타일 적용
-      if (settings.focusedCardBorderStyle) {
-        this.headerEl.style.borderStyle = settings.focusedCardBorderStyle;
-      }
-    } else {
-      // 헤더 기본 스타일 적용
-      if (settings.headerBgColor) {
-        this.headerEl.style.backgroundColor = settings.headerBgColor;
-      } else {
-        this.headerEl.style.backgroundColor = '';
-      }
+      // 헤더 폰트 크기 설정
+      this.headerEl.style.fontSize = `${settings.headerFontSize || 14}px`;
       
-      this.headerEl.style.boxShadow = '';
+      // 헤더 배경색 설정
+      this.headerEl.style.backgroundColor = settings.headerBgColor || '';
       
-      // 헤더 테두리 스타일 적용
-      if (settings.headerBorderStyle && settings.headerBorderStyle !== 'none') {
-        this.headerEl.style.borderBottom = `${settings.headerBorderWidth || 1}px ${settings.headerBorderStyle} ${settings.headerBorderColor || 'var(--background-modifier-border)'}`;
-      } else {
-        this.headerEl.style.borderBottom = '';
-      }
-    }
-    
-    if (this.selectedComponent === 'body') {
-      // 바디에 포커스 스타일 적용
-      if (settings.focusedCardBgColor) {
-        this.bodyEl.style.backgroundColor = settings.focusedCardBgColor;
-      }
-      
-      if (settings.focusedCardBorderColor) {
-        this.bodyEl.style.borderColor = settings.focusedCardBorderColor;
-        this.bodyEl.style.boxShadow = `inset 0 0 0 ${settings.focusedCardBorderWidth || 3}px ${settings.focusedCardBorderColor}`;
-      }
-      
-      // 포커스 테두리 스타일 적용
-      if (settings.focusedCardBorderStyle) {
-        this.bodyEl.style.borderStyle = settings.focusedCardBorderStyle;
-      }
-    } else {
-      // 바디 기본 스타일 적용
-      if (settings.bodyBgColor) {
-        this.bodyEl.style.backgroundColor = settings.bodyBgColor;
-      } else {
-        this.bodyEl.style.backgroundColor = '';
-      }
-      
-      this.bodyEl.style.boxShadow = '';
-      
-      // 바디 테두리 스타일 적용
-      if (settings.bodyBorderStyle && settings.bodyBorderStyle !== 'none') {
-        this.bodyEl.style.borderTop = `${settings.bodyBorderWidth || 0}px ${settings.bodyBorderStyle} ${settings.bodyBorderColor || 'var(--background-modifier-border)'}`;
-        this.bodyEl.style.borderBottom = `${settings.bodyBorderWidth || 0}px ${settings.bodyBorderStyle} ${settings.bodyBorderColor || 'var(--background-modifier-border)'}`;
-      } else {
-        this.bodyEl.style.borderTop = '';
-        this.bodyEl.style.borderBottom = '';
-      }
-    }
-    
-    if (this.selectedComponent === 'footer') {
-      // 풋터에 포커스 스타일 적용
-      if (settings.focusedCardBgColor) {
-        this.footerEl.style.backgroundColor = settings.focusedCardBgColor;
-      }
-      
-      if (settings.focusedCardBorderColor) {
-        this.footerEl.style.borderColor = settings.focusedCardBorderColor;
-        this.footerEl.style.boxShadow = `inset 0 0 0 ${settings.focusedCardBorderWidth || 3}px ${settings.focusedCardBorderColor}`;
-      }
-      
-      // 포커스 테두리 스타일 적용
-      if (settings.focusedCardBorderStyle) {
-        this.footerEl.style.borderStyle = settings.focusedCardBorderStyle;
-      }
-    } else {
-      // 풋터 기본 스타일 적용
-      if (settings.footerBgColor) {
-        this.footerEl.style.backgroundColor = settings.footerBgColor;
-      } else {
-        this.footerEl.style.backgroundColor = '';
-      }
-      
-      this.footerEl.style.boxShadow = '';
-      
-      // 풋터 테두리 스타일 적용
-      if (settings.footerBorderStyle && settings.footerBorderStyle !== 'none') {
-        this.footerEl.style.borderTop = `${settings.footerBorderWidth || 1}px ${settings.footerBorderStyle} ${settings.footerBorderColor || 'var(--background-modifier-border)'}`;
-      } else {
-        this.footerEl.style.borderTop = '';
-      }
-    }
-    
-    // 헤더 표시/숨김
-    this.headerEl.style.display = (settings.showHeader ?? true) ? 'block' : 'none';
-    
-    // 헤더 스타일 설정
-    if (settings.headerFontSize) {
-      this.headerEl.style.fontSize = `${settings.headerFontSize}px`;
-    }
-    
-    // 헤더 콘텐츠 설정 (다중 선택)
-    let headerContent = '';
-    const headerContentTypes = settings.cardHeaderContentMultiple || [settings.cardHeaderContent || 'filename'];
-    
-    if (headerContentTypes.includes('none') || headerContentTypes.length === 0) {
-      headerContent = '';
-    } else {
-      const headerParts: string[] = [];
-      
-      if (headerContentTypes.includes('filename')) {
-        headerParts.push('샘플 노트 제목.md');
-      }
-      
-      if (headerContentTypes.includes('firstheader')) {
-        headerParts.push('# 샘플 노트 제목');
-      }
-      
-      if (headerContentTypes.includes('frontmatter')) {
-        const key = settings.cardHeaderFrontmatterKey || 'title';
-        headerParts.push(`${key}: 샘플 노트 제목`);
-      }
-      
-      headerContent = headerParts.join(' | ');
-    }
-    
-    this.headerEl.setText(headerContent);
-    
-    // 바디 스타일 설정
-    if (settings.bodyFontSize) {
-      this.bodyEl.style.fontSize = `${settings.bodyFontSize}px`;
-    }
-    
-    // 바디 콘텐츠 설정 (다중 선택)
-    let bodyContent = '';
-    const bodyContentTypes = settings.cardBodyContentMultiple || [settings.cardBodyContent || 'content'];
-    
-    if (bodyContentTypes.includes('none') || bodyContentTypes.length === 0) {
-      bodyContent = '';
-    } else {
-      const bodyParts: string[] = [];
-      
-      if (bodyContentTypes.includes('content')) {
-        let contentPart = '이것은 샘플 노트 내용입니다. 설정에 따라 카드 모양이 변경됩니다.';
-        
-        // 프론트매터 포함 설정
-        if (settings.includeFrontmatterInContent) {
-          contentPart = '---\ntitle: 샘플 노트 제목\ntags: [샘플, 테스트]\n---\n' + contentPart;
+      // 헤더 콘텐츠 설정
+      let headerContent = '카드 헤더';
+      if (settings.cardHeaderContentMultiple && settings.cardHeaderContentMultiple.length > 0) {
+        // 'none'이 아닌 항목만 필터링
+        const validContent = settings.cardHeaderContentMultiple.filter(item => item !== 'none');
+        if (validContent.length > 0) {
+          headerContent = validContent.join(' | ');
+        } else {
+          headerContent = 'none';
         }
-        
-        // 첫 번째 헤더 포함 설정
-        if (settings.includeFirstHeaderInContent) {
-          contentPart = '# 샘플 노트 제목\n\n' + contentPart;
+      } else if (settings.cardHeaderContent && settings.cardHeaderContent !== 'none') {
+        headerContent = settings.cardHeaderContent;
+      } else {
+        headerContent = 'none';
+      }
+      this.headerEl.textContent = headerContent;
+    }
+    
+    // 바디 스타일 업데이트
+    if (this.bodyEl) {
+      // 바디 테두리 설정
+      this.bodyEl.style.borderBottomStyle = settings.bodyBorderStyle || 'none';
+      this.bodyEl.style.borderBottomColor = settings.bodyBorderColor || '#dddddd';
+      this.bodyEl.style.borderBottomWidth = `${settings.bodyBorderWidth || 0}px`;
+      
+      // 바디 폰트 크기 설정
+      this.bodyEl.style.fontSize = `${settings.bodyFontSize || 12}px`;
+      
+      // 바디 배경색 설정
+      this.bodyEl.style.backgroundColor = settings.bodyBgColor || '';
+      
+      // 바디 콘텐츠 설정
+      let bodyContent = '카드 내용이 여기에 표시됩니다. 이 부분은 노트의 내용을 보여줍니다.';
+      if (settings.cardBodyContentMultiple && settings.cardBodyContentMultiple.length > 0) {
+        // 'none'이 아닌 항목만 필터링
+        const validContent = settings.cardBodyContentMultiple.filter(item => item !== 'none');
+        if (validContent.length > 0) {
+          bodyContent = validContent.join(' | ');
+        } else {
+          bodyContent = 'none';
         }
-        
-        bodyParts.push(contentPart);
+      } else if (settings.cardBodyContent && settings.cardBodyContent !== 'none') {
+        bodyContent = settings.cardBodyContent;
+      } else {
+        bodyContent = 'none';
       }
-      
-      if (bodyContentTypes.includes('frontmatter')) {
-        const key = settings.cardBodyFrontmatterKey || 'description';
-        bodyParts.push(`${key}: 이것은 샘플 노트에 대한 설명입니다.`);
-      }
-      
-      bodyContent = bodyParts.join('\n\n');
+      this.bodyEl.textContent = bodyContent;
     }
     
-    // 바디 내용 길이 제한
-    if (bodyContent.length > (settings.bodyMaxLength || 200)) {
-      bodyContent = bodyContent.substring(0, settings.bodyMaxLength || 200) + '...';
-    }
-    
-    this.bodyEl.setText(bodyContent);
-    
-    // 풋터 표시/숨김
-    this.footerEl.style.display = (settings.showFooter ?? true) ? 'block' : 'none';
-    
-    // 풋터 스타일 설정
-    if (settings.footerFontSize) {
-      this.footerEl.style.fontSize = `${settings.footerFontSize}px`;
-    }
-    
-    // 풋터 콘텐츠 설정 (다중 선택)
-    let footerContent = '';
-    const footerContentTypes = settings.cardFooterContentMultiple || [settings.cardFooterContent || 'tags'];
-    
-    if (footerContentTypes.includes('none') || footerContentTypes.length === 0) {
-      footerContent = '';
-    } else {
-      const footerParts: string[] = [];
+    // 풋터 스타일 업데이트
+    if (this.footerEl) {
+      // 풋터 표시 여부
+      this.footerEl.style.display = settings.showFooter === false ? 'none' : 'block';
       
-      if (footerContentTypes.includes('tags')) {
-        footerParts.push('#샘플 #테스트 #카드');
+      // 풋터 테두리 설정
+      this.footerEl.style.borderTopStyle = settings.footerBorderStyle || 'solid';
+      this.footerEl.style.borderTopColor = settings.footerBorderColor || '#dddddd';
+      this.footerEl.style.borderTopWidth = `${settings.footerBorderWidth || 1}px`;
+      
+      // 풋터 폰트 크기 설정
+      this.footerEl.style.fontSize = `${settings.footerFontSize || 10}px`;
+      
+      // 풋터 배경색 설정
+      this.footerEl.style.backgroundColor = settings.footerBgColor || '';
+      
+      // 풋터 콘텐츠 설정
+      let footerContent = '카드 풋터';
+      if (settings.cardFooterContentMultiple && settings.cardFooterContentMultiple.length > 0) {
+        // 'none'이 아닌 항목만 필터링
+        const validContent = settings.cardFooterContentMultiple.filter(item => item !== 'none');
+        if (validContent.length > 0) {
+          footerContent = validContent.join(' | ');
+        } else {
+          footerContent = 'none';
+        }
+      } else if (settings.cardFooterContent && settings.cardFooterContent !== 'none') {
+        footerContent = settings.cardFooterContent;
+      } else {
+        footerContent = 'none';
       }
-      
-      if (footerContentTypes.includes('date')) {
-        const now = new Date();
-        footerParts.push(`생성: ${now.toLocaleDateString()}`);
-      }
-      
-      if (footerContentTypes.includes('frontmatter')) {
-        const key = settings.cardFooterFrontmatterKey || 'status';
-        footerParts.push(`${key}: 완료`);
-      }
-      
-      footerContent = footerParts.join(' | ');
+      this.footerEl.textContent = footerContent;
     }
-    
-    this.footerEl.setText(footerContent);
   }
   
   /**
-   * 구성요소 선택
-   * @param component 선택할 구성요소
+   * 컴포넌트 선택
+   * @param component 선택할 컴포넌트
    */
   private selectComponent(component: 'header' | 'body' | 'footer' | 'card'): void {
-    // 모든 구성요소의 선택 상태 제거
-    this.headerEl?.removeClass('card-navigator-selected');
-    this.bodyEl?.removeClass('card-navigator-selected');
-    this.footerEl?.removeClass('card-navigator-selected');
-    this.cardEl?.removeClass('card-navigator-selected');
+    // 이전 선택 초기화
+    if (this.headerEl) this.headerEl.classList.remove('card-navigator-selected');
+    if (this.bodyEl) this.bodyEl.classList.remove('card-navigator-selected');
+    if (this.footerEl) this.footerEl.classList.remove('card-navigator-selected');
+    if (this.cardEl) this.cardEl.classList.remove('card-navigator-selected');
     
-    // 모든 설정 컨테이너 숨기기
-    if (this.headerSettingsContainer) this.headerSettingsContainer.style.display = 'none';
-    if (this.bodySettingsContainer) this.bodySettingsContainer.style.display = 'none';
-    if (this.footerSettingsContainer) this.footerSettingsContainer.style.display = 'none';
-    if (this.cardSettingsContainer) this.cardSettingsContainer.style.display = 'none';
+    // 설정 컨테이너 숨기기
+    this.headerSettingsContainer.style.display = 'none';
+    this.bodySettingsContainer.style.display = 'none';
+    this.footerSettingsContainer.style.display = 'none';
+    this.cardSettingsContainer.style.display = 'none';
     
-    // 선택된 컴포넌트 저장
+    // 선택된 컴포넌트 강조 및 설정 표시
     this.selectedComponent = component;
     
-    // 선택된 구성요소 강조 표시 및 해당 설정 표시
     switch (component) {
       case 'header':
-        this.headerEl?.addClass('card-navigator-selected');
-        if (this.headerSettingsContainer) this.headerSettingsContainer.style.display = 'block';
+        if (this.headerEl) this.headerEl.classList.add('card-navigator-selected');
+        this.headerSettingsContainer.style.display = 'block';
         break;
       case 'body':
-        this.bodyEl?.addClass('card-navigator-selected');
-        if (this.bodySettingsContainer) this.bodySettingsContainer.style.display = 'block';
+        if (this.bodyEl) this.bodyEl.classList.add('card-navigator-selected');
+        this.bodySettingsContainer.style.display = 'block';
         break;
       case 'footer':
-        this.footerEl?.addClass('card-navigator-selected');
-        if (this.footerSettingsContainer) this.footerSettingsContainer.style.display = 'block';
+        if (this.footerEl) this.footerEl.classList.add('card-navigator-selected');
+        this.footerSettingsContainer.style.display = 'block';
         break;
       case 'card':
-        this.cardEl?.addClass('card-navigator-selected');
-        if (this.cardSettingsContainer) this.cardSettingsContainer.style.display = 'block';
+        if (this.cardEl) this.cardEl.classList.add('card-navigator-selected');
+        this.cardSettingsContainer.style.display = 'block';
         break;
     }
     

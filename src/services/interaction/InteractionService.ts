@@ -302,7 +302,7 @@ export class InteractionService implements IInteractionService {
     }
     
     // 설정 업데이트
-    await this.settingsService.updateSettings({ selectionMode: mode });
+    await this.settingsService.updateSettings({ selectionMode: mode as 'single' | 'multiple' });
     
     // 선택 모드 변경 이벤트 발생
     this.eventBus.emit(EventType.SELECTION_MODE_CHANGED, {

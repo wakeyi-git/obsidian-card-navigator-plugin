@@ -34,7 +34,6 @@
 
 /* 설정 섹션 스타일 */
 .card-navigator-section-container {
-  /* margin-bottom: 20px; */
   padding: 10px;
   border-radius: 4px;
   background-color: var(--background-secondary);
@@ -45,7 +44,6 @@
   padding: 15px;
   border-radius: 8px;
   background-color: var(--background-secondary);
-  /* margin-bottom: 20px; */
 }
 
 /* 카드 미리보기 스타일 */
@@ -131,9 +129,8 @@
 
 .card-navigator-component-settings h4 {
   margin-top: 0;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   padding-bottom: 10px;
-  border-bottom: 1px solid var(--background-modifier-border);
   color: var(--text-normal);
 }
 

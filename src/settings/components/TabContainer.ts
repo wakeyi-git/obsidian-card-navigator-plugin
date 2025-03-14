@@ -37,10 +37,6 @@ export class TabContainer {
     this.tabsEl.style.display = 'flex';
     this.tabsEl.style.flexWrap = 'wrap';
     this.tabsEl.style.borderBottom = '1px solid var(--background-modifier-border)';
-    this.tabsEl.style.marginBottom = '20px';
-    
-    // 탭 콘텐츠 스타일
-    this.contentEl.style.padding = '10px 0';
   }
 
   /**

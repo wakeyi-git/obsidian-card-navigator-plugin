@@ -113,11 +113,40 @@ export class CardRenderingService implements ICardRenderingService {
       if (headerStyle.borderRadius) headerContainer.style.borderRadius = `${headerStyle.borderRadius}px`;
     }
     
-    // 헤더 콘텐츠 렌더링
-    const headerContent = card.displaySettings?.headerContent;
+    // 설정에서 다중 콘텐츠 타입 가져오기
+    const settings = this.settingsService.getSettings();
+    const headerContentMultiple = settings.cardHeaderContentMultiple?.filter(item => item !== 'none') || [];
     
-    if (headerContent) {
-      this.renderContent(card, headerContent, headerContainer);
+    // 다중 콘텐츠 타입이 있는 경우
+    if (headerContentMultiple.length > 0) {
+      // 각 콘텐츠 타입에 대해 렌더링
+      const contentElements: HTMLElement[] = [];
+      
+      for (const contentType of headerContentMultiple) {
+        const contentEl = headerContainer.createDiv({ cls: 'card-header-content-item' });
+        this.renderContent(card, contentType, contentEl);
+        
+        // 내용이 있는 경우에만 추가
+        if (contentEl.textContent && contentEl.textContent.trim() !== '') {
+          contentElements.push(contentEl);
+        } else {
+          contentEl.remove();
+        }
+      }
+      
+      // 콘텐츠 요소들 사이에 구분자 추가
+      if (contentElements.length > 1) {
+        for (let i = 0; i < contentElements.length - 1; i++) {
+          contentElements[i].style.marginBottom = '4px';
+        }
+      }
+    } 
+    // 단일 콘텐츠 타입인 경우
+    else {
+      const headerContent = card.displaySettings?.headerContent;
+      if (headerContent) {
+        this.renderContent(card, headerContent, headerContainer);
+      }
     }
   }
   
@@ -157,14 +186,41 @@ export class CardRenderingService implements ICardRenderingService {
     // 기본 스타일 설정
     bodyContainer.style.padding = '10px';
     bodyContainer.style.flex = '1';
-    bodyContainer.style.overflow = 'hidden';
-    bodyContainer.style.textOverflow = 'ellipsis';
+    bodyContainer.style.overflow = 'auto';
     
-    // 본문 콘텐츠 렌더링
-    const bodyContent = card.displaySettings?.bodyContent;
+    // 설정에서 다중 콘텐츠 타입 가져오기
+    const bodyContentMultiple = settings.cardBodyContentMultiple?.filter(item => item !== 'none') || [];
     
-    if (bodyContent) {
-      this.renderContent(card, bodyContent, bodyContainer);
+    // 다중 콘텐츠 타입이 있는 경우
+    if (bodyContentMultiple.length > 0) {
+      // 각 콘텐츠 타입에 대해 렌더링
+      const contentElements: HTMLElement[] = [];
+      
+      for (const contentType of bodyContentMultiple) {
+        const contentEl = bodyContainer.createDiv({ cls: 'card-body-content-item' });
+        this.renderContent(card, contentType, contentEl);
+        
+        // 내용이 있는 경우에만 추가
+        if (contentEl.textContent && contentEl.textContent.trim() !== '') {
+          contentElements.push(contentEl);
+        } else {
+          contentEl.remove();
+        }
+      }
+      
+      // 콘텐츠 요소들 사이에 구분자 추가
+      if (contentElements.length > 1) {
+        for (let i = 0; i < contentElements.length - 1; i++) {
+          contentElements[i].style.marginBottom = '8px';
+        }
+      }
+    } 
+    // 단일 콘텐츠 타입인 경우
+    else {
+      const bodyContent = card.displaySettings?.bodyContent;
+      if (bodyContent) {
+        this.renderContent(card, bodyContent, bodyContainer);
+      }
     }
   }
   
@@ -191,11 +247,40 @@ export class CardRenderingService implements ICardRenderingService {
     footerContainer.style.padding = '6px 8px';
     footerContainer.style.color = 'var(--text-muted)';
     
-    // 푸터 콘텐츠 렌더링
-    const footerContent = card.displaySettings?.footerContent;
+    // 설정에서 다중 콘텐츠 타입 가져오기
+    const settings = this.settingsService.getSettings();
+    const footerContentMultiple = settings.cardFooterContentMultiple?.filter(item => item !== 'none') || [];
     
-    if (footerContent) {
-      this.renderContent(card, footerContent, footerContainer);
+    // 다중 콘텐츠 타입이 있는 경우
+    if (footerContentMultiple.length > 0) {
+      // 각 콘텐츠 타입에 대해 렌더링
+      const contentElements: HTMLElement[] = [];
+      
+      for (const contentType of footerContentMultiple) {
+        const contentEl = footerContainer.createDiv({ cls: 'card-footer-content-item' });
+        this.renderContent(card, contentType, contentEl);
+        
+        // 내용이 있는 경우에만 추가
+        if (contentEl.textContent && contentEl.textContent.trim() !== '') {
+          contentElements.push(contentEl);
+        } else {
+          contentEl.remove();
+        }
+      }
+      
+      // 콘텐츠 요소들 사이에 구분자 추가
+      if (contentElements.length > 1) {
+        for (let i = 0; i < contentElements.length - 1; i++) {
+          contentElements[i].style.marginBottom = '4px';
+        }
+      }
+    } 
+    // 단일 콘텐츠 타입인 경우
+    else {
+      const footerContent = card.displaySettings?.footerContent;
+      if (footerContent) {
+        this.renderContent(card, footerContent, footerContainer);
+      }
     }
   }
   

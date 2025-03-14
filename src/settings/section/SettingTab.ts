@@ -5,10 +5,13 @@ import { CardHeaderSection } from './CardHeaderSection';
 import { CardBodySection } from './CardBodySection';
 import { CardFooterSection } from './CardFooterSection';
 import { CardSetSection } from './CardSetSection';
-import { CardSortSection } from './CardSortSection';
-import { CardFilterSection } from './CardFilterSection';
+import { CardSortSection } from './SortSection';
+import { CardFilterSection } from './FilterSection';
 import { CardPreviewSection } from './CardPreviewSection';
-import { CardGeneralSection } from './CardGeneralSection';
+import { CardGeneralSection } from './GeneralSection';
+import { CardLayoutSection } from './LayoutSection';
+import { CardInteractionSection } from './InteractionSection';
+import { CardPresetSection } from './PresetSection';
 import { ISettingSection } from './BaseSettingSection';
 import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
 import { DomainEventBus } from '../../domain/events/DomainEventBus';
@@ -54,14 +57,28 @@ export class SettingTab extends PluginSettingTab {
     // 섹션 생성
     const sections: ISettingSection[] = [
       new CardSection('card'),
-      new CardHeaderSection('card-header'),
-      new CardBodySection('card-body'),
-      new CardFooterSection('card-footer'),
+      // 헤더, 바디, 풋터 섹션은 CardPreviewSection에서 통합 관리
+      // new CardHeaderSection('card-header'),
+      // new CardBodySection('card-body'),
+      // new CardFooterSection('card-footer'),
       new CardSetSection('card-set'),
       new CardSortSection('card-sort'),
       new CardFilterSection('card-filter'),
       new CardGeneralSection('card-general')
     ];
+    
+    // 새로운 섹션 생성 및 ID 설정
+    const layoutSection = new CardLayoutSection(this.containerEl, this.settingsService, this.eventBus);
+    layoutSection.id = 'layout';
+    
+    const interactionSection = new CardInteractionSection(this.containerEl, this.settingsService, this.eventBus);
+    interactionSection.id = 'interaction';
+    
+    const presetSection = new CardPresetSection(this.containerEl, this.settingsService, this.eventBus);
+    presetSection.id = 'preset';
+    
+    // 새로운 섹션 추가
+    sections.push(layoutSection, interactionSection, presetSection);
     
     // 섹션 초기화 및 등록
     sections.forEach(section => {
@@ -98,18 +115,18 @@ export class SettingTab extends PluginSettingTab {
     const mainTabContainer = new TabContainer(settingsContainer, this.eventBus);
     
     // 일반 설정 탭
-    const generalTabContent = mainTabContainer.addTab('general', '일반 설정');
+    const generalTabContent = mainTabContainer.addTab('general', '일반');
     const cardGeneralSection = this.sections.get('card-general');
     if (cardGeneralSection) {
       cardGeneralSection.display(generalTabContent);
     }
     
     // 카드 설정 탭
-    const cardTabContent = mainTabContainer.addTab('card', '카드 설정');
+    const cardTabContent = mainTabContainer.addTab('card', '카드');
     this.createCardTab(cardTabContent);
     
     // 카드셋 설정 탭
-    const cardSetTabContent = mainTabContainer.addTab('card-set', '카드셋 설정');
+    const cardSetTabContent = mainTabContainer.addTab('card-set', '카드셋');
     const cardSetSection = this.sections.get('card-set');
     if (cardSetSection) {
       cardSetSection.display(cardSetTabContent);
@@ -123,10 +140,31 @@ export class SettingTab extends PluginSettingTab {
     }
     
     // 정렬 설정 탭
-    const sortTabContent = mainTabContainer.addTab('sort', '정렬 설정');
+    const sortTabContent = mainTabContainer.addTab('sort', '정렬');
     const cardSortSection = this.sections.get('card-sort');
     if (cardSortSection) {
       cardSortSection.display(sortTabContent);
+    }
+    
+    // 레이아웃 설정 탭
+    const layoutTabContent = mainTabContainer.addTab('layout', '레이아웃');
+    const cardLayoutSection = this.sections.get('layout');
+    if (cardLayoutSection) {
+      cardLayoutSection.display(layoutTabContent);
+    }
+    
+    // 상호작용 설정 탭
+    const interactionTabContent = mainTabContainer.addTab('interaction', '상호작용');
+    const cardInteractionSection = this.sections.get('interaction');
+    if (cardInteractionSection) {
+      cardInteractionSection.display(interactionTabContent);
+    }
+    
+    // 프리셋 설정 탭
+    const presetTabContent = mainTabContainer.addTab('preset', '프리셋');
+    const cardPresetSection = this.sections.get('preset');
+    if (cardPresetSection) {
+      cardPresetSection.display(presetTabContent);
     }
   }
   
@@ -151,6 +189,12 @@ export class SettingTab extends PluginSettingTab {
       // 탭이 변경되면 미리보기 업데이트
       this.updateCardPreview('settings-tab-changed');
     });
+    
+    // 프리셋 적용 이벤트 리스너
+    this.eventBus.on(EventType.SETTINGS_PRESET_APPLIED, (data) => {
+      // 프리셋이 적용되면 미리보기 업데이트
+      this.updateCardPreview('settings-preset-applied');
+    });
   }
   
   /**
@@ -171,10 +215,11 @@ export class SettingTab extends PluginSettingTab {
   private createCardTab(containerEl: HTMLElement): void {
     const cardTabContent = containerEl.createDiv({ cls: 'card-navigator-tab-content' });
     
-    // 카드 미리보기 섹션 생성
-    const previewSection = new CardPreviewSection(this.plugin);
-    previewSection.display();
-    cardTabContent.appendChild(previewSection.containerEl);
+    // 카드 섹션 표시 (CardSection이 내부적으로 CardPreviewSection을 생성하고 표시함)
+    const cardSection = this.sections.get('card');
+    if (cardSection) {
+      cardSection.display(cardTabContent);
+    }
   }
   
   /**

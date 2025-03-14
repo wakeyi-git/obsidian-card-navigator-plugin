@@ -1,11 +1,11 @@
 import { App, CachedMetadata, EventRef, MetadataCache, Plugin, TFile, TFolder, Vault, View, Workspace, WorkspaceLeaf } from 'obsidian';
-import { IObsidianApp, IVault, IWorkspace } from '../../domain/obsidian/ObsidianInterfaces';
+import { IObsidianApp, IVault, IWorkspace, IMetadataCache, IObsidianService } from '../../domain/obsidian/ObsidianInterfaces';
 
 /**
  * Obsidian 서비스
  * Obsidian API를 추상화하여 플러그인 내에서 일관된 방식으로 Obsidian 기능을 사용할 수 있게 합니다.
  */
-export class ObsidianService implements IObsidianApp, IVault, IWorkspace {
+export class ObsidianService implements IObsidianService {
   private app: App;
   private plugin: Plugin;
   
@@ -395,5 +395,78 @@ export class ObsidianService implements IObsidianApp, IVault, IWorkspace {
     }
     
     return tags;
+  }
+  
+  /**
+   * 파일 내용 읽기
+   * @param file 파일 객체
+   * @returns 파일 내용
+   */
+  async readFile(file: TFile): Promise<string> {
+    return await this.app.vault.read(file);
+  }
+  
+  /**
+   * 파일 캐시 가져오기
+   * @param file 파일 객체
+   * @returns 파일 캐시 메타데이터
+   */
+  async getFileCache(file: TFile): Promise<CachedMetadata> {
+    return this.app.metadataCache.getFileCache(file) || { frontmatter: {}, headings: [], links: [], embeds: [], tags: [] };
+  }
+  
+  /**
+   * 파일 메타데이터 가져오기
+   * @param file 파일 객체
+   * @returns 파일 메타데이터
+   */
+  getFileMetadata(file: TFile): CachedMetadata | null {
+    return this.app.metadataCache.getFileCache(file);
+  }
+  
+  /**
+   * 태그로 파일 검색
+   * @param tag 태그
+   * @returns 태그가 있는 파일 목록
+   */
+  getFilesWithTag(tag: string): TFile[] {
+    const files: TFile[] = [];
+    const allFiles = this.app.vault.getMarkdownFiles();
+    
+    for (const file of allFiles) {
+      const cache = this.app.metadataCache.getFileCache(file);
+      if (cache && cache.tags) {
+        const hasTags = cache.tags.some(t => t.tag === tag || t.tag === `#${tag}`);
+        if (hasTags) {
+          files.push(file);
+        }
+      }
+    }
+    
+    return files;
+  }
+  
+  /**
+   * 프론트매터 키로 파일 검색
+   * @param key 프론트매터 키
+   * @param value 프론트매터 값
+   * @returns 프론트매터 키/값이 있는 파일 목록
+   */
+  getFilesWithFrontmatter(key: string, value?: any): TFile[] {
+    const files: TFile[] = [];
+    const allFiles = this.app.vault.getMarkdownFiles();
+    
+    for (const file of allFiles) {
+      const cache = this.app.metadataCache.getFileCache(file);
+      if (cache && cache.frontmatter) {
+        if (key in cache.frontmatter) {
+          if (value === undefined || cache.frontmatter[key] === value) {
+            files.push(file);
+          }
+        }
+      }
+    }
+    
+    return files;
   }
 } 

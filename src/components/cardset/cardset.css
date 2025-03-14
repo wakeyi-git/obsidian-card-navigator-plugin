@@ -1,0 +1,149 @@
+/* 카드셋 스타일 */
+.card-navigator-cardset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--card-gap, 10px);
+  padding: var(--card-padding, 10px);
+  overflow: auto;
+  max-height: calc(100vh - 200px);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 그리드 레이아웃 스타일 */
+.card-navigator-cardset.layout-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--columns, auto-fill), minmax(var(--card-min-width, 200px), 1fr));
+  grid-auto-rows: minmax(var(--card-min-height, 100px), auto);
+  grid-gap: var(--card-gap, 10px);
+  width: 100%;
+  box-sizing: border-box;
+  align-items: stretch;
+  justify-items: center;
+}
+
+/* 메이슨리 레이아웃 스타일 */
+.card-navigator-cardset.layout-masonry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--card-gap, 10px);
+  width: 100%;
+  box-sizing: border-box;
+  align-items: flex-start;
+}
+
+/* 가로 방향 레이아웃 스타일 */
+.card-navigator-cardset.direction-horizontal {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  width: max-content;
+  height: 100%;
+  max-height: calc(100vh - 200px);
+}
+
+/* 세로 방향 레이아웃 스타일 */
+.card-navigator-cardset.direction-vertical {
+  flex-direction: column;
+  flex-wrap: wrap;
+  height: auto;
+  max-width: 100%;
+}
+
+/* 가로 스크롤 스타일 */
+.card-navigator-cardset.scroll-horizontal {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 15px; /* 스크롤바 공간 확보 */
+}
+
+/* 세로 스크롤 스타일 */
+.card-navigator-cardset.scroll-vertical {
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 15px; /* 스크롤바 공간 확보 */
+}
+
+/* 그리드 레이아웃 + 가로 방향 스타일 */
+.card-navigator-cardset.layout-grid.direction-horizontal {
+  grid-auto-flow: column;
+  grid-template-rows: repeat(var(--rows, auto-fill), minmax(var(--card-min-height, 100px), 1fr));
+  grid-template-columns: none;
+  grid-auto-columns: minmax(var(--card-min-width, 200px), auto);
+  width: max-content;
+}
+
+/* 그리드 레이아웃 + 세로 방향 스타일 */
+.card-navigator-cardset.layout-grid.direction-vertical {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(var(--columns, auto-fill), minmax(var(--card-min-width, 200px), 1fr));
+  grid-template-rows: none;
+  grid-auto-rows: minmax(var(--card-min-height, 100px), auto);
+  width: 100%;
+}
+
+/* 작은 화면에서 그리드 레이아웃 스타일 */
+@media (max-width: 600px) {
+  .card-navigator-cardset.layout-grid.direction-vertical {
+    grid-template-columns: 1fr;
+    padding: var(--card-padding, 10px);
+  }
+  
+  .card-navigator-cardset.layout-grid.direction-horizontal {
+    grid-template-rows: 1fr;
+    padding: var(--card-padding, 10px);
+  }
+}
+
+/* 중간 크기 화면에서 그리드 레이아웃 스타일 */
+@media (min-width: 601px) and (max-width: 900px) {
+  .card-navigator-cardset.layout-grid.direction-vertical {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .card-navigator-cardset.layout-grid.direction-horizontal {
+    grid-template-rows: repeat(2, 1fr);
+  }
+}
+
+/* 카드셋 컨테이너 스타일 */
+.card-navigator-cardset-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 카드셋 로딩 스타일 */
+.card-navigator-cardset-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(var(--background-primary-rgb), 0.7);
+  z-index: 10;
+}
+
+/* 카드셋 로딩 스피너 */
+.card-navigator-cardset-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--background-modifier-border);
+  border-top: 4px solid var(--interactive-accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 드래그 앤 드롭 영역 스타일 */
+.card-navigator-cardset.drag-over {
+  border: 2px dashed var(--interactive-accent);
+  background-color: var(--background-modifier-hover);
+} 

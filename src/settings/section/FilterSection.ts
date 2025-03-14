@@ -20,8 +20,14 @@ export class CardFilterSection extends BaseSettingSection {
    * @param containerEl 컨테이너 요소
    */
   display(containerEl: HTMLElement): void {
-    containerEl.createEl('h3', { text: '카드 필터 설정' });
-    
+
+    // 섹션 제목
+    containerEl.createEl('h3', { text: '필터 설정' });
+    containerEl.createEl('p', { 
+      text: '필터 관련 설정을 구성합니다. 필터 활성화, 필터 타입, 필터 연산자 등을 설정할 수 있습니다.',
+      cls: 'setting-item-description'
+    });
+
     // 기본 필터 활성화 설정
     this.createSetting(containerEl, '기본 필터 활성화', '카드 뷰가 로드될 때 기본 필터를 활성화할지 여부를 설정합니다.')
       .addToggle(toggle => toggle

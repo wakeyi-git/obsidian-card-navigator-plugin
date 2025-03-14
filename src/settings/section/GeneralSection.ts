@@ -43,7 +43,7 @@ export class CardGeneralSection extends BaseSettingSection {
    */
   display(containerEl: HTMLElement): void {
     containerEl.empty();
-    containerEl.createEl('h3', { text: '일반 설정' });
+    containerEl.createEl('h3', { text: '일반' });
 
     // 플러그인 활성화 설정
     new Setting(containerEl)

@@ -20,7 +20,13 @@ export class CardSortSection extends BaseSettingSection {
    * @param containerEl 컨테이너 요소
    */
   display(containerEl: HTMLElement): void {
-    containerEl.createEl('h3', { text: '카드 정렬 설정' });
+
+    // 섹션 제목
+    containerEl.createEl('h3', { text: '정렬 설정' });
+    containerEl.createEl('p', { 
+      text: '정렬 관련 설정을 구성합니다. 정렬 기준, 정렬 방향 등을 설정할 수 있습니다.',
+      cls: 'setting-item-description'
+    });
     
     // 기본 정렬 기준 설정
     this.createSetting(containerEl, '기본 정렬 기준', '카드 정렬 기준을 설정합니다.')

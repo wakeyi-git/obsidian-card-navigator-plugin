@@ -191,9 +191,15 @@ export class CardComponent extends Component implements ICardComponent {
       const currentBodyContent = this.card.displaySettings?.bodyContent;
       const currentFooterContent = this.card.displaySettings?.footerContent;
       
-      const settingsHeaderContent = settings.cardHeaderContent;
-      const settingsBodyContent = settings.cardBodyContent;
-      const settingsFooterContent = settings.cardFooterContent;
+      // 설정에서 'none'이 아닌 값만 사용
+      const settingsHeaderContent = settings.cardHeaderContent === 'none' ? undefined : settings.cardHeaderContent;
+      const settingsBodyContent = settings.cardBodyContent === 'none' ? undefined : settings.cardBodyContent;
+      const settingsFooterContent = settings.cardFooterContent === 'none' ? undefined : settings.cardFooterContent;
+      
+      // 다중 콘텐츠 설정에서 'none'이 아닌 값만 필터링
+      const headerContentMultiple = settings.cardHeaderContentMultiple?.filter(item => item !== 'none') || [];
+      const bodyContentMultiple = settings.cardBodyContentMultiple?.filter(item => item !== 'none') || [];
+      const footerContentMultiple = settings.cardFooterContentMultiple?.filter(item => item !== 'none') || [];
       
       // 콘텐츠 타입이 변경된 경우에만 업데이트
       const contentChanged = 
@@ -206,15 +212,24 @@ export class CardComponent extends Component implements ICardComponent {
         console.log('현재 설정 값:', {
           headerContent: settingsHeaderContent,
           bodyContent: settingsBodyContent,
-          footerContent: settingsFooterContent
+          footerContent: settingsFooterContent,
+          headerContentMultiple,
+          bodyContentMultiple,
+          footerContentMultiple
         });
         console.log('카드 displaySettings:', this.card.displaySettings);
         
         // 카드 displaySettings 업데이트
         if (this.card.displaySettings) {
-          this.card.displaySettings.headerContent = settingsHeaderContent;
-          this.card.displaySettings.bodyContent = settingsBodyContent;
-          this.card.displaySettings.footerContent = settingsFooterContent;
+          // 다중 콘텐츠가 있고 'none'이 아닌 경우 첫 번째 값 사용, 없으면 undefined
+          this.card.displaySettings.headerContent = headerContentMultiple.length > 0 ? 
+            headerContentMultiple[0] : settingsHeaderContent;
+          
+          this.card.displaySettings.bodyContent = bodyContentMultiple.length > 0 ? 
+            bodyContentMultiple[0] : settingsBodyContent;
+          
+          this.card.displaySettings.footerContent = footerContentMultiple.length > 0 ? 
+            footerContentMultiple[0] : settingsFooterContent;
           
           console.log('카드 displaySettings 업데이트 완료:', this.card.displaySettings);
         }
