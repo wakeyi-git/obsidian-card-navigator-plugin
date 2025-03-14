@@ -23,7 +23,7 @@ import { SearchComponent } from './components/search/SearchComponent';
 import { ToolbarComponent } from './components/toolbar/ToolbarComponent';
 import { NavigationMode } from './domain/navigation';
 import { ICardSet } from './domain/cardset/CardSet';
-import { SettingTab } from './ui/settings/SettingTab';
+import { SettingTab } from './setting/section/SettingTab';
 import { LayoutComponent } from './components/layout/LayoutComponent';
 import { NavigationComponent } from './components/navigation/NavigationComponent';
 import { DEFAULT_SETTINGS } from './domain/settings/DefaultSettings';
@@ -317,12 +317,12 @@ export default class CardNavigatorPlugin extends Plugin {
     this.searchComponent.render(containerEl);
     
     // 레이아웃 컴포넌트 생성
-    const layoutComponent = new LayoutComponent(this.layoutService, this.eventBus);
-    layoutComponent.render(containerEl);
+    // const layoutComponent = new LayoutComponent(this.layoutService, this.eventBus);
+    // layoutComponent.render(containerEl);
     
     // 내비게이션 컴포넌트 생성
-    const navigationComponent = new NavigationComponent(this.navigationService, this.eventBus);
-    navigationComponent.render(containerEl);
+    // const navigationComponent = new NavigationComponent(this.navigationService, this.eventBus);
+    // navigationComponent.render(containerEl);
     
     // 카드셋 컴포넌트 생성
     const cardSet = await this.cardSetService.getCurrentCardSet();
