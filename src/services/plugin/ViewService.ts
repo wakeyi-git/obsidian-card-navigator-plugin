@@ -137,6 +137,22 @@ export class CardNavigatorView extends ItemView {
   }
   
   /**
+   * 뷰 새로고침
+   * 뷰의 내용을 새로고침합니다.
+   */
+  refresh(): void {
+    // 뷰 컨테이너 가져오기
+    const container = this.containerEl.children[1].querySelector('.card-navigator-container');
+    if (container) {
+      // 이벤트 발생 - 뷰 새로고침 요청
+      const event = new CustomEvent('card-navigator-refresh', {
+        detail: { container }
+      });
+      document.dispatchEvent(event);
+    }
+  }
+  
+  /**
    * 뷰 로드
    */
   async onload(): Promise<void> {

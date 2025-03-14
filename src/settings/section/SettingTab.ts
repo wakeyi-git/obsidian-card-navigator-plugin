@@ -13,6 +13,7 @@ import { ISettingSection } from './BaseSettingSection';
 import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
 import { DomainEventBus } from '../../domain/events/DomainEventBus';
 import { EventType } from '../../domain/events/EventTypes';
+import { TabContainer } from '../components/TabContainer';
 
 /**
  * 설정 탭
@@ -59,7 +60,6 @@ export class SettingTab extends PluginSettingTab {
       new CardSetSection('card-set'),
       new CardSortSection('card-sort'),
       new CardFilterSection('card-filter'),
-      new CardPreviewSection('card-preview'),
       new CardGeneralSection('card-general')
     ];
     
@@ -91,130 +91,97 @@ export class SettingTab extends PluginSettingTab {
       cls: 'setting-item-description'
     });
     
-    // 미리보기 섹션 표시 (상단에 배치)
-    const previewContainer = containerEl.createDiv({ cls: 'card-navigator-preview-container' });
-    const previewSection = this.sections.get('card-preview');
-    if (previewSection) {
-      previewSection.display(previewContainer);
-    }
-    
     // 설정 섹션 컨테이너 생성
     const settingsContainer = containerEl.createDiv({ cls: 'card-navigator-settings-container' });
     
-    // 설정 섹션 스타일 적용
-    settingsContainer.style.display = 'flex';
-    settingsContainer.style.flexDirection = 'column';
-    settingsContainer.style.gap = '20px';
+    // 메인 탭 컨테이너 생성
+    const mainTabContainer = new TabContainer(settingsContainer, this.eventBus);
     
-    // 카드 섹션 표시
-    const cardSectionContainer = settingsContainer.createDiv({ cls: 'card-navigator-section-container' });
-    const cardSection = this.sections.get('card');
-    if (cardSection) {
-      cardSection.display(cardSectionContainer);
-    }
-    
-    // 카드 헤더 섹션 표시
-    const cardHeaderSectionContainer = settingsContainer.createDiv({ cls: 'card-navigator-section-container' });
-    const cardHeaderSection = this.sections.get('card-header');
-    if (cardHeaderSection) {
-      cardHeaderSection.display(cardHeaderSectionContainer);
-    }
-    
-    // 카드 바디 섹션 표시
-    const cardBodySectionContainer = settingsContainer.createDiv({ cls: 'card-navigator-section-container' });
-    const cardBodySection = this.sections.get('card-body');
-    if (cardBodySection) {
-      cardBodySection.display(cardBodySectionContainer);
-    }
-    
-    // 카드 풋터 섹션 표시
-    const cardFooterSectionContainer = settingsContainer.createDiv({ cls: 'card-navigator-section-container' });
-    const cardFooterSection = this.sections.get('card-footer');
-    if (cardFooterSection) {
-      cardFooterSection.display(cardFooterSectionContainer);
-    }
-    
-    // 카드셋 섹션 표시
-    const cardSetSectionContainer = settingsContainer.createDiv({ cls: 'card-navigator-section-container' });
-    const cardSetSection = this.sections.get('card-set');
-    if (cardSetSection) {
-      cardSetSection.display(cardSetSectionContainer);
-    }
-    
-    // 카드 정렬 섹션 표시
-    const cardSortSectionContainer = settingsContainer.createDiv({ cls: 'card-navigator-section-container' });
-    const cardSortSection = this.sections.get('card-sort');
-    if (cardSortSection) {
-      cardSortSection.display(cardSortSectionContainer);
-    }
-    
-    // 카드 필터 섹션 표시
-    const cardFilterSectionContainer = settingsContainer.createDiv({ cls: 'card-navigator-section-container' });
-    const cardFilterSection = this.sections.get('card-filter');
-    if (cardFilterSection) {
-      cardFilterSection.display(cardFilterSectionContainer);
-    }
-    
-    // 카드 일반 섹션 표시
-    const cardGeneralSectionContainer = settingsContainer.createDiv({ cls: 'card-navigator-section-container' });
+    // 일반 설정 탭
+    const generalTabContent = mainTabContainer.addTab('general', '일반 설정');
     const cardGeneralSection = this.sections.get('card-general');
     if (cardGeneralSection) {
-      cardGeneralSection.display(cardGeneralSectionContainer);
+      cardGeneralSection.display(generalTabContent);
     }
     
-    // 고급 설정 섹션 추가
-    const advancedSettingsContainer = settingsContainer.createDiv({ cls: 'card-navigator-section-container' });
-    advancedSettingsContainer.createEl('h2', { text: '고급 설정' });
+    // 카드 설정 탭
+    const cardTabContent = mainTabContainer.addTab('card', '카드 설정');
+    this.createCardTab(cardTabContent);
     
-    // 디버그 모드 설정 추가
-    new Setting(advancedSettingsContainer)
-      .setName('디버그 모드')
-      .setDesc('개발 중 디버깅을 위한 로그를 출력합니다.')
-      .addToggle(toggle => toggle
-        .setValue(this.plugin.settings.debugMode || false)
-        .onChange(async (value) => {
-          this.plugin.settings.debugMode = value;
-          await this.plugin.saveSettings();
-        })
-      );
-  }
-  
-  /**
-   * 설정 탭이 숨겨질 때 호출됩니다.
-   * 이벤트 리스너를 제거합니다.
-   */
-  hide(): void {
-    // 부모 클래스의 hide 메서드 호출
-    super.hide();
+    // 카드셋 설정 탭
+    const cardSetTabContent = mainTabContainer.addTab('card-set', '카드셋 설정');
+    const cardSetSection = this.sections.get('card-set');
+    if (cardSetSection) {
+      cardSetSection.display(cardSetTabContent);
+    }
+    
+    // 검색 및 필터 설정 탭
+    const searchFilterTabContent = mainTabContainer.addTab('search-filter', '검색 및 필터');
+    const cardFilterSection = this.sections.get('card-filter');
+    if (cardFilterSection) {
+      cardFilterSection.display(searchFilterTabContent);
+    }
+    
+    // 정렬 설정 탭
+    const sortTabContent = mainTabContainer.addTab('sort', '정렬 설정');
+    const cardSortSection = this.sections.get('card-sort');
+    if (cardSortSection) {
+      cardSortSection.display(sortTabContent);
+    }
   }
   
   /**
    * 이벤트 리스너 등록
    */
   private registerEventListeners(): void {
-    // 설정 UI 변경 이벤트 리스너 등록
-    this.eventBus.on(EventType.SETTINGS_UI_CHANGED, (data) => {
-      this.updateCardPreview(data.sectionId);
+    // 설정 변경 이벤트 리스너
+    this.eventBus.on(EventType.SETTINGS_CHANGED, (data) => {
+      // 설정이 변경되면 미리보기 업데이트
+      this.updateCardPreview('settings-changed');
     });
     
-    // 설정 미리보기 업데이트 이벤트 리스너 등록
-    this.eventBus.on(EventType.SETTINGS_PREVIEW_UPDATE, (data) => {
-      this.updateCardPreview(data.sectionId);
+    // 설정 UI 변경 이벤트 리스너
+    this.eventBus.on(EventType.SETTINGS_UI_CHANGED, (data) => {
+      // 설정 UI가 변경되면 미리보기 업데이트
+      this.updateCardPreview('settings-ui-changed');
+    });
+    
+    // 탭 변경 이벤트 리스너
+    this.eventBus.on(EventType.SETTINGS_TAB_CHANGED, (data) => {
+      // 탭이 변경되면 미리보기 업데이트
+      this.updateCardPreview('settings-tab-changed');
     });
   }
   
   /**
    * 카드 미리보기 업데이트
-   * @param sectionId 업데이트를 요청한 섹션 ID
+   * @param source 업데이트 소스
    */
-  updateCardPreview(sectionId: string): void {
-    const previewSection = this.sections.get('card-preview');
-    if (previewSection) {
-      const previewContainer = this.containerEl.querySelector('.card-navigator-preview-container');
-      if (previewContainer) {
-        previewContainer.empty();
-        previewSection.display(previewContainer as HTMLElement);
-      }
-    }
+  private updateCardPreview(source: string): void {
+    // 미리보기 업데이트 이벤트 발생
+    this.eventBus.emit(EventType.SETTINGS_PREVIEW_UPDATE, {
+      source: source
+    });
+  }
+  
+  /**
+   * 카드 탭 생성
+   * @param containerEl 컨테이너 요소
+   */
+  private createCardTab(containerEl: HTMLElement): void {
+    const cardTabContent = containerEl.createDiv({ cls: 'card-navigator-tab-content' });
+    
+    // 카드 미리보기 섹션 생성
+    const previewSection = new CardPreviewSection(this.plugin);
+    previewSection.display();
+    cardTabContent.appendChild(previewSection.containerEl);
+  }
+  
+  /**
+   * 설정 탭이 숨겨질 때 호출됩니다.
+   */
+  hide(): void {
+    // 부모 클래스의 hide 메서드 호출
+    super.hide();
   }
 } 

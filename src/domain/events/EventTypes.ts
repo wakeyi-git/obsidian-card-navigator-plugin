@@ -732,6 +732,16 @@ export interface SettingsPreviewUpdateEventData {
 }
 
 /**
+ * 설정 탭 변경 이벤트 데이터 인터페이스
+ */
+export interface SettingsTabChangedEventData {
+  /**
+   * 변경된 탭 ID
+   */
+  tabId: string;
+}
+
+/**
  * 이벤트 타입 열거형
  */
 export enum EventType {
@@ -774,6 +784,7 @@ export enum EventType {
   SETTINGS_RESET = 'settings-reset',
   SETTINGS_UI_CHANGED = 'settings-ui-changed',
   SETTINGS_PREVIEW_UPDATE = 'settings-preview-update',
+  SETTINGS_TAB_CHANGED = 'settings-tab-changed',
   
   // 플러그인 관련 이벤트
   PLUGIN_LOADED = 'pluginLoaded',
@@ -874,6 +885,7 @@ export interface EventDataMap {
   [EventType.POPUP_HIDDEN]: PopupHiddenEventData;
   [EventType.SEARCH_RESULTS_CHANGED]: any;
   [EventType.SEARCH_HISTORY_CHANGED]: any;
+  [EventType.SETTINGS_TAB_CHANGED]: SettingsTabChangedEventData;
   
   // 인덱스 시그니처 추가
   [key: string]: any;

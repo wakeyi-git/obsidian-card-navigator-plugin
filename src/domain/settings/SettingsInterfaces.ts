@@ -10,6 +10,8 @@ import { CardRenderingMode } from '../card/Card';
  */
 export interface ICardNavigatorSettings {
   // 기본 설정
+  enabled: boolean;
+  autoRefresh: boolean;
   defaultCardSetSource: CardSetSourceType;
   defaultLayout: 'grid' | 'masonry';
   includeSubfolders: boolean;
@@ -37,6 +39,12 @@ export interface ICardNavigatorSettings {
   cardHeaderFrontmatterKey?: string;
   cardBodyFrontmatterKey?: string;
   cardFooterFrontmatterKey?: string;
+  
+  // 다중 선택 콘텐츠 설정
+  cardHeaderContentMultiple?: string[];
+  cardBodyContentMultiple?: string[];
+  cardFooterContentMultiple?: string[];
+  
   renderingCardSetSource?: string;
   titleSource?: 'filename' | 'firstheader';
   includeFrontmatterInContent?: boolean;
@@ -166,6 +174,12 @@ export interface ICardNavigatorSettings {
   
   // 미리보기 설정
   previewSampleType?: string;
+  
+  // 미리보기 설정
+  showHeader?: boolean;
+  showFooter?: boolean;
+  bodyMaxLength?: number;
+  borderRadius?: number;
 }
 
 /**

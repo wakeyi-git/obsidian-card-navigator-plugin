@@ -7,6 +7,8 @@ import { NavigationMode } from '../navigation';
  */
 export const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
   // 기본 설정
+  enabled: true,
+  autoRefresh: true,
   defaultCardSetSource: 'folder',
   defaultLayout: 'grid',
   includeSubfolders: true,
@@ -22,8 +24,14 @@ export const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
   cardWidth: 250,
   cardHeight: 150,
   cardHeaderContent: 'filename',
+  cardHeaderFrontmatterKey: '',
   cardBodyContent: 'content',
+  cardBodyFrontmatterKey: '',
   cardFooterContent: 'tags',
+  cardFooterFrontmatterKey: '',
+  cardHeaderContentMultiple: ['filename'],
+  cardBodyContentMultiple: ['content'],
+  cardFooterContentMultiple: ['tags'],
   titleSource: 'filename',
   includeFrontmatterInContent: false,
   includeFirstHeaderInContent: true,
@@ -34,6 +42,7 @@ export const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
   normalCardBgColor: '',
   activeCardBgColor: '',
   focusedCardBgColor: '',
+  hoverCardBgColor: '#f0f7ff',
   headerBgColor: '',
   bodyBgColor: '',
   footerBgColor: '',
@@ -54,7 +63,7 @@ export const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
   
   focusedCardBorderStyle: 'solid',
   focusedCardBorderColor: 'var(--interactive-accent)',
-  focusedCardBorderWidth: 2,
+  focusedCardBorderWidth: 3,
   focusedCardBorderRadius: 5,
   
   headerBorderStyle: 'none',
@@ -99,7 +108,6 @@ export const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
   // 추가 설정
   cardRenderingMode: 'text',
   frontmatterKey: 'status',
-  hoverCardBgColor: '#f0f7ff',
   hoverCardBorderColor: '#80b3ff',
   defaultFilterEnabled: false,
   defaultFilterType: 'tag',
@@ -114,6 +122,12 @@ export const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
   navigationMode: 'grid' as NavigationMode,
   selectionMode: 'single',
   dragMode: 'copy',
+  
+  // 미리보기 설정
+  showHeader: true,
+  showFooter: true,
+  bodyMaxLength: 200,
+  borderRadius: 5,
 }; 
 
 // 디버깅: 기본 설정 값 로깅

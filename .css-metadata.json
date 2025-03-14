@@ -10,5 +10,13 @@
   "src/components/card/card.css": {
     "hash": "bd748f39f42ea73875fec96c02830922",
     "lastModified": 1741902747751
+  },
+  "src/settings/components/TabContainer.css": {
+    "hash": "585130b0af221dd6021e3cce18e54a9d",
+    "lastModified": 1741947005714
+  },
+  "src/settings/section/CardPreviewSection.css": {
+    "hash": "906c8a6b7bd8bfcc90fa91cd49832c81",
+    "lastModified": 1741947768264
   }
 }

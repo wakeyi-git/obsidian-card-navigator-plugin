@@ -31,6 +31,10 @@ export class SettingsService implements ISettingsService {
    */
   getDefaultSettings(): ICardNavigatorSettings {
     return {
+      // 기본 설정
+      enabled: true,
+      autoRefresh: true,
+      
       // 카드셋 관련 설정
       defaultCardSetSource: 'folder',
       defaultLayout: 'grid',

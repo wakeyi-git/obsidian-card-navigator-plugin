@@ -1,10 +1,13 @@
-import { CachedMetadata, TFile } from 'obsidian';
-import { Card, ICard, ICardDisplaySettings, CardContentType } from '../../domain/card/Card';
+import { TFile } from 'obsidian';
+import { ICard } from '../../domain/card/Card';
 import { DomainEventBus } from '../../domain/events/DomainEventBus';
-import { CardSetChangedEventData, EventType, SettingsChangedEventData } from '../../domain/events/EventTypes';
+import { EventType } from '../../domain/events/EventTypes';
 import { ICardManager } from '../../domain/interaction/InteractionInterfaces';
 import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
 import { ObsidianService } from '../core/ObsidianService';
+import { CardCreationService, ICardCreationService } from './CardCreationService';
+import { CardInteractionService, ICardInteractionService } from './CardInteractionService';
+import { CardQueryService, ICardQueryService } from './CardQueryService';
 
 /**
  * 카드 서비스 인터페이스
@@ -42,18 +45,64 @@ export interface ICardService extends ICardManager {
    * @returns 설정 서비스
    */
   getSettingsService(): ISettingsService;
+  
+  /**
+   * 카드 목록 가져오기
+   * @returns 카드 목록
+   */
+  getCards(): Promise<ICard[]>;
+  
+  /**
+   * 현재 카드 목록 가져오기
+   * @returns 현재 카드 목록
+   */
+  getCurrentCards(): ICard[];
+  
+  /**
+   * 카드 저장소 새로고침
+   */
+  refreshCards(): Promise<void>;
+  
+  /**
+   * 태그로 카드 필터링
+   * @param tag 태그
+   * @returns 필터링된 카드 목록
+   */
+  filterCardsByTag(tag: string): Promise<ICard[]>;
+  
+  /**
+   * 폴더로 카드 필터링
+   * @param folder 폴더 경로
+   * @returns 필터링된 카드 목록
+   */
+  filterCardsByFolder(folder: string): Promise<ICard[]>;
+  
+  /**
+   * 텍스트로 카드 검색
+   * @param text 검색 텍스트
+   * @returns 검색된 카드 목록
+   */
+  searchCardsByText(text: string): Promise<ICard[]>;
+  
+  /**
+   * 카드 캐시 초기화
+   */
+  clearCardCache(): void;
 }
 
 /**
  * 카드 서비스
  * 카드 관련 기능을 관리합니다.
+ * 파사드(Facade) 패턴으로 구현되어 다른 서비스들을 조합합니다.
  */
 export class CardService implements ICardService {
   private obsidianService: ObsidianService;
   private settingsService: ISettingsService;
   private eventBus: DomainEventBus;
-  private cards: ICard[] = [];
-  private cardCache: Map<string, ICard> = new Map();
+  
+  private cardQueryService: ICardQueryService;
+  private cardCreationService: ICardCreationService;
+  private cardInteractionService: ICardInteractionService;
   
   /**
    * 생성자
@@ -70,9 +119,22 @@ export class CardService implements ICardService {
     this.settingsService = settingsService;
     this.eventBus = eventBus;
     
+    // 서비스 초기화
+    this.cardCreationService = new CardCreationService(obsidianService, settingsService, eventBus);
+    this.cardInteractionService = new CardInteractionService(obsidianService, settingsService, eventBus);
+    this.cardQueryService = new CardQueryService(this, obsidianService, settingsService, eventBus);
+    
     // 이벤트 리스너 등록
-    this.eventBus.on(EventType.CARDSET_CHANGED, this.onCardSetChanged.bind(this));
-    this.eventBus.on(EventType.SETTINGS_CHANGED, this.onSettingsChanged.bind(this));
+    this.registerEventListeners();
+  }
+  
+  /**
+   * 이벤트 리스너 등록
+   */
+  private registerEventListeners(): void {
+    this.eventBus.on(EventType.SETTINGS_CHANGED, () => {
+      // 필요한 경우 상태 초기화
+    });
   }
   
   /**
@@ -80,10 +142,7 @@ export class CardService implements ICardService {
    * @returns 카드 목록
    */
   async getCards(): Promise<ICard[]> {
-    if (this.cards.length === 0) {
-      await this.refreshCards();
-    }
-    return this.cards;
+    return this.cardQueryService.getCards();
   }
   
   /**
@@ -91,25 +150,18 @@ export class CardService implements ICardService {
    * @returns 현재 카드 목록
    */
   getCurrentCards(): ICard[] {
-    return this.cards;
+    return this.cardQueryService.getCurrentCards();
   }
   
   /**
    * 카드 저장소 새로고침
    */
   async refreshCards(): Promise<void> {
-    // 현재 카드셋 소스에 따라 파일 목록 가져오기
-    const files = this.obsidianService.getMarkdownFiles();
+    // 카드 캐시 초기화
+    this.clearCardCache();
     
-    // 파일로부터 카드 생성
-    this.cards = await Promise.all(files.map(file => this.createCardFromFile(file)));
-    
-    // 카드 변경 이벤트 발생
-    this.eventBus.emit(EventType.CARDS_CHANGED, {
-      cards: this.cards,
-      totalCount: this.cards.length,
-      filteredCount: this.cards.length
-    });
+    // 카드 쿼리 서비스를 통해 카드 목록 새로고침
+    await this.cardQueryService.refreshCards();
   }
   
   /**
@@ -118,8 +170,7 @@ export class CardService implements ICardService {
    * @returns 카드 또는 undefined
    */
   async getCardById(id: string): Promise<ICard | undefined> {
-    const cards = await this.getCards();
-    return cards.find(card => card.getId() === id);
+    return this.cardQueryService.getCardById(id);
   }
   
   /**
@@ -128,26 +179,7 @@ export class CardService implements ICardService {
    * @returns 카드 또는 null
    */
   async getCardByPath(path: string): Promise<ICard | null> {
-    try {
-      // 캐시에서 카드 확인
-      if (this.cardCache.has(path)) {
-        return this.cardCache.get(path) || null;
-      }
-      
-      const file = this.obsidianService.getVault().getAbstractFileByPath(path);
-      if (file instanceof TFile) {
-        // 파일로부터 카드 생성
-        const card = await this.createCardFromFile(file);
-        
-        // 캐시에 저장
-        this.cardCache.set(path, card);
-        
-        return card;
-      }
-    } catch (error) {
-      console.error('카드 가져오기 오류:', error);
-    }
-    return null;
+    return this.cardQueryService.getCardByPath(path);
   }
   
   /**
@@ -156,237 +188,122 @@ export class CardService implements ICardService {
    * @returns 생성된 카드
    */
   async createCardFromFile(file: TFile): Promise<ICard> {
-    try {
-      // 파일 내용 가져오기
-      const content = await this.obsidianService.read(file);
-      
-      // 메타데이터 가져오기
-      const metadata = this.obsidianService.getMetadataCache().getFileCache(file);
-      
-      // 카드 생성
-      const card = this.createCard(file, content, metadata);
-      
-      // 카드 메서드 확인 및 추가
-      this.ensureCardMethods(card);
-      
-      return card;
-    } catch (error) {
-      console.error('카드 생성 오류:', error);
-      
-      // 최소한의 카드 객체 생성
-      const fallbackCard: ICard = {
-        id: file.path,
-        path: file.path,
-        filename: file.basename,
-        file: file,
-        title: file.basename,
-        content: '',
-        tags: [],
-        created: file.stat.ctime,
-        modified: file.stat.mtime,
-        getId: function() { return this.id || ''; },
-        getPath: function() { return this.path || ''; },
-        getCreatedTime: function() { return this.created || 0; },
-        getModifiedTime: function() { return this.modified || 0; }
-      };
-      
-      return fallbackCard;
-    }
+    return this.cardCreationService.createCardFromFile(file);
   }
   
   /**
-   * 카드 메서드 확인 및 추가
-   * @param card 카드 객체
+   * 태그로 카드 필터링
+   * @param tag 태그
+   * @returns 필터링된 카드 목록
    */
-  private ensureCardMethods(card: ICard): void {
-    if (!card.getId) {
-      card.getId = function() {
-        return this.id || this.path || '';
-      };
-    }
-    
-    if (!card.getPath) {
-      card.getPath = function() {
-        return this.path || '';
-      };
-    }
-    
-    if (!card.getCreatedTime) {
-      card.getCreatedTime = function() {
-        return this.created || 0;
-      };
-    }
-    
-    if (!card.getModifiedTime) {
-      card.getModifiedTime = function() {
-        return this.modified || 0;
-      };
-    }
+  async filterCardsByTag(tag: string): Promise<ICard[]> {
+    return this.cardQueryService.filterCardsByTag(tag);
   }
   
   /**
-   * 카드 생성
-   * @param file 파일
-   * @param content 내용
-   * @param metadata 메타데이터
-   * @returns 생성된 카드
+   * 폴더로 카드 필터링
+   * @param folder 폴더 경로
+   * @returns 필터링된 카드 목록
    */
-  private createCard(file: TFile, content: string, metadata: CachedMetadata | null): ICard {
-    // 설정 가져오기
-    const settings = this.settingsService.getSettings();
-    
-    // 태그 추출
-    const tags = metadata?.tags?.map(tag => tag.tag) || [];
-    
-    // 프론트매터 추출
-    const frontmatter = metadata?.frontmatter || {};
-    
-    // 첫 번째 헤더 추출
-    const firstHeader = metadata?.headings?.[0]?.heading || '';
-    
-    // 디버깅: 설정에서 가져온 콘텐츠 타입 값 로깅
-    console.log('카드 생성 - 설정에서 가져온 콘텐츠 타입:');
-    console.log('headerContent:', settings.cardHeaderContent);
-    console.log('bodyContent:', settings.cardBodyContent);
-    console.log('footerContent:', settings.cardFooterContent);
-    console.log('설정 타입:', typeof settings.cardHeaderContent, typeof settings.cardBodyContent, typeof settings.cardFooterContent);
-    
-    // 카드 표시 설정
-    const displaySettings: ICardDisplaySettings = {
-      headerContent: settings.cardHeaderContent as CardContentType,
-      bodyContent: settings.cardBodyContent as CardContentType,
-      footerContent: settings.cardFooterContent as CardContentType,
-      renderingMode: settings.cardRenderingMode || 'text',
-      cardStyle: {
-        normal: {
-          backgroundColor: settings.normalCardBgColor,
-          borderStyle: settings.normalCardBorderStyle,
-          borderColor: settings.normalCardBorderColor,
-          borderWidth: settings.normalCardBorderWidth,
-          borderRadius: settings.normalCardBorderRadius
-        },
-        active: {
-          backgroundColor: settings.activeCardBgColor,
-          borderStyle: settings.activeCardBorderStyle,
-          borderColor: settings.activeCardBorderColor,
-          borderWidth: settings.activeCardBorderWidth,
-          borderRadius: settings.activeCardBorderRadius
-        },
-        focused: {
-          backgroundColor: settings.focusedCardBgColor,
-          borderStyle: settings.focusedCardBorderStyle,
-          borderColor: settings.focusedCardBorderColor,
-          borderWidth: settings.focusedCardBorderWidth,
-          borderRadius: settings.focusedCardBorderRadius
-        },
-        header: {
-          backgroundColor: settings.headerBgColor,
-          fontSize: settings.headerFontSize,
-          borderStyle: settings.headerBorderStyle,
-          borderColor: settings.headerBorderColor,
-          borderWidth: settings.headerBorderWidth,
-          borderRadius: settings.headerBorderRadius
-        },
-        body: {
-          backgroundColor: settings.bodyBgColor,
-          fontSize: settings.bodyFontSize,
-          borderStyle: settings.bodyBorderStyle,
-          borderColor: settings.bodyBorderColor,
-          borderWidth: settings.bodyBorderWidth,
-          borderRadius: settings.bodyBorderRadius
-        },
-        footer: {
-          backgroundColor: settings.footerBgColor,
-          fontSize: settings.footerFontSize,
-          borderStyle: settings.footerBorderStyle,
-          borderColor: settings.footerBorderColor,
-          borderWidth: settings.footerBorderWidth,
-          borderRadius: settings.footerBorderRadius
-        }
-      }
-    };
-    
-    return new Card(
-      file,
-      content,
-      tags,
-      frontmatter,
-      firstHeader,
-      displaySettings,
-      metadata || undefined
-    );
+  async filterCardsByFolder(folder: string): Promise<ICard[]> {
+    return this.cardQueryService.filterCardsByFolder(folder);
   }
   
   /**
-   * 카드셋 변경 이벤트 처리
-   * @param data 이벤트 데이터
+   * 텍스트로 카드 검색
+   * @param text 검색 텍스트
+   * @returns 검색된 카드 목록
    */
-  private onCardSetChanged(_data: CardSetChangedEventData): void {
-    this.refreshCards();
+  async searchCardsByText(text: string): Promise<ICard[]> {
+    return this.cardQueryService.searchCardsByText(text);
   }
   
   /**
-   * 설정 변경 이벤트 처리
-   * @param data 이벤트 데이터
+   * 카드 선택
+   * @param card 카드
    */
-  private onSettingsChanged(data: SettingsChangedEventData): void {
-    // 카드 표시 관련 설정이 변경된 경우에만 카드 새로고침
-    const cardDisplaySettings = [
-      'cardHeaderContent', 'cardBodyContent', 'cardFooterContent',
-      'cardHeaderFrontmatterKey', 'cardBodyFrontmatterKey', 'cardFooterFrontmatterKey',
-      'normalCardBgColor', 'activeCardBgColor', 'focusedCardBgColor', 'hoverCardBgColor',
-      'headerBgColor', 'bodyBgColor', 'footerBgColor',
-      'headerFontSize', 'bodyFontSize', 'footerFontSize',
-      'normalCardBorderStyle', 'normalCardBorderColor', 'normalCardBorderWidth', 'normalCardBorderRadius',
-      'activeCardBorderStyle', 'activeCardBorderColor', 'activeCardBorderWidth', 'activeCardBorderRadius',
-      'focusedCardBorderStyle', 'focusedCardBorderColor', 'focusedCardBorderWidth', 'focusedCardBorderRadius',
-      'hoverCardBorderStyle', 'hoverCardBorderColor', 'hoverCardBorderWidth', 'hoverCardBorderRadius',
-      'headerBorderStyle', 'headerBorderColor', 'headerBorderWidth', 'headerBorderRadius',
-      'bodyBorderStyle', 'bodyBorderColor', 'bodyBorderWidth', 'bodyBorderRadius',
-      'footerBorderStyle', 'footerBorderColor', 'footerBorderWidth', 'footerBorderRadius',
-      'cardWidth', 'cardHeight', 'cardGap'
-    ];
-    
-    // 섹션 ID도 처리
-    const cardSectionIds = [
-      'card', 'card-header', 'card-body', 'card-footer', 'card-general'
-    ];
-    
-    // 설정 변경 로그 출력 (디버깅용)
-    console.log('설정 변경됨:', data.changedKeys);
-    
-    // 변경된 설정 값 확인
-    if (data.changedKeys.includes('cardHeaderContent')) {
-      console.log('헤더 콘텐츠 설정 변경됨:', data.settings.cardHeaderContent);
-    }
-    if (data.changedKeys.includes('cardBodyContent')) {
-      console.log('바디 콘텐츠 설정 변경됨:', data.settings.cardBodyContent);
-    }
-    if (data.changedKeys.includes('cardFooterContent')) {
-      console.log('푸터 콘텐츠 설정 변경됨:', data.settings.cardFooterContent);
-    }
-    
-    // 카드 표시 관련 설정이 변경된 경우 카드 새로고침
-    const hasDisplaySettingsChanged = data.changedKeys.some(key => 
-      cardDisplaySettings.includes(key) || cardSectionIds.includes(key)
-    );
-    
-    if (hasDisplaySettingsChanged) {
-      console.log('카드 표시 설정이 변경되었습니다.');
-      
-      // 카드 콘텐츠 타입 관련 설정이 변경된 경우
-      const contentTypeChanged = data.changedKeys.some(key => 
-        ['cardHeaderContent', 'cardBodyContent', 'cardFooterContent'].includes(key)
-      );
-      
-      if (contentTypeChanged) {
-        console.log('카드 콘텐츠 타입 설정이 변경되었습니다. 카드 컴포넌트에서 처리합니다.');
-        // 카드 컴포넌트에서 처리하도록 이벤트만 발생시키고 캐시는 초기화하지 않음
-      } else {
-        // 스타일 관련 설정만 변경된 경우 캐시 초기화 없이 카드 새로고침
-        console.log('카드 스타일 설정이 변경되었습니다. 카드 컴포넌트에서 처리합니다.');
-      }
-    }
+  selectCard(card: ICard): void {
+    this.cardInteractionService.selectCard(card);
+  }
+  
+  /**
+   * 카드 선택 해제
+   * @param card 카드
+   */
+  deselectCard(card: ICard): void {
+    this.cardInteractionService.deselectCard(card);
+  }
+  
+  /**
+   * 모든 카드 선택 해제
+   */
+  deselectAllCards(): void {
+    this.cardInteractionService.deselectAllCards();
+  }
+  
+  /**
+   * 카드 활성화
+   * @param card 카드
+   */
+  activateCard(card: ICard): void {
+    this.cardInteractionService.activateCard(card);
+  }
+  
+  /**
+   * 카드 비활성화
+   * @param card 카드
+   */
+  deactivateCard(card: ICard): void {
+    this.cardInteractionService.deactivateCard(card);
+  }
+  
+  /**
+   * 카드 포커스
+   * @param card 카드
+   */
+  focusCard(card: ICard): void {
+    this.cardInteractionService.focusCard(card);
+  }
+  
+  /**
+   * 카드 포커스 해제
+   * @param card 카드
+   */
+  unfocusCard(card: ICard): void {
+    this.cardInteractionService.unfocusCard(card);
+  }
+  
+  /**
+   * 카드 열기
+   * @param card 카드
+   * @param newLeaf 새 탭에서 열기 여부
+   */
+  openCard(card: ICard, newLeaf: boolean = false): void {
+    this.cardInteractionService.openCard(card, newLeaf);
+  }
+  
+  /**
+   * 선택된 카드 ID 목록 가져오기
+   * @returns 선택된 카드 ID 목록
+   */
+  getSelectedCardIds(): string[] {
+    return this.cardInteractionService.getSelectedCardIds();
+  }
+  
+  /**
+   * 활성 카드 가져오기
+   * @returns 활성 카드 또는 null
+   */
+  getActiveCard(): ICard | null {
+    return this.cardInteractionService.getActiveCard();
+  }
+  
+  /**
+   * 포커스 카드 가져오기
+   * @returns 포커스 카드 또는 null
+   */
+  getFocusedCard(): ICard | null {
+    return this.cardInteractionService.getFocusedCard();
   }
   
   /**
@@ -411,7 +328,6 @@ export class CardService implements ICardService {
    */
   clearCardCache(): void {
     console.log('카드 캐시 초기화');
-    this.cards = [];
-    this.cardCache.clear();
+    this.cardCreationService.clearCardCache();
   }
 } 

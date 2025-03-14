@@ -194,6 +194,16 @@ export default class CardNavigatorPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
+  /**
+   * 뷰 새로고침
+   * 카드 네비게이터 뷰를 새로고침합니다.
+   */
+  refreshViews() {
+    if (this.view) {
+      this.view.refresh();
+    }
+  }
+
   initializeServices() {
     // 코어 서비스 초기화
     this.obsidianService = new ObsidianService(this.app, this);
