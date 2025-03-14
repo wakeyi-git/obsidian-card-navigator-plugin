@@ -23,7 +23,7 @@ import { SearchComponent } from './components/search/SearchComponent';
 import { ToolbarComponent } from './components/toolbar/ToolbarComponent';
 import { NavigationMode } from './domain/navigation';
 import { ICardSet } from './domain/cardset/CardSet';
-import { SettingTab } from './setting/section/SettingTab';
+import { SettingTab } from './settings/section/SettingTab';
 import { LayoutComponent } from './components/layout/LayoutComponent';
 import { NavigationComponent } from './components/navigation/NavigationComponent';
 import { DEFAULT_SETTINGS } from './domain/settings/DefaultSettings';
