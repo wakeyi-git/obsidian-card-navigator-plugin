@@ -245,4 +245,143 @@
     flex: 1 1 auto;
     max-width: 150px;
   }
+}
+
+/* 카드셋 이름 스타일 */
+.cardset-name-container {
+  display: flex;
+  align-items: center;
+  background-color: var(--background-primary);
+  border-radius: 4px;
+  padding: 4px 8px;
+  max-width: 300px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.cardset-name-container:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.cardset-name-text {
+  margin-left: 4px;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 검색바 스타일 */
+.card-navigator-searchbar-container {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  background-color: var(--background-secondary);
+  border-top: 1px solid var(--background-modifier-border);
+  position: relative;
+  z-index: 9;
+}
+
+.card-navigator-searchbar-input {
+  flex: 1;
+  height: 32px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 14px;
+  margin-right: 8px;
+}
+
+.card-navigator-searchbar-input:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
+}
+
+.card-navigator-searchbar-scope-button,
+.card-navigator-searchbar-case-button,
+.card-navigator-searchbar-search-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-right: 4px;
+}
+
+.card-navigator-searchbar-search-button {
+  margin-right: 0;
+}
+
+.card-navigator-searchbar-scope-button:hover,
+.card-navigator-searchbar-case-button:hover,
+.card-navigator-searchbar-search-button:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.card-navigator-searchbar-scope-button.active,
+.card-navigator-searchbar-case-button.active,
+.card-navigator-searchbar-search-button.active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+/* 카드셋 서제스트 모달 스타일 */
+.cardset-suggest-modal {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.cardset-suggest-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.cardset-suggest-item:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.cardset-suggest-item-icon {
+  margin-right: 8px;
+  color: var(--text-muted);
+}
+
+.cardset-suggest-item-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 툴바 버튼 활성화 상태 */
+.toolbar-button.active {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.toolbar-button.active .toolbar-button-icon {
+  color: var(--text-on-accent);
 } 

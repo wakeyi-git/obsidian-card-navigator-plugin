@@ -40,28 +40,28 @@ export class ToolbarManager implements IToolbarManager {
     this.state = {
       items: [
         {
-          type: 'search',
+          type: ToolbarItemType.SEARCH,
           active: false,
           iconId: 'search',
           tooltip: '검색',
           id: 'toolbar-search'
         },
         {
-          type: 'sort',
+          type: ToolbarItemType.SORT,
           active: false,
           iconId: 'sort',
           tooltip: '정렬',
           id: 'toolbar-sort'
         },
         {
-          type: 'cardset',
+          type: ToolbarItemType.CARDSET,
           active: false,
-          iconId: 'folder',
+          iconId: 'cards',
           tooltip: '카드셋',
           id: 'toolbar-cardset'
         },
         {
-          type: 'settings',
+          type: ToolbarItemType.SETTINGS,
           active: false,
           iconId: 'settings',
           tooltip: '설정',
@@ -134,7 +134,7 @@ export class ToolbarManager implements IToolbarManager {
     
     // 요청된 팝업 표시
     switch (popupType) {
-      case 'search':
+      case ToolbarItemType.SEARCH:
         this.searchPopup = {
           type: 'search',
           visible: true,
@@ -154,7 +154,7 @@ export class ToolbarManager implements IToolbarManager {
         };
         break;
         
-      case 'sort':
+      case ToolbarItemType.SORT:
         this.sortPopup = {
           type: 'sort',
           visible: true,
@@ -164,7 +164,7 @@ export class ToolbarManager implements IToolbarManager {
         };
         break;
         
-      case 'settings':
+      case ToolbarItemType.SETTINGS:
         this.settingsPopup = {
           type: 'settings',
           visible: true,
@@ -178,6 +178,10 @@ export class ToolbarManager implements IToolbarManager {
           renderingMode: 'text',
           layoutMode: 'grid'
         };
+        break;
+        
+      case ToolbarItemType.CARDSET:
+        // 카드셋 팝업 처리 로직 추가
         break;
         
       default:
@@ -194,22 +198,26 @@ export class ToolbarManager implements IToolbarManager {
    */
   hidePopup(popupType: ToolbarItemType): void {
     switch (popupType) {
-      case 'search':
+      case ToolbarItemType.SEARCH:
         if (this.searchPopup) {
           this.searchPopup.visible = false;
         }
         break;
         
-      case 'sort':
+      case ToolbarItemType.SORT:
         if (this.sortPopup) {
           this.sortPopup.visible = false;
         }
         break;
         
-      case 'settings':
+      case ToolbarItemType.SETTINGS:
         if (this.settingsPopup) {
           this.settingsPopup.visible = false;
         }
+        break;
+        
+      case ToolbarItemType.CARDSET:
+        // 카드셋 팝업 숨기기 로직 추가
         break;
         
       default:
@@ -226,18 +234,21 @@ export class ToolbarManager implements IToolbarManager {
   hideAllPopups(): void {
     if (this.searchPopup) {
       this.searchPopup.visible = false;
-      this.setToolbarItemActive('search', false);
+      this.setToolbarItemActive(ToolbarItemType.SEARCH, false);
     }
     
     if (this.sortPopup) {
       this.sortPopup.visible = false;
-      this.setToolbarItemActive('sort', false);
+      this.setToolbarItemActive(ToolbarItemType.SORT, false);
     }
     
     if (this.settingsPopup) {
       this.settingsPopup.visible = false;
-      this.setToolbarItemActive('settings', false);
+      this.setToolbarItemActive(ToolbarItemType.SETTINGS, false);
     }
+    
+    // 카드셋 팝업 숨기기 로직 추가
+    this.setToolbarItemActive(ToolbarItemType.CARDSET, false);
   }
   
   /**

@@ -6,6 +6,8 @@ import { SettingsPopupComponent } from './SettingsPopupComponent';
 import { LayoutPopupComponent } from './LayoutPopupComponent';
 import { IToolbarService } from '../../../application/toolbar/ToolbarService';
 import { ISettingsService } from '../../../domain/settings/SettingsInterfaces';
+import { ObsidianService } from '../../../infrastructure/obsidian/adapters/ObsidianService';
+import { DomainEventBus } from '../../../core/events/DomainEventBus';
 
 /**
  * 팝업 컴포넌트 팩토리
@@ -14,15 +16,26 @@ import { ISettingsService } from '../../../domain/settings/SettingsInterfaces';
 export class PopupFactory {
   private toolbarService: IToolbarService;
   private settingsService: ISettingsService;
+  private obsidianService: ObsidianService;
+  private eventBus: DomainEventBus;
   
   /**
    * 생성자
    * @param toolbarService 툴바 서비스
    * @param settingsService 설정 서비스
+   * @param obsidianService Obsidian 서비스
+   * @param eventBus 이벤트 버스
    */
-  constructor(toolbarService: IToolbarService, settingsService: ISettingsService) {
+  constructor(
+    toolbarService: IToolbarService, 
+    settingsService: ISettingsService,
+    obsidianService: ObsidianService,
+    eventBus: DomainEventBus
+  ) {
     this.toolbarService = toolbarService;
     this.settingsService = settingsService;
+    this.obsidianService = obsidianService;
+    this.eventBus = eventBus;
   }
   
   /**
@@ -33,7 +46,12 @@ export class PopupFactory {
   createPopup(popupType: string): PopupComponent {
     switch (popupType) {
       case 'cardset-popup':
-        return new CardSetPopupComponent(this.toolbarService, this.settingsService);
+        return new CardSetPopupComponent(
+          this.toolbarService, 
+          this.settingsService,
+          this.obsidianService,
+          this.eventBus
+        );
       case 'search-filter-popup':
         return new SearchFilterPopupComponent(this.toolbarService, this.settingsService);
       case 'sort-popup':

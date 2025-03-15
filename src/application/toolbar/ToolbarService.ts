@@ -3,6 +3,7 @@ import { EventType } from '../../domain/events/EventTypes';
 import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
 import { ToolbarItemType } from '../../domain/toolbar/ToolbarInterfaces';
 import { IPopupManager, PopupManager } from '../../ui/components/popup/PopupManager';
+import { ObsidianService } from '../../infrastructure/obsidian/adapters/ObsidianService';
 
 // 툴바 관련 이벤트 타입 상수
 const TOOLBAR_ITEM_REGISTERED = 'toolbar:item-registered';
@@ -15,8 +16,17 @@ const TOOLBAR_POPUP_SHOWN = 'toolbar:popup-shown';
 const TOOLBAR_POPUP_CLOSED = 'toolbar:popup-closed';
 const TOOLBAR_ACTION_EXECUTED = 'toolbar:action-executed';
 
+/**
+ * 툴바 아이템 위치 열거형
+ */
+export enum ToolbarItemPosition {
+  LEFT = 'left',
+  CENTER = 'center',
+  RIGHT = 'right'
+}
+
 // 툴바 아이템 위치 타입 정의
-export type ToolbarItemPosition = 'left' | 'center' | 'right';
+export type ToolbarItemPositionType = 'left' | 'center' | 'right';
 
 /**
  * 툴바 아이템 인터페이스
@@ -24,7 +34,7 @@ export type ToolbarItemPosition = 'left' | 'center' | 'right';
 export interface IToolbarItem {
   id: string;
   type: string;
-  position: ToolbarItemPosition;
+  position: ToolbarItemPositionType;
   icon?: string;
   label?: string;
   tooltip?: string;
@@ -143,9 +153,49 @@ export interface IToolbarService {
   /**
    * 툴바 아이템 액션 실행
    * @param itemId 아이템 ID
-   * @param data 액션 데이터
+   * @param data 액션 데이터 (선택 사항)
+   * @returns 실행 성공 여부
    */
-  executeItemAction(itemId: string, data?: any): void;
+  executeItemAction(itemId: string, data?: any): boolean;
+  
+  /**
+   * 검색 실행
+   * @param searchOptions 검색 옵션
+   * @returns 실행 성공 여부
+   */
+  executeSearch(searchOptions: { query: string, caseSensitive: boolean, scope: string }): boolean;
+  
+  /**
+   * 이벤트 발생
+   * @param eventType 이벤트 타입
+   * @param data 이벤트 데이터
+   */
+  emitEvent(eventType: string, data: any): void;
+  
+  /**
+   * 설정 가져오기
+   * @returns 설정 객체
+   */
+  getSettings(): any;
+  
+  /**
+   * 설정 업데이트
+   * @param settings 업데이트할 설정
+   * @returns 업데이트 성공 여부
+   */
+  updateSettings(settings: any): Promise<void>;
+  
+  /**
+   * 모든 폴더 가져오기 (경로 문자열 형태)
+   * @returns 폴더 경로 문자열 배열
+   */
+  getFolders(): string[];
+  
+  /**
+   * 태그 목록 가져오기
+   * @returns 태그 목록
+   */
+  getTags(): string[];
   
   /**
    * 이벤트 리스너 등록
@@ -175,16 +225,23 @@ export class ToolbarService implements IToolbarService {
   private eventBus: DomainEventBus;
   private items: Map<string, IToolbarItem> = new Map();
   private popupManager: IPopupManager;
+  private obsidianService: ObsidianService;
   
   /**
    * 생성자
    * @param settingsService 설정 서비스
    * @param eventBus 이벤트 버스
+   * @param obsidianService Obsidian 서비스
    */
-  constructor(settingsService: ISettingsService, eventBus: DomainEventBus) {
+  constructor(
+    settingsService: ISettingsService, 
+    eventBus: DomainEventBus,
+    obsidianService: ObsidianService
+  ) {
     this.settingsService = settingsService;
     this.eventBus = eventBus;
-    this.popupManager = new PopupManager(this, settingsService);
+    this.popupManager = new PopupManager(this, settingsService, obsidianService, eventBus);
+    this.obsidianService = obsidianService;
     
     // 저장된 툴바 아이템 로드
     const settings = this.settingsService.getSettings();
@@ -202,71 +259,69 @@ export class ToolbarService implements IToolbarService {
    * 기본 툴바 아이템 초기화
    */
   private initializeDefaultItems(): void {
-    // 카드셋 선택 버튼 (좌측)
+    // 카드셋 선택기 버튼 등록 (왼쪽)
     this.registerItem({
-      id: 'cardset-selector',
-      type: 'button',
-      position: 'left',
+      id: 'cardset-source-selector',
+      type: ToolbarItemType.BUTTON,
+      position: ToolbarItemPosition.LEFT,
       icon: 'folder',
-      tooltip: '카드셋 선택',
-      action: 'showCardSetSelector',
+      tooltip: '카드셋 소스 선택',
+      action: 'toggleCardsetSource',
+      order: 0
+    });
+    
+    // 카드셋 이름 표시 (중앙)
+    this.registerItem({
+      id: 'cardset-name',
+      type: ToolbarItemType.SELECT,
+      position: ToolbarItemPosition.CENTER,
+      tooltip: '카드셋 이름',
+      action: 'selectCardset',
       popupId: 'cardset-popup',
       order: 0
     });
     
-    // 검색 입력 필드 (중앙)
+    // 카드셋 고정 토글 버튼 (중앙)
     this.registerItem({
-      id: 'search-input',
-      type: 'input',
-      position: 'center',
-      tooltip: '검색',
-      action: 'search',
-      order: 0
-    });
-    
-    // 검색 필터 버튼 (중앙)
-    this.registerItem({
-      id: 'search-filter',
-      type: 'button',
-      position: 'center',
-      icon: 'filter',
-      tooltip: '검색 필터',
-      action: 'showSearchFilter',
-      popupId: 'search-filter-popup',
+      id: 'cardset-lock',
+      type: ToolbarItemType.BUTTON,
+      position: ToolbarItemPosition.CENTER,
+      icon: 'lucide-unlock',
+      tooltip: '카드셋 고정',
+      action: 'toggleCardsetLock',
       order: 1
     });
     
-    // 정렬 버튼 (우측)
+    // 검색 버튼 (오른쪽)
+    this.registerItem({
+      id: 'search-button',
+      type: ToolbarItemType.BUTTON,
+      position: ToolbarItemPosition.RIGHT,
+      icon: 'search',
+      tooltip: '검색',
+      action: 'toggleSearch',
+      order: 0
+    });
+    
+    // 정렬 버튼 (오른쪽)
     this.registerItem({
       id: 'sort-button',
-      type: 'button',
-      position: 'right',
+      type: ToolbarItemType.BUTTON,
+      position: ToolbarItemPosition.RIGHT,
       icon: 'arrow-up-down',
       tooltip: '정렬 옵션',
       action: 'showSortOptions',
       popupId: 'sort-popup',
-      order: 0
-    });
-    
-    // 레이아웃 버튼 (우측)
-    this.registerItem({
-      id: 'layout-button',
-      type: 'button',
-      position: 'right',
-      icon: 'layout-grid',
-      tooltip: '레이아웃 설정',
-      action: 'showLayoutOptions',
-      popupId: 'layout-popup',
       order: 1
     });
     
-    // 설정 버튼 (우측)
+    // 설정 버튼 (오른쪽)
     this.registerItem({
       id: 'settings-button',
-      type: 'button',
-      position: 'right',
+      type: ToolbarItemType.BUTTON,
+      position: ToolbarItemPosition.RIGHT,
       icon: 'settings',
-      tooltip: '설정 및 프리셋',
+      tooltip: '설정',
       action: 'showSettings',
       popupId: 'settings-popup',
       order: 2
@@ -440,16 +495,83 @@ export class ToolbarService implements IToolbarService {
     return this.popupManager.getCurrentPopup();
   }
   
-  executeItemAction(itemId: string, data?: any): void {
-    const item = this.items.get(itemId);
-    if (!item || !item.action) return;
+  /**
+   * 툴바 아이템 액션 실행
+   * @param itemId 아이템 ID
+   * @param data 액션 데이터 (선택 사항)
+   * @returns 실행 성공 여부
+   */
+  executeItemAction(itemId: string, data?: any): boolean {
+    const item = this.getItem(itemId);
+    if (!item || !item.action) return false;
     
-    // 이벤트 발생
+    // 액션 이벤트 발생
     this.eventBus.emit(TOOLBAR_ACTION_EXECUTED, {
       itemId,
       action: item.action,
       data
     });
+    
+    return true;
+  }
+  
+  /**
+   * 검색 실행
+   * @param searchOptions 검색 옵션
+   * @returns 실행 성공 여부
+   */
+  executeSearch(searchOptions: { query: string, caseSensitive: boolean, scope: string }): boolean {
+    // 검색 이벤트 발생
+    this.eventBus.emit(EventType.SEARCH_EXECUTED, searchOptions);
+    
+    return true;
+  }
+  
+  /**
+   * 이벤트 발생
+   * @param eventType 이벤트 타입
+   * @param data 이벤트 데이터
+   */
+  emitEvent(eventType: string, data: any): void {
+    this.eventBus.emit(eventType, data);
+  }
+  
+  /**
+   * 설정 가져오기
+   * @returns 설정 객체
+   */
+  getSettings(): any {
+    return this.settingsService.getSettings();
+  }
+  
+  /**
+   * 설정 업데이트
+   * @param settings 업데이트할 설정
+   * @returns 업데이트 성공 여부
+   */
+  updateSettings(settings: any): Promise<void> {
+    return this.settingsService.updateSettings({
+      ...this.settingsService.getSettings(),
+      ...settings
+    });
+  }
+  
+  /**
+   * 모든 폴더 가져오기 (경로 문자열 형태)
+   * @returns 폴더 경로 문자열 배열
+   */
+  getFolders(): string[] {
+    // Obsidian 서비스를 통해 폴더 목록 가져오기
+    return this.obsidianService.getFolders();
+  }
+  
+  /**
+   * 태그 목록 가져오기
+   * @returns 태그 목록
+   */
+  getTags(): string[] {
+    // Obsidian 서비스를 통해 태그 목록 가져오기
+    return this.obsidianService.getTags();
   }
   
   /**

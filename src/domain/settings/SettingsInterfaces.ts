@@ -5,6 +5,15 @@ import { NavigationMode } from '../navigation';
 import { CardRenderingMode } from '../card/Card';
 
 /**
+ * 카드셋 소스 모드
+ * 카드셋의 소스 유형을 정의합니다.
+ */
+export enum CardSetSourceMode {
+  FOLDER = 'folder',
+  TAG = 'tag'
+}
+
+/**
  * 카드 네비게이터 설정 인터페이스
  * 플러그인 설정을 정의합니다.
  */
@@ -22,6 +31,11 @@ export interface ICardNavigatorSettings {
   tagCaseSensitive?: boolean;
   useLastCardSetSourceOnLoad?: boolean;
   debugMode?: boolean;
+  
+  // 카드셋 소스 모드 설정
+  cardSetSourceMode?: CardSetSourceMode;
+  selectedFolder?: string;
+  selectedTags?: string[];
   
   // 툴바 관련 설정
   specificFolder?: string;

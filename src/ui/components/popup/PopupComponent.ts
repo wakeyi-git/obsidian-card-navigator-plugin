@@ -1,76 +1,46 @@
 import { Component } from '../Component';
 import { IToolbarService } from '../../../application/toolbar/ToolbarService';
 import { ISettingsService } from '../../../domain/settings/SettingsInterfaces';
+import { IPopupComponent } from './PopupInterfaces';
 
 /**
- * 팝업 컴포넌트 인터페이스
+ * 팝업 컴포넌트 기본 클래스
+ * 팝업 컴포넌트의 기본 기능을 제공합니다.
  */
-export interface IPopupComponent {
+export abstract class PopupComponent implements IPopupComponent {
   /**
-   * 팝업 내용 생성
-   * @returns 팝업 내용 HTML
+   * 팝업 ID
    */
-  generateContent(): string;
+  abstract popupId: string;
   
   /**
-   * 팝업 이벤트 리스너 등록
-   * @param popupElement 팝업 요소
+   * 툴바 서비스
    */
-  registerPopupEventListeners(popupElement: HTMLElement): void;
-  
-  /**
-   * 팝업 이벤트 리스너 제거
-   * @param popupElement 팝업 요소
-   */
-  removePopupEventListeners(popupElement: HTMLElement): void;
-  
-  /**
-   * 팝업 ID 가져오기
-   * @returns 팝업 ID
-   */
-  getPopupId(): string;
-  
-  /**
-   * 팝업 제목 가져오기
-   * @returns 팝업 제목
-   */
-  getPopupTitle(): string;
-  
-  /**
-   * 현재 팝업 요소 설정
-   * @param popupElement 팝업 요소
-   */
-  setCurrentPopupElement(popupElement: HTMLElement): void;
-}
-
-/**
- * 팝업 컴포넌트 추상 클래스
- */
-export abstract class PopupComponent extends Component implements IPopupComponent {
   protected toolbarService: IToolbarService;
+  
+  /**
+   * 설정 서비스
+   */
   protected settingsService: ISettingsService;
-  protected popupId: string;
-  protected popupTitle: string;
+  
+  /**
+   * 팝업 제목
+   */
+  protected popupTitle: string = '';
+  
+  /**
+   * 현재 팝업 요소
+   */
   protected currentPopupElement: HTMLElement | null = null;
   
   /**
    * 생성자
    * @param toolbarService 툴바 서비스
    * @param settingsService 설정 서비스
-   * @param popupId 팝업 ID
-   * @param popupTitle 팝업 제목
    */
-  constructor(
-    toolbarService: IToolbarService,
-    settingsService: ISettingsService,
-    popupId: string,
-    popupTitle: string
-  ) {
-    super();
+  constructor(toolbarService: IToolbarService, settingsService: ISettingsService) {
     this.toolbarService = toolbarService;
     this.settingsService = settingsService;
-    this.popupId = popupId;
-    this.popupTitle = popupTitle;
   }
   
   /**
@@ -80,36 +50,17 @@ export abstract class PopupComponent extends Component implements IPopupComponen
   abstract generateContent(): string;
   
   /**
-   * 팝업 이벤트 리스너 등록 (팝업 요소에 대한 이벤트 리스너)
+   * 팝업 이벤트 리스너 등록
    * @param popupElement 팝업 요소
    */
   abstract registerPopupEventListeners(popupElement: HTMLElement): void;
   
   /**
-   * 이벤트 리스너 등록 (Component 클래스 메서드 오버라이드)
-   */
-  protected registerEventListeners(): void {
-    if (this.element && this.currentPopupElement) {
-      this.registerPopupEventListeners(this.currentPopupElement);
-    }
-  }
-  
-  /**
-   * 팝업 이벤트 리스너 제거 (팝업 요소에 대한 이벤트 리스너)
+   * 팝업 이벤트 리스너 제거
    * @param popupElement 팝업 요소
    */
   removePopupEventListeners(popupElement: HTMLElement): void {
     // 기본 구현은 비어 있음
-  }
-  
-  /**
-   * 이벤트 리스너 제거 (Component 클래스 메서드 오버라이드)
-   */
-  protected removeEventListeners(): void {
-    if (this.currentPopupElement) {
-      this.removePopupEventListeners(this.currentPopupElement);
-      this.currentPopupElement = null;
-    }
   }
   
   /**

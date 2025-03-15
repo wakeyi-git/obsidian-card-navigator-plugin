@@ -7,7 +7,6 @@
   height: 100%;
   z-index: 1000;
   display: block;
-  background-color: transparent;
   pointer-events: none;
 }
 
@@ -18,191 +17,69 @@
   transition: background-color 0.15s ease;
 }
 
-/* 팝업 */
-.popup {
-  position: absolute;
-  background-color: var(--background-primary);
-  border-radius: 4px;
+/* 팝업 스타일 */
+.popup-container {
+  position: fixed;
+  z-index: 1000;
+  border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   min-width: 300px;
-  max-width: 90%;
-  max-height: 90%;
+  max-width: 500px;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  pointer-events: auto;
-  border: 1px solid var(--background-modifier-border);
-  opacity: 0; /* 초기에는 투명하게 설정 */
-  transform: translateY(-5px) scale(0.98);
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  transform-origin: top center;
-  will-change: transform, opacity; /* 성능 최적화 */
+  animation: popup-fade-in 0.2s ease;
 }
 
-/* 팝업이 보일 때 */
-.popup[style*="visibility: visible"] {
-  opacity: 1;
-  transform: translateY(0) scale(1);
+@keyframes popup-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* 팝업 헤더 */
 .popup-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   padding: 12px 16px;
-  background-color: var(--background-secondary-alt);
-  border-bottom: 1px solid var(--background-modifier-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-/* 팝업 제목 */
-.popup-title {
+.popup-header h3 {
+  margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-normal);
 }
 
-/* 팝업 닫기 버튼 */
 .popup-close-button {
-  background: none;
+  background: transparent;
   border: none;
-  color: var(--text-muted);
-  font-size: 20px;
   cursor: pointer;
-  padding: 0;
-  margin: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-radius: 4px;
-}
-
-.popup-close-button:hover {
-  background-color: var(--background-modifier-hover);
-  color: var(--text-normal);
-}
-
-/* 팝업 내용 */
-.popup-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  max-height: 80vh;
-}
-
-/* 팝업 바디 */
-.popup-body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* 폼 그룹 */
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-/* 라벨 */
-.form-group label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-normal);
-}
-
-/* 라디오 라벨 */
-.radio-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  margin-bottom: 8px;
-  width: 100%;
-}
-
-/* 라디오 그룹 */
-.radio-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* 입력 필드 */
-.form-group input[type="text"],
-.form-group input[type="number"],
-.form-group select {
-  padding: 8px 12px;
-  border-radius: 4px;
-  border: 1px solid var(--background-modifier-border);
-  background-color: var(--background-primary);
-  color: var(--text-normal);
-  font-size: 14px;
-  height: auto;
-  line-height: 1.5;
-}
-
-.form-group input[type="text"]:focus,
-.form-group input[type="number"]:focus,
-.form-group select:focus {
-  border-color: var(--interactive-accent);
-  outline: none;
-}
-
-/* 선택 요소 텍스트가 잘리지 않도록 수정 */
-select {
-  padding-top: 6px;
-  padding-bottom: 6px;
-  height: auto;
-  line-height: 1.5;
-}
-
-select option {
   padding: 4px;
-  line-height: 1.5;
+  border-radius: 4px;
 }
 
-/* 버튼 */
+.popup-body {
+  padding: 16px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
 .popup-footer {
+  padding: 12px 16px;
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--background-modifier-border);
 }
 
 .popup-footer button {
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 4px;
   font-size: 14px;
-  font-weight: 500;
   cursor: pointer;
-}
-
-.apply-button,
-.save-button {
-  background-color: var(--interactive-accent);
-  color: var(--text-on-accent);
-  border: none;
-}
-
-.apply-button:hover,
-.save-button:hover {
-  background-color: var(--interactive-accent-hover);
-}
-
-.cancel-button {
-  background-color: var(--background-secondary);
-  color: var(--text-normal);
-  border: 1px solid var(--background-modifier-border);
-}
-
-.cancel-button:hover {
-  background-color: var(--background-secondary-alt);
+  transition: background-color 0.2s ease;
 }
 
 /* 숨김 클래스 */
@@ -215,39 +92,76 @@ select option {
   display: block !important;
 }
 
-/* 폴더 선택기 */
+/* 모드 탭 스타일 */
+.mode-tabs {
+  display: flex;
+  margin-bottom: 16px;
+}
+
+.mode-tab {
+  padding: 8px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.mode-tab.active {
+  border-bottom: 2px solid var(--interactive-accent);
+  font-weight: 600;
+}
+
+/* 모드 컨텐츠 스타일 */
+.mode-content {
+  margin-bottom: 16px;
+}
+
+/* 폴더 선택기 스타일 */
 .folder-selector {
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  padding: 8px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.folder-tree {
-  font-size: 14px;
-}
-
-.folder-tree-placeholder {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-/* 태그 선택기 */
-.tag-selector {
-  border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
   padding: 12px;
-  margin-top: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.folder-input-container {
+  display: flex;
+  gap: 8px;
+}
+
+.folder-input {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+.folder-browse-button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* 태그 선택기 스타일 */
+.tag-selector {
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 16px;
 }
 
 .tag-input-container {
+  display: flex;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
-.tag-input-container input {
-  width: 100%;
+.tag-input {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+.tag-browse-button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 .tag-list {
@@ -257,8 +171,6 @@ select option {
 }
 
 .tag-item {
-  background-color: var(--background-secondary);
-  color: var(--text-normal);
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -269,16 +181,23 @@ select option {
 
 .tag-item-remove {
   cursor: pointer;
-  color: var(--text-muted);
 }
 
-.tag-item-remove:hover {
-  color: var(--text-error);
+.empty-tag-message {
+  font-style: italic;
+  font-size: 12px;
 }
 
-/* 레이아웃 옵션 */
-.layout-options {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--background-modifier-border);
+/* 폴더 제안 모달 스타일 */
+.folder-suggestion-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+/* 태그 제안 모달 스타일 */
+.tag-suggestion-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
 }

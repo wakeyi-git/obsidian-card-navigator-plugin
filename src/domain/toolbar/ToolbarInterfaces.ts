@@ -1,7 +1,16 @@
 /**
- * 툴바 아이템 타입 정의
+ * 툴바 아이템 타입 열거형
  */
-export type ToolbarItemType = 'sort' | 'cardset' | 'settings' | 'search';
+export enum ToolbarItemType {
+  SORT = 'sort',
+  CARDSET = 'cardset',
+  SETTINGS = 'settings',
+  SEARCH = 'search',
+  BUTTON = 'button',
+  INPUT = 'input',
+  SELECT = 'select',
+  TOGGLE = 'toggle'
+}
 
 /**
  * 툴바 아이템 상태 인터페이스
@@ -89,7 +98,7 @@ export interface IToolbarPopup {
   /**
    * 팝업 타입
    */
-  type: ToolbarItemType;
+  type: string;
   
   /**
    * 팝업 표시 여부

@@ -1,4 +1,5 @@
-import { IPopupComponent, PopupComponent } from './PopupComponent';
+import { PopupComponent } from './PopupComponent';
+import { IPopupComponent } from './PopupInterfaces';
 import { IToolbarService } from '../../../application/toolbar/ToolbarService';
 import { ISettingsService } from '../../../domain/settings/SettingsInterfaces';
 
@@ -7,12 +8,18 @@ import { ISettingsService } from '../../../domain/settings/SettingsInterfaces';
  */
 export class SearchFilterPopupComponent extends PopupComponent implements IPopupComponent {
   /**
+   * 팝업 ID
+   */
+  popupId: string = 'search-filter-popup';
+  
+  /**
    * 생성자
    * @param toolbarService 툴바 서비스
    * @param settingsService 설정 서비스
    */
   constructor(toolbarService: IToolbarService, settingsService: ISettingsService) {
-    super(toolbarService, settingsService, 'search-filter-popup', '검색 필터');
+    super(toolbarService, settingsService);
+    this.popupTitle = '검색 필터';
   }
   
   /**

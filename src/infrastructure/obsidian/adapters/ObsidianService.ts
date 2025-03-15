@@ -177,8 +177,9 @@ export class ObsidianService implements IObsidianService {
   
   /**
    * 모든 폴더 가져오기
+   * @returns 폴더 객체 배열
    */
-  getFolders(): TFolder[] {
+  getFoldersAsObjects(): TFolder[] {
     const folders: TFolder[] = [];
     this.app.vault.getAllLoadedFiles().forEach(file => {
       if (file instanceof TFolder) {
@@ -186,6 +187,55 @@ export class ObsidianService implements IObsidianService {
       }
     });
     return folders;
+  }
+  
+  /**
+   * 모든 폴더 경로 가져오기
+   * @returns 폴더 경로 배열
+   */
+  getFolderPaths(): string[] {
+    const folders: string[] = [];
+    const rootFolder = this.app.vault.getRoot();
+    
+    // 루트 폴더 추가
+    folders.push('/');
+    
+    // 재귀적으로 모든 폴더 추가
+    this.traverseFolders(rootFolder, folders);
+    
+    return folders;
+  }
+  
+  /**
+   * 폴더 순회하여 경로 추가
+   * @param folder 폴더
+   * @param paths 경로 배열
+   * @param parentPath 부모 경로
+   */
+  private traverseFolders(folder: TFolder, paths: string[], parentPath: string = ''): void {
+    for (const child of folder.children) {
+      if (child instanceof TFolder) {
+        const path = parentPath ? `${parentPath}/${child.name}` : child.name;
+        paths.push(path);
+        this.traverseFolders(child, paths, path);
+      }
+    }
+  }
+
+  /**
+   * 모든 태그 가져오기
+   * @returns 태그 배열
+   */
+  getAllTags(): string[] {
+    const allTags = new Set<string>();
+    const files = this.getMarkdownFiles();
+    
+    for (const file of files) {
+      const fileTags = this.getTagsFromFile(file);
+      fileTags.forEach(tag => allTags.add(tag));
+    }
+    
+    return Array.from(allTags).sort();
   }
   
   // IWorkspace 인터페이스 구현
@@ -374,24 +424,30 @@ export class ObsidianService implements IObsidianService {
   /**
    * 파일에서 태그 가져오기
    * @param file 파일
-   * @returns 태그 목록
+   * @returns 태그 배열
    */
-  private getTagsFromFile(file: TFile): string[] {
-    const metadata = this.app.metadataCache.getFileCache(file);
+  getTagsFromFile(file: TFile): string[] {
+    const cache = this.app.metadataCache.getFileCache(file);
     const tags: string[] = [];
     
-    // 프론트매터 태그
-    if (metadata?.frontmatter?.tags) {
-      if (Array.isArray(metadata.frontmatter.tags)) {
-        tags.push(...metadata.frontmatter.tags);
-      } else if (typeof metadata.frontmatter.tags === 'string') {
-        tags.push(metadata.frontmatter.tags);
+    if (cache) {
+      // 프론트매터 태그
+      if (cache.frontmatter && cache.frontmatter.tags) {
+        if (Array.isArray(cache.frontmatter.tags)) {
+          tags.push(...cache.frontmatter.tags);
+        } else if (typeof cache.frontmatter.tags === 'string') {
+          tags.push(cache.frontmatter.tags);
+        }
       }
-    }
-    
-    // 인라인 태그
-    if (metadata?.tags) {
-      tags.push(...metadata.tags.map(t => t.tag.substring(1)));
+      
+      // 인라인 태그
+      if (cache.tags) {
+        cache.tags.forEach(tag => {
+          if (!tags.includes(tag.tag)) {
+            tags.push(tag.tag);
+          }
+        });
+      }
     }
     
     return tags;
@@ -468,5 +524,61 @@ export class ObsidianService implements IObsidianService {
     }
     
     return files;
+  }
+
+  /**
+   * App 인스턴스 가져오기
+   * @returns App 인스턴스
+   */
+  getApp(): App {
+    return this.app;
+  }
+
+  /**
+   * 모든 폴더 가져오기 (경로 문자열 형태)
+   * @returns 폴더 경로 문자열 배열
+   */
+  getFolders(): string[] {
+    const folders: Set<string> = new Set();
+    
+    // 모든 파일 경로에서 폴더 추출
+    this.app.vault.getAllLoadedFiles().forEach(file => {
+      if (file.path.includes('/')) {
+        const folderPath = file.path.substring(0, file.path.lastIndexOf('/'));
+        if (folderPath) {
+          folders.add(folderPath);
+        }
+      }
+    });
+    
+    // 루트 폴더 추가
+    folders.add('/');
+    
+    // 정렬된 배열로 반환
+    return Array.from(folders).sort();
+  }
+  
+  /**
+   * 태그 목록 가져오기
+   * @returns 태그 목록
+   */
+  getTags(): string[] {
+    // 모든 마크다운 파일에서 태그 수집
+    const allTags = new Set<string>();
+    const files = this.app.vault.getMarkdownFiles();
+    
+    for (const file of files) {
+      const cache = this.app.metadataCache.getFileCache(file);
+      if (cache && cache.tags) {
+        cache.tags.forEach(tag => {
+          // '#' 제거
+          const tagName = tag.tag.startsWith('#') ? tag.tag.substring(1) : tag.tag;
+          allTags.add(tagName);
+        });
+      }
+    }
+    
+    // 정렬된 배열로 반환
+    return Array.from(allTags).sort();
   }
 } 

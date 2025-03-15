@@ -165,11 +165,12 @@ export class CardRenderingService implements ICardRenderingService {
     };
     
     // 본문 최소 높이 계산 (헤더와 푸터 높이를 고려)
-    const headerFooterHeight = 60; // 헤더와 푸터의 대략적인 높이 (패딩 포함)
-    const minBodyHeight = Math.max(20, layoutSettings.cardThresholdHeight - headerFooterHeight);
+    // 기존 60px에서 더 큰 값으로 조정하여 충분한 공간 확보
+    const headerFooterHeight = 90; // 헤더와 푸터의 대략적인 높이 (패딩 포함) - 값 증가
+    const minBodyHeight = Math.max(90, layoutSettings.cardThresholdHeight - headerFooterHeight);
     
-    // 본문 최소 높이 설정
-    bodyContainer.style.minHeight = `${minBodyHeight}px`;
+    // 본문 최소 높이 설정 - 고정된 값으로 설정하여 일관성 유지
+    bodyContainer.style.minHeight = `calc(${minBodyHeight}px)`;
     
     // 본문 스타일 적용
     const bodyStyle = card.displaySettings?.cardStyle?.body;
@@ -184,7 +185,7 @@ export class CardRenderingService implements ICardRenderingService {
     
     // 기본 스타일 설정
     bodyContainer.style.padding = '10px';
-    bodyContainer.style.flex = '1';
+    bodyContainer.style.flex = '1 1 0%'; // flex-grow, flex-shrink, flex-basis 명시적 설정
     bodyContainer.style.overflow = 'auto';
     
     // 설정에서 다중 콘텐츠 타입 가져오기
@@ -301,8 +302,10 @@ export class CardRenderingService implements ICardRenderingService {
     if (content === undefined) {
       content = this.generateContent(card, contentType);
       
-      // 캐시에 저장
-      this.contentCache.set(cacheKey, content);
+      // 캐시에 저장 (null이나 빈 문자열이 아닌 경우에만)
+      if (content !== null && content !== '') {
+        this.contentCache.set(cacheKey, content);
+      }
     }
     
     // 콘텐츠 렌더링
@@ -314,7 +317,7 @@ export class CardRenderingService implements ICardRenderingService {
     
     // 디버깅: 콘텐츠 결과 로깅 (개발 모드에서만)
     if (this.settingsService.getSettings().debugMode) {
-      console.log(`카드 콘텐츠 결과 - 콘텐츠 타입: ${contentType}, 내용: ${content}`);
+      console.log(`카드 콘텐츠 결과 - 카드 ID: ${cardId}, 콘텐츠 타입: ${contentType}, 내용 길이: ${content?.length || 0}`);
     }
   }
   

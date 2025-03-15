@@ -1,147 +1,99 @@
 /* 카드셋 스타일 */
 .card-navigator-cardset {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--card-gap, 10px);
-  padding: var(--card-padding, 10px);
-  overflow: auto;
-  max-height: calc(100vh - 200px);
+  flex-direction: column;
+  flex-grow: 1;
   width: 100%;
+  height: calc(100% - var(--toolbar-height, 40px));
+  overflow: hidden;
+  position: relative;
   box-sizing: border-box;
 }
 
 /* 그리드 레이아웃 스타일 */
 .card-navigator-cardset.layout-grid {
-  display: grid;
+  display: flex;
   width: 100%;
   box-sizing: border-box;
-  align-items: stretch;
-  justify-items: center;
-  gap: var(--card-gap, 10px);
 }
 
 /* 메이슨리 레이아웃 스타일 */
 .card-navigator-cardset.layout-masonry {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--card-gap, 10px);
   width: 100%;
   box-sizing: border-box;
-  align-items: flex-start;
 }
 
 /* 가로 방향 레이아웃 스타일 */
 .card-navigator-cardset.direction-horizontal {
   flex-direction: row;
-  flex-wrap: nowrap;
-  width: max-content;
-  height: 100%;
-  max-height: calc(100vh - 200px);
 }
 
 /* 세로 방향 레이아웃 스타일 */
 .card-navigator-cardset.direction-vertical {
   flex-direction: column;
-  flex-wrap: wrap;
-  height: auto;
-  max-width: 100%;
 }
 
 /* 가로 스크롤 스타일 */
-.card-navigator-cardset.scroll-horizontal {
+.card-navigator-cardset.scroll-horizontal .cards-container {
   overflow-x: auto;
   overflow-y: hidden;
-  padding-bottom: 15px; /* 스크롤바 공간 확보 */
 }
 
 /* 세로 스크롤 스타일 */
-.card-navigator-cardset.scroll-vertical {
+.card-navigator-cardset.scroll-vertical .cards-container {
   overflow-x: hidden;
   overflow-y: auto;
-  padding-right: 15px; /* 스크롤바 공간 확보 */
-}
-
-/* 그리드 레이아웃 + 가로 방향 스타일 */
-.card-navigator-cardset.layout-grid.direction-horizontal {
-  grid-auto-flow: column;
-  grid-template-rows: repeat(var(--rows, 1), 1fr);
-  grid-auto-columns: var(--card-min-width, 200px);
-  width: max-content;
-}
-
-/* 그리드 레이아웃 + 세로 방향 스타일 */
-.card-navigator-cardset.layout-grid.direction-vertical {
-  grid-auto-flow: row;
-  grid-template-columns: repeat(var(--columns, 1), 1fr);
-  grid-auto-rows: var(--card-min-height, 150px);
-  width: 100%;
-}
-
-/* 작은 화면에서 그리드 레이아웃 스타일 */
-@media (max-width: 600px) {
-  .card-navigator-cardset.layout-grid.direction-vertical {
-    grid-template-columns: 1fr;
-    padding: var(--card-padding, 10px);
-  }
-  
-  .card-navigator-cardset.layout-grid.direction-horizontal {
-    grid-template-rows: 1fr;
-    padding: var(--card-padding, 10px);
-  }
-}
-
-/* 중간 크기 화면에서 그리드 레이아웃 스타일 */
-@media (min-width: 601px) and (max-width: 900px) {
-  .card-navigator-cardset.layout-grid.direction-vertical {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .card-navigator-cardset.layout-grid.direction-horizontal {
-    grid-template-rows: repeat(2, 1fr);
-  }
 }
 
 /* 카드셋 컨테이너 스타일 */
-.card-navigator-cardset-container {
-  position: relative;
+.card-navigator-container {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
   overflow: hidden;
 }
 
-/* 카드셋 로딩 스타일 */
-.card-navigator-cardset-loading {
-  position: absolute;
-  top: 0;
-  left: 0;
+/* 카드셋 툴바 컨테이너 */
+.card-navigator-toolbar-container {
+  flex-shrink: 0;
+  width: 100%;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* 카드 컨테이너 */
+.card-navigator-cardset .cards-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  padding: var(--cardset-padding, 10px);
+  gap: var(--card-gap, 10px);
   width: 100%;
   height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: rgba(var(--background-primary-rgb), 0.7);
-  z-index: 10;
+  overflow: auto;
+  flex-grow: 1;
 }
 
-/* 카드셋 로딩 스피너 */
-.card-navigator-cardset-loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--background-modifier-border);
-  border-top: 4px solid var(--interactive-accent);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+/* 그리드 레이아웃 */
+.card-navigator-cardset.layout-grid .cards-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-width, 250px), 1fr));
+  grid-auto-rows: auto;
+  grid-gap: var(--card-gap, 10px);
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+/* 메이슨리 레이아웃 */
+.card-navigator-cardset.layout-masonry .cards-container {
+  column-count: auto;
+  column-width: var(--card-width, 250px);
+  column-gap: var(--card-gap, 10px);
 }
 
-/* 드래그 앤 드롭 영역 스타일 */
-.card-navigator-cardset.drag-over {
-  border: 2px dashed var(--interactive-accent);
-  background-color: var(--background-modifier-hover);
+.card-navigator-cardset.layout-masonry .card-navigator-card {
+  break-inside: avoid;
+  margin-bottom: var(--card-gap, 10px);
+  width: 100%;
 }
 
 /* 카드 아이템 스타일 - 그리드 레이아웃 */
@@ -150,8 +102,44 @@
   height: 100%;
 }
 
-/* 카드 아이템 스타일 - 메이슨리 레이아웃 */
-.card-navigator-cardset.layout-masonry .card-navigator-card {
-  width: calc((100% - (var(--columns, 1) - 1) * var(--card-gap, 10px)) / var(--columns, 1));
-  min-height: var(--card-min-height, 150px);
+/* 드래그 앤 드롭 영역 스타일 */
+.card-navigator-cardset.drag-over {
+  border: 2px dashed var(--interactive-accent);
+  background-color: var(--background-modifier-hover);
+}
+
+/* 빈 메시지 */
+.card-navigator-cardset .empty-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+/* 로딩 메시지 */
+.card-navigator-cardset .loading-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+/* 작은 화면에서 그리드 레이아웃 스타일 */
+@media (max-width: 600px) {
+  .card-navigator-cardset.layout-grid .cards-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 중간 크기 화면에서 그리드 레이아웃 스타일 */
+@media (min-width: 601px) and (max-width: 900px) {
+  .card-navigator-cardset.layout-grid .cards-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
 } 

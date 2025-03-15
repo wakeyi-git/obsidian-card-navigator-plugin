@@ -306,17 +306,18 @@ export class CardComponent extends Component implements ICardComponent {
     // 카드 크기 설정
     this.element.style.setProperty('--card-width', `${settings.cardWidth || 250}px`);
     
-    // 카드 높이 설정
-    const cardThresholdHeight = layoutSettings.cardThresholdHeight || 150;
+    // 카드 높이 설정 - 최소 높이 보장
+    const cardThresholdHeight = Math.max(150, layoutSettings.cardThresholdHeight || 150);
     
-    // 카드 본문 최소 높이 계산
-    const headerHeight = this.headerEl ? this.headerEl.offsetHeight : 0;
-    const footerHeight = this.footerEl ? this.footerEl.offsetHeight : 0;
-    const headerFooterHeight = headerHeight + footerHeight;
+    // 카드 본문 최소 높이 계산 - 더 큰 값으로 설정
+    const headerHeight = this.headerEl ? this.headerEl.offsetHeight : 30;
+    const footerHeight = this.footerEl ? this.footerEl.offsetHeight : 30;
+    const headerFooterHeight = headerHeight + footerHeight + 20; // 여유 공간 추가
     
-    // 본문 최소 높이 설정 (카드 최소 높이에서 헤더와 푸터 높이를 뺀 값)
+    // 최소 높이 설정 - 충분한 공간 확보
+    const minBodyHeight = Math.max(90, cardThresholdHeight - headerFooterHeight);
     if (this.bodyEl) {
-      this.bodyEl.style.minHeight = `calc(${cardThresholdHeight}px - ${headerFooterHeight}px)`;
+      this.bodyEl.style.minHeight = `${minBodyHeight}px`;
       
       // 메이슨리 레이아웃에서는 본문 높이가 콘텐츠에 따라 자동 조정됨
       if (this.layoutService.getLayoutType() === 'masonry') {

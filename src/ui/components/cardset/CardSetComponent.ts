@@ -10,6 +10,8 @@ import { ICardRenderingService } from '../../../application/card/CardRenderingSe
 import { IInteractionService } from '../../../application/interaction/InteractionService';
 import { ILayoutInfo } from '../../../domain/layout/Layout';
 import { ObsidianService } from '../../../infrastructure/obsidian/adapters/ObsidianService';
+import { EventType } from '../../../domain/events/EventTypes';
+import { isSameCardSetId } from '../../../domain/cardset/CardSetUtils';
 
 /**
  * 카드셋 컴포넌트 인터페이스
@@ -101,6 +103,9 @@ export class CardSetComponent extends Component implements ICardSetComponent {
     this.boundHandleWindowResize = this.handleWindowResize.bind(this);
     this.boundHandleDragOver = this.handleDragOver.bind(this);
     this.boundHandleDrop = this.handleDrop.bind(this);
+    
+    // 이벤트 리스너 등록
+    this.registerEventListeners();
   }
   
   /**
@@ -108,10 +113,76 @@ export class CardSetComponent extends Component implements ICardSetComponent {
    * @param cardSet 카드셋 데이터
    */
   async setCardSet(cardSet: ICardSet): Promise<void> {
-    // 카드셋 ID가 동일한 경우 불필요한 업데이트 방지
-    if (this.cardSet && this.cardSet.id === cardSet.id) {
-      console.log('동일한 카드셋 ID, 업데이트 생략:', cardSet.id);
-      return;
+    // 카드셋 ID 로깅
+    console.log('카드셋 설정 요청:', {
+      현재ID: this.cardSet?.id,
+      새ID: cardSet.id,
+      현재소스: this.cardSet?.source,
+      새소스: cardSet.source,
+      현재파일수: this.cardSet?.files?.length || 0,
+      새파일수: cardSet.files?.length || 0
+    });
+    
+    // 활성 폴더 로깅
+    const activeFile = this.obsidianService.getActiveFile();
+    console.log('setCardSet 활성 파일 정보:', {
+      활성파일: activeFile?.path,
+      활성폴더: activeFile?.parent?.path,
+      카드셋소스: cardSet.source,
+      일치여부: activeFile?.parent?.path === cardSet.source
+    });
+    
+    // 카드셋 ID가 동일한 경우 파일 목록 비교
+    const isSameId = this.cardSet && isSameCardSetId(this.cardSet.id, cardSet.id);
+    console.log('카드셋 ID 비교 결과:', isSameId);
+    
+    if (isSameId) {
+      // 파일 수가 다른 경우 업데이트 필요
+      const oldFileCount = this.cardSet.files?.length || 0;
+      const newFileCount = cardSet.files?.length || 0;
+      
+      if (oldFileCount !== newFileCount) {
+        console.log('동일한 카드셋 ID지만 파일 수가 변경됨:', oldFileCount, '->', newFileCount);
+      } else if (oldFileCount > 0 && newFileCount > 0) {
+        // 파일 수가 같더라도 파일 내용이 변경되었는지 확인
+        const oldFilePaths = new Set(this.cardSet.files.map(file => file.path));
+        const newFilePaths = new Set(cardSet.files.map(file => file.path));
+        
+        // 파일 경로 비교
+        let filesChanged = false;
+        
+        // 이전 파일 중 새 파일 목록에 없는 것이 있는지 확인
+        for (const oldPath of oldFilePaths) {
+          if (!newFilePaths.has(oldPath)) {
+            filesChanged = true;
+            console.log('파일이 제거됨:', oldPath);
+            break;
+          }
+        }
+        
+        // 새 파일 중 이전 파일 목록에 없는 것이 있는지 확인
+        if (!filesChanged) {
+          for (const newPath of newFilePaths) {
+            if (!oldFilePaths.has(newPath)) {
+              filesChanged = true;
+              console.log('파일이 추가됨:', newPath);
+              break;
+            }
+          }
+        }
+        
+        if (filesChanged) {
+          console.log('동일한 카드셋 ID지만 파일 내용이 변경됨');
+        } else {
+          // 파일 수와 내용이 모두 같은 경우 업데이트 생략
+          console.log('동일한 카드셋 ID, 업데이트 생략 (파일 변경 없음):', cardSet.id);
+          return;
+        }
+      } else {
+        // 파일 수가 같은 경우(둘 다 0인 경우) 업데이트 생략
+        console.log('동일한 카드셋 ID, 업데이트 생략 (빈 파일 목록):', cardSet.id);
+        return;
+      }
     }
     
     console.log('카드셋 변경:', this.cardSet?.id, '->', cardSet.id);
@@ -286,6 +357,13 @@ export class CardSetComponent extends Component implements ICardSetComponent {
       container.innerHTML = ''; // 컨테이너 초기화
       const cardsContainer = container.createDiv({ cls: 'cards-container' });
       
+      // 카드 컨테이너가 툴바를 제외한 뷰포트 영역을 가득 채우도록 설정
+      cardsContainer.style.height = '100%';
+      cardsContainer.style.overflow = 'auto';
+      cardsContainer.style.display = 'flex';
+      cardsContainer.style.flexDirection = 'column';
+      cardsContainer.style.flexGrow = '1';
+      
       // 컨테이너 크기 가져오기
       let containerWidth = cardsContainer.clientWidth;
       let containerHeight = cardsContainer.clientHeight;
@@ -344,13 +422,13 @@ export class CardSetComponent extends Component implements ICardSetComponent {
       // 렌더링된 카드 추적을 위한 세트
       const renderedCards = new Set<string>();
       
-      // 카드 렌더링
-      for (const file of this.cardSet.files) {
+      // 카드 렌더링 전 카드 컴포넌트 생성 및 업데이트
+      const cardPromises = this.cardSet.files.map(async (file) => {
         try {
           // 이미 렌더링된 카드는 건너뛰기
           if (renderedCards.has(file.path)) {
             console.log('중복 카드 건너뛰기:', file.path);
-            continue;
+            return null;
           }
           
           // 카드 생성 또는 가져오기
@@ -380,14 +458,27 @@ export class CardSetComponent extends Component implements ICardSetComponent {
           // 카드 포커스 상태 설정
           cardComponent.setFocused(this.focusedCardId === card.id);
           
-          // 카드 렌더링
-          const cardElement = await cardComponent.render();
-          cardsContainer.appendChild(cardElement);
-          
           // 렌더링된 카드 추적
           renderedCards.add(file.path);
+          
+          return { component: cardComponent, id: card.id };
         } catch (error) {
           console.error('카드 렌더링 오류:', error);
+          return null;
+        }
+      });
+      
+      // 모든 카드 컴포넌트 준비 완료 후 DOM에 추가
+      const cardResults = await Promise.all(cardPromises);
+      
+      // 유효한 카드 컴포넌트만 필터링
+      const validCards = cardResults.filter(result => result !== null);
+      
+      // 카드 렌더링 및 DOM에 추가
+      for (const cardResult of validCards) {
+        if (cardResult) {
+          const cardElement = await cardResult.component.render();
+          cardsContainer.appendChild(cardElement);
         }
       }
       
@@ -488,6 +579,12 @@ export class CardSetComponent extends Component implements ICardSetComponent {
       this.element.addEventListener('drop', this.boundHandleDrop);
     }
     
+    // 카드셋 변경 이벤트 리스너 등록
+    this.cardSetService.getEventBus().on(EventType.CARDSET_CHANGED, this.handleCardSetChanged.bind(this));
+    
+    // 카드 변경 이벤트 리스너 등록
+    this.cardSetService.getEventBus().on(EventType.CARDS_CHANGED, this.handleCardsChanged.bind(this));
+    
     // 이벤트 리스너 등록 상태 업데이트
     this.eventListenersRegistered = true;
   }
@@ -507,6 +604,12 @@ export class CardSetComponent extends Component implements ICardSetComponent {
       this.element.removeEventListener('dragover', this.boundHandleDragOver);
       this.element.removeEventListener('drop', this.boundHandleDrop);
     }
+    
+    // 카드셋 변경 이벤트 리스너 제거
+    this.cardSetService.getEventBus().off(EventType.CARDSET_CHANGED, this.handleCardSetChanged.bind(this));
+    
+    // 카드 변경 이벤트 리스너 제거
+    this.cardSetService.getEventBus().off(EventType.CARDS_CHANGED, this.handleCardsChanged.bind(this));
     
     // 이벤트 리스너 등록 상태 업데이트
     this.eventListenersRegistered = false;
@@ -580,13 +683,25 @@ export class CardSetComponent extends Component implements ICardSetComponent {
    * 카드셋이 변경되었을 때 호출됩니다.
    */
   async update(): Promise<void> {
-    if (!this.element) return;
+    console.log('CardSetComponent.update 호출됨');
+    console.log('update 호출 스택:', new Error().stack);
+    
+    if (!this.element) {
+      console.log('요소가 없어 업데이트 생략');
+      return;
+    }
     
     // 카드셋 ID 확인
     const currentCardSetId = this.cardSet?.id;
     const elementCardSetId = this.element.dataset.id;
     
-    // 카드셋 ID가 변경된 경우에만 렌더링
+    console.log('카드셋 ID 비교:', {
+      현재ID: currentCardSetId,
+      요소ID: elementCardSetId,
+      동일여부: currentCardSetId === elementCardSetId
+    });
+    
+    // 카드셋 ID가 변경된 경우 렌더링
     if (currentCardSetId !== elementCardSetId) {
       console.log('카드셋 ID 변경됨:', elementCardSetId, '->', currentCardSetId);
       
@@ -595,8 +710,21 @@ export class CardSetComponent extends Component implements ICardSetComponent {
       
       // 카드 렌더링
       await this.renderCards(this.element);
+      return;
+    }
+    
+    // 카드셋 ID가 동일하더라도 파일 목록이 변경되었는지 확인
+    const cardSetElement = this.element.querySelector('.cards-container');
+    const renderedCardCount = cardSetElement ? cardSetElement.childElementCount : 0;
+    const currentCardCount = this.cardSet?.files?.length || 0;
+    
+    if (renderedCardCount !== currentCardCount) {
+      console.log('카드셋 ID는 동일하지만 파일 수가 변경됨:', renderedCardCount, '->', currentCardCount);
+      
+      // 카드 렌더링
+      await this.renderCards(this.element);
     } else {
-      console.log('카드셋 ID 변경 없음, 렌더링 생략');
+      console.log('카드셋 ID와 파일 수 변경 없음, 렌더링 생략');
     }
   }
 
@@ -639,5 +767,77 @@ export class CardSetComponent extends Component implements ICardSetComponent {
     this.cardComponents.clear();
     
     console.log('카드셋 컴포넌트 정리 완료');
+  }
+
+  /**
+   * 카드셋 변경 이벤트 핸들러
+   * @param data 이벤트 데이터
+   */
+  private async handleCardSetChanged(data: any): Promise<void> {
+    console.log('카드셋 변경 이벤트 수신:', data);
+    
+    // 활성 폴더 로깅
+    const activeFile = this.obsidianService.getActiveFile();
+    console.log('handleCardSetChanged 활성 파일 정보:', {
+      활성파일: activeFile?.path,
+      활성폴더: activeFile?.parent?.path,
+      이벤트카드셋: data.cardSet,
+      일치여부: activeFile?.parent?.path === data.cardSet
+    });
+    
+    // 카드셋 서비스에서 최신 카드셋 가져오기
+    const cardSet = await this.cardSetService.getCurrentCardSet();
+    console.log('카드셋 서비스에서 가져온 최신 카드셋:', {
+      id: cardSet.id,
+      source: cardSet.source,
+      파일수: cardSet.files?.length || 0,
+      활성폴더일치여부: activeFile?.parent?.path === cardSet.source
+    });
+    
+    // 카드셋 소스와 활성 폴더가 일치하지 않는 경우 로그
+    if (activeFile?.parent?.path && cardSet.source !== activeFile.parent.path && !data.isFixed) {
+      console.log('카드셋 소스와 활성 폴더 불일치 감지:', {
+        카드셋소스: cardSet.source,
+        활성폴더: activeFile.parent.path,
+        이벤트카드셋: data.cardSet
+      });
+      
+      // 카드셋 서비스에 활성 파일 변경 알림
+      await this.cardSetService.handleActiveFileChanged(activeFile);
+      
+      // 다시 최신 카드셋 가져오기
+      const updatedCardSet = await this.cardSetService.getCurrentCardSet();
+      console.log('활성 폴더 불일치 후 업데이트된 카드셋:', {
+        id: updatedCardSet.id,
+        source: updatedCardSet.source,
+        파일수: updatedCardSet.files?.length || 0
+      });
+      
+      // 업데이트된 카드셋 설정
+      await this.setCardSet(updatedCardSet);
+      return;
+    }
+    
+    // 카드셋 업데이트
+    await this.setCardSet(cardSet);
+  }
+  
+  /**
+   * 카드 변경 이벤트 핸들러
+   * @param data 이벤트 데이터
+   */
+  private async handleCardsChanged(data: any): Promise<void> {
+    console.log('카드 변경 이벤트 수신:', data);
+    
+    // 카드셋 서비스에서 최신 카드셋 가져오기
+    const cardSet = await this.cardSetService.getCurrentCardSet();
+    console.log('카드 변경 이벤트 후 가져온 최신 카드셋:', {
+      id: cardSet.id,
+      source: cardSet.source,
+      파일수: cardSet.files?.length || 0
+    });
+    
+    // 카드셋 업데이트
+    await this.setCardSet(cardSet);
   }
 } 

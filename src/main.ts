@@ -114,7 +114,7 @@ export default class CardNavigatorPlugin extends Plugin {
     });
     
     // 이벤트 버스 초기화
-    this.eventBus = new DomainEventBus();
+    this.eventBus = DomainEventBus.getInstance();
     
     // 설정 로드
     await this.loadSettings();
@@ -271,7 +271,7 @@ export default class CardNavigatorPlugin extends Plugin {
     this.obsidianService = new ObsidianService(this.app, this);
     
     // 이벤트 버스 초기화
-    this.eventBus = new DomainEventBus();
+    this.eventBus = DomainEventBus.getInstance();
     
     // 설정 서비스 초기화
     this.settingsService = new SettingsService(this, this.eventBus);
@@ -338,7 +338,7 @@ export default class CardNavigatorPlugin extends Plugin {
     this.sortingService = new SortingService(this.settingsService, this.eventBus);
     
     // 툴바 서비스 초기화
-    this.toolbarService = new ToolbarService(this.settingsService, this.eventBus);
+    this.toolbarService = new ToolbarService(this.settingsService, this.eventBus, this.obsidianService);
     
     // 리본 서비스 초기화
     this.ribbonService = new RibbonService(this.obsidianService);
@@ -410,7 +410,7 @@ export default class CardNavigatorPlugin extends Plugin {
     (this.searchComponent as any).eventBus = this.eventBus;
     
     // 툴바 컴포넌트 생성
-    this.toolbarComponent = new ToolbarComponent(this.toolbarService, this.searchComponent);
+    this.toolbarComponent = new ToolbarComponent(this.toolbarService, this.searchComponent, this.obsidianService);
     this.toolbarComponent.render(containerEl);
     
     // 카드셋 컴포넌트 생성
@@ -438,10 +438,18 @@ export default class CardNavigatorPlugin extends Plugin {
     
     // 카드셋 변경 이벤트 리스너
     this.registerEvent(
-      this.app.workspace.on('file-open', async () => {
-        if (this.cardSetComponent) {
-          const cardSet = await this.cardSetService.getCurrentCardSet();
-          this.cardSetComponent.setCardSet(cardSet);
+      this.app.workspace.on('file-open', async (file) => {
+        // 활성 파일 변경 처리
+        if (this.cardSetService) {
+          console.log('file-open 이벤트 발생:', file?.path);
+          // 활성 파일 변경 처리
+          await this.cardSetService.handleActiveFileChanged(file);
+          
+          // 카드셋 컴포넌트 업데이트
+          if (this.cardSetComponent) {
+            const cardSet = await this.cardSetService.getCurrentCardSet();
+            await this.cardSetComponent.setCardSet(cardSet);
+          }
         }
       })
     );

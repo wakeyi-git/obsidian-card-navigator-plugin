@@ -1,18 +1,25 @@
 import { PopupComponent } from './PopupComponent';
 import { IToolbarService } from '../../../application/toolbar/ToolbarService';
 import { ISettingsService } from '../../../domain/settings/SettingsInterfaces';
+import { IPopupComponent } from './PopupInterfaces';
 
 /**
  * 레이아웃 팝업 컴포넌트
  */
-export class LayoutPopupComponent extends PopupComponent {
+export class LayoutPopupComponent extends PopupComponent implements IPopupComponent {
+  /**
+   * 팝업 ID
+   */
+  popupId: string = 'layout-popup';
+  
   /**
    * 생성자
    * @param toolbarService 툴바 서비스
    * @param settingsService 설정 서비스
    */
   constructor(toolbarService: IToolbarService, settingsService: ISettingsService) {
-    super(toolbarService, settingsService, 'layout-popup', '레이아웃 설정');
+    super(toolbarService, settingsService);
+    this.popupTitle = '레이아웃 설정';
   }
   
   /**

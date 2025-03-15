@@ -3,6 +3,13 @@ import { IToolbarService, IToolbarPopup } from '../../../application/toolbar/Too
 import { ISettingsService } from '../../../domain/settings/SettingsInterfaces';
 import { DomainEventBus } from '../../../core/events/DomainEventBus';
 import { EventType } from '../../../domain/events/EventTypes';
+import { CardSetPopupComponent } from './CardSetPopupComponent';
+import { SortPopupComponent } from './SortPopupComponent';
+import { SettingsPopupComponent } from './SettingsPopupComponent';
+import { LayoutPopupComponent } from './LayoutPopupComponent';
+import { SearchFilterPopupComponent } from './SearchFilterPopupComponent';
+import { IPopupComponent } from './PopupInterfaces';
+import { ObsidianService } from '../../../infrastructure/obsidian/adapters/ObsidianService';
 
 /**
  * 팝업 관리자 인터페이스
@@ -41,24 +48,76 @@ export interface IPopupManager {
 export class PopupManager implements IPopupManager {
   private toolbarService: IToolbarService;
   private settingsService: ISettingsService;
+  private obsidianService: ObsidianService;
+  private eventBus: DomainEventBus;
   private currentPopup: IToolbarPopup | undefined;
   private popupElement: HTMLElement | null = null;
   private popupOverlay: HTMLElement | null = null;
+  private popupComponents: Map<string, IPopupComponent> = new Map();
   
   /**
    * 생성자
    * @param toolbarService 툴바 서비스
    * @param settingsService 설정 서비스
+   * @param obsidianService Obsidian 서비스
+   * @param eventBus 이벤트 버스
    */
-  constructor(toolbarService: IToolbarService, settingsService: ISettingsService) {
+  constructor(
+    toolbarService: IToolbarService, 
+    settingsService: ISettingsService,
+    obsidianService: ObsidianService,
+    eventBus: DomainEventBus
+  ) {
     this.toolbarService = toolbarService;
     this.settingsService = settingsService;
+    this.obsidianService = obsidianService;
+    this.eventBus = eventBus;
+    
+    // 팝업 컴포넌트 초기화
+    this.initializePopupComponents();
     
     // 문서 클릭 이벤트 처리
     document.addEventListener('click', this.handleDocumentClick.bind(this));
     
     // ESC 키 이벤트 처리
     document.addEventListener('keydown', this.handleKeyDown.bind(this));
+  }
+  
+  /**
+   * 팝업 컴포넌트 초기화
+   */
+  private initializePopupComponents(): void {
+    // 카드셋 팝업 컴포넌트 등록
+    this.popupComponents.set('cardset-popup', new CardSetPopupComponent(
+      this.toolbarService, 
+      this.settingsService,
+      this.obsidianService,
+      this.eventBus
+    ));
+    
+    // 정렬 팝업 컴포넌트 등록
+    this.popupComponents.set('sort-popup', new SortPopupComponent(
+      this.toolbarService, 
+      this.settingsService
+    ));
+    
+    // 설정 팝업 컴포넌트 등록
+    this.popupComponents.set('settings-popup', new SettingsPopupComponent(
+      this.toolbarService, 
+      this.settingsService
+    ));
+    
+    // 레이아웃 팝업 컴포넌트 등록
+    this.popupComponents.set('layout-popup', new LayoutPopupComponent(
+      this.toolbarService, 
+      this.settingsService
+    ));
+    
+    // 검색 필터 팝업 컴포넌트 등록
+    this.popupComponents.set('search-filter-popup', new SearchFilterPopupComponent(
+      this.toolbarService, 
+      this.settingsService
+    ));
   }
   
   /**
@@ -83,8 +142,16 @@ export class PopupManager implements IPopupManager {
     // 팝업 오버레이 생성
     this.createPopupOverlay();
     
-    // 팝업 요소 생성
-    this.createPopupElement(popup);
+    // 팝업 컴포넌트 가져오기
+    const popupComponent = this.popupComponents.get(popup.id);
+    
+    if (popupComponent) {
+      // 팝업 컴포넌트가 있는 경우, 컴포넌트를 사용하여 팝업 생성
+      this.createPopupElementFromComponent(popup, popupComponent);
+    } else {
+      // 팝업 컴포넌트가 없는 경우, 기본 팝업 생성
+      this.createPopupElement(popup);
+    }
     
     return popup.id;
   }
@@ -272,6 +339,61 @@ export class PopupManager implements IPopupManager {
     }
     
     this.popupElement.appendChild(contentEl);
+  }
+  
+  /**
+   * 팝업 컴포넌트를 사용하여 팝업 요소 생성
+   * @param popup 팝업 정보
+   * @param popupComponent 팝업 컴포넌트
+   */
+  private createPopupElementFromComponent(popup: IToolbarPopup, popupComponent: IPopupComponent): void {
+    // 팝업 요소 생성
+    this.popupElement = document.createElement('div');
+    this.popupElement.className = 'card-navigator-popup';
+    this.popupElement.dataset.popupId = popup.id;
+    
+    // 스타일 설정
+    this.popupElement.style.position = 'fixed';
+    this.popupElement.style.backgroundColor = 'var(--background-primary)';
+    this.popupElement.style.border = '1px solid var(--background-modifier-border)';
+    this.popupElement.style.borderRadius = '4px';
+    this.popupElement.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
+    this.popupElement.style.zIndex = '1001';
+    this.popupElement.style.overflow = 'auto';
+    
+    // 팝업 크기 설정
+    if (popup.width) {
+      this.popupElement.style.width = `${popup.width}px`;
+    } else {
+      this.popupElement.style.minWidth = '300px';
+      this.popupElement.style.maxWidth = '500px';
+    }
+    
+    if (popup.height) {
+      this.popupElement.style.height = `${popup.height}px`;
+    } else {
+      this.popupElement.style.maxHeight = '80vh';
+    }
+    
+    // 팝업 위치 설정
+    if (popup.position) {
+      this.popupElement.style.left = `${popup.position.x}px`;
+      this.popupElement.style.top = `${popup.position.y}px`;
+    } else {
+      // 기본 위치: 화면 중앙
+      this.popupElement.style.left = '50%';
+      this.popupElement.style.top = '50%';
+      this.popupElement.style.transform = 'translate(-50%, -50%)';
+    }
+    
+    // 팝업 내용 설정
+    this.popupElement.innerHTML = popupComponent.generateContent();
+    
+    // 팝업 이벤트 리스너 등록
+    popupComponent.registerPopupEventListeners(this.popupElement);
+    
+    // 문서에 추가
+    document.body.appendChild(this.popupElement);
   }
   
   /**

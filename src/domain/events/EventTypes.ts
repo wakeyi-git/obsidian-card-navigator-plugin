@@ -6,6 +6,7 @@ import { SelectionMode } from '../interaction/SelectionState';
 import { SortDirection, SortType } from '../sorting/SortingInterfaces';
 import { ToolbarItemType } from '../toolbar/ToolbarInterfaces';
 import { TFile, WorkspaceLeaf } from 'obsidian';
+import { CardSetSourceMode } from '../settings/SettingsInterfaces';
 
 /**
  * 카드셋 변경 이벤트 데이터 인터페이스
@@ -757,7 +758,37 @@ export interface SettingsPresetAppliedEventData {
 }
 
 /**
- * 이벤트 타입 열거형
+ * 카드셋 소스 모드 변경 이벤트 데이터 인터페이스
+ */
+export interface CardSetSourceModeChangedEventData {
+  /**
+   * 카드셋 소스 모드
+   */
+  mode: CardSetSourceMode;
+  
+  /**
+   * 카드셋 고정 여부
+   */
+  isFixed: boolean;
+  
+  /**
+   * 선택된 폴더 (폴더 모드인 경우)
+   */
+  selectedFolder?: string;
+  
+  /**
+   * 하위 폴더 포함 여부 (폴더 모드인 경우)
+   */
+  includeSubfolders?: boolean;
+  
+  /**
+   * 선택된 태그 (태그 모드인 경우)
+   */
+  selectedTags?: string[];
+}
+
+/**
+ * 카드셋 관련 이벤트
  */
 export enum EventType {
   // 카드셋 관련 이벤트
@@ -767,6 +798,12 @@ export enum EventType {
   TAG_CASE_SENSITIVE_CHANGED = 'tagCaseSensitiveChanged',
   CARD_SET_SOURCE_TYPE_CHANGED = 'card-set-source-type-changed',
   CARD_SET_SOURCE_CHANGED = 'card-set-source-changed',
+  CARDSET_CREATED = 'cardset:created',
+  CARDSET_UPDATED = 'cardset:updated',
+  CARDSET_DELETED = 'cardset:deleted',
+  CARDSET_SOURCE_CHANGED = 'cardset:source-changed',
+  CARDSET_SOURCE_MODE_CHANGED = 'cardset:source-mode-changed',
+  CARDSET_FIXED_CHANGED = 'cardset:fixed-changed',
   
   // 카드 관련 이벤트
   CARDS_CHANGED = 'cards-changed',
@@ -792,6 +829,8 @@ export enum EventType {
   SEARCH_QUERY_CHANGED = 'search-query-changed',
   SEARCH_RESULTS_CHANGED = 'search:results-changed',
   SEARCH_HISTORY_CHANGED = 'search:history-changed',
+  SEARCH_EXECUTED = 'search:executed',
+  SEARCH_RESULTS_UPDATED = 'search:results-updated',
   
   // 설정 관련 이벤트
   SETTINGS_CHANGED = 'settings-changed',
@@ -887,6 +926,7 @@ export interface EventDataMap {
   [EventType.SELECTION_MODE_CHANGED]: SelectionModeChangedEventData;
   [EventType.CARD_SET_SOURCE_TYPE_CHANGED]: CardSetSourceTypeChangedEventData;
   [EventType.CARD_SET_SOURCE_CHANGED]: CardSetSourceChangedEventData;
+  [EventType.CARDSET_SOURCE_CHANGED]: CardSetSourceModeChangedEventData;
   [EventType.LAYOUT_TYPE_CHANGED]: LayoutTypeChangedEventData;
   [EventType.LAYOUT_SETTINGS_CHANGED]: LayoutSettingsChangedEventData;
   [EventType.CARD_DISPLAY_SETTINGS_CHANGED]: CardDisplaySettingsChangedEventData;

@@ -18,6 +18,24 @@ export interface IObsidianService extends IObsidianApp, IVault, IWorkspace, IMet
    * @returns 파일 캐시 메타데이터
    */
   getFileCache(file: TFile): Promise<CachedMetadata>;
+  
+  /**
+   * 모든 폴더 가져오기 (경로 문자열 형태)
+   * @returns 폴더 경로 문자열 배열
+   */
+  getFolders(): string[];
+  
+  /**
+   * 모든 폴더 경로 가져오기
+   * @returns 폴더 경로 배열
+   */
+  getFolderPaths(): string[];
+  
+  /**
+   * 모든 폴더를 객체 형태로 가져오기
+   * @returns 폴더 객체 배열
+   */
+  getFoldersAsObjects(): TFolder[];
 }
 
 /**
@@ -108,9 +126,16 @@ export interface IVault {
   getFolder(path: string): TFolder | null;
   
   /**
-   * 모든 폴더 가져오기
+   * 모든 폴더 가져오기 (경로 문자열 형태)
+   * @returns 폴더 경로 문자열 배열
    */
-  getFolders(): TFolder[];
+  getFolders(): string[];
+  
+  /**
+   * 모든 폴더를 객체 형태로 가져오기
+   * @returns 폴더 객체 배열
+   */
+  getFoldersAsObjects(): TFolder[];
 }
 
 /**

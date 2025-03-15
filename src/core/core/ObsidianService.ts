@@ -176,9 +176,34 @@ export class ObsidianService implements IObsidianService {
   }
   
   /**
-   * 모든 폴더 가져오기
+   * 모든 폴더 가져오기 (경로 문자열 형태)
+   * @returns 폴더 경로 문자열 배열
    */
-  getFolders(): TFolder[] {
+  getFolders(): string[] {
+    const folders: Set<string> = new Set();
+    
+    // 모든 파일 경로에서 폴더 추출
+    this.app.vault.getAllLoadedFiles().forEach(file => {
+      if (file.path.includes('/')) {
+        const folderPath = file.path.substring(0, file.path.lastIndexOf('/'));
+        if (folderPath) {
+          folders.add(folderPath);
+        }
+      }
+    });
+    
+    // 루트 폴더 추가
+    folders.add('/');
+    
+    // 정렬된 배열로 반환
+    return Array.from(folders).sort();
+  }
+  
+  /**
+   * 모든 폴더를 객체 형태로 가져오기
+   * @returns 폴더 객체 배열
+   */
+  getFoldersAsObjects(): TFolder[] {
     const folders: TFolder[] = [];
     this.app.vault.getAllLoadedFiles().forEach(file => {
       if (file instanceof TFolder) {
@@ -468,5 +493,14 @@ export class ObsidianService implements IObsidianService {
     }
     
     return files;
+  }
+  
+  /**
+   * 모든 폴더 경로 가져오기
+   * @returns 폴더 경로 배열
+   */
+  getFolderPaths(): string[] {
+    // getFolders()와 동일한 기능을 수행
+    return this.getFolders();
   }
 } 

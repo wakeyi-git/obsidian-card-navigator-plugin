@@ -5,8 +5,28 @@ import { EventType } from '../../domain/events/EventTypes';
  * 컴포넌트 간 통신을 위한 이벤트 버스입니다.
  */
 export class DomainEventBus {
+  private static instance: DomainEventBus;
   private listeners: Map<string, Array<(data: any) => void>> = new Map();
   private state: Map<string, any> = new Map();
+  
+  /**
+   * 생성자
+   * 직접 호출하지 말고 getInstance() 메서드를 사용하세요.
+   */
+  private constructor() {
+    // 싱글톤 패턴을 위한 private 생성자
+  }
+  
+  /**
+   * 인스턴스 가져오기
+   * @returns DomainEventBus 인스턴스
+   */
+  public static getInstance(): DomainEventBus {
+    if (!DomainEventBus.instance) {
+      DomainEventBus.instance = new DomainEventBus();
+    }
+    return DomainEventBus.instance;
+  }
   
   /**
    * 이벤트 리스너 등록

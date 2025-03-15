@@ -93,7 +93,7 @@ export class SearchComponent extends Component implements ISearchComponent {
     this.searchService = searchService;
     this.suggestionService = suggestionService;
     this.historyService = historyService;
-    this.eventBus = new DomainEventBus();
+    this.eventBus = DomainEventBus.getInstance();
     this.loadHistory();
   }
   

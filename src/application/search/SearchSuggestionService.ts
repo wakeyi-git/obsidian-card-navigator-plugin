@@ -101,11 +101,10 @@ export class SearchSuggestionService implements ISearchSuggestionService {
    * @returns 파일 경로 제안 목록
    */
   async getPathSuggestions(query: string): Promise<ISearchSuggestion[]> {
-    const folders = this.obsidianService.getFolders();
+    const folders = this.obsidianService.getFolderPaths();
     const suggestions: ISearchSuggestion[] = [];
     
-    for (const folder of folders) {
-      const path = folder.path;
+    for (const path of folders) {
       if (path.toLowerCase().includes(query.toLowerCase())) {
         suggestions.push({
           text: `path:${path}`,

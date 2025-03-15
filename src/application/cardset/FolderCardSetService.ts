@@ -6,6 +6,7 @@ import { EventType } from '../../domain/events/EventTypes';
 import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
 import { ObsidianService } from '../../infrastructure/obsidian/adapters/ObsidianService';
 import { CardSet } from '../../domain/cardset/CardSetModel';
+import { createFolderCardSetId, createEmptyCardSetId } from '../../domain/cardset/CardSetUtils';
 
 /**
  * 폴더 카드셋 서비스 인터페이스
@@ -106,12 +107,69 @@ export class FolderCardSetService implements IFolderCardSetService, ICardSetSele
    * @returns 폴더 카드셋
    */
   async getCardSet(): Promise<ICardSet> {
+    console.log('FolderCardSetService.getCardSet 호출됨');
+    console.log('현재 폴더:', this.currentFolder);
+    console.log('고정 여부:', this.isFixed);
+    console.log('getCardSet 호출 스택:', new Error().stack);
+    
+    // 고정된 카드셋이 아닌 경우 활성 파일의 폴더를 사용
+    if (!this.isFixed) {
+      const activeFile = this.obsidianService.getActiveFile();
+      console.log('활성 파일:', activeFile?.path);
+      console.log('활성 파일 부모:', activeFile?.parent?.path);
+      
+      if (activeFile && activeFile.parent) {
+        const folderPath = activeFile.parent.path;
+        
+        // 활성 폴더가 변경된 경우 currentFolder 업데이트
+        if (this.currentFolder !== folderPath) {
+          console.log('활성 폴더 변경됨:', this.currentFolder, '->', folderPath);
+          console.log('이전 카드셋 ID:', createFolderCardSetId(this.currentFolder));
+          console.log('새 카드셋 ID:', createFolderCardSetId(folderPath));
+          
+          // 이전 폴더 저장
+          const previousFolder = this.currentFolder;
+          
+          // 현재 폴더 업데이트
+          this.currentFolder = folderPath;
+          
+          // 이벤트 발생 - 명시적으로 폴더 변경 이벤트 발생
+          console.log('폴더 변경 이벤트 발생:', {
+            이전폴더: previousFolder,
+            새폴더: folderPath,
+            이벤트타입: EventType.CARDSET_CHANGED
+          });
+          
+          this.eventBus.emit(EventType.CARDSET_CHANGED, {
+            cardSet: folderPath,
+            sourceType: 'folder',
+            isFixed: false,
+            previousFolder: previousFolder
+          });
+        } else {
+          console.log('활성 폴더 유지됨:', folderPath);
+        }
+      } else {
+        console.log('활성 파일이 없거나 폴더 정보가 없음');
+      }
+    } else {
+      console.log('고정된 카드셋 사용 중:', this.currentFolder);
+    }
+    
     // 현재 폴더에 있는 파일 가져오기
     const files = this.getFilesInFolder(this.currentFolder, this.includeSubfolders);
+    console.log('폴더에서 찾은 파일 수:', files.length);
+    
+    if (files.length > 0) {
+      console.log('첫 번째 파일:', files[0].path);
+    }
     
     // 카드셋 생성
+    const cardSetId = createFolderCardSetId(this.currentFolder);
+    console.log('카드셋 ID 생성:', cardSetId);
+    
     return new CardSet({
-      id: `folder:${this.currentFolder}`,
+      id: cardSetId,
       name: this.currentFolder || '루트',
       sourceType: 'folder',
       source: this.currentFolder,
@@ -135,8 +193,15 @@ export class FolderCardSetService implements IFolderCardSetService, ICardSetSele
     
     // 활성 파일의 폴더 가져오기
     const activeFile = this.obsidianService.getActiveFile();
-    if (activeFile) {
-      const folderPath = activeFile.parent?.path || '';
+    if (activeFile && activeFile.parent) {
+      const folderPath = activeFile.parent.path;
+      
+      // 활성 폴더가 변경된 경우 currentFolder 업데이트
+      if (this.currentFolder !== folderPath) {
+        console.log('getCurrentFolder: 활성 폴더 변경됨:', this.currentFolder, '->', folderPath);
+        this.currentFolder = folderPath;
+      }
+      
       return folderPath;
     }
     
@@ -238,8 +303,7 @@ export class FolderCardSetService implements IFolderCardSetService, ICardSetSele
    * 폴더 목록 초기화
    */
   private initFolders(): void {
-    const folders = this.obsidianService.getFolders();
-    this.folders = folders.map(folder => folder.path);
+    this.folders = this.obsidianService.getFolderPaths();
     
     // 루트 폴더 추가
     if (!this.folders.includes('/')) {
@@ -254,7 +318,13 @@ export class FolderCardSetService implements IFolderCardSetService, ICardSetSele
    * @returns 파일 목록
    */
   private getFilesInFolder(folderPath: string, includeSubfolders: boolean): TFile[] {
-    return this.obsidianService.getMarkdownFilesInFolder(folderPath, includeSubfolders);
+    console.log('getFilesInFolder 호출됨:', { folderPath, includeSubfolders });
+    const files = this.obsidianService.getMarkdownFilesInFolder(folderPath, includeSubfolders);
+    console.log('폴더에서 찾은 파일 수:', files.length);
+    if (files.length > 0) {
+      console.log('파일 목록 샘플:', files.slice(0, 3).map(file => file.path));
+    }
+    return files;
   }
 
   /**
