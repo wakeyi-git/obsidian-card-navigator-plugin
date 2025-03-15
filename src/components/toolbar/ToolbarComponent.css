@@ -1,0 +1,248 @@
+/* 툴바 스타일 */
+.card-navigator-toolbar-container {
+  position: relative;
+  width: 100%;
+}
+
+.card-navigator-toolbar {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 8px;
+  background-color: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  position: relative;
+  z-index: 10;
+}
+
+/* 툴바 섹션 */
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.toolbar-section.left {
+  flex: 0 0 auto;
+  margin-right: 8px;
+  justify-content: flex-start;
+}
+
+.toolbar-section.center {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+.toolbar-section.right {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  justify-content: flex-end;
+}
+
+/* 툴바 아이템 */
+.toolbar-item {
+  margin: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 아이콘 버튼 스타일 */
+.toolbar-icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text-normal);
+  transition: background-color 0.2s ease, color 0.2s ease;
+  width: 28px;
+  height: 28px;
+}
+
+.toolbar-icon-button:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-accent);
+}
+
+.toolbar-icon-button.active {
+  background-color: var(--background-modifier-active);
+  color: var(--text-accent);
+}
+
+.toolbar-icon-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 아이콘 스타일 */
+.toolbar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.toolbar-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 검색 입력 스타일 */
+.toolbar-search-container {
+  display: flex;
+  align-items: center;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 0 4px;
+  height: 28px;
+  width: 100%;
+  max-width: 300px;
+  transition: border-color 0.2s ease;
+}
+
+.toolbar-search-container:focus-within {
+  border-color: var(--interactive-accent);
+}
+
+.toolbar-search-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+
+.toolbar-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  height: 100%;
+  padding: 0 4px;
+  color: var(--text-normal);
+  font-size: 14px;
+}
+
+.toolbar-search-input:focus {
+  outline: none;
+}
+
+.toolbar-search-clear-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+}
+
+.toolbar-search-clear-button:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* 선택 버튼 스타일 */
+.toolbar-select-container {
+  position: relative;
+}
+
+.toolbar-select-button {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--text-normal);
+  font-size: 14px;
+  height: 28px;
+  transition: background-color 0.2s ease;
+}
+
+.toolbar-select-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.toolbar-select-button.active {
+  background-color: var(--background-modifier-active);
+}
+
+.selected-text {
+  margin-right: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.dropdown-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+/* 팝업 컨테이너 스타일 */
+.toolbar-popup-container {
+  position: relative;
+  width: 100%;
+  z-index: 9;
+}
+
+/* 팝업 스타일 */
+.toolbar-popup {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  padding: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  animation: popup-fade-in 0.2s ease;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+@keyframes popup-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  .toolbar-section.center {
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .toolbar-section.left, .toolbar-section.right {
+    flex: 0 0 auto;
+  }
+  
+  .toolbar-section.center {
+    flex: 1 1 auto;
+    max-width: 150px;
+  }
+} 

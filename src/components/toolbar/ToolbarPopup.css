@@ -1,0 +1,259 @@
+/* 팝업 스타일 */
+.popup-content {
+  padding: 16px;
+}
+
+.popup-header {
+  margin-bottom: 16px;
+}
+
+.popup-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.popup-body {
+  margin-bottom: 16px;
+}
+
+.popup-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.popup-button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  background-color: var(--background-modifier-border);
+  border: none;
+  color: var(--text-normal);
+}
+
+.popup-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.popup-button.apply-button {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.popup-button.apply-button:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+/* 폼 요소 스타일 */
+.radio-group, .checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.radio-label, .checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.radio-label span, .checkbox-label span {
+  margin-left: 8px;
+}
+
+.filter-section, .sort-section, .layout-section, .settings-section {
+  margin-bottom: 16px;
+}
+
+.filter-section h4, .sort-section h4, .layout-section h4, .settings-section h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+/* 슬라이더 스타일 */
+.slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.slider-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slider {
+  flex: 1;
+  height: 4px;
+  background-color: var(--background-modifier-border);
+  border-radius: 2px;
+  appearance: none;
+  outline: none;
+}
+
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--interactive-accent);
+  cursor: pointer;
+}
+
+.slider-value {
+  min-width: 60px;
+  text-align: right;
+}
+
+/* 스위치 스타일 */
+.switch-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch .slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--background-modifier-border);
+  transition: .4s;
+  border-radius: 20px;
+}
+
+.switch .slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: var(--background-primary);
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: var(--interactive-accent);
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+/* 프리셋 선택기 스타일 */
+.preset-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preset-select {
+  width: 100%;
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.preset-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.preset-button {
+  flex: 1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  background-color: var(--background-modifier-border);
+  border: none;
+  color: var(--text-normal);
+}
+
+.preset-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+/* 폴더 선택기 스타일 */
+.folder-selector, .tag-selector {
+  margin-top: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.folder-tree-placeholder, .tag-list-placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px 0;
+}
+
+/* 날짜 필터 스타일 */
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 8px 24px;
+}
+
+.date-input {
+  padding: 4px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+}
+
+/* 사용자 지정 정렬 입력 스타일 */
+.custom-sort {
+  margin: 8px 0 8px 24px;
+}
+
+.custom-sort-input {
+  width: 100%;
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+}
+
+/* 설정 그룹 스타일 */
+.setting-group {
+  margin-bottom: 12px;
+}
+
+.setting-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+} 

@@ -88,7 +88,7 @@ export const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
   
   // 정렬 설정
   sortBy: 'filename',
-  sortOrder: 'asc',
+  sortDirection: 'asc',
   defaultSortType: 'filename',
   defaultSortDirection: 'asc',
   defaultSortBy: 'filename',

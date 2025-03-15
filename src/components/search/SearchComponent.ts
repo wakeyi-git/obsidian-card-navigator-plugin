@@ -3,6 +3,10 @@ import { ISearchService } from '../../services/search/SearchService';
 import { ISearchSuggestionService } from '../../services/search/SearchSuggestionService';
 import { ISearchHistoryService } from '../../services/search/SearchHistoryService';
 import { SearchType, SearchScope, ISearchSuggestion } from '../../domain/search/Search';
+import { IToolbarItem } from '../../services/toolbar/ToolbarService';
+import { setIcon } from 'obsidian';
+import { EventType } from '../../domain/events/EventTypes';
+import { DomainEventBus } from '../../domain/events/DomainEventBus';
 
 /**
  * 검색 컴포넌트 인터페이스
@@ -33,6 +37,25 @@ export interface ISearchComponent {
    * @param scope 검색 범위
    */
   setScope(scope: SearchScope): void;
+  
+  /**
+   * 툴바용 검색 요소 생성
+   * @param item 툴바 아이템
+   * @param onValueChange 값 변경 콜백
+   * @returns 생성된 HTML 요소
+   */
+  createToolbarSearchElement(item: IToolbarItem, onValueChange: (value: string) => void): HTMLElement;
+  
+  /**
+   * 컴포넌트 요소 가져오기
+   * @returns 컴포넌트 요소
+   */
+  getElement(): HTMLElement | null;
+  
+  /**
+   * 컴포넌트 제거
+   */
+  remove(): void;
 }
 
 /**
@@ -43,6 +66,7 @@ export class SearchComponent extends Component implements ISearchComponent {
   private searchService: ISearchService;
   private suggestionService: ISearchSuggestionService;
   private historyService: ISearchHistoryService;
+  private eventBus: DomainEventBus;
   private query = '';
   private searchType: SearchType = 'filename';
   private scope: SearchScope = 'current';
@@ -52,6 +76,7 @@ export class SearchComponent extends Component implements ISearchComponent {
   private history: string[] = [];
   private inputElement: HTMLInputElement | null = null;
   private suggestionElement: HTMLElement | null = null;
+  private toolbarInputElement: HTMLInputElement | null = null;
   
   /**
    * 생성자
@@ -68,7 +93,21 @@ export class SearchComponent extends Component implements ISearchComponent {
     this.searchService = searchService;
     this.suggestionService = suggestionService;
     this.historyService = historyService;
+    this.eventBus = new DomainEventBus();
     this.loadHistory();
+  }
+  
+  /**
+   * 전역 이벤트 리스너 등록
+   */
+  private registerGlobalEventListeners(): void {
+    // 검색어 변경 이벤트 리스너
+    this.eventBus.on(EventType.SEARCH_QUERY_CHANGED, (data) => {
+      this.setQuery(data.query);
+      if (this.toolbarInputElement) {
+        this.toolbarInputElement.focus();
+      }
+    });
   }
   
   /**
@@ -98,6 +137,17 @@ export class SearchComponent extends Component implements ISearchComponent {
       await this.searchService.search(query, searchType, scope);
       this.hideSuggestions();
       this.update();
+      
+      // 검색 히스토리에 추가
+      this.historyService.addToHistory(query);
+      this.loadHistory();
+      
+      // 검색 이벤트 발생
+      this.eventBus.emit(EventType.SEARCH_CHANGED, {
+        query,
+        searchType,
+        caseSensitive: this.caseSensitive
+      });
     } catch (error) {
       console.error('검색 오류:', error);
     }
@@ -112,6 +162,10 @@ export class SearchComponent extends Component implements ISearchComponent {
     
     if (this.inputElement) {
       this.inputElement.value = query;
+    }
+    
+    if (this.toolbarInputElement) {
+      this.toolbarInputElement.value = query;
     }
     
     this.updateSuggestions();
@@ -325,6 +379,11 @@ export class SearchComponent extends Component implements ISearchComponent {
    * 이벤트 리스너 등록
    */
   registerEventListeners(): void {
+    super.registerEventListeners();
+    
+    // 전역 이벤트 리스너 등록
+    this.registerGlobalEventListeners();
+    
     if (!this.element) return;
     
     const searchForm = this.element.querySelector('.search-form');
@@ -350,6 +409,9 @@ export class SearchComponent extends Component implements ISearchComponent {
       searchInput.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
           this.hideSuggestions();
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          this.search(searchInput.value);
         }
       });
       
@@ -407,5 +469,117 @@ export class SearchComponent extends Component implements ISearchComponent {
         this.hideSuggestions();
       }
     });
+  }
+  
+  /**
+   * 툴바용 검색 요소 생성
+   * @param item 툴바 아이템
+   * @param onValueChange 값 변경 콜백
+   * @returns 생성된 HTML 요소
+   */
+  createToolbarSearchElement(item: IToolbarItem, onValueChange: (value: string) => void): HTMLElement {
+    const searchContainer = document.createElement('div');
+    searchContainer.className = 'toolbar-search-container';
+    
+    // 검색 아이콘
+    const searchIconContainer = document.createElement('div');
+    searchIconContainer.className = 'toolbar-search-icon-container';
+    const searchIcon = document.createElement('span');
+    setIcon(searchIcon, 'search');
+    searchIconContainer.appendChild(searchIcon);
+    
+    // 입력 필드
+    const inputElement = document.createElement('input');
+    inputElement.className = 'toolbar-search-input';
+    inputElement.type = 'text';
+    inputElement.placeholder = '검색...';
+    this.toolbarInputElement = inputElement;
+    
+    if (item.value) {
+      inputElement.value = item.value;
+    }
+    
+    if (item.tooltip) {
+      inputElement.title = item.tooltip;
+    }
+    
+    // 지우기 버튼
+    const clearButton = document.createElement('button');
+    clearButton.className = 'toolbar-search-clear-button';
+    clearButton.type = 'button';
+    clearButton.setAttribute('aria-label', '검색어 지우기');
+    const clearIcon = document.createElement('span');
+    setIcon(clearIcon, 'x');
+    clearButton.appendChild(clearIcon);
+    clearButton.style.display = inputElement.value ? 'flex' : 'none';
+    
+    // 이벤트 리스너 등록
+    inputElement.addEventListener('input', () => {
+      if (!item.disabled) {
+        const value = inputElement.value;
+        onValueChange(value);
+        clearButton.style.display = value ? 'flex' : 'none';
+        this.setQuery(value);
+        
+        // 입력 중에도 실시간 검색 수행
+        this.search(value);
+      }
+    });
+    
+    inputElement.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        console.log('검색 실행:', inputElement.value);
+        this.search(inputElement.value);
+      }
+    });
+    
+    clearButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      inputElement.value = '';
+      onValueChange('');
+      clearButton.style.display = 'none';
+      this.setQuery('');
+      this.searchService.clearResults();
+      inputElement.focus();
+    });
+    
+    // 검색 아이콘 클릭 시 검색 실행
+    searchIconContainer.addEventListener('click', () => {
+      console.log('검색 아이콘 클릭:', inputElement.value);
+      this.search(inputElement.value);
+    });
+    
+    // 요소 조합
+    searchContainer.appendChild(searchIconContainer);
+    searchContainer.appendChild(inputElement);
+    searchContainer.appendChild(clearButton);
+    
+    return searchContainer;
+  }
+  
+  /**
+   * 컴포넌트 요소 가져오기
+   * @returns 컴포넌트 요소
+   */
+  getElement(): HTMLElement | null {
+    return this.element;
+  }
+  
+  /**
+   * 컴포넌트 제거
+   */
+  remove(): void {
+    // 이벤트 리스너 제거
+    this.removeEventListeners();
+    
+    // 컴포넌트 요소 제거
+    if (this.element && this.element.parentNode) {
+      this.element.parentNode.removeChild(this.element);
+    }
+    
+    // 요소 참조 제거
+    this.element = null;
   }
 } 

@@ -102,6 +102,14 @@ export default class CardNavigatorPlugin extends Plugin {
     // 로그 출력
     this.log('카드 네비게이터 플러그인 로드 중...');
     
+    // 남아있는 팝업 컨테이너 제거
+    const popupContainers = document.querySelectorAll('.card-navigator-popup-container');
+    popupContainers.forEach(container => {
+      if (container.parentNode) {
+        container.parentNode.removeChild(container);
+      }
+    });
+    
     // 이벤트 버스 초기화
     this.eventBus = new DomainEventBus();
     
@@ -141,25 +149,55 @@ export default class CardNavigatorPlugin extends Plugin {
     console.log('카드 네비게이터 플러그인 로드 완료');
   }
 
-  onunload() {
-    console.log('카드 네비게이터 플러그인 언로드 중...');
+  /**
+   * 플러그인 언로드 시 호출
+   */
+  onunload(): void {
+    console.log('Card Navigator 플러그인 언로드');
     
-    // 이벤트 리스너 제거
+    // 이벤트 버스 정리
     if (this.eventBus) {
       this.eventBus.removeAllListeners();
     }
     
+    // 서비스 정리 (순서 중요)
+    if (this.toolbarService) {
+      this.toolbarService.cleanup();
+    }
+    
+    if (this.searchService) {
+      this.searchService.cleanup();
+    }
+    
+    if (this.cardSetService) {
+      this.cardSetService.cleanup();
+    }
+    
+    if (this.layoutService) {
+      this.layoutService.cleanup();
+    }
+    
+    if (this.navigationService) {
+      this.navigationService.cleanup();
+    }
+    
+    if (this.interactionService) {
+      this.interactionService.cleanup();
+    }
+    
     // 컴포넌트 정리
+    if (this.toolbarComponent) {
+      this.toolbarComponent.cleanup();
+    }
+    
     if (this.cardSetComponent) {
       this.cardSetComponent.remove();
     }
     
     if (this.searchComponent) {
-      this.searchComponent.remove();
-    }
-    
-    if (this.toolbarComponent) {
-      this.toolbarComponent.remove();
+      if (typeof this.searchComponent.remove === 'function') {
+        this.searchComponent.remove();
+      }
     }
     
     // 뷰 비활성화
@@ -176,15 +214,16 @@ export default class CardNavigatorPlugin extends Plugin {
       this.ribbonIcon = null;
     }
     
-    // 서비스 정리
-    if (this.layoutService) this.layoutService.cleanup();
-    if (this.navigationService) this.navigationService.cleanup();
-    if (this.interactionService) this.interactionService.cleanup();
-    if (this.searchService) this.searchService.cleanup();
-    if (this.cardSetService) this.cardSetService.cleanup();
-    
     // 전역 이벤트 리스너 제거
     window.removeEventListener('resize', this.handleWindowResize);
+    
+    // 남아있는 팝업 컨테이너 제거
+    const popupContainers = document.querySelectorAll('.card-navigator-popup-container');
+    popupContainers.forEach(container => {
+      if (container.parentNode) {
+        container.parentNode.removeChild(container);
+      }
+    });
     
     console.log('카드 네비게이터 플러그인 언로드 완료');
   }
@@ -357,25 +396,19 @@ export default class CardNavigatorPlugin extends Plugin {
     // 컨테이너 초기화
     containerEl.empty();
     
-    // 툴바 컴포넌트 생성
-    this.toolbarComponent = new ToolbarComponent(this.toolbarService);
-    this.toolbarComponent.render(containerEl);
-    
     // 검색 컴포넌트 생성
     this.searchComponent = new SearchComponent(
       this.searchService,
       this.searchSuggestionService,
       this.searchHistoryService
     );
-    this.searchComponent.render(containerEl);
     
-    // 레이아웃 컴포넌트 생성
-    // const layoutComponent = new LayoutComponent(this.layoutService, this.eventBus);
-    // layoutComponent.render(containerEl);
+    // 이벤트 버스 설정
+    (this.searchComponent as any).eventBus = this.eventBus;
     
-    // 내비게이션 컴포넌트 생성
-    // const navigationComponent = new NavigationComponent(this.navigationService, this.eventBus);
-    // navigationComponent.render(containerEl);
+    // 툴바 컴포넌트 생성
+    this.toolbarComponent = new ToolbarComponent(this.toolbarService, this.searchComponent);
+    this.toolbarComponent.render(containerEl);
     
     // 카드셋 컴포넌트 생성
     const cardSet = await this.cardSetService.getCurrentCardSet();
@@ -443,5 +476,187 @@ export default class CardNavigatorPlugin extends Plugin {
         }
       })
     );
+    
+    // 툴바 액션 이벤트 리스너
+    this.eventBus.on('toolbar:action-executed', (data) => {
+      this.handleToolbarAction(data.action, data.data);
+    });
+  }
+  
+  /**
+   * 툴바 액션 처리
+   * @param action 액션 이름
+   * @param data 액션 데이터
+   */
+  private handleToolbarAction(action: string, data?: any): void {
+    this.log(`툴바 액션 실행: ${action}`, data);
+    
+    switch (action) {
+      case 'showCardSetSelector':
+        // 카드셋 선택 팝업 표시
+        const cardSetPopup = {
+          id: 'cardset-selector',
+          title: '카드셋 선택',
+          type: 'cardset-popup',
+          content: ''
+        };
+        this.toolbarService.showPopup(cardSetPopup);
+        break;
+        
+      case 'search':
+        // 검색 실행
+        if (data && data.query) {
+          this.eventBus.emit(EventType.SEARCH_QUERY_CHANGED, { query: data.query });
+        }
+        break;
+        
+      case 'showSearchFilter':
+        // 검색 필터 팝업 표시
+        const searchFilterPopup = {
+          id: 'search-filter',
+          title: '검색 필터',
+          type: 'search-filter-popup',
+          content: ''
+        };
+        this.toolbarService.showPopup(searchFilterPopup);
+        break;
+        
+      case 'showSortOptions':
+        // 정렬 옵션 팝업 표시
+        const sortPopup = {
+          id: 'sort-button',
+          title: '정렬 옵션',
+          type: 'sort-popup',
+          content: ''
+        };
+        this.toolbarService.showPopup(sortPopup);
+        break;
+        
+      case 'showLayoutOptions':
+        // 레이아웃 옵션 팝업 표시
+        const layoutPopup = {
+          id: 'layout-button',
+          title: '레이아웃 옵션',
+          type: 'layout-popup',
+          content: ''
+        };
+        this.toolbarService.showPopup(layoutPopup);
+        break;
+        
+      case 'showSettings':
+        // 설정 팝업 표시
+        const settingsPopup = {
+          id: 'settings-button',
+          title: '설정',
+          type: 'settings-popup',
+          content: ''
+        };
+        this.toolbarService.showPopup(settingsPopup);
+        break;
+        
+      case 'cardset-selector':
+        // 카드셋 변경
+        if (data && data.type) {
+          // 카드셋 타입에 따라 설정 업데이트
+          const settings: any = {};
+          
+          if (data.type === 'current') {
+            settings.includeSubfolders = false;
+            settings.specificFolder = '';
+          } else if (data.type === 'include-subfolders') {
+            settings.includeSubfolders = true;
+            settings.specificFolder = '';
+          } else if (data.type === 'specific-folder') {
+            settings.specificFolder = data.folder || '';
+          }
+          
+          this.settingsService.updateSettings(settings);
+          this.eventBus.emit(EventType.CARDSET_CHANGED, { type: data.type });
+        }
+        break;
+        
+      case 'search-filter':
+        // 검색 필터 변경
+        if (data) {
+          const settings: any = {};
+          if (data.searchType) settings.defaultSearchType = data.searchType;
+          if (data.caseSensitive !== undefined) settings.searchCaseSensitive = data.caseSensitive;
+          if (data.frontmatterKey) settings.frontmatterKey = data.frontmatterKey;
+          
+          this.settingsService.updateSettings(settings);
+          this.eventBus.emit(EventType.SEARCH_TYPE_CHANGED, data);
+        }
+        break;
+        
+      case 'sort-button':
+        // 정렬 옵션 변경
+        if (data) {
+          const settings: any = {};
+          if (data.field) {
+            settings.sortBy = data.field;
+            if (data.field === 'frontmatter' && data.frontmatterKey) {
+              settings.frontmatterKey = data.frontmatterKey;
+            }
+          }
+          if (data.direction) settings.sortDirection = data.direction;
+          
+          this.settingsService.updateSettings(settings);
+          this.eventBus.emit(EventType.SOURCE_CHANGED, data);
+        }
+        break;
+        
+      case 'layout-button':
+        // 레이아웃 옵션 변경
+        if (data) {
+          const settings: any = {};
+          if (data.type) settings.viewType = data.type;
+          
+          // 레이아웃별 추가 설정
+          if (data.type === 'grid') {
+            if (data.columns) settings.gridColumns = parseInt(data.columns);
+            if (data.cardSize) settings.cardWidth = this.getCardWidthFromSize(data.cardSize);
+          } else if (data.type === 'list') {
+            if (data.showPreview !== undefined) settings.showPreview = data.showPreview;
+          } else if (data.type === 'table') {
+            if (data.columns) settings.visibleColumns = data.columns;
+          }
+          
+          this.settingsService.updateSettings(settings);
+          this.eventBus.emit(EventType.VIEW_TYPE_CHANGED, data);
+        }
+        break;
+        
+      case 'settings-button':
+        // 설정 변경
+        if (data) {
+          if (data.action === 'save') {
+            // 설정 저장
+            this.settingsService.saveSettings();
+          } else if (data.key && data.value !== undefined) {
+            // 개별 설정 변경
+            const settings: any = {};
+            settings[data.key] = data.value;
+            this.settingsService.updateSettings(settings);
+          }
+        }
+        break;
+        
+      default:
+        this.log(`알 수 없는 툴바 액션: ${action}`);
+    }
+  }
+  
+  /**
+   * 카드 크기 문자열에서 실제 너비 값 반환
+   * @param size 카드 크기 (small, medium, large)
+   * @returns 카드 너비 픽셀 값
+   */
+  private getCardWidthFromSize(size: string): number {
+    switch (size) {
+      case 'small': return 150;
+      case 'medium': return 250;
+      case 'large': return 350;
+      default: return 250;
+    }
   }
 } 

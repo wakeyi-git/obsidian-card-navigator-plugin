@@ -23,6 +23,25 @@ export interface ICardNavigatorSettings {
   useLastCardSetSourceOnLoad?: boolean;
   debugMode?: boolean;
   
+  // 툴바 관련 설정
+  specificFolder?: string;
+  useTagsForCardSet?: boolean;
+  showToolbar?: boolean;
+  showStatusBar?: boolean;
+  showCardPreview?: boolean;
+  showCardTags?: boolean;
+  showPreview?: boolean;
+  searchAsYouType?: boolean;
+  viewType?: string;
+  gridColumns?: number;
+  visibleColumns?: string[];
+  sortBy?: string;
+  sortDirection?: string;
+  defaultSearchType?: string;
+  searchCaseSensitive?: boolean;
+  clickAction?: string;
+  toolbarItems?: any[];
+  
   // 마지막 상태 저장
   lastCardSetSource?: CardSetSourceType;
   lastFolderCardSet?: string;
@@ -105,9 +124,6 @@ export interface ICardNavigatorSettings {
   defaultSortBy?: 'filename' | 'title' | 'created' | 'modified' | 'random' | 'custom';
   customSortFrontmatterKey?: string;
   customSortValueType?: 'string' | 'number' | 'date';
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  customSortKey?: string;
   tagSortBy?: string;
   folderSortBy?: string;
   
@@ -122,9 +138,6 @@ export interface ICardNavigatorSettings {
   filterCaseSensitive?: boolean;
   
   // 검색 설정
-  defaultSearchType?: string;
-  defaultSearchCaseSensitive?: boolean;
-  searchCaseSensitive?: boolean;
   highlightSearchResults?: boolean;
   maxSearchResults?: number;
   tagCardSetSourceSearchOptions?: string[];
@@ -136,7 +149,6 @@ export interface ICardNavigatorSettings {
   cardMinWidth?: number;
   cardMinHeight?: number;
   cardGap?: number;
-  gridColumns?: string;
   
   /**
    * 레이아웃 설정
@@ -150,7 +162,6 @@ export interface ICardNavigatorSettings {
   // 상호작용 설정
   selectionMode?: 'single' | 'multiple';
   dragMode?: 'none' | 'move' | 'copy';
-  clickAction?: 'select' | 'open' | 'preview';
   doubleClickAction?: 'open' | 'preview' | 'none';
   rightClickAction?: 'menu' | 'select' | 'none';
   hoverEffect?: 'highlight' | 'zoom' | 'none';
@@ -176,9 +187,6 @@ export interface ICardNavigatorSettings {
   // 카드셋 설정
   cardSetSourceType?: CardSetSourceType;
   currentPresetId?: string | null;
-  
-  // 툴바 설정
-  toolbarItems?: any[];
   
   // 미리보기 설정
   previewSampleType?: string;

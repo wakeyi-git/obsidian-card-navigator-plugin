@@ -1,6 +1,11 @@
 import { Component } from '../Component';
-import { IToolbarService, IToolbarItem } from '../../services/toolbar/ToolbarService';
+import { IToolbarService, IToolbarItem, IToolbarPopup } from '../../services/toolbar/ToolbarService';
 import { ToolbarItemPosition } from '../../services/toolbar/ToolbarService';
+import { setIcon } from 'obsidian';
+import { ISearchComponent } from '../search/SearchComponent';
+import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
+import './ToolbarComponent.css';
+import '../popup/popup.css';
 
 /**
  * 툴바 컴포넌트 인터페이스
@@ -32,15 +37,31 @@ export interface IToolbarComponent {
  */
 export class ToolbarComponent extends Component implements IToolbarComponent {
   private toolbarService: IToolbarService;
+  private searchComponent: ISearchComponent;
   private items: IToolbarItem[] = [];
   
+  // 이벤트 리스너 참조 저장
+  private itemRegisteredListener: (data: any) => void = () => {};
+  private itemUpdatedListener: (data: any) => void = () => {};
+  private itemRemovedListener: (data: any) => void = () => {};
+  private itemValueChangedListener: (data: any) => void = () => {};
+  private itemDisabledChangedListener: (data: any) => void = () => {};
+  private itemVisibleChangedListener: (data: any) => void = () => {};
+
   /**
    * 생성자
    * @param toolbarService 툴바 서비스
+   * @param searchComponent 검색 컴포넌트
    */
-  constructor(toolbarService: IToolbarService) {
+  constructor(toolbarService: IToolbarService, searchComponent: ISearchComponent) {
     super();
     this.toolbarService = toolbarService;
+    this.searchComponent = searchComponent;
+    
+    // 이벤트 리스너 초기화
+    this.initializeEventListeners();
+    
+    // 툴바 아이템 로드
     this.loadItems();
   }
   
@@ -84,13 +105,18 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
   
   /**
    * 컴포넌트 생성
-   * @returns 생성된 HTML 요소
+   * @returns 생성된 컴포넌트 요소
    */
   protected async createComponent(): Promise<HTMLElement> {
+    // 툴바 컨테이너 생성
+    const container = document.createElement('div');
+    container.className = 'card-navigator-toolbar-container';
+    
+    // 툴바 요소 생성
     const toolbarElement = document.createElement('div');
     toolbarElement.className = 'card-navigator-toolbar';
     
-    // 툴바 영역 생성
+    // 툴바 섹션 생성
     const leftSection = document.createElement('div');
     leftSection.className = 'toolbar-section left';
     
@@ -100,6 +126,7 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
     const rightSection = document.createElement('div');
     rightSection.className = 'toolbar-section right';
     
+    // 툴바에 섹션 추가
     toolbarElement.appendChild(leftSection);
     toolbarElement.appendChild(centerSection);
     toolbarElement.appendChild(rightSection);
@@ -107,7 +134,10 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
     // 아이템 렌더링
     this.renderItems(leftSection, centerSection, rightSection);
     
-    return toolbarElement;
+    // 컨테이너에 툴바 추가
+    container.appendChild(toolbarElement);
+    
+    return container;
   }
   
   /**
@@ -169,16 +199,18 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
     // 아이템 타입에 따라 다른 요소 생성
     switch (item.type) {
       case 'button':
-        itemElement = this.createButtonElement(item);
+        itemElement = this.createButton(item);
         break;
       case 'select':
         itemElement = this.createSelectElement(item);
         break;
       case 'input':
-        itemElement = this.createInputElement(item);
+        itemElement = this.searchComponent.createToolbarSearchElement(item, (value: string) => {
+          this.toolbarService.setItemValue(item.id, value);
+        });
         break;
       default:
-        itemElement = this.createButtonElement(item);
+        itemElement = this.createButton(item);
     }
     
     // 공통 속성 설정
@@ -188,50 +220,53 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
     
     if (item.disabled) {
       itemElement.classList.add('disabled');
-      itemElement.setAttribute('disabled', 'disabled');
+      itemElement.setAttribute('aria-disabled', 'true');
     }
     
     return itemElement;
   }
   
   /**
-   * 버튼 요소 생성
+   * 버튼 생성
    * @param item 툴바 아이템
-   * @returns 생성된 HTML 요소
+   * @returns 버튼 요소
    */
-  private createButtonElement(item: IToolbarItem): HTMLElement {
-    const buttonElement = document.createElement('button');
-    buttonElement.className = 'toolbar-button';
-    buttonElement.type = 'button';
+  private createButton(item: IToolbarItem): HTMLElement {
+    const button = document.createElement('button');
+    button.className = 'toolbar-button';
+    button.setAttribute('data-item-id', item.id);
+    
+    if (item.tooltip) {
+      button.setAttribute('aria-label', item.tooltip);
+      button.setAttribute('title', item.tooltip);
+    }
     
     if (item.icon) {
-      const iconElement = document.createElement('span');
-      iconElement.className = `toolbar-icon ${item.icon}`;
-      buttonElement.appendChild(iconElement);
+      const iconContainer = document.createElement('div');
+      iconContainer.className = 'toolbar-button-icon';
+      setIcon(iconContainer, item.icon);
+      button.appendChild(iconContainer);
     }
     
     if (item.label) {
-      const labelElement = document.createElement('span');
-      labelElement.className = 'toolbar-label';
-      labelElement.textContent = item.label;
-      buttonElement.appendChild(labelElement);
+      const labelContainer = document.createElement('div');
+      labelContainer.className = 'toolbar-button-label';
+      labelContainer.textContent = item.label;
+      button.appendChild(labelContainer);
     }
     
-    if (item.tooltip) {
-      buttonElement.title = item.tooltip;
+    // 비활성화 상태 설정
+    if (item.disabled) {
+      button.disabled = true;
+      button.classList.add('disabled');
     }
     
-    // 이벤트 리스너 등록
-    buttonElement.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      
-      if (!item.disabled && item.action) {
-        this.toolbarService.executeItemAction(item.id);
-      }
+    // 클릭 이벤트 리스너 등록
+    button.addEventListener('click', (event) => {
+      this.handleItemClick(item, event);
     });
     
-    return buttonElement;
+    return button;
   }
   
   /**
@@ -240,89 +275,200 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
    * @returns 생성된 HTML 요소
    */
   private createSelectElement(item: IToolbarItem): HTMLElement {
-    const selectElement = document.createElement('select');
-    selectElement.className = 'toolbar-select';
+    const selectContainer = document.createElement('div');
+    selectContainer.className = 'toolbar-select-container';
+    
+    const selectButton = document.createElement('button');
+    selectButton.className = 'toolbar-select-button';
+    selectButton.type = 'button';
+    
+    // 현재 선택된 옵션 표시
+    const selectedOption = item.options?.find(opt => opt.value === item.value);
+    const selectedText = document.createElement('span');
+    selectedText.className = 'selected-text';
+    selectedText.textContent = selectedOption?.label || '';
+    
+    // 드롭다운 아이콘
+    const dropdownIcon = document.createElement('span');
+    dropdownIcon.className = 'dropdown-icon';
+    setIcon(dropdownIcon, 'chevron-down');
+    
+    selectButton.appendChild(selectedText);
+    selectButton.appendChild(dropdownIcon);
     
     if (item.tooltip) {
-      selectElement.title = item.tooltip;
-    }
-    
-    // 옵션 추가
-    if (item.options) {
-      item.options.forEach(option => {
-        const optionElement = document.createElement('option');
-        optionElement.value = option.value;
-        optionElement.textContent = option.label;
-        
-        if (item.value === option.value) {
-          optionElement.selected = true;
-        }
-        
-        selectElement.appendChild(optionElement);
-      });
+      selectButton.title = item.tooltip;
     }
     
     // 이벤트 리스너 등록
-    selectElement.addEventListener('change', () => {
-      if (!item.disabled) {
-        this.toolbarService.setItemValue(item.id, selectElement.value);
+    selectButton.addEventListener('click', () => {
+      if (!item.disabled && item.popupId) {
+        const buttonElement = selectButton;
+        const rect = buttonElement.getBoundingClientRect();
+        
+        // 팝업 위치 계산 - 버튼 중앙 아래에 표시
+        const position = {
+          x: rect.left + (rect.width / 2),
+          y: rect.bottom
+        };
+        
+        // 팝업 표시
+        this.toolbarService.showPopup({
+          id: item.popupId,
+          type: item.popupId,
+          position: position,
+          content: '' // 내용은 PopupManager에서 생성
+        });
       }
     });
     
-    return selectElement;
+    selectContainer.appendChild(selectButton);
+    
+    return selectContainer;
   }
   
   /**
-   * 입력 요소 생성
+   * 툴바 아이템 클릭 이벤트 처리
    * @param item 툴바 아이템
-   * @returns 생성된 HTML 요소
+   * @param event 클릭 이벤트
    */
-  private createInputElement(item: IToolbarItem): HTMLElement {
-    const inputElement = document.createElement('input');
-    inputElement.className = 'toolbar-input';
-    inputElement.type = 'text';
+  private handleItemClick(item: IToolbarItem, event: MouseEvent): void {
+    if (item.disabled) return;
     
-    if (item.value) {
-      inputElement.value = item.value;
+    // 팝업 표시
+    if (item.popupId) {
+      const buttonElement = event.currentTarget as HTMLElement;
+      const rect = buttonElement.getBoundingClientRect();
+      
+      // 팝업 위치 계산 - 버튼 중앙 아래에 표시
+      const position = {
+        x: rect.left + (rect.width / 2),
+        y: rect.bottom
+      };
+      
+      // 팝업 표시
+      this.toolbarService.showPopup({
+        id: item.popupId,
+        type: item.popupId,
+        position: position,
+        content: '' // 내용은 PopupManager에서 생성
+      });
+      
+      return;
     }
     
-    if (item.tooltip) {
-      inputElement.title = item.tooltip;
+    // 액션 실행
+    if (item.action) {
+      this.toolbarService.executeItemAction(item.id);
     }
+  }
+  
+  /**
+   * 이벤트 리스너 초기화
+   */
+  private initializeEventListeners(): void {
+    // 아이템 등록 이벤트 리스너
+    this.itemRegisteredListener = (data) => {
+      this.addItem(data.item);
+    };
     
-    // 이벤트 리스너 등록
-    inputElement.addEventListener('input', () => {
-      if (!item.disabled) {
-        this.toolbarService.setItemValue(item.id, inputElement.value);
+    // 아이템 업데이트 이벤트 리스너
+    this.itemUpdatedListener = (data) => {
+      this.updateItem(data.item.id, data.item);
+    };
+    
+    // 아이템 제거 이벤트 리스너
+    this.itemRemovedListener = (data) => {
+      this.removeItem(data.itemId);
+    };
+    
+    // 아이템 값 변경 이벤트 리스너
+    this.itemValueChangedListener = (data) => {
+      const item = this.items.find(item => item.id === data.itemId);
+      if (item) {
+        item.value = data.value;
+        this.updateItem(item.id, item);
       }
-    });
+    };
     
-    return inputElement;
+    // 아이템 비활성화 변경 이벤트 리스너
+    this.itemDisabledChangedListener = (data) => {
+      const item = this.items.find(item => item.id === data.itemId);
+      if (item) {
+        item.disabled = data.disabled;
+        this.updateItem(item.id, item);
+      }
+    };
+    
+    // 아이템 표시 변경 이벤트 리스너
+    this.itemVisibleChangedListener = (data) => {
+      const item = this.items.find(item => item.id === data.itemId);
+      if (item) {
+        item.visible = data.visible;
+        this.updateItem(item.id, item);
+      }
+    };
   }
   
   /**
    * 이벤트 리스너 등록
    */
-  registerEventListeners(): void {
-    // 툴바 서비스 이벤트 구독
-    this.toolbarService.on('toolbar:item-registered', () => this.update());
-    this.toolbarService.on('toolbar:item-updated', () => this.update());
-    this.toolbarService.on('toolbar:item-removed', () => this.update());
-    this.toolbarService.on('toolbar:item-value-changed', () => this.update());
-    this.toolbarService.on('toolbar:item-disabled-changed', () => this.update());
-    this.toolbarService.on('toolbar:item-visible-changed', () => this.update());
+  protected registerEventListeners(): void {
+    // 툴바 서비스 이벤트 리스너 등록
+    this.toolbarService.on('toolbar:item-registered', this.itemRegisteredListener);
+    this.toolbarService.on('toolbar:item-updated', this.itemUpdatedListener);
+    this.toolbarService.on('toolbar:item-removed', this.itemRemovedListener);
+    this.toolbarService.on('toolbar:item-value-changed', this.itemValueChangedListener);
+    this.toolbarService.on('toolbar:item-disabled-changed', this.itemDisabledChangedListener);
+    this.toolbarService.on('toolbar:item-visible-changed', this.itemVisibleChangedListener);
   }
   
   /**
    * 이벤트 리스너 제거
    */
-  removeEventListeners(): void {
-    // 툴바 서비스 이벤트 구독 해제
-    this.toolbarService.off('toolbar:item-registered', () => this.update());
-    this.toolbarService.off('toolbar:item-updated', () => this.update());
-    this.toolbarService.off('toolbar:item-removed', () => this.update());
-    this.toolbarService.off('toolbar:item-value-changed', () => this.update());
-    this.toolbarService.off('toolbar:item-disabled-changed', () => this.update());
-    this.toolbarService.off('toolbar:item-visible-changed', () => this.update());
+  protected removeEventListeners(): void {
+    // 툴바 서비스 이벤트 리스너 제거
+    this.toolbarService.off('toolbar:item-registered', this.itemRegisteredListener);
+    this.toolbarService.off('toolbar:item-updated', this.itemUpdatedListener);
+    this.toolbarService.off('toolbar:item-removed', this.itemRemovedListener);
+    this.toolbarService.off('toolbar:item-value-changed', this.itemValueChangedListener);
+    this.toolbarService.off('toolbar:item-disabled-changed', this.itemDisabledChangedListener);
+    this.toolbarService.off('toolbar:item-visible-changed', this.itemVisibleChangedListener);
+  }
+  
+  /**
+   * 컴포넌트 업데이트
+   */
+  async update(): Promise<void> {
+    if (!this.element) return;
+    
+    const toolbarElement = this.element.querySelector('.card-navigator-toolbar');
+    if (!toolbarElement) return;
+    
+    // 기존 섹션 요소 가져오기
+    const leftSection = toolbarElement.querySelector('.toolbar-section.left') as HTMLElement;
+    const centerSection = toolbarElement.querySelector('.toolbar-section.center') as HTMLElement;
+    const rightSection = toolbarElement.querySelector('.toolbar-section.right') as HTMLElement;
+    
+    if (!leftSection || !centerSection || !rightSection) return;
+    
+    // 기존 아이템 제거
+    leftSection.innerHTML = '';
+    centerSection.innerHTML = '';
+    rightSection.innerHTML = '';
+    
+    // 아이템 다시 렌더링
+    this.renderItems(leftSection, centerSection, rightSection);
+  }
+  
+  /**
+   * 컴포넌트 정리
+   */
+  cleanup(): void {
+    // 이벤트 리스너 제거
+    this.removeEventListeners();
+    
+    // 컴포넌트 제거
+    this.remove();
   }
 } 

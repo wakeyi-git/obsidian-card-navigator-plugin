@@ -124,8 +124,8 @@ export class SettingsService implements ISettingsService {
       maxSearchResults: 50,
       
       // 정렬 설정
-      sortBy: 'name',
-      sortOrder: 'asc',
+      sortBy: 'filename',
+      sortDirection: 'asc',
       defaultSortType: 'alphabetical',
       defaultSortDirection: 'asc',
       defaultSortBy: 'filename',

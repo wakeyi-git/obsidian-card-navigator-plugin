@@ -68,23 +68,62 @@ export class CardCreationService implements ICardCreationService {
    * @returns 생성된 카드 객체
    */
   async createCardFromFile(file: TFile): Promise<ICard> {
-    // 캐시에 카드가 있는지 확인
-    const cacheKey = file.path;
-    if (this.cardCache.has(cacheKey)) {
-      return this.cardCache.get(cacheKey)!;
+    try {
+      // 파일이 유효한지 확인
+      if (!file || !file.path) {
+        console.error('유효하지 않은 파일 객체:', file);
+        return this.createEmptyCard(file);
+      }
+      
+      // 캐시에 카드가 있는지 확인
+      const cacheKey = file.path;
+      if (this.cardCache.has(cacheKey)) {
+        return this.cardCache.get(cacheKey)!;
+      }
+      
+      // 파일 내용과 메타데이터 가져오기
+      const content = await this.obsidianService.readFile(file);
+      const metadata = await this.obsidianService.getFileCache(file);
+      
+      // 카드 생성
+      const card = this.createCard(file, content, metadata);
+      
+      // 카드 캐시에 저장
+      this.cardCache.set(cacheKey, card);
+      
+      return card;
+    } catch (error) {
+      console.error(`카드 생성 중 오류 발생: ${file?.path}`, error);
+      return this.createEmptyCard(file);
     }
+  }
+  
+  /**
+   * 빈 카드 객체 생성 (오류 발생 시 사용)
+   * @param file 파일 객체
+   * @returns 기본 카드 객체
+   */
+  private createEmptyCard(file: TFile): ICard {
+    const emptyCard: ICard = {
+      id: file?.path || '',
+      path: file?.path || '',
+      filename: file?.basename || '',
+      file: file,
+      title: file?.basename || '',
+      content: '',
+      tags: [],
+      
+      // 메서드 구현
+      getId: function() { return this.id || ''; },
+      getPath: function() { return this.path || ''; },
+      getCreatedTime: function() { return this.created || 0; },
+      getModifiedTime: function() { return this.modified || 0; }
+    };
     
-    // 파일 내용과 메타데이터 가져오기
-    const content = await this.obsidianService.readFile(file);
-    const metadata = await this.obsidianService.getFileCache(file);
+    // 카드 메서드 추가
+    this.ensureCardMethods(emptyCard);
     
-    // 카드 생성
-    const card = this.createCard(file, content, metadata);
-    
-    // 카드 캐시에 저장
-    this.cardCache.set(cacheKey, card);
-    
-    return card;
+    return emptyCard;
   }
   
   /**
@@ -95,38 +134,43 @@ export class CardCreationService implements ICardCreationService {
    * @returns 생성된 카드 객체
    */
   private createCard(file: TFile, content: string, metadata: CachedMetadata): ICard {
-    const settings = this.settingsService.getSettings();
-    const includeFrontmatter = settings.includeFrontmatterInContent !== false;
-    
-    // 프론트매터 제거 여부에 따라 내용 처리
-    const processedContent = includeFrontmatter ? content : this.removeFrontmatter(content);
-    
-    // 기본 카드 객체 생성
-    const card: ICard = {
-      id: file.path,
-      path: file.path,
-      filename: file.basename,
-      file: file,
-      title: file.basename,
-      content: processedContent,
-      tags: metadata.tags?.map(tag => tag.tag) || [],
-      frontmatter: metadata.frontmatter,
-      firstHeader: metadata.headings?.[0]?.heading,
-      metadata: metadata,
-      created: file.stat.ctime,
-      modified: file.stat.mtime,
+    try {
+      const settings = this.settingsService.getSettings();
+      const includeFrontmatter = settings.includeFrontmatterInContent !== false;
       
-      // 메서드 구현
-      getId: function() { return this.id || ''; },
-      getPath: function() { return this.path || ''; },
-      getCreatedTime: function() { return this.created || 0; },
-      getModifiedTime: function() { return this.modified || 0; }
-    };
-    
-    // 카드 메서드 추가
-    this.ensureCardMethods(card);
-    
-    return card;
+      // 프론트매터 제거 여부에 따라 내용 처리
+      const processedContent = includeFrontmatter ? content : this.removeFrontmatter(content);
+      
+      // 기본 카드 객체 생성
+      const card: ICard = {
+        id: file.path,
+        path: file.path,
+        filename: file.basename,
+        file: file,
+        title: file.basename,
+        content: processedContent || '',
+        tags: metadata?.tags?.map(tag => tag.tag) || [],
+        frontmatter: metadata?.frontmatter,
+        firstHeader: metadata?.headings?.[0]?.heading,
+        metadata: metadata,
+        created: file.stat?.ctime || 0,
+        modified: file.stat?.mtime || 0,
+        
+        // 메서드 구현
+        getId: function() { return this.id || ''; },
+        getPath: function() { return this.path || ''; },
+        getCreatedTime: function() { return this.created || 0; },
+        getModifiedTime: function() { return this.modified || 0; }
+      };
+      
+      // 카드 메서드 추가
+      this.ensureCardMethods(card);
+      
+      return card;
+    } catch (error) {
+      console.error(`카드 객체 생성 중 오류 발생: ${file?.path}`, error);
+      return this.createEmptyCard(file);
+    }
   }
   
   /**

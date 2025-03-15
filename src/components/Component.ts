@@ -18,16 +18,6 @@ export interface IComponent {
    * 컴포넌트 제거
    */
   remove(): void;
-  
-  /**
-   * 이벤트 리스너 등록
-   */
-  registerEventListeners(): void;
-  
-  /**
-   * 이벤트 리스너 제거
-   */
-  removeEventListeners(): void;
 }
 
 /**
@@ -184,7 +174,7 @@ export abstract class Component implements IComponent {
    * 이벤트 리스너 등록
    * 하위 클래스에서 필요에 따라 구현합니다.
    */
-  registerEventListeners(): void {
+  protected registerEventListeners(): void {
     // 기본 구현 없음
   }
   
@@ -192,7 +182,15 @@ export abstract class Component implements IComponent {
    * 이벤트 리스너 제거
    * 하위 클래스에서 필요에 따라 구현합니다.
    */
-  removeEventListeners(): void {
+  protected removeEventListeners(): void {
     // 기본 구현 없음
+  }
+  
+  /**
+   * 컴포넌트 요소 가져오기
+   * @returns 컴포넌트 요소
+   */
+  getElement(): HTMLElement | null {
+    return this.element;
   }
 } 

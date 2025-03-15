@@ -139,7 +139,7 @@ export class SearchService implements ISearchService {
    * @param scope 검색 범위
    * @returns 검색 결과
    */
-  async search(query: string, searchType: SearchType = 'filename', scope: SearchScope = 'current'): Promise<ICard[]> {
+  async search(query: string, searchType?: SearchType, scope?: SearchScope): Promise<ICard[]> {
     if (!query) {
       return [];
     }
@@ -164,13 +164,13 @@ export class SearchService implements ISearchService {
     }
     
     // 검색 수행
-    const results = await this.performSearch(files, query, searchType, caseSensitive);
+    const results = await this.performSearch(files, query, searchType || 'filename', caseSensitive);
     
     // 검색 결과 이벤트 발생
     this.eventBus.emit(EventType.SEARCH_RESULTS, {
       results,
       query,
-      searchType
+      searchType: searchType || 'filename'
     });
     
     return results;
@@ -182,7 +182,7 @@ export class SearchService implements ISearchService {
    * @param scope 검색 범위
    * @returns 검색 결과
    */
-  async searchMultipleFields(fields: ISearchField[], scope: SearchScope = 'current'): Promise<ICard[]> {
+  async searchMultipleFields(fields: ISearchField[], scope?: SearchScope): Promise<ICard[]> {
     if (fields.length === 0) {
       return [];
     }
@@ -351,6 +351,8 @@ export class SearchService implements ISearchService {
    * @returns 검색 조건에 맞는지 여부
    */
   private matchesFilename(card: ICard, query: string, caseSensitive: boolean): boolean {
+    if (!card || !card.title) return false;
+    
     const filename = card.title;
     return caseSensitive
       ? filename.includes(query)
@@ -365,6 +367,8 @@ export class SearchService implements ISearchService {
    * @returns 검색 조건에 맞는지 여부
    */
   private matchesContent(card: ICard, query: string, caseSensitive: boolean): boolean {
+    if (!card || !card.content) return false;
+    
     const content = card.content;
     return caseSensitive
       ? content.includes(query)
@@ -379,12 +383,14 @@ export class SearchService implements ISearchService {
    * @returns 검색 조건에 맞는지 여부
    */
   private matchesTag(card: ICard, query: string, caseSensitive: boolean): boolean {
+    if (!card || !card.tags || !Array.isArray(card.tags)) return false;
+    
     const tags = card.tags;
     if (caseSensitive) {
-      return tags.some(tag => tag.includes(query));
+      return tags.some(tag => tag && tag.includes(query));
     } else {
       const lowerQuery = query.toLowerCase();
-      return tags.some(tag => tag.toLowerCase().includes(lowerQuery));
+      return tags.some(tag => tag && tag.toLowerCase().includes(lowerQuery));
     }
   }
   
@@ -396,10 +402,19 @@ export class SearchService implements ISearchService {
    * @returns 검색 조건에 맞는지 여부
    */
   private matchesPath(card: ICard, query: string, caseSensitive: boolean): boolean {
-    const path = card.getPath();
-    return caseSensitive
-      ? path.includes(query)
-      : path.toLowerCase().includes(query.toLowerCase());
+    if (!card) return false;
+    
+    try {
+      const path = card.getPath();
+      if (!path) return false;
+      
+      return caseSensitive
+        ? path.includes(query)
+        : path.toLowerCase().includes(query.toLowerCase());
+    } catch (error) {
+      console.error('경로 검색 오류:', error);
+      return false;
+    }
   }
   
   /**
@@ -447,23 +462,32 @@ export class SearchService implements ISearchService {
    * @returns 검색 조건에 맞는지 여부
    */
   private matchesCreateDate(card: ICard, query: string): boolean {
-    // 날짜 범위 파싱
-    const { start, end } = this.parseDateRange(query);
-    if (!start) return false;
+    if (!card) return false;
     
-    const createTime = card.getCreatedTime();
-    const createDate = new Date(createTime);
-    
-    // 시작일만 있는 경우
-    if (!end) {
+    try {
+      // 날짜 범위 파싱
+      const { start, end } = this.parseDateRange(query);
+      if (!start) return false;
+      
+      const createTime = card.getCreatedTime();
+      if (!createTime) return false;
+      
+      const createDate = new Date(createTime);
+      
+      // 시작일만 있는 경우
+      if (!end) {
+        const startDate = new Date(start);
+        return this.isSameDay(createDate, startDate);
+      }
+      
+      // 시작일과 종료일이 있는 경우
       const startDate = new Date(start);
-      return this.isSameDay(createDate, startDate);
+      const endDate = new Date(end);
+      return createDate >= startDate && createDate <= endDate;
+    } catch (error) {
+      console.error('생성일 검색 오류:', error);
+      return false;
     }
-    
-    // 시작일과 종료일이 있는 경우
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    return createDate >= startDate && createDate <= endDate;
   }
   
   /**
@@ -473,23 +497,32 @@ export class SearchService implements ISearchService {
    * @returns 검색 조건에 맞는지 여부
    */
   private matchesModifyDate(card: ICard, query: string): boolean {
-    // 날짜 범위 파싱
-    const { start, end } = this.parseDateRange(query);
-    if (!start) return false;
+    if (!card) return false;
     
-    const modifyTime = card.getModifiedTime();
-    const modifyDate = new Date(modifyTime);
-    
-    // 시작일만 있는 경우
-    if (!end) {
+    try {
+      // 날짜 범위 파싱
+      const { start, end } = this.parseDateRange(query);
+      if (!start) return false;
+      
+      const modifyTime = card.getModifiedTime();
+      if (!modifyTime) return false;
+      
+      const modifyDate = new Date(modifyTime);
+      
+      // 시작일만 있는 경우
+      if (!end) {
+        const startDate = new Date(start);
+        return this.isSameDay(modifyDate, startDate);
+      }
+      
+      // 시작일과 종료일이 있는 경우
       const startDate = new Date(start);
-      return this.isSameDay(modifyDate, startDate);
+      const endDate = new Date(end);
+      return modifyDate >= startDate && modifyDate <= endDate;
+    } catch (error) {
+      console.error('수정일 검색 오류:', error);
+      return false;
     }
-    
-    // 시작일과 종료일이 있는 경우
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    return modifyDate >= startDate && modifyDate <= endDate;
   }
   
   /**
@@ -500,6 +533,8 @@ export class SearchService implements ISearchService {
    * @returns 검색 조건에 맞는지 여부
    */
   private matchesRegex(card: ICard, query: string, caseSensitive: boolean): boolean {
+    if (!card || !card.content) return false;
+    
     try {
       const flags = caseSensitive ? '' : 'i';
       const regex = new RegExp(query, flags);
@@ -575,17 +610,27 @@ export class SearchService implements ISearchService {
     const results: ICard[] = [];
     
     for (const file of files) {
-      const card = await this.createCardFromFile(file);
-      
-      if (this.matchesSearch(card, query, searchType, caseSensitive)) {
-        // 검색 강조 정보 생성
-        const highlightInfo = this.createHighlightInfo(card, query, searchType, caseSensitive);
+      try {
+        const card = await this.createCardFromFile(file);
         
-        // card.id가 없는 경우 파일 경로를 ID로 사용
-        const cardId = card.id || card.path || file.path;
-        this.highlightInfoMap.set(cardId, highlightInfo);
+        // 카드가 유효한지 확인
+        if (!card || !card.title) {
+          console.log(`유효하지 않은 카드 건너뜀: ${file.path}`);
+          continue;
+        }
         
-        results.push(card);
+        if (this.matchesSearch(card, query, searchType, caseSensitive)) {
+          // 검색 강조 정보 생성
+          const highlightInfo = this.createHighlightInfo(card, query, searchType, caseSensitive);
+          
+          // card.id가 없는 경우 파일 경로를 ID로 사용
+          const cardId = card.id || card.path || file.path;
+          this.highlightInfoMap.set(cardId, highlightInfo);
+          
+          results.push(card);
+        }
+      } catch (error) {
+        console.error(`파일 처리 중 오류 발생: ${file.path}`, error);
       }
     }
     
@@ -602,22 +647,32 @@ export class SearchService implements ISearchService {
     const results: ICard[] = [];
     
     for (const file of files) {
-      const card = await this.createCardFromFile(file);
-      
-      // 모든 필드에 대해 검색 조건 확인
-      let matches = true;
-      
-      for (const field of fields) {
-        const { query, searchType, caseSensitive, frontmatterKey } = field;
+      try {
+        const card = await this.createCardFromFile(file);
         
-        if (!this.matchesSearch(card, query, searchType, caseSensitive, frontmatterKey)) {
-          matches = false;
-          break;
+        // 카드가 유효한지 확인
+        if (!card || !card.title) {
+          console.log(`유효하지 않은 카드 건너뜀: ${file.path}`);
+          continue;
         }
-      }
-      
-      if (matches) {
-        results.push(card);
+        
+        // 모든 필드에 대해 검색 조건 확인
+        let matches = true;
+        
+        for (const field of fields) {
+          const { query, searchType, caseSensitive, frontmatterKey } = field;
+          
+          if (!this.matchesSearch(card, query, searchType, caseSensitive, frontmatterKey)) {
+            matches = false;
+            break;
+          }
+        }
+        
+        if (matches) {
+          results.push(card);
+        }
+      } catch (error) {
+        console.error(`파일 처리 중 오류 발생: ${file.path}`, error);
       }
     }
     

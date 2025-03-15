@@ -779,6 +779,7 @@ export enum EventType {
   LAYOUT_TYPE_CHANGED = 'layout-type-changed',
   LAYOUT_SETTINGS_CHANGED = 'layout-settings-changed',
   LAYOUT_APPLIED = 'layout-applied',
+  VIEW_TYPE_CHANGED = 'view-type-changed',
   
   // 정렬 관련 이벤트
   SORT_TYPE_CHANGED = 'sort-type-changed',

@@ -2,6 +2,7 @@ import { DomainEventBus } from '../../domain/events/DomainEventBus';
 import { EventType } from '../../domain/events/EventTypes';
 import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
 import { ToolbarItemType } from '../../domain/toolbar/ToolbarInterfaces';
+import { IPopupManager, PopupManager } from '../../components/popup/PopupManager';
 
 // 툴바 관련 이벤트 타입 상수
 const TOOLBAR_ITEM_REGISTERED = 'toolbar:item-registered';
@@ -33,6 +34,7 @@ export interface IToolbarItem {
   disabled?: boolean;
   visible?: boolean;
   order?: number;
+  popupId?: string;
 }
 
 /**
@@ -42,6 +44,7 @@ export interface IToolbarPopup {
   id: string;
   title?: string;
   content: string;
+  type?: string;
   width?: number;
   height?: number;
   position?: { x: number; y: number };
@@ -157,6 +160,11 @@ export interface IToolbarService {
    * @param listener 리스너 함수
    */
   off(event: string, listener: (data: any) => void): void;
+  
+  /**
+   * 정리
+   */
+  cleanup(): void;
 }
 
 /**
@@ -166,7 +174,7 @@ export class ToolbarService implements IToolbarService {
   private settingsService: ISettingsService;
   private eventBus: DomainEventBus;
   private items: Map<string, IToolbarItem> = new Map();
-  private currentPopup: IToolbarPopup | undefined;
+  private popupManager: IPopupManager;
   
   /**
    * 생성자
@@ -176,11 +184,93 @@ export class ToolbarService implements IToolbarService {
   constructor(settingsService: ISettingsService, eventBus: DomainEventBus) {
     this.settingsService = settingsService;
     this.eventBus = eventBus;
+    this.popupManager = new PopupManager(this, settingsService);
     
     // 저장된 툴바 아이템 로드
     const settings = this.settingsService.getSettings();
     const savedItems = settings.toolbarItems || [];
-    savedItems.forEach((item: IToolbarItem) => this.items.set(item.id, item));
+    
+    if (savedItems.length > 0) {
+      savedItems.forEach((item: IToolbarItem) => this.items.set(item.id, item));
+    } else {
+      // 기본 툴바 아이템 초기화
+      this.initializeDefaultItems();
+    }
+  }
+  
+  /**
+   * 기본 툴바 아이템 초기화
+   */
+  private initializeDefaultItems(): void {
+    // 카드셋 선택 버튼 (좌측)
+    this.registerItem({
+      id: 'cardset-selector',
+      type: 'button',
+      position: 'left',
+      icon: 'folder',
+      tooltip: '카드셋 선택',
+      action: 'showCardSetSelector',
+      popupId: 'cardset-popup',
+      order: 0
+    });
+    
+    // 검색 입력 필드 (중앙)
+    this.registerItem({
+      id: 'search-input',
+      type: 'input',
+      position: 'center',
+      tooltip: '검색',
+      action: 'search',
+      order: 0
+    });
+    
+    // 검색 필터 버튼 (중앙)
+    this.registerItem({
+      id: 'search-filter',
+      type: 'button',
+      position: 'center',
+      icon: 'filter',
+      tooltip: '검색 필터',
+      action: 'showSearchFilter',
+      popupId: 'search-filter-popup',
+      order: 1
+    });
+    
+    // 정렬 버튼 (우측)
+    this.registerItem({
+      id: 'sort-button',
+      type: 'button',
+      position: 'right',
+      icon: 'arrow-up-down',
+      tooltip: '정렬 옵션',
+      action: 'showSortOptions',
+      popupId: 'sort-popup',
+      order: 0
+    });
+    
+    // 레이아웃 버튼 (우측)
+    this.registerItem({
+      id: 'layout-button',
+      type: 'button',
+      position: 'right',
+      icon: 'layout-grid',
+      tooltip: '레이아웃 설정',
+      action: 'showLayoutOptions',
+      popupId: 'layout-popup',
+      order: 1
+    });
+    
+    // 설정 버튼 (우측)
+    this.registerItem({
+      id: 'settings-button',
+      type: 'button',
+      position: 'right',
+      icon: 'settings',
+      tooltip: '설정 및 프리셋',
+      action: 'showSettings',
+      popupId: 'settings-popup',
+      order: 2
+    });
   }
   
   registerItem(item: IToolbarItem): string {
@@ -325,35 +415,29 @@ export class ToolbarService implements IToolbarService {
   }
   
   showPopup(popup: IToolbarPopup): string {
-    // ID가 없는 경우 생성
-    if (!popup.id) {
-      popup.id = `toolbar_popup_${Date.now()}`;
-    }
-    
-    // 현재 팝업 설정
-    this.currentPopup = popup;
+    // PopupManager를 통해 팝업 표시
+    const popupId = this.popupManager.showPopup(popup);
     
     // 이벤트 발생
     this.eventBus.emit(TOOLBAR_POPUP_SHOWN, { popup });
     
-    return popup.id;
+    return popupId;
   }
   
   closePopup(popupId: string): boolean {
-    if (!this.currentPopup || this.currentPopup.id !== popupId) return false;
+    // PopupManager를 통해 팝업 닫기
+    const result = this.popupManager.closePopup(popupId);
     
-    // 팝업 닫기
-    const popup = this.currentPopup;
-    this.currentPopup = undefined;
+    if (result) {
+      // 이벤트 발생
+      this.eventBus.emit(TOOLBAR_POPUP_CLOSED, { popupId });
+    }
     
-    // 이벤트 발생
-    this.eventBus.emit(TOOLBAR_POPUP_CLOSED, { popupId, popup });
-    
-    return true;
+    return result;
   }
   
   getCurrentPopup(): IToolbarPopup | undefined {
-    return this.currentPopup;
+    return this.popupManager.getCurrentPopup();
   }
   
   executeItemAction(itemId: string, data?: any): void {
@@ -394,5 +478,13 @@ export class ToolbarService implements IToolbarService {
    */
   off(event: string, listener: (data: any) => void): void {
     this.eventBus.off(event as any, listener);
+  }
+  
+  /**
+   * 정리
+   */
+  cleanup(): void {
+    // PopupManager 정리
+    this.popupManager.cleanup();
   }
 } 

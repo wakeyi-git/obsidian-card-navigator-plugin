@@ -12,7 +12,10 @@ import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
 export class SortingService implements ISortingService {
   private settingsService: ISettingsService;
   private eventBus: DomainEventBus;
-  private currentSort: ISort;
+  private currentSort!: ISort;
+  private sortType: SortType = 'filename';
+  private sortDirection: SortDirection = 'asc';
+  private frontmatterKey?: string;
   
   /**
    * 생성자
@@ -24,17 +27,7 @@ export class SortingService implements ISortingService {
     this.eventBus = eventBus;
     
     // 기본 정렬 설정
-    const settings = this.settingsService.getSettings();
-    this.currentSort = this.createSort(
-      settings.sortBy as SortType || 'filename',
-      settings.sortOrder || 'asc',
-      settings.customSortKey,
-      {
-        priorityTags: settings.priorityTags || [],
-        priorityFolders: settings.priorityFolders || [],
-        applyPriorities: true
-      }
-    );
+    this.initializeSort();
   }
   
   /**
@@ -75,8 +68,8 @@ export class SortingService implements ISortingService {
     // 설정 업데이트
     await this.settingsService.updateSettings({
       sortBy: type,
-      sortOrder: direction,
-      customSortKey: frontmatterKey
+      sortDirection: direction,
+      frontmatterKey: frontmatterKey
     });
     
     // 정렬 변경 이벤트 발생
@@ -135,5 +128,66 @@ export class SortingService implements ISortingService {
    */
   applyPriorities(cards: ICard[]): ICard[] {
     return this.currentSort.applyPriorities(cards);
+  }
+  
+  /**
+   * 정렬 초기화
+   */
+  private initializeSort(): void {
+    // 설정에서 정렬 옵션 가져오기
+    const settings = this.settingsService.getSettings();
+    const sortBy = settings.sortBy || 'filename';
+    const direction = settings.sortDirection || 'asc';
+    const frontmatterKey = settings.frontmatterKey;
+    
+    // 정렬 상태 설정
+    this.sortType = sortBy as SortType;
+    this.sortDirection = direction as SortDirection;
+    this.frontmatterKey = frontmatterKey;
+    
+    // 정렬 함수 설정
+    this.currentSort = this.createSort(
+      this.sortType,
+      this.sortDirection,
+      this.frontmatterKey,
+      {
+        priorityTags: settings.priorityTags || [],
+        priorityFolders: settings.priorityFolders || [],
+        applyPriorities: true
+      }
+    );
+  }
+  
+  /**
+   * 정렬 타입 설정
+   * @param sortType 정렬 타입
+   * @param direction 정렬 방향
+   * @param frontmatterKey 프론트매터 키 (프론트매터 정렬 시 사용)
+   */
+  setSortType(sortType: SortType, direction: SortDirection = 'asc', frontmatterKey?: string): void {
+    // 정렬 상태 업데이트
+    this.sortType = sortType;
+    this.sortDirection = direction;
+    this.frontmatterKey = frontmatterKey;
+    
+    // 정렬 함수 설정
+    const settings = this.settingsService.getSettings();
+    this.currentSort = this.createSort(
+      sortType,
+      direction,
+      frontmatterKey,
+      {
+        priorityTags: settings.priorityTags || [],
+        priorityFolders: settings.priorityFolders || [],
+        applyPriorities: true
+      }
+    );
+    
+    // 설정 업데이트
+    this.settingsService.updateSettings({
+      sortBy: sortType,
+      sortDirection: direction,
+      frontmatterKey: frontmatterKey
+    });
   }
 } 
