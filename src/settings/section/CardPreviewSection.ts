@@ -976,23 +976,21 @@ export class CardPreviewSection extends SettingSection {
     
     // 카드 스타일 업데이트
     if (this.cardEl) {
-      // 카드 크기 설정 (레이아웃 설정에서 가져옴)
+      // 카드 크기 설정
       const layout = settings.layout || {
         fixedCardHeight: false,
         layoutDirectionPreference: 'auto',
-        cardMinWidth: 250,
-        cardMaxWidth: 400,
-        cardMinHeight: 150,
-        cardMaxHeight: 300,
+        cardThresholdWidth: 200,
+        cardThresholdHeight: 150,
         cardGap: 10,
         cardsetPadding: 10,
         cardSizeFactor: 1.0,
         useLayoutTransition: true
       };
       
-      // 미리보기 카드는 더 크게 표시하여 모든 요소가 보이도록 함
-      const cardWidth = Math.min(Math.max(layout.cardMinWidth, 300), 450);
-      const cardHeight = Math.min(Math.max(layout.cardMinHeight, 200), 350);
+      // 카드 너비와 높이 계산
+      const cardWidth = Math.min(Math.max(layout.cardThresholdWidth, 300), 450);
+      const cardHeight = Math.min(Math.max(layout.cardThresholdHeight, 200), 350);
       
       this.cardEl.style.width = `${cardWidth}px`;
       this.cardEl.style.maxWidth = '100%';

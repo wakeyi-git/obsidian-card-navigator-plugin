@@ -10,12 +10,10 @@ import { CardSetService } from './services/cardset/CardSetService';
 import { InteractionService } from './services/interaction/InteractionService';
 import { LayoutService } from './services/layout/LayoutService';
 import { NavigationService } from './services/navigation/NavigationService';
-import { PresetService } from './services/preset/PresetService';
 import { SearchService } from './services/search/SearchService';
 import { SearchSuggestionService } from './services/search/SearchSuggestionService';
 import { SearchHistoryService } from './services/search/SearchHistoryService';
 import { SortingService } from './services/sorting/SortingService';
-import { ToolbarService } from './services/toolbar/ToolbarService';
 import { RibbonService } from './services/plugin/RibbonService';
 import { ViewService, CardNavigatorView } from './services/plugin/ViewService';
 import { CardSetComponent } from './components/cardset/CardSetComponent';
@@ -27,6 +25,10 @@ import { SettingTab } from './settings/section/SettingTab';
 import { LayoutComponent } from './components/layout/LayoutComponent';
 import { NavigationComponent } from './components/navigation/NavigationComponent';
 import { DEFAULT_SETTINGS } from './domain/settings/DefaultSettings';
+import { CardCreationService } from './services/card/CardCreationService';
+import { CardInteractionService } from './services/card/CardInteractionService';
+import { CardQueryService } from './services/card/CardQueryService';
+import { ToolbarService } from './services/toolbar/ToolbarService';
 
 /**
  * 카드 네비게이터 플러그인
@@ -45,14 +47,13 @@ export default class CardNavigatorPlugin extends Plugin {
   interactionService!: InteractionService;
   layoutService!: LayoutService;
   navigationService!: NavigationService;
-  presetService!: PresetService;
   searchService!: SearchService;
   searchSuggestionService!: SearchSuggestionService;
   searchHistoryService!: SearchHistoryService;
   sortingService!: SortingService;
-  toolbarService!: ToolbarService;
   ribbonService!: RibbonService;
   viewService!: ViewService;
+  toolbarService!: ToolbarService;
   
   // 리본 아이콘
   ribbonIcon: HTMLElement | null = null;
@@ -67,6 +68,11 @@ export default class CardNavigatorPlugin extends Plugin {
 
   view!: CardNavigatorView;
   
+  // 추가된 서비스
+  cardCreationService!: CardCreationService;
+  cardInteractionService!: CardInteractionService;
+  cardQueryService!: CardQueryService | null;
+
   /**
    * 로그 출력 함수
    * 디버그 모드에서만 로그를 출력합니다.
@@ -139,7 +145,9 @@ export default class CardNavigatorPlugin extends Plugin {
     console.log('카드 네비게이터 플러그인 언로드 중...');
     
     // 이벤트 리스너 제거
-    this.eventBus.removeAllListeners();
+    if (this.eventBus) {
+      this.eventBus.removeAllListeners();
+    }
     
     // 컴포넌트 정리
     if (this.cardSetComponent) {
@@ -155,17 +163,25 @@ export default class CardNavigatorPlugin extends Plugin {
     }
     
     // 뷰 비활성화
-    this.viewService.deactivateView();
+    if (this.viewService) {
+      this.viewService.deactivateView();
+    }
     
     // 리본 아이콘 제거
-    this.ribbonService.removeRibbonIcon();
+    if (this.ribbonService) {
+      this.ribbonService.removeRibbonIcon();
+    } else if (this.ribbonIcon) {
+      // 리본 서비스가 없는 경우 직접 리본 아이콘 제거
+      this.ribbonIcon.remove();
+      this.ribbonIcon = null;
+    }
     
     // 서비스 정리
-    this.layoutService.cleanup();
-    this.navigationService.cleanup();
-    this.interactionService.cleanup();
-    this.searchService.cleanup();
-    this.cardSetService.cleanup();
+    if (this.layoutService) this.layoutService.cleanup();
+    if (this.navigationService) this.navigationService.cleanup();
+    if (this.interactionService) this.interactionService.cleanup();
+    if (this.searchService) this.searchService.cleanup();
+    if (this.cardSetService) this.cardSetService.cleanup();
     
     // 전역 이벤트 리스너 제거
     window.removeEventListener('resize', this.handleWindowResize);
@@ -204,45 +220,67 @@ export default class CardNavigatorPlugin extends Plugin {
     }
   }
 
-  initializeServices() {
-    // 코어 서비스 초기화
+  /**
+   * 서비스 초기화
+   * 플러그인에서 사용하는 서비스를 초기화합니다.
+   */
+  private initializeServices(): void {
+    // 옵시디언 서비스 초기화
     this.obsidianService = new ObsidianService(this.app, this);
-    this.settingsService = new SettingsService(this, this.eventBus);
     
-    // 플러그인 서비스 초기화
-    this.ribbonService = new RibbonService(this.obsidianService);
-    this.viewService = new ViewService(this.obsidianService, CardNavigatorPlugin.CARD_NAVIGATOR_VIEW);
+    // 이벤트 버스 초기화
+    this.eventBus = new DomainEventBus();
+    
+    // 설정 서비스 초기화
+    this.settingsService = new SettingsService(this, this.eventBus);
     
     // 레이아웃 서비스 초기화
     this.layoutService = new LayoutService(this.settingsService, this.eventBus);
     
-    // 카드 관련 서비스 초기화
-    this.cardService = new CardService(this.obsidianService, this.settingsService, this.eventBus);
+    // 카드 렌더링 서비스 초기화
     this.cardRenderingService = new CardRenderingService(this.obsidianService, this.settingsService);
+    
+    // 카드 생성 서비스 초기화
+    this.cardCreationService = new CardCreationService(this.obsidianService, this.settingsService, this.eventBus);
+    
+    // 카드 상호작용 서비스 초기화
+    this.cardInteractionService = new CardInteractionService(this.obsidianService, this.settingsService, this.eventBus);
+    
+    // 네비게이션 서비스 초기화
+    this.navigationService = new NavigationService(this.settingsService, this.layoutService, this.eventBus);
+    
+    // 상호작용 서비스 초기화
+    this.interactionService = new InteractionService(this.settingsService, this.navigationService, this.eventBus);
+    
+    // 카드 쿼리 서비스 초기화 (카드 서비스가 필요하므로 나중에 초기화)
+    this.cardQueryService = null;
+    
+    // 카드 서비스 초기화
+    this.cardService = new CardService(
+      this.obsidianService,
+      this.settingsService,
+      this.eventBus,
+      this.cardCreationService,
+      this.cardRenderingService,
+      this.cardInteractionService,
+      {} as any, // cardQueryService는 나중에 설정
+      this.layoutService
+    );
+    
+    // 카드 쿼리 서비스 초기화 (이제 카드 서비스가 있으므로 초기화 가능)
+    this.cardQueryService = new CardQueryService(this.cardService, this.obsidianService, this.settingsService, this.eventBus);
+    
+    // 카드 서비스에 카드 쿼리 서비스 설정
+    (this.cardService as any).cardQueryService = this.cardQueryService;
     
     // 카드셋 서비스 초기화
     this.cardSetService = new CardSetService(this.obsidianService, this.settingsService, this.eventBus);
     
-    // 정렬 서비스 초기화
-    this.sortingService = new SortingService(this.settingsService, this.eventBus);
-    
-    // 내비게이션 서비스 초기화
-    this.navigationService = new NavigationService(
-      this.settingsService,
-      this.layoutService,
-      this.eventBus
-    );
-    
-    // 상호작용 서비스 초기화
-    this.interactionService = new InteractionService(
-      this.settingsService,
-      this.navigationService,
-      this.eventBus
-    );
-    
-    // 검색 관련 서비스 초기화
-    this.searchSuggestionService = new SearchSuggestionService(this.obsidianService);
+    // 검색 히스토리 서비스 초기화
     this.searchHistoryService = new SearchHistoryService(this.settingsService);
+    
+    // 검색 제안 서비스 초기화
+    this.searchSuggestionService = new SearchSuggestionService(this.obsidianService);
     
     // 검색 서비스 초기화
     this.searchService = new SearchService(
@@ -254,18 +292,23 @@ export default class CardNavigatorPlugin extends Plugin {
       this.obsidianService
     );
     
-    // 프리셋 서비스 초기화
-    this.presetService = new PresetService(
-      this.settingsService,
-      this.cardSetService,
-      this.layoutService,
-      this.sortingService,
-      this.searchService,
-      this.eventBus
-    );
+    // 정렬 서비스 초기화
+    this.sortingService = new SortingService(this.settingsService, this.eventBus);
     
     // 툴바 서비스 초기화
     this.toolbarService = new ToolbarService(this.settingsService, this.eventBus);
+    
+    // 리본 서비스 초기화
+    this.ribbonService = new RibbonService(this.obsidianService);
+    
+    // 뷰 서비스 초기화
+    this.viewService = new ViewService(
+      this.obsidianService,
+      CardNavigatorPlugin.CARD_NAVIGATOR_VIEW // 뷰 타입 전달
+    );
+    
+    // 이벤트 리스너 등록
+    this.registerEventListeners();
   }
 
   addCommands() {

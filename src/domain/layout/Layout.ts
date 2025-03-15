@@ -84,10 +84,8 @@ export interface ILayoutInfo {
   settings?: {
     fixedCardHeight: boolean;
     layoutDirectionPreference: string;
-    cardMinWidth: number;
-    cardMaxWidth: number;
-    cardMinHeight: number;
-    cardMaxHeight: number;
+    cardThresholdWidth: number;
+    cardThresholdHeight: number;
     cardGap: number;
     cardsetPadding: number;
     cardSizeFactor: number;

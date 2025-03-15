@@ -3,6 +3,7 @@ import { DomainEventBus } from '../../domain/events/DomainEventBus';
 import { EventType } from '../../domain/events/EventTypes';
 import { ILayoutService } from '../../services/layout/LayoutService';
 import { ILayoutInfo, LayoutDirection, LayoutType, ScrollDirection } from '../../domain/layout/Layout';
+import { LayoutDirectionPreference } from '../../domain/settings/SettingsInterfaces';
 import './layout.css';
 
 /**
@@ -431,57 +432,110 @@ export class LayoutComponent extends Component implements ILayoutComponent {
    * @param containerWidth 컨테이너 너비
    * @param containerHeight 컨테이너 높이
    * @param itemCount 아이템 수
-   * @returns 레이아웃 정보
+   * @returns 계산된 레이아웃 정보
    */
   private calculateLayout(containerWidth: number, containerHeight: number, itemCount: number): ILayoutInfo {
     return this.memoize('calculateLayout', (width, height, count) => {
       // 레이아웃 타입 가져오기
-      const layoutType = this.layoutService.getLayoutType();
+      const settings = this.layoutService.getSettings();
+      const layoutSettings = settings.layout || {
+        fixedCardHeight: true,
+        layoutDirectionPreference: LayoutDirectionPreference.AUTO,
+        cardThresholdWidth: 200,
+        cardThresholdHeight: 150,
+        cardGap: 10,
+        cardsetPadding: 10,
+        cardSizeFactor: 1.0,
+        useLayoutTransition: true
+      };
       
-      // 레이아웃 방향 가져오기
-      const direction = this.layoutService.getLayoutDirection();
+      // 레이아웃 타입 결정
+      const layoutType = layoutSettings.fixedCardHeight ? 'grid' : 'masonry';
       
-      // 스크롤 방향 가져오기
-      const scrollDirection = this.layoutService.getScrollDirection();
+      // 레이아웃 방향 결정
+      let layoutDirection: LayoutDirection = 'vertical';
       
-      // 카드 너비 가져오기
-      const cardWidth = this.layoutService.getCardWidth();
+      if (layoutSettings.layoutDirectionPreference === LayoutDirectionPreference.AUTO) {
+        // 자동 방향 결정 (뷰포트 비율에 따라)
+        const ratio = width / height;
+        layoutDirection = ratio > 1.5 ? 'horizontal' : 'vertical';
+      } else {
+        // 사용자 선호도에 따라 방향 결정
+        layoutDirection = layoutSettings.layoutDirectionPreference === LayoutDirectionPreference.HORIZONTAL 
+          ? 'horizontal' 
+          : 'vertical';
+      }
       
-      // 카드 높이 가져오기
-      const cardHeight = this.layoutService.getCardHeight();
+      // 스크롤 방향 결정
+      const scrollDirection: ScrollDirection = layoutDirection === 'horizontal' ? 'horizontal' : 'vertical';
       
-      // 카드 간격 가져오기
-      const cardGap = this.layoutService.getCardGap();
+      // 열/행 수 계산
+      let columns, rows;
+      let itemWidth, itemHeight;
       
-      // 열 수 계산
-      const columns = Math.max(1, Math.floor((width + cardGap) / (cardWidth + cardGap)));
+      if (layoutDirection === 'horizontal') {
+        // 가로 레이아웃 - 행 수 먼저 계산
+        const thresholdHeight = layoutSettings.cardThresholdHeight;
+        const gap = layoutSettings.cardGap;
+        const padding = layoutSettings.cardsetPadding * 2;
+        
+        // 사용 가능한 높이 계산
+        const availableHeight = height - padding;
+        
+        // 행 수 계산 (임계 높이와 간격 고려)
+        rows = Math.max(1, Math.floor((availableHeight + gap) / (thresholdHeight + gap)));
+        
+        // 아이템 수에 따라 열 수 계산
+        columns = Math.ceil(count / rows);
+        
+        // 아이템 높이 계산 (뷰포트 높이를 행 수에 맞게 분배)
+        itemHeight = (availableHeight - (rows - 1) * gap) / rows;
+        
+        // 아이템 너비는 임계 너비로 고정
+        itemWidth = layoutSettings.cardThresholdWidth;
+      } else {
+        // 세로 레이아웃 - 열 수 먼저 계산
+        const thresholdWidth = layoutSettings.cardThresholdWidth;
+        const gap = layoutSettings.cardGap;
+        const padding = layoutSettings.cardsetPadding * 2;
+        
+        // 사용 가능한 너비 계산
+        const availableWidth = width - padding;
+        
+        // 열 수 계산 (임계 너비와 간격 고려)
+        columns = Math.max(1, Math.floor((availableWidth + gap) / (thresholdWidth + gap)));
+        
+        // 아이템 수에 따라 행 수 계산
+        rows = Math.ceil(count / columns);
+        
+        // 아이템 너비 계산 (뷰포트 너비를 열 수에 맞게 분배)
+        itemWidth = (availableWidth - (columns - 1) * gap) / columns;
+        
+        // 아이템 높이는 임계 높이로 고정 (그리드 레이아웃인 경우)
+        // 메이슨리 레이아웃에서는 콘텐츠에 따라 달라짐
+        itemHeight = layoutSettings.cardThresholdHeight;
+      }
       
-      // 행 수 계산
-      const rows = Math.max(1, Math.ceil(count / columns));
+      // 아이템 수가 열 수보다 적으면 아이템 수로 제한
+      if (count > 0) {
+        columns = Math.min(columns, count);
+      }
+      
+      // 열 수가 0이 되지 않도록 보장
+      columns = Math.max(1, columns);
       
       return {
         columns,
         rows,
-        itemWidth: cardWidth,
-        itemHeight: cardHeight,
+        itemWidth,
+        itemHeight,
         fixedHeight: layoutType === 'grid',
-        direction,
+        direction: layoutDirection,
         scrollDirection,
         itemCount: count,
         containerWidth: width,
         containerHeight: height,
-        settings: {
-          fixedCardHeight: layoutType === 'grid',
-          layoutDirectionPreference: direction,
-          cardMinWidth: cardWidth,
-          cardMaxWidth: cardWidth,
-          cardMinHeight: cardHeight,
-          cardMaxHeight: cardHeight,
-          cardGap,
-          cardsetPadding: 10,
-          cardSizeFactor: 1,
-          useLayoutTransition: true
-        }
+        settings: layoutSettings
       };
     }, containerWidth, containerHeight, itemCount);
   }

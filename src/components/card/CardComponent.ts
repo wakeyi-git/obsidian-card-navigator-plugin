@@ -4,6 +4,8 @@ import { ICardRenderingService } from '../../services/card/CardRenderingService'
 import { ICardService } from '../../services/card/CardService';
 import { IInteractionService } from '../../services/interaction/InteractionService';
 import { EventType, SettingsChangedEventData } from '../../domain/events/EventTypes';
+import { DomainEventBus } from '../../domain/events/DomainEventBus';
+import { ILayoutService } from '../../services/layout/LayoutService';
 
 /**
  * 카드 컴포넌트 인터페이스
@@ -37,12 +39,24 @@ export class CardComponent extends Component implements ICardComponent {
   private cardService: ICardService;
   private cardRenderingService: ICardRenderingService;
   private interactionService: IInteractionService;
+  private eventBus: DomainEventBus;
   private isSelected = false;
   private isFocused = false;
+  private isHovered = false;
+  private isActive = false;
+  private isDragging = false;
+  
+  // 카드 요소 참조
+  protected headerEl: HTMLElement | null = null;
+  protected bodyEl: HTMLElement | null = null;
+  protected footerEl: HTMLElement | null = null;
+  
+  // 레이아웃 서비스 참조
+  protected layoutService: ILayoutService;
   
   /**
    * 생성자
-   * @param card 카드 데이터
+   * @param card 카드
    * @param cardService 카드 서비스
    * @param cardRenderingService 카드 렌더링 서비스
    * @param interactionService 상호작용 서비스
@@ -58,17 +72,32 @@ export class CardComponent extends Component implements ICardComponent {
     this.cardService = cardService;
     this.cardRenderingService = cardRenderingService;
     this.interactionService = interactionService;
-    
-    // 설정 변경 이벤트 구독
-    this.cardService.getEventBus().on(EventType.SETTINGS_CHANGED, this.handleSettingsChanged);
+    this.eventBus = cardService.getEventBus();
+    this.layoutService = cardService.getLayoutService();
   }
   
   /**
    * 컴포넌트 제거
+   * 이벤트 리스너 제거 및 리소스 정리
    */
   remove(): void {
     // 이벤트 리스너 제거
-    this.cardService.getEventBus().off(EventType.SETTINGS_CHANGED, this.handleSettingsChanged);
+    if (this.element) {
+      this.element.removeEventListener('click', this.handleClick);
+      this.element.removeEventListener('dblclick', this.handleDoubleClick);
+      this.element.removeEventListener('mouseover', this.handleMouseOver);
+      this.element.removeEventListener('mouseout', this.handleMouseOut);
+      this.element.removeEventListener('contextmenu', this.handleContextMenu);
+      this.element.removeEventListener('dragstart', this.handleDragStart);
+      this.element.removeEventListener('dragend', this.handleDragEnd);
+      this.element.removeEventListener('dragover', this.handleDragOver);
+      this.element.removeEventListener('drop', this.handleDrop);
+    }
+    
+    // 요소 참조 제거
+    this.headerEl = null;
+    this.bodyEl = null;
+    this.footerEl = null;
     
     // 기본 제거 로직 실행
     super.remove();
@@ -168,6 +197,40 @@ export class CardComponent extends Component implements ICardComponent {
   }
   
   /**
+   * 이벤트 리스너 등록
+   */
+  registerEventListeners(): void {
+    if (!this.element) return;
+    
+    // 클릭 이벤트 리스너
+    this.element.addEventListener('click', this.handleClick);
+    
+    // 더블 클릭 이벤트 리스너
+    this.element.addEventListener('dblclick', this.handleDoubleClick);
+    
+    // 마우스 오버 이벤트 리스너
+    this.element.addEventListener('mouseover', this.handleMouseOver);
+    
+    // 마우스 아웃 이벤트 리스너
+    this.element.addEventListener('mouseout', this.handleMouseOut);
+    
+    // 컨텍스트 메뉴 이벤트 리스너
+    this.element.addEventListener('contextmenu', this.handleContextMenu);
+    
+    // 드래그 시작 이벤트 리스너
+    this.element.addEventListener('dragstart', this.handleDragStart);
+    
+    // 드래그 종료 이벤트 리스너
+    this.element.addEventListener('dragend', this.handleDragEnd);
+    
+    // 드래그 오버 이벤트 리스너
+    this.element.addEventListener('dragover', this.handleDragOver);
+    
+    // 드롭 이벤트 리스너
+    this.element.addEventListener('drop', this.handleDrop);
+  }
+  
+  /**
    * 컴포넌트 업데이트
    * 설정 변경 시 호출되어 카드를 업데이트합니다.
    */
@@ -177,8 +240,7 @@ export class CardComponent extends Component implements ICardComponent {
     // 설정 가져오기
     const settings = this.cardService.getSettingsService().getSettings();
     const layoutSettings = settings.layout || {
-      cardMinHeight: 100,
-      cardMaxHeight: 300
+      cardThresholdHeight: 150
     };
     
     // 디버깅: 카드 업데이트 시 displaySettings 값 확인
@@ -244,28 +306,22 @@ export class CardComponent extends Component implements ICardComponent {
     // 카드 크기 설정
     this.element.style.setProperty('--card-width', `${settings.cardWidth || 250}px`);
     
-    // 카드 높이 설정 개선
-    const cardHeight = settings.cardHeight || 150;
-    const cardMinHeight = layoutSettings.cardMinHeight || 100;
-    const cardMaxHeight = layoutSettings.cardMaxHeight || 300;
+    // 카드 높이 설정
+    const cardThresholdHeight = layoutSettings.cardThresholdHeight || 150;
     
-    // 고정 높이 또는 최소/최대 높이 설정
-    if (typeof cardHeight === 'number' && cardHeight > 0) {
-      // 고정 높이 설정
-      this.element.style.setProperty('--card-height', `${cardHeight}px`);
-      this.element.style.setProperty('--card-min-height', `${cardHeight}px`);
-      this.element.style.setProperty('--card-max-height', `${cardHeight}px`);
-      this.element.classList.add('fixed-height');
+    // 카드 본문 최소 높이 계산
+    const headerHeight = this.headerEl ? this.headerEl.offsetHeight : 0;
+    const footerHeight = this.footerEl ? this.footerEl.offsetHeight : 0;
+    const headerFooterHeight = headerHeight + footerHeight;
+    
+    // 본문 최소 높이 설정 (카드 최소 높이에서 헤더와 푸터 높이를 뺀 값)
+    if (this.bodyEl) {
+      this.bodyEl.style.minHeight = `calc(${cardThresholdHeight}px - ${headerFooterHeight}px)`;
       
-      console.log('카드 고정 높이 설정:', cardHeight);
-    } else {
-      // 최소/최대 높이 설정
-      this.element.style.setProperty('--card-height', 'auto');
-      this.element.style.setProperty('--card-min-height', `${cardMinHeight}px`);
-      this.element.style.setProperty('--card-max-height', `${cardMaxHeight}px`);
-      this.element.classList.remove('fixed-height');
-      
-      console.log('카드 가변 높이 설정:', { 최소: cardMinHeight, 최대: cardMaxHeight });
+      // 메이슨리 레이아웃에서는 본문 높이가 콘텐츠에 따라 자동 조정됨
+      if (this.layoutService.getLayoutType() === 'masonry') {
+        this.bodyEl.style.height = 'auto';
+      }
     }
     
     this.element.style.setProperty('--card-gap', `${settings.cardGap || 10}px`);
@@ -348,39 +404,53 @@ export class CardComponent extends Component implements ICardComponent {
     cardElement.dataset.id = this.card.id;
     cardElement.dataset.path = this.card.path;
     
+    // 요소 참조 저장
+    this.element = cardElement;
+    
     // 설정 가져오기
     const settings = this.cardService.getSettingsService().getSettings();
     const layoutSettings = settings.layout || {
-      cardMinHeight: 100,
-      cardMaxHeight: 300
+      cardThresholdHeight: 150
     };
+    
+    // 카드 헤더 생성
+    this.headerEl = document.createElement('div');
+    this.headerEl.className = 'card-header';
+    cardElement.appendChild(this.headerEl);
+    
+    // 카드 본문 생성
+    this.bodyEl = document.createElement('div');
+    this.bodyEl.className = 'card-body';
+    cardElement.appendChild(this.bodyEl);
+    
+    // 카드 푸터 생성
+    this.footerEl = document.createElement('div');
+    this.footerEl.className = 'card-footer';
+    cardElement.appendChild(this.footerEl);
+    
+    // 카드 렌더링
+    this.cardRenderingService.renderHeader(this.card, this.headerEl);
+    this.cardRenderingService.renderBody(this.card, this.bodyEl);
+    this.cardRenderingService.renderFooter(this.card, this.footerEl);
     
     // CSS 변수 설정
     // 카드 크기 설정
     cardElement.style.setProperty('--card-width', `${settings.cardWidth || 250}px`);
     
-    // 카드 높이 설정 개선
-    const cardHeight = settings.cardHeight || 150;
-    const cardMinHeight = layoutSettings.cardMinHeight || 100;
-    const cardMaxHeight = layoutSettings.cardMaxHeight || 300;
+    // 카드 높이 설정
+    const cardThresholdHeight = layoutSettings.cardThresholdHeight || 150;
     
-    // 고정 높이 또는 최소/최대 높이 설정
-    if (typeof cardHeight === 'number' && cardHeight > 0) {
-      // 고정 높이 설정
-      cardElement.style.setProperty('--card-height', `${cardHeight}px`);
-      cardElement.style.setProperty('--card-min-height', `${cardHeight}px`);
-      cardElement.style.setProperty('--card-max-height', `${cardHeight}px`);
-      cardElement.classList.add('fixed-height');
-      
-      console.log('카드 고정 높이 설정:', cardHeight);
-    } else {
-      // 최소/최대 높이 설정
-      cardElement.style.setProperty('--card-height', 'auto');
-      cardElement.style.setProperty('--card-min-height', `${cardMinHeight}px`);
-      cardElement.style.setProperty('--card-max-height', `${cardMaxHeight}px`);
-      cardElement.classList.remove('fixed-height');
-      
-      console.log('카드 가변 높이 설정:', { 최소: cardMinHeight, 최대: cardMaxHeight });
+    // 카드 본문 최소 높이 계산
+    const headerHeight = this.headerEl ? this.headerEl.offsetHeight : 0;
+    const footerHeight = this.footerEl ? this.footerEl.offsetHeight : 0;
+    const headerFooterHeight = headerHeight + footerHeight;
+    
+    // 본문 최소 높이 설정 (카드 최소 높이에서 헤더와 푸터 높이를 뺀 값)
+    this.bodyEl.style.minHeight = `calc(${cardThresholdHeight}px - ${headerFooterHeight}px)`;
+    
+    // 메이슨리 레이아웃에서는 본문 높이가 콘텐츠에 따라 자동 조정됨
+    if (this.layoutService.getLayoutType() === 'masonry') {
+      this.bodyEl.style.height = 'auto';
     }
     
     cardElement.style.setProperty('--card-gap', `${settings.cardGap || 10}px`);
@@ -399,124 +469,46 @@ export class CardComponent extends Component implements ICardComponent {
     // 카드 활성 스타일 설정
     cardElement.style.setProperty('--card-active-bg-color', settings.activeCardBgColor || 'var(--background-primary-alt)');
     cardElement.style.setProperty('--card-active-border-color', settings.activeCardBorderColor || 'var(--interactive-accent)');
-    cardElement.style.setProperty('--card-active-border-style', settings.activeCardBorderStyle || 'solid');
     cardElement.style.setProperty('--card-active-border-width', `${settings.activeCardBorderWidth || 2}px`);
+    cardElement.style.setProperty('--card-active-border-radius', `${settings.activeCardBorderRadius || 5}px`);
     
     // 카드 포커스 스타일 설정
-    cardElement.style.setProperty('--card-focused-bg-color', settings.focusedCardBgColor || 'var(--background-primary-alt)');
-    cardElement.style.setProperty('--card-focused-border-color', settings.focusedCardBorderColor || 'var(--interactive-accent)');
+    cardElement.style.setProperty('--card-focus-bg-color', settings.focusedCardBgColor || 'var(--background-primary-alt)');
+    cardElement.style.setProperty('--card-focus-border-color', settings.focusedCardBorderColor || 'var(--interactive-accent)');
+    cardElement.style.setProperty('--card-focus-border-width', `${settings.focusedCardBorderWidth || 3}px`);
+    cardElement.style.setProperty('--card-focus-border-radius', `${settings.focusedCardBorderRadius || 5}px`);
     
     // 헤더 스타일 설정
-    cardElement.style.setProperty('--header-bg-color', settings.headerBgColor || 'var(--background-secondary)');
-    cardElement.style.setProperty('--header-font-size', `${settings.headerFontSize || 14}px`);
-    cardElement.style.setProperty('--header-border-style', settings.headerBorderStyle || 'solid');
-    cardElement.style.setProperty('--header-border-color', settings.headerBorderColor || 'var(--background-modifier-border)');
-    cardElement.style.setProperty('--header-border-width', `${settings.headerBorderWidth || 0}px`);
-    cardElement.style.setProperty('--header-border-radius', `${settings.headerBorderRadius || 0}px`);
+    this.headerEl.style.backgroundColor = settings.headerBgColor || '';
+    this.headerEl.style.fontSize = `${settings.headerFontSize || 16}px`;
+    this.headerEl.style.borderBottomStyle = settings.headerBorderStyle || 'none';
+    this.headerEl.style.borderBottomColor = settings.headerBorderColor || '';
+    this.headerEl.style.borderBottomWidth = `${settings.headerBorderWidth || 0}px`;
+    this.headerEl.style.borderRadius = `${settings.headerBorderRadius || 0}px ${settings.headerBorderRadius || 0}px 0 0`;
     
     // 본문 스타일 설정
-    cardElement.style.setProperty('--body-bg-color', settings.bodyBgColor || 'transparent');
-    cardElement.style.setProperty('--body-font-size', `${settings.bodyFontSize || 12}px`);
-    cardElement.style.setProperty('--body-border-style', settings.bodyBorderStyle || 'solid');
-    cardElement.style.setProperty('--body-border-color', settings.bodyBorderColor || 'var(--background-modifier-border)');
-    cardElement.style.setProperty('--body-border-width', `${settings.bodyBorderWidth || 0}px`);
-    cardElement.style.setProperty('--body-border-radius', `${settings.bodyBorderRadius || 0}px`);
+    this.bodyEl.style.backgroundColor = settings.bodyBgColor || '';
+    this.bodyEl.style.fontSize = `${settings.bodyFontSize || 14}px`;
+    this.bodyEl.style.borderTopStyle = settings.bodyBorderStyle || 'none';
+    this.bodyEl.style.borderTopColor = settings.bodyBorderColor || '';
+    this.bodyEl.style.borderTopWidth = `${settings.bodyBorderWidth || 0}px`;
+    this.bodyEl.style.borderBottomStyle = settings.bodyBorderStyle || 'none';
+    this.bodyEl.style.borderBottomColor = settings.bodyBorderColor || '';
+    this.bodyEl.style.borderBottomWidth = `${settings.bodyBorderWidth || 0}px`;
+    this.bodyEl.style.borderRadius = `0 0 ${settings.bodyBorderRadius || 0}px ${settings.bodyBorderRadius || 0}px`;
     
     // 푸터 스타일 설정
-    cardElement.style.setProperty('--footer-bg-color', settings.footerBgColor || 'var(--background-secondary-alt)');
-    cardElement.style.setProperty('--footer-font-size', `${settings.footerFontSize || 11}px`);
-    cardElement.style.setProperty('--footer-border-style', settings.footerBorderStyle || 'solid');
-    cardElement.style.setProperty('--footer-border-color', settings.footerBorderColor || 'var(--background-modifier-border)');
-    cardElement.style.setProperty('--footer-border-width', `${settings.footerBorderWidth || 0}px`);
-    cardElement.style.setProperty('--footer-border-radius', `${settings.footerBorderRadius || 0}px`);
+    this.footerEl.style.backgroundColor = settings.footerBgColor || '';
+    this.footerEl.style.fontSize = `${settings.footerFontSize || 12}px`;
+    this.footerEl.style.borderTopStyle = settings.footerBorderStyle || 'none';
+    this.footerEl.style.borderTopColor = settings.footerBorderColor || '';
+    this.footerEl.style.borderTopWidth = `${settings.footerBorderWidth || 0}px`;
+    this.footerEl.style.borderRadius = `0 0 ${settings.footerBorderRadius || 0}px ${settings.footerBorderRadius || 0}px`;
     
-    // 카드 상태 클래스 추가
-    if (this.isSelected) {
-      cardElement.classList.add('selected');
-    }
-    
-    if (this.isFocused) {
-      cardElement.classList.add('focused');
-    }
-    
-    // 카드 렌더링 서비스를 사용하여 카드 렌더링
-    this.cardRenderingService.renderCard(this.card, cardElement);
-    
-    // 요소 저장 후 이벤트 리스너 등록
-    this.element = cardElement;
+    // 이벤트 리스너 등록
     this.registerEventListeners();
     
     return cardElement;
-  }
-  
-  /**
-   * 이벤트 리스너 등록
-   */
-  registerEventListeners(): void {
-    if (!this.element) return;
-    
-    // 클릭 이벤트 리스너
-    this.element.onclick = (event) => {
-      // 이벤트 버블링 방지
-      event.stopPropagation();
-      
-      // 카드 ID 가져오기
-      const cardId = this.getCardId();
-      
-      // 카드 선택 이벤트 발생
-      this.interactionService.handleCardClick(cardId, event);
-    };
-    
-    // 더블 클릭 이벤트 리스너
-    this.element.ondblclick = (event) => {
-      // 이벤트 버블링 방지
-      event.stopPropagation();
-      
-      // 카드 ID 가져오기
-      const cardId = this.getCardId();
-      
-      // 카드 더블 클릭 이벤트 발생
-      this.interactionService.handleCardDoubleClick(cardId, event);
-    };
-    
-    // 컨텍스트 메뉴 이벤트 리스너
-    this.element.oncontextmenu = (event) => {
-      // 이벤트 버블링 방지
-      event.stopPropagation();
-      event.preventDefault();
-      
-      // 카드 ID 가져오기
-      const cardId = this.getCardId();
-      
-      // 카드 컨텍스트 메뉴 이벤트 발생
-      this.interactionService.handleCardContextMenu(cardId, event);
-    };
-    
-    // 마우스 오버 이벤트 리스너
-    this.element.onmouseenter = (event) => {
-      // 카드 ID 가져오기
-      const cardId = this.getCardId();
-      
-      // 카드 마우스 오버 이벤트 발생
-      this.interactionService.handleCardMouseEnter(cardId, event);
-    };
-    
-    // 마우스 아웃 이벤트 리스너
-    this.element.onmouseleave = (event) => {
-      // 카드 ID 가져오기
-      const cardId = this.getCardId();
-      
-      // 카드 마우스 아웃 이벤트 발생
-      this.interactionService.handleCardMouseLeave(cardId, event);
-    };
-  }
-  
-  /**
-   * 카드 ID 가져오기
-   * @returns 카드 ID
-   */
-  private getCardId(): string {
-    return this.card.getId ? this.card.getId() : (this.card.id || this.card.path || '알 수 없음');
   }
   
   /**
@@ -528,4 +520,128 @@ export class CardComponent extends Component implements ICardComponent {
     // 기본 렌더링 로직 실행
     return super.render(container);
   }
+  
+  /**
+   * 클릭 이벤트 핸들러
+   * @param event 클릭 이벤트
+   */
+  private handleClick = (event: MouseEvent): void => {
+    // 이벤트 버블링 방지
+    event.stopPropagation();
+    
+    // 카드 ID 가져오기
+    const cardId = this.card.id || this.card.path || '';
+    
+    // 카드 선택 이벤트 발생
+    this.interactionService.handleCardClick(cardId, event);
+  };
+  
+  /**
+   * 더블 클릭 이벤트 핸들러
+   * @param event 더블 클릭 이벤트
+   */
+  private handleDoubleClick = (event: MouseEvent): void => {
+    // 이벤트 버블링 방지
+    event.stopPropagation();
+    
+    // 카드 ID 가져오기
+    const cardId = this.card.id || this.card.path || '';
+    
+    // 카드 더블 클릭 이벤트 발생
+    this.interactionService.handleCardDoubleClick(cardId, event);
+  };
+  
+  /**
+   * 마우스 오버 이벤트 핸들러
+   * @param event 마우스 오버 이벤트
+   */
+  private handleMouseOver = (event: MouseEvent): void => {
+    // 카드 ID 가져오기
+    const cardId = this.card.id || this.card.path || '';
+    
+    // 카드 마우스 오버 이벤트 발생
+    this.interactionService.handleCardMouseEnter(cardId, event);
+  };
+  
+  /**
+   * 마우스 아웃 이벤트 핸들러
+   * @param event 마우스 아웃 이벤트
+   */
+  private handleMouseOut = (event: MouseEvent): void => {
+    // 카드 ID 가져오기
+    const cardId = this.card.id || this.card.path || '';
+    
+    // 카드 마우스 아웃 이벤트 발생
+    this.interactionService.handleCardMouseLeave(cardId, event);
+  };
+  
+  /**
+   * 컨텍스트 메뉴 이벤트 핸들러
+   * @param event 컨텍스트 메뉴 이벤트
+   */
+  private handleContextMenu = (event: MouseEvent): void => {
+    // 이벤트 버블링 방지
+    event.stopPropagation();
+    event.preventDefault();
+    
+    // 카드 ID 가져오기
+    const cardId = this.card.id || this.card.path || '';
+    
+    // 카드 컨텍스트 메뉴 이벤트 발생
+    this.interactionService.handleCardContextMenu(cardId, event);
+  };
+  
+  /**
+   * 드래그 시작 이벤트 핸들러
+   * @param event 드래그 시작 이벤트
+   */
+  private handleDragStart = (event: DragEvent): void => {
+    // 카드 ID 가져오기
+    const cardId = this.card.id || this.card.path || '';
+    
+    // 드래그 시작 이벤트 발생
+    this.interactionService.handleCardDragStart(cardId, event);
+  };
+  
+  /**
+   * 드래그 종료 이벤트 핸들러
+   * @param event 드래그 종료 이벤트
+   */
+  private handleDragEnd = (event: DragEvent): void => {
+    // 카드 ID 가져오기
+    const cardId = this.card.id || this.card.path || '';
+    
+    // 드래그 종료 이벤트 발생
+    this.interactionService.handleCardDragEnd(cardId, event);
+  };
+  
+  /**
+   * 드래그 오버 이벤트 핸들러
+   * @param event 드래그 오버 이벤트
+   */
+  private handleDragOver = (event: DragEvent): void => {
+    // 이벤트 기본 동작 방지
+    event.preventDefault();
+    
+    // 카드 ID 가져오기
+    const cardId = this.card.id || this.card.path || '';
+    
+    // 드래그 오버 이벤트 발생 - 현재 InteractionService에 구현되어 있지 않으므로 주석 처리
+    // this.interactionService.handleCardDragOver(cardId, event);
+  };
+  
+  /**
+   * 드롭 이벤트 핸들러
+   * @param event 드롭 이벤트
+   */
+  private handleDrop = (event: DragEvent): void => {
+    // 이벤트 기본 동작 방지
+    event.preventDefault();
+    
+    // 카드 ID 가져오기
+    const cardId = this.card.id || this.card.path || '';
+    
+    // 드롭 이벤트 발생
+    this.interactionService.handleCardDrop(cardId, event);
+  };
 } 

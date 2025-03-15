@@ -144,10 +144,8 @@ export const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
   layout: {
     fixedCardHeight: true,
     layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-    cardMinWidth: 200,
-    cardMaxWidth: 400,
-    cardMinHeight: 150,
-    cardMaxHeight: 600,
+    cardThresholdWidth: 200,
+    cardThresholdHeight: 150,
     cardGap: 10,
     cardsetPadding: 10,
     cardSizeFactor: 1.0,

@@ -8,6 +8,8 @@ import { ObsidianService } from '../core/ObsidianService';
 import { CardCreationService, ICardCreationService } from './CardCreationService';
 import { CardInteractionService, ICardInteractionService } from './CardInteractionService';
 import { CardQueryService, ICardQueryService } from './CardQueryService';
+import { ILayoutService } from '../../services/layout/LayoutService';
+import { ICardRenderingService } from './CardRenderingService';
 
 /**
  * 카드 서비스 인터페이스
@@ -88,6 +90,12 @@ export interface ICardService extends ICardManager {
    * 카드 캐시 초기화
    */
   clearCardCache(): void;
+  
+  /**
+   * 레이아웃 서비스 가져오기
+   * @returns 레이아웃 서비스
+   */
+  getLayoutService(): ILayoutService;
 }
 
 /**
@@ -103,30 +111,39 @@ export class CardService implements ICardService {
   private cardQueryService: ICardQueryService;
   private cardCreationService: ICardCreationService;
   private cardInteractionService: ICardInteractionService;
+  private cardRenderingService: ICardRenderingService;
+  private layoutService: ILayoutService;
   
   /**
    * 생성자
    * @param obsidianService Obsidian 서비스
    * @param settingsService 설정 서비스
    * @param eventBus 이벤트 버스
+   * @param cardCreationService 카드 생성 서비스
+   * @param cardRenderingService 카드 렌더링 서비스
+   * @param cardInteractionService 카드 상호작용 서비스
+   * @param cardQueryService 카드 쿼리 서비스
+   * @param layoutService 레이아웃 서비스
    */
   constructor(
     obsidianService: ObsidianService,
     settingsService: ISettingsService,
-    eventBus: DomainEventBus
+    eventBus: DomainEventBus,
+    cardCreationService: ICardCreationService,
+    cardRenderingService: ICardRenderingService,
+    cardInteractionService: ICardInteractionService,
+    cardQueryService: ICardQueryService,
+    layoutService: ILayoutService
   ) {
     this.obsidianService = obsidianService;
     this.settingsService = settingsService;
     this.eventBus = eventBus;
     
-    // 서비스 초기화
-    this.cardCreationService = new CardCreationService(obsidianService, settingsService, eventBus);
-    this.cardInteractionService = new CardInteractionService(
-      obsidianService,
-      settingsService,
-      eventBus
-    );
-    this.cardQueryService = new CardQueryService(this, obsidianService, settingsService, eventBus);
+    this.cardCreationService = cardCreationService;
+    this.cardRenderingService = cardRenderingService;
+    this.cardInteractionService = cardInteractionService;
+    this.cardQueryService = cardQueryService;
+    this.layoutService = layoutService;
     
     // 이벤트 리스너 등록
     this.registerEventListeners();
@@ -334,5 +351,13 @@ export class CardService implements ICardService {
   clearCardCache(): void {
     console.log('카드 캐시 초기화');
     this.cardCreationService.clearCardCache();
+  }
+  
+  /**
+   * 레이아웃 서비스 가져오기
+   * @returns 레이아웃 서비스
+   */
+  getLayoutService(): ILayoutService {
+    return this.layoutService;
   }
 } 

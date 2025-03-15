@@ -306,24 +306,20 @@ export interface ILayoutSettings {
   layoutDirectionPreference: LayoutDirectionPreference;
   
   /**
-   * 카드 최소 너비 (px)
+   * 카드 임계 너비 (px)
+   * 그리드 세로 방향: 열 수 계산에 사용
+   * 그리드 가로 방향: 카드 너비로 고정
+   * 메이슨리: 열 수 계산에 사용
    */
-  cardMinWidth: number;
+  cardThresholdWidth: number;
   
   /**
-   * 카드 최대 너비 (px)
+   * 카드 임계 높이 (px)
+   * 그리드 세로 방향: 카드 높이로 고정
+   * 그리드 가로 방향: 행 수 계산에 사용
+   * 메이슨리: 최소 높이로 사용
    */
-  cardMaxWidth: number;
-  
-  /**
-   * 카드 최소 높이 (px)
-   */
-  cardMinHeight: number;
-  
-  /**
-   * 카드 최대 높이 (px)
-   */
-  cardMaxHeight: number;
+  cardThresholdHeight: number;
   
   /**
    * 카드 간 간격 (px)

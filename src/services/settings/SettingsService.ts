@@ -136,12 +136,10 @@ export class SettingsService implements ISettingsService {
       layout: {
         fixedCardHeight: true,
         layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-        cardMinWidth: 200,
-        cardMaxWidth: 400,
-        cardMinHeight: 100,
-        cardMaxHeight: 300,
+        cardThresholdWidth: 200,
+        cardThresholdHeight: 150,
         cardGap: 10,
-        cardsetPadding: 20,
+        cardsetPadding: 10,
         cardSizeFactor: 1.0,
         useLayoutTransition: true
       },

@@ -46,10 +46,8 @@ export class CardLayoutSection extends SettingSection {
           const currentLayout = settings.layout || {
             fixedCardHeight: false,
             layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-            cardMinWidth: 200,
-            cardMaxWidth: 400,
-            cardMinHeight: 150,
-            cardMaxHeight: 600,
+            cardThresholdWidth: 200,
+            cardThresholdHeight: 150,
             cardGap: 10,
             cardsetPadding: 10,
             cardSizeFactor: 1.0,
@@ -78,10 +76,8 @@ export class CardLayoutSection extends SettingSection {
           const currentLayout = settings.layout || {
             fixedCardHeight: false,
             layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-            cardMinWidth: 200,
-            cardMaxWidth: 400,
-            cardMinHeight: 150,
-            cardMaxHeight: 600,
+            cardThresholdWidth: 200,
+            cardThresholdHeight: 150,
             cardGap: 10,
             cardsetPadding: 10,
             cardSizeFactor: 1.0,
@@ -97,22 +93,20 @@ export class CardLayoutSection extends SettingSection {
         })
       );
     
-    // 카드 최소 너비 설정
+    // 카드 임계 너비 설정
     new Setting(containerEl)
-      .setName('카드 최소 너비')
-      .setDesc('카드의 최소 너비를 설정합니다.')
+      .setName('카드 임계 너비')
+      .setDesc('카드의 임계 너비를 설정합니다. 세로 방향에서는 열 수 계산에 사용되고, 가로 방향에서는 카드 너비로 고정됩니다.')
       .addSlider(slider => slider
         .setLimits(100, 500, 10)
-        .setValue(settings.layout?.cardMinWidth || 200)
+        .setValue(settings.layout?.cardThresholdWidth || 200)
         .setDynamicTooltip()
         .onChange(async (value: number) => {
           const currentLayout = settings.layout || {
             fixedCardHeight: false,
             layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-            cardMinWidth: 200,
-            cardMaxWidth: 400,
-            cardMinHeight: 150,
-            cardMaxHeight: 600,
+            cardThresholdWidth: 200,
+            cardThresholdHeight: 150,
             cardGap: 10,
             cardsetPadding: 10,
             cardSizeFactor: 1.0,
@@ -122,59 +116,26 @@ export class CardLayoutSection extends SettingSection {
           await this.settingsService.updateSettings({
             layout: {
               ...currentLayout,
-              cardMinWidth: value
+              cardThresholdWidth: value
             }
           });
         })
       );
     
-    // 카드 최대 너비 설정
+    // 카드 임계 높이 설정
     new Setting(containerEl)
-      .setName('카드 최대 너비')
-      .setDesc('카드의 최대 너비를 설정합니다.')
-      .addSlider(slider => slider
-        .setLimits(200, 800, 10)
-        .setValue(settings.layout?.cardMaxWidth || 400)
-        .setDynamicTooltip()
-        .onChange(async (value: number) => {
-          const currentLayout = settings.layout || {
-            fixedCardHeight: false,
-            layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-            cardMinWidth: 200,
-            cardMaxWidth: 400,
-            cardMinHeight: 150,
-            cardMaxHeight: 600,
-            cardGap: 10,
-            cardsetPadding: 10,
-            cardSizeFactor: 1.0,
-            useLayoutTransition: true
-          };
-          
-          await this.settingsService.updateSettings({
-            layout: {
-              ...currentLayout,
-              cardMaxWidth: value
-            }
-          });
-        })
-      );
-    
-    // 카드 최소 높이 설정
-    new Setting(containerEl)
-      .setName('카드 최소 높이')
-      .setDesc('카드의 최소 높이를 설정합니다.')
+      .setName('카드 임계 높이')
+      .setDesc('카드의 임계 높이를 설정합니다. 가로 방향에서는 행 수 계산에 사용되고, 세로 방향에서는 카드 높이로 고정됩니다.')
       .addSlider(slider => slider
         .setLimits(100, 500, 10)
-        .setValue(settings.layout?.cardMinHeight || 150)
+        .setValue(settings.layout?.cardThresholdHeight || 150)
         .setDynamicTooltip()
         .onChange(async (value: number) => {
           const currentLayout = settings.layout || {
             fixedCardHeight: false,
             layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-            cardMinWidth: 200,
-            cardMaxWidth: 400,
-            cardMinHeight: 150,
-            cardMaxHeight: 600,
+            cardThresholdWidth: 200,
+            cardThresholdHeight: 150,
             cardGap: 10,
             cardsetPadding: 10,
             cardSizeFactor: 1.0,
@@ -184,38 +145,7 @@ export class CardLayoutSection extends SettingSection {
           await this.settingsService.updateSettings({
             layout: {
               ...currentLayout,
-              cardMinHeight: value
-            }
-          });
-        })
-      );
-    
-    // 카드 최대 높이 설정
-    new Setting(containerEl)
-      .setName('카드 최대 높이')
-      .setDesc('카드의 최대 높이를 설정합니다.')
-      .addSlider(slider => slider
-        .setLimits(200, 800, 10)
-        .setValue(settings.layout?.cardMaxHeight || 600)
-        .setDynamicTooltip()
-        .onChange(async (value: number) => {
-          const currentLayout = settings.layout || {
-            fixedCardHeight: false,
-            layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-            cardMinWidth: 200,
-            cardMaxWidth: 400,
-            cardMinHeight: 150,
-            cardMaxHeight: 600,
-            cardGap: 10,
-            cardsetPadding: 10,
-            cardSizeFactor: 1.0,
-            useLayoutTransition: true
-          };
-          
-          await this.settingsService.updateSettings({
-            layout: {
-              ...currentLayout,
-              cardMaxHeight: value
+              cardThresholdHeight: value
             }
           });
         })
@@ -233,10 +163,8 @@ export class CardLayoutSection extends SettingSection {
           const currentLayout = settings.layout || {
             fixedCardHeight: false,
             layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-            cardMinWidth: 200,
-            cardMaxWidth: 400,
-            cardMinHeight: 150,
-            cardMaxHeight: 600,
+            cardThresholdWidth: 200,
+            cardThresholdHeight: 150,
             cardGap: 10,
             cardsetPadding: 10,
             cardSizeFactor: 1.0,
@@ -264,10 +192,8 @@ export class CardLayoutSection extends SettingSection {
           const currentLayout = settings.layout || {
             fixedCardHeight: false,
             layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-            cardMinWidth: 200,
-            cardMaxWidth: 400,
-            cardMinHeight: 150,
-            cardMaxHeight: 600,
+            cardThresholdWidth: 200,
+            cardThresholdHeight: 150,
             cardGap: 10,
             cardsetPadding: 10,
             cardSizeFactor: 1.0,
@@ -295,10 +221,8 @@ export class CardLayoutSection extends SettingSection {
           const currentLayout = settings.layout || {
             fixedCardHeight: false,
             layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-            cardMinWidth: 200,
-            cardMaxWidth: 400,
-            cardMinHeight: 150,
-            cardMaxHeight: 600,
+            cardThresholdWidth: 200,
+            cardThresholdHeight: 150,
             cardGap: 10,
             cardsetPadding: 10,
             cardSizeFactor: 1.0,
@@ -324,10 +248,8 @@ export class CardLayoutSection extends SettingSection {
           const currentLayout = settings.layout || {
             fixedCardHeight: false,
             layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-            cardMinWidth: 200,
-            cardMaxWidth: 400,
-            cardMinHeight: 150,
-            cardMaxHeight: 600,
+            cardThresholdWidth: 200,
+            cardThresholdHeight: 150,
             cardGap: 10,
             cardsetPadding: 10,
             cardSizeFactor: 1.0,

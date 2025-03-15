@@ -2,7 +2,7 @@ import { DomainEventBus } from '../../domain/events/DomainEventBus';
 import { EventType } from '../../domain/events/EventTypes';
 import { ILayout, ILayoutInfo, LayoutDirection, LayoutType, ScrollDirection } from '../../domain/layout/Layout';
 import { ILayoutController } from '../../domain/interaction/InteractionInterfaces';
-import { ISettingsService, LayoutDirectionPreference } from '../../domain/settings/SettingsInterfaces';
+import { ISettingsService, LayoutDirectionPreference, ICardNavigatorSettings } from '../../domain/settings/SettingsInterfaces';
 
 /**
  * 레이아웃 서비스 인터페이스
@@ -93,6 +93,12 @@ export interface ILayoutService extends ILayoutController {
    * @returns 카드 간격
    */
   getCardGap(): number;
+  
+  /**
+   * 설정 가져오기
+   * @returns 플러그인 설정
+   */
+  getSettings(): ICardNavigatorSettings;
 }
 
 /**
@@ -125,10 +131,8 @@ export class LayoutService implements ILayoutService {
     const layoutSettings = settings.layout || {
       fixedCardHeight: true,
       layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-      cardMinWidth: 200,
-      cardMaxWidth: 400,
-      cardMinHeight: 100,
-      cardMaxHeight: 300,
+      cardThresholdWidth: 200,
+      cardThresholdHeight: 150,
       cardGap: 10,
       cardsetPadding: 10,
       cardSizeFactor: 1.0,
@@ -165,7 +169,7 @@ export class LayoutService implements ILayoutService {
         columns: 1,
         rows: 1,
         itemWidth: 200,
-        itemHeight: 100,
+        itemHeight: 150,
         fixedHeight: true,
         direction: 'vertical',
         scrollDirection: 'vertical',
@@ -181,7 +185,7 @@ export class LayoutService implements ILayoutService {
         columns: 1,
         rows: 1,
         itemWidth: 200,
-        itemHeight: 100,
+        itemHeight: 150,
         fixedHeight: true,
         direction: 'vertical',
         scrollDirection: 'vertical',
@@ -196,10 +200,8 @@ export class LayoutService implements ILayoutService {
     const layoutSettings = settings.layout || {
       fixedCardHeight: true,
       layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-      cardMinWidth: 200,
-      cardMaxWidth: 400,
-      cardMinHeight: 100,
-      cardMaxHeight: 300,
+      cardThresholdWidth: 200,
+      cardThresholdHeight: 150,
       cardGap: 10,
       cardsetPadding: 10,
       cardSizeFactor: 1.0,
@@ -265,17 +267,49 @@ export class LayoutService implements ILayoutService {
     
     // 열/행 수 계산
     let columns, rows;
+    let itemWidth, itemHeight;
     
     if (this.layoutDirection === 'horizontal') {
       // 가로 레이아웃 - 행 수 먼저 계산
-      const minRowHeight = layoutSettings.cardMinHeight + layoutSettings.cardGap;
-      rows = Math.max(1, Math.floor((containerHeight - layoutSettings.cardsetPadding * 2) / minRowHeight));
+      const thresholdHeight = layoutSettings.cardThresholdHeight;
+      const gap = layoutSettings.cardGap;
+      const padding = layoutSettings.cardsetPadding * 2;
+      
+      // 사용 가능한 높이 계산
+      const availableHeight = containerHeight - padding;
+      
+      // 행 수 계산 (임계 높이와 간격 고려)
+      rows = Math.max(1, Math.floor((availableHeight + gap) / (thresholdHeight + gap)));
+      
+      // 아이템 수에 따라 열 수 계산
       columns = Math.ceil(itemCount / rows);
+      
+      // 아이템 높이 계산 (뷰포트 높이를 행 수에 맞게 분배)
+      itemHeight = (availableHeight - (rows - 1) * gap) / rows;
+      
+      // 아이템 너비는 임계 너비로 고정
+      itemWidth = layoutSettings.cardThresholdWidth;
     } else {
       // 세로 레이아웃 - 열 수 먼저 계산
-      const minColumnWidth = layoutSettings.cardMinWidth + layoutSettings.cardGap;
-      columns = Math.max(1, Math.floor((containerWidth - layoutSettings.cardsetPadding * 2) / minColumnWidth));
+      const thresholdWidth = layoutSettings.cardThresholdWidth;
+      const gap = layoutSettings.cardGap;
+      const padding = layoutSettings.cardsetPadding * 2;
+      
+      // 사용 가능한 너비 계산
+      const availableWidth = containerWidth - padding;
+      
+      // 열 수 계산 (임계 너비와 간격 고려)
+      columns = Math.max(1, Math.floor((availableWidth + gap) / (thresholdWidth + gap)));
+      
+      // 아이템 수에 따라 행 수 계산
       rows = Math.ceil(itemCount / columns);
+      
+      // 아이템 너비 계산 (뷰포트 너비를 열 수에 맞게 분배)
+      itemWidth = (availableWidth - (columns - 1) * gap) / columns;
+      
+      // 아이템 높이는 임계 높이로 고정 (그리드 레이아웃인 경우)
+      // 메이슨리 레이아웃에서는 콘텐츠에 따라 달라짐
+      itemHeight = layoutSettings.cardThresholdHeight;
     }
     
     // 아이템 수가 열 수보다 적으면 아이템 수로 제한
@@ -290,8 +324,8 @@ export class LayoutService implements ILayoutService {
     const layoutInfo: ILayoutInfo = {
       columns,
       rows,
-      itemWidth: 0, // CSS에서 계산
-      itemHeight: 0, // CSS에서 계산
+      itemWidth,
+      itemHeight,
       fixedHeight: this.layoutType === 'grid',
       direction: this.layoutDirection,
       scrollDirection: this.scrollDirection,
@@ -329,10 +363,8 @@ export class LayoutService implements ILayoutService {
     const layoutSettings = settings.layout || {
       fixedCardHeight: true,
       layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-      cardMinWidth: 200,
-      cardMaxWidth: 400,
-      cardMinHeight: 100,
-      cardMaxHeight: 300,
+      cardThresholdWidth: 200,
+      cardThresholdHeight: 150,
       cardGap: 10,
       cardsetPadding: 10,
       cardSizeFactor: 1.0,
@@ -342,10 +374,8 @@ export class LayoutService implements ILayoutService {
     // CSS 변수 설정
     container.style.setProperty('--columns', layoutInfo.columns.toString());
     container.style.setProperty('--rows', layoutInfo.rows.toString());
-    container.style.setProperty('--card-min-width', `${layoutSettings.cardMinWidth}px`);
-    container.style.setProperty('--card-max-width', `${layoutSettings.cardMaxWidth}px`);
-    container.style.setProperty('--card-min-height', `${layoutSettings.cardMinHeight}px`);
-    container.style.setProperty('--card-max-height', `${layoutSettings.cardMaxHeight}px`);
+    container.style.setProperty('--card-min-width', `${layoutInfo.itemWidth}px`);
+    container.style.setProperty('--card-min-height', `${layoutInfo.itemHeight}px`);
     container.style.setProperty('--card-gap', `${layoutSettings.cardGap}px`);
     container.style.setProperty('--card-padding', `${layoutSettings.cardsetPadding}px`);
     container.style.setProperty('--card-size-factor', layoutSettings.cardSizeFactor.toString());
@@ -362,14 +392,22 @@ export class LayoutService implements ILayoutService {
     container.classList.remove('scroll-horizontal', 'scroll-vertical');
     container.classList.add(`scroll-${layoutInfo.scrollDirection}`);
     
+    // 레이아웃 전환 애니메이션 설정
+    if (layoutSettings.useLayoutTransition) {
+      container.style.transition = 'all 0.3s ease-in-out';
+    } else {
+      container.style.transition = 'none';
+    }
+    
     // 디버깅 정보 출력
     console.log('CSS 변수 적용:', {
       columns: layoutInfo.columns,
       rows: layoutInfo.rows,
+      itemWidth: layoutInfo.itemWidth,
+      itemHeight: layoutInfo.itemHeight,
       layoutType: layoutInfo.fixedHeight ? 'grid' : 'masonry',
       direction: layoutInfo.direction,
-      scrollDirection: layoutInfo.scrollDirection,
-      cardMinHeight: layoutSettings.cardMinHeight
+      scrollDirection: layoutInfo.scrollDirection
     });
   }
   
@@ -466,10 +504,8 @@ export class LayoutService implements ILayoutService {
       const layoutSettings = settings.layout || {
         fixedCardHeight: true,
         layoutDirectionPreference: LayoutDirectionPreference.AUTO,
-        cardMinWidth: 200,
-        cardMaxWidth: 400,
-        cardMinHeight: 100,
-        cardMaxHeight: 300,
+        cardThresholdWidth: 200,
+        cardThresholdHeight: 150,
         cardGap: 10,
         cardsetPadding: 10,
         cardSizeFactor: 1.0,
@@ -499,7 +535,7 @@ export class LayoutService implements ILayoutService {
       columns: 1,
       rows: 1,
       itemWidth: 200,
-      itemHeight: 100,
+      itemHeight: 150,
       fixedHeight: true,
       direction: 'vertical',
       scrollDirection: 'vertical',
@@ -537,5 +573,13 @@ export class LayoutService implements ILayoutService {
   getCardGap(): number {
     const settings = this.settingsService.getSettings();
     return settings.cardGap || 10;
+  }
+  
+  /**
+   * 설정 가져오기
+   * @returns 플러그인 설정
+   */
+  getSettings(): ICardNavigatorSettings {
+    return this.settingsService.getSettings();
   }
 } 

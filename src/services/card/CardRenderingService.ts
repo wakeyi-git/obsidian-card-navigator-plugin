@@ -161,13 +161,12 @@ export class CardRenderingService implements ICardRenderingService {
     // 설정에서 카드 높이 가져오기
     const settings = this.settingsService.getSettings();
     const layoutSettings = settings.layout || {
-      cardMinHeight: 100,
-      cardMaxHeight: 300
+      cardThresholdHeight: 150
     };
     
     // 본문 최소 높이 계산 (헤더와 푸터 높이를 고려)
     const headerFooterHeight = 60; // 헤더와 푸터의 대략적인 높이 (패딩 포함)
-    const minBodyHeight = Math.max(20, layoutSettings.cardMinHeight - headerFooterHeight);
+    const minBodyHeight = Math.max(20, layoutSettings.cardThresholdHeight - headerFooterHeight);
     
     // 본문 최소 높이 설정
     bodyContainer.style.minHeight = `${minBodyHeight}px`;

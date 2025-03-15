@@ -22,11 +22,22 @@ export class CardFilterSection extends BaseSettingSection {
   display(containerEl: HTMLElement): void {
 
     // 섹션 제목
-    containerEl.createEl('h3', { text: '필터 설정' });
+    containerEl.createEl('h3', { text: '필터 및 검색 설정' });
     containerEl.createEl('p', { 
-      text: '필터 관련 설정을 구성합니다. 필터 활성화, 필터 타입, 필터 연산자 등을 설정할 수 있습니다.',
+      text: '필터 및 검색 관련 설정을 구성합니다. 필터 활성화, 필터 타입, 검색 범위 등을 설정할 수 있습니다.',
       cls: 'setting-item-description'
     });
+
+    // 기본 검색 범위 설정
+    this.createSetting(containerEl, '기본 검색 범위', '검색 카드셋의 기본 검색 범위를 설정합니다.')
+      .addDropdown(dropdown => dropdown
+        .addOption('all', '전체 볼트')
+        .addOption('current', '현재 폴더')
+        .setValue(this.settingsService.getSettings().defaultSearchScope || 'all')
+        .onChange(async (value) => {
+          await this.settingsService.updateSettings({ defaultSearchScope: value as 'all' | 'current' });
+          this.notifySettingsChanged();
+        }));
 
     // 기본 필터 활성화 설정
     this.createSetting(containerEl, '기본 필터 활성화', '카드 뷰가 로드될 때 기본 필터를 활성화할지 여부를 설정합니다.')

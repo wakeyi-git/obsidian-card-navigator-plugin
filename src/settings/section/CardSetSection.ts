@@ -81,17 +81,6 @@ export class CardSetSection extends BaseSettingSection {
           this.notifySettingsChanged();
         }));
     
-    // 기본 검색 범위 설정
-    this.createSetting(containerEl, '기본 검색 범위', '검색 카드셋의 기본 검색 범위를 설정합니다.')
-      .addDropdown(dropdown => dropdown
-        .addOption('all', '전체 볼트')
-        .addOption('current', '현재 폴더')
-        .setValue(this.settingsService.getSettings().defaultSearchScope || 'all')
-        .onChange(async (value) => {
-          await this.settingsService.updateSettings({ defaultSearchScope: value as 'all' | 'current' });
-          this.notifySettingsChanged();
-        }));
-    
     // 태그 대소문자 구분 설정
     this.createSetting(containerEl, '태그 대소문자 구분', '태그 카드셋에서 태그 대소문자를 구분할지 여부를 설정합니다.')
       .addToggle(toggle => toggle
