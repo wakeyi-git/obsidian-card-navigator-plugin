@@ -1,4 +1,4 @@
-import { IObsidianApp } from '../obsidian/ObsidianInterfaces';
+import { IObsidianApp } from '../../infrastructure/obsidian/adapters/ObsidianInterfaces';
 import { ISearchSuggestManager } from './ToolbarInterfaces';
 
 /**

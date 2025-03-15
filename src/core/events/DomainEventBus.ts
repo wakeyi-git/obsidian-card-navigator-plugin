@@ -1,4 +1,4 @@
-import { EventType } from './EventTypes';
+import { EventType } from '../../domain/events/EventTypes';
 
 /**
  * 도메인 이벤트 버스

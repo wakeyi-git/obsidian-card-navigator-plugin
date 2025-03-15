@@ -1,4 +1,168 @@
-/* src/components/card/card.css */
+/* src/infrastructure/storage/settings/CardPreviewSection.css */
+/* 카드 미리보기 섹션 스타일 */
+.card-navigator-preview-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.card-navigator-component-help-text {
+  margin-bottom: 15px;
+  font-style: italic;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.card-navigator-preview-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 5px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  width: 90%;
+  max-width: 450px;
+  min-height: 250px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.card-navigator-preview-card::after {
+  content: "클릭하여 설정";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(var(--interactive-accent-rgb), 0.9);
+  color: var(--text-on-accent);
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.card-navigator-preview-card:hover::after {
+  opacity: 1;
+}
+
+.card-navigator-preview-card-header,
+.card-navigator-preview-card-body,
+.card-navigator-preview-card-footer {
+  padding: 10px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.card-navigator-preview-card-header {
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-weight: bold;
+  background-color: var(--background-secondary);
+}
+
+.card-navigator-preview-card-body {
+  min-height: 120px;
+  background-color: var(--background-primary);
+  flex-grow: 1;
+}
+
+.card-navigator-preview-card-footer {
+  border-top: 1px solid var(--background-modifier-border);
+  font-size: 0.9em;
+  background-color: var(--background-secondary-alt);
+  min-height: 40px;
+}
+
+.card-navigator-clickable:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-selected {
+  background-color: var(--background-modifier-hover);
+  box-shadow: inset 0 0 0 2px var(--interactive-accent);
+}
+
+.card-navigator-content-options {
+  background-color: var(--background-secondary);
+}
+
+.card-navigator-content-options .setting-item {
+  border-bottom: none;
+  padding: 6px 10px;
+}
+
+.card-navigator-content-options .setting-item-name {
+  font-size: 14px;
+}
+
+.card-navigator-component-settings {
+  margin-top: 10px;
+  padding: 15px;
+  border-radius: 5px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  width: 100%;
+}
+
+.card-navigator-component-settings h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  color: var(--text-accent);
+  font-size: 1.1em;
+}
+
+.card-navigator-component-settings h5 {
+  margin-top: 20px;
+  margin-bottom: 10px;
+  padding-bottom: 5px;
+  color: var(--text-accent);
+  font-weight: bold;
+  font-size: 1em;
+}
+
+.color-picker-container {
+  min-width: 50px;
+}
+
+/* 카드 상태 스타일 */
+.card-state-normal {
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+}
+
+.card-state-active {
+  background-color: var(--background-primary-alt);
+  border: 2px solid var(--interactive-accent);
+}
+
+.card-state-focused {
+  background-color: var(--background-primary-alt);
+  border: 3px solid var(--interactive-accent);
+  box-shadow: 0 0 8px rgba(var(--interactive-accent-rgb), 0.4);
+}
+
+/* 컴포넌트 호버 효과 */
+.card-navigator-preview-card-header:hover::after,
+.card-navigator-preview-card-body:hover::after,
+.card-navigator-preview-card-footer:hover::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(var(--interactive-accent-rgb), 0.1);
+  pointer-events: none;
+} 
+
+/* src/ui/components/card/card.css */
 /* 카드 컴포넌트 스타일 */
 .card-navigator-card {
   position: relative;
@@ -170,9 +334,9 @@
   padding: 20px;
   color: var(--text-muted);
   font-style: italic;
-}
+} 
 
-/* src/components/cardset/cardset.css */
+/* src/ui/components/cardset/cardset.css */
 /* 카드셋 스타일 */
 .card-navigator-cardset {
   display: flex;
@@ -329,9 +493,9 @@
 .card-navigator-cardset.layout-masonry .card-navigator-card {
   width: calc((100% - (var(--columns, 1) - 1) * var(--card-gap, 10px)) / var(--columns, 1));
   min-height: var(--card-min-height, 150px);
-}
+} 
 
-/* src/components/layout/layout.css */
+/* src/ui/components/layout/layout.css */
 /* 레이아웃 컴포넌트 스타일 */
 .card-navigator-layout {
   position: relative;
@@ -409,9 +573,9 @@
 .scroll-vertical {
   overflow-x: hidden;
   overflow-y: auto;
-}
+} 
 
-/* src/components/navigation/navigation.css */
+/* src/ui/components/navigation/navigation.css */
 /* 내비게이션 컴포넌트 스타일 */
 .card-navigator-navigation {
   position: relative;
@@ -478,9 +642,9 @@
 .navigation-button.first,
 .navigation-button.last {
   font-size: 14px;
-}
+} 
 
-/* src/components/popup/popup.css */
+/* src/ui/components/popup/popup.css */
 /* 팝업 컨테이너 */
 .card-navigator-popup-container {
   position: fixed;
@@ -767,7 +931,153 @@ select option {
 }
 
 
-/* src/components/toolbar/ToolbarComponent.css */
+/* src/ui/components/settings/TabContainer.css */
+/* 설정 탭 스타일 */
+.card-navigator-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-tab {
+  padding: 8px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-right: 4px;
+  transition: all 0.2s ease;
+  border-radius: 4px 4px 0 0;
+}
+
+.card-navigator-tab:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-tab.is-active {
+  border-bottom: 2px solid var(--interactive-accent);
+  font-weight: bold;
+  background-color: var(--background-modifier-hover);
+}
+
+.card-navigator-tab-pane {
+  display: none;
+}
+
+.card-navigator-tab-pane.is-active {
+  display: block;
+}
+
+/* 설정 섹션 스타일 */
+.card-navigator-section-container {
+  padding: 10px;
+  border-radius: 4px;
+  background-color: var(--background-secondary);
+}
+
+/* 미리보기 섹션 스타일 */
+.card-navigator-tab-pane[data-tab-id="card-preview"] {
+  padding: 15px;
+  border-radius: 8px;
+  background-color: var(--background-secondary);
+}
+
+/* 카드 미리보기 스타일 */
+.card-navigator-preview-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background-color: var(--background-primary);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.card-navigator-preview-card-header {
+  font-weight: bold;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 5px;
+  margin-bottom: 5px;
+}
+
+.card-navigator-preview-card-body {
+  padding: 5px 0;
+}
+
+.card-navigator-preview-card-footer {
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 5px;
+  margin-top: 5px;
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+/* 클릭 가능한 구성요소 스타일 */
+.card-navigator-clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.card-navigator-clickable:hover {
+  background-color: rgba(var(--interactive-accent-rgb), 0.1);
+}
+
+.card-navigator-clickable:hover::after {
+  content: "클릭하여 설정";
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8em;
+  color: var(--text-muted);
+  background-color: var(--background-primary);
+  padding: 2px 5px;
+  border-radius: 3px;
+  opacity: 0.8;
+}
+
+/* 선택된 구성요소 스타일 */
+.card-navigator-selected {
+  outline: 2px solid var(--interactive-accent);
+  background-color: rgba(var(--interactive-accent-rgb), 0.1);
+  position: relative;
+}
+
+.card-navigator-selected::before {
+  content: "✓";
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  color: var(--interactive-accent);
+  font-weight: bold;
+}
+
+/* 구성요소 설정 컨테이너 스타일 */
+.card-navigator-component-settings {
+  padding: 15px;
+  border-radius: 8px;
+  background-color: var(--background-secondary);
+  margin-top: 20px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.card-navigator-component-settings h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  color: var(--text-normal);
+}
+
+.card-navigator-component-help-text {
+  font-style: italic;
+  text-align: center;
+  padding: 10px;
+  background-color: var(--background-primary);
+  border-radius: 5px;
+  margin: 10px 0;
+} 
+
+/* src/ui/components/toolbar/ToolbarComponent.css */
 /* 툴바 스타일 */
 .card-navigator-toolbar-container {
   position: relative;
@@ -1015,9 +1325,9 @@ select option {
     flex: 1 1 auto;
     max-width: 150px;
   }
-}
+} 
 
-/* src/components/toolbar/ToolbarPopup.css */
+/* src/ui/components/toolbar/ToolbarPopup.css */
 /* 팝업 스타일 */
 .popup-content {
   padding: 16px;
@@ -1276,315 +1586,5 @@ input:checked + .slider:before {
   display: block;
   margin-bottom: 6px;
   font-weight: 500;
-}
-
-/* src/settings/components/TabContainer.css */
-/* 설정 탭 스타일 */
-.card-navigator-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.card-navigator-tab {
-  padding: 8px 16px;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  margin-right: 4px;
-  transition: all 0.2s ease;
-  border-radius: 4px 4px 0 0;
-}
-
-.card-navigator-tab:hover {
-  background-color: var(--background-modifier-hover);
-}
-
-.card-navigator-tab.is-active {
-  border-bottom: 2px solid var(--interactive-accent);
-  font-weight: bold;
-  background-color: var(--background-modifier-hover);
-}
-
-.card-navigator-tab-pane {
-  display: none;
-}
-
-.card-navigator-tab-pane.is-active {
-  display: block;
-}
-
-/* 설정 섹션 스타일 */
-.card-navigator-section-container {
-  padding: 10px;
-  border-radius: 4px;
-  background-color: var(--background-secondary);
-}
-
-/* 미리보기 섹션 스타일 */
-.card-navigator-tab-pane[data-tab-id="card-preview"] {
-  padding: 15px;
-  border-radius: 8px;
-  background-color: var(--background-secondary);
-}
-
-/* 카드 미리보기 스타일 */
-.card-navigator-preview-card {
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 5px;
-  padding: 10px;
-  margin-bottom: 10px;
-  background-color: var(--background-primary);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  position: relative;
-  overflow: hidden;
-}
-
-.card-navigator-preview-card-header {
-  font-weight: bold;
-  border-bottom: 1px solid var(--background-modifier-border);
-  padding-bottom: 5px;
-  margin-bottom: 5px;
-}
-
-.card-navigator-preview-card-body {
-  padding: 5px 0;
-}
-
-.card-navigator-preview-card-footer {
-  border-top: 1px solid var(--background-modifier-border);
-  padding-top: 5px;
-  margin-top: 5px;
-  font-size: 0.9em;
-  color: var(--text-muted);
-}
-
-/* 클릭 가능한 구성요소 스타일 */
-.card-navigator-clickable {
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.card-navigator-clickable:hover {
-  background-color: rgba(var(--interactive-accent-rgb), 0.1);
-}
-
-.card-navigator-clickable:hover::after {
-  content: "클릭하여 설정";
-  position: absolute;
-  right: 5px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.8em;
-  color: var(--text-muted);
-  background-color: var(--background-primary);
-  padding: 2px 5px;
-  border-radius: 3px;
-  opacity: 0.8;
-}
-
-/* 선택된 구성요소 스타일 */
-.card-navigator-selected {
-  outline: 2px solid var(--interactive-accent);
-  background-color: rgba(var(--interactive-accent-rgb), 0.1);
-  position: relative;
-}
-
-.card-navigator-selected::before {
-  content: "✓";
-  position: absolute;
-  right: 5px;
-  top: 5px;
-  color: var(--interactive-accent);
-  font-weight: bold;
-}
-
-/* 구성요소 설정 컨테이너 스타일 */
-.card-navigator-component-settings {
-  padding: 15px;
-  border-radius: 8px;
-  background-color: var(--background-secondary);
-  margin-top: 20px;
-  border: 1px solid var(--background-modifier-border);
-}
-
-.card-navigator-component-settings h4 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  padding-bottom: 10px;
-  color: var(--text-normal);
-}
-
-.card-navigator-component-help-text {
-  font-style: italic;
-  text-align: center;
-  padding: 10px;
-  background-color: var(--background-primary);
-  border-radius: 5px;
-  margin: 10px 0;
-}
-
-/* src/settings/section/CardPreviewSection.css */
-/* 카드 미리보기 섹션 스타일 */
-.card-navigator-preview-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-  margin-bottom: 20px;
-}
-
-.card-navigator-component-help-text {
-  margin-bottom: 15px;
-  font-style: italic;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-.card-navigator-preview-card {
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 5px;
-  overflow: hidden;
-  cursor: pointer;
-  position: relative;
-  transition: all 0.2s ease;
-  width: 90%;
-  max-width: 450px;
-  min-height: 250px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-  display: flex;
-  flex-direction: column;
-}
-
-.card-navigator-preview-card::after {
-  content: "클릭하여 설정";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: rgba(var(--interactive-accent-rgb), 0.9);
-  color: var(--text-on-accent);
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  pointer-events: none;
-  z-index: 10;
-}
-
-.card-navigator-preview-card:hover::after {
-  opacity: 1;
-}
-
-.card-navigator-preview-card-header,
-.card-navigator-preview-card-body,
-.card-navigator-preview-card-footer {
-  padding: 10px;
-  cursor: pointer;
-  position: relative;
-  transition: all 0.2s ease;
-}
-
-.card-navigator-preview-card-header {
-  border-bottom: 1px solid var(--background-modifier-border);
-  font-weight: bold;
-  background-color: var(--background-secondary);
-}
-
-.card-navigator-preview-card-body {
-  min-height: 120px;
-  background-color: var(--background-primary);
-  flex-grow: 1;
-}
-
-.card-navigator-preview-card-footer {
-  border-top: 1px solid var(--background-modifier-border);
-  font-size: 0.9em;
-  background-color: var(--background-secondary-alt);
-  min-height: 40px;
-}
-
-.card-navigator-clickable:hover {
-  background-color: var(--background-modifier-hover);
-}
-
-.card-navigator-selected {
-  background-color: var(--background-modifier-hover);
-  box-shadow: inset 0 0 0 2px var(--interactive-accent);
-}
-
-.card-navigator-content-options {
-  background-color: var(--background-secondary);
-}
-
-.card-navigator-content-options .setting-item {
-  border-bottom: none;
-  padding: 6px 10px;
-}
-
-.card-navigator-content-options .setting-item-name {
-  font-size: 14px;
-}
-
-.card-navigator-component-settings {
-  margin-top: 10px;
-  padding: 15px;
-  border-radius: 5px;
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  width: 100%;
-}
-
-.card-navigator-component-settings h4 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  color: var(--text-accent);
-  font-size: 1.1em;
-}
-
-.card-navigator-component-settings h5 {
-  margin-top: 20px;
-  margin-bottom: 10px;
-  padding-bottom: 5px;
-  color: var(--text-accent);
-  font-weight: bold;
-  font-size: 1em;
-}
-
-.color-picker-container {
-  min-width: 50px;
-}
-
-/* 카드 상태 스타일 */
-.card-state-normal {
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-}
-
-.card-state-active {
-  background-color: var(--background-primary-alt);
-  border: 2px solid var(--interactive-accent);
-}
-
-.card-state-focused {
-  background-color: var(--background-primary-alt);
-  border: 3px solid var(--interactive-accent);
-  box-shadow: 0 0 8px rgba(var(--interactive-accent-rgb), 0.4);
-}
-
-/* 컴포넌트 호버 효과 */
-.card-navigator-preview-card-header:hover::after,
-.card-navigator-preview-card-body:hover::after,
-.card-navigator-preview-card-footer:hover::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(var(--interactive-accent-rgb), 0.1);
-  pointer-events: none;
-}
+} 
 

@@ -10,4 +10,5 @@ export type {
   IEventEmitter
 } from './EventTypes';
 
-export { EventType } from './EventTypes'; 
+export { EventType } from './EventTypes';
+export { DomainEventBus } from '../../core/events/DomainEventBus'; 
