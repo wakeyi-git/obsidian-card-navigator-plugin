@@ -3,6 +3,7 @@ import { DomainEventBus } from './core/events/DomainEventBus';
 import { EventType } from './domain/events/EventTypes';
 // import { DomainEventBus } from './domain/events/DomainEventBus';
 import { ICardNavigatorSettings } from './domain/settings/SettingsInterfaces';
+import { CardSetSourceMode } from './domain/settings/SettingsInterfaces';
 import { ObsidianService } from './infrastructure/obsidian/adapters/ObsidianService';
 import { SettingsService } from './application/settings/SettingsService';
 import { CardService } from './application/card/CardService';
@@ -121,9 +122,6 @@ export default class CardNavigatorPlugin extends Plugin {
     
     // 서비스 초기화
     this.initializeServices();
-    
-    // 서비스 초기화 후 설정 다시 로드하여 모든 서비스에 설정 적용
-    await this.loadSettings();
     
     // 뷰 등록
     this.registerView(
@@ -410,7 +408,12 @@ export default class CardNavigatorPlugin extends Plugin {
     (this.searchComponent as any).eventBus = this.eventBus;
     
     // 툴바 컴포넌트 생성
-    this.toolbarComponent = new ToolbarComponent(this.toolbarService, this.searchComponent, this.obsidianService);
+    this.toolbarComponent = new ToolbarComponent(
+      this.toolbarService, 
+      this.searchComponent, 
+      this.obsidianService,
+      this.cardSetService
+    );
     this.toolbarComponent.render(containerEl);
     
     // 카드셋 컴포넌트 생성
@@ -436,20 +439,36 @@ export default class CardNavigatorPlugin extends Plugin {
       })
     );
     
+    // 마지막으로 처리한 파일 경로를 저장하는 변수
+    let lastProcessedFilePath: string | null = null;
+    let lastProcessedTime: number = 0;
+    
     // 카드셋 변경 이벤트 리스너
     this.registerEvent(
       this.app.workspace.on('file-open', async (file) => {
         // 활성 파일 변경 처리
-        if (this.cardSetService) {
+        if (this.cardSetService && file) {
+          // 동일한 파일에 대한 중복 이벤트 처리 방지 (1초 이내)
+          const now = Date.now();
+          if (
+            file.path === lastProcessedFilePath && 
+            now - lastProcessedTime < 1000
+          ) {
+            console.log('동일한 파일 오픈 이벤트가 최근에 처리됨, 중복 처리 방지:', file.path);
+            return;
+          }
+          
+          // 처리 정보 업데이트
+          lastProcessedFilePath = file.path;
+          lastProcessedTime = now;
+          
           console.log('file-open 이벤트 발생:', file?.path);
+          
           // 활성 파일 변경 처리
           await this.cardSetService.handleActiveFileChanged(file);
           
-          // 카드셋 컴포넌트 업데이트
-          if (this.cardSetComponent) {
-            const cardSet = await this.cardSetService.getCurrentCardSet();
-            await this.cardSetComponent.setCardSet(cardSet);
-          }
+          // 활성 파일 변경 이벤트 발생
+          this.eventBus.emit(EventType.ACTIVE_FILE_CHANGED, { file });
         }
       })
     );

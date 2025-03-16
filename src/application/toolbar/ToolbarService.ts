@@ -45,6 +45,7 @@ export interface IToolbarItem {
   visible?: boolean;
   order?: number;
   popupId?: string;
+  classes?: string[];
 }
 
 /**
@@ -264,7 +265,7 @@ export class ToolbarService implements IToolbarService {
       id: 'cardset-source-selector',
       type: ToolbarItemType.BUTTON,
       position: ToolbarItemPosition.LEFT,
-      icon: 'folder',
+      icon: 'folder-open',
       tooltip: '카드셋 소스 선택',
       action: 'toggleCardsetSource',
       order: 0
@@ -579,9 +580,114 @@ export class ToolbarService implements IToolbarService {
    */
   private saveToolbarItems(): void {
     const itemsToSave = Array.from(this.items.values());
-    this.settingsService.updateSettings({
-      toolbarItems: itemsToSave
-    });
+    
+    // 현재 설정에서 툴바 아이템 가져오기
+    const currentSettings = this.settingsService.getSettings();
+    const currentItems = currentSettings.toolbarItems || [];
+    
+    // 아이템 변경 여부 확인
+    const hasChanged = this.hasToolbarItemsChanged(currentItems, itemsToSave);
+    
+    // 변경된 경우에만 설정 업데이트
+    if (hasChanged) {
+      console.log('툴바 아이템 변경 감지, 설정 업데이트');
+      this.settingsService.updateSettings({
+        toolbarItems: itemsToSave
+      });
+    } else {
+      console.log('툴바 아이템 변경 없음, 설정 업데이트 생략');
+    }
+  }
+  
+  /**
+   * 툴바 아이템 변경 여부 확인
+   * @param oldItems 이전 아이템 목록
+   * @param newItems 새 아이템 목록
+   * @returns 변경 여부
+   */
+  private hasToolbarItemsChanged(oldItems: IToolbarItem[], newItems: IToolbarItem[]): boolean {
+    // 아이템 수가 다른 경우 변경된 것으로 간주
+    if (oldItems.length !== newItems.length) {
+      return true;
+    }
+    
+    // 아이템 ID 기준으로 정렬
+    const sortedOldItems = [...oldItems].sort((a, b) => a.id.localeCompare(b.id));
+    const sortedNewItems = [...newItems].sort((a, b) => a.id.localeCompare(b.id));
+    
+    // 각 아이템 비교
+    for (let i = 0; i < sortedOldItems.length; i++) {
+      const oldItem = sortedOldItems[i];
+      const newItem = sortedNewItems[i];
+      
+      // ID가 다른 경우 변경된 것으로 간주
+      if (oldItem.id !== newItem.id) {
+        return true;
+      }
+      
+      // 주요 속성 비교
+      if (
+        oldItem.type !== newItem.type ||
+        oldItem.position !== newItem.position ||
+        oldItem.icon !== newItem.icon ||
+        oldItem.tooltip !== newItem.tooltip ||
+        oldItem.action !== newItem.action ||
+        oldItem.order !== newItem.order ||
+        oldItem.visible !== newItem.visible ||
+        oldItem.disabled !== newItem.disabled
+      ) {
+        return true;
+      }
+      
+      // 옵션 비교 (select 타입인 경우)
+      if (oldItem.type === 'select' && newItem.type === 'select') {
+        if (!this.areOptionsEqual(oldItem.options, newItem.options)) {
+          return true;
+        }
+      }
+    }
+    
+    // 모든 비교를 통과하면 변경 없음
+    return false;
+  }
+  
+  /**
+   * 옵션 배열 비교
+   * @param options1 첫 번째 옵션 배열
+   * @param options2 두 번째 옵션 배열
+   * @returns 동일 여부
+   */
+  private areOptionsEqual(
+    options1?: { value: string; label: string }[],
+    options2?: { value: string; label: string }[]
+  ): boolean {
+    // 둘 다 undefined인 경우 동일
+    if (!options1 && !options2) {
+      return true;
+    }
+    
+    // 하나만 undefined인 경우 다름
+    if (!options1 || !options2) {
+      return false;
+    }
+    
+    // 길이가 다른 경우 다름
+    if (options1.length !== options2.length) {
+      return false;
+    }
+    
+    // 각 옵션 비교
+    for (let i = 0; i < options1.length; i++) {
+      if (
+        options1[i].value !== options2[i].value ||
+        options1[i].label !== options2[i].label
+      ) {
+        return false;
+      }
+    }
+    
+    // 모든 비교를 통과하면 동일
+    return true;
   }
   
   /**

@@ -67,6 +67,11 @@ export class CardSetComponent extends Component implements ICardSetComponent {
 
   // 렌더링 진행 중 여부를 추적하는 플래그
   private isRenderingInProgress = false;
+  
+  // 카드셋 업데이트 중복 방지를 위한 변수
+  private isUpdatingCardSet = false;
+  private lastProcessedCardSetId: string | null = null;
+  private lastProcessedTime = 0;
 
   /**
    * 생성자
@@ -113,81 +118,93 @@ export class CardSetComponent extends Component implements ICardSetComponent {
    * @param cardSet 카드셋 데이터
    */
   async setCardSet(cardSet: ICardSet): Promise<void> {
+    // 이미 업데이트 중이면 중복 처리 방지
+    if (this.isUpdatingCardSet) {
+      console.log('이미 카드셋 업데이트 중, 중복 처리 방지');
+      return;
+    }
+    
+    // 최근에 동일한 카드셋 ID로 업데이트했는지 확인 (300ms 이내)
+    const now = Date.now();
+    if (
+      cardSet.id === this.lastProcessedCardSetId && 
+      now - this.lastProcessedTime < 300
+    ) {
+      console.log('최근에 동일한 카드셋으로 업데이트함, 중복 처리 방지:', cardSet.id);
+      return;
+    }
+    
     // 카드셋 ID 로깅
     console.log('카드셋 설정 요청:', {
       현재ID: this.cardSet?.id,
       새ID: cardSet.id,
-      현재소스: this.cardSet?.source,
-      새소스: cardSet.source,
       현재파일수: this.cardSet?.files?.length || 0,
       새파일수: cardSet.files?.length || 0
     });
     
-    // 활성 폴더 로깅
-    const activeFile = this.obsidianService.getActiveFile();
-    console.log('setCardSet 활성 파일 정보:', {
-      활성파일: activeFile?.path,
-      활성폴더: activeFile?.parent?.path,
-      카드셋소스: cardSet.source,
-      일치여부: activeFile?.parent?.path === cardSet.source
-    });
+    this.isUpdatingCardSet = true;
+    this.lastProcessedCardSetId = cardSet.id;
+    this.lastProcessedTime = now;
     
-    // 카드셋 ID가 동일한 경우 파일 목록 비교
-    const isSameId = this.cardSet && isSameCardSetId(this.cardSet.id, cardSet.id);
-    console.log('카드셋 ID 비교 결과:', isSameId);
-    
-    if (isSameId) {
-      // 파일 수가 다른 경우 업데이트 필요
-      const oldFileCount = this.cardSet.files?.length || 0;
-      const newFileCount = cardSet.files?.length || 0;
+    try {
+      // 카드셋 ID가 동일한 경우 파일 목록 비교
+      const isSameId = this.cardSet && isSameCardSetId(this.cardSet.id, cardSet.id, false);
       
-      if (oldFileCount !== newFileCount) {
-        console.log('동일한 카드셋 ID지만 파일 수가 변경됨:', oldFileCount, '->', newFileCount);
-      } else if (oldFileCount > 0 && newFileCount > 0) {
-        // 파일 수가 같더라도 파일 내용이 변경되었는지 확인
-        const oldFilePaths = new Set(this.cardSet.files.map(file => file.path));
-        const newFilePaths = new Set(cardSet.files.map(file => file.path));
+      if (isSameId) {
+        // 파일 수가 다른 경우 업데이트 필요
+        const oldFileCount = this.cardSet.files?.length || 0;
+        const newFileCount = cardSet.files?.length || 0;
         
-        // 파일 경로 비교
-        let filesChanged = false;
-        
-        // 이전 파일 중 새 파일 목록에 없는 것이 있는지 확인
-        for (const oldPath of oldFilePaths) {
-          if (!newFilePaths.has(oldPath)) {
-            filesChanged = true;
-            console.log('파일이 제거됨:', oldPath);
-            break;
-          }
-        }
-        
-        // 새 파일 중 이전 파일 목록에 없는 것이 있는지 확인
-        if (!filesChanged) {
-          for (const newPath of newFilePaths) {
-            if (!oldFilePaths.has(newPath)) {
+        if (oldFileCount !== newFileCount) {
+          console.log('동일한 카드셋 ID지만 파일 수가 변경됨:', oldFileCount, '->', newFileCount);
+        } else if (oldFileCount > 0 && newFileCount > 0) {
+          // 파일 수가 같더라도 파일 내용이 변경되었는지 확인
+          const oldFilePaths = new Set(this.cardSet.files.map(file => file.path));
+          const newFilePaths = new Set(cardSet.files.map(file => file.path));
+          
+          // 파일 경로 비교
+          let filesChanged = false;
+          
+          // 이전 파일 중 새 파일 목록에 없는 것이 있는지 확인
+          for (const oldPath of oldFilePaths) {
+            if (!newFilePaths.has(oldPath)) {
               filesChanged = true;
-              console.log('파일이 추가됨:', newPath);
+              console.log('파일이 제거됨:', oldPath);
               break;
             }
           }
-        }
-        
-        if (filesChanged) {
-          console.log('동일한 카드셋 ID지만 파일 내용이 변경됨');
+          
+          // 새 파일 중 이전 파일 목록에 없는 것이 있는지 확인
+          if (!filesChanged) {
+            for (const newPath of newFilePaths) {
+              if (!oldFilePaths.has(newPath)) {
+                filesChanged = true;
+                console.log('파일이 추가됨:', newPath);
+                break;
+              }
+            }
+          }
+          
+          if (filesChanged) {
+            console.log('동일한 카드셋 ID지만 파일 내용이 변경됨');
+          } else {
+            // 파일 수와 내용이 모두 같은 경우 업데이트 생략
+            console.log('동일한 카드셋 ID, 업데이트 생략 (파일 변경 없음):', cardSet.id);
+            return;
+          }
         } else {
-          // 파일 수와 내용이 모두 같은 경우 업데이트 생략
-          console.log('동일한 카드셋 ID, 업데이트 생략 (파일 변경 없음):', cardSet.id);
+          // 파일 수가 같은 경우(둘 다 0인 경우) 업데이트 생략
+          console.log('동일한 카드셋 ID, 업데이트 생략 (빈 파일 목록):', cardSet.id);
           return;
         }
-      } else {
-        // 파일 수가 같은 경우(둘 다 0인 경우) 업데이트 생략
-        console.log('동일한 카드셋 ID, 업데이트 생략 (빈 파일 목록):', cardSet.id);
-        return;
       }
+      
+      console.log('카드셋 변경:', this.cardSet?.id, '->', cardSet.id);
+      this.cardSet = cardSet;
+      await this.update();
+    } finally {
+      this.isUpdatingCardSet = false;
     }
-    
-    console.log('카드셋 변경:', this.cardSet?.id, '->', cardSet.id);
-    this.cardSet = cardSet;
-    await this.update();
   }
   
   /**
@@ -776,47 +793,21 @@ export class CardSetComponent extends Component implements ICardSetComponent {
   private async handleCardSetChanged(data: any): Promise<void> {
     console.log('카드셋 변경 이벤트 수신:', data);
     
-    // 활성 폴더 로깅
-    const activeFile = this.obsidianService.getActiveFile();
-    console.log('handleCardSetChanged 활성 파일 정보:', {
-      활성파일: activeFile?.path,
-      활성폴더: activeFile?.parent?.path,
-      이벤트카드셋: data.cardSet,
-      일치여부: activeFile?.parent?.path === data.cardSet
-    });
+    // 이미 업데이트 중이면 중복 처리 방지
+    if (this.isUpdatingCardSet) {
+      console.log('이미 카드셋 업데이트 중, 이벤트 처리 생략');
+      return;
+    }
+    
+    // 최근에 동일한 카드셋 ID로 업데이트했는지 확인 (300ms 이내)
+    const now = Date.now();
+    if (data.previousCardSetId === this.lastProcessedCardSetId && now - this.lastProcessedTime < 300) {
+      console.log('최근에 동일한 카드셋으로 업데이트함, 이벤트 처리 생략');
+      return;
+    }
     
     // 카드셋 서비스에서 최신 카드셋 가져오기
     const cardSet = await this.cardSetService.getCurrentCardSet();
-    console.log('카드셋 서비스에서 가져온 최신 카드셋:', {
-      id: cardSet.id,
-      source: cardSet.source,
-      파일수: cardSet.files?.length || 0,
-      활성폴더일치여부: activeFile?.parent?.path === cardSet.source
-    });
-    
-    // 카드셋 소스와 활성 폴더가 일치하지 않는 경우 로그
-    if (activeFile?.parent?.path && cardSet.source !== activeFile.parent.path && !data.isFixed) {
-      console.log('카드셋 소스와 활성 폴더 불일치 감지:', {
-        카드셋소스: cardSet.source,
-        활성폴더: activeFile.parent.path,
-        이벤트카드셋: data.cardSet
-      });
-      
-      // 카드셋 서비스에 활성 파일 변경 알림
-      await this.cardSetService.handleActiveFileChanged(activeFile);
-      
-      // 다시 최신 카드셋 가져오기
-      const updatedCardSet = await this.cardSetService.getCurrentCardSet();
-      console.log('활성 폴더 불일치 후 업데이트된 카드셋:', {
-        id: updatedCardSet.id,
-        source: updatedCardSet.source,
-        파일수: updatedCardSet.files?.length || 0
-      });
-      
-      // 업데이트된 카드셋 설정
-      await this.setCardSet(updatedCardSet);
-      return;
-    }
     
     // 카드셋 업데이트
     await this.setCardSet(cardSet);
@@ -829,13 +820,14 @@ export class CardSetComponent extends Component implements ICardSetComponent {
   private async handleCardsChanged(data: any): Promise<void> {
     console.log('카드 변경 이벤트 수신:', data);
     
+    // 이미 업데이트 중이면 중복 처리 방지
+    if (this.isUpdatingCardSet) {
+      console.log('이미 카드셋 업데이트 중, 이벤트 처리 생략');
+      return;
+    }
+    
     // 카드셋 서비스에서 최신 카드셋 가져오기
     const cardSet = await this.cardSetService.getCurrentCardSet();
-    console.log('카드 변경 이벤트 후 가져온 최신 카드셋:', {
-      id: cardSet.id,
-      source: cardSet.source,
-      파일수: cardSet.files?.length || 0
-    });
     
     // 카드셋 업데이트
     await this.setCardSet(cardSet);

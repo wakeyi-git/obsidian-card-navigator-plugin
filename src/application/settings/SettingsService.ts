@@ -1,5 +1,5 @@
 import { Plugin } from 'obsidian';
-import { ICardNavigatorSettings } from '../../domain/settings/SettingsInterfaces';
+import { ICardNavigatorSettings, CardSetSourceMode } from '../../domain/settings/SettingsInterfaces';
 import { DEFAULT_SETTINGS } from '../../domain/settings/DefaultSettings';
 import { DomainEventBus } from '../../core/events/DomainEventBus';
 import { EventType } from '../../domain/events/EventTypes';
@@ -38,20 +38,55 @@ export class SettingsService {
    * @returns 로드된 설정
    */
   async loadSettings(): Promise<ICardNavigatorSettings> {
+    // 이전 설정 저장
+    const previousSettings = this.settings ? { ...this.settings } : null;
+    
+    // 설정 로드
     const loadedData = await this.plugin.loadData();
     this.settings = { ...DEFAULT_SETTINGS, ...loadedData } as ICardNavigatorSettings;
+    
+    // cardSetSourceMode가 설정되어 있지 않은 경우 기본값으로 FOLDER 설정
+    if (this.settings.cardSetSourceMode === undefined || this.settings.cardSetSourceMode === null) {
+      console.log('loadSettings: cardSetSourceMode가 설정되어 있지 않아 기본값(FOLDER)으로 설정');
+      this.settings.cardSetSourceMode = CardSetSourceMode.FOLDER;
+    }
     
     // 설정 로드 이벤트 발생
     this.emit(EventType.SETTINGS_LOADED, undefined);
     
-    // 설정 변경 이벤트 발생 (모든 설정이 변경된 것으로 간주)
-    this.emit(EventType.SETTINGS_CHANGED, {
-      settings: this.settings,
-      changedKeys: Object.keys(this.settings)
-    });
-    
-    // 설정 변경 리스너 호출
-    this.settingsChangedListeners.forEach(listener => listener(this.settings));
+    // 이전 설정이 있는 경우에만 변경 여부 확인
+    if (previousSettings) {
+      // 변경된 설정 키 찾기
+      const changedKeys = this.findChangedSettingKeys(previousSettings, this.settings);
+      
+      // 변경된 설정이 있는 경우에만 이벤트 발생
+      if (changedKeys.length > 0) {
+        console.log('설정 변경 감지, 이벤트 발생:', changedKeys);
+        
+        // 설정 변경 이벤트 발생
+        this.emit(EventType.SETTINGS_CHANGED, {
+          settings: this.settings,
+          changedKeys: changedKeys
+        });
+        
+        // 설정 변경 리스너 호출
+        this.settingsChangedListeners.forEach(listener => listener(this.settings));
+      } else {
+        console.log('설정 변경 없음, 이벤트 발생 생략');
+      }
+    } else {
+      // 최초 로드인 경우 모든 설정이 변경된 것으로 간주
+      console.log('최초 설정 로드, 모든 설정 변경 이벤트 발생');
+      
+      // 설정 변경 이벤트 발생
+      this.emit(EventType.SETTINGS_CHANGED, {
+        settings: this.settings,
+        changedKeys: Object.keys(this.settings)
+      });
+      
+      // 설정 변경 리스너 호출
+      this.settingsChangedListeners.forEach(listener => listener(this.settings));
+    }
     
     return this.settings;
   }
@@ -76,22 +111,60 @@ export class SettingsService {
    * @param settings 업데이트할 설정
    */
   async updateSettings(settings: Partial<ICardNavigatorSettings>): Promise<void> {
+    // 이전 설정 저장
     const previousSettings = { ...this.settings };
+    
+    // 실제로 변경된 설정 키 찾기
+    const actualChangedKeys: string[] = [];
+    
+    // 업데이트할 설정 키 확인
+    for (const key in settings) {
+      if (Object.prototype.hasOwnProperty.call(settings, key)) {
+        const typedKey = key as keyof ICardNavigatorSettings;
+        const oldValue = previousSettings[typedKey];
+        const newValue = settings[typedKey];
+        
+        // 값이 변경된 경우에만 처리
+        if (this.isComplexValue(oldValue) || this.isComplexValue(newValue)) {
+          // 복잡한 값(배열, 객체)은 JSON 문자열로 변환하여 비교
+          const oldJson = JSON.stringify(oldValue);
+          const newJson = JSON.stringify(newValue);
+          
+          if (oldJson !== newJson) {
+            actualChangedKeys.push(key);
+          }
+        } else {
+          // 기본 값은 직접 비교
+          if (oldValue !== newValue) {
+            actualChangedKeys.push(key);
+          }
+        }
+      }
+    }
+    
+    // 변경된 설정이 없는 경우 종료
+    if (actualChangedKeys.length === 0) {
+      console.log('실제 변경된 설정 없음, 업데이트 생략');
+      return;
+    }
+    
+    // 설정 업데이트
     this.settings = { ...this.settings, ...settings };
     
     // 디버깅: 업데이트되는 설정 값 로깅
     console.log('설정 업데이트:');
-    Object.keys(settings).forEach(key => {
+    actualChangedKeys.forEach(key => {
       const settingKey = key as keyof ICardNavigatorSettings;
       console.log(`${key}: ${JSON.stringify(previousSettings[settingKey])} -> ${JSON.stringify(settings[settingKey])}`);
     });
     
+    // 설정 저장
     await this.plugin.saveData(this.settings);
     
     // 설정 변경 이벤트 발생
     this.emit(EventType.SETTINGS_CHANGED, {
       settings: this.settings,
-      changedKeys: Object.keys(settings)
+      changedKeys: actualChangedKeys
     });
     
     // 설정 변경 리스너 호출
@@ -125,9 +198,26 @@ export class SettingsService {
    * @param value 설정 값
    */
   async setSetting<K extends keyof ICardNavigatorSettings>(key: K, value: ICardNavigatorSettings[K]): Promise<void> {
-    // 이전 값과 다른 경우에만 업데이트
-    if (this.settings[key] !== value) {
-      const oldValue = this.settings[key];
+    const oldValue = this.settings[key];
+    
+    // 값이 변경된 경우에만 처리
+    let isChanged = false;
+    
+    if (this.isComplexValue(oldValue) || this.isComplexValue(value)) {
+      // 복잡한 값(배열, 객체)은 JSON 문자열로 변환하여 비교
+      const oldJson = JSON.stringify(oldValue);
+      const newJson = JSON.stringify(value);
+      isChanged = oldJson !== newJson;
+    } else {
+      // 기본 값은 직접 비교
+      isChanged = oldValue !== value;
+    }
+    
+    // 변경된 경우에만 업데이트
+    if (isChanged) {
+      console.log(`설정 값 변경: ${String(key)}, ${JSON.stringify(oldValue)} -> ${JSON.stringify(value)}`);
+      
+      // 설정 업데이트
       this.settings[key] = value;
       
       // 설정 저장
@@ -141,6 +231,8 @@ export class SettingsService {
       
       // 설정 변경 리스너 호출
       this.settingsChangedListeners.forEach(listener => listener(this.settings));
+    } else {
+      console.log(`설정 값 변경 없음: ${String(key)}`);
     }
   }
   
@@ -202,5 +294,55 @@ export class SettingsService {
     if (index !== -1) {
       this.settingsChangedListeners.splice(index, 1);
     }
+  }
+  
+  /**
+   * 변경된 설정 키 찾기
+   * @param oldSettings 이전 설정
+   * @param newSettings 새 설정
+   * @returns 변경된 설정 키 목록
+   */
+  private findChangedSettingKeys(
+    oldSettings: ICardNavigatorSettings,
+    newSettings: ICardNavigatorSettings
+  ): string[] {
+    const changedKeys: string[] = [];
+    
+    // 모든 설정 키 확인
+    for (const key in newSettings) {
+      if (Object.prototype.hasOwnProperty.call(newSettings, key)) {
+        const typedKey = key as keyof ICardNavigatorSettings;
+        
+        // 배열이나 객체인 경우 JSON 문자열로 변환하여 비교
+        const oldValue = oldSettings[typedKey];
+        const newValue = newSettings[typedKey];
+        
+        if (this.isComplexValue(oldValue) || this.isComplexValue(newValue)) {
+          // 복잡한 값(배열, 객체)은 JSON 문자열로 변환하여 비교
+          const oldJson = JSON.stringify(oldValue);
+          const newJson = JSON.stringify(newValue);
+          
+          if (oldJson !== newJson) {
+            changedKeys.push(key);
+          }
+        } else {
+          // 기본 값은 직접 비교
+          if (oldValue !== newValue) {
+            changedKeys.push(key);
+          }
+        }
+      }
+    }
+    
+    return changedKeys;
+  }
+  
+  /**
+   * 복잡한 값(배열, 객체) 여부 확인
+   * @param value 확인할 값
+   * @returns 복잡한 값 여부
+   */
+  private isComplexValue(value: any): boolean {
+    return value !== null && typeof value === 'object';
   }
 } 

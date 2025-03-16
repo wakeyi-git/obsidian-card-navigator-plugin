@@ -101,67 +101,52 @@ export function extractSourceFromCardSetId(cardSetId: string | undefined): strin
 }
 
 /**
- * 두 카드셋 ID가 동일한지 비교
+ * 두 카드셋 ID가 동일한지 확인합니다.
  * @param id1 첫 번째 카드셋 ID
  * @param id2 두 번째 카드셋 ID
- * @returns 동일 여부
+ * @param debug 디버그 모드 활성화 여부 (기본값: false)
+ * @returns 두 ID가 동일한지 여부
  */
-export function isSameCardSetId(id1: string | undefined, id2: string | undefined): boolean {
-  console.log('카드셋 ID 비교:', { id1, id2 });
-  
+export function isSameCardSetId(id1: string | undefined, id2: string | undefined, debug: boolean = false): boolean {
   // 둘 다 undefined인 경우 동일하다고 간주
   if (id1 === undefined && id2 === undefined) {
-    console.log('둘 다 undefined, 동일하다고 간주');
+    if (debug) console.log('isSameCardSetId: 둘 다 undefined, 동일함');
     return true;
   }
   
-  // 하나만 undefined인 경우 다른 것으로 간주
+  // 하나만 undefined인 경우 다름
   if (id1 === undefined || id2 === undefined) {
-    console.log('하나만 undefined, 다른 것으로 간주');
+    if (debug) console.log('isSameCardSetId: 하나만 undefined, 다름');
     return false;
   }
   
-  // 두 ID가 정확히 같으면 동일
+  // ID가 정확히 일치하는 경우
   if (id1 === id2) {
-    console.log('두 ID가 정확히 같음, 동일하다고 간주');
+    if (debug) console.log('isSameCardSetId: ID 정확히 일치');
     return true;
   }
   
   // 소스 타입 추출
   const sourceType1 = extractSourceTypeFromCardSetId(id1);
   const sourceType2 = extractSourceTypeFromCardSetId(id2);
-  console.log('소스 타입 추출:', { sourceType1, sourceType2 });
   
-  // 소스 타입이 다르면 다른 카드셋
+  // 소스 타입이 다른 경우
   if (sourceType1 !== sourceType2) {
-    console.log('소스 타입이 다름, 다른 카드셋으로 간주');
+    if (debug) console.log(`isSameCardSetId: 소스 타입 다름 (${sourceType1} vs ${sourceType2})`);
     return false;
   }
   
   // 소스 추출
   const source1 = extractSourceFromCardSetId(id1);
   const source2 = extractSourceFromCardSetId(id2);
-  console.log('소스 추출:', { source1, source2 });
   
-  // 소스가 같으면 동일한 카드셋
-  const result = source1 === source2;
-  console.log('소스 비교 결과:', result);
-  
-  // 활성 파일 폴더와 소스 비교 (디버깅용)
-  try {
-    // @ts-ignore - 전역 app 객체 접근 (Obsidian API)
-    const activeFile = app?.workspace?.getActiveFile?.();
-    const activeFolder = activeFile?.parent?.path;
-    console.log('활성 파일 폴더와 소스 비교:', {
-      활성폴더: activeFolder,
-      소스1: source1,
-      소스2: source2,
-      소스1일치: activeFolder === source1,
-      소스2일치: activeFolder === source2
-    });
-  } catch (e) {
-    // 오류 무시
+  // 소스가 다른 경우
+  if (source1 !== source2) {
+    if (debug) console.log(`isSameCardSetId: 소스 다름 (${source1} vs ${source2})`);
+    return false;
   }
   
-  return result;
+  // 모든 조건을 통과하면 동일함
+  if (debug) console.log('isSameCardSetId: 모든 조건 통과, 동일함');
+  return true;
 } 

@@ -4,7 +4,7 @@ import { ICardSetSourceManager } from '../../domain/cardset/CardSetInterfaces';
 import { DomainEventBus } from '../../core/events/DomainEventBus';
 import { EventType, SettingsChangedEventData } from '../../domain/events/EventTypes';
 import { ICardSetSourceController } from '../../domain/interaction/InteractionInterfaces';
-import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
+import { ISettingsService, CardSetSourceMode } from '../../domain/settings/SettingsInterfaces';
 import { ObsidianService } from '../../infrastructure/obsidian/adapters/ObsidianService';
 import { createCardSetId, createEmptyCardSetId, createFolderCardSetId, createTagCardSetId, createSearchCardSetId, isSameCardSetId } from '../../domain/cardset/CardSetUtils';
 
@@ -53,6 +53,42 @@ export interface ICardSetService extends ICardSetSourceManager, ICardSetSourceCo
    * @returns 이벤트 버스
    */
   getEventBus(): DomainEventBus;
+  
+  /**
+   * 현재 카드셋 소스 모드 가져오기
+   * @returns 카드셋 소스 모드
+   */
+  getCardSetSourceMode(): CardSetSourceMode;
+  
+  /**
+   * 카드셋 소스 모드 설정
+   * @param mode 카드셋 소스 모드
+   */
+  setCardSetSourceMode(mode: CardSetSourceMode): Promise<void>;
+  
+  /**
+   * 하위 폴더 포함 여부 가져오기
+   * @returns 하위 폴더 포함 여부
+   */
+  getIncludeSubfolders(): boolean;
+  
+  /**
+   * 하위 폴더 포함 여부 설정
+   * @param include 하위 폴더 포함 여부
+   */
+  setIncludeSubfolders(include: boolean): Promise<void>;
+  
+  /**
+   * 카드셋 고정 여부 가져오기
+   * @returns 카드셋 고정 여부
+   */
+  isCardSetFixed(): boolean;
+  
+  /**
+   * 카드셋 고정 여부 설정
+   * @param fixed 카드셋 고정 여부
+   */
+  setCardSetFixed(fixed: boolean): Promise<void>;
 }
 
 /**
@@ -69,6 +105,12 @@ export class CardSetService implements ICardSetService {
   private folderCardSet: ICardSetSource | null = null;
   private tagCardSet: ICardSetSource | null = null;
   private searchCardSet: ICardSetSource | null = null;
+  
+  // 이벤트 중복 발생 방지를 위한 변수 추가
+  private lastEmittedCardSetId: string | null = null;
+  private lastEmittedCardSetTime: number = 0;
+  private isRefreshingCardSet: boolean = false;
+  private pendingRefresh: boolean = false;
   
   /**
    * 생성자
@@ -280,10 +322,29 @@ export class CardSetService implements ICardSetService {
    * @param file 활성 파일
    */
   async handleActiveFileChanged(file: TFile | null): Promise<void> {
+    // 파일이 없는 경우 처리 중단
+    if (!file) {
+      console.log('활성 파일이 없음, 처리 중단');
+      return;
+    }
+    
+    // 이미 카드셋 새로고침 중이면 중복 처리 방지
+    if (this.isRefreshingCardSet) {
+      this.pendingRefresh = true;
+      console.log('이미 카드셋 새로고침 중, 대기 상태로 전환');
+      return;
+    }
+
     const settings = this.settingsService.getSettings();
     
     console.log('활성 파일 변경됨:', file?.path);
     console.log('활성 파일 부모 폴더:', file?.parent?.path);
+    
+    // 고정된 카드셋인 경우 처리 중단
+    if (settings.isCardSetFixed) {
+      console.log('고정된 카드셋 사용 중, 활성 파일 변경 무시');
+      return;
+    }
     
     // 폴더 카드셋인 경우 폴더 변경 확인
     if (this.currentCardSetSource === 'folder') {
@@ -291,87 +352,40 @@ export class CardSetService implements ICardSetService {
       const newFolderPath = file?.parent?.path || '';
       
       console.log('폴더 비교:', currentFolderPath, '->', newFolderPath);
-      console.log('카드셋 고정 여부:', settings.isCardSetFixed);
       
       // 폴더가 변경되었고 고정된 카드셋이 아닌 경우
-      if (currentFolderPath !== newFolderPath && !settings.isCardSetFixed) {
+      if (currentFolderPath !== newFolderPath) {
         console.log('폴더 변경 감지:', currentFolderPath, '->', newFolderPath);
         
         // 이전 카드셋 ID 저장
         const previousCardSetId = this.currentCardSet?.id;
         
-        // 카드셋 새로고침 전 현재 카드셋 ID 로깅
-        console.log('카드셋 새로고침 전 현재 카드셋:', {
-          id: this.currentCardSet?.id,
-          source: this.currentCardSet?.source,
-          파일수: this.currentCardSet?.files?.length || 0
-        });
-        
         // 카드셋 새로고침
         await this.refreshCardSet();
         
-        // 카드셋 새로고침 후 현재 카드셋 ID 로깅
-        console.log('카드셋 새로고침 후 현재 카드셋:', {
-          id: this.currentCardSet?.id,
-          source: this.currentCardSet?.source,
-          파일수: this.currentCardSet?.files?.length || 0
-        });
-        
         // 카드셋이 실제로 변경된 경우에만 이벤트 발생
-        if (this.currentCardSet && !isSameCardSetId(previousCardSetId, this.currentCardSet.id)) {
-          console.log('활성 파일 변경으로 카드셋 변경됨:', previousCardSetId, '->', this.currentCardSet.id);
-          
-          // 명시적으로 카드셋 변경 이벤트 발생
-          console.log('카드셋 변경 이벤트 발생:', {
-            이전ID: previousCardSetId,
-            새ID: this.currentCardSet.id,
-            폴더: newFolderPath
-          });
-          
-          this.eventBus.emit(EventType.CARDSET_CHANGED, {
-            cardSet: newFolderPath,
-            sourceType: 'folder',
-            isFixed: false,
-            previousCardSetId: previousCardSetId
-          });
+        if (this.currentCardSet && !isSameCardSetId(previousCardSetId, this.currentCardSet.id, false)) {
+          this.emitCardSetChangedEvent(newFolderPath, 'folder', false, previousCardSetId);
         } else {
-          console.log('카드셋 ID가 변경되지 않음:', previousCardSetId, '=', this.currentCardSet?.id);
+          console.log('카드셋 ID가 변경되지 않음, 이벤트 발생 생략');
         }
-        
-        return;
       } else {
-        console.log('폴더 변경 없음 또는 고정된 카드셋 사용 중');
+        console.log('폴더 변경 없음, 처리 생략');
       }
-    }
-    
-    // 고정된 카드셋이 아닌 경우에만 활성 파일 변경에 따라 카드셋 변경
-    if (!settings.isCardSetFixed) {
-      // 이전 카드셋 ID 저장
+    } else if (this.currentCardSetSource === 'tag') {
+      // 태그 카드셋인 경우 태그 변경 확인
       const previousCardSetId = this.currentCardSet?.id;
       
       // 카드셋 새로고침
       await this.refreshCardSet();
       
       // 카드셋이 실제로 변경된 경우에만 이벤트 발생
-      if (this.currentCardSet && !isSameCardSetId(previousCardSetId, this.currentCardSet.id)) {
-        // 이벤트 발생
-        const cardSet = this.currentCardSetSource === 'folder'
-          ? file?.parent?.path || ''
-          : this.getTagsFromFile(file).join(', ');
-        
-        console.log('활성 파일 변경으로 카드셋 변경됨:', previousCardSetId, '->', this.currentCardSet.id);
-        
-        this.eventBus.emit(EventType.CARDSET_CHANGED, {
-          cardSet,
-          sourceType: this.currentCardSetSource,
-          isFixed: false,
-          previousCardSetId: previousCardSetId
-        });
+      if (this.currentCardSet && !isSameCardSetId(previousCardSetId, this.currentCardSet.id, false)) {
+        const cardSet = this.getTagsFromFile(file).join(', ');
+        this.emitCardSetChangedEvent(cardSet, 'tag', false, previousCardSetId);
       } else {
         console.log('활성 파일 변경되었으나 카드셋 ID 변경 없음, 이벤트 발생 생략');
       }
-    } else {
-      console.log('고정된 카드셋 사용 중, 활성 파일 변경 무시');
     }
   }
   
@@ -379,52 +393,37 @@ export class CardSetService implements ICardSetService {
    * 카드셋 새로고침
    */
   async refreshCardSet(): Promise<void> {
+    // 이미 새로고침 중이면 중복 실행 방지
+    if (this.isRefreshingCardSet) {
+      this.pendingRefresh = true;
+      console.log('이미 카드셋 새로고침 중, 대기 상태로 전환');
+      return;
+    }
+    
+    this.isRefreshingCardSet = true;
+    this.pendingRefresh = false;
+    
     try {
       console.log('카드셋 새로고침 시작');
-      console.log('현재 카드셋 소스:', this.currentCardSetSource);
-      console.log('refreshCardSet 호출 스택:', new Error().stack);
       
       // 이전 카드셋 저장
       const previousCardSet = this.currentCardSet;
       const previousCardSetId = previousCardSet?.id;
       const previousCardSetFiles = previousCardSet?.files?.length || 0;
       
-      // 폴더 카드셋이고 고정되지 않은 경우 활성 파일의 폴더 확인
-      if (this.currentCardSetSource === 'folder' && !this.settingsService.getSettings().isCardSetFixed) {
-        const activeFile = this.obsidianService.getActiveFile();
-        if (activeFile && activeFile.parent) {
-          const folderPath = activeFile.parent.path;
-          const expectedCardSetId = createFolderCardSetId(folderPath);
-          
-          // 현재 카드셋 ID와 예상 카드셋 ID가 다른 경우 로그 출력
-          if (previousCardSetId && !isSameCardSetId(previousCardSetId, expectedCardSetId)) {
-            console.log('활성 폴더 변경 감지:', previousCardSetId, '->', expectedCardSetId);
-          }
-        }
-      }
-      
       // 카드셋 소스에 따라 카드셋 새로고침
       switch (this.currentCardSetSource) {
         case 'folder':
-          console.log('폴더 카드셋 새로고침 시작');
           this.currentCardSet = await this.refreshFolderCardSet();
-          console.log('폴더 카드셋 새로고침 완료:', this.currentCardSet);
           break;
         case 'tag':
-          console.log('태그 카드셋 새로고침 시작');
           this.currentCardSet = await this.refreshTagCardSet();
-          console.log('태그 카드셋 새로고침 완료:', this.currentCardSet);
           break;
         case 'search':
-          console.log('검색 카드셋 새로고침 시작');
           this.currentCardSet = await this.refreshSearchCardSet();
-          console.log('검색 카드셋 새로고침 완료:', this.currentCardSet);
           break;
         default:
-          // 기본값은 폴더 카드셋
-          console.log('기본 폴더 카드셋 새로고침 시작');
           this.currentCardSet = await this.refreshFolderCardSet();
-          console.log('기본 폴더 카드셋 새로고침 완료:', this.currentCardSet);
       }
       
       // 중복 파일 제거
@@ -438,51 +437,22 @@ export class CardSetService implements ICardSetService {
         
         // 중복 제거된 파일 배열로 변환
         this.currentCardSet.files = Array.from(uniqueFiles.values());
-        
-        console.log('카드셋 파일 수(중복 제거 후):', this.currentCardSet.files.length);
       }
       
       // 카드셋 변경 이벤트 발생 (카드셋이 변경된 경우에만)
       if (this.currentCardSet) {
         const currentCardSetFiles = this.currentCardSet.files.length;
-        console.log('카드셋 파일 수:', currentCardSetFiles);
-        
-        if (currentCardSetFiles > 0) {
-          console.log('첫 번째 파일:', this.currentCardSet.files[0].path);
-        } else {
-          console.log('카드셋에 파일이 없습니다.');
-        }
         
         // 카드셋 ID가 변경되었거나 파일 수가 변경된 경우에만 이벤트 발생
-        const isCardSetIdChanged = !previousCardSetId || !isSameCardSetId(previousCardSetId, this.currentCardSet.id);
+        const isCardSetIdChanged = !previousCardSetId || !isSameCardSetId(previousCardSetId, this.currentCardSet.id, false);
         const isFileCountChanged = previousCardSetFiles !== currentCardSetFiles;
         
         if (isCardSetIdChanged || isFileCountChanged) {
-          if (isCardSetIdChanged) {
-            console.log('카드셋 ID 변경됨:', previousCardSetId, '->', this.currentCardSet.id);
+          // 파일 목록이 변경된 경우에만 CARDS_CHANGED 이벤트 발생
+          if (isFileCountChanged && this.currentCardSet.id) {
+            this.emitCardsChangedEvent(this.currentCardSet.files, currentCardSetFiles);
           }
-          
-          if (isFileCountChanged) {
-            console.log('카드셋 파일 수 변경됨:', previousCardSetFiles, '->', currentCardSetFiles);
-          }
-          
-          // 이벤트 발생 전 추가 검증
-          if (this.currentCardSet.id) {
-            this.eventBus.emit(EventType.CARDS_CHANGED, {
-              cards: this.currentCardSet.files.map(file => this.obsidianService.getCardFromFile(file)),
-              totalCount: currentCardSetFiles,
-              filteredCount: currentCardSetFiles
-            });
-          } else {
-            console.log('카드셋 ID가 없어 이벤트 발생 생략');
-          }
-        } else {
-          console.log('카드셋 ID와 파일 수 변경 없음, 이벤트 발생 생략');
         }
-        
-        console.log('카드셋 새로고침 완료:', this.currentCardSet);
-      } else {
-        console.log('카드셋이 null입니다.');
       }
     } catch (error) {
       console.error('카드셋 새로고침 오류:', error);
@@ -496,8 +466,14 @@ export class CardSetService implements ICardSetService {
         type: 'active',
         files: []
       };
+    } finally {
+      this.isRefreshingCardSet = false;
       
-      console.log('오류로 인해 빈 카드셋 생성:', this.currentCardSet);
+      // 대기 중인 새로고침이 있으면 실행
+      if (this.pendingRefresh) {
+        console.log('대기 중인 카드셋 새로고침 실행');
+        setTimeout(() => this.refreshCardSet(), 50);
+      }
     }
   }
   
@@ -843,5 +819,168 @@ export class CardSetService implements ICardSetService {
    */
   getEventBus(): DomainEventBus {
     return this.eventBus;
+  }
+  
+  /**
+   * 카드셋 변경 이벤트 발생
+   * @param cardSet 카드셋 이름
+   * @param sourceType 소스 타입
+   * @param isFixed 고정 여부
+   * @param previousCardSetId 이전 카드셋 ID
+   */
+  private emitCardSetChangedEvent(
+    cardSet: string,
+    sourceType: CardSetSourceType,
+    isFixed: boolean,
+    previousCardSetId?: string
+  ): void {
+    // 현재 카드셋 ID
+    const currentCardSetId = this.currentCardSet?.id;
+    
+    // 이전 카드셋 ID와 현재 카드셋 ID가 같으면 이벤트 발생 생략
+    if (previousCardSetId && currentCardSetId && isSameCardSetId(previousCardSetId, currentCardSetId, false)) {
+      console.log('이전 카드셋 ID와 현재 카드셋 ID가 동일함, 이벤트 발생 생략');
+      return;
+    }
+    
+    // 이미 동일한 이벤트가 최근에 발생했는지 확인 (1000ms 이내)
+    const now = Date.now();
+    if (
+      currentCardSetId === this.lastEmittedCardSetId && 
+      now - this.lastEmittedCardSetTime < 1000
+    ) {
+      console.log('동일한 카드셋 변경 이벤트가 최근에 발생함, 중복 발생 방지');
+      return;
+    }
+    
+    // 이벤트 발생 정보 업데이트
+    this.lastEmittedCardSetId = currentCardSetId || null;
+    this.lastEmittedCardSetTime = now;
+    
+    console.log('카드셋 변경 이벤트 발생:', {
+      cardSet,
+      sourceType,
+      isFixed,
+      previousCardSetId,
+      currentCardSetId
+    });
+    
+    // 이벤트 발생
+    this.eventBus.emit(EventType.CARDSET_CHANGED, {
+      cardSet,
+      sourceType,
+      isFixed,
+      previousCardSetId
+    });
+  }
+  
+  /**
+   * 카드 변경 이벤트 발생
+   * @param files 파일 목록
+   * @param totalCount 전체 파일 수
+   */
+  private emitCardsChangedEvent(files: TFile[], totalCount: number): void {
+    console.log('카드 변경 이벤트 발생:', {
+      totalCount
+    });
+    
+    this.eventBus.emit(EventType.CARDS_CHANGED, {
+      cards: files.map(file => this.obsidianService.getCardFromFile(file)),
+      totalCount,
+      filteredCount: totalCount
+    });
+  }
+  
+  /**
+   * 현재 카드셋 소스 모드 가져오기
+   * @returns 카드셋 소스 모드
+   */
+  getCardSetSourceMode(): CardSetSourceMode {
+    const settings = this.settingsService.getSettings();
+    return settings.cardSetSourceMode || CardSetSourceMode.FOLDER;
+  }
+  
+  /**
+   * 카드셋 소스 모드 설정
+   * @param mode 카드셋 소스 모드
+   */
+  async setCardSetSourceMode(mode: CardSetSourceMode): Promise<void> {
+    // 현재 모드와 같으면 아무 작업도 하지 않음
+    if (this.getCardSetSourceMode() === mode) return;
+    
+    // 설정 업데이트
+    await this.settingsService.updateSettings({
+      cardSetSourceMode: mode
+    });
+    
+    // 이벤트 발생
+    this.eventBus.emit(EventType.CARD_SET_SOURCE_CHANGED, {
+      mode: mode
+    });
+    
+    // 카드셋 새로고침
+    await this.refreshCardSet();
+  }
+  
+  /**
+   * 하위 폴더 포함 여부 가져오기
+   * @returns 하위 폴더 포함 여부
+   */
+  getIncludeSubfolders(): boolean {
+    const settings = this.settingsService.getSettings();
+    return settings.includeSubfolders || false;
+  }
+  
+  /**
+   * 하위 폴더 포함 여부 설정
+   * @param include 하위 폴더 포함 여부
+   */
+  async setIncludeSubfolders(include: boolean): Promise<void> {
+    // 현재 값과 같으면 아무 작업도 하지 않음
+    if (this.getIncludeSubfolders() === include) return;
+    
+    // 설정 업데이트
+    await this.settingsService.updateSettings({
+      includeSubfolders: include
+    });
+    
+    // 카드셋 새로고침
+    await this.refreshCardSet();
+    
+    // 이벤트 발생
+    this.eventBus.emit(EventType.CARDSET_CHANGED, {
+      includeSubfolders: include
+    });
+  }
+  
+  /**
+   * 카드셋 고정 여부 가져오기
+   * @returns 카드셋 고정 여부
+   */
+  isCardSetFixed(): boolean {
+    const settings = this.settingsService.getSettings();
+    return settings.isCardSetFixed || false;
+  }
+  
+  /**
+   * 카드셋 고정 여부 설정
+   * @param fixed 카드셋 고정 여부
+   */
+  async setCardSetFixed(fixed: boolean): Promise<void> {
+    // 현재 값과 같으면 아무 작업도 하지 않음
+    if (this.isCardSetFixed() === fixed) return;
+    
+    // 설정 업데이트
+    await this.settingsService.updateSettings({
+      isCardSetFixed: fixed
+    });
+    
+    // 카드셋 새로고침
+    await this.refreshCardSet();
+    
+    // 이벤트 발생
+    this.eventBus.emit(EventType.CARDSET_FIXED_CHANGED, {
+      isFixed: fixed
+    });
   }
 } 

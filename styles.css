@@ -481,7 +481,7 @@
   .card-navigator-cardset.layout-grid .cards-container {
     grid-template-columns: repeat(2, 1fr);
   }
-} 
+}
 
 /* src/ui/components/layout/layout.css */
 /* 레이아웃 컴포넌트 스타일 */
@@ -1035,33 +1035,7 @@
 
 /* 아이콘 버튼 스타일 */
 .toolbar-icon-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  padding: 6px;
-  cursor: pointer;
-  color: var(--text-normal);
-  transition: background-color 0.2s ease, color 0.2s ease;
-  width: 28px;
-  height: 28px;
-}
-
-.toolbar-icon-button:hover {
-  background-color: var(--background-modifier-hover);
-  color: var(--text-accent);
-}
-
-.toolbar-icon-button.active {
-  background-color: var(--background-modifier-active);
-  color: var(--text-accent);
-}
-
-.toolbar-icon-button.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  display: none;
 }
 
 /* 아이콘 스타일 */
@@ -1237,19 +1211,35 @@
 .cardset-name-container {
   display: flex;
   align-items: center;
-  background-color: var(--background-primary);
+  background-color: transparent;
   border-radius: 4px;
   padding: 4px 8px;
-  max-width: 300px;
+  flex: 1;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   cursor: pointer;
-  border: 1px solid var(--background-modifier-border);
+  border: none;
+  transition: background-color 0.2s ease;
 }
 
 .cardset-name-container:hover {
   background-color: var(--background-modifier-hover);
+}
+
+.cardset-name-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+}
+
+.cardset-name-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .cardset-name-text {
@@ -1258,6 +1248,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
 }
 
 /* 검색바 스타일 */
@@ -1371,6 +1362,68 @@
 .toolbar-button.active .toolbar-button-icon {
   color: var(--text-on-accent);
 }
+
+/* 툴바 버튼 아이콘 */
+.card-navigator-toolbar .toolbar-button-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 활성화된 아이콘 강조색 */
+.card-navigator-toolbar .toolbar-button-icon.is-active {
+  color: var(--interactive-accent);
+}
+
+/* 활성화된 버튼 강조색 */
+.card-navigator-toolbar .toolbar-button.is-active {
+  color: var(--interactive-accent);
+}
+
+/* 툴바 버튼 스타일 - 옵시디언 스타일로 변경 */
+.toolbar-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--icon-color);
+  transition: background-color 0.2s ease, color 0.2s ease;
+  width: 28px;
+  height: 28px;
+}
+
+.toolbar-button:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-accent);
+}
+
+.toolbar-button.active {
+  background-color: var(--background-modifier-active);
+  color: var(--text-accent);
+}
+
+.toolbar-button-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.toolbar-button-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.toolbar-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+} 
 
 /* src/ui/components/toolbar/ToolbarPopup.css */
 /* 팝업 스타일 */

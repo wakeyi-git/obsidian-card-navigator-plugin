@@ -10,6 +10,10 @@ import { PopupManager } from '../popup/PopupManager';
 import { CardSetSourceMode } from '../../../domain/settings/SettingsInterfaces';
 import { EventType } from '../../../domain/events/EventTypes';
 import { ObsidianService } from '../../../infrastructure/obsidian/adapters/ObsidianService';
+import { FolderSuggestModal } from '../modals/FolderSuggestModal';
+import { TagSuggestModal } from '../modals/TagSuggestModal';
+import { ICardSetService } from '../../../application/cardset/CardSetService';
+import { DomainEventBus } from '../../../core/events/DomainEventBus';
 
 /**
  * 툴바 컴포넌트 인터페이스
@@ -43,6 +47,8 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
   private toolbarService: IToolbarService;
   private searchComponent: ISearchComponent;
   private obsidianService: ObsidianService;
+  private cardSetService: ICardSetService;
+  private eventBus: DomainEventBus;
   private items: IToolbarItem[] = [];
   private searchBarVisible: boolean = false;
   private searchBarElement: HTMLElement | null = null;
@@ -54,24 +60,104 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
   private itemValueChangedListener: (data: any) => void = () => {};
   private itemDisabledChangedListener: (data: any) => void = () => {};
   private itemVisibleChangedListener: (data: any) => void = () => {};
+  private itemActionExecutedListener: (data: any) => void = () => {};
+  private cardsetChangedListener: (data: any) => void = () => {};
+  private activeFileChangedListener: (data: any) => void = () => {};
 
   /**
    * 생성자
    * @param toolbarService 툴바 서비스
    * @param searchComponent 검색 컴포넌트
-   * @param obsidianService ObsidianService
+   * @param obsidianService Obsidian 서비스
+   * @param cardSetService 카드셋 서비스
    */
-  constructor(toolbarService: IToolbarService, searchComponent: ISearchComponent, obsidianService: ObsidianService) {
+  constructor(
+    toolbarService: IToolbarService,
+    searchComponent: ISearchComponent,
+    obsidianService: ObsidianService,
+    cardSetService: ICardSetService
+  ) {
     super();
     this.toolbarService = toolbarService;
     this.searchComponent = searchComponent;
     this.obsidianService = obsidianService;
+    this.cardSetService = cardSetService;
+    this.eventBus = DomainEventBus.getInstance();
     
-    // 이벤트 리스너 초기화
-    this.initializeEventListeners();
+    // 현재 설정 가져오기 및 로그 출력
+    const settings = this.toolbarService.getSettings();
+    console.log('ToolbarComponent 생성자 - 현재 카드셋 소스 모드:', settings.cardSetSourceMode);
+    console.log('ToolbarComponent 생성자 - 설정 정보:', {
+      cardSetSourceMode: settings.cardSetSourceMode,
+      includeSubfolders: settings.includeSubfolders,
+      isCardSetFixed: settings.isCardSetFixed
+    });
     
-    // 툴바 아이템 로드
-    this.loadItems();
+    // cardSetSourceMode가 undefined인 경우 FOLDER로 설정
+    if (settings.cardSetSourceMode === undefined || settings.cardSetSourceMode === null) {
+      console.log('생성자: 카드셋 소스 모드가 undefined/null이므로 FOLDER로 설정');
+      this.toolbarService.updateSettings({
+        cardSetSourceMode: CardSetSourceMode.FOLDER
+      }).catch(error => {
+        console.error('생성자: 카드셋 소스 모드 설정 업데이트 중 오류 발생:', error);
+      });
+    }
+    
+    // 툴바 아이템 초기화
+    this.initializeToolbarItems();
+    
+    // 이벤트 리스너 등록
+    this.registerToolbarEventListeners();
+  }
+  
+  /**
+   * 이벤트 리스너 등록
+   */
+  private registerToolbarEventListeners(): void {
+    // 툴바 아이템 등록 이벤트 리스너
+    this.itemRegisteredListener = (item: IToolbarItem) => {
+      this.addItem(item);
+    };
+    this.toolbarService.on('toolbar:item-registered', this.itemRegisteredListener);
+    
+    // 툴바 아이템 업데이트 이벤트 리스너
+    this.itemUpdatedListener = (data: { id: string, updates: Partial<IToolbarItem> }) => {
+      this.updateItem(data.id, data.updates);
+    };
+    this.toolbarService.on('toolbar:item-updated', this.itemUpdatedListener);
+    
+    // 툴바 아이템 제거 이벤트 리스너
+    this.itemRemovedListener = (id: string) => {
+      this.removeItem(id);
+    };
+    this.toolbarService.on('toolbar:item-removed', this.itemRemovedListener);
+    
+    // 툴바 액션 실행 이벤트 리스너
+    this.itemActionExecutedListener = (data: { action: string, data?: any }) => {
+      this.handleToolbarAction(data.action, data.data);
+    };
+    this.toolbarService.on('toolbar:action-executed', this.itemActionExecutedListener);
+    
+    // 카드셋 변경 이벤트 리스너
+    this.cardsetChangedListener = () => {
+      console.log('카드셋 변경 이벤트 수신: 카드셋 이름 업데이트');
+      this.updateCardsetName().catch(error => {
+        console.error('카드셋 변경 이벤트 처리 중 오류 발생:', error);
+      });
+    };
+    this.eventBus.on(EventType.CARDSET_CHANGED, this.cardsetChangedListener);
+    
+    // 활성 파일 변경 이벤트 리스너
+    this.activeFileChangedListener = () => {
+      console.log('활성 파일 변경 이벤트 수신: 카드셋 이름 업데이트 검토');
+      const settings = this.toolbarService.getSettings();
+      if (settings.cardSetSourceMode === CardSetSourceMode.FOLDER && !settings.isCardSetFixed) {
+        this.updateCardsetName().catch(error => {
+          console.error('활성 파일 변경 이벤트 처리 중 오류 발생:', error);
+        });
+      }
+    };
+    this.eventBus.on(EventType.ACTIVE_FILE_CHANGED, this.activeFileChangedListener);
   }
   
   /**
@@ -110,6 +196,169 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
     this.toolbarService.updateItem(itemId, updates);
     this.loadItems();
     this.update();
+  }
+  
+  /**
+   * 기본 툴바 아이템 초기화
+   */
+  private initializeToolbarItems(): void {
+    // 현재 설정 가져오기
+    const settings = this.toolbarService.getSettings();
+    console.log('initializeToolbarItems - 현재 설정:', {
+      cardSetSourceMode: settings.cardSetSourceMode,
+      includeSubfolders: settings.includeSubfolders,
+      isCardSetFixed: settings.isCardSetFixed,
+      toolbarItems: settings.toolbarItems?.length || 0
+    });
+    
+    // 이미 등록된 아이템 가져오기
+    const existingItems = this.toolbarService.getItems();
+    console.log('initializeToolbarItems - 기존 아이템 수:', existingItems.length);
+    
+    // 카드셋 소스 모드 - undefined인 경우 강제로 FOLDER로 설정
+    let mode = settings.cardSetSourceMode;
+    if (mode === undefined || mode === null) {
+      console.log('카드셋 소스 모드가 undefined/null이므로 FOLDER로 강제 설정');
+      mode = CardSetSourceMode.FOLDER;
+      
+      // 설정에도 반영 (비동기 호출이므로 await 없이 호출)
+      this.toolbarService.updateSettings({
+        cardSetSourceMode: CardSetSourceMode.FOLDER
+      }).catch(error => {
+        console.error('카드셋 소스 모드 설정 업데이트 중 오류 발생:', error);
+      });
+    }
+    
+    console.log('현재 카드셋 소스 모드:', mode, '(타입:', typeof mode, ')');
+    console.log('CardSetSourceMode.FOLDER 값:', CardSetSourceMode.FOLDER, '(타입:', typeof CardSetSourceMode.FOLDER, ')');
+    console.log('모드 비교 결과:', mode === CardSetSourceMode.FOLDER ? '일치함' : '일치하지 않음');
+    
+    // 이미 아이템이 등록되어 있는 경우 하위 폴더 포함 버튼만 확인
+    if (existingItems.length > 0) {
+      console.log('이미 툴바 아이템이 등록되어 있어 초기화 생략');
+      this.items = existingItems;
+      
+      // 하위 폴더 포함 버튼이 없고 폴더 모드인 경우 추가
+      const hasSubfolderButton = existingItems.some(item => item.id === 'include-subfolders');
+      if (!hasSubfolderButton && mode !== CardSetSourceMode.TAG) {
+        console.log('기존 아이템에 하위 폴더 포함 버튼이 없어 추가합니다.');
+        
+        // 현재 하위 폴더 포함 상태 가져오기
+        const includeSubfolders = this.cardSetService.getIncludeSubfolders();
+        console.log('하위 폴더 포함 상태:', includeSubfolders);
+        
+        this.addItem({
+          id: 'include-subfolders',
+          type: 'button',
+          position: 'left',
+          icon: 'folder-tree',
+          tooltip: '하위 폴더 포함',
+          action: 'toggleIncludeSubfolders',
+          order: 1,
+          visible: true,
+          classes: includeSubfolders ? ['is-active'] : []
+        });
+        
+        console.log('하위 폴더 포함 버튼 추가 완료, 초기 상태:', includeSubfolders ? '활성화' : '비활성화');
+      }
+      return;
+    }
+    
+    console.log('툴바 아이템 초기화 시작');
+    
+    // 카드셋 소스 선택기 버튼 (왼쪽)
+    this.addItem({
+      id: 'cardset-source-selector',
+      type: 'button',
+      position: 'left',
+      icon: mode === CardSetSourceMode.FOLDER ? 'folder-open' : 'tag',
+      tooltip: '카드셋 소스 선택',
+      action: 'toggleCardsetSource',
+      order: 0
+    });
+    
+    // 하위 폴더 포함 버튼 (왼쪽) - 폴더 모드일 때만 표시
+    if (mode !== CardSetSourceMode.TAG) {
+      console.log('폴더 모드 감지: 하위 폴더 포함 버튼 추가 시도');
+      
+      // 현재 하위 폴더 포함 상태 가져오기 (CardSetService 사용)
+      const includeSubfolders = this.cardSetService.getIncludeSubfolders();
+      console.log('initializeToolbarItems: 하위 폴더 포함 상태:', includeSubfolders);
+      
+      const includeSubfoldersItem: IToolbarItem = {
+        id: 'include-subfolders',
+        type: 'button',
+        position: 'left',
+        icon: 'folder-tree',
+        tooltip: '하위 폴더 포함',
+        action: 'toggleIncludeSubfolders',
+        order: 1,
+        visible: true,
+        // 초기 상태에 따라 클래스 추가
+        classes: includeSubfolders ? ['is-active'] : []
+      };
+      console.log('하위 폴더 포함 버튼 생성:', includeSubfoldersItem);
+      this.addItem(includeSubfoldersItem);
+      console.log('하위 폴더 포함 버튼 초기화:', includeSubfolders ? '활성화' : '비활성화');
+    } else {
+      console.log('폴더 모드가 아니므로 하위 폴더 포함 버튼 추가하지 않음');
+    }
+    
+    // 카드셋 이름 (중앙)
+    this.addItem({
+      id: 'cardset-name',
+      type: 'select',
+      position: 'center',
+      tooltip: '카드셋 이름',
+      action: 'selectCardset',
+      order: 0
+    });
+    
+    // 카드셋 고정 버튼 (중앙)
+    this.addItem({
+      id: 'cardset-lock',
+      type: 'button',
+      position: 'center',
+      icon: settings.isCardSetFixed ? 'lucide-lock' : 'lucide-unlock',
+      tooltip: '카드셋 고정',
+      action: 'toggleCardsetLock',
+      order: 1
+    });
+    
+    // 검색 버튼 (오른쪽)
+    this.addItem({
+      id: 'search-button',
+      type: 'button',
+      position: 'right',
+      icon: 'search',
+      tooltip: '검색',
+      action: 'toggleSearch',
+      order: 0
+    });
+    
+    // 정렬 버튼 (오른쪽)
+    this.addItem({
+      id: 'sort-button',
+      type: 'button',
+      position: 'right',
+      icon: 'arrow-up-down',
+      tooltip: '정렬 옵션',
+      action: 'showSortOptions',
+      order: 1
+    });
+    
+    // 설정 버튼 (오른쪽)
+    this.addItem({
+      id: 'settings-button',
+      type: 'button',
+      position: 'right',
+      icon: 'settings',
+      tooltip: '설정',
+      action: 'showSettings',
+      order: 2
+    });
+    
+    console.log('툴바 아이템 초기화 완료');
   }
   
   /**
@@ -245,8 +494,9 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
    * @returns 버튼 요소
    */
   private createButton(item: IToolbarItem): HTMLElement {
-    const button = document.createElement('button');
-    button.className = 'toolbar-button';
+    // 버튼 대신 div 요소 사용 (옵시디언 스타일)
+    const button = document.createElement('div');
+    button.className = 'toolbar-button clickable-icon';
     button.setAttribute('data-item-id', item.id);
     
     if (item.tooltip) {
@@ -255,23 +505,22 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
     }
     
     if (item.icon) {
-      const iconContainer = document.createElement('div');
-      iconContainer.className = 'toolbar-button-icon';
-      setIcon(iconContainer, item.icon);
-      button.appendChild(iconContainer);
-    }
-    
-    if (item.label) {
-      const labelContainer = document.createElement('div');
-      labelContainer.className = 'toolbar-button-label';
-      labelContainer.textContent = item.label;
-      button.appendChild(labelContainer);
+      setIcon(button, item.icon);
     }
     
     // 비활성화 상태 설정
     if (item.disabled) {
-      button.disabled = true;
       button.classList.add('disabled');
+    }
+    
+    // 추가 클래스 설정
+    if (item.classes && Array.isArray(item.classes)) {
+      console.log(`버튼 ${item.id} 클래스 추가 전:`, button.className);
+      item.classes.forEach(className => {
+        button.classList.add(className);
+        console.log(`버튼 ${item.id}에 클래스 '${className}' 추가`);
+      });
+      console.log(`버튼 ${item.id} 클래스 추가 후:`, button.className);
     }
     
     // 클릭 이벤트 리스너 등록
@@ -355,6 +604,12 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
       container.setAttribute('title', item.tooltip);
     }
     
+    // 폴더 아이콘 추가
+    const iconElement = document.createElement('div');
+    iconElement.className = 'cardset-name-icon';
+    setIcon(iconElement, 'folder-open');
+    container.appendChild(iconElement);
+    
     // 카드셋 이름 텍스트
     const nameText = document.createElement('span');
     nameText.className = 'cardset-name-text';
@@ -365,32 +620,42 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
     const mode = settings.cardSetSourceMode || CardSetSourceMode.FOLDER;
     
     // 카드셋 이름 설정
-    let cardsetName = '활성 카드셋';
+    let cardsetName = '';
     
-    if (isFixed) {
-      if (mode === CardSetSourceMode.FOLDER) {
+    if (mode === CardSetSourceMode.FOLDER) {
+      if (isFixed) {
+        // 지정 폴더 모드
         cardsetName = settings.selectedFolder || '선택된 폴더 없음';
+        console.log('지정 폴더 모드에서 이름 설정:', cardsetName);
       } else {
-        cardsetName = settings.selectedTags?.join(', ') || '선택된 태그 없음';
-      }
-    } else {
-      if (mode === CardSetSourceMode.FOLDER) {
-        // 활성 파일의 폴더 경로 가져오기
+        // 활성 폴더 모드
         const activeFile = this.obsidianService.getActiveFile();
         const folderPath = activeFile?.parent?.path || '';
         cardsetName = folderPath || '활성 폴더';
+        console.log('활성 폴더 모드에서 이름 설정:', cardsetName, '활성 파일:', activeFile?.path);
+      }
+    } else {
+      // 태그 모드
+      if (isFixed) {
+        cardsetName = settings.selectedTags?.join(', ') || '선택된 태그 없음';
+        console.log('지정 태그 모드에서 이름 설정:', cardsetName);
       } else {
         cardsetName = '활성 태그';
+        console.log('활성 태그 모드에서 이름 설정:', cardsetName);
       }
     }
     
     nameText.textContent = cardsetName;
     container.appendChild(nameText);
     
-    // 클릭 이벤트 리스너 등록
+    // 클릭 이벤트 리스너 등록 - 모든 경우에 폴더 선택 모달 표시
     container.addEventListener('click', () => {
-      if (isFixed) {
-        this.showCardsetSuggestModal(container);
+      if (mode === CardSetSourceMode.FOLDER) {
+        // 폴더 서제스트 모달 표시
+        this.showFolderSuggestModal();
+      } else {
+        // 태그 서제스트 모달 표시
+        this.showTagSuggestModal();
       }
     });
     
@@ -398,129 +663,37 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
   }
   
   /**
-   * 카드셋 서제스트 모달 표시
-   * @param triggerElement 트리거 요소
+   * 폴더 서제스트 모달 표시
    */
-  private showCardsetSuggestModal(triggerElement: HTMLElement): void {
-    // 이미 열려있는 모달 닫기
-    this.closeCardsetSuggestModal();
+  private showFolderSuggestModal(): void {
+    // 옵시디언 API를 사용하여 폴더 서제스트 모달 생성
+    const modal = new FolderSuggestModal(
+      this.obsidianService,
+      async (folderPath: string) => {
+        // 폴더 선택 시 처리
+        await this.selectFolder(folderPath);
+      }
+    );
     
-    // 현재 설정 가져오기
-    const settings = this.toolbarService.getSettings();
-    const mode = settings.cardSetSourceMode || CardSetSourceMode.FOLDER;
-    
-    // 모달 컨테이너 생성
-    const modalContainer = document.createElement('div');
-    modalContainer.className = 'cardset-suggest-modal';
-    
-    // 모달 위치 설정
-    const rect = triggerElement.getBoundingClientRect();
-    modalContainer.style.top = `${rect.bottom}px`;
-    modalContainer.style.left = `${rect.left}px`;
-    modalContainer.style.width = `${Math.max(rect.width, 200)}px`;
-    
-    // 모달 내용 생성
-    if (mode === CardSetSourceMode.FOLDER) {
-      this.createFolderSuggestItems(modalContainer);
-    } else {
-      this.createTagSuggestItems(modalContainer);
-    }
-    
-    // 문서에 모달 추가
-    document.body.appendChild(modalContainer);
-    
-    // 문서 클릭 이벤트 리스너 등록
-    setTimeout(() => {
-      document.addEventListener('click', this.handleDocumentClickForModal);
-    }, 0);
+    // 모달 표시
+    modal.open();
   }
   
   /**
-   * 폴더 서제스트 아이템 생성
-   * @param container 모달 컨테이너
+   * 태그 서제스트 모달 표시
    */
-  private createFolderSuggestItems(container: HTMLElement): void {
-    // 폴더 목록 가져오기
-    const folders = this.toolbarService.getFolders();
+  private showTagSuggestModal(): void {
+    // 옵시디언 API를 사용하여 태그 서제스트 모달 생성
+    const modal = new TagSuggestModal(
+      this.obsidianService,
+      async (tag: string) => {
+        // 태그 선택 시 처리
+        await this.selectTag(tag);
+      }
+    );
     
-    if (folders.length === 0) {
-      const emptyItem = document.createElement('div');
-      emptyItem.className = 'cardset-suggest-item';
-      emptyItem.textContent = '폴더가 없습니다';
-      container.appendChild(emptyItem);
-      return;
-    }
-    
-    // 폴더 아이템 생성
-    folders.forEach(folder => {
-      const item = document.createElement('div');
-      item.className = 'cardset-suggest-item';
-      
-      const icon = document.createElement('span');
-      icon.className = 'cardset-suggest-item-icon';
-      setIcon(icon, 'folder');
-      
-      const text = document.createElement('span');
-      text.className = 'cardset-suggest-item-text';
-      text.textContent = folder;
-      
-      item.appendChild(icon);
-      item.appendChild(text);
-      
-      // 클릭 이벤트 리스너 등록
-      item.addEventListener('click', () => {
-        this.selectFolder(folder).catch(error => {
-          console.error('폴더 선택 중 오류 발생:', error);
-        });
-        this.closeCardsetSuggestModal();
-      });
-      
-      container.appendChild(item);
-    });
-  }
-  
-  /**
-   * 태그 서제스트 아이템 생성
-   * @param container 모달 컨테이너
-   */
-  private createTagSuggestItems(container: HTMLElement): void {
-    // 태그 목록 가져오기
-    const tags = this.toolbarService.getTags();
-    
-    if (tags.length === 0) {
-      const emptyItem = document.createElement('div');
-      emptyItem.className = 'cardset-suggest-item';
-      emptyItem.textContent = '태그가 없습니다';
-      container.appendChild(emptyItem);
-      return;
-    }
-    
-    // 태그 아이템 생성
-    tags.forEach(tag => {
-      const item = document.createElement('div');
-      item.className = 'cardset-suggest-item';
-      
-      const icon = document.createElement('span');
-      icon.className = 'cardset-suggest-item-icon';
-      setIcon(icon, 'tag');
-      
-      const text = document.createElement('span');
-      text.className = 'cardset-suggest-item-text';
-      text.textContent = tag;
-      
-      item.appendChild(icon);
-      item.appendChild(text);
-      
-      // 클릭 이벤트 리스너 등록
-      item.addEventListener('click', () => {
-        this.selectTag(tag).catch(error => {
-          console.error('태그 선택 중 오류 발생:', error);
-        });
-        this.closeCardsetSuggestModal();
-      });
-      
-      container.appendChild(item);
-    });
+    // 모달 표시
+    modal.open();
   }
   
   /**
@@ -528,13 +701,19 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
    * @param folder 선택한 폴더
    */
   private async selectFolder(folder: string): Promise<void> {
-    // 설정 업데이트
+    // 설정 업데이트 - 폴더 선택 시 자동으로 고정 모드로 전환
     await this.toolbarService.updateSettings({
-      selectedFolder: folder
+      selectedFolder: folder,
+      isCardSetFixed: true
     });
     
     // 카드셋 이름 업데이트
-    this.updateCardsetName();
+    this.updateCardsetName().catch(error => {
+      console.error('카드셋 이름 업데이트 중 오류 발생:', error);
+    });
+    
+    // 자물쇠 아이콘 업데이트
+    this.updateLockIcon(true);
     
     // 이벤트 발생
     this.toolbarService.emitEvent(EventType.CARDSET_SOURCE_CHANGED, {
@@ -555,7 +734,9 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
     });
     
     // 카드셋 이름 업데이트
-    this.updateCardsetName();
+    this.updateCardsetName().catch(error => {
+      console.error('카드셋 이름 업데이트 중 오류 발생:', error);
+    });
     
     // 이벤트 발생
     this.toolbarService.emitEvent(EventType.CARDSET_SOURCE_CHANGED, {
@@ -568,68 +749,130 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
   /**
    * 카드셋 이름 업데이트
    */
-  private updateCardsetName(): void {
-    if (!this.element) return;
+  public async updateCardsetName(): Promise<void> {
+    if (!this.element) {
+      console.log('카드셋 이름 업데이트 실패: 컴포넌트 요소가 없음');
+      return;
+    }
     
     const nameContainer = this.element.querySelector('[data-item-id="cardset-name"]');
-    if (!nameContainer) return;
+    if (!nameContainer) {
+      console.log('카드셋 이름 업데이트 실패: 카드셋 이름 컨테이너를 찾을 수 없음');
+      return;
+    }
     
     const nameText = nameContainer.querySelector('.cardset-name-text');
-    if (!nameText) return;
+    if (!nameText) {
+      console.log('카드셋 이름 업데이트 실패: 카드셋 이름 텍스트 요소를 찾을 수 없음');
+      return;
+    }
     
     // 현재 설정 가져오기
     const settings = this.toolbarService.getSettings();
     const isFixed = settings.isCardSetFixed;
     const mode = settings.cardSetSourceMode || CardSetSourceMode.FOLDER;
     
+    console.log('카드셋 이름 업데이트 시작', {
+      isFixed,
+      mode,
+      selectedFolder: settings.selectedFolder,
+      selectedTags: settings.selectedTags
+    });
+    
     // 카드셋 이름 설정
-    let cardsetName = '활성 카드셋';
+    let cardsetName = '';
+    let cardsetSource = '';
     
-    if (isFixed) {
-      if (mode === CardSetSourceMode.FOLDER) {
-        cardsetName = settings.selectedFolder || '선택된 폴더 없음';
+    try {
+      // 현재 카드셋 가져오기
+      const currentCardSet = await this.cardSetService.getCurrentCardSet();
+      console.log('현재 카드셋 정보:', currentCardSet ? {
+        id: currentCardSet.id,
+        name: currentCardSet.name,
+        source: currentCardSet.source,
+        sourceType: currentCardSet.sourceType,
+        type: currentCardSet.type,
+        filesCount: currentCardSet.files?.length || 0
+      } : '없음');
+      
+      // 카드셋 소스가 있으면 해당 값 사용
+      if (currentCardSet && currentCardSet.source) {
+        cardsetSource = currentCardSet.source;
+        cardsetName = cardsetSource;
+        console.log('카드셋 소스에서 이름 설정:', cardsetName);
       } else {
-        cardsetName = settings.selectedTags?.join(', ') || '선택된 태그 없음';
+        // 기존 방식으로 폴백
+        if (mode === CardSetSourceMode.FOLDER) {
+          if (isFixed) {
+            // 지정 폴더 모드
+            cardsetName = settings.selectedFolder || '선택된 폴더 없음';
+            console.log('지정 폴더 모드에서 이름 설정:', cardsetName);
+          } else {
+            // 활성 폴더 모드
+            const activeFile = this.obsidianService.getActiveFile();
+            const folderPath = activeFile?.parent?.path || '';
+            cardsetName = folderPath || '활성 폴더';
+            console.log('활성 폴더 모드에서 이름 설정:', cardsetName, '활성 파일:', activeFile?.path);
+          }
+        } else {
+          // 태그 모드
+          if (isFixed) {
+            cardsetName = settings.selectedTags?.join(', ') || '선택된 태그 없음';
+            console.log('지정 태그 모드에서 이름 설정:', cardsetName);
+          } else {
+            cardsetName = '활성 태그';
+            console.log('활성 태그 모드에서 이름 설정:', cardsetName);
+          }
+        }
       }
+    } catch (error) {
+      console.error('카드셋 가져오기 오류:', error);
+      
+      // 오류 발생 시 기존 방식으로 폴백
+      if (mode === CardSetSourceMode.FOLDER) {
+        if (isFixed) {
+          cardsetName = settings.selectedFolder || '선택된 폴더 없음';
+          console.log('오류 발생 후 지정 폴더 모드에서 이름 설정:', cardsetName);
+        } else {
+          const activeFile = this.obsidianService.getActiveFile();
+          const folderPath = activeFile?.parent?.path || '';
+          cardsetName = folderPath || '활성 폴더';
+          console.log('오류 발생 후 활성 폴더 모드에서 이름 설정:', cardsetName);
+        }
+      } else {
+        if (isFixed) {
+          cardsetName = settings.selectedTags?.join(', ') || '선택된 태그 없음';
+          console.log('오류 발생 후 지정 태그 모드에서 이름 설정:', cardsetName);
+        } else {
+          cardsetName = '활성 태그';
+          console.log('오류 발생 후 활성 태그 모드에서 이름 설정:', cardsetName);
+        }
+      }
+    }
+    
+    // 이전 이름과 다른 경우에만 업데이트
+    if (nameText.textContent !== cardsetName) {
+      console.log('카드셋 이름 변경:', nameText.textContent, '->', cardsetName);
+      nameText.textContent = cardsetName;
     } else {
-      if (mode === CardSetSourceMode.FOLDER) {
-        // 활성 파일의 폴더 경로 가져오기
-        const activeFile = this.obsidianService.getActiveFile();
-        const folderPath = activeFile?.parent?.path || '';
-        cardsetName = folderPath || '활성 폴더';
-      } else {
-        cardsetName = '활성 태그';
-      }
+      console.log('카드셋 이름 변경 없음:', cardsetName);
     }
-    
-    nameText.textContent = cardsetName;
   }
   
   /**
-   * 카드셋 서제스트 모달 닫기
+   * 자물쇠 아이콘 업데이트
+   * @param isLocked 잠금 여부
    */
-  private closeCardsetSuggestModal(): void {
-    const modal = document.querySelector('.cardset-suggest-modal');
-    if (modal && modal.parentNode) {
-      modal.parentNode.removeChild(modal);
+  private updateLockIcon(isLocked: boolean): void {
+    const lockButton = this.element?.querySelector('[data-item-id="cardset-lock"]');
+    if (lockButton) {
+      // 클리커블 아이콘 방식으로 아이콘 업데이트
+      setIcon(lockButton as HTMLElement, isLocked ? 'lucide-lock' : 'lucide-unlock');
+      console.log('자물쇠 아이콘 업데이트:', isLocked ? 'lucide-lock' : 'lucide-unlock');
+    } else {
+      console.log('자물쇠 버튼을 찾을 수 없음');
     }
-    
-    // 문서 클릭 이벤트 리스너 제거
-    document.removeEventListener('click', this.handleDocumentClickForModal);
   }
-  
-  /**
-   * 문서 클릭 이벤트 처리 (모달용)
-   * @param event 클릭 이벤트
-   */
-  private handleDocumentClickForModal = (event: MouseEvent): void => {
-    const target = event.target as HTMLElement;
-    const modal = document.querySelector('.cardset-suggest-modal');
-    
-    if (modal && !modal.contains(target) && !target.closest('.cardset-name-container')) {
-      this.closeCardsetSuggestModal();
-    }
-  };
   
   /**
    * 툴바 아이템 클릭 이벤트 처리
@@ -869,293 +1112,317 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
    * 카드셋 소스 토글
    */
   private async toggleCardsetSource(): Promise<void> {
-    const settings = this.toolbarService.getSettings();
-    const currentMode = settings.cardSetSourceMode || CardSetSourceMode.FOLDER;
-    const newMode = currentMode === CardSetSourceMode.FOLDER ? CardSetSourceMode.TAG : CardSetSourceMode.FOLDER;
+    // 카드셋 서비스에서 현재 모드 가져오기
+    const currentMode = this.cardSetService.getCardSetSourceMode();
+    console.log('toggleCardsetSource - 현재 모드:', currentMode);
     
-    // 설정 업데이트
-    await this.toolbarService.updateSettings({
-      cardSetSourceMode: newMode
-    });
+    // 새 모드 계산
+    const newMode = currentMode === CardSetSourceMode.FOLDER ? CardSetSourceMode.TAG : CardSetSourceMode.FOLDER;
+    console.log('toggleCardsetSource - 새 모드:', newMode);
+    
+    // 카드셋 서비스를 통해 모드 변경
+    await this.cardSetService.setCardSetSourceMode(newMode);
+    console.log('toggleCardsetSource - 모드 변경 완료');
     
     // 아이콘 업데이트
     const sourceButton = this.element?.querySelector('[data-item-id="cardset-source-selector"]');
     if (sourceButton) {
-      const iconContainer = sourceButton.querySelector('.toolbar-button-icon');
-      if (iconContainer) {
-        if (newMode === CardSetSourceMode.FOLDER) {
-          setIcon(iconContainer as HTMLElement, 'folder');
-          
-          // 하위 폴더 포함 아이콘 추가
-          this.addOrUpdateOptionIcon(sourceButton as HTMLElement, 'includeSubfolders', settings.includeSubfolders, 'folder-tree');
-        } else {
-          setIcon(iconContainer as HTMLElement, 'tag');
-          
-          // 대소문자 구분 아이콘 추가
-          this.addOrUpdateOptionIcon(sourceButton as HTMLElement, 'tagCaseSensitive', settings.tagCaseSensitive, 'case-sensitive');
-        }
-      }
+      // 클리커블 아이콘 방식으로 아이콘 업데이트
+      setIcon(sourceButton as HTMLElement, newMode === CardSetSourceMode.FOLDER ? 'folder-open' : 'tag');
+      console.log('소스 아이콘 업데이트:', newMode === CardSetSourceMode.FOLDER ? 'folder-open' : 'tag');
     }
+    
+    // 하위 폴더 포함 버튼 처리
+    let includeSubfoldersButton = this.element?.querySelector('[data-item-id="include-subfolders"]');
+    
+    if (newMode === CardSetSourceMode.FOLDER) {
+      // 폴더 모드로 변경된 경우
+      if (includeSubfoldersButton) {
+        // 버튼이 있으면 표시
+        console.log('폴더 모드로 변경: 하위 폴더 포함 버튼 표시');
+        includeSubfoldersButton.classList.remove('hidden');
+        
+        // 하위 폴더 포함 아이콘 상태 초기화
+        const includeSubfolders = this.cardSetService.getIncludeSubfolders();
+        if (includeSubfolders) {
+          includeSubfoldersButton.classList.add('is-active');
+        } else {
+          includeSubfoldersButton.classList.remove('is-active');
+        }
+        
+        console.log('하위 폴더 포함 아이콘 상태 설정:', includeSubfolders ? '활성화' : '비활성화');
+      } else {
+        // 버튼이 없으면 새로 추가
+        console.log('폴더 모드로 변경: 하위 폴더 포함 버튼 새로 추가');
+        
+        // 현재 하위 폴더 포함 상태 가져오기
+        const includeSubfolders = this.cardSetService.getIncludeSubfolders();
+        console.log('현재 하위 폴더 포함 상태:', includeSubfolders);
+        
+        this.addItem({
+          id: 'include-subfolders',
+          type: 'button',
+          position: 'left',
+          icon: 'folder-tree',
+          tooltip: '하위 폴더 포함',
+          action: 'toggleIncludeSubfolders',
+          order: 1,
+          visible: true,
+          classes: includeSubfolders ? ['is-active'] : []
+        });
+        
+        // 툴바 다시 렌더링
+        this.render();
+        
+        console.log('하위 폴더 포함 버튼 추가 완료, 초기 상태:', includeSubfolders ? '활성화' : '비활성화');
+      }
+    } else if (includeSubfoldersButton) {
+      // 태그 모드로 변경된 경우 버튼 숨김
+      console.log('태그 모드로 변경: 하위 폴더 포함 버튼 숨김');
+      includeSubfoldersButton.classList.add('hidden');
+    }
+    
+    // 카드셋 이름 업데이트
+    this.updateCardsetName().catch(error => {
+      console.error('카드셋 이름 업데이트 중 오류 발생:', error);
+    });
   }
   
   /**
    * 카드셋 고정 토글
    */
   private async toggleCardsetLock(): Promise<void> {
-    const settings = this.toolbarService.getSettings();
-    const isFixed = !settings.isCardSetFixed;
+    // 카드셋 서비스에서 현재 고정 상태 가져오기
+    const isFixed = this.cardSetService.isCardSetFixed();
+    console.log('toggleCardsetLock - 현재 고정 상태:', isFixed);
     
-    // 설정 업데이트
-    await this.toolbarService.updateSettings({
-      isCardSetFixed: isFixed
-    });
+    // 카드셋 서비스를 통해 고정 상태 변경
+    await this.cardSetService.setCardSetFixed(!isFixed);
+    console.log('toggleCardsetLock - 고정 상태 변경 완료:', !isFixed);
     
     // 아이콘 업데이트
-    const lockButton = this.element?.querySelector('[data-item-id="cardset-lock"]');
-    if (lockButton) {
-      const iconContainer = lockButton.querySelector('.toolbar-button-icon');
-      if (iconContainer) {
-        if (isFixed) {
-          setIcon(iconContainer as HTMLElement, 'lucide-lock');
+    this.updateLockIcon(!isFixed);
+    
+    // 카드셋 이름 업데이트
+    this.updateCardsetName().catch(error => {
+      console.error('카드셋 이름 업데이트 중 오류 발생:', error);
+    });
+  }
+  
+  /**
+   * 하위 폴더 포함 토글
+   */
+  private toggleIncludeSubfolders(): void {
+    try {
+      console.log('toggleIncludeSubfolders 호출됨');
+      
+      // 현재 설정 가져오기
+      const currentIncludeSubfolders = this.cardSetService.getIncludeSubfolders();
+      console.log('현재 하위 폴더 포함 설정:', currentIncludeSubfolders);
+      
+      // 새 설정 계산 (현재 설정의 반대)
+      const newIncludeSubfolders = !currentIncludeSubfolders;
+      console.log('새 하위 폴더 포함 설정:', newIncludeSubfolders);
+      
+      // 설정 업데이트
+      this.cardSetService.setIncludeSubfolders(newIncludeSubfolders);
+      
+      // 버튼 찾기
+      const button = this.element?.querySelector('[data-item-id="include-subfolders"]');
+      console.log('하위 폴더 포함 버튼 찾음:', !!button);
+      
+      if (button) {
+        console.log('버튼 클래스 업데이트 전:', button.className);
+        
+        // 아이콘 업데이트
+        setIcon(button as HTMLElement, 'folder-tree');
+        
+        // 버튼 클래스 업데이트
+        if (newIncludeSubfolders) {
+          button.classList.add('is-active');
         } else {
-          setIcon(iconContainer as HTMLElement, 'lucide-unlock');
+          button.classList.remove('is-active');
         }
+        
+        console.log('버튼 클래스 업데이트 후:', button.className);
       }
+      
+      // 카드셋 업데이트
+      this.updateCardsetName().catch(error => {
+        console.error('카드셋 이름 업데이트 중 오류 발생:', error);
+      });
+    } catch (error) {
+      console.error('하위 폴더 포함 토글 중 오류 발생:', error);
     }
-    
-    // 이벤트 발생
-    this.toolbarService.emitEvent(EventType.CARDSET_FIXED_CHANGED, { isFixed });
   }
-  
+
   /**
-   * 이벤트 리스너 초기화
+   * 툴바 아이템 액션 처리
+   * @param action 액션 이름
+   * @param data 액션 데이터
    */
-  private initializeEventListeners(): void {
-    // 아이템 등록 이벤트
-    this.itemRegisteredListener = () => {
-      this.loadItems();
-      this.update();
-    };
+  private async handleToolbarAction(action: string, data?: any): Promise<void> {
+    console.log('툴바 액션 처리:', action, data);
     
-    // 아이템 업데이트 이벤트
-    this.itemUpdatedListener = () => {
-      this.loadItems();
-      this.update();
-    };
-    
-    // 아이템 제거 이벤트
-    this.itemRemovedListener = () => {
-      this.loadItems();
-      this.update();
-    };
-    
-    // 아이템 값 변경 이벤트
-    this.itemValueChangedListener = () => {
-      this.loadItems();
-      this.update();
-    };
-    
-    // 아이템 비활성화 변경 이벤트
-    this.itemDisabledChangedListener = () => {
-      this.loadItems();
-      this.update();
-    };
-    
-    // 아이템 표시 변경 이벤트
-    this.itemVisibleChangedListener = () => {
-      this.loadItems();
-      this.update();
-    };
-    
-    // 설정 변경 이벤트
-    this.toolbarService.on(EventType.SETTINGS_CHANGED, () => {
-      this.updateCardsetSourceIcon();
-      this.updateCardsetLockIcon();
-      this.updateCardsetName();
-    });
-    
-    // 카드셋 소스 변경 이벤트
-    this.toolbarService.on(EventType.CARDSET_SOURCE_CHANGED, () => {
-      this.updateCardsetSourceIcon();
-      this.updateCardsetName();
-    });
-    
-    // 하위 폴더 포함 변경 이벤트
-    this.toolbarService.on(EventType.INCLUDE_SUBFOLDERS_CHANGED, () => {
-      this.updateCardsetSourceIcon();
-    });
-    
-    // 태그 대소문자 구분 변경 이벤트
-    this.toolbarService.on(EventType.TAG_CASE_SENSITIVE_CHANGED, () => {
-      this.updateCardsetSourceIcon();
-    });
-    
-    // 카드셋 변경 이벤트
-    this.toolbarService.on(EventType.CARDSET_CHANGED, () => {
-      this.updateCardsetName();
-    });
-    
-    // 활성 파일 변경 이벤트
-    this.toolbarService.on(EventType.ACTIVE_LEAF_CHANGED, () => {
-      this.updateCardsetName();
-    });
-    
-    // 이벤트 리스너 등록
-    this.toolbarService.on('toolbar:item-registered', this.itemRegisteredListener);
-    this.toolbarService.on('toolbar:item-updated', this.itemUpdatedListener);
-    this.toolbarService.on('toolbar:item-removed', this.itemRemovedListener);
-    this.toolbarService.on('toolbar:item-value-changed', this.itemValueChangedListener);
-    this.toolbarService.on('toolbar:item-disabled-changed', this.itemDisabledChangedListener);
-    this.toolbarService.on('toolbar:item-visible-changed', this.itemVisibleChangedListener);
+    switch (action) {
+      case 'toggleCardsetSource':
+        await this.toggleCardsetSource();
+        break;
+      case 'toggleIncludeSubfolders':
+        await this.toggleIncludeSubfolders();
+        break;
+      case 'selectCardset':
+        // 카드셋 선택 처리
+        break;
+      case 'toggleCardsetLock':
+        await this.toggleCardsetLock();
+        break;
+      case 'toggleSearch':
+        this.toggleSearchBar();
+        break;
+      case 'showSortOptions':
+        // 정렬 옵션 표시
+        break;
+      case 'showSettings':
+        // 설정 표시
+        break;
+      default:
+        console.log('알 수 없는 액션:', action);
+    }
   }
-  
+
   /**
-   * 카드셋 소스 아이콘 업데이트
+   * 컴포넌트 생성 후 초기화
    */
-  private updateCardsetSourceIcon(): void {
-    if (!this.element) return;
-    
-    const sourceButton = this.element.querySelector('[data-item-id="cardset-source-selector"]');
-    if (!sourceButton) return;
-    
-    const iconContainer = sourceButton.querySelector('.toolbar-button-icon');
-    if (!iconContainer) return;
-    
+  protected async onComponentCreated(): Promise<void> {
     // 현재 설정 가져오기
     const settings = this.toolbarService.getSettings();
-    const mode = settings.cardSetSourceMode || CardSetSourceMode.FOLDER;
+    console.log('onComponentCreated - 현재 설정:', {
+      cardSetSourceMode: settings.cardSetSourceMode,
+      includeSubfolders: settings.includeSubfolders,
+      isCardSetFixed: settings.isCardSetFixed
+    });
     
-    // 아이콘 업데이트
-    if (mode === CardSetSourceMode.FOLDER) {
-      setIcon(iconContainer as HTMLElement, 'folder');
+    // 카드셋 소스 모드 확인 및 설정
+    let mode = settings.cardSetSourceMode;
+    if (mode === undefined || mode === null) {
+      console.log('onComponentCreated: 카드셋 소스 모드가 undefined/null이므로 FOLDER로 설정');
+      mode = CardSetSourceMode.FOLDER;
       
-      // 하위 폴더 포함 아이콘 추가
-      this.addOrUpdateOptionIcon(sourceButton as HTMLElement, 'includeSubfolders', settings.includeSubfolders, 'folder-tree');
-    } else {
-      setIcon(iconContainer as HTMLElement, 'tag');
-      
-      // 대소문자 구분 아이콘 추가
-      this.addOrUpdateOptionIcon(sourceButton as HTMLElement, 'tagCaseSensitive', settings.tagCaseSensitive, 'case-sensitive');
+      // 설정에도 반영 (비동기 호출이므로 await 없이 호출)
+      this.toolbarService.updateSettings({
+        cardSetSourceMode: CardSetSourceMode.FOLDER
+      }).catch(error => {
+        console.error('onComponentCreated: 카드셋 소스 모드 설정 업데이트 중 오류 발생:', error);
+      });
     }
-  }
-  
-  /**
-   * 옵션 아이콘 추가 또는 업데이트
-   * @param parentElement 부모 요소
-   * @param optionId 옵션 ID
-   * @param isEnabled 활성화 여부
-   * @param iconName 아이콘 이름
-   */
-  private addOrUpdateOptionIcon(parentElement: HTMLElement, optionId: string, isEnabled: boolean, iconName: string): void {
-    // 기존 옵션 아이콘 찾기
-    let optionIcon = parentElement.querySelector(`.option-icon-${optionId}`);
     
-    // 없으면 새로 생성
-    if (!optionIcon) {
-      optionIcon = document.createElement('div');
-      optionIcon.className = `option-icon option-icon-${optionId}`;
-      optionIcon.setAttribute('aria-label', optionId === 'includeSubfolders' ? '하위 폴더 포함' : '대소문자 구분');
+    // 하위 폴더 포함 아이콘 초기 상태 설정
+    let includeSubfoldersButton = this.element?.querySelector('[data-item-id="include-subfolders"]');
+    console.log('onComponentCreated - 하위 폴더 포함 버튼 존재 여부:', !!includeSubfoldersButton);
+    
+    // 하위 폴더 포함 버튼이 없고 폴더 모드인 경우 추가
+    if (!includeSubfoldersButton && mode !== CardSetSourceMode.TAG) {
+      console.log('onComponentCreated: 하위 폴더 포함 버튼이 없어 추가합니다.');
       
-      // 스타일 설정
-      optionIcon.setAttribute('style', `
-        position: absolute;
-        bottom: 0;
-        right: 0;
-        width: 12px;
-        height: 12px;
-        font-size: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        background-color: ${isEnabled ? 'var(--interactive-accent)' : 'var(--background-modifier-border)'};
-        color: ${isEnabled ? 'var(--text-on-accent)' : 'var(--text-muted)'};
-        opacity: ${isEnabled ? 1 : 0.7};
-      `);
+      // 현재 하위 폴더 포함 상태 가져오기
+      const includeSubfolders = this.cardSetService.getIncludeSubfolders();
+      console.log('onComponentCreated: 하위 폴더 포함 상태:', includeSubfolders);
       
-      // 아이콘 설정
-      setIcon(optionIcon as HTMLElement, iconName);
+      this.addItem({
+        id: 'include-subfolders',
+        type: 'button',
+        position: 'left',
+        icon: 'folder-tree',
+        tooltip: '하위 폴더 포함',
+        action: 'toggleIncludeSubfolders',
+        order: 1,
+        visible: true,
+        classes: includeSubfolders ? ['is-active'] : []
+      });
       
-      // 부모 요소에 추가
-      parentElement.style.position = 'relative';
-      parentElement.appendChild(optionIcon);
-    } else {
-      // 기존 아이콘 업데이트
-      optionIcon.setAttribute('style', `
-        position: absolute;
-        bottom: 0;
-        right: 0;
-        width: 12px;
-        height: 12px;
-        font-size: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        background-color: ${isEnabled ? 'var(--interactive-accent)' : 'var(--background-modifier-border)'};
-        color: ${isEnabled ? 'var(--text-on-accent)' : 'var(--text-muted)'};
-        opacity: ${isEnabled ? 1 : 0.7};
-      `);
+      // 버튼 참조 업데이트
+      includeSubfoldersButton = this.element?.querySelector('[data-item-id="include-subfolders"]');
+      console.log('onComponentCreated: 하위 폴더 포함 버튼 추가 완료, 초기 상태:', includeSubfolders ? '활성화' : '비활성화');
     }
-  }
-  
-  /**
-   * 카드셋 고정 아이콘 업데이트
-   */
-  private updateCardsetLockIcon(): void {
-    if (!this.element) return;
     
-    const lockButton = this.element.querySelector('[data-item-id="cardset-lock"]');
-    if (!lockButton) return;
-    
-    const iconContainer = lockButton.querySelector('.toolbar-button-icon');
-    if (!iconContainer) return;
-    
-    // 현재 설정 가져오기
-    const settings = this.toolbarService.getSettings();
-    const isFixed = settings.isCardSetFixed;
-    
-    // 아이콘 업데이트
-    if (isFixed) {
-      setIcon(iconContainer as HTMLElement, 'lucide-lock');
-    } else {
-      setIcon(iconContainer as HTMLElement, 'lucide-unlock');
+    // 하위 폴더 포함 버튼 상태 강제 설정
+    if (includeSubfoldersButton) {
+      // 현재 하위 폴더 포함 상태 가져오기
+      const includeSubfolders = this.cardSetService.getIncludeSubfolders();
+      console.log('onComponentCreated: 하위 폴더 포함 버튼 상태 설정 전 클래스:', includeSubfoldersButton.className);
+      
+      // 상태에 따라 클래스 설정 (기존 클래스 제거 후 추가)
+      if (includeSubfolders) {
+        includeSubfoldersButton.classList.add('is-active');
+      } else {
+        includeSubfoldersButton.classList.remove('is-active');
+      }
+      
+      console.log('onComponentCreated: 하위 폴더 포함 버튼 상태 설정 후 클래스:', includeSubfoldersButton.className);
+      console.log('하위 폴더 포함 아이콘 초기 상태 설정:', includeSubfolders ? '활성화' : '비활성화');
     }
+    
+    // 자물쇠 아이콘 초기 상태 설정
+    this.updateLockIcon(settings.isCardSetFixed);
+    console.log('자물쇠 아이콘 초기 상태 설정:', settings.isCardSetFixed);
+    
+    // 카드셋 이름 초기화
+    this.updateCardsetName().catch(error => {
+      console.error('카드셋 이름 초기화 중 오류 발생:', error);
+    });
   }
-  
-  /**
-   * 컴포넌트 업데이트
-   */
-  async update(): Promise<void> {
-    if (!this.element) return;
-    
-    const toolbarElement = this.element.querySelector('.card-navigator-toolbar');
-    if (!toolbarElement) return;
-    
-    // 기존 섹션 요소 가져오기
-    const leftSection = toolbarElement.querySelector('.toolbar-section.left') as HTMLElement;
-    const centerSection = toolbarElement.querySelector('.toolbar-section.center') as HTMLElement;
-    const rightSection = toolbarElement.querySelector('.toolbar-section.right') as HTMLElement;
-    
-    if (!leftSection || !centerSection || !rightSection) return;
-    
-    // 기존 아이템 제거
-    leftSection.innerHTML = '';
-    centerSection.innerHTML = '';
-    rightSection.innerHTML = '';
-    
-    // 아이템 다시 렌더링
-    this.renderItems(leftSection, centerSection, rightSection);
-  }
-  
+
   /**
    * 컴포넌트 정리
+   * 이벤트 리스너 등을 정리합니다.
    */
-  cleanup(): void {
+  public cleanup(): void {
     // 이벤트 리스너 제거
-    this.removeEventListeners();
+    this.toolbarService.off('toolbar:item-registered', this.itemRegisteredListener);
+    this.toolbarService.off('toolbar:item-updated', this.itemUpdatedListener);
+    this.toolbarService.off('toolbar:item-removed', this.itemRemovedListener);
+    this.toolbarService.off('toolbar:action-executed', this.itemActionExecutedListener);
+    
+    // 도메인 이벤트 리스너 제거
+    this.eventBus.off(EventType.CARDSET_CHANGED, this.cardsetChangedListener);
+    this.eventBus.off(EventType.ACTIVE_FILE_CHANGED, this.activeFileChangedListener);
     
     // 컴포넌트 제거
-    this.remove();
+    super.remove();
+  }
+
+  /**
+   * 컴포넌트 렌더링
+   */
+  public async render(container?: HTMLElement): Promise<HTMLElement> {
+    const element = await super.render(container);
+    
+    // 렌더링 후 하위 폴더 포함 버튼 상태 확인 및 설정
+    setTimeout(() => {
+      // 현재 모드 확인
+      const currentMode = this.cardSetService.getCardSetSourceMode();
+      if (currentMode === CardSetSourceMode.FOLDER) {
+        // 하위 폴더 포함 버튼 찾기
+        const includeSubfoldersButton = this.element?.querySelector('[data-item-id="include-subfolders"]');
+        if (includeSubfoldersButton) {
+          // 현재 하위 폴더 포함 상태 가져오기
+          const includeSubfolders = this.cardSetService.getIncludeSubfolders();
+          console.log('render: 하위 폴더 포함 버튼 상태 설정 전 클래스:', includeSubfoldersButton.className);
+          
+          // 상태에 따라 클래스 설정
+          if (includeSubfolders) {
+            includeSubfoldersButton.classList.add('is-active');
+          } else {
+            includeSubfoldersButton.classList.remove('is-active');
+          }
+          
+          console.log('render: 하위 폴더 포함 버튼 상태 설정 후 클래스:', includeSubfoldersButton.className);
+          console.log('render: 하위 폴더 포함 아이콘 상태 설정:', includeSubfolders ? '활성화' : '비활성화');
+        }
+      }
+    }, 0);
+    
+    return element;
   }
 } 

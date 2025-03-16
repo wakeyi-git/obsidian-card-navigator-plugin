@@ -1,4 +1,4 @@
-import { ICardNavigatorSettings, LayoutDirectionPreference } from './SettingsInterfaces';
+import { ICardNavigatorSettings, LayoutDirectionPreference, CardSetSourceMode } from './SettingsInterfaces';
 import { NavigationMode } from '../navigation';
 
 /**
@@ -15,10 +15,15 @@ export const DEFAULT_SETTINGS: Partial<ICardNavigatorSettings> = {
   defaultFolderCardSet: '',
   defaultTagCardSet: '',
   isCardSetFixed: false,
-  defaultSearchScope: 'current',
+  defaultSearchScope: 'all',
   tagCaseSensitive: false,
   useLastCardSetSourceOnLoad: true,
   debugMode: false,
+  
+  // 카드셋 소스 모드 설정
+  cardSetSourceMode: CardSetSourceMode.FOLDER,
+  selectedFolder: '',
+  selectedTags: [],
   
   // 카드 설정
   cardWidth: 250,

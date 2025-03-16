@@ -874,6 +874,7 @@ export enum EventType {
   FILE_DELETED = 'file-deleted',
   FILE_RENAMED = 'file-renamed',
   ACTIVE_LEAF_CHANGED = 'active-leaf-changed',
+  ACTIVE_FILE_CHANGED = 'active-file-changed',
   
   // 새로운 이벤트 타입
   CARD_LIST_UPDATED = 'card-list-updated',
