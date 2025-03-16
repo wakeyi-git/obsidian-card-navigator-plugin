@@ -89,6 +89,12 @@ export interface ICardSetService extends ICardSetSourceManager, ICardSetSourceCo
    * @param fixed 카드셋 고정 여부
    */
   setCardSetFixed(fixed: boolean): Promise<void>;
+  
+  /**
+   * 카드 세트 변경
+   * @param type 변경할 카드 세트 타입
+   */
+  changeCardSetSource(type: CardSetSourceType): Promise<void>;
 }
 
 /**
@@ -239,7 +245,8 @@ export class CardSetService implements ICardSetService {
     if (this.currentCardSetSource === 'folder') {
       await this.settingsService.updateSettings({
         lastFolderCardSet: cardSet,
-        lastFolderCardSetFixed: isFixed
+        lastFolderCardSetFixed: isFixed,
+        selectedFolder: cardSet
       });
       
       if (isFixed) {
@@ -251,7 +258,8 @@ export class CardSetService implements ICardSetService {
     } else if (this.currentCardSetSource === 'tag') {
       await this.settingsService.updateSettings({
         lastTagCardSet: cardSet,
-        lastTagCardSetFixed: isFixed
+        lastTagCardSetFixed: isFixed,
+        selectedTags: [cardSet]
       });
       
       if (isFixed) {
@@ -499,33 +507,39 @@ export class CardSetService implements ICardSetService {
     
     // 설정에서 기본 폴더 카드셋 가져오기
     const settings = this.settingsService.getSettings();
+    const selectedFolder = settings.selectedFolder;
     const defaultFolderCardSet = settings.defaultFolderCardSet;
     const includeSubfolders = settings.includeSubfolders;
     
     console.log('설정 정보:', {
+      selectedFolder,
       defaultFolderCardSet,
       includeSubfolders,
       isCardSetFixed: settings.isCardSetFixed
     });
     
-    // 고정된 카드셋이고 기본 폴더가 설정되어 있는 경우
-    if (settings.isCardSetFixed && defaultFolderCardSet) {
-      console.log('고정된 폴더 카드셋 사용:', defaultFolderCardSet);
-      const files = this.obsidianService.getMarkdownFilesInFolder(defaultFolderCardSet, includeSubfolders);
-      console.log('고정된 폴더에서 찾은 파일 수:', files.length);
+    // 고정된 카드셋이고 선택된 폴더가 있는 경우 (selectedFolder 우선)
+    if (settings.isCardSetFixed) {
+      const folderPath = selectedFolder || defaultFolderCardSet;
       
-      // 카드셋 ID 생성
-      const cardSetId = createFolderCardSetId(defaultFolderCardSet);
-      console.log('카드셋 ID 생성(고정):', cardSetId);
-      
-      return {
-        id: cardSetId,
-        name: defaultFolderCardSet || '루트',
-        sourceType: 'folder',
-        source: defaultFolderCardSet,
-        type: 'fixed',
-        files: files
-      };
+      if (folderPath) {
+        console.log('고정된 폴더 카드셋 사용:', folderPath);
+        const files = this.obsidianService.getMarkdownFilesInFolder(folderPath, includeSubfolders);
+        console.log('고정된 폴더에서 찾은 파일 수:', files.length);
+        
+        // 카드셋 ID 생성
+        const cardSetId = createFolderCardSetId(folderPath);
+        console.log('카드셋 ID 생성(고정):', cardSetId);
+        
+        return {
+          id: cardSetId,
+          name: folderPath || '루트',
+          sourceType: 'folder',
+          source: folderPath,
+          type: 'fixed',
+          files: files
+        };
+      }
     }
     
     // 활성 파일의 폴더 가져오기

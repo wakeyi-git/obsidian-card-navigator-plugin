@@ -701,26 +701,33 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
    * @param folder 선택한 폴더
    */
   private async selectFolder(folder: string): Promise<void> {
-    // 설정 업데이트 - 폴더 선택 시 자동으로 고정 모드로 전환
-    await this.toolbarService.updateSettings({
-      selectedFolder: folder,
-      isCardSetFixed: true
-    });
+    console.log('폴더 선택됨:', folder);
     
-    // 카드셋 이름 업데이트
-    this.updateCardsetName().catch(error => {
-      console.error('카드셋 이름 업데이트 중 오류 발생:', error);
-    });
-    
-    // 자물쇠 아이콘 업데이트
-    this.updateLockIcon(true);
-    
-    // 이벤트 발생
-    this.toolbarService.emitEvent(EventType.CARDSET_SOURCE_CHANGED, {
-      mode: CardSetSourceMode.FOLDER,
-      isFixed: true,
-      selectedFolder: folder
-    });
+    try {
+      // 카드셋 서비스를 통해 폴더 모드로 설정
+      await this.cardSetService.setCardSetSourceMode(CardSetSourceMode.FOLDER);
+      
+      // 카드셋 고정 모드로 설정
+      await this.cardSetService.setCardSetFixed(true);
+      
+      // 설정 업데이트 - 선택한 폴더 저장
+      await this.toolbarService.updateSettings({
+        selectedFolder: folder
+      });
+      
+      // 카드셋 선택 (중요: 이 메서드가 카드셋을 실제로 변경함)
+      await this.cardSetService.selectCardSet(folder, true);
+      
+      // 자물쇠 아이콘 업데이트
+      this.updateLockIcon(true);
+      
+      // 카드셋 이름 업데이트
+      await this.updateCardsetName();
+      
+      console.log('폴더 선택 완료:', folder);
+    } catch (error) {
+      console.error('폴더 선택 중 오류 발생:', error);
+    }
   }
   
   /**
@@ -728,22 +735,30 @@ export class ToolbarComponent extends Component implements IToolbarComponent {
    * @param tag 선택한 태그
    */
   private async selectTag(tag: string): Promise<void> {
-    // 설정 업데이트
-    await this.toolbarService.updateSettings({
-      selectedTags: [tag]
-    });
+    console.log('태그 선택됨:', tag);
     
-    // 카드셋 이름 업데이트
-    this.updateCardsetName().catch(error => {
-      console.error('카드셋 이름 업데이트 중 오류 발생:', error);
-    });
-    
-    // 이벤트 발생
-    this.toolbarService.emitEvent(EventType.CARDSET_SOURCE_CHANGED, {
-      mode: CardSetSourceMode.TAG,
-      isFixed: true,
-      selectedTags: [tag]
-    });
+    try {
+      // 카드셋 서비스를 통해 태그 모드로 설정
+      await this.cardSetService.setCardSetSourceMode(CardSetSourceMode.TAG);
+      
+      // 카드셋 고정 모드로 설정
+      await this.cardSetService.setCardSetFixed(true);
+      
+      // 설정 업데이트 - 선택한 태그 저장
+      await this.toolbarService.updateSettings({
+        selectedTags: [tag]
+      });
+      
+      // 카드셋 선택 (중요: 이 메서드가 카드셋을 실제로 변경함)
+      await this.cardSetService.selectCardSet(tag, true);
+      
+      // 카드셋 이름 업데이트
+      await this.updateCardsetName();
+      
+      console.log('태그 선택 완료:', tag);
+    } catch (error) {
+      console.error('태그 선택 중 오류 발생:', error);
+    }
   }
   
   /**
