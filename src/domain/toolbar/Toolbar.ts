@@ -1,277 +1,209 @@
-import { 
-  IToolbarManager, 
-  IToolbarState, 
-  ToolbarItemType, 
-  ISearchPopupState, 
-  ISortPopupState, 
-  ISettingsPopupState 
-} from './ToolbarInterfaces';
+/**
+ * 툴바 아이템 타입 열거형
+ */
+export enum ToolbarItemType {
+  SORT = 'sort',
+  CARDSET = 'cardset',
+  CARDSET_NAME = 'cardset-name',
+  SETTINGS = 'settings',
+  SEARCH = 'search',
+  BUTTON = 'button',
+  INPUT = 'input',
+  SELECT = 'select',
+  TOGGLE = 'toggle'
+}
 
 /**
- * 툴바 관리자 클래스
- * 툴바 상태 및 팝업을 관리합니다.
+ * 정렬 타입
  */
-export class ToolbarManager implements IToolbarManager {
+export type SortType = 'filename' | 'created' | 'modified' | 'frontmatter';
+
+/**
+ * 정렬 방향
+ */
+export type SortDirection = 'asc' | 'desc';
+
+/**
+ * 검색 타입 열거형
+ */
+export enum SearchType {
+  FILENAME = 'filename',
+  CONTENT = 'content',
+  TAG = 'tag',
+  PATH = 'path',
+  FRONTMATTER = 'frontmatter',
+  CREATE = 'create',
+  MODIFY = 'modify',
+  REGEX = 'regex'
+}
+
+/**
+ * 카드셋 소스 타입
+ */
+export type CardSetSource = 'folder' | 'tag';
+
+/**
+ * 툴바 아이템 인터페이스
+ */
+export interface IToolbarItem {
   /**
-   * 툴바 상태
+   * 아이템 타입
    */
-  private state: IToolbarState;
+  type: ToolbarItemType;
   
   /**
-   * 검색 팝업 상태
+   * 아이템 ID
    */
-  private searchPopup: ISearchPopupState | null = null;
+  id: string;
+
+  /**
+   * 아이템 위치
+   */
+  position?: 'left' | 'center' | 'right';
+
+  /**
+   * 아이템 표시 여부
+   */
+  visible?: boolean;
+
+  /**
+   * 아이템 비활성화 여부
+   */
+  disabled?: boolean;
+
+  /**
+   * 아이템 순서
+   */
+  order?: number;
+
+  /**
+   * 아이템 아이콘
+   */
+  icon?: string;
+
+  /**
+   * 아이템 레이블
+   */
+  label?: string;
+
+  /**
+   * 아이템 툴팁
+   */
+  tooltip?: string;
+
+  /**
+   * 아이템 액션
+   */
+  action?: () => void;
+
+  /**
+   * 아이템 옵션 (select 타입에서 사용)
+   */
+  options?: { value: string; label: string }[];
+
+  /**
+   * 아이템 값
+   */
+  value?: string;
+
+  /**
+   * 연결된 팝업 ID
+   */
+  popupId?: string;
+
+  /**
+   * CSS 클래스 목록
+   */
+  classes?: string[];
+}
+
+/**
+ * 툴바 인터페이스
+ */
+export interface IToolbar {
+  /**
+   * 툴바 아이템 목록
+   */
+  items: IToolbarItem[];
   
   /**
-   * 정렬 팝업 상태
+   * 아이템 추가
+   * @param item 추가할 아이템
    */
-  private sortPopup: ISortPopupState | null = null;
+  addItem(item: IToolbarItem): void;
   
   /**
-   * 설정 팝업 상태
+   * 아이템 제거
+   * @param itemId 제거할 아이템 ID
    */
-  private settingsPopup: ISettingsPopupState | null = null;
+  removeItem(itemId: string): void;
   
   /**
-   * 생성자
+   * 아이템 가져오기
+   * @param itemId 아이템 ID
    */
-  constructor() {
-    // 기본 툴바 상태 초기화
-    this.state = {
-      items: [
-        {
-          type: ToolbarItemType.SEARCH,
-          active: false,
-          iconId: 'search',
-          tooltip: '검색',
-          id: 'toolbar-search'
-        },
-        {
-          type: ToolbarItemType.SORT,
-          active: false,
-          iconId: 'sort',
-          tooltip: '정렬',
-          id: 'toolbar-sort'
-        },
-        {
-          type: ToolbarItemType.CARDSET,
-          active: false,
-          iconId: 'cards',
-          tooltip: '카드셋',
-          id: 'toolbar-cardset'
-        },
-        {
-          type: ToolbarItemType.SETTINGS,
-          active: false,
-          iconId: 'settings',
-          tooltip: '설정',
-          id: 'toolbar-settings'
-        }
-      ],
-      searchQuery: '',
-      isSearchActive: false
-    };
+  getItem(itemId: string): IToolbarItem | null;
+  
+  /**
+   * 모든 아이템 가져오기
+   */
+  getItems(): IToolbarItem[];
+}
+
+/**
+ * 툴바 도메인 모델
+ */
+export class Toolbar implements IToolbar {
+  private _items: IToolbarItem[] = [];
+
+  constructor(items: IToolbarItem[] = []) {
+    this._items = [...items];
   }
-  
+
   /**
-   * 툴바 상태 가져오기
-   * @returns 툴바 상태
+   * 툴바 아이템 목록
    */
-  getToolbarState(): IToolbarState {
-    return { ...this.state };
+  get items(): IToolbarItem[] {
+    return [...this._items];
   }
-  
+
   /**
-   * 툴바 아이템 활성화/비활성화
-   * @param itemType 아이템 타입
-   * @param active 활성화 여부
+   * 툴바 아이템 목록 설정
    */
-  setToolbarItemActive(itemType: ToolbarItemType, active: boolean): void {
-    const updatedItems = this.state.items.map(item => {
-      if (item.type === itemType) {
-        return { ...item, active };
-      }
-      return item;
-    });
-    
-    this.state = {
-      ...this.state,
-      items: updatedItems
-    };
+  set items(value: IToolbarItem[]) {
+    this._items = [...value];
   }
-  
+
   /**
-   * 검색어 설정
-   * @param query 검색어
+   * 아이템 추가
+   * @param item 추가할 아이템
    */
-  setSearchQuery(query: string): void {
-    this.state = {
-      ...this.state,
-      searchQuery: query,
-      isSearchActive: query.length > 0
-    };
-  }
-  
-  /**
-   * 검색어 삭제
-   */
-  clearSearchQuery(): void {
-    this.state = {
-      ...this.state,
-      searchQuery: '',
-      isSearchActive: false
-    };
-  }
-  
-  /**
-   * 팝업 표시
-   * @param popupType 팝업 타입
-   * @param position 팝업 위치
-   */
-  showPopup(popupType: ToolbarItemType, position: { x: number; y: number }): void {
-    // 다른 팝업 모두 숨기기
-    this.hideAllPopups();
-    
-    // 요청된 팝업 표시
-    switch (popupType) {
-      case ToolbarItemType.SEARCH:
-        this.searchPopup = {
-          type: 'search',
-          visible: true,
-          position,
-          query: this.state.searchQuery,
-          searchType: 'filename',
-          caseSensitive: false,
-          currentCardSetSource: 'folder', // 기본값
-          folderModeFilters: {
-            selectedTags: []
-          },
-          tagModeFilters: {
-            selectedPaths: []
-          },
-          showSuggestions: false,
-          suggestions: []
-        };
-        break;
-        
-      case ToolbarItemType.SORT:
-        this.sortPopup = {
-          type: 'sort',
-          visible: true,
-          position,
-          currentSortType: 'filename',
-          currentSortDirection: 'asc'
-        };
-        break;
-        
-      case ToolbarItemType.SETTINGS:
-        this.settingsPopup = {
-          type: 'settings',
-          visible: true,
-          position,
-          currentCardSetSource: 'folder',
-          cardDisplay: {
-            showHeader: true,
-            showBody: true,
-            showFooter: true
-          },
-          renderingMode: 'text',
-          layoutMode: 'grid'
-        };
-        break;
-        
-      case ToolbarItemType.CARDSET:
-        // 카드셋 팝업 처리 로직 추가
-        break;
-        
-      default:
-        break;
+  addItem(item: IToolbarItem): void {
+    if (!this.getItem(item.id)) {
+      this._items.push(item);
     }
-    
-    // 해당 툴바 아이템 활성화
-    this.setToolbarItemActive(popupType, true);
   }
-  
+
   /**
-   * 팝업 숨기기
-   * @param popupType 팝업 타입
+   * 아이템 제거
+   * @param itemId 제거할 아이템 ID
    */
-  hidePopup(popupType: ToolbarItemType): void {
-    switch (popupType) {
-      case ToolbarItemType.SEARCH:
-        if (this.searchPopup) {
-          this.searchPopup.visible = false;
-        }
-        break;
-        
-      case ToolbarItemType.SORT:
-        if (this.sortPopup) {
-          this.sortPopup.visible = false;
-        }
-        break;
-        
-      case ToolbarItemType.SETTINGS:
-        if (this.settingsPopup) {
-          this.settingsPopup.visible = false;
-        }
-        break;
-        
-      case ToolbarItemType.CARDSET:
-        // 카드셋 팝업 숨기기 로직 추가
-        break;
-        
-      default:
-        break;
-    }
-    
-    // 해당 툴바 아이템 비활성화
-    this.setToolbarItemActive(popupType, false);
+  removeItem(itemId: string): void {
+    this._items = this._items.filter(item => item.id !== itemId);
   }
-  
+
   /**
-   * 모든 팝업 숨기기
+   * 아이템 가져오기
+   * @param itemId 아이템 ID
    */
-  hideAllPopups(): void {
-    if (this.searchPopup) {
-      this.searchPopup.visible = false;
-      this.setToolbarItemActive(ToolbarItemType.SEARCH, false);
-    }
-    
-    if (this.sortPopup) {
-      this.sortPopup.visible = false;
-      this.setToolbarItemActive(ToolbarItemType.SORT, false);
-    }
-    
-    if (this.settingsPopup) {
-      this.settingsPopup.visible = false;
-      this.setToolbarItemActive(ToolbarItemType.SETTINGS, false);
-    }
-    
-    // 카드셋 팝업 숨기기 로직 추가
-    this.setToolbarItemActive(ToolbarItemType.CARDSET, false);
+  getItem(itemId: string): IToolbarItem | null {
+    return this._items.find(item => item.id === itemId) || null;
   }
-  
+
   /**
-   * 검색 팝업 상태 가져오기
-   * @returns 검색 팝업 상태
+   * 모든 아이템 가져오기
    */
-  getSearchPopupState(): ISearchPopupState | null {
-    return this.searchPopup ? { ...this.searchPopup } : null;
+  getItems(): IToolbarItem[] {
+    return [...this._items];
   }
-  
-  /**
-   * 정렬 팝업 상태 가져오기
-   * @returns 정렬 팝업 상태
-   */
-  getSortPopupState(): ISortPopupState | null {
-    return this.sortPopup ? { ...this.sortPopup } : null;
-  }
-  
-  /**
-   * 설정 팝업 상태 가져오기
-   * @returns 설정 팝업 상태
-   */
-  getSettingsPopupState(): ISettingsPopupState | null {
-    return this.settingsPopup ? { ...this.settingsPopup } : null;
-  }
-} 
+}

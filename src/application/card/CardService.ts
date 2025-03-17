@@ -1,363 +1,295 @@
-import { TFile } from 'obsidian';
 import { ICard } from '../../domain/card/Card';
+import { CardState } from '../../domain/card/CardState';
+import { ICardManager } from '../../domain/card/ICardManager';
 import { DomainEventBus } from '../../core/events/DomainEventBus';
-import { EventType } from '../../domain/events/EventTypes';
-import { ICardManager } from '../../domain/interaction/InteractionInterfaces';
-import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
-import { ObsidianService } from '../../infrastructure/obsidian/adapters/ObsidianService';
-import { CardCreationService, ICardCreationService } from './CardCreationService';
-import { CardInteractionService, ICardInteractionService } from './CardInteractionService';
-import { CardQueryService, ICardQueryService } from './CardQueryService';
-import { ILayoutService } from '../../application/layout/LayoutService';
-import { ICardRenderingService } from './CardRenderingService';
+import { EventType, IEventPayloads } from '../../core/events/EventTypes';
+import { DomainErrorBus } from '../../core/errors/DomainErrorBus';
+import { ErrorCode } from '../../core/errors/ErrorTypes';
+import { DomainError } from '../../core/errors/DomainError';
 
 /**
  * 카드 서비스 인터페이스
  */
-export interface ICardService extends ICardManager {
+export interface ICardService {
   /**
-   * 카드 가져오기
-   * @param id 카드 ID
-   * @returns 카드 또는 undefined
+   * 카드 생성
    */
-  getCardById(id: string): Promise<ICard | undefined>;
-  
+  createCard(content: string): ICard;
+
   /**
-   * 경로로 카드 가져오기
-   * @param path 파일 경로
-   * @returns 카드 또는 null
+   * 카드 수정
    */
-  getCardByPath(path: string): Promise<ICard | null>;
-  
+  updateCard(card: ICard): void;
+
   /**
-   * 파일로부터 카드 생성
-   * @param file 파일
-   * @returns 생성된 카드
+   * 카드 삭제
    */
-  createCardFromFile(file: TFile): Promise<ICard>;
-  
+  deleteCard(cardId: string): void;
+
   /**
-   * 이벤트 버스 가져오기
-   * @returns 이벤트 버스
+   * 카드 상태 변경
    */
-  getEventBus(): DomainEventBus;
-  
+  updateCardState(cardId: string, state: Partial<CardState>): void;
+
   /**
-   * 설정 서비스 가져오기
-   * @returns 설정 서비스
+   * 카드 선택
    */
-  getSettingsService(): ISettingsService;
-  
+  selectCard(cardId: string): void;
+
   /**
-   * 카드 목록 가져오기
-   * @returns 카드 목록
+   * 카드 선택 해제
    */
-  getCards(): Promise<ICard[]>;
-  
+  deselectCard(cardId: string): void;
+
   /**
-   * 현재 카드 목록 가져오기
-   * @returns 현재 카드 목록
+   * 모든 카드 선택 해제
    */
-  getCurrentCards(): ICard[];
-  
+  deselectAllCards(): void;
+
   /**
-   * 카드 저장소 새로고침
+   * 카드 포커스
    */
-  refreshCards(): Promise<void>;
-  
+  focusCard(cardId: string): void;
+
   /**
-   * 태그로 카드 필터링
-   * @param tag 태그
-   * @returns 필터링된 카드 목록
+   * 카드 포커스 해제
    */
-  filterCardsByTag(tag: string): Promise<ICard[]>;
-  
+  unfocusCard(cardId: string): void;
+
   /**
-   * 폴더로 카드 필터링
-   * @param folder 폴더 경로
-   * @returns 필터링된 카드 목록
+   * 카드 열기
    */
-  filterCardsByFolder(folder: string): Promise<ICard[]>;
-  
+  openCard(cardId: string): void;
+
   /**
-   * 텍스트로 카드 검색
-   * @param text 검색 텍스트
-   * @returns 검색된 카드 목록
+   * 카드 닫기
    */
-  searchCardsByText(text: string): Promise<ICard[]>;
-  
+  closeCard(cardId: string): void;
+
   /**
-   * 카드 캐시 초기화
+   * 카드 ID로 카드 조회
    */
-  clearCardCache(): void;
-  
+  getCard(cardId: string): ICard | undefined;
+
   /**
-   * 레이아웃 서비스 가져오기
-   * @returns 레이아웃 서비스
+   * 서비스 정리
    */
-  getLayoutService(): ILayoutService;
+  destroy(): void;
 }
 
 /**
- * 카드 서비스
- * 카드 관련 기능을 관리합니다.
- * 파사드(Facade) 패턴으로 구현되어 다른 서비스들을 조합합니다.
+ * 카드 서비스 구현체
  */
 export class CardService implements ICardService {
-  private obsidianService: ObsidianService;
-  private settingsService: ISettingsService;
+  private cards: Map<string, ICard> = new Map();
   private eventBus: DomainEventBus;
-  
-  private cardQueryService: ICardQueryService;
-  private cardCreationService: ICardCreationService;
-  private cardInteractionService: ICardInteractionService;
-  private cardRenderingService: ICardRenderingService;
-  private layoutService: ILayoutService;
-  
-  /**
-   * 생성자
-   * @param obsidianService Obsidian 서비스
-   * @param settingsService 설정 서비스
-   * @param eventBus 이벤트 버스
-   * @param cardCreationService 카드 생성 서비스
-   * @param cardRenderingService 카드 렌더링 서비스
-   * @param cardInteractionService 카드 상호작용 서비스
-   * @param cardQueryService 카드 쿼리 서비스
-   * @param layoutService 레이아웃 서비스
-   */
+  private errorBus: DomainErrorBus;
+
   constructor(
-    obsidianService: ObsidianService,
-    settingsService: ISettingsService,
-    eventBus: DomainEventBus,
-    cardCreationService: ICardCreationService,
-    cardRenderingService: ICardRenderingService,
-    cardInteractionService: ICardInteractionService,
-    cardQueryService: ICardQueryService,
-    layoutService: ILayoutService
+    private readonly cardManager: ICardManager
   ) {
-    this.obsidianService = obsidianService;
-    this.settingsService = settingsService;
-    this.eventBus = eventBus;
-    
-    this.cardCreationService = cardCreationService;
-    this.cardRenderingService = cardRenderingService;
-    this.cardInteractionService = cardInteractionService;
-    this.cardQueryService = cardQueryService;
-    this.layoutService = layoutService;
-    
-    // 이벤트 리스너 등록
-    this.registerEventListeners();
+    this.eventBus = DomainEventBus.getInstance();
+    this.errorBus = DomainErrorBus.getInstance();
   }
-  
+
   /**
-   * 이벤트 리스너 등록
+   * 카드 생성
    */
-  private registerEventListeners(): void {
-    this.eventBus.on(EventType.SETTINGS_CHANGED, () => {
-      // 필요한 경우 상태 초기화
-    });
+  createCard(content: string): ICard {
+    const card = this.cardManager.createCard(content);
+    this.cards.set(card.getId(), card);
+    this.publishCardCreated(card);
+    return card;
   }
-  
+
   /**
-   * 카드 목록 가져오기
-   * @returns 카드 목록
+   * 카드 수정
    */
-  async getCards(): Promise<ICard[]> {
-    return this.cardQueryService.getCards();
+  updateCard(card: ICard): void {
+    if (this.cards.has(card.getId())) {
+      this.cards.set(card.getId(), card);
+      this.cardManager.updateCard(card);
+      this.publishCardUpdated(card);
+    }
   }
-  
+
   /**
-   * 현재 카드 목록 가져오기
-   * @returns 현재 카드 목록
+   * 카드 삭제
    */
-  getCurrentCards(): ICard[] {
-    return this.cardQueryService.getCurrentCards();
+  deleteCard(cardId: string): void {
+    const card = this.cards.get(cardId);
+    if (card) {
+      this.cards.delete(cardId);
+      this.cardManager.deleteCard(card);
+      this.publishCardDeleted(card);
+    }
   }
-  
+
   /**
-   * 카드 저장소 새로고침
+   * 카드 상태 변경 이벤트 발행
    */
-  async refreshCards(): Promise<void> {
-    // 카드 캐시 초기화
-    this.clearCardCache();
-    
-    // 카드 쿼리 서비스를 통해 카드 목록 새로고침
-    await this.cardQueryService.refreshCards();
+  private publishCardStateChanged(cardId: string, state: CardState): void {
+    this.eventBus.publish(EventType.CARD_STATE_CHANGED, {
+      card: cardId,
+      state: {
+        ...state,
+        activeCardId: state.isOpen ? cardId : null,
+        focusedCardId: state.isFocused ? cardId : null,
+        selectedCardIds: new Set(state.isSelected ? [cardId] : []),
+        index: Array.from(this.cards.keys()).indexOf(cardId)
+      }
+    }, 'CardService');
   }
-  
+
   /**
-   * 카드 가져오기
-   * @param id 카드 ID
-   * @returns 카드 또는 undefined
+   * ID로 카드 가져오기
    */
-  async getCardById(id: string): Promise<ICard | undefined> {
-    return this.cardQueryService.getCardById(id);
+  private getCardById(cardId: string): ICard | undefined {
+    return this.cards.get(cardId);
   }
-  
+
   /**
-   * 경로로 카드 가져오기
-   * @param path 파일 경로
-   * @returns 카드 또는 null
+   * 카드 상태 업데이트
    */
-  async getCardByPath(path: string): Promise<ICard | null> {
-    const card = this.cardQueryService.getCardByPath(path);
-    return card || null;
+  async updateCardState(cardId: string, state: Partial<CardState>): Promise<void> {
+    const card = this.getCardById(cardId);
+    if (!card) {
+      this.errorBus.publish(ErrorCode.CARD_NOT_FOUND, {
+        cardId,
+        details: { message: '카드를 찾을 수 없습니다.' }
+      }, 'CardService');
+      return;
+    }
+
+    const currentState = card.getState();
+    const newState = { ...currentState, ...state };
+    card.setState(newState);
+
+    this.publishCardStateChanged(cardId, newState);
   }
-  
-  /**
-   * 파일로부터 카드 생성
-   * @param file 파일
-   * @returns 생성된 카드
-   */
-  async createCardFromFile(file: TFile): Promise<ICard> {
-    return this.cardCreationService.createCardFromFile(file);
-  }
-  
-  /**
-   * 태그로 카드 필터링
-   * @param tag 태그
-   * @returns 필터링된 카드 목록
-   */
-  async filterCardsByTag(tag: string): Promise<ICard[]> {
-    return this.cardQueryService.filterCardsByTag(tag);
-  }
-  
-  /**
-   * 폴더로 카드 필터링
-   * @param folder 폴더 경로
-   * @returns 필터링된 카드 목록
-   */
-  async filterCardsByFolder(folder: string): Promise<ICard[]> {
-    return this.cardQueryService.filterCardsByFolder(folder);
-  }
-  
-  /**
-   * 텍스트로 카드 검색
-   * @param text 검색 텍스트
-   * @returns 검색된 카드 목록
-   */
-  async searchCardsByText(text: string): Promise<ICard[]> {
-    return this.cardQueryService.searchCardsByText(text);
-  }
-  
+
   /**
    * 카드 선택
-   * @param card 카드
    */
-  selectCard(card: ICard): void {
-    this.cardInteractionService.selectCard(card);
+  selectCard(cardId: string): void {
+    const card = this.cards.get(cardId);
+    if (card) {
+      this.cardManager.selectCard(card);
+      this.eventBus.publish(EventType.CARD_SELECTED, { card: cardId });
+    }
   }
-  
+
   /**
    * 카드 선택 해제
-   * @param card 카드
    */
-  deselectCard(card: ICard): void {
-    this.cardInteractionService.deselectCard(card);
+  deselectCard(cardId: string): void {
+    const card = this.cards.get(cardId);
+    if (card) {
+      this.cardManager.deselectCard(card);
+      this.eventBus.publish(EventType.CARD_DESELECTED, { card: cardId });
+    }
   }
-  
+
   /**
    * 모든 카드 선택 해제
    */
   deselectAllCards(): void {
-    this.cardInteractionService.deselectAllCards();
+    this.cardManager.deselectAllCards();
+    this.eventBus.publish(EventType.CARDS_DESELECTED, {});
   }
-  
-  /**
-   * 카드 활성화
-   * @param card 카드
-   */
-  activateCard(card: ICard): void {
-    this.cardInteractionService.activateCard(card);
-  }
-  
-  /**
-   * 카드 비활성화
-   */
-  deactivateCard(): void {
-    this.cardInteractionService.deactivateCard();
-  }
-  
+
   /**
    * 카드 포커스
-   * @param card 카드
    */
-  focusCard(card: ICard): void {
-    this.cardInteractionService.focusCard(card);
+  focusCard(cardId: string): void {
+    const card = this.cards.get(cardId);
+    if (card) {
+      this.cardManager.focusCard(card);
+      this.eventBus.publish(EventType.CARD_FOCUSED, { card: cardId });
+    }
   }
-  
+
   /**
    * 카드 포커스 해제
    */
-  unfocusCard(): void {
-    this.cardInteractionService.unfocusCard();
+  unfocusCard(cardId: string): void {
+    const card = this.cards.get(cardId);
+    if (card) {
+      this.cardManager.unfocusCard(card);
+      this.eventBus.publish(EventType.CARD_UNFOCUSED, { card: cardId });
+    }
   }
-  
+
   /**
    * 카드 열기
-   * @param card 카드
-   * @param newLeaf 새 탭에서 열기 여부
    */
-  openCard(card: ICard, newLeaf: boolean = false): void {
-    this.cardInteractionService.openCard(card, newLeaf);
+  openCard(cardId: string): void {
+    const card = this.cards.get(cardId);
+    if (card) {
+      this.cardManager.openCard(card);
+      this.eventBus.publish(EventType.CARD_OPENED, { card: cardId });
+    }
   }
-  
+
   /**
-   * 선택된 카드 ID 목록 가져오기
-   * @returns 선택된 카드 ID 목록
+   * 카드 닫기
    */
-  getSelectedCardIds(): string[] {
-    return this.cardInteractionService.getSelectedCardIds();
+  closeCard(cardId: string): void {
+    const card = this.cards.get(cardId);
+    if (card) {
+      this.cardManager.closeCard(card);
+      this.eventBus.publish(EventType.CARD_CLOSED, { card: cardId });
+    }
   }
-  
+
   /**
-   * 활성 카드 가져오기
-   * @returns 활성 카드 또는 null
+   * 카드 ID로 카드 조회
    */
-  getActiveCard(): ICard | null {
-    const activeCard = this.cardInteractionService.getActiveCard();
-    return activeCard || null;
+  getCard(cardId: string): ICard | undefined {
+    return this.cards.get(cardId);
   }
-  
+
   /**
-   * 포커스 카드 가져오기
-   * @returns 포커스 카드 또는 null
+   * 서비스 정리
    */
-  getFocusedCard(): ICard | null {
-    const focusedCard = this.cardInteractionService.getFocusedCard();
-    return focusedCard || null;
+  destroy(): void {
+    this.cards.clear();
+    this.eventBus.publish(EventType.CARD_SERVICE_DESTROYED, {});
   }
-  
+
   /**
-   * 이벤트 버스 가져오기
-   * @returns 이벤트 버스
+   * 카드 생성 이벤트 발행
    */
-  getEventBus(): DomainEventBus {
-    return this.eventBus;
+  private publishCardCreated(card: ICard): void {
+    this.eventBus.publish(EventType.CARD_CREATED, {
+      card: card.getId()
+    }, 'CardService');
   }
-  
+
   /**
-   * 설정 서비스 가져오기
-   * @returns 설정 서비스
+   * 카드 업데이트 이벤트 발행
    */
-  getSettingsService(): ISettingsService {
-    return this.settingsService;
+  private publishCardUpdated(card: ICard): void {
+    this.eventBus.publish(EventType.CARD_UPDATED, {
+      card: card.getId()
+    });
   }
-  
+
   /**
-   * 카드 캐시 초기화
-   * 설정 변경 시 카드를 새로 생성하기 위해 캐시를 초기화합니다.
+   * 카드 삭제 이벤트 발행
    */
-  clearCardCache(): void {
-    console.log('카드 캐시 초기화');
-    this.cardCreationService.clearCardCache();
+  private publishCardDeleted(card: ICard): void {
+    this.eventBus.publish(EventType.CARD_DELETED, {
+      card: card.getId()
+    });
   }
-  
+
   /**
-   * 레이아웃 서비스 가져오기
-   * @returns 레이아웃 서비스
+   * 카드 제거 이벤트 발행
    */
-  getLayoutService(): ILayoutService {
-    return this.layoutService;
+  private publishCardDestroyed(cardId: string): void {
+    this.eventBus.publish(EventType.CARD_DESTROYED, {
+      cardId
+    }, 'CardService');
   }
 } 

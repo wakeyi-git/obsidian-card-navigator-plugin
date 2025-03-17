@@ -1,4 +1,13 @@
 import { TFile, CachedMetadata } from 'obsidian';
+import { CardState } from './CardState';
+
+/**
+ * 카드 메타데이터 타입
+ */
+export type CardMetadata = {
+  [key: string]: any;
+  tags?: string[];
+};
 
 /**
  * 카드 인터페이스
@@ -8,23 +17,17 @@ export interface ICard {
   /**
    * 카드 ID (파일 경로)
    */
-  id?: string;
+  id: string;
   
   /**
    * 카드 경로 (파일 경로)
    */
-  path?: string;
+  path: string;
   
   /**
    * 파일 이름
    */
   filename: string;
-  
-  /**
-   * 원본 파일 객체
-   * Obsidian TFile 객체를 직접 참조합니다.
-   */
-  file: TFile;
   
   /**
    * 카드 제목 (파일 이름)
@@ -80,16 +83,71 @@ export interface ICard {
    * 카드 경로 가져오기 (파일 경로)
    */
   getPath(): string;
+
+  /**
+   * 카드 제목 가져오기
+   */
+  getTitle(): string;
+
+  /**
+   * 카드 내용 가져오기
+   */
+  getContent(): string;
+
+  /**
+   * 카드 태그 가져오기
+   */
+  getTags(): string[];
+
+  /**
+   * 카드 메타데이터 가져오기
+   */
+  getMetadata(): CardMetadata;
   
   /**
    * 생성일 가져오기
    */
-  getCreatedTime(): number;
+  getCreated(): number;
   
   /**
    * 수정일 가져오기
    */
-  getModifiedTime(): number;
+  getUpdated(): number;
+
+  /**
+   * 카드 상태 가져오기
+   */
+  getState(): CardState;
+
+  /**
+   * 카드 상태 설정
+   */
+  setState(state: CardState): void;
+
+  /**
+   * 카드 제목 설정
+   */
+  setTitle(title: string): void;
+
+  /**
+   * 카드 내용 설정
+   */
+  setContent(content: string): void;
+
+  /**
+   * 카드 생성 시간
+   */
+  getCreatedAt(): Date;
+
+  /**
+   * 카드 수정 시간
+   */
+  getUpdatedAt(): Date;
+
+  /**
+   * 카드 삭제
+   */
+  destroy(): void;
 }
 
 /**
@@ -215,7 +273,6 @@ export class Card implements ICard {
   id: string;
   path: string;
   filename: string;
-  file: TFile;
   title: string;
   content: string;
   tags: string[] = [];
@@ -228,36 +285,41 @@ export class Card implements ICard {
   
   /**
    * 생성자
-   * @param file 파일 객체
+   * @param path 파일 경로
+   * @param filename 파일 이름
    * @param content 내용
    * @param tags 태그 목록
    * @param frontmatter 프론트매터 데이터
    * @param firstHeader 첫 번째 헤더
    * @param displaySettings 표시 설정
    * @param metadata 캐시된 메타데이터
+   * @param created 생성 시간 (타임스탬프)
+   * @param modified 수정 시간 (타임스탬프)
    */
   constructor(
-    file: TFile,
+    path: string,
+    filename: string,
     content: string,
     tags: string[] = [],
     frontmatter?: Record<string, any>,
     firstHeader?: string,
     displaySettings?: ICardDisplaySettings,
-    metadata?: CachedMetadata
+    metadata?: CachedMetadata,
+    created: number = Date.now(),
+    modified: number = Date.now()
   ) {
-    this.file = file;
-    this.title = file.basename;
+    this.id = path;
+    this.path = path;
+    this.filename = filename;
+    this.title = filename;
     this.content = content;
     this.tags = tags;
     this.frontmatter = frontmatter;
     this.firstHeader = firstHeader;
     this.displaySettings = displaySettings;
     this.metadata = metadata;
-    this.id = file.path;
-    this.path = file.path;
-    this.filename = file.basename;
-    this.created = file.stat.ctime;
-    this.modified = file.stat.mtime;
+    this.created = created;
+    this.modified = modified;
   }
   
   /**
@@ -265,7 +327,7 @@ export class Card implements ICard {
    * @returns 카드 ID
    */
   getId(): string {
-    return this.file.path;
+    return this.id;
   }
   
   /**
@@ -273,22 +335,127 @@ export class Card implements ICard {
    * @returns 카드 경로
    */
   getPath(): string {
-    return this.file.path;
+    return this.path;
+  }
+
+  /**
+   * 카드 제목 가져오기
+   * @returns 카드 제목
+   */
+  getTitle(): string {
+    return this.title;
+  }
+
+  /**
+   * 카드 내용 가져오기
+   * @returns 카드 내용
+   */
+  getContent(): string {
+    return this.content;
+  }
+
+  /**
+   * 카드 태그 가져오기
+   * @returns 카드 태그 목록
+   */
+  getTags(): string[] {
+    return this.tags;
+  }
+
+  /**
+   * 카드 메타데이터 가져오기
+   * @returns 카드 메타데이터
+   */
+  getMetadata(): CardMetadata {
+    return {
+      ...this.frontmatter,
+      tags: this.tags
+    };
   }
   
   /**
    * 생성일 가져오기
    * @returns 생성일 타임스탬프
    */
-  getCreatedTime(): number {
-    return this.file.stat.ctime;
+  getCreated(): number {
+    return this.created;
   }
   
   /**
    * 수정일 가져오기
    * @returns 수정일 타임스탬프
    */
-  getModifiedTime(): number {
-    return this.file.stat.mtime;
+  getUpdated(): number {
+    return this.modified;
   }
+
+  /**
+   * 카드 상태 가져오기
+   */
+  getState(): CardState {
+    // Implementation needed
+    throw new Error("Method not implemented.");
+  }
+
+  /**
+   * 카드 상태 설정
+   */
+  setState(state: CardState): void {
+    // Implementation needed
+    throw new Error("Method not implemented.");
+  }
+
+  /**
+   * 카드 제목 설정
+   */
+  setTitle(title: string): void {
+    // Implementation needed
+    throw new Error("Method not implemented.");
+  }
+
+  /**
+   * 카드 내용 설정
+   */
+  setContent(content: string): void {
+    // Implementation needed
+    throw new Error("Method not implemented.");
+  }
+
+  /**
+   * 카드 생성 시간
+   */
+  getCreatedAt(): Date {
+    // Implementation needed
+    throw new Error("Method not implemented.");
+  }
+
+  /**
+   * 카드 수정 시간
+   */
+  getUpdatedAt(): Date {
+    // Implementation needed
+    throw new Error("Method not implemented.");
+  }
+
+  /**
+   * 카드 삭제
+   */
+  destroy(): void {
+    // Implementation needed
+    throw new Error("Method not implemented.");
+  }
+}
+
+export interface CardStyle {
+  backgroundColor: string;
+  textColor: string;
+  borderColor: string;
+  borderWidth: string;
+  borderRadius: string;
+  padding: string;
+  margin: string;
+  boxShadow: string;
+  opacity: number;
+  transform: string;
+  transition: string;
 } 

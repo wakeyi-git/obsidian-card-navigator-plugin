@@ -20,7 +20,6 @@
 	  "forceConsistentCasingInFileNames": true,
 	  "resolveJsonModule": true,
 	  "rootDir": "./",
-	  "jsx": "react",
 	  "downlevelIteration": true,
 	  "lib": [
 		"DOM",
@@ -30,6 +29,6 @@
 	  ],
 	  "types": ["node", "jest"]
 	},
-	"include": ["src/**/*.ts", "src/**/*.tsx", "src/main.ts"]
-  }
+	"include": ["src/**/*.ts", "src/main.ts"]
+}
   

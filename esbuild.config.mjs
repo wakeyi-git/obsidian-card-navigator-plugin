@@ -179,12 +179,9 @@ const context = await esbuild.context({
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
 	outfile: "main.js",
-	jsx: "automatic",
-	jsxImportSource: "react",
 	plugins: [cssPlugin],
 	write: true,
 	metafile: true,
-	// CSS 출력 비활성화
 	loader: {
 		'.css': 'empty',
 	},

@@ -1,7 +1,7 @@
-export type { 
-  LayoutType, 
-  ILayoutInfo, 
-  ILayout, 
-  LayoutDirection, 
-  ScrollDirection 
+export type {
+  LayoutType,
+  LayoutDirection,
+  ScrollDirection,
+  ILayoutInfo,
+  ILayout
 } from './Layout'; 

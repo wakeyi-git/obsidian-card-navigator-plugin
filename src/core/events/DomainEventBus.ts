@@ -1,149 +1,101 @@
-import { EventType } from '../../domain/events/EventTypes';
+import { DomainEvent, EventHandler, IEventBus, IEventSubscription } from './DomainEvent';
+import { EventType, IEventPayloads } from './EventTypes';
 
 /**
- * 도메인 이벤트 버스
- * 컴포넌트 간 통신을 위한 이벤트 버스입니다.
+ * 도메인 이벤트 버스 구현체
  */
-export class DomainEventBus {
+export class DomainEventBus implements IEventBus {
   private static instance: DomainEventBus;
-  private listeners: Map<string, Array<(data: any) => void>> = new Map();
-  private state: Map<string, any> = new Map();
-  
+  private handlers: Map<EventType, Set<EventHandler<EventType>>> = new Map();
+
   /**
-   * 생성자
-   * 직접 호출하지 말고 getInstance() 메서드를 사용하세요.
+   * 싱글톤 인스턴스 가져오기
    */
-  private constructor() {
-    // 싱글톤 패턴을 위한 private 생성자
-  }
-  
-  /**
-   * 인스턴스 가져오기
-   * @returns DomainEventBus 인스턴스
-   */
-  public static getInstance(): DomainEventBus {
+  static getInstance(): DomainEventBus {
     if (!DomainEventBus.instance) {
       DomainEventBus.instance = new DomainEventBus();
     }
     return DomainEventBus.instance;
   }
-  
+
   /**
-   * 이벤트 리스너 등록
-   * @param event 이벤트 타입
-   * @param callback 콜백 함수
+   * 생성자
+   * private으로 선언하여 외부에서 직접 인스턴스화를 방지
    */
-  on(event: string, callback: (data: any) => void): void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, []);
+  private constructor() {}
+
+  /**
+   * 이벤트 발행
+   * @param type 이벤트 타입
+   * @param payload 이벤트 페이로드
+   * @param source 이벤트 소스
+   */
+  async publish<T extends EventType>(
+    type: T,
+    payload: Omit<IEventPayloads[T], 'timestamp' | 'source'>,
+    source: string = 'system'
+  ): Promise<void> {
+    const fullPayload = {
+      ...payload,
+      timestamp: Date.now(),
+      source
+    } as IEventPayloads[T];
+
+    const event = new DomainEvent(type, fullPayload);
+    const handlers = this.handlers.get(type);
+
+    if (handlers) {
+      const promises = Array.from(handlers).map(handler => handler(event));
+      await Promise.all(promises);
     }
-    
-    this.listeners.get(event)?.push(callback);
   }
-  
+
   /**
-   * 이벤트 리스너 제거
-   * @param event 이벤트 타입
-   * @param callback 콜백 함수
+   * 이벤트 구독
+   * @param type 이벤트 타입
+   * @param handler 이벤트 핸들러
+   * @returns 구독 정보
    */
-  off(event: string, callback: (data: any) => void): void {
-    if (!this.listeners.has(event)) {
-      return;
+  subscribe<T extends EventType>(
+    type: T,
+    handler: EventHandler<T>
+  ): IEventSubscription {
+    if (!this.handlers.has(type)) {
+      this.handlers.set(type, new Set());
     }
-    
-    const callbacks = this.listeners.get(event);
-    if (callbacks) {
-      const index = callbacks.indexOf(callback);
-      if (index !== -1) {
-        callbacks.splice(index, 1);
+
+    const handlers = this.handlers.get(type)!;
+    handlers.add(handler as EventHandler<EventType>);
+
+    return {
+      unsubscribe: () => {
+        handlers.delete(handler as EventHandler<EventType>);
+        if (handlers.size === 0) {
+          this.handlers.delete(type);
+        }
+      }
+    };
+  }
+
+  /**
+   * 이벤트 구독 해제
+   * @param type 이벤트 타입
+   * @param handler 이벤트 핸들러
+   */
+  unsubscribe<T extends EventType>(type: T, handler: EventHandler<T>): void {
+    const handlers = this.handlers.get(type);
+    if (handlers) {
+      handlers.delete(handler as EventHandler<EventType>);
+      if (handlers.size === 0) {
+        this.handlers.delete(type);
       }
     }
   }
-  
+
   /**
-   * 이벤트 발생
-   * @param event 이벤트 타입
-   * @param data 이벤트 데이터
+   * 모든 이벤트 구독 해제
    */
-  emit(event: string, data?: any): void {
-    if (!this.listeners.has(event)) {
-      return;
-    }
-    
-    const callbacks = this.listeners.get(event);
-    if (callbacks) {
-      callbacks.forEach(callback => {
-        try {
-          callback(data);
-        } catch (error) {
-          console.error(`이벤트 처리 중 오류 발생: ${event}`, error);
-        }
-      });
-    }
-  }
-  
-  /**
-   * 모든 이벤트 리스너 제거
-   */
-  removeAllListeners(): void {
-    this.listeners.clear();
-  }
-  
-  /**
-   * 특정 이벤트의 모든 리스너 제거
-   * @param event 이벤트 타입
-   */
-  removeAllListenersForEvent(event: string): void {
-    this.listeners.delete(event);
-  }
-  
-  /**
-   * 상태 설정
-   * @param key 상태 키
-   * @param value 상태 값
-   */
-  setState(key: string, value: any): void {
-    this.state.set(key, value);
-  }
-  
-  /**
-   * 상태 가져오기
-   * @param key 상태 키
-   * @returns 상태 값
-   */
-  getState(key: string): any {
-    return this.state.get(key);
-  }
-  
-  /**
-   * 상태 삭제
-   * @param key 상태 키
-   */
-  deleteState(key: string): void {
-    this.state.delete(key);
-  }
-  
-  /**
-   * 모든 상태 초기화
-   */
-  clearState(): void {
-    this.state.clear();
-  }
-  
-  /**
-   * 리스너 수 가져오기
-   * @param event 이벤트 타입
-   * @returns 리스너 수
-   */
-  listenerCount(event: string): number {
-    return this.listeners.get(event)?.length || 0;
-  }
-  
-  /**
-   * 등록된 이벤트 이름 목록 가져오기
-   * @returns 이벤트 이름 목록
-   */
-  eventNames(): string[] {
-    return Array.from(this.listeners.keys());
+  unsubscribeAll(): void {
+    this.handlers.clear();
   }
 } 

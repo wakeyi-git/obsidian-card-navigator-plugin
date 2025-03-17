@@ -1,421 +1,281 @@
-import { DomainEventBus } from '../../core/events/DomainEventBus';
-import { EventType } from '../../domain/events/EventTypes';
+import { IEventBus } from '../../core/events/IEventBus';
+import { EventType } from '../../core/events/EventTypes';
+import { INavigation } from '../../domain/navigation/Navigation';
+import { CardContainer } from '../../domain/navigation/CardContainer';
 import { ICard } from '../../domain/card/Card';
-import { ISettingsService } from '../../domain/settings/SettingsInterfaces';
-import { ILayoutService } from '../layout/LayoutService';
-import { KeyboardNavigationDirection } from '../../domain/navigation';
+import { DomainEvent } from '../../core/events/DomainEvent';
+import { NavigationMode, ScrollBehavior } from '../../domain/navigation/Navigation';
+import { ICardService } from '../card/CardService';
+import { DomainEventBus } from '../../core/events/DomainEventBus';
+import { DomainErrorBus } from '../../core/errors/DomainErrorBus';
+import { ErrorCode } from '../../core/errors/ErrorTypes';
 
 /**
- * 내비게이션 방향
- */
-export type NavigationDirection = 'up' | 'down' | 'left' | 'right' | 'first' | 'last';
-
-/**
- * 내비게이션 모드
- */
-export type NavigationMode = 'grid' | 'linear';
-
-/**
- * 내비게이션 서비스 인터페이스
+ * 네비게이션 서비스 인터페이스
  */
 export interface INavigationService {
   /**
-   * 현재 선택된 카드 인덱스 가져오기
-   * @returns 현재 선택된 카드 인덱스
+   * 네비게이션 모드 설정
    */
-  getCurrentIndex(): number;
-  
+  setNavigationMode(mode: NavigationMode): void;
+
   /**
-   * 현재 선택된 카드 가져오기
-   * @returns 현재 선택된 카드
+   * 스크롤 동작 설정
    */
-  getCurrentCard(): ICard | null;
-  
+  setScrollBehavior(behavior: ScrollBehavior): void;
+
   /**
    * 카드 선택
-   * @param index 선택할 카드 인덱스
    */
-  selectCard(index: number): void;
-  
+  selectCard(cardId: string): void;
+
   /**
-   * 카드 선택 (ID로)
-   * @param cardId 선택할 카드 ID
-   * @returns 선택 성공 여부
+   * 카드 선택 해제
    */
-  selectCardById(cardId: string): boolean;
-  
+  deselectCard(cardId: string): void;
+
   /**
-   * 다음 카드로 이동
-   * @param direction 이동 방향
-   * @returns 이동 성공 여부
+   * 모든 카드 선택 해제
    */
-  navigateToDirection(direction: NavigationDirection): boolean;
-  
+  deselectAllCards(): void;
+
   /**
-   * 특정 인덱스로 이동
-   * @param index 이동할 인덱스
-   * @returns 이동 성공 여부
+   * 카드 포커스
    */
-  navigateToIndex(index: number): boolean;
-  
+  focusCard(cardId: string): void;
+
   /**
-   * 특정 카드로 이동
-   * @param cardId 이동할 카드 ID
-   * @returns 이동 성공 여부
+   * 카드 포커스 해제
    */
-  navigateToCard(cardId: string): boolean;
-  
+  unfocusCard(cardId: string): void;
+
   /**
-   * 현재 카드 위치로 스크롤
+   * 카드 열기
    */
-  scrollToCurrentCard(): void;
-  
+  openCard(cardId: string): void;
+
   /**
-   * 특정 인덱스로 스크롤
-   * @param index 스크롤할 인덱스
+   * 카드 닫기
    */
-  scrollToIndex(index: number): void;
-  
+  closeCard(cardId: string): void;
+
   /**
-   * 특정 카드 ID로 스크롤
-   * @param cardId 스크롤할 카드 ID
-   * @returns 스크롤 성공 여부
+   * 서비스 정리
    */
-  scrollToCard(cardId: string): boolean;
-  
-  /**
-   * 내비게이션 모드 가져오기
-   * @returns 내비게이션 모드
-   */
-  getNavigationMode(): NavigationMode;
-  
-  /**
-   * 내비게이션 모드 설정
-   * @param mode 내비게이션 모드
-   */
-  setNavigationMode(mode: NavigationMode): Promise<void>;
-  
-  /**
-   * 카드 목록 설정
-   * @param cards 카드 목록
-   */
-  setCards(cards: ICard[]): void;
-  
-  /**
-   * 카드 목록 가져오기
-   * @returns 카드 목록
-   */
-  getCards(): ICard[];
-  
-  /**
-   * 리소스 정리
-   * 서비스가 사용한 모든 리소스를 정리합니다.
-   */
-  cleanup(): void;
+  destroy(): void;
 }
 
 /**
- * 내비게이션 서비스
- * 카드 내비게이션 관련 기능을 관리합니다.
+ * 네비게이션 서비스 구현체
  */
 export class NavigationService implements INavigationService {
-  private settingsService: ISettingsService;
-  private layoutService: ILayoutService;
+  private navigation: INavigation;
   private eventBus: DomainEventBus;
-  private cards: ICard[] = [];
-  private currentIndex = -1;
-  private navigationMode: NavigationMode = 'grid';
-  
-  /**
-   * 생성자
-   * @param settingsService 설정 서비스
-   * @param layoutService 레이아웃 서비스
-   * @param eventBus 이벤트 버스
-   */
+  private errorBus: DomainErrorBus;
+  private containers: Map<string, CardContainer>;
+  private mode: NavigationMode = NavigationMode.KEYBOARD;
+  private scrollBehavior: ScrollBehavior = 'auto';
+
   constructor(
-    settingsService: ISettingsService,
-    layoutService: ILayoutService,
-    eventBus: DomainEventBus
+    private readonly cardService: ICardService,
+    navigation: INavigation
   ) {
-    this.settingsService = settingsService;
-    this.layoutService = layoutService;
-    this.eventBus = eventBus;
-    
-    // 설정에서 초기 내비게이션 모드 가져오기
-    const settings = this.settingsService.getSettings();
-    this.navigationMode = (settings.navigationMode as NavigationMode) || 'grid';
-    
-    // 이벤트 리스너 등록
-    this.eventBus.on(EventType.CARDS_CHANGED, this.onCardsChanged.bind(this));
-    this.eventBus.on(EventType.SETTINGS_CHANGED, this.onSettingsChanged.bind(this));
+    this.navigation = navigation;
+    this.eventBus = DomainEventBus.getInstance();
+    this.errorBus = DomainErrorBus.getInstance();
+    this.containers = new Map();
+    this.setupEventListeners();
   }
-  
-  getCurrentIndex(): number {
-    return this.currentIndex;
-  }
-  
-  getCurrentCard(): ICard | null {
-    if (this.currentIndex >= 0 && this.currentIndex < this.cards.length) {
-      return this.cards[this.currentIndex];
-    }
-    return null;
-  }
-  
-  selectCard(index: number): void {
-    if (index >= 0 && index < this.cards.length) {
-      this.currentIndex = index;
-      
-      // 카드 선택 이벤트 발생
-      this.eventBus.emit(EventType.CARD_SELECTED, {
-        card: this.cards[index],
-        cardId: this.cards[index].getId()
-      });
-    }
-  }
-  
-  selectCardById(cardId: string): boolean {
-    const index = this.cards.findIndex(card => card.getId() === cardId);
-    if (index !== -1) {
-      this.selectCard(index);
-      return true;
-    }
-    return false;
-  }
-  
-  navigateToDirection(direction: NavigationDirection): boolean {
-    if (this.cards.length === 0) {
-      return false;
-    }
-    
-    // 현재 인덱스가 유효하지 않은 경우 첫 번째 카드 선택
-    if (this.currentIndex < 0 || this.currentIndex >= this.cards.length) {
-      this.selectCard(0);
-      return true;
-    }
-    
-    // 레이아웃 정보 가져오기
-    const layoutType = this.layoutService.getLayoutType();
-    const layoutDirection = this.layoutService.getLayoutDirection();
-    const containerWidth = document.querySelector('.card-navigator-container')?.clientWidth || 800;
-    const containerHeight = document.querySelector('.card-navigator-container')?.clientHeight || 600;
-    const layoutInfo = this.layoutService.calculateLayout(containerWidth, containerHeight, this.cards.length);
-    
-    // 현재 위치 계산
-    const currentRow = Math.floor(this.currentIndex / layoutInfo.columns);
-    const currentCol = this.currentIndex % layoutInfo.columns;
-    
-    let nextIndex = -1;
-    
-    // 방향에 따라 다음 인덱스 계산
-    switch (direction) {
-      case 'up':
-        if (this.navigationMode === 'grid') {
-          // 그리드 모드에서는 위쪽 행으로 이동
-          if (currentRow > 0) {
-            nextIndex = (currentRow - 1) * layoutInfo.columns + currentCol;
-            if (nextIndex >= this.cards.length) {
-              nextIndex = this.cards.length - 1;
-            }
-          }
-        } else {
-          // 선형 모드에서는 이전 카드로 이동
-          if (this.currentIndex > 0) {
-            nextIndex = this.currentIndex - 1;
-          }
-        }
-        break;
-        
-      case 'down':
-        if (this.navigationMode === 'grid') {
-          // 그리드 모드에서는 아래쪽 행으로 이동
-          if (currentRow < layoutInfo.rows - 1) {
-            nextIndex = (currentRow + 1) * layoutInfo.columns + currentCol;
-            if (nextIndex >= this.cards.length) {
-              nextIndex = this.cards.length - 1;
-            }
-          }
-        } else {
-          // 선형 모드에서는 다음 카드로 이동
-          if (this.currentIndex < this.cards.length - 1) {
-            nextIndex = this.currentIndex + 1;
-          }
-        }
-        break;
-        
-      case 'left':
-        if (this.navigationMode === 'grid') {
-          // 그리드 모드에서는 왼쪽 열로 이동
-          if (currentCol > 0) {
-            nextIndex = currentRow * layoutInfo.columns + (currentCol - 1);
-          }
-        } else {
-          // 선형 모드에서는 이전 카드로 이동
-          if (this.currentIndex > 0) {
-            nextIndex = this.currentIndex - 1;
-          }
-        }
-        break;
-        
-      case 'right':
-        if (this.navigationMode === 'grid') {
-          // 그리드 모드에서는 오른쪽 열로 이동
-          if (currentCol < layoutInfo.columns - 1 && this.currentIndex < this.cards.length - 1) {
-            nextIndex = currentRow * layoutInfo.columns + (currentCol + 1);
-            if (nextIndex >= this.cards.length) {
-              nextIndex = this.cards.length - 1;
-            }
-          }
-        } else {
-          // 선형 모드에서는 다음 카드로 이동
-          if (this.currentIndex < this.cards.length - 1) {
-            nextIndex = this.currentIndex + 1;
-          }
-        }
-        break;
-        
-      case 'first':
-        // 첫 번째 카드로 이동
-        nextIndex = 0;
-        break;
-        
-      case 'last':
-        // 마지막 카드로 이동
-        nextIndex = this.cards.length - 1;
-        break;
-    }
-    
-    // 다음 인덱스가 유효한 경우 선택
-    if (nextIndex >= 0 && nextIndex < this.cards.length) {
-      this.selectCard(nextIndex);
-      this.scrollToIndex(nextIndex);
-      return true;
-    }
-    
-    return false;
-  }
-  
-  navigateToIndex(index: number): boolean {
-    if (index >= 0 && index < this.cards.length) {
-      this.selectCard(index);
-      this.scrollToIndex(index);
-      return true;
-    }
-    return false;
-  }
-  
-  navigateToCard(cardId: string): boolean {
-    const index = this.cards.findIndex(card => card.getId() === cardId);
-    if (index !== -1) {
-      return this.navigateToIndex(index);
-    }
-    return false;
-  }
-  
+
   /**
-   * 특정 카드 ID로 스크롤
-   * @param cardId 스크롤할 카드 ID
-   * @returns 스크롤 성공 여부
+   * 이벤트 리스너 설정
    */
-  scrollToCard(cardId: string): boolean {
-    const index = this.cards.findIndex(card => card.getId() === cardId);
-    if (index !== -1) {
-      this.scrollToIndex(index);
-      return true;
-    }
-    return false;
+  private setupEventListeners(): void {
+    this.eventBus.subscribe(EventType.CARD_CREATED, this.handleCardCreated.bind(this));
+    this.eventBus.subscribe(EventType.CARD_DESTROYED, this.handleCardDestroyed.bind(this));
+    this.eventBus.subscribe(EventType.CARD_SELECTED, this.handleCardSelected.bind(this));
+    this.eventBus.subscribe(EventType.CARD_DESELECTED, this.handleCardDeselected.bind(this));
+    this.eventBus.subscribe(EventType.CARD_FOCUSED, this.handleCardFocused.bind(this));
+    this.eventBus.subscribe(EventType.CARD_UNFOCUSED, this.handleCardUnfocused.bind(this));
+    this.eventBus.subscribe(EventType.CARD_OPENED, this.handleCardOpened.bind(this));
+    this.eventBus.subscribe(EventType.CARD_CLOSED, this.handleCardClosed.bind(this));
   }
-  
-  scrollToCurrentCard(): void {
-    if (this.currentIndex >= 0) {
-      this.scrollToIndex(this.currentIndex);
-    }
-  }
-  
-  scrollToIndex(index: number): void {
-    if (index < 0 || index >= this.cards.length) {
-      return;
-    }
-    
-    // 스크롤 이벤트 발생
-    this.eventBus.emit(EventType.SCROLL_TO_CARD, {
-      index: index,
-      behavior: 'smooth'
-    });
-  }
-  
-  getNavigationMode(): NavigationMode {
-    return this.navigationMode;
-  }
-  
+
   /**
-   * 내비게이션 모드 설정
-   * @param mode 내비게이션 모드
+   * 네비게이션 모드 설정
    */
-  async setNavigationMode(mode: NavigationMode): Promise<void> {
-    // 내비게이션 모드 변경
-    this.navigationMode = mode;
-    
-    // 설정 업데이트
-    await this.settingsService.updateSettings({ navigationMode: mode });
-    
-    // 내비게이션 모드 변경 이벤트 발생
-    this.eventBus.emit(EventType.NAVIGATION_MODE_CHANGED, {
-      navigationMode: this.navigationMode
-    });
+  setNavigationMode(mode: NavigationMode): void {
+    const previousMode = this.mode;
+    this.mode = mode;
+    this.navigation.setNavigationMode(mode);
+    this.eventBus.publish(EventType.NAVIGATION_MODE_CHANGED, { 
+      mode: mode === NavigationMode.KEYBOARD ? 'normal' : 'vim',
+      previousMode: previousMode === NavigationMode.KEYBOARD ? 'normal' : 'vim'
+    }, 'NavigationService');
   }
-  
-  setCards(cards: ICard[]): void {
-    this.cards = cards;
-    
-    // 현재 선택된 카드가 없거나 유효하지 않은 경우 첫 번째 카드 선택
-    if (this.currentIndex < 0 || this.currentIndex >= this.cards.length) {
-      if (this.cards.length > 0) {
-        this.currentIndex = 0;
-      } else {
-        this.currentIndex = -1;
-      }
+
+  /**
+   * 스크롤 동작 설정
+   */
+  setScrollBehavior(behavior: ScrollBehavior): void {
+    this.scrollBehavior = behavior;
+    this.navigation.setScrollBehavior('auto');
+    this.eventBus.publish(EventType.SCROLL_BEHAVIOR_CHANGED, { 
+      behavior: behavior === 'smooth' ? 'smooth' : 'instant'
+    }, 'NavigationService');
+  }
+
+  /**
+   * 카드 선택
+   */
+  selectCard(cardId: string): void {
+    this.cardService.selectCard(cardId);
+    this.navigation.selectCard(cardId);
+    this.eventBus.publish(EventType.CARD_SELECTED, { card: cardId }, 'NavigationService');
+  }
+
+  /**
+   * 카드 선택 해제
+   */
+  deselectCard(cardId: string): void {
+    this.cardService.deselectCard(cardId);
+    this.navigation.deselectCard(cardId);
+    this.eventBus.publish(EventType.CARD_DESELECTED, { card: cardId }, 'NavigationService');
+  }
+
+  /**
+   * 모든 카드 선택 해제
+   */
+  deselectAllCards(): void {
+    this.cardService.deselectAllCards();
+    this.navigation.deselectAllCards();
+    this.eventBus.publish(EventType.CARDS_DESELECTED, {}, 'NavigationService');
+  }
+
+  /**
+   * 카드 포커스
+   */
+  focusCard(cardId: string): void {
+    this.cardService.focusCard(cardId);
+    this.navigation.focusCard(cardId);
+    this.eventBus.publish(EventType.CARD_FOCUSED, { card: cardId }, 'NavigationService');
+  }
+
+  /**
+   * 카드 포커스 해제
+   */
+  unfocusCard(cardId: string): void {
+    this.cardService.unfocusCard(cardId);
+    this.navigation.unfocusCard(cardId);
+    this.eventBus.publish(EventType.CARD_UNFOCUSED, { card: cardId }, 'NavigationService');
+  }
+
+  /**
+   * 카드 열기
+   */
+  openCard(cardId: string): void {
+    this.cardService.openCard(cardId);
+    this.navigation.openCard(cardId);
+    this.eventBus.publish(EventType.CARD_OPENED, { card: cardId }, 'NavigationService');
+  }
+
+  /**
+   * 카드 닫기
+   */
+  closeCard(cardId: string): void {
+    this.cardService.closeCard(cardId);
+    this.navigation.closeCard(cardId);
+    this.eventBus.publish(EventType.CARD_CLOSED, { card: cardId }, 'NavigationService');
+  }
+
+  /**
+   * 서비스 정리
+   */
+  destroy(): void {
+    this.containers.forEach(container => container.destroy());
+    this.containers.clear();
+    this.eventBus.publish(EventType.CARD_SERVICE_DESTROYED, {}, 'NavigationService');
+  }
+
+  /**
+   * 카드 생성 이벤트 처리
+   */
+  private handleCardCreated(event: DomainEvent<EventType.CARD_CREATED>): void {
+    const card = this.cardService.getCard(event.payload.card);
+    if (card) {
+      const container = new CardContainer(card);
+      this.containers.set(card.getId(), container);
     }
   }
-  
-  getCards(): ICard[] {
-    return this.cards;
-  }
-  
+
   /**
-   * 리소스 정리
-   * 서비스가 사용한 모든 리소스를 정리합니다.
+   * 카드 제거 이벤트 처리
    */
-  cleanup(): void {
-    // 이벤트 리스너 제거
-    this.eventBus.off(EventType.CARDS_CHANGED, this.onCardsChanged);
-    this.eventBus.off(EventType.SETTINGS_CHANGED, this.onSettingsChanged);
-    
-    // 카드 목록 정리
-    this.cards = [];
-    this.currentIndex = -1;
-    
-    console.log('내비게이션 서비스 정리 완료');
+  private handleCardDestroyed(event: DomainEvent<EventType.CARD_DESTROYED>): void {
+    const container = this.containers.get(event.payload.cardId);
+    if (container) {
+      container.destroy();
+      this.containers.delete(event.payload.cardId);
+    }
   }
-  
+
   /**
-   * 카드 변경 이벤트 처리
-   * @param data 이벤트 데이터
+   * 카드 선택 이벤트 처리
    */
-  private onCardsChanged(data: any): void {
-    // 카드 목록 설정
-    this.setCards(data.cards);
+  private handleCardSelected(event: DomainEvent<EventType.CARD_SELECTED>): void {
+    const container = this.containers.get(event.payload.card);
+    if (container) {
+      container.select();
+    }
   }
-  
+
   /**
-   * 설정 변경 이벤트 처리
-   * @param data 이벤트 데이터
+   * 카드 선택 해제 이벤트 처리
    */
-  private onSettingsChanged(data: any): void {
-    const settings = this.settingsService.getSettings();
-    
-    // 내비게이션 모드 설정이 변경된 경우
-    if (data.changedKeys.includes('navigationMode')) {
-      this.navigationMode = (settings.navigationMode as NavigationMode) || 'grid';
+  private handleCardDeselected(event: DomainEvent<EventType.CARD_DESELECTED>): void {
+    const container = this.containers.get(event.payload.card);
+    if (container) {
+      container.deselect();
+    }
+  }
+
+  /**
+   * 카드 포커스 이벤트 처리
+   */
+  private handleCardFocused(event: DomainEvent<EventType.CARD_FOCUSED>): void {
+    const container = this.containers.get(event.payload.card);
+    if (container) {
+      container.focus();
+    }
+  }
+
+  /**
+   * 카드 포커스 해제 이벤트 처리
+   */
+  private handleCardUnfocused(event: DomainEvent<EventType.CARD_UNFOCUSED>): void {
+    const container = this.containers.get(event.payload.card);
+    if (container) {
+      container.unfocus();
+    }
+  }
+
+  /**
+   * 카드 열기 이벤트 처리
+   */
+  private handleCardOpened(event: DomainEvent<EventType.CARD_OPENED>): void {
+    const container = this.containers.get(event.payload.card);
+    if (container) {
+      container.open();
+    }
+  }
+
+  /**
+   * 카드 닫기 이벤트 처리
+   */
+  private handleCardClosed(event: DomainEvent<EventType.CARD_CLOSED>): void {
+    const container = this.containers.get(event.payload.card);
+    if (container) {
+      container.close();
     }
   }
 } 

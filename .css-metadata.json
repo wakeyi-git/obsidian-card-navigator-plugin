@@ -34,5 +34,9 @@
   "src/ui/components/toolbar/ToolbarPopup.css": {
     "hash": "732ac2ca71933da0495f84279383b251",
     "lastModified": 1742014198256
+  },
+  "src/ui/styles/card.css": {
+    "hash": "db49d61e2e4019e30c47585a59d595df",
+    "lastModified": 1742210961893
   }
 }
