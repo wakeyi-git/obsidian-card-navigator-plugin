@@ -39,6 +39,7 @@ export enum ErrorCode {
   CARD_UPDATE_FAILED = 'CARD_UPDATE_FAILED',
   CARD_DELETION_FAILED = 'CARD_DELETION_FAILED',
   CARD_LIST_ERROR = 'CARD_LIST_ERROR',
+  CARD_RENDER_FAILED = 'CARD_RENDER_FAILED',
 
   // 카드셋 관련 에러
   CARD_SET_ERROR = 'CARD_SET_ERROR',
@@ -123,9 +124,15 @@ export interface IErrorPayloads {
   };
   [ErrorCode.CARD_DELETION_FAILED]: BaseErrorPayload & {
     cardId: string;
+    cause: Error;
   };
   [ErrorCode.CARD_LIST_ERROR]: BaseErrorPayload & {
     filter?: string;
+    cause: Error;
+  };
+  [ErrorCode.CARD_RENDER_FAILED]: BaseErrorPayload & {
+    cardId: string;
+    cause: Error;
   };
 
   // 카드셋 관련 에러

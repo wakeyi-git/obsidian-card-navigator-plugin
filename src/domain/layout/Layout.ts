@@ -90,27 +90,32 @@ export interface LayoutOptions {
   /**
    * 레이아웃 타입
    */
-  type: LayoutType;
-
-  /**
-   * 그리드 열 수
-   */
-  columns?: number;
-
-  /**
-   * 그리드 간격
-   */
-  spacing?: number;
+  type: 'grid' | 'masonry';
 
   /**
    * 카드 너비
    */
-  cardWidth?: number;
+  cardWidth: number;
 
   /**
    * 카드 높이
    */
-  cardHeight?: number;
+  cardHeight: number;
+
+  /**
+   * 카드 간격
+   */
+  gap: number;
+
+  /**
+   * 패딩
+   */
+  padding: number;
+
+  /**
+   * 레이아웃 방향
+   */
+  direction: 'auto' | 'vertical' | 'horizontal';
 }
 
 /**

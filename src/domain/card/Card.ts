@@ -102,7 +102,7 @@ export interface ICard {
   /**
    * 카드 메타데이터 가져오기
    */
-  getMetadata(): CardMetadata;
+  getMetadata(): Record<string, any>;
   
   /**
    * 생성일 가져오기
@@ -148,27 +148,102 @@ export interface ICard {
    * 카드 삭제
    */
   destroy(): void;
+
+  /**
+   * 헤더 콘텐츠 가져오기
+   */
+  getHeaderContent(): string;
+
+  /**
+   * 본문 콘텐츠 가져오기
+   */
+  getBodyContent(): string;
+
+  /**
+   * 푸터 콘텐츠 가져오기
+   */
+  getFooterContent(): string;
+
+  /**
+   * 카드 생성 시간 가져오기
+   */
+  getCtime(): number;
+
+  /**
+   * 카드 수정 시간 가져오기
+   */
+  getMtime(): number;
+}
+
+/**
+ * 날짜 형식 설정 인터페이스
+ */
+export interface IDateFormatSettings {
+  /**
+   * 날짜 형식
+   * 예: 'YYYY-MM-DD HH:mm:ss'
+   */
+  format: string;
+
+  /**
+   * 로케일
+   * 예: 'ko-KR'
+   */
+  locale: string;
+
+  /**
+   * 상대적 시간 표시 여부
+   * 예: '2일 전'
+   */
+  useRelativeTime: boolean;
+}
+
+/**
+ * 프론트매터 형식 설정 인터페이스
+ */
+export interface IFrontmatterFormatSettings {
+  /**
+   * 표시할 필드
+   */
+  fields: string[];
+
+  /**
+   * 필드 레이블
+   */
+  labels: Record<string, string>;
+
+  /**
+   * 구분자
+   */
+  separator: string;
+
+  /**
+   * 형식
+   * list: 목록 형식
+   * table: 테이블 형식
+   * inline: 인라인 형식
+   */
+  format: 'list' | 'table' | 'inline';
 }
 
 /**
  * 카드 표시 설정 인터페이스
- * 카드의 표시 방식을 정의합니다.
  */
 export interface ICardDisplaySettings {
   /**
-   * 헤더 표시 항목
+   * 헤더 콘텐츠 설정
    */
-  headerContent?: CardContentType;
+  headerContent?: CardContentType | string;
   
   /**
-   * 본문 표시 항목
+   * 본문 콘텐츠 설정
    */
-  bodyContent?: CardContentType;
+  bodyContent?: CardContentType | string;
   
   /**
-   * 푸터 표시 항목
+   * 푸터 콘텐츠 설정
    */
-  footerContent?: CardContentType;
+  footerContent?: CardContentType | string;
   
   /**
    * 렌더링 방식
@@ -179,6 +254,16 @@ export interface ICardDisplaySettings {
    * 카드 스타일
    */
   cardStyle?: ICardStyle;
+
+  /**
+   * 날짜 포맷 설정
+   */
+  dateFormat?: IDateFormatSettings;
+
+  /**
+   * 프론트매터 포맷 설정
+   */
+  frontmatterFormat?: IFrontmatterFormatSettings;
 }
 
 /**
@@ -194,75 +279,73 @@ export type CardContentType = 'filename' | 'title' | 'firstheader' | 'content' |
 export type CardRenderingMode = 'text' | 'html' | 'markdown';
 
 /**
- * 카드 스타일 인터페이스
- * 카드의 스타일을 정의합니다.
- */
-export interface ICardStyle {
-  /**
-   * 일반 카드 스타일
-   */
-  normal?: ICardElementStyle;
-  
-  /**
-   * 활성 카드 스타일
-   */
-  active?: ICardElementStyle;
-  
-  /**
-   * 포커스 카드 스타일
-   */
-  focused?: ICardElementStyle;
-  
-  /**
-   * 헤더 스타일
-   */
-  header?: ICardElementStyle;
-  
-  /**
-   * 본문 스타일
-   */
-  body?: ICardElementStyle;
-  
-  /**
-   * 푸터 스타일
-   */
-  footer?: ICardElementStyle;
-}
-
-/**
  * 카드 요소 스타일 인터페이스
- * 카드 요소의 스타일을 정의합니다.
  */
 export interface ICardElementStyle {
   /**
    * 배경색
    */
-  backgroundColor?: string;
-  
+  background: string;
+
   /**
-   * 폰트 크기
+   * 글자 크기
    */
-  fontSize?: number;
-  
+  fontSize: number;
+
   /**
    * 테두리 스타일
    */
-  borderStyle?: string;
-  
+  borderStyle: string;
+
   /**
    * 테두리 색상
    */
-  borderColor?: string;
-  
+  borderColor: string;
+
   /**
    * 테두리 두께
    */
-  borderWidth?: number;
-  
+  borderWidth: number;
+
   /**
    * 테두리 반경
    */
-  borderRadius?: number;
+  borderRadius: number;
+}
+
+/**
+ * 카드 스타일 인터페이스
+ */
+export interface ICardStyle {
+  /**
+   * 일반 상태 스타일
+   */
+  normal: ICardElementStyle;
+
+  /**
+   * 활성 상태 스타일
+   */
+  active: ICardElementStyle;
+
+  /**
+   * 포커스 상태 스타일
+   */
+  focused: ICardElementStyle;
+
+  /**
+   * 헤더 스타일
+   */
+  header: ICardElementStyle;
+
+  /**
+   * 본문 스타일
+   */
+  body: ICardElementStyle;
+
+  /**
+   * 푸터 스타일
+   */
+  footer: ICardElementStyle;
 }
 
 /**
@@ -366,7 +449,7 @@ export class Card implements ICard {
    * 카드 메타데이터 가져오기
    * @returns 카드 메타데이터
    */
-  getMetadata(): CardMetadata {
+  getMetadata(): Record<string, any> {
     return {
       ...this.frontmatter,
       tags: this.tags
@@ -443,6 +526,41 @@ export class Card implements ICard {
   destroy(): void {
     // Implementation needed
     throw new Error("Method not implemented.");
+  }
+
+  /**
+   * 헤더 콘텐츠 가져오기
+   */
+  getHeaderContent(): string {
+    return this.title;
+  }
+
+  /**
+   * 본문 콘텐츠 가져오기
+   */
+  getBodyContent(): string {
+    return this.content;
+  }
+
+  /**
+   * 푸터 콘텐츠 가져오기
+   */
+  getFooterContent(): string {
+    return this.tags.length > 0 ? this.tags.join(' ') : '';
+  }
+
+  /**
+   * 카드 생성 시간 가져오기
+   */
+  getCtime(): number {
+    return this.created;
+  }
+
+  /**
+   * 카드 수정 시간 가져오기
+   */
+  getMtime(): number {
+    return this.modified;
   }
 }
 

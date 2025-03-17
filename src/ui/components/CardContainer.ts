@@ -7,6 +7,8 @@ import { EventType } from '../../core/events/EventTypes';
 import { DomainErrorBus } from '../../core/errors/DomainErrorBus';
 import { ErrorCode } from '../../core/errors/ErrorTypes';
 import { CardComponent } from './Card';
+import { MarkdownRendererService } from '../../infrastructure/services/MarkdownRenderer';
+import { App } from 'obsidian';
 
 /**
  * 카드 컨테이너 컴포넌트
@@ -21,15 +23,19 @@ export class CardContainer {
   private eventBus: DomainEventBus;
   private errorBus: DomainErrorBus;
   private containerId: string;
+  private renderer: MarkdownRendererService;
 
   constructor(
     containerId: string,
     layout: ILayout,
     displaySettings: ICardDisplaySettings,
-    style: ICardStyle
+    style: ICardStyle,
+    app: App,
+    eventBus: DomainEventBus,
+    errorBus: DomainErrorBus
   ) {
-    this.eventBus = DomainEventBus.getInstance();
-    this.errorBus = DomainErrorBus.getInstance();
+    this.eventBus = eventBus;
+    this.errorBus = errorBus;
     this.containerId = containerId;
     
     try {
@@ -38,6 +44,7 @@ export class CardContainer {
       this.style = style;
       this.cards = new Map();
       this.element = this.createContainerElement();
+      this.renderer = new MarkdownRendererService(app);
     } catch (error) {
       this.errorBus.publish(ErrorCode.CONTAINER_INITIALIZATION_FAILED, {
         containerId: this.containerId,
@@ -50,9 +57,21 @@ export class CardContainer {
   /**
    * 카드 추가
    */
-  addCard(card: ICard): void {
+  addCard(
+    card: ICard,
+    displaySettings: ICardDisplaySettings,
+    style: ICardStyle
+  ): void {
     try {
-      const cardComponent = new CardComponent(card, this.displaySettings, this.style);
+      const cardComponent = new CardComponent(
+        card,
+        displaySettings,
+        style,
+        this.renderer,
+        this.eventBus,
+        this.errorBus
+      );
+      
       this.cards.set(card.getId(), cardComponent);
       this.element.appendChild(cardComponent.getElement());
       this.layout.addCard(card);

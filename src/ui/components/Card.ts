@@ -5,6 +5,8 @@ import { DomainEventBus } from '../../core/events/DomainEventBus';
 import { EventType } from '../../core/events/EventTypes';
 import { DomainErrorBus } from '../../core/errors/DomainErrorBus';
 import { ErrorCode } from '../../core/errors/ErrorTypes';
+import { MarkdownRendererService } from '../../infrastructure/services/MarkdownRenderer';
+import { App } from 'obsidian';
 
 /**
  * 카드 컴포넌트
@@ -12,6 +14,9 @@ import { ErrorCode } from '../../core/errors/ErrorTypes';
  */
 export class CardComponent {
   private element: HTMLElement;
+  private headerElement: HTMLElement;
+  private bodyElement: HTMLElement;
+  private footerElement: HTMLElement;
   private card: ICard;
   private displaySettings: ICardDisplaySettings;
   private style: ICardStyle;
@@ -19,27 +24,28 @@ export class CardComponent {
   private isFocused: boolean = false;
   private eventBus: DomainEventBus;
   private errorBus: DomainErrorBus;
+  private renderer: MarkdownRendererService;
 
   constructor(
     card: ICard,
     displaySettings: ICardDisplaySettings,
-    style: ICardStyle
+    style: ICardStyle,
+    renderer: MarkdownRendererService,
+    eventBus: DomainEventBus,
+    errorBus: DomainErrorBus
   ) {
-    this.eventBus = DomainEventBus.getInstance();
-    this.errorBus = DomainErrorBus.getInstance();
+    this.card = card;
+    this.displaySettings = displaySettings;
+    this.style = style;
+    this.renderer = renderer;
+    this.eventBus = eventBus;
+    this.errorBus = errorBus;
     
-    try {
-      this.card = card;
-      this.displaySettings = displaySettings;
-      this.style = style;
-      this.element = this.createCardElement();
-    } catch (error) {
-      this.errorBus.publish(ErrorCode.CARD_CREATION_FAILED, {
-        cardData: card,
-        cause: error instanceof Error ? error : new Error('알 수 없는 오류가 발생했습니다.')
-      });
-      throw error;
-    }
+    this.element = this.createCardElement();
+    this.headerElement = this.createHeaderElement();
+    this.bodyElement = this.createBodyElement();
+    this.footerElement = this.createFooterElement();
+    this.renderContent();
   }
 
   /**
@@ -49,41 +55,93 @@ export class CardComponent {
     const element = document.createElement('div');
     element.className = 'card-navigator-card';
     element.dataset.cardId = this.card.getId();
-    
-    // 헤더 생성
-    if (this.displaySettings.headerContent) {
-      const header = this.createHeader();
-      element.appendChild(header);
-    }
-
-    // 본문 생성
-    if (this.displaySettings.bodyContent) {
-      const body = this.createBody();
-      element.appendChild(body);
-    }
-
-    // 푸터 생성
-    if (this.displaySettings.footerContent) {
-      const footer = this.createFooter();
-      element.appendChild(footer);
-    }
-
-    // 이벤트 리스너 등록
-    this.registerEventListeners(element);
-
     return element;
   }
 
   /**
    * 헤더 요소 생성
    */
-  private createHeader(): HTMLElement {
+  private createHeaderElement(): HTMLElement {
+    const element = document.createElement('div');
+    element.className = 'card-navigator-card-header';
+    this.element.appendChild(element);
+    return element;
+  }
+
+  /**
+   * 본문 요소 생성
+   */
+  private createBodyElement(): HTMLElement {
+    const element = document.createElement('div');
+    element.className = 'card-navigator-card-body';
+    this.element.appendChild(element);
+    return element;
+  }
+
+  /**
+   * 푸터 요소 생성
+   */
+  private createFooterElement(): HTMLElement {
+    const element = document.createElement('div');
+    element.className = 'card-navigator-card-footer';
+    this.element.appendChild(element);
+    return element;
+  }
+
+  /**
+   * 카드 초기화
+   */
+  private async initializeCard(): Promise<void> {
+    try {
+      // 헤더 생성
+      if (this.displaySettings.headerContent) {
+        const header = await this.createHeader();
+        this.element.appendChild(header);
+      }
+
+      // 본문 생성
+      if (this.displaySettings.bodyContent) {
+        const body = await this.createBody();
+        this.element.appendChild(body);
+      }
+
+      // 푸터 생성
+      if (this.displaySettings.footerContent) {
+        const footer = await this.createFooter();
+        this.element.appendChild(footer);
+      }
+
+      // 이벤트 리스너 등록
+      this.registerEventListeners(this.element);
+
+      this.eventBus.publish(EventType.CARD_CREATED, {
+        card: this.card.getId()
+      }, 'CardComponent');
+    } catch (error) {
+      this.errorBus.publish(ErrorCode.CARD_CREATION_FAILED, {
+        cardData: this.card,
+        cause: error instanceof Error ? error : new Error('알 수 없는 오류가 발생했습니다.')
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * 헤더 요소 생성
+   */
+  private async createHeader(): Promise<HTMLElement> {
     const header = document.createElement('div');
     header.className = 'card-navigator-card-header';
     
     const content = this.getContentByType(this.displaySettings.headerContent);
     if (content) {
-      header.textContent = content;
+      if (this.displaySettings.renderingMode === 'markdown') {
+        header.innerHTML = await this.renderer.render(content);
+      } else if (this.displaySettings.renderingMode === 'html') {
+        header.innerHTML = content;
+      } else {
+        header.textContent = content;
+      }
     }
 
     // 스타일 적용
@@ -97,13 +155,19 @@ export class CardComponent {
   /**
    * 본문 요소 생성
    */
-  private createBody(): HTMLElement {
+  private async createBody(): Promise<HTMLElement> {
     const body = document.createElement('div');
     body.className = 'card-navigator-card-body';
     
     const content = this.getContentByType(this.displaySettings.bodyContent);
     if (content) {
-      body.textContent = content;
+      if (this.displaySettings.renderingMode === 'markdown') {
+        body.innerHTML = await this.renderer.render(content);
+      } else if (this.displaySettings.renderingMode === 'html') {
+        body.innerHTML = content;
+      } else {
+        body.textContent = content;
+      }
     }
 
     // 스타일 적용
@@ -117,13 +181,19 @@ export class CardComponent {
   /**
    * 푸터 요소 생성
    */
-  private createFooter(): HTMLElement {
+  private async createFooter(): Promise<HTMLElement> {
     const footer = document.createElement('div');
     footer.className = 'card-navigator-card-footer';
     
     const content = this.getContentByType(this.displaySettings.footerContent);
     if (content) {
-      footer.textContent = content;
+      if (this.displaySettings.renderingMode === 'markdown') {
+        footer.innerHTML = await this.renderer.render(content);
+      } else if (this.displaySettings.renderingMode === 'html') {
+        footer.innerHTML = content;
+      } else {
+        footer.textContent = content;
+      }
     }
 
     // 스타일 적용
@@ -292,7 +362,7 @@ export class CardComponent {
   /**
    * 카드 업데이트
    */
-  update(card: ICard): void {
+  async update(card: ICard): Promise<void> {
     try {
       this.card = card;
       // innerHTML 대신 요소를 직접 제거하고 다시 생성
@@ -301,13 +371,16 @@ export class CardComponent {
       }
       
       if (this.displaySettings.headerContent) {
-        this.element.appendChild(this.createHeader());
+        const header = await this.createHeader();
+        this.element.appendChild(header);
       }
       if (this.displaySettings.bodyContent) {
-        this.element.appendChild(this.createBody());
+        const body = await this.createBody();
+        this.element.appendChild(body);
       }
       if (this.displaySettings.footerContent) {
-        this.element.appendChild(this.createFooter());
+        const footer = await this.createFooter();
+        this.element.appendChild(footer);
       }
 
       this.eventBus.publish(EventType.CARD_UPDATED, {
@@ -338,6 +411,30 @@ export class CardComponent {
         cause: error instanceof Error ? error : new Error('알 수 없는 오류가 발생했습니다.')
       });
       throw error;
+    }
+  }
+
+  /**
+   * 카드 내용을 렌더링합니다.
+   */
+  private async renderContent(): Promise<void> {
+    try {
+      const header = await this.renderer.render(this.card.getHeaderContent());
+      const body = await this.renderer.render(this.card.getBodyContent());
+      const footer = await this.renderer.render(this.card.getFooterContent());
+
+      this.headerElement.innerHTML = header;
+      this.bodyElement.innerHTML = body;
+      this.footerElement.innerHTML = footer;
+
+      this.eventBus.publish(EventType.CARD_RENDERED, {
+        cardId: this.card.getId()
+      });
+    } catch (error) {
+      this.errorBus.publish(ErrorCode.CARD_RENDER_FAILED, {
+        cardId: this.card.getId(),
+        cause: error instanceof Error ? error : new Error('알 수 없는 오류가 발생했습니다.')
+      });
     }
   }
 } 

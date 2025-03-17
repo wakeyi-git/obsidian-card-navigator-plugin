@@ -4,7 +4,7 @@ import { CardContainer } from './components/CardContainer';
 import { LayoutService } from '../application/layout/LayoutService';
 import { ICardDisplaySettings, ICardStyle, ICardElementStyle } from '../domain/card/Card';
 import { Card } from '../domain/card/Card';
-import { ILayoutSettings } from '../domain/settings/Settings';
+import { ILayoutSettings, LayoutDirectionPreference } from '../domain/settings/Settings';
 import { ObsidianLayoutAdapter } from '../infrastructure/adapters/ObsidianLayoutAdapter';
 import { GridLayout } from '../application/layout/GridLayout';
 import { DomainEventBus } from '../core/events/DomainEventBus';
@@ -21,6 +21,7 @@ export class CardNavigatorView extends ItemView {
   private layoutService: LayoutService;
   private layout: GridLayout;
   private displaySettings: ICardDisplaySettings;
+  private style: ICardStyle;
   private eventBus: DomainEventBus;
   private errorBus: DomainErrorBus;
 
@@ -30,16 +31,44 @@ export class CardNavigatorView extends ItemView {
   ) {
     super(leaf);
     this.plugin = plugin;
-    this.layout = new GridLayout(plugin.settings.layout);
+
+    // 레이아웃 설정 변환
+    const layoutSettings: ILayoutSettings = {
+      ...plugin.settings.layout,
+      mode: plugin.settings.layout.type,
+      layoutDirectionPreference: LayoutDirectionPreference.HORIZONTAL
+    };
+
+    this.layout = new GridLayout(layoutSettings);
     this.layoutService = new LayoutService(
       new ObsidianLayoutAdapter(plugin.app),
-      plugin.settings.layout
+      layoutSettings
     );
     this.displaySettings = {
       headerContent: 'filename',
       bodyContent: 'firstheader',
       footerContent: 'tags'
     };
+
+    // 기본 스타일 초기화
+    const elementStyle: ICardElementStyle = {
+      background: '#ffffff',
+      fontSize: 14,
+      borderStyle: 'solid',
+      borderColor: '#e0e0e0',
+      borderWidth: 1,
+      borderRadius: 5
+    };
+
+    this.style = {
+      normal: elementStyle,
+      active: elementStyle,
+      focused: elementStyle,
+      header: elementStyle,
+      body: elementStyle,
+      footer: elementStyle
+    };
+
     this.eventBus = DomainEventBus.getInstance();
     this.errorBus = DomainErrorBus.getInstance();
   }
@@ -59,31 +88,18 @@ export class CardNavigatorView extends ItemView {
   async onOpen(): Promise<void> {
     try {
       // 컨테이너 생성
-      this.container = this.containerEl.children[1] as HTMLElement;
+      this.container = this.containerEl;
       this.container.empty();
       
       // 카드 컨테이너 초기화
-      const elementStyle: ICardElementStyle = {
-        backgroundColor: '#ffffff',
-        fontSize: 14,
-        borderStyle: 'solid',
-        borderColor: '#e0e0e0',
-        borderWidth: 1,
-        borderRadius: 5
-      };
-
-      const style: ICardStyle = {
-        focused: elementStyle,
-        header: elementStyle,
-        body: elementStyle,
-        footer: elementStyle
-      };
-
       this.cardContainer = new CardContainer(
         'card-navigator-container',
         this.layout,
         this.displaySettings,
-        style
+        this.style,
+        this.plugin.app,
+        this.eventBus,
+        this.errorBus
       );
       
       // 컨테이너 요소를 DOM에 추가
@@ -193,7 +209,11 @@ export class CardNavigatorView extends ItemView {
       
       const validCards = cards.filter((card): card is Card => card !== null);
       validCards.forEach(card => {
-        this.cardContainer.addCard(card);
+        this.cardContainer.addCard(
+          card,
+          this.displaySettings,
+          this.style
+        );
       });
 
       this.eventBus.publish(EventType.CARDS_LOADED, {
@@ -318,7 +338,12 @@ export class CardNavigatorView extends ItemView {
         new Date(file.stat.mtime).getTime()
       );
       
-      this.cardContainer.addCard(card);
+      this.cardContainer.addCard(
+        card,
+        this.displaySettings,
+        this.style
+      );
+      
       this.eventBus.publish(EventType.CARD_ADDED, {
         layout: this.layout.getId(),
         card: card.getId()
@@ -346,18 +371,13 @@ export class CardNavigatorView extends ItemView {
     }
   }
 
+  /**
+   * 뷰가 닫힐 때 호출됩니다.
+   */
   async onClose(): Promise<void> {
-    try {
+    if (this.cardContainer) {
       this.cardContainer.clear();
-      this.eventBus.publish(EventType.VIEW_CLOSED, {
-        viewId: this.getViewType()
-      });
-    } catch (error) {
-      this.errorBus.publish(ErrorCode.INITIALIZATION_ERROR, {
-        component: this.getViewType(),
-        cause: error instanceof Error ? error : new Error('알 수 없는 오류가 발생했습니다.')
-      });
-      throw error;
     }
+    super.onClose();
   }
 }

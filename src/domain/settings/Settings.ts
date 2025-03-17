@@ -1,6 +1,9 @@
 import { CardSetSourceMode } from '../cardset/CardSet';
 import { NavigationMode } from '../navigation/Navigation';
 import { CardRenderingMode } from '../card/Card';
+import { RenderOptions } from '../../infrastructure/services/MarkdownRenderer';
+import { ICardDisplaySettings, ICardStyle } from '../card/Card';
+import { LayoutOptions } from '../layout/Layout';
 
 /**
  * 레이아웃 방향 선호도
@@ -73,14 +76,47 @@ export interface IPresetMapping {
  * 프리셋
  */
 export interface IPreset {
+  /**
+   * 프리셋 ID
+   */
   id: string;
+  
+  /**
+   * 프리셋 이름
+   */
   name: string;
+  
+  /**
+   * 프리셋 설명
+   */
   description: string;
+  
+  /**
+   * 프리셋 설정
+   */
   settings: {
-    defaultMode: 'folder' | 'tag';
+    /**
+     * 기본 모드
+     */
+    defaultMode: CardSetSourceMode;
+    
+    /**
+     * 카드 표시 설정
+     */
     cardDisplay: ICardDisplaySettings;
-    layout: ILayoutSettings;
+    
+    /**
+     * 레이아웃 설정
+     */
+    layout: LayoutOptions;
+    
+    /**
+     * 스타일 설정
+     */
     style: {
+      /**
+       * 카드 스타일
+       */
       card: ICardStyle;
     };
   };
@@ -90,6 +126,14 @@ export interface IPreset {
  * 설정
  */
 export interface ISettings {
+  defaultMode: CardSetSourceMode;
+  cardDisplay: ICardDisplaySettings;
+  layout: LayoutOptions;
+  style: {
+    card: ICardStyle;
+  };
+  markdown: IMarkdownSettings;
+  presets: IPreset[];
   enabled: boolean;
   autoRefresh: boolean;
   defaultCardSetSource: CardSetSourceMode;
@@ -102,11 +146,9 @@ export interface ISettings {
   tagCaseSensitive?: boolean;
   useLastCardSetSourceOnLoad?: boolean;
   debugMode?: boolean;
-  
   cardSetSourceMode: CardSetSourceMode;
   selectedFolder?: string;
   selectedTags?: string[];
-  
   cardWidth: number;
   cardHeight: number;
   cardHeaderContent: string;
@@ -115,15 +157,10 @@ export interface ISettings {
   cardHeaderContentMultiple?: string[];
   cardBodyContentMultiple?: string[];
   cardFooterContentMultiple?: string[];
-  
-  layout: ILayoutSettings;
   navigationMode?: NavigationMode;
-  
-  presets: IPreset[];
   presetMappings: IPresetMapping[];
   activePresetId?: string;
   defaultPresetId?: string;
-  
   toolbarItems: any[];
 }
 
@@ -136,47 +173,161 @@ export interface ISettingsRepository {
   getDefaultSettings(): ISettings;
 }
 
-export interface ICardDisplaySettings {
-  headerContent: string;
-  bodyContent: string;
-  footerContent: string;
+export interface IMarkdownSettings {
+  renderOptions: RenderOptions;
 }
 
-export interface ICardStyle {
-  backgroundColor: string;
-  fontSize: number;
-  borderStyle: string;
-  borderColor: string;
-  borderWidth: number;
-  borderRadius: number;
-}
-
-export class CardNavigatorSettings {
-  defaultMode: 'folder' | 'tag' = 'folder';
+/**
+ * 카드 네비게이터 설정 클래스
+ */
+export class CardNavigatorSettings implements ISettings {
+  /**
+   * 기본 모드
+   */
+  defaultMode: CardSetSourceMode = CardSetSourceMode.FOLDER;
+  
+  /**
+   * 카드 표시 설정
+   */
   cardDisplay: ICardDisplaySettings = {
-    headerContent: 'filename',
-    bodyContent: 'firstheader',
-    footerContent: 'tags'
+    headerContent: 'title',
+    bodyContent: 'content',
+    footerContent: 'tags',
+    dateFormat: {
+      format: 'YYYY-MM-DD HH:mm:ss',
+      locale: 'ko-KR',
+      useRelativeTime: false
+    },
+    frontmatterFormat: {
+      fields: [],
+      labels: {},
+      separator: ' | ',
+      format: 'list'
+    }
   };
-  layout: ILayoutSettings = {
-    mode: 'grid',
-    cardWidth: 200,
-    cardHeight: 150,
-    gap: 10,
-    padding: 10,
-    layoutDirectionPreference: LayoutDirectionPreference.AUTO
+  
+  /**
+   * 레이아웃 설정
+   */
+  layout: LayoutOptions = {
+    type: 'grid',
+    cardWidth: 300,
+    cardHeight: 200,
+    gap: 16,
+    padding: 16,
+    direction: 'auto'
   };
+  
+  /**
+   * 스타일 설정
+   */
   style: {
+    /**
+     * 카드 스타일
+     */
     card: ICardStyle;
   } = {
     card: {
-      backgroundColor: 'var(--background-primary)',
-      fontSize: 14,
-      borderStyle: 'solid',
-      borderColor: 'var(--background-modifier-border)',
-      borderWidth: 1,
-      borderRadius: 4
+      normal: {
+        background: '#ffffff',
+        fontSize: 14,
+        borderStyle: 'solid',
+        borderColor: '#e0e0e0',
+        borderWidth: 1,
+        borderRadius: 4
+      },
+      active: {
+        background: '#f0f0f0',
+        fontSize: 14,
+        borderStyle: 'solid',
+        borderColor: '#4a9eff',
+        borderWidth: 2,
+        borderRadius: 4
+      },
+      focused: {
+        background: '#e8f4ff',
+        fontSize: 14,
+        borderStyle: 'solid',
+        borderColor: '#4a9eff',
+        borderWidth: 2,
+        borderRadius: 4
+      },
+      header: {
+        background: '#f8f9fa',
+        fontSize: 16,
+        borderStyle: 'none',
+        borderColor: '#e0e0e0',
+        borderWidth: 0,
+        borderRadius: 4
+      },
+      body: {
+        background: '#ffffff',
+        fontSize: 14,
+        borderStyle: 'none',
+        borderColor: '#e0e0e0',
+        borderWidth: 0,
+        borderRadius: 4
+      },
+      footer: {
+        background: '#f8f9fa',
+        fontSize: 12,
+        borderStyle: 'none',
+        borderColor: '#e0e0e0',
+        borderWidth: 0,
+        borderRadius: 4
+      }
     }
   };
+  
+  /**
+   * 프리셋 목록
+   */
   presets: IPreset[] = [];
+
+  /**
+   * 마크다운 렌더링 설정
+   */
+  markdown: {
+    /**
+     * 렌더링 옵션
+     */
+    renderOptions: RenderOptions;
+  } = {
+    renderOptions: {
+      highlightCode: true,
+      renderImages: true,
+      renderMath: true,
+      renderLinks: true,
+      renderCallouts: true
+    }
+  };
+
+  enabled = true;
+  autoRefresh = true;
+  defaultCardSetSource: CardSetSourceMode = CardSetSourceMode.FOLDER;
+  defaultLayout: 'grid' | 'masonry' = 'grid';
+  includeSubfolders = true;
+  defaultFolderCardSet = '';
+  defaultTagCardSet = '';
+  isCardSetFixed = false;
+  defaultSearchScope: 'all' | 'current' = 'all';
+  tagCaseSensitive = false;
+  useLastCardSetSourceOnLoad = false;
+  debugMode = false;
+  cardSetSourceMode: CardSetSourceMode = CardSetSourceMode.FOLDER;
+  selectedFolder = '';
+  selectedTags: string[] = [];
+  cardWidth = 200;
+  cardHeight = 150;
+  cardHeaderContent = '# {{title}}';
+  cardBodyContent = '{{content}}';
+  cardFooterContent = '{{#tags}} #{{.}} {{/tags}}';
+  cardHeaderContentMultiple: string[] = [];
+  cardBodyContentMultiple: string[] = [];
+  cardFooterContentMultiple: string[] = [];
+  navigationMode?: NavigationMode;
+  presetMappings: IPresetMapping[] = [];
+  activePresetId?: string;
+  defaultPresetId?: string;
+  toolbarItems: any[] = [];
 } 
