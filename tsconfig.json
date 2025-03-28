@@ -20,15 +20,13 @@
 	  "forceConsistentCasingInFileNames": true,
 	  "resolveJsonModule": true,
 	  "rootDir": "./",
-	  "downlevelIteration": true,
 	  "lib": [
 		"DOM",
 		"ES5",
 		"ES6",
 		"ES7"
-	  ],
-	  "types": ["node", "jest"]
+	  ]
 	},
-	"include": ["src/**/*.ts", "src/main.ts"]
-}
+	"include": ["src/**/*.ts", "main.ts"]
+  }
   

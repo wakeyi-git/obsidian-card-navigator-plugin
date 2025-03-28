@@ -6,7 +6,5 @@
     "description": "Navigate your notes visually with card-based interface",
     "author": "wakeyi",
     "authorUrl": "wakeyi-git/obsidian-card-navigator-plugin",
-    "isDesktopOnly": false,
-    "fundingUrl": "",
-    "icon": "layout-grid"
+    "isDesktopOnly": false
 }
