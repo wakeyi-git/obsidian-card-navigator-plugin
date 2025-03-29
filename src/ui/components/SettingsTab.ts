@@ -8,6 +8,7 @@ import { PresetImportExportModal } from '@/ui/components/modals/PresetImportExpo
 import { CardSettings } from '@/ui/settings/components/CardSettings';
 import { CardSetSettings } from '@/ui/settings/components/CardSetSettings';
 import { SearchSettings } from '@/ui/settings/components/SearchSettings';
+import { SortSettings } from '@/ui/settings/components/SortSettings';
 
 /**
  * 카드 내비게이터 설정 인터페이스
@@ -71,6 +72,8 @@ export interface ICardNavigatorSettings {
   sortBy: ICardSetConfig['sortBy'];
   sortOrder: ICardSetConfig['sortOrder'];
   customSortField?: string;
+  priorityTags?: string[];
+  priorityFolders?: string[];
 
   // 레이아웃 설정
   layout: {
@@ -208,96 +211,11 @@ export class CardNavigatorSettingsTab extends PluginSettingTab {
     // 검색 설정
     new SearchSettings(containerEl, this.plugin).display();
 
+    // 정렬 설정
+    new SortSettings(containerEl, this.plugin).display();
+
     // 카드 설정
     new CardSettings(containerEl, this.plugin).display();
-
-    // 정렬 설정
-    new Setting(containerEl)
-      .setName('정렬 설정')
-      .setHeading();
-
-    new Setting(containerEl)
-      .setName('정렬 기준')
-      .addDropdown(dropdown => {
-        dropdown
-          .addOption('fileName', '파일명')
-          .addOption('firstHeader', '첫 번째 헤더')
-          .addOption('createdAt', '생성일')
-          .addOption('updatedAt', '수정일')
-          .addOption('custom', '사용자 지정')
-          .setValue(this.plugin.settings.sortBy)
-          .onChange(async (value: 'fileName' | 'firstHeader' | 'createdAt' | 'updatedAt' | 'custom') => {
-            this.plugin.settings.sortBy = value;
-            if (value === 'custom') {
-              this._showCustomSortField();
-            } else {
-              this._hideCustomSortField();
-            }
-            this.plugin.saveData();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName('정렬 순서')
-      .addDropdown(dropdown => {
-        dropdown
-          .addOption('asc', '오름차순')
-          .addOption('desc', '내림차순')
-          .setValue(this.plugin.settings.sortOrder)
-          .onChange(async (value: 'asc' | 'desc') => {
-            this.plugin.settings.sortOrder = value;
-            this.plugin.saveData();
-          });
-      });
-
-    if (this.plugin.settings.sortBy === 'custom') {
-      this._showCustomSortField();
-    }
-
-    // 레이아웃 설정
-    new Setting(containerEl)
-      .setName('레이아웃 설정')
-      .setHeading();
-
-    new Setting(containerEl)
-      .setName('카드 높이 고정')
-      .setDesc('카드의 높이를 고정하여 그리드 레이아웃을 사용합니다.')
-      .addToggle(toggle => {
-        toggle
-          .setValue(this.plugin.settings.layout.fixedHeight)
-          .onChange(value => {
-            this.plugin.settings.layout.fixedHeight = value;
-            this.plugin.saveData();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName('최소 카드 너비')
-      .setDesc('카드의 최소 너비를 설정합니다.')
-      .addSlider(slider => {
-        slider
-          .setLimits(200, 800, 50)
-          .setValue(this.plugin.settings.layout.minCardWidth)
-          .setDynamicTooltip()
-          .onChange(value => {
-            this.plugin.settings.layout.minCardWidth = value;
-            this.plugin.saveData();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName('최소 카드 높이')
-      .setDesc('카드의 최소 높이를 설정합니다.')
-      .addSlider(slider => {
-        slider
-          .setLimits(200, 800, 50)
-          .setValue(this.plugin.settings.layout.minCardHeight)
-          .setDynamicTooltip()
-          .onChange(value => {
-            this.plugin.settings.layout.minCardHeight = value;
-            this.plugin.saveData();
-          });
-      });
 
     // 프리셋 설정
     new Setting(containerEl)
@@ -551,27 +469,5 @@ export class CardNavigatorSettingsTab extends PluginSettingTab {
    */
   private _refreshPresetList(): void {
     this.display();
-  }
-
-  private _showCustomSortField(): void {
-    new Setting(this.containerEl)
-      .setName('사용자 지정 정렬 필드')
-      .setDesc('frontmatter에서 사용할 필드명을 입력하세요.')
-      .addText(text => {
-        text
-          .setValue(this.plugin.settings.customSortField || '')
-          .onChange(async (value: string) => {
-            this.plugin.settings.customSortField = value || undefined;
-            this.plugin.saveData();
-          });
-      });
-  }
-
-  private _hideCustomSortField(): void {
-    // 사용자 지정 정렬 필드 설정을 숨깁니다.
-    const customSortFieldSetting = this.containerEl.querySelector('.setting-item:has(input[type="text"])');
-    if (customSortFieldSetting) {
-      customSortFieldSetting.remove();
-    }
   }
 } 
