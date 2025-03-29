@@ -1,43 +1,35 @@
-import { App, TFile } from 'obsidian';
-import { Card } from '../models/Card';
-import { CardContent, CardStyle, CardPosition } from '../models/types';
+import { Card } from '@/domain/models/Card';
 
 /**
  * 카드 리포지토리 인터페이스
  */
 export interface ICardRepository {
   /**
-   * 파일로부터 카드를 생성합니다.
+   * 카드 저장
+   * @param card 저장할 카드
    */
-  createFromFile(file: TFile, app: App): Promise<Card>;
+  save(card: Card): Promise<void>;
 
   /**
-   * ID로 카드를 조회합니다.
+   * ID로 카드 찾기
+   * @param id 카드 ID
    */
-  findById(id: string): Promise<Card | null>;
+  findById(id: string): Promise<Card | undefined>;
 
   /**
-   * 파일로 카드를 조회합니다.
+   * 경로로 카드 찾기
+   * @param filePath 파일 경로
    */
-  findByFile(file: TFile): Promise<Card | null>;
+  findByPath(filePath: string): Promise<Card | undefined>;
 
   /**
-   * 카드의 컨텐츠를 업데이트합니다.
+   * 모든 카드 찾기
    */
-  updateContent(id: string, content: CardContent): Promise<void>;
+  findAll(): Promise<Card[]>;
 
   /**
-   * 카드의 스타일을 업데이트합니다.
-   */
-  updateStyle(id: string, style: CardStyle): Promise<void>;
-
-  /**
-   * 카드의 위치를 업데이트합니다.
-   */
-  updatePosition(id: string, position: CardPosition): Promise<void>;
-
-  /**
-   * 카드를 삭제합니다.
+   * 카드 삭제
+   * @param id 카드 ID
    */
   delete(id: string): Promise<void>;
 } 

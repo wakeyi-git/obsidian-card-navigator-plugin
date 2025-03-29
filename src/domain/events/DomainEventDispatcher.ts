@@ -1,83 +1,70 @@
-import { IDomainEvent } from './DomainEvent';
+import { DomainEvent } from './DomainEvent';
 import { IDomainEventHandler } from './IDomainEventHandler';
 
 /**
- * 도메인 이벤트 디스패처
+ * 도메인 이벤트 디스패처 인터페이스
  */
-export class DomainEventDispatcher {
-  private handlers: Map<string, IDomainEventHandler<IDomainEvent>[]> = new Map();
-  private eventHistory: IDomainEvent[] = [];
-  private readonly MAX_HISTORY_SIZE = 1000;
+export interface IDomainEventDispatcher {
+  /**
+   * 이벤트 리스너 등록
+   */
+  addEventListener<T extends DomainEvent>(eventType: new () => T, listener: (event: T) => void): void;
 
   /**
-   * 이벤트 핸들러를 등록합니다.
+   * 이벤트 리스너 제거
    */
-  register<T extends IDomainEvent>(
-    eventName: string,
-    handler: IDomainEventHandler<T>
-  ): void {
-    console.debug(`[CardNavigator] 이벤트 핸들러 등록: ${eventName}`);
-    
-    if (!this.handlers.has(eventName)) {
-      this.handlers.set(eventName, []);
-    }
-    this.handlers.get(eventName)?.push(handler as IDomainEventHandler<IDomainEvent>);
+  removeEventListener<T extends DomainEvent>(eventType: new () => T, listener: (event: T) => void): void;
+
+  /**
+   * 이벤트 발생
+   */
+  dispatch(event: DomainEvent): void;
+}
+
+/**
+ * 도메인 이벤트 디스패처 클래스
+ */
+export class DomainEventDispatcher implements IDomainEventDispatcher {
+  private listeners: Map<string, Set<Function>> = new Map();
+
+  register<T extends DomainEvent>(eventType: string, handler: IDomainEventHandler<T>): void {
+    this.addEventListener(
+      class extends DomainEvent {
+        constructor() {
+          super(eventType);
+        }
+      },
+      (event: T) => {
+        handler.handle(event);
+      }
+    );
   }
 
-  /**
-   * 이벤트를 디스패치합니다.
-   */
-  async dispatch(event: IDomainEvent): Promise<void> {
+  addEventListener<T extends DomainEvent>(eventType: new () => T, listener: (event: T) => void): void {
+    const eventName = eventType.name;
+    if (!this.listeners.has(eventName)) {
+      this.listeners.set(eventName, new Set());
+    }
+    this.listeners.get(eventName)?.add(listener);
+  }
+
+  removeEventListener<T extends DomainEvent>(eventType: new () => T, listener: (event: T) => void): void {
+    const eventName = eventType.name;
+    this.listeners.get(eventName)?.delete(listener);
+  }
+
+  dispatch(event: DomainEvent): void {
     const eventName = event.constructor.name;
-    const handlers = this.handlers.get(eventName) || [];
-
-    console.debug(`[CardNavigator] 이벤트 디스패치 시작: ${eventName}`);
+    const eventListeners = this.listeners.get(eventName);
     
-    // 이벤트 히스토리에 추가
-    this.addToHistory(event);
-
-    try {
-      await Promise.all(
-        handlers.map(async handler => {
-          try {
-            console.debug(`[CardNavigator] 핸들러 실행: ${handler.constructor.name}`);
-            await handler.handle(event);
-          } catch (error) {
-            console.error(`[CardNavigator] 핸들러 실행 중 오류 발생: ${handler.constructor.name}`, error);
-            throw error;
-          }
-        })
-      );
-      console.debug(`[CardNavigator] 이벤트 디스패치 완료: ${eventName}`);
-    } catch (error) {
-      console.error(`[CardNavigator] 이벤트 디스패치 중 오류 발생: ${eventName}`, error);
-      throw error;
+    if (eventListeners) {
+      eventListeners.forEach(listener => {
+        try {
+          listener(event);
+        } catch (error) {
+          console.error(`Error handling event ${eventName}:`, error);
+        }
+      });
     }
-  }
-
-  /**
-   * 모든 핸들러를 제거합니다.
-   */
-  clear(): void {
-    console.debug('[CardNavigator] 모든 이벤트 핸들러 제거');
-    this.handlers.clear();
-    this.eventHistory = [];
-  }
-
-  /**
-   * 이벤트 히스토리에 이벤트를 추가합니다.
-   */
-  private addToHistory(event: IDomainEvent): void {
-    this.eventHistory.push(event);
-    if (this.eventHistory.length > this.MAX_HISTORY_SIZE) {
-      this.eventHistory.shift();
-    }
-  }
-
-  /**
-   * 이벤트 히스토리를 반환합니다.
-   */
-  getEventHistory(): IDomainEvent[] {
-    return [...this.eventHistory];
   }
 } 

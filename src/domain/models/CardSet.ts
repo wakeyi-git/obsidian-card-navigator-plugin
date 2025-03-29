@@ -1,368 +1,706 @@
+import { App, TFile } from 'obsidian';
 import { Card } from './Card';
-import { CardSetType, CardFilter, CardSort, CardSection, CardSectionType, CardPosition } from './types';
+import { Preset } from './Preset';
+import { Layout } from './Layout';
+import { ICardRenderConfig } from './Card';
+import { ICardService } from '../services/CardService';
 
 /**
- * 카드셋 도메인 모델
+ * 카드셋 타입
  */
-export class CardSet {
-  private readonly createdAt: Date;
-  private updatedAt: Date;
-  private cards: Card[] = [];
-  private cardPositions: Map<string, CardPosition> = new Map();
+export type CardSetType = 'folder' | 'tag' | 'link' | 'search';
+
+/**
+ * 카드 필터 타입
+ */
+export type CardFilter = {
+  /** 필터 타입 */
+  type: 'search' | 'tag' | 'folder' | 'date';
+  /** 필터 기준 */
+  criteria: {
+    /** 검색어 */
+    value?: string;
+    /** 태그 목록 */
+    tags?: string[];
+    /** 폴더 경로 */
+    folderPath?: string;
+    /** 시작일 */
+    startDate?: Date;
+    /** 종료일 */
+    endDate?: Date;
+  };
+};
+
+/**
+ * 카드 정렬 타입
+ */
+export type CardSort = {
+  /** 정렬 기준 */
+  criterion: 'fileName' | 'createdAt' | 'updatedAt' | 'firstHeader';
+  /** 정렬 순서 */
+  order: 'asc' | 'desc';
+};
+
+/**
+ * 링크 타입
+ */
+export type LinkType = 'backlink' | 'outgoing';
+
+/**
+ * 링크 설정
+ */
+export interface ILinkConfig {
+  /** 링크 타입 */
+  type: LinkType;
+  /** 링크 레벨 */
+  depth: number;
+  /** 포함할 링크 패턴 */
+  includePatterns?: string[];
+  /** 제외할 링크 패턴 */
+  excludePatterns?: string[];
+}
+
+/**
+ * 카드셋 설정 인터페이스
+ */
+export interface ICardSetConfig {
+  /**
+   * 카드셋 타입
+   */
+  type: CardSetType;
+
+  /**
+   * 소스 값 (폴더 경로, 태그, 링크 등)
+   */
+  value: string;
+
+  /**
+   * 하위 폴더 포함 여부
+   */
+  includeSubfolders?: boolean;
+
+  /**
+   * 소스 폴더
+   */
+  sourceFolder?: string;
+
+  /**
+   * 허용된 파일 확장자
+   */
+  allowedExtensions?: string[];
+
+  /**
+   * 정렬 기준
+   */
+  sortBy: 'fileName' | 'firstHeader' | 'createdAt' | 'updatedAt' | 'custom';
+
+  /**
+   * 정렬 순서
+   */
+  sortOrder: 'asc' | 'desc';
+
+  /**
+   * 커스텀 정렬 필드
+   */
+  customSortField?: string;
+
+  /**
+   * 우선순위 태그
+   */
+  priorityTags?: string[];
+
+  /**
+   * 우선순위 폴더
+   */
+  priorityFolders?: string[];
+
+  /**
+   * 링크 설정
+   */
+  linkConfig?: ILinkConfig;
+
+  /**
+   * 링크 카드셋의 경우 링크 깊이
+   */
+  linkLevel?: number;
+
+  /**
+   * 링크 카드셋의 경우 링크 타입
+   */
+  linkType?: LinkType;
+
+  /**
+   * 폴더 카드셋의 경우 활성 폴더 여부
+   */
+  isActiveFolder?: boolean;
+
+  /**
+   * 태그 카드셋의 경우 활성 태그 여부
+   */
+  isActiveTag?: boolean;
+
+  /**
+   * 추가 설정
+   */
+  options?: any;
+}
+
+/**
+ * 카드셋 필터 인터페이스
+ */
+export interface ICardSetFilters {
+  /**
+   * 태그 목록
+   */
+  tags?: string[];
+
+  /**
+   * 날짜 범위
+   */
+  dateRange?: {
+    /**
+     * 시작일
+     */
+    start?: Date;
+
+    /**
+     * 종료일
+     */
+    end?: Date;
+
+    /**
+     * 날짜 필드
+     */
+    dateField: 'createdAt' | 'updatedAt';
+  };
+
+  /**
+   * 프론트매터
+   */
+  frontmatter?: Record<string, any>;
+}
+
+/**
+ * 카드셋 정렬 설정 인터페이스
+ */
+export interface ICardSetSortConfig {
+  /**
+   * 정렬 필드
+   */
+  field: 'fileName' | 'firstHeader' | 'createdAt' | 'updatedAt' | 'custom';
+
+  /**
+   * 정렬 순서
+   */
+  order: 'asc' | 'desc';
+
+  /**
+   * 커스텀 필드
+   */
+  customField?: string;
+}
+
+/**
+ * 카드셋 인터페이스
+ */
+export interface ICardSet {
+  id: string;
+  name: string;
+  description: string;
+  config: ICardSetConfig;
+  layoutConfig: Layout['config'];
+  cardRenderConfig: ICardRenderConfig;
+  cards: Card[];
+  activeCardId?: string;
+  focusedCardId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * 카드셋 클래스
+ */
+export class CardSet implements ICardSet {
+  private _id: string;
+  private _name: string;
+  private _description: string;
+  private _config: ICardSetConfig;
+  private _layoutConfig: Layout['config'];
+  private _cardRenderConfig: ICardRenderConfig;
+  private _cards: Card[];
+  private _activeCardId?: string;
+  private _focusedCardId?: string;
+  private _createdAt: Date;
+  private _updatedAt: Date;
 
   constructor(
-    private readonly id: string,
-    private readonly type: CardSetType,
-    private readonly source: string,
-    private filter: CardFilter,
-    private sort: CardSort,
-    initialCards: Card[] = [],
+    id: string,
+    name: string,
+    description: string,
+    config: ICardSetConfig,
+    private readonly app: App,
+    private readonly cardService: ICardService,
+    layoutConfig: Layout['config'] = {
+      type: 'grid',
+      cardWidth: 300,
+      cardHeight: 200,
+      gap: 10,
+      padding: 20,
+      viewportWidth: 800,
+      viewportHeight: 600
+    },
+    cardRenderConfig: ICardRenderConfig = {
+      header: {
+        showFileName: true,
+        showFirstHeader: true,
+        showTags: true,
+        showCreatedDate: false,
+        showUpdatedDate: false,
+        showProperties: [],
+        renderMarkdown: true
+      },
+      body: {
+        showFileName: false,
+        showFirstHeader: false,
+        showContent: true,
+        showTags: false,
+        showCreatedDate: false,
+        showUpdatedDate: false,
+        showProperties: [],
+        contentLength: 200,
+        renderMarkdown: true
+      },
+      footer: {
+        showFileName: false,
+        showFirstHeader: false,
+        showTags: false,
+        showCreatedDate: false,
+        showUpdatedDate: false,
+        showProperties: [],
+        renderMarkdown: true
+      },
+      renderAsHtml: true
+    },
+    cards: Card[] = [],
+    activeCardId?: string,
+    focusedCardId?: string,
     createdAt: Date = new Date(),
     updatedAt: Date = new Date()
   ) {
-    this.createdAt = createdAt;
-    this.updatedAt = updatedAt;
-    this.cards = initialCards;
+    this._id = id;
+    this._name = name;
+    this._description = description;
+    this._config = {
+      ...config,
+      sortBy: config.sortBy || 'fileName',
+      sortOrder: config.sortOrder || 'asc'
+    };
+    this._layoutConfig = layoutConfig;
+    this._cardRenderConfig = cardRenderConfig;
+    this._cards = cards;
+    this._activeCardId = activeCardId;
+    this._focusedCardId = focusedCardId;
+    this._createdAt = createdAt;
+    this._updatedAt = updatedAt;
   }
 
-  /**
-   * 카드셋 ID를 반환합니다.
-   */
-  getId(): string {
-    return this.id;
+  get id(): string {
+    return this._id;
   }
 
-  /**
-   * 카드셋 타입을 반환합니다.
-   */
-  getType(): CardSetType {
-    return this.type;
+  get name(): string {
+    return this._name;
   }
 
-  /**
-   * 카드셋 소스를 반환합니다.
-   */
-  getSource(): string {
-    return this.source;
+  get description(): string {
+    return this._description;
   }
 
-  /**
-   * 카드셋의 카드 목록을 반환합니다.
-   */
-  getCards(): Card[] {
-    return this.cards;
+  get config(): ICardSetConfig {
+    return this._config;
   }
 
-  /**
-   * 카드셋의 필터를 반환합니다.
-   */
-  getFilter(): CardFilter {
-    return this.filter;
+  get layoutConfig(): Layout['config'] {
+    return this._layoutConfig;
   }
 
-  /**
-   * 카드셋의 정렬 설정을 반환합니다.
-   */
-  getSort(): CardSort {
-    return this.sort;
+  get cardRenderConfig(): ICardRenderConfig {
+    return this._cardRenderConfig;
   }
 
-  /**
-   * ID로 카드를 조회합니다.
-   */
-  getCardById(id: string): Card | null {
-    return this.cards.find(card => card.getId() === id) || null;
+  get cards(): Card[] {
+    return this._cards;
   }
 
-  getCreatedAt(): Date {
-    return this.createdAt;
+  get activeCardId(): string | undefined {
+    return this._activeCardId;
   }
 
-  getUpdatedAt(): Date {
-    return this.updatedAt;
+  get focusedCardId(): string | undefined {
+    return this._focusedCardId;
   }
 
-  /**
-   * 카드를 카드셋에 추가합니다.
-   */
+  get createdAt(): Date {
+    return this._createdAt;
+  }
+
+  get updatedAt(): Date {
+    return this._updatedAt;
+  }
+
+  set name(name: string) {
+    this._name = name;
+    this._updatedAt = new Date();
+  }
+
+  set description(description: string) {
+    this._description = description;
+    this._updatedAt = new Date();
+  }
+
+  set config(config: ICardSetConfig) {
+    this._config = config;
+    this._updatedAt = new Date();
+  }
+
+  set layoutConfig(config: Layout['config']) {
+    this._layoutConfig = config;
+    this._updatedAt = new Date();
+  }
+
+  set cardRenderConfig(config: ICardRenderConfig) {
+    this._cardRenderConfig = config;
+    this._updatedAt = new Date();
+  }
+
+  set activeCardId(cardId: string | undefined) {
+    this._activeCardId = cardId;
+    this._updatedAt = new Date();
+  }
+
+  set focusedCardId(cardId: string | undefined) {
+    this._focusedCardId = cardId;
+    this._updatedAt = new Date();
+  }
+
   addCard(card: Card): void {
-    // 이미 존재하는 카드인지 확인
-    if (this.cards.some(c => c.getId() === card.getId())) {
-      console.warn('[CardNavigator] 이미 존재하는 카드입니다:', card.getId());
+    this._cards.push(card);
+    this._updatedAt = new Date();
+  }
+
+  removeCard(cardId: string): void {
+    this._cards = this._cards.filter(card => card.id !== cardId);
+    if (this._activeCardId === cardId) {
+      this._activeCardId = undefined;
+    }
+    if (this._focusedCardId === cardId) {
+      this._focusedCardId = undefined;
+    }
+    this._updatedAt = new Date();
+  }
+
+  getCard(cardId: string): Card | undefined {
+    return this._cards.find(card => card.id === cardId);
+  }
+
+  getActiveCard(): Card | undefined {
+    return this._activeCardId ? this.getCard(this._activeCardId) : undefined;
+  }
+
+  getFocusedCard(): Card | undefined {
+    return this._focusedCardId ? this.getCard(this._focusedCardId) : undefined;
+  }
+
+  /**
+   * 카드 정렬
+   */
+  sortCards(): void {
+    this._cards.sort((a, b) => {
+      const sortBy = this._config.sortBy;
+      const sortOrder = this._config.sortOrder;
+
+      let comparison = 0;
+      switch (sortBy) {
+        case 'fileName':
+          comparison = a.fileName.localeCompare(b.fileName);
+          break;
+        case 'firstHeader':
+          comparison = (a.firstHeader || '').localeCompare(b.firstHeader || '');
+          break;
+        case 'createdAt':
+          comparison = a.createdAt - b.createdAt;
+          break;
+        case 'updatedAt':
+          comparison = a.updatedAt - b.updatedAt;
+          break;
+        case 'custom':
+          if (this._config.customSortField) {
+            const aValue = a.frontmatter?.[this._config.customSortField] || '';
+            const bValue = b.frontmatter?.[this._config.customSortField] || '';
+            comparison = aValue.localeCompare(bValue);
+          }
+          break;
+        default:
+          comparison = 0;
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    this._updatedAt = new Date();
+  }
+
+  private getCardPriority(card: Card): number {
+    let priority = 0;
+
+    // 우선순위 태그 체크
+    if (this._config.priorityTags?.length) {
+      const tagPriority = this._config.priorityTags.findIndex(tag =>
+        card.tags.includes(tag)
+      );
+      if (tagPriority !== -1) {
+        priority += (this._config.priorityTags.length - tagPriority) * 2;
+      }
+    }
+
+    // 우선순위 폴더 체크
+    if (this._config.priorityFolders?.length) {
+      const folderPriority = this._config.priorityFolders.findIndex(folder =>
+        card.filePath.startsWith(folder)
+      );
+      if (folderPriority !== -1) {
+        priority += (this._config.priorityFolders.length - folderPriority) * 2;
+      }
+    }
+
+    return priority;
+  }
+
+  filterCards(predicate: (card: Card) => boolean): void {
+    this._cards = this._cards.filter(predicate);
+    if (this._activeCardId && !this.getCard(this._activeCardId)) {
+      this._activeCardId = undefined;
+    }
+    if (this._focusedCardId && !this.getCard(this._focusedCardId)) {
+      this._focusedCardId = undefined;
+    }
+    this._updatedAt = new Date();
+  }
+
+  clone(): CardSet {
+    return new CardSet(
+      this._id,
+      this._name,
+      this._description,
+      { ...this._config },
+      this.app,
+      this.cardService,
+      { ...this._layoutConfig },
+      { ...this._cardRenderConfig },
+      this._cards.map(card => card.clone()),
+      this._activeCardId,
+      this._focusedCardId,
+      new Date(this._createdAt),
+      new Date(this._updatedAt)
+    );
+  }
+
+  /**
+   * 카드 목록 설정
+   */
+  setCards(cards: Card[]): void {
+    this._cards = cards;
+    this._updatedAt = new Date();
+  }
+
+  /**
+   * 카드셋 타입 업데이트
+   */
+  updateType(type: CardSetType): void {
+    this._config.type = type;
+    this._updatedAt = new Date();
+  }
+
+  /**
+   * 프리셋 적용
+   */
+  applyPreset(preset: Preset): void {
+    // 카드셋 설정 업데이트
+    this._config = {
+      ...this._config,
+      ...preset.cardSetConfig
+    };
+
+    // 레이아웃 설정 업데이트
+    this._layoutConfig = {
+      ...this._layoutConfig,
+      ...preset.layoutConfig
+    };
+
+    // 카드 렌더링 설정 업데이트
+    this._cardRenderConfig = {
+      ...this._cardRenderConfig,
+      ...preset.cardRenderConfig
+    };
+
+    this._updatedAt = new Date();
+  }
+
+  /**
+   * 링크로부터 카드 추가
+   */
+  async addCardsByLink(filePath: string): Promise<void> {
+    const { linkConfig } = this._config;
+    if (!linkConfig) return;
+
+    const sourceCard = await this.cardService.getCardByPath(filePath);
+    if (!sourceCard) return;
+
+    const links = await this.getLinks(sourceCard, linkConfig);
+    for (const link of links) {
+      const card = await this.cardService.getCardByPath(link);
+      if (card) {
+        this.addCard(card);
+      }
+    }
+  }
+
+  /**
+   * 링크 수집
+   */
+  private async getLinks(card: Card, config: ILinkConfig): Promise<string[]> {
+    const links: string[] = [];
+    const visited = new Set<string>();
+
+    await this.collectLinks(card, config, links, visited, 0);
+    return links;
+  }
+
+  /**
+   * 링크 수집 재귀 함수
+   */
+  private async collectLinks(
+    card: Card,
+    config: ILinkConfig,
+    links: string[],
+    visited: Set<string>,
+    currentDepth: number
+  ): Promise<void> {
+    if (currentDepth >= config.depth || visited.has(card.filePath)) {
       return;
     }
 
-    // 카드 추가
-    this.cards.push(card);
-    console.log('[CardNavigator] 카드 추가됨:', card.getId());
+    visited.add(card.filePath);
 
-    // 필터와 정렬 적용
-    this.applyFilterAndSort();
-  }
+    const file = this.app.vault.getAbstractFileByPath(card.filePath);
+    if (!(file instanceof TFile)) return;
 
-  /**
-   * 카드를 카드셋에서 제거합니다.
-   */
-  removeCard(cardId: string): void {
-    this.cards = this.cards.filter(card => card.getId() !== cardId);
-  }
+    const content = await this.app.vault.read(file);
+    const matches = content.match(/\[\[([^\]]+)\]\]/g) || [];
 
-  /**
-   * 카드셋의 필터를 업데이트합니다.
-   */
-  updateFilter(filter: CardFilter): void {
-    this.filter = filter;
-    this.applyFilterAndSort();
-  }
+    for (const match of matches) {
+      const linkPath = match.slice(2, -2);
+      const linkedFile = this.app.vault.getAbstractFileByPath(linkPath);
+      
+      if (!linkedFile || !(linkedFile instanceof TFile)) continue;
 
-  /**
-   * 카드셋의 정렬 설정을 업데이트합니다.
-   */
-  updateSort(sort: CardSort): void {
-    this.sort = sort;
-    this.applyFilterAndSort();
-  }
-
-  /**
-   * 필터와 정렬을 적용합니다.
-   */
-  private applyFilterAndSort(): void {
-    console.log('[CardNavigator] 필터와 정렬 적용 시작:', this.cards.length, '개 카드');
-
-    // 필터 적용
-    this.cards = this.cards.filter(card => {
-      const result = (() => {
-        switch (this.filter.type) {
-          case 'search':
-            return this.applySearchFilter(card);
-          case 'tag':
-            return this.applyTagFilter(card);
-          case 'folder':
-            return this.applyFolderFilter(card);
-          case 'date':
-            return this.applyDateFilter(card);
-          default:
-            return true;
-        }
-      })();
-
-      if (!result) {
-        console.log('[CardNavigator] 카드 필터링됨:', card.getId());
+      // 패턴 필터링
+      if (config.includePatterns?.length && 
+          !config.includePatterns.some(pattern => linkPath.includes(pattern))) {
+        continue;
+      }
+      if (config.excludePatterns?.length && 
+          config.excludePatterns.some(pattern => linkPath.includes(pattern))) {
+        continue;
       }
 
-      return result;
-    });
-
-    // 정렬 적용
-    this.cards.sort((a, b) => {
-      // 우선순위 태그/폴더 적용
-      if (this.sort.priorityTags) {
-        const aHasPriorityTag = this.hasPriorityTag(a);
-        const bHasPriorityTag = this.hasPriorityTag(b);
-        if (aHasPriorityTag !== bHasPriorityTag) {
-          return aHasPriorityTag ? -1 : 1;
-        }
+      links.push(linkPath);
+      const linkedCard = await this.cardService.getCardByPath(linkPath);
+      if (linkedCard) {
+        await this.collectLinks(linkedCard, config, links, visited, currentDepth + 1);
       }
-
-      if (this.sort.priorityFolders) {
-        const aInPriorityFolder = this.isInPriorityFolder(a);
-        const bInPriorityFolder = this.isInPriorityFolder(b);
-        if (aInPriorityFolder !== bInPriorityFolder) {
-          return aInPriorityFolder ? -1 : 1;
-        }
-      }
-
-      // 일반 정렬 기준 적용
-      switch (this.sort.criterion) {
-        case 'fileName':
-          return this.sort.order === 'asc' 
-            ? a.getFile().name.localeCompare(b.getFile().name)
-            : b.getFile().name.localeCompare(a.getFile().name);
-        case 'updateDate':
-          return this.sort.order === 'asc'
-            ? a.getFile().stat.mtime - b.getFile().stat.mtime
-            : b.getFile().stat.mtime - a.getFile().stat.mtime;
-        case 'createDate':
-          return this.sort.order === 'asc'
-            ? a.getFile().stat.ctime - b.getFile().stat.ctime
-            : b.getFile().stat.ctime - a.getFile().stat.ctime;
-        default:
-          return 0;
-      }
-    });
-
-    console.log('[CardNavigator] 필터와 정렬 적용 완료:', this.cards.length, '개 카드');
+    }
   }
 
   /**
-   * 검색 필터를 적용합니다.
+   * 카드셋이 파일을 포함하는지 확인
    */
-  private applySearchFilter(card: Card): boolean {
-    const searchValue = this.filter.criteria.value.toLowerCase();
-    const content = card.getContent();
-    
-    return (
-      card.getFile().name.toLowerCase().includes(searchValue) ||
-      this.searchCardContent(content.header, searchValue) ||
-      this.searchCardContent(content.body, searchValue) ||
-      this.searchCardContent(content.footer, searchValue)
-    );
+  includesFile(file: TFile): boolean {
+    switch (this._config.type) {
+      case 'folder':
+        return this._includesFileInFolder(file);
+      case 'tag':
+        return this._includesFileWithTag(file);
+      case 'link':
+        return this._includesFileWithLink(file);
+      case 'search':
+        return this._includesFileInSearch(file);
+      default:
+        return false;
+    }
   }
 
   /**
-   * 카드 내용을 검색합니다.
+   * 폴더 카드셋이 파일을 포함하는지 확인
    */
-  private searchCardContent(content: CardSection[], searchTerm: string): boolean {
-    return content.some(section => {
-      if (section.type === 'header' || section.type === 'text') {
-        return section.content.toLowerCase().includes(searchTerm.toLowerCase());
-      }
-      return false;
-    });
-  }
+  private _includesFileInFolder(file: TFile): boolean {
+    const filePath = file.path;
+    const folderPath = this._config.value;
 
-  /**
-   * 태그 필터를 적용합니다.
-   */
-  private applyTagFilter(card: Card): boolean {
-    const tagValue = this.filter.criteria.value;
-    const content = card.getContent();
-    
-    return content.body.some(section => 
-      section.type === 'text' && section.content.startsWith('#') && section.content.includes(tagValue)
-    );
-  }
-
-  /**
-   * 폴더 필터를 적용합니다.
-   */
-  private applyFolderFilter(card: Card): boolean {
-    const folderPath = this.filter.criteria.value;
-    if (!folderPath) {
-      console.log('[CardNavigator] 폴더 경로가 비어있어 모든 카드가 표시됩니다.');
-      return true;
+    if (this._config.isActiveFolder) {
+      // 활성 폴더인 경우 현재 파일의 폴더와 비교
+      const activeFolder = file.parent?.path || '';
+      return filePath.startsWith(activeFolder);
     }
 
-    const result = card.getFile().path.startsWith(folderPath);
-    if (!result) {
-      console.log('[CardNavigator] 카드가 지정된 폴더에 없어 필터링됨:', card.getId(), '폴더:', folderPath);
+    if (this._config.includeSubfolders) {
+      return filePath.startsWith(folderPath);
     }
 
-    return result;
+    return file.parent?.path === folderPath;
   }
 
   /**
-   * 날짜 필터를 적용합니다.
+   * 태그 카드셋이 파일을 포함하는지 확인
    */
-  private applyDateFilter(card: Card): boolean {
-    const dateValue = this.filter.criteria.value;
-    const options = this.filter.criteria.options;
-    
-    if (!options) return true;
-    
-    const fileDate = new Date(card.getFile().stat.mtime);
-    const startDate = options.startDate ? new Date(options.startDate) : null;
-    const endDate = options.endDate ? new Date(options.endDate) : null;
-    
-    if (startDate && fileDate < startDate) return false;
-    if (endDate && fileDate > endDate) return false;
-    
-    return true;
-  }
+  private _includesFileWithTag(file: TFile): boolean {
+    const fileCache = this.app.metadataCache.getFileCache(file);
+    const fileTags = fileCache?.tags || [];
 
-  /**
-   * 카드가 우선순위 태그를 가지고 있는지 확인합니다.
-   */
-  private hasPriorityTag(card: Card): boolean {
-    if (!this.sort.priorityTags) return false;
-    
-    const content = card.getContent();
-    const tags = content.body.filter(section => 
-      section.type === 'text' && section.content.startsWith('#')
-    );
-    
-    return tags.some(tag => 
-      this.sort.priorityTags!.some(priorityTag => 
-        tag.content.toLowerCase().includes(priorityTag.toLowerCase())
-      )
-    );
-  }
-
-  /**
-   * 카드가 우선순위 폴더에 있는지 확인합니다.
-   */
-  private isInPriorityFolder(card: Card): boolean {
-    if (!this.sort.priorityFolders) return false;
-    
-    return this.sort.priorityFolders.some(folder => 
-      card.getFile().path.startsWith(folder)
-    );
-  }
-
-  /**
-   * 카드 태그를 검색합니다.
-   */
-  private searchCardTags(card: Card, searchTerm: string): boolean {
-    const tags = card.getContent().body.filter(section => 
-      section.type === 'text' && section.content.startsWith('#')
-    );
-    return tags.some(tag => tag.content.toLowerCase().includes(searchTerm.toLowerCase()));
-  }
-
-  /**
-   * 카드 내용을 검색합니다.
-   */
-  private searchCardContentByType(content: CardSection[], type: CardSectionType, searchTerm: string): boolean {
-    return content.some(section => {
-      if (section.type === type) {
-        return section.content.toLowerCase().includes(searchTerm.toLowerCase());
-      }
-      return false;
-    });
-  }
-
-  /**
-   * 카드 위치를 업데이트합니다.
-   */
-  async updateCardPosition(cardId: string, position: CardPosition): Promise<void> {
-    const card = this.getCardById(cardId);
-    if (!card) {
-      throw new Error(`Card not found: ${cardId}`);
+    if (this._config.isActiveTag) {
+      // 활성 태그인 경우 현재 파일의 태그와 비교
+      const activeTags = this._getActiveFileTags();
+      return activeTags.some(tag => fileTags.some(t => t.tag === tag));
     }
 
-    this.cardPositions.set(cardId, position);
-    this.updatedAt = new Date();
+    return fileTags.some(t => t.tag === this._config.value);
   }
 
   /**
-   * 카드 위치를 가져옵니다.
+   * 링크 카드셋이 파일을 포함하는지 확인
    */
-  getCardPosition(cardId: string): CardPosition | null {
-    return this.cardPositions.get(cardId) || null;
+  private _includesFileWithLink(file: TFile): boolean {
+    // TODO: 링크 관련 로직 구현
+    return false;
   }
 
   /**
-   * 모든 카드 위치를 가져옵니다.
+   * 검색 카드셋이 파일을 포함하는지 확인
    */
-  getAllCardPositions(): Map<string, CardPosition> {
-    return new Map(this.cardPositions);
+  private _includesFileInSearch(file: TFile): boolean {
+    // 검색 카드셋의 경우 항상 false를 반환
+    // 실제 검색 결과는 ObsidianSearchService에서 처리됨
+    return false;
   }
 
   /**
-   * 카드 위치를 초기화합니다.
+   * 활성 파일의 태그 가져오기
    */
-  resetCardPositions(): void {
-    this.cardPositions.clear();
-    this.updatedAt = new Date();
-  }
-
-  /**
-   * 카드셋의 폴더 경로를 반환합니다.
-   */
-  getFolderPath(): string | null {
-    if (this.type === 'folder' && this.source) {
-      return this.source;
-    }
-    return null;
+  private _getActiveFileTags(): string[] {
+    const activeFile = this.app.workspace.getActiveFile();
+    if (!activeFile) return [];
+    
+    const fileCache = this.app.metadataCache.getFileCache(activeFile);
+    return (fileCache?.tags || []).map(t => t.tag);
   }
 } 

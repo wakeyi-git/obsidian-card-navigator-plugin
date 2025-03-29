@@ -1,6 +1,5 @@
 import { DomainEvent } from './DomainEvent';
 import { Card } from '../models/Card';
-import { CardStyle, CardPosition } from '../models/types';
 
 /**
  * 카드 이벤트 타입
@@ -13,11 +12,22 @@ export type CardEvent =
     | CardPositionChangedEvent;
 
 /**
+ * 카드 이벤트 상수
+ */
+export const CardEventType = {
+    CARD_CREATED: 'CARD_CREATED',
+    CARD_UPDATED: 'CARD_UPDATED',
+    CARD_DELETED: 'CARD_DELETED',
+    CARD_STYLE_CHANGED: 'CARD_STYLE_CHANGED',
+    CARD_POSITION_CHANGED: 'CARD_POSITION_CHANGED'
+} as const;
+
+/**
  * 카드 생성 이벤트
  */
 export class CardCreatedEvent extends DomainEvent {
     constructor(public readonly card: Card) {
-        super();
+        super(CardEventType.CARD_CREATED);
     }
 }
 
@@ -26,7 +36,7 @@ export class CardCreatedEvent extends DomainEvent {
  */
 export class CardUpdatedEvent extends DomainEvent {
     constructor(public readonly card: Card) {
-        super();
+        super(CardEventType.CARD_UPDATED);
     }
 }
 
@@ -35,7 +45,7 @@ export class CardUpdatedEvent extends DomainEvent {
  */
 export class CardDeletedEvent extends DomainEvent {
     constructor(public readonly cardId: string) {
-        super();
+        super(CardEventType.CARD_DELETED);
     }
 }
 
@@ -45,9 +55,8 @@ export class CardDeletedEvent extends DomainEvent {
 export class CardStyleChangedEvent extends DomainEvent {
     constructor(
         public readonly cardId: string,
-        public readonly style: CardStyle
     ) {
-        super();
+        super(CardEventType.CARD_STYLE_CHANGED);
     }
 }
 
@@ -57,8 +66,7 @@ export class CardStyleChangedEvent extends DomainEvent {
 export class CardPositionChangedEvent extends DomainEvent {
     constructor(
         public readonly cardId: string,
-        public readonly position: CardPosition
     ) {
-        super();
+        super(CardEventType.CARD_POSITION_CHANGED);
     }
 } 

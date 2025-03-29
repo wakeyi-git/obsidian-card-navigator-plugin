@@ -2,42 +2,27 @@
 	"compilerOptions": {
 	  "baseUrl": ".",
 	  "paths": {
-		"@/*": ["src/*"],
-		"@main": ["src/main"],
-		"@common/*": ["src/common/*"],
-		"@domain/*": ["src/domain/*"],
-		"@layouts/*": ["src/layouts/*"],
-		"@infrastructure/*": ["src/infrastructure/*"],
-		"@application/*": ["src/application/*"],
-		"@presentation/*": ["src/presentation/*"]
+		"@/*": ["src/*"]
 	  },
 	  "inlineSourceMap": true,
 	  "inlineSources": true,
 	  "module": "ESNext",
 	  "target": "ES6",
-	  "strict": true,
 	  "allowJs": true,
 	  "noImplicitAny": true,
 	  "moduleResolution": "node",
 	  "importHelpers": true,
 	  "isolatedModules": true,
 	  "strictNullChecks": true,
-	  "strictFunctionTypes": true,
-	  "strictBindCallApply": true,
-	  "alwaysStrict": true,
-	  "esModuleInterop": true,
-	  "skipLibCheck": true,
-	  "forceConsistentCasingInFileNames": true,
-	  "resolveJsonModule": true,
-	  "rootDir": "./",
 	  "lib": [
 		"DOM",
 		"ES5",
 		"ES6",
 		"ES7"
-	  ],
-	  "outDir": "dist"
+	  ]
 	},
-	"include": ["src/**/*.ts", "main.ts"]
+	"include": [
+	  "src/**/*.ts"
+	]
 }
   

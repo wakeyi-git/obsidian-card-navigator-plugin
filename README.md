@@ -1,189 +1,151 @@
 # Card Navigator
 
-Card Navigator is an Obsidian plugin that offers a unique way to visualize and navigate your notes. It displays your notes as horizontally or vertically scrollable cards, making it easier to browse and manage your content.
+Card Navigator는 노트를 시각화하고 탐색하는 독특한 방법을 제공하는 Obsidian 플러그인입니다. 노트를 가로 또는 세로로 스크롤 가능한 카드 형태로 표시하여 콘텐츠를 더 쉽게 탐색하고 관리할 수 있습니다.
 
-## Features
+## 기능
 
-- Display notes as cards with customizable information (filename, first header, content)
-- Horizontal or vertical scrolling view
-- Customizable number of cards per view
-- Sort cards by various criteria (name, creation date, modification date)
-- Quick navigation between cards using keyboard shortcuts
-- Search functionality within the current folder
-- Drag and drop support for easy note linking
-- Customizable card appearance (font sizes, content length, etc.)
-- Preset management for quick switching between different settings (1.0.1)
-- Folder selection for viewing cards from specific folders
-- Option to render card content as HTML
-- Card height alignment for uniform appearance
-- Keyboard navigation support for improved accessibility (1.0.2)
-- Context menu for quick actions on cards (1.0.2)
-- Multi-language support for English and Korean
-- Multiple layout options: Auto, List, Grid, and Masonry (1.0.3)
+### 1. 기본 기능
+- 사용자 지정 가능한 정보(파일 이름, 첫 번째 헤더, 내용)로 노트를 카드로 표시
+- 가로 또는 세로 스크롤 뷰
+- 뷰당 카드 수 사용자 지정 가능
+- 균일한 모양을 위한 카드 높이 정렬
+- 사용자 지정 가능한 카드 외관(글꼴 크기, 내용 길이 등)
+- 다양한 기준(이름, 생성 날짜, 수정 날짜)으로 카드 정렬
+- 현재 폴더 내 검색 기능
+- 쉬운 노트 연결을 위한 드래그 앤 드롭 지원
+- 특정 폴더의 카드 보기를 위한 폴더 선택
+- 카드 내용을 HTML로 렌더링하는 옵션
 
-![alt text](<src/screenshots/Keyboard Navigating.gif>)
-![alt text](<src/screenshots/Editing Note.gif>)
+### 2. 프리셋
+Card Navigator는 이제 프리셋을 지원하여 다양한 설정을 저장하고 빠르게 전환할 수 있습니다. 이 기능은 노트를 보고 상호작용하는 방식에 유연성을 제공하여 워크플로우를 향상시킵니다.
 
-## Installation
+- 사용자 정의 프리셋 생성: 현재 Card Navigator 설정을 이름이 지정된 프리셋으로 저장하여 나중에 사용할 수 있습니다.
+- 전역 프리셋: 모든 폴더에 적용되는 기본 프리셋을 설정할 수 있습니다(폴더별 설정으로 재정의되지 않는 한).
+- 폴더별 프리셋: 특정 폴더에 다른 프리셋을 할당하여 폴더 구조에 따라 맞춤형 뷰를 제공합니다.
+- 프리셋 자동 적용: 폴더 간 이동 시 적절한 프리셋을 자동으로 적용합니다.
+- 프리셋 가져오기/내보내기: 프리셋 파일을 가져오거나 내보내 프리셋을 공유하거나 설정을 백업할 수 있습니다.
+- 프리셋 관리: 설정 패널에서 직접 기존 프리셋을 편집, 복제 또는 삭제할 수 있습니다.
 
-1. This plugin has not yet passed the review process in Obsidian.
-2. Download the main.js, manifest.json, and styles.css files from the Releases section.
-3. Create a new folder with an appropriate name inside the .obsidian/plugins/ folder and paste the files downloaded in step 2 into it.
-4. Open Obsidian and go to Settings.
-5. Go to Community Plugins and disable Safe Mode.
-6. Activate the plugin.
+### 3. 키보드 내비게이션
+Card Navigator는 포괄적인 키보드 내비게이션 지원을 제공하여 마우스를 사용하지 않고도 효율적으로 노트를 탐색하고 상호 작용할 수 있습니다.
 
-## Usage
+- Card Navigator 포커싱:
+  - 할당된 단축키를 사용하여 Card Navigator에 포커스(Obsidian의 단축키 설정에서 구성 가능).
+  - 포커스되면 현재 카드가 강조 표시됩니다.
 
-After installation, you can open the Card Navigator view by:
+- 카드 간 이동:
+  - 화살표 키를 사용하여 카드 간 이동:
+  - 왼쪽/오른쪽: 카드 간 수평 이동
+  - 위/아래: 카드 간 수직 이동
+  - PageUp/PageDown: 한 페이지의 카드를 위 또는 아래로 스크롤
+  - Home: 첫 번째 카드로 이동
+  - End: 마지막 카드로 이동
 
-1. Clicking the Card Navigator icon in the left sidebar
-2. Using the command palette to search for "Open Card Navigator"
+- 카드와 상호 작용:
+  - Enter: Obsidian에서 포커스된 카드 열기
+  - 컨텍스트 메뉴 키 또는 사용자 지정 단축키: 포커스된 카드의 컨텍스트 메뉴 열기
 
-### Basic Navigation
+- 컨텍스트 메뉴 작업:
+  - 컨텍스트 메뉴가 열려 있을 때, 화살표 키를 사용하여 메뉴 항목 탐색
+  - Enter: 강조 표시된 메뉴 항목 선택
 
-- Use the scroll wheel or trackpad to navigate between cards
-- Click on a card to open the corresponding note
-- Use the search bar in the toolbar to filter cards
+- Card Navigator 포커스 종료:
+  - Tab을 누르거나 Card Navigator 외부를 클릭하여 포커스 모드 종료
+  - 키보드 내비게이션은 모든 레이아웃 옵션(자동, 리스트, 그리드, 메이슨리)과 원활하게 작동하며, 현재 레이아웃에 따라 동작을 조정합니다.
 
-### Customization
+### 4. 다양한 레이아웃 옵션: 자동, 리스트, 그리드, 메이슨리
+Card Navigator는 이제 사용자의 선호도에 맞는 다양한 레이아웃 옵션을 제공합니다:
 
-1. Click the settings icon in the Card Navigator toolbar
-2. Adjust settings such as cards per view, card appearance, display options, etc.
-3. Create and manage presets for quick setting switches
+- 자동: 사용 가능한 공간에 따라 리스트와 그리드 레이아웃 사이를 자동으로 조정
+- 리스트: 카드를 단일 열로 표시, 세로 또는 가로로 표시 가능
+- 그리드: 카드를 고정 열 그리드 레이아웃으로 배열
+- 메이슨리: 카드의 높이가 다양할 수 있는 동적 그리드 생성
 
-### Keyboard Shortcuts
+레이아웃을 변경하려면:
+- Card Navigator 설정 열기
+- "레이아웃 설정" 섹션으로 이동
+- "기본 레이아웃" 드롭다운에서 원하는 레이아웃 선택
+- 각 레이아웃 유형에 특정한 추가 설정 조정(예: 그리드 및 메이슨리 레이아웃의 열 수)
 
-Card Navigator supports various navigation keyboard shortcuts:
+### 5. 영어와 한국어 다국어 지원
+Card Navigator는 이제 다음 언어를 지원합니다:
+- 영어
+- 한국어
 
-- Scroll one card up
-- Scroll one card down
-- Scroll one card left
-- Scroll one card right
-- Scroll one page up/left
-- Scroll one page down/right
-- Center active card
-- Focus Card Navigator (1.0.2)
-- Up/Down arrows: Move vertically between cards (1.0.2)
-- Left/Right arrows: Move horizontally between cards (1.0.2)
-- Enter: Open focused card (1.0.2)
-- Context menu key or Cmd/Ctrl + E: Open context menu for focused card (1.0.2)
+플러그인은 지원되는 경우 자동으로 Obsidian 인터페이스 언어를 사용합니다.
 
-You can customize these shortcuts in Obsidian's hotkey settings. To set up a hotkey for these actions:
+## 설치
 
-1. Go to Settings → Hotkeys
-2. Search for "Card Navigator"
-3. Assign your desired key combination for each action
+1. Obsidian을 열고 설정으로 이동합니다.
+2. 커뮤니티 플러그인으로 이동하여 안전 모드를 비활성화합니다.
+3. 커뮤니티 플러그인 탐색에서 "card navigator"를 검색하여 설치합니다.
+4. 플러그인을 활성화합니다.
 
-## Settings
+## 사용법
 
-Card Navigator offers various customization options:
+### 1. 설치 후, 다음과 같은 방법으로 Card Navigator 뷰를 열 수 있습니다:
+- 왼쪽 사이드바의 Card Navigator 아이콘 클릭
+- 명령 팔레트를 사용하여 "Open Card Navigator" 검색
 
-- **Container Settings**: Adjust cards per view and card alignment
-- **Card Settings**: Customize information displayed on cards (filename, first header, content)
-- **Appearance**: Set font sizes for various card elements
-- **Sorting**: Choose default sorting method for cards
-- **Folder Selection**: Option to use active file's folder or selected folder
-- **Presets**: Save and load different configurations
-- **Layout**: Choose between Auto, List, Grid, and Masonry layouts (1.0.3)
+### 2. 기본 탐색
+- 스크롤 휠이나 트랙패드를 사용하여 카드 간 이동
+- 카드를 클릭하여 해당 노트 열기
+- 툴바의 검색 바를 사용하여 카드 필터링
 
-## Multi-language Support
+### 3. 사용자 지정
+- Card Navigator 툴바의 설정 아이콘 클릭
+- 뷰당 카드 수, 카드 외관, 표시 옵션 등의 설정 조정
+- 빠른 설정 전환을 위한 프리셋 생성 및 관리
 
-Card Navigator now supports multiple languages:
+### 4. 키보드 단축키
+Card Navigator는 다양한 탐색 키보드 단축키를 지원합니다:
+- Card Navigator 플러그인 열기
+- Card Navigator로 포커스 이동(포커스 이동 후 아래의 키로 탐색)
+  - 위/아래 화살표: 카드 간 수직 이동
+  - 왼쪽/오른쪽 화살표: 카드 간 수평 이동
+  - Enter: 포커스된 카드 열기
+- 컨텍스트 메뉴 키 또는 Cmd/Ctrl + E: 포커스된 카드의 컨텍스트 메뉴 열기
 
-- English
-- Korean
+Obsidian의 단축키 설정에서 이러한 단축키를 사용자 지정할 수 있습니다. 이 작업에 대한 단축키를 설정하려면:
+- 설정 → 단축키로 이동
+- "Card Navigator" 검색
+- 각 작업에 원하는 키 조합 할당
 
-The plugin will automatically use the Obsidian interface language when supported. You can contribute translations for other languages by submitting a pull request to the GitHub repository.
+### 5. 설정
+Card Navigator는 다양한 사용자 지정 옵션을 제공합니다:
+- 프리셋: 다양한 구성 저장 및 불러오기
+- 컨테이너 설정: 소프 폴더, 카드 정렬 방법 선택
+- 레이아웃: 자동, 리스트, 그리드, 메이슨리 레이아웃 중 선택
+- 카드 내용 설정: 카드에 표시되는 정보 사용자 지정(파일 이름, 첫 번째 헤더, 내용)
+- 카드 스타일 설정: 다양한 카드 요소의 글꼴 크기 설정
 
-## Presets
+## 개발
 
-Card Navigator now supports presets, allowing you to save and quickly switch between different configurations. This feature enhances your workflow by providing flexibility in how you view and interact with your notes.
+### 요구사항
+- Node.js 16 이상
+- npm 7 이상
 
-### Key Features
+### 설치
+```bash
+# 저장소 클론
+git clone https://github.com/wakeyi/obsidian-card-navigator-plugin.git
 
-1. **Create Custom Presets**: Save your current Card Navigator settings as a named preset for future use.
+# 디렉토리로 이동
+cd obsidian-card-navigator-plugin
 
-2. **Global Preset**: Set a default preset that applies across all folders unless overridden.
+# 의존성 설치
+npm install
+```
 
-3. **Folder-Specific Presets**: Assign different presets to specific folders, allowing for customized views based on your folder structure.
+### 개발 서버 실행
+```bash
+npm run dev
+```
 
-4. **Auto-Apply Presets**: Automatically apply the appropriate preset when navigating between folders.
+### 빌드
+```bash
+npm run build
+```
 
-5. **Import/Export Presets**: Share your presets or backup your configurations by importing or exporting preset files.
-
-6. **Preset Management**: Edit, clone, or delete existing presets directly from the settings panel.
-
-### Using Presets
-
-1. **Creating a Preset**:
-   - Go to Card Navigator settings
-   - Configure your desired settings
-   - Click the "+" button in the Preset Management section
-   - Name your preset and optionally add a description
-
-2. **Applying a Preset**:
-   - Global: Toggle the preset you want to use as the global default
-   - Folder-specific: In the Folder Preset section, assign a preset to a specific folder
-
-3. **Auto-Applying Presets**:
-   - Enable "Auto Apply Presets" in settings
-   - Card Navigator will automatically switch to the appropriate preset based on the current folder
-
-4. **Importing/Exporting Presets**:
-   - Use the import/export buttons in the Preset Management section
-   - Exported presets are saved as JSON files for easy sharing or backup
-
-Presets allow you to tailor Card Navigator's behavior to different parts of your vault or different types of notes, enhancing your productivity and note-taking experience.
-
-### Keyboard Navigation (1.0.2)
-
-Card Navigator now offers comprehensive keyboard navigation support, allowing you to browse and interact with your notes efficiently without using a mouse. Here's how to use the keyboard navigation features:
-
-1. **Focusing the Card Navigator**:
-   - Use the assigned hotkey to focus the Card Navigator (configurable in Obsidian's hotkey settings).
-   - When focused, the current card will be highlighted.
-
-2. **Navigating Between Cards**:
-   - Use arrow keys to move between cards:
-     - Left/Right: Move horizontally between cards
-     - Up/Down: Move vertically between cards
-   - PageUp/PageDown: Scroll one page of cards up or down
-   - Home: Move to the first card
-   - End: Move to the last card
-
-3. **Interacting with Cards**:
-   - Enter: Open the focused card in Obsidian
-   - Context menu key or custom shortcut: Open the context menu for the focused card
-4. **Context Menu Actions**:
-   - When the context menu is open, use arrow keys to navigate menu items
-   - Enter: Select the highlighted menu item
-
-5. **Exiting Card Navigator Focus**:
-   - Press Tab or click outside the Card Navigator to exit focus mode
-
-The keyboard navigation works seamlessly with all layout options (Auto, List, Grid, and Masonry), adjusting its behavior based on the current layout.
-
-### Layout Options (1.0.3)
-
-Card Navigator now offers multiple layout options to suit your preferences:
-
-1. Auto: Automatically adjusts between list and grid layout based on the available space
-2. List: Displays cards in a single column, either vertically or horizontally
-3. Grid: Arranges cards in a fixed-column grid layout
-4. Masonry: Creates a dynamic grid where cards can have varying heights
-
-To change the layout:
-
-1. Open Card Navigator settings
-2. Go to the "Layout Settings" section
-3. Choose your preferred layout from the "Default Layout" dropdown
-4. Adjust additional settings specific to each layout type (e.g., number of columns for Grid and Masonry layouts)
-
-## Feedback and Support
-
-If you encounter any issues or have suggestions for improvement, please visit the [GitHub repository](https://github.com/wakeyi-git/obsidian-card-navigator-plugin) to open an issue or contribute to the project.
-
-## License
-
-[MIT](LICENSE)
+## 라이선스
+MIT License

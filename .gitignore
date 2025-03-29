@@ -1,16 +1,40 @@
-# vscode
-.vscode 
+# Dependencies
+node_modules/
+
+# Build output
+main.js
+*.js.map
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Coverage
+coverage/
+
+# Cache
+.cache/
+.eslintcache
 
 # Intellij
 *.iml
-.idea
-
-# npm
-node_modules
-
-# Don't include the compiled main.js file in the repo.
-# They should be uploaded to GitHub releases instead.
-main.js
 
 # Exclude sourcemaps
 *.map
@@ -20,5 +44,4 @@ data.json
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
-main.js
 old/

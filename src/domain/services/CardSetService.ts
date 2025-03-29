@@ -1,146 +1,218 @@
-import { CardSet } from '../models/CardSet';
-import { CardSetType, CardFilter, CardSort } from '../models/types';
-import { ICardSetRepository } from '../repositories/ICardSetRepository';
-import { CardService } from './CardService';
+import { CardSet, CardSetType, ICardSetConfig } from '../models/CardSet';
+import { Card } from '../models/Card';
+import { TFile, TFolder, TAbstractFile } from 'obsidian';
+import { App } from 'obsidian';
+import { ICardService } from './CardService';
+import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
+import { CardSetCreatedEvent, CardSetUpdatedEvent, CardSetDeletedEvent } from '@/domain/events/CardSetEvents';
+import { IPresetService } from './PresetService';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
- * 카드셋 도메인 서비스
+ * 카드셋 서비스 인터페이스
  */
-export class CardSetService {
+export interface ICardSetService {
+  /** 카드셋 생성 */
+  createCardSet(name: string, description: string, config: ICardSetConfig): CardSet;
+  /** 카드셋 업데이트 */
+  updateCardSet(cardSet: CardSet): void;
+  /** 카드셋 삭제 */
+  deleteCardSet(id: string): void;
+  /** 카드셋에 카드 추가 */
+  addCardToSet(cardSetId: string, cardId: string): Promise<void>;
+  /** 카드셋에서 카드 제거 */
+  removeCardFromSet(cardSetId: string, cardId: string): Promise<void>;
+  /** 카드셋 활성 카드 설정 */
+  setActiveCard(cardSetId: string, cardId: string): Promise<void>;
+  /** 카드셋 포커스 카드 설정 */
+  setFocusedCard(cardSetId: string, cardId: string): Promise<void>;
+  /** 카드셋 카드 정렬 */
+  sortCards(cardSetId: string): Promise<void>;
+  /** 카드셋 카드 필터링 */
+  filterCards(cardSetId: string, filter: (card: Card) => boolean): Promise<void>;
+  /** 카드셋 조회 */
+  getCardSet(id: string): CardSet | undefined;
+  /** 모든 카드셋 조회 */
+  getAllCardSets(): CardSet[];
+  /** 카드셋 타입 업데이트 */
+  updateCardSetType(cardSetId: string, type: CardSetType): Promise<void>;
+  /** 프리셋 적용 */
+  applyPreset(cardSetId: string, presetId: string): Promise<void>;
+}
+
+/**
+ * 카드셋 서비스 클래스
+ */
+export class CardSetService implements ICardSetService {
+  private readonly _cardSets: Map<string, CardSet>;
+
   constructor(
-    private readonly cardSetRepository: ICardSetRepository,
-    private readonly cardService: CardService
-  ) {}
-
-  /**
-   * ID로 카드셋을 조회합니다.
-   */
-  async findCardSetById(id: string): Promise<CardSet | null> {
-    return this.cardSetRepository.findById(id);
+    private readonly app: App,
+    private readonly cardService: ICardService,
+    private readonly eventDispatcher: DomainEventDispatcher,
+    private readonly presetService: IPresetService
+  ) {
+    this._cardSets = new Map();
   }
 
   /**
-   * 타입과 소스로 카드셋을 조회합니다.
+   * 카드셋 생성
    */
-  async findCardSetByTypeAndSource(type: CardSetType, source: string): Promise<CardSet | null> {
-    return this.cardSetRepository.findByTypeAndSource(type, source);
+  createCardSet(name: string, description: string, config: ICardSetConfig): CardSet {
+    const id = uuidv4();
+    const cardSet = new CardSet(
+      id,
+      name,
+      description,
+      config,
+      this.app,
+      this.cardService
+    );
+    this._cardSets.set(id, cardSet);
+    return cardSet;
   }
 
   /**
-   * 새로운 카드셋을 생성합니다.
+   * 카드셋 업데이트
    */
-  async createCardSet(type: CardSetType, source: string, filter: CardFilter, sort: CardSort): Promise<CardSet> {
-    return this.cardSetRepository.create(type, source, filter, sort);
+  updateCardSet(cardSet: CardSet): void {
+    this._cardSets.set(cardSet.id, cardSet);
+    this.eventDispatcher.dispatch(new CardSetUpdatedEvent(cardSet));
   }
 
   /**
-   * 카드셋의 필터를 업데이트합니다.
+   * 카드셋 삭제
    */
-  async updateCardSetFilter(cardSet: CardSet, filter: CardFilter): Promise<CardSet> {
-    return this.cardSetRepository.updateFilter(cardSet, filter);
+  deleteCardSet(id: string): void {
+    this._cardSets.delete(id);
+    this.eventDispatcher.dispatch(new CardSetDeletedEvent(id));
   }
 
   /**
-   * 카드셋의 정렬 설정을 업데이트합니다.
+   * 카드셋에 카드 추가
    */
-  async updateCardSetSort(cardSet: CardSet, sort: CardSort): Promise<CardSet> {
-    return this.cardSetRepository.updateSort(cardSet, sort);
+  async addCardToSet(cardSetId: string, cardId: string): Promise<void> {
+    const cardSet = this._cardSets.get(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
+
+    const card = await this.cardService.getCard(cardId);
+    if (!card) {
+      throw new Error(`Card not found: ${cardId}`);
+    }
+
+    cardSet.addCard(card);
+    this.eventDispatcher.dispatch(new CardSetUpdatedEvent(cardSet));
   }
 
   /**
-   * 카드셋을 삭제합니다.
+   * 카드셋에서 카드 제거
    */
-  async deleteCardSet(cardSet: CardSet): Promise<void> {
-    await this.cardSetRepository.delete(cardSet);
+  async removeCardFromSet(cardSetId: string, cardId: string): Promise<void> {
+    const cardSet = this._cardSets.get(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
+
+    cardSet.removeCard(cardId);
+    this.eventDispatcher.dispatch(new CardSetUpdatedEvent(cardSet));
   }
 
   /**
-   * 모든 카드셋을 조회합니다.
+   * 카드셋 활성 카드 설정
    */
-  async findAllCardSets(): Promise<CardSet[]> {
-    return this.cardSetRepository.findAll();
+  async setActiveCard(cardSetId: string, cardId: string): Promise<void> {
+    const cardSet = this._cardSets.get(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
+
+    cardSet.activeCardId = cardId;
+    this.eventDispatcher.dispatch(new CardSetUpdatedEvent(cardSet));
   }
 
   /**
-   * 폴더 타입의 카드셋을 생성합니다.
+   * 카드셋 포커스 카드 설정
    */
-  async createFolderCardSet(folderPath: string, filter: CardFilter, sort: CardSort): Promise<CardSet> {
-    return this.createCardSet('folder', folderPath, filter, sort);
+  async setFocusedCard(cardSetId: string, cardId: string): Promise<void> {
+    const cardSet = this._cardSets.get(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
+
+    cardSet.focusedCardId = cardId;
+    this.eventDispatcher.dispatch(new CardSetUpdatedEvent(cardSet));
   }
 
   /**
-   * 태그 타입의 카드셋을 생성합니다.
+   * 카드셋 카드 정렬
    */
-  async createTagCardSet(tag: string, filter: CardFilter, sort: CardSort): Promise<CardSet> {
-    return this.createCardSet('tag', tag, filter, sort);
+  async sortCards(cardSetId: string): Promise<void> {
+    const cardSet = this._cardSets.get(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
+
+    cardSet.sortCards();
+    this.eventDispatcher.dispatch(new CardSetUpdatedEvent(cardSet));
   }
 
   /**
-   * 링크 타입의 카드셋을 생성합니다.
+   * 카드셋 카드 필터링
    */
-  async createLinkCardSet(link: string, filter: CardFilter, sort: CardSort): Promise<CardSet> {
-    return this.createCardSet('link', link, filter, sort);
+  async filterCards(cardSetId: string, filter: (card: Card) => boolean): Promise<void> {
+    const cardSet = this._cardSets.get(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
+
+    cardSet.filterCards(filter);
+    this.eventDispatcher.dispatch(new CardSetUpdatedEvent(cardSet));
   }
 
   /**
-   * 검색 필터를 생성합니다.
+   * 카드셋 조회
    */
-  createSearchFilter(searchTerm: string): CardFilter {
-    return {
-      type: 'search',
-      criteria: {
-        value: searchTerm
-      }
-    };
+  getCardSet(id: string): CardSet | undefined {
+    return this._cardSets.get(id);
   }
 
   /**
-   * 태그 필터를 생성합니다.
+   * 모든 카드셋 조회
    */
-  createTagFilter(tag: string): CardFilter {
-    return {
-      type: 'tag',
-      criteria: {
-        value: tag
-      }
-    };
+  getAllCardSets(): CardSet[] {
+    return Array.from(this._cardSets.values());
   }
 
   /**
-   * 폴더 필터를 생성합니다.
+   * 카드셋 타입 업데이트
    */
-  createFolderFilter(folderPath: string): CardFilter {
-    return {
-      type: 'folder',
-      criteria: {
-        value: folderPath
-      }
-    };
+  async updateCardSetType(cardSetId: string, type: CardSetType): Promise<void> {
+    const cardSet = this._cardSets.get(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
+
+    cardSet.updateType(type);
+    this.eventDispatcher.dispatch(new CardSetUpdatedEvent(cardSet));
   }
 
   /**
-   * 날짜 필터를 생성합니다.
+   * 프리셋 적용
    */
-  createDateFilter(startDate?: string, endDate?: string): CardFilter {
-    return {
-      type: 'date',
-      criteria: {
-        value: 'date',
-        options: {
-          startDate,
-          endDate
-        }
-      }
-    };
-  }
+  async applyPreset(cardSetId: string, presetId: string): Promise<void> {
+    const cardSet = this._cardSets.get(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
 
-  /**
-   * 기본 정렬 설정을 생성합니다.
-   */
-  createDefaultSort(): CardSort {
-    return {
-      criterion: 'fileName',
-      order: 'asc'
-    };
+    const preset = await this.presetService.getPreset(presetId);
+    if (!preset) {
+      throw new Error(`Preset not found: ${presetId}`);
+    }
+
+    cardSet.applyPreset(preset);
+    this.eventDispatcher.dispatch(new CardSetUpdatedEvent(cardSet));
   }
 } 

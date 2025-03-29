@@ -1,227 +1,394 @@
-import { App, TFile } from 'obsidian';
-import { Card } from '../models/Card';
-import { ICardRepository } from '../repositories/ICardRepository';
-import { CardContent, CardStyle, CardSectionType, CardPosition } from '../models/types';
-import { DomainEventDispatcher } from '../events/DomainEventDispatcher';
+import { App, TFile, TAbstractFile } from 'obsidian';
+import { Card, ICard, ICardRenderConfig, ICardStyle } from '../models/Card';
 import { CardCreatedEvent, CardUpdatedEvent, CardDeletedEvent, CardStyleChangedEvent, CardPositionChangedEvent } from '../events/CardEvents';
-import { CardResponseDto } from '../../application/dtos/CardDto';
+import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
+import { ICardRepository } from '@/domain/repositories/ICardRepository';
 
+/**
+ * 카드 서비스 인터페이스
+ */
 export interface ICardService {
-  createCard(file: TFile): Promise<Card>;
-  getCard(id: string): Promise<CardResponseDto>;
+  /**
+   * 파일로부터 카드 생성
+   */
+  createCardFromFile(file: TFile): Promise<Card>;
+
+  /**
+   * 파일 경로로부터 카드 생성
+   */
+  createCardFromPath(filePath: string): Promise<Card>;
+
+  /**
+   * 카드 업데이트
+   */
   updateCard(card: Card): Promise<void>;
-  deleteCard(id: string): Promise<void>;
+
+  /**
+   * 카드 삭제
+   */
+  deleteCard(cardId: string): Promise<void>;
+
+  /**
+   * 카드 조회
+   */
+  getCard(cardId: string): Promise<Card | null>;
+
+  /**
+   * 파일 경로로 카드 조회
+   */
+  getCardByPath(filePath: string): Promise<Card | null>;
+
+  /**
+   * 모든 카드 조회
+   */
   getAllCards(): Promise<Card[]>;
-  findCardByFile(file: TFile): Promise<Card | null>;
-  findCardById(cardId: string): Promise<Card | null>;
-  updateCardCache(card: Card): Promise<void>;
-  removeFromCardCache(card: Card): Promise<void>;
-  changeCardStyle(card: Card, style: CardStyle): Promise<void>;
-  changeCardPosition(card: Card, position: { x: number; y: number }): Promise<void>;
+
+  /**
+   * 카드 렌더링
+   */
+  renderCard(card: Card, config: ICardRenderConfig): Promise<string>;
+
+  /**
+   * 기본 렌더링 설정 반환
+   */
+  getDefaultRenderConfig(): ICardRenderConfig;
+
+  /**
+   * 기본 스타일 반환
+   */
+  getDefaultStyle(): ICardStyle;
 }
 
 /**
- * 카드 서비스
+ * 카드 서비스 클래스
  */
 export class CardService implements ICardService {
-  private cardCache: Map<string, Card> = new Map();
+  private readonly _cards: Map<string, Card>;
+  private readonly app: App;
+  private readonly defaultRenderConfig: ICardRenderConfig;
+  private readonly defaultStyle: ICardStyle;
 
   constructor(
-    private readonly app: App,
+    app: App,
     private readonly cardRepository: ICardRepository,
     private readonly eventDispatcher: DomainEventDispatcher
-  ) {}
-
-  /**
-   * 모든 카드를 가져옵니다.
-   */
-  async getAllCards(): Promise<Card[]> {
-    return Array.from(this.cardCache.values());
+  ) {
+    this._cards = new Map();
+    this.app = app;
+    this.defaultRenderConfig = this.getDefaultRenderConfig();
+    this.defaultStyle = this.getDefaultStyle();
   }
 
   /**
-   * 파일로 카드를 찾습니다.
+   * 파일로부터 카드 생성
    */
-  async findCardByFile(file: TFile): Promise<Card | null> {
-    return this.cardCache.get(file.path) || null;
-  }
+  async createCardFromFile(file: TFile): Promise<Card> {
+    const content = await this.app.vault.read(file);
+    const frontmatter = this.parseFrontmatter(content);
+    const firstHeader = this.extractFirstHeader(content);
+    const tags = this.extractTags(content);
+    const createdAt = file.stat.ctime;
+    const updatedAt = file.stat.mtime;
 
-  /**
-   * ID로 카드를 찾습니다.
-   */
-  async findCardById(cardId: string): Promise<Card | null> {
-    return this.cardCache.get(cardId) || null;
-  }
+    const card = new Card(
+      file.path,
+      file.path,
+      file.name,
+      firstHeader,
+      content,
+      tags,
+      createdAt,
+      updatedAt,
+      frontmatter,
+      this.defaultRenderConfig,
+      this.defaultStyle
+    );
 
-  /**
-   * 카드 캐시를 업데이트합니다.
-   */
-  async updateCardCache(card: Card): Promise<void> {
-    this.cardCache.set(card.getId(), card);
-  }
-
-  /**
-   * 카드 캐시에서 카드를 제거합니다.
-   */
-  async removeFromCardCache(card: Card): Promise<void> {
-    this.cardCache.delete(card.getId());
-  }
-
-  /**
-   * 카드를 생성합니다.
-   */
-  async createCard(file: TFile): Promise<Card> {
-    const content = await this.createCardContent(file);
-    const style = this.createDefaultCardStyle();
-    const position = { left: 0, top: 0, width: style.width, height: style.height };
-    const card = new Card(file.path, file, content, style, position, this.app);
-    
-    await this.updateCardCache(card);
-    
-    const event = new CardCreatedEvent(card);
-    await this.eventDispatcher.dispatch(event);
-    
+    this._cards.set(card.id, card);
+    this.eventDispatcher.dispatch(new CardCreatedEvent(card));
     return card;
   }
 
   /**
-   * 카드를 가져옵니다.
+   * 파일 경로로부터 카드 생성
    */
-  async getCard(id: string): Promise<CardResponseDto> {
-    const card = await this.findCardById(id);
-    if (!card) {
-      throw new Error(`Card not found: ${id}`);
+  async createCardFromPath(filePath: string): Promise<Card> {
+    const file = this.app.vault.getAbstractFileByPath(filePath);
+    if (!(file instanceof TFile)) {
+      throw new Error(`File not found: ${filePath}`);
     }
-    return {
-      id: card.getId(),
-      filePath: card.getFilePath(),
-      content: card.getContent(),
-      style: card.getStyle(),
-      position: card.getPosition(),
-      isActive: false,
-      isFocused: false,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+
+    return this.createCardFromFile(file);
   }
 
   /**
-   * 카드를 업데이트합니다.
+   * 카드 업데이트
    */
   async updateCard(card: Card): Promise<void> {
-    await this.updateCardCache(card);
-    
-    const event = new CardUpdatedEvent(card);
-    await this.eventDispatcher.dispatch(event);
-  }
-
-  /**
-   * 카드를 삭제합니다.
-   */
-  async deleteCard(id: string): Promise<void> {
-    const card = await this.findCardById(id);
-    if (!card) {
-      throw new Error(`Card not found: ${id}`);
+    const file = this.app.vault.getAbstractFileByPath(card.filePath);
+    if (!file || !(file instanceof TFile)) {
+      throw new Error(`File not found: ${card.filePath}`);
     }
-    await this.removeFromCardCache(card);
-    
-    const event = new CardDeletedEvent(card.getId());
-    await this.eventDispatcher.dispatch(event);
+
+    const content = await this.app.vault.read(file);
+    const frontmatter = this.parseFrontmatter(content);
+    const firstHeader = this.extractFirstHeader(content);
+    const tags = this.extractTags(content);
+    const updatedAt = new Date(file.stat.mtime);
+
+    card.updateContent(content);
+    this.eventDispatcher.dispatch(new CardUpdatedEvent(card));
   }
 
   /**
-   * 카드 스타일을 변경합니다.
+   * 카드 삭제
    */
-  async changeCardStyle(card: Card, style: CardStyle): Promise<void> {
-    await this.cardRepository.updateStyle(card.getId(), style);
-    await this.updateCardCache(card);
-    
-    const event = new CardStyleChangedEvent(card.getId(), style);
-    await this.eventDispatcher.dispatch(event);
+  async deleteCard(cardId: string): Promise<void> {
+    const card = this._cards.get(cardId);
+    if (card) {
+      this._cards.delete(cardId);
+      this.eventDispatcher.dispatch(new CardDeletedEvent(cardId));
+    }
   }
 
   /**
-   * 카드 위치를 변경합니다.
+   * 카드 조회
    */
-  async changeCardPosition(card: Card, position: { x: number; y: number }): Promise<void> {
-    const cardPosition: CardPosition = {
-      left: position.x,
-      top: position.y,
-      width: card.getStyle().width,
-      height: card.getStyle().height
-    };
-    
-    await this.cardRepository.updatePosition(card.getId(), cardPosition);
-    await this.updateCardCache(card);
-    
-    const event = new CardPositionChangedEvent(card.getId(), cardPosition);
-    await this.eventDispatcher.dispatch(event);
+  async getCard(cardId: string): Promise<Card | null> {
+    return this._cards.get(cardId) || null;
   }
 
   /**
-   * 파일의 내용을 읽어 카드 컨텐츠를 생성합니다.
+   * 파일 경로로 카드 조회
    */
-  private async createCardContent(file: TFile): Promise<CardContent> {
-    const content = await file.vault.read(file);
-    const { frontmatter, content: body } = this.parseContent(content);
+  async getCardByPath(filePath: string): Promise<Card | null> {
+    const file = this.app.vault.getAbstractFileByPath(filePath);
+    if (!(file instanceof TFile)) {
+      return null;
+    }
 
-    return {
-      header: [
-        {
-          type: 'text' as CardSectionType,
-          content: file.name,
-          level: 1
-        },
-        ...(frontmatter ? [{
-          type: 'text' as CardSectionType,
-          content: JSON.stringify(frontmatter),
-          level: 2
-        }] : [])
-      ],
-      body: [{
-        type: 'text' as CardSectionType,
-        content: body
-      }],
-      footer: []
-    };
+    const existingCard = Array.from(this._cards.values()).find(
+      card => card.filePath === filePath
+    );
+
+    if (existingCard) {
+      return existingCard;
+    }
+
+    return this.createCardFromFile(file);
   }
 
   /**
-   * 파일 내용을 파싱합니다.
+   * 모든 카드 조회
    */
-  private parseContent(content: string): { frontmatter?: any; content: string } {
-    const frontmatterRegex = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
-    const match = content.match(frontmatterRegex);
+  async getAllCards(): Promise<Card[]> {
+    return Array.from(this._cards.values());
+  }
 
-    if (match) {
-      try {
-        const frontmatter = JSON.parse(match[1]);
-        return { frontmatter, content: match[2] };
-      } catch (e) {
-        return { content };
+  /**
+   * 카드 렌더링
+   */
+  async renderCard(card: Card, config: ICardRenderConfig): Promise<string> {
+    const header = this.renderHeader(card, config.header);
+    const body = await this.renderBody(card, config.body);
+    const footer = this.renderFooter(card, config.footer);
+
+    return `
+      <div class="card ${card.isActive ? 'active' : ''} ${card.isFocused ? 'focused' : ''}">
+        ${header}
+        ${body}
+        ${footer}
+      </div>
+    `;
+  }
+
+  /**
+   * 헤더 렌더링
+   */
+  private renderHeader(card: Card, config: ICardRenderConfig['header']): string {
+    if (!config.showFileName && !config.showFirstHeader) return '';
+
+    const headerContent = config.renderMarkdown
+      ? this.renderMarkdown(card.firstHeader || card.fileName)
+      : card.firstHeader || card.fileName;
+
+    return `
+      <div class="card-header">
+        ${headerContent}
+      </div>
+    `;
+  }
+
+  /**
+   * 본문 렌더링
+   */
+  private async renderBody(card: Card, config: ICardRenderConfig['body']): Promise<string> {
+    if (!config.showContent) return '';
+
+    const bodyContent = config.renderMarkdown
+      ? await this.renderMarkdown(card.content || '')
+      : card.content || '';
+
+    return `
+      <div class="card-body">
+        ${bodyContent}
+      </div>
+    `;
+  }
+
+  /**
+   * 마크다운 렌더링
+   */
+  private async renderMarkdown(content: string): Promise<string> {
+    // TODO: Obsidian의 마크다운 렌더링 API를 사용하여 구현
+    return content;
+  }
+
+  /**
+   * 풋터 렌더링
+   */
+  private renderFooter(card: Card, config: ICardRenderConfig['footer']): string {
+    if (!config.showTags && !config.showCreatedDate && !config.showUpdatedDate) return '';
+
+    const footerContent = [];
+
+    if (config.showTags && card.tags.length > 0) {
+      footerContent.push(`<div class="card-tags">${card.tags.join(', ')}</div>`);
+    }
+
+    if (config.showCreatedDate) {
+      footerContent.push(`<div class="card-created-date">Created: ${new Date(card.createdAt).toLocaleDateString()}</div>`);
+    }
+
+    if (config.showUpdatedDate) {
+      footerContent.push(`<div class="card-updated-date">Updated: ${new Date(card.updatedAt).toLocaleDateString()}</div>`);
+    }
+
+    return `
+      <div class="card-footer">
+        ${footerContent.join('')}
+      </div>
+    `;
+  }
+
+  /**
+   * 프론트매터 파싱
+   */
+  private parseFrontmatter(content: string): Record<string, any> {
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!frontmatterMatch) {
+      return {};
+    }
+
+    const frontmatter = frontmatterMatch[1];
+    const lines = frontmatter.split('\n');
+    const result: Record<string, any> = {};
+
+    for (const line of lines) {
+      const [key, ...values] = line.split(':').map(s => s.trim());
+      if (key && values.length > 0) {
+        result[key] = values.join(':');
       }
     }
 
-    return { content };
+    return result;
   }
 
   /**
-   * 기본 카드 스타일을 생성합니다.
+   * 첫 번째 헤더 추출
    */
-  private createDefaultCardStyle(): CardStyle {
+  private extractFirstHeader(content: string): string {
+    const headerMatch = content.match(/^#\s+(.+)$/m);
+    return headerMatch ? headerMatch[1] : '';
+  }
+
+  /**
+   * 태그 추출
+   */
+  private extractTags(content: string): string[] {
+    const tagMatches = content.match(/#[\w-]+/g) || [];
+    return tagMatches.map(tag => tag.slice(1));
+  }
+
+  /**
+   * 기본 렌더링 설정 반환
+   */
+  getDefaultRenderConfig(): ICardRenderConfig {
     return {
-      width: 300,
-      height: 200,
-      fontSize: 14,
-      lineHeight: 1.5,
-      padding: 12,
-      margin: 8,
-      borderRadius: 8,
-      backgroundColor: 'var(--background-primary)',
-      textColor: 'var(--text-normal)',
-      borderWidth: 1,
-      borderColor: 'var(--background-modifier-border)',
-      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+      header: {
+        showFileName: true,
+        showFirstHeader: true,
+        showTags: true,
+        showCreatedDate: false,
+        showUpdatedDate: false,
+        showProperties: [],
+        renderMarkdown: true
+      },
+      body: {
+        showFileName: false,
+        showFirstHeader: false,
+        showContent: true,
+        showTags: false,
+        showCreatedDate: false,
+        showUpdatedDate: false,
+        showProperties: [],
+        contentLength: 200,
+        renderMarkdown: true
+      },
+      footer: {
+        showFileName: false,
+        showFirstHeader: false,
+        showTags: false,
+        showCreatedDate: false,
+        showUpdatedDate: false,
+        showProperties: [],
+        renderMarkdown: true
+      },
+      renderAsHtml: true
+    };
+  }
+
+  /**
+   * 기본 스타일 반환
+   */
+  getDefaultStyle(): ICardStyle {
+    return {
+      card: {
+        background: '#ffffff',
+        fontSize: '14px',
+        borderColor: '#e0e0e0',
+        borderWidth: '1px'
+      },
+      activeCard: {
+        background: '#e3f2fd',
+        fontSize: '14px',
+        borderColor: '#2196f3',
+        borderWidth: '2px'
+      },
+      focusedCard: {
+        background: '#fff3e0',
+        fontSize: '14px',
+        borderColor: '#ff9800',
+        borderWidth: '2px'
+      },
+      header: {
+        background: '#f8f9fa',
+        fontSize: '16px',
+        borderColor: '#e0e0e0',
+        borderWidth: '1px'
+      },
+      body: {
+        background: '#ffffff',
+        fontSize: '14px',
+        borderColor: '#e0e0e0',
+        borderWidth: '1px'
+      },
+      footer: {
+        background: '#f8f9fa',
+        fontSize: '12px',
+        borderColor: '#e0e0e0',
+        borderWidth: '1px'
+      }
     };
   }
 } 
