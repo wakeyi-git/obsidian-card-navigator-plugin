@@ -1,7 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { Card } from './Card';
 import { Preset } from './Preset';
-import { Layout, ILayoutConfig, ICardPosition } from './Layout';
+import { Layout, LayoutType, LayoutDirection, ILayoutConfig, ICardPosition } from './Layout';
 import { ICardRenderConfig } from './Card';
 import { ICardService } from '../services/CardService';
 
@@ -241,15 +241,15 @@ export class CardSet implements ICardSet {
     private readonly app: App,
     private readonly cardService: ICardService,
     layoutConfig: ILayoutConfig = {
-      type: 'grid',
-      direction: 'vertical',
-      fixedHeight: false,
-      minCardWidth: 300,
-      minCardHeight: 200,
-      cardWidth: 300,
-      cardHeight: 200,
-      gap: 10,
-      padding: 20,
+      type: LayoutType.GRID,
+      direction: LayoutDirection.VERTICAL,
+      fixedHeight: true,
+      minCardWidth: 200,
+      minCardHeight: 150,
+      cardWidth: 200,
+      cardHeight: 150,
+      gap: 16,
+      padding: 16,
       viewportWidth: 800,
       viewportHeight: 600
     },
@@ -761,5 +761,24 @@ export class CardSet implements ICardSet {
   resetCardPositions(): void {
     this._layout.resetCardPositions();
     this._updatedAt = new Date();
+  }
+
+  /**
+   * 기본 레이아웃 설정 생성
+   */
+  private _createDefaultLayoutConfig(): ILayoutConfig {
+    return {
+      type: LayoutType.GRID,
+      direction: LayoutDirection.VERTICAL,
+      fixedHeight: true,
+      minCardWidth: 200,
+      minCardHeight: 150,
+      cardWidth: 200,
+      cardHeight: 150,
+      gap: 16,
+      padding: 16,
+      viewportWidth: 800,
+      viewportHeight: 600
+    };
   }
 } 

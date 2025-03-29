@@ -1,154 +1,144 @@
-import { LayoutType, LayoutDirection, ICardPosition } from '../models/Layout';
+import { LayoutType, LayoutDirection, ICardPosition, ILayoutConfig } from '../models/Layout';
 
 /**
  * 레이아웃 유틸리티
  */
 export class LayoutUtils {
   /**
+   * 레이아웃 계산
+   */
+  static calculateLayout(
+    cardPositions: ICardPosition[],
+    config: ILayoutConfig
+  ): ICardPosition[] {
+    const { type, direction, fixedHeight, minCardWidth, minCardHeight, gap, padding, viewportWidth, viewportHeight } = config;
+
+    // 사용 가능한 공간 계산
+    const availableWidth = viewportWidth - padding * 2;
+    const availableHeight = viewportHeight - padding * 2;
+
+    // 뷰포트 비율에 따른 방향 자동 결정
+    const isHorizontal = viewportWidth > viewportHeight;
+    const effectiveDirection = isHorizontal ? LayoutDirection.HORIZONTAL : LayoutDirection.VERTICAL;
+
+    switch (type) {
+      case LayoutType.MASONRY:
+        return this.calculateMasonryLayout(
+          cardPositions,
+          availableWidth,
+          minCardWidth,
+          gap,
+          padding
+        );
+      case LayoutType.GRID:
+        return this.calculateGridLayout(
+          cardPositions,
+          availableWidth,
+          availableHeight,
+          minCardWidth,
+          minCardHeight,
+          gap,
+          padding,
+          effectiveDirection,
+          fixedHeight
+        );
+      default:
+        throw new Error(`Unknown layout type: ${type}`);
+    }
+  }
+
+  /**
    * 그리드 레이아웃 계산
    */
-  static calculateGridLayout(
+  private static calculateGridLayout(
     cardPositions: ICardPosition[],
-    viewportWidth: number,
-    viewportHeight: number,
-    cardWidth: number,
-    cardHeight: number,
+    availableWidth: number,
+    availableHeight: number,
+    minCardWidth: number,
+    minCardHeight: number,
     gap: number,
-    columns: number
+    padding: number,
+    direction: LayoutDirection,
+    fixedHeight: boolean
   ): ICardPosition[] {
-    const newPositions: ICardPosition[] = [];
-    const cols = columns || Math.floor(viewportWidth / (cardWidth + gap));
+    let columns: number;
+    let rows: number;
 
-    cardPositions.forEach((pos, index) => {
-      const col = index % cols;
-      const row = Math.floor(index / cols);
+    if (direction === LayoutDirection.HORIZONTAL) {
+      // 가로 레이아웃
+      rows = Math.floor(availableHeight / (minCardHeight + gap));
+      rows = Math.max(1, rows);
+      columns = Math.ceil(cardPositions.length / rows);
+    } else {
+      // 세로 레이아웃
+      columns = Math.floor(availableWidth / (minCardWidth + gap));
+      columns = Math.max(1, columns);
+      rows = Math.ceil(cardPositions.length / columns);
+    }
 
-      newPositions.push({
-        ...pos,
-        x: col * (cardWidth + gap),
-        y: row * (cardHeight + gap),
-        width: cardWidth,
-        height: cardHeight
-      });
+    const cardWidth = (availableWidth - gap * (columns - 1)) / columns;
+    const cardHeight = fixedHeight ? minCardHeight : (availableHeight - gap * (rows - 1)) / rows;
+
+    return cardPositions.map((pos, index) => {
+      if (direction === LayoutDirection.HORIZONTAL) {
+        const row = Math.floor(index / columns);
+        const col = index % columns;
+        return {
+          ...pos,
+          x: padding + col * (cardWidth + gap),
+          y: padding + row * (cardHeight + gap),
+          width: cardWidth,
+          height: cardHeight
+        };
+      } else {
+        const col = Math.floor(index / rows);
+        const row = index % rows;
+        return {
+          ...pos,
+          x: padding + col * (cardWidth + gap),
+          y: padding + row * (cardHeight + gap),
+          width: cardWidth,
+          height: cardHeight
+        };
+      }
     });
-
-    return newPositions;
   }
 
   /**
    * 메이슨리 레이아웃 계산
    */
-  static calculateMasonryLayout(
+  private static calculateMasonryLayout(
     cardPositions: ICardPosition[],
-    viewportWidth: number,
-    cardWidth: number,
+    availableWidth: number,
+    minCardWidth: number,
     gap: number,
-    columns: number
+    padding: number
   ): ICardPosition[] {
-    const newPositions: ICardPosition[] = [];
-    const cols = columns || Math.floor(viewportWidth / (cardWidth + gap));
-    const columnHeights = new Array(cols).fill(0);
+    const columns = Math.floor(availableWidth / (minCardWidth + gap));
+    const columnCount = Math.max(1, columns);
+    const cardWidth = (availableWidth - gap * (columnCount - 1)) / columnCount;
+    const columnHeights = new Array(columnCount).fill(0);
 
-    cardPositions.forEach((pos, index) => {
+    return cardPositions.map(pos => {
       // 가장 짧은 열 찾기
       const shortestColumn = columnHeights.indexOf(Math.min(...columnHeights));
-      const x = shortestColumn * (cardWidth + gap);
-      const y = columnHeights[shortestColumn];
+      const x = padding + shortestColumn * (cardWidth + gap);
+      const y = padding + columnHeights[shortestColumn];
 
-      newPositions.push({
+      // 카드 높이는 컨텐츠에 따라 자동 계산 (CSS에서 처리)
+      const newPosition = {
         ...pos,
         x,
         y,
         width: cardWidth,
-        height: pos.height || 200 // 기본 높이 설정
-      });
+        height: pos.height // CSS에서 계산된 높이 사용
+      };
 
       // 열 높이 업데이트
-      columnHeights[shortestColumn] += (pos.height || 200) + gap;
+      columnHeights[shortestColumn] += pos.height + gap;
+
+      return newPosition;
     });
-
-    return newPositions;
-  }
-
-  /**
-   * 리스트 레이아웃 계산
-   */
-  static calculateListLayout(
-    cardPositions: ICardPosition[],
-    viewportWidth: number,
-    viewportHeight: number,
-    cardWidth: number,
-    cardHeight: number,
-    gap: number,
-    direction: LayoutDirection
-  ): ICardPosition[] {
-    const newPositions: ICardPosition[] = [];
-
-    if (direction === LayoutDirection.HORIZONTAL) {
-      // 가로 리스트
-      cardPositions.forEach((pos, index) => {
-        newPositions.push({
-          ...pos,
-          x: index * (cardWidth + gap),
-          y: 0,
-          width: cardWidth,
-          height: cardHeight
-        });
-      });
-    } else {
-      // 세로 리스트
-      cardPositions.forEach((pos, index) => {
-        newPositions.push({
-          ...pos,
-          x: 0,
-          y: index * (cardHeight + gap),
-          width: cardWidth,
-          height: cardHeight
-        });
-      });
-    }
-
-    return newPositions;
-  }
-
-  /**
-   * 자동 레이아웃 계산
-   */
-  static calculateAutoLayout(
-    cardPositions: ICardPosition[],
-    viewportWidth: number,
-    viewportHeight: number,
-    cardWidth: number,
-    cardHeight: number,
-    gap: number
-  ): ICardPosition[] {
-    const isHorizontal = viewportWidth > viewportHeight;
-
-    if (isHorizontal) {
-      // 가로 레이아웃
-      const rows = Math.floor(viewportHeight / (cardHeight + gap));
-      const cols = Math.ceil(cardPositions.length / rows);
-
-      return cardPositions.map((pos, index) => ({
-        ...pos,
-        x: (index % rows) * (cardWidth + gap),
-        y: Math.floor(index / rows) * (cardHeight + gap),
-        width: cardWidth,
-        height: cardHeight
-      }));
-    } else {
-      // 세로 레이아웃
-      const cols = Math.floor(viewportWidth / (cardWidth + gap));
-      const rows = Math.ceil(cardPositions.length / cols);
-
-      return cardPositions.map((pos, index) => ({
-        ...pos,
-        x: (index % cols) * (cardWidth + gap),
-        y: Math.floor(index / cols) * (cardHeight + gap),
-        width: cardWidth,
-        height: cardHeight
-      }));
-    }
   }
 
   /**

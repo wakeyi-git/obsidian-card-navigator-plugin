@@ -21,27 +21,8 @@ export interface IDomainEvent {
 /**
  * 도메인 이벤트 기본 클래스
  */
-export abstract class DomainEvent implements IDomainEvent {
-  /**
-   * 이벤트 발생 시간
-   */
-  readonly occurredOn: Date;
-
-  /**
-   * 이벤트 ID
-   */
-  readonly eventId: string;
-
-  /**
-   * 이벤트 타입
-   */
-  readonly type: string;
-
-  constructor(type: string) {
-    this.occurredOn = new Date();
-    this.eventId = crypto.randomUUID();
-    this.type = type;
-  }
+export abstract class DomainEvent {
+  constructor(public readonly type: string) {}
 }
 
 /**

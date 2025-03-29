@@ -1,29 +1,31 @@
-import { Preset } from '@/domain/models/Preset';
+import { IPreset, IPresetConfig } from '../models/Preset';
 
 /**
- * 프리셋 리포지토리 인터페이스
+ * 프리셋 저장소 인터페이스
  */
 export interface IPresetRepository {
   /**
-   * 프리셋 저장
-   * @param preset 저장할 프리셋
+   * 프리셋을 생성합니다.
    */
-  save(preset: Preset): Promise<void>;
+  createPreset(config: IPresetConfig): Promise<IPreset>;
 
   /**
-   * ID로 프리셋 찾기
-   * @param id 프리셋 ID
+   * 프리셋을 업데이트합니다.
    */
-  findById(id: string): Promise<Preset | undefined>;
+  updatePreset(preset: IPreset): Promise<void>;
 
   /**
-   * 모든 프리셋 찾기
+   * 프리셋을 삭제합니다.
    */
-  findAll(): Promise<Preset[]>;
+  deletePreset(presetId: string): Promise<void>;
 
   /**
-   * 프리셋 삭제
-   * @param id 프리셋 ID
+   * 프리셋을 조회합니다.
    */
-  delete(id: string): Promise<void>;
+  getPreset(presetId: string): Promise<IPreset | null>;
+
+  /**
+   * 모든 프리셋을 조회합니다.
+   */
+  getPresets(): Promise<IPreset[]>;
 } 

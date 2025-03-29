@@ -13,13 +13,18 @@ import {
   PresetExportedEvent
 } from './PresetEvents';
 import { IPresetConfig } from '../models/Preset';
+import { Preset, IPreset, IPresetMapping } from '@/domain/models/Preset';
+import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
+import { App } from 'obsidian';
 
 /**
  * 프리셋 이벤트 핸들러
  */
 export class PresetEventHandler implements IDomainEventHandler<PresetEvent> {
   constructor(
-    private readonly presetService: IPresetService
+    private readonly app: App,
+    private readonly presetService: IPresetService,
+    private readonly eventDispatcher: DomainEventDispatcher
   ) {}
 
   /**
@@ -67,19 +72,40 @@ export class PresetEventHandler implements IDomainEventHandler<PresetEvent> {
   }
 
   /**
+   * IPreset을 Preset으로 변환합니다.
+   */
+  private convertToPreset(preset: IPreset): Preset {
+    const newPreset = new Preset(
+      preset.id,
+      preset.name,
+      preset.description,
+      preset.cardSetConfig,
+      preset.layoutConfig,
+      preset.cardRenderConfig
+    );
+
+    // 기존 매핑들을 새 프리셋에 추가
+    preset.mappings.forEach(mapping => {
+      newPreset.addMapping(mapping);
+    });
+
+    return newPreset;
+  }
+
+  /**
    * 프리셋 생성 이벤트 처리
    */
   private async handlePresetCreated(event: PresetCreatedEvent): Promise<void> {
-    const preset = event.preset;
-    await this.presetService.updatePreset(preset);
+    const preset = this.convertToPreset(event.preset);
+    this.eventDispatcher.dispatch(new PresetCreatedEvent(preset));
   }
 
   /**
    * 프리셋 업데이트 이벤트 처리
    */
   private async handlePresetUpdated(event: PresetUpdatedEvent): Promise<void> {
-    const preset = event.preset;
-    await this.presetService.updatePreset(preset);
+    const preset = this.convertToPreset(event.preset);
+    this.eventDispatcher.dispatch(new PresetUpdatedEvent(preset));
   }
 
   /**
@@ -87,7 +113,7 @@ export class PresetEventHandler implements IDomainEventHandler<PresetEvent> {
    */
   private async handlePresetDeleted(event: PresetDeletedEvent): Promise<void> {
     const presetId = event.presetId;
-    await this.presetService.deletePreset(presetId);
+    this.eventDispatcher.dispatch(new PresetDeletedEvent(presetId));
   }
 
   /**
@@ -99,8 +125,7 @@ export class PresetEventHandler implements IDomainEventHandler<PresetEvent> {
       throw new Error(`Preset not found: ${event.presetId}`);
     }
 
-    // 프리셋 매핑 생성 후 처리 로직
-    await this.presetService.updatePreset(preset);
+    this.eventDispatcher.dispatch(new PresetMappingCreatedEvent(preset.id, event.mapping));
   }
 
   /**
@@ -112,8 +137,7 @@ export class PresetEventHandler implements IDomainEventHandler<PresetEvent> {
       throw new Error(`Preset not found: ${event.presetId}`);
     }
 
-    // 프리셋 매핑 업데이트 후 처리 로직
-    await this.presetService.updatePreset(preset);
+    this.eventDispatcher.dispatch(new PresetMappingUpdatedEvent(preset.id, event.mapping));
   }
 
   /**
@@ -125,8 +149,7 @@ export class PresetEventHandler implements IDomainEventHandler<PresetEvent> {
       throw new Error(`Preset not found: ${event.presetId}`);
     }
 
-    // 프리셋 매핑 삭제 후 처리 로직
-    await this.presetService.updatePreset(preset);
+    this.eventDispatcher.dispatch(new PresetMappingDeletedEvent(preset.id, event.mappingId));
   }
 
   /**
@@ -138,22 +161,21 @@ export class PresetEventHandler implements IDomainEventHandler<PresetEvent> {
       throw new Error(`Preset not found: ${event.presetId}`);
     }
 
-    // 프리셋 매핑 우선순위 업데이트 후 처리 로직
-    await this.presetService.updatePreset(preset);
+    this.eventDispatcher.dispatch(new PresetMappingPriorityUpdatedEvent(preset.id, event.priority));
   }
 
   /**
    * 프리셋 가져오기 이벤트 처리
    */
   private async handlePresetImported(event: PresetImportedEvent): Promise<void> {
-    const preset = event.preset;
+    const preset = this.convertToPreset(event.preset);
     const config: IPresetConfig = {
-      name: preset.config.name,
-      description: preset.config.description,
-      cardSetConfig: preset.config.cardSetConfig,
-      layoutConfig: preset.config.layoutConfig,
-      cardRenderConfig: preset.config.cardRenderConfig,
-      mappings: preset.config.mappings
+      name: preset.name,
+      description: preset.description,
+      cardSetConfig: preset.cardSetConfig,
+      layoutConfig: preset.layoutConfig,
+      cardRenderConfig: preset.cardRenderConfig,
+      mappings: preset.mappings
     };
     await this.presetService.createPreset(config);
   }
@@ -162,7 +184,7 @@ export class PresetEventHandler implements IDomainEventHandler<PresetEvent> {
    * 프리셋 내보내기 이벤트 처리
    */
   private async handlePresetExported(event: PresetExportedEvent): Promise<void> {
-    const preset = event.preset;
+    const preset = this.convertToPreset(event.preset);
     await this.presetService.updatePreset(preset);
   }
 } 

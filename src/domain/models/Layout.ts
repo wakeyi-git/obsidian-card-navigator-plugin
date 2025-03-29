@@ -1,14 +1,21 @@
 import { Card } from './Card';
+import { LayoutUtils } from '../utils/layoutUtils';
 
 /**
  * 레이아웃 타입
  */
-export type LayoutType = 'grid' | 'masonry';
+export enum LayoutType {
+  GRID = 'grid',
+  MASONRY = 'masonry'
+}
 
 /**
  * 레이아웃 방향
  */
-export type LayoutDirection = 'horizontal' | 'vertical';
+export enum LayoutDirection {
+  HORIZONTAL = 'horizontal',
+  VERTICAL = 'vertical'
+}
 
 /**
  * 레이아웃 설정 인터페이스
@@ -20,7 +27,7 @@ export interface ILayoutConfig {
   type: LayoutType;
 
   /**
-   * 레이아웃 방향
+   * 레이아웃 방향 (그리드 레이아웃에서만 사용)
    */
   direction: LayoutDirection;
 
@@ -70,7 +77,7 @@ export interface ILayoutConfig {
   viewportHeight: number;
 
   /**
-   * 열 수 (그리드 레이아웃)
+   * 열 수 (그리드/메이슨리 레이아웃)
    */
   columns?: number;
 
@@ -181,39 +188,17 @@ export class Layout implements ILayout {
    * 레이아웃 계산
    */
   calculateLayout(cards: Card[]): void {
-    const { type, direction, fixedHeight, minCardWidth, minCardHeight, gap, padding, viewportWidth, viewportHeight } = this._config;
-
-    // 사용 가능한 공간 계산
-    const availableWidth = viewportWidth - padding * 2;
-    const availableHeight = viewportHeight - padding * 2;
-
-    if (type === 'masonry') {
-      // 메이슨리 레이아웃 계산
-      const columns = Math.floor(availableWidth / (minCardWidth + gap));
-      this._config.columns = Math.max(1, columns);
-      this._config.cardWidth = availableWidth / this._config.columns - gap;
-      this._config.cardHeight = minCardHeight;
-    } else {
-      // 그리드 레이아웃 계산
-      if (direction === 'horizontal') {
-        // 가로 레이아웃
-        const rows = Math.floor(availableHeight / (minCardHeight + gap));
-        this._config.rows = Math.max(1, rows);
-        this._config.columns = Math.ceil(cards.length / this._config.rows);
-        this._config.cardWidth = availableWidth / this._config.columns - gap;
-        this._config.cardHeight = fixedHeight ? minCardHeight : availableHeight / this._config.rows - gap;
-      } else {
-        // 세로 레이아웃
-        const columns = Math.floor(availableWidth / (minCardWidth + gap));
-        this._config.columns = Math.max(1, columns);
-        this._config.rows = Math.ceil(cards.length / this._config.columns);
-        this._config.cardWidth = availableWidth / this._config.columns - gap;
-        this._config.cardHeight = fixedHeight ? minCardHeight : availableHeight / this._config.rows - gap;
-      }
-    }
-
     // 카드 위치 계산
-    this._calculateCardPositions(cards);
+    this._cardPositions = LayoutUtils.calculateLayout(
+      cards.map(card => ({
+        cardId: card.id,
+        x: 0,
+        y: 0,
+        width: this._config.cardWidth,
+        height: this._config.cardHeight
+      })),
+      this._config
+    );
     this._updatedAt = new Date();
   }
 
@@ -221,93 +206,7 @@ export class Layout implements ILayout {
    * 카드 위치 계산
    */
   private _calculateCardPositions(cards: Card[]): void {
-    const { type, direction, cardWidth, cardHeight, gap, padding } = this._config;
-
-    if (type === 'grid') {
-      this._calculateGridPositions(cards, cardWidth, cardHeight, gap, padding);
-    } else {
-      this._calculateMasonryPositions(cards, cardWidth, cardHeight, gap, padding);
-    }
-  }
-
-  /**
-   * 그리드 레이아웃 카드 위치 계산
-   */
-  private _calculateGridPositions(
-    cards: Card[],
-    cardWidth: number,
-    cardHeight: number,
-    gap: number,
-    padding: number
-  ): void {
-    const { direction, columns, rows } = this._config;
-    
-    // columns와 rows가 undefined인 경우 기본값 설정
-    const gridColumns = columns ?? 1;
-    const gridRows = rows ?? 1;
-    
-    this._cardPositions = cards.map((card, index) => {
-      if (direction === 'horizontal') {
-        const row = Math.floor(index / gridColumns);
-        const col = index % gridColumns;
-        return {
-          cardId: card.id,
-          x: padding + col * (cardWidth + gap),
-          y: padding + row * (cardHeight + gap),
-          width: cardWidth,
-          height: cardHeight
-        };
-      } else {
-        const col = Math.floor(index / gridRows);
-        const row = index % gridRows;
-        return {
-          cardId: card.id,
-          x: padding + col * (cardWidth + gap),
-          y: padding + row * (cardHeight + gap),
-          width: cardWidth,
-          height: cardHeight
-        };
-      }
-    });
-  }
-
-  /**
-   * 메이슨리 레이아웃 카드 위치 계산
-   */
-  private _calculateMasonryPositions(
-    cards: Card[],
-    cardWidth: number,
-    cardHeight: number,
-    gap: number,
-    padding: number
-  ): void {
-    const { columns } = this._config;
-    
-    // 각 열의 현재 높이를 추적
-    const columnHeights = new Array(columns).fill(0);
-    const columnPositions: ICardPosition[] = [];
-
-    // 각 카드를 가장 짧은 열에 배치
-    cards.forEach(card => {
-      // 가장 짧은 열 찾기
-      const shortestColumn = columnHeights.indexOf(Math.min(...columnHeights));
-      const x = padding + shortestColumn * (cardWidth + gap);
-      const y = padding + columnHeights[shortestColumn];
-
-      // 카드 위치 저장
-      columnPositions.push({
-        cardId: card.id,
-        x,
-        y,
-        width: cardWidth,
-        height: cardHeight
-      });
-
-      // 열 높이 업데이트
-      columnHeights[shortestColumn] += cardHeight + gap;
-    });
-
-    this._cardPositions = columnPositions;
+    this.calculateLayout(cards);
   }
 
   updateViewport(width: number, height: number): void {

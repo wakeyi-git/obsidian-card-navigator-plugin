@@ -1,4 +1,6 @@
 import { DomainEvent } from './DomainEvent';
+import { ICardRenderConfig } from '../models/Card';
+import { ILayoutConfig } from '../models/Layout';
 
 /**
  * 툴바 이벤트 타입
@@ -10,7 +12,9 @@ export type ToolbarEvent =
     | ToolbarCardSetTypeChangeEvent 
     | ToolbarPresetChangeEvent 
     | ToolbarCreateEvent 
-    | ToolbarUpdateEvent;
+    | ToolbarUpdateEvent
+    | ToolbarCardRenderConfigChangeEvent
+    | ToolbarLayoutConfigChangeEvent;
 
 /**
  * 툴바 이벤트 타입 열거형
@@ -22,7 +26,9 @@ export enum ToolbarEventType {
     TOOLBAR_CARD_SET_TYPE_CHANGE = 'TOOLBAR_CARD_SET_TYPE_CHANGE',
     TOOLBAR_PRESET_CHANGE = 'TOOLBAR_PRESET_CHANGE',
     TOOLBAR_CREATE = 'TOOLBAR_CREATE',
-    TOOLBAR_UPDATE = 'TOOLBAR_UPDATE'
+    TOOLBAR_UPDATE = 'TOOLBAR_UPDATE',
+    TOOLBAR_CARD_RENDER_CONFIG_CHANGE = 'TOOLBAR_CARD_RENDER_CONFIG_CHANGE',
+    TOOLBAR_LAYOUT_CONFIG_CHANGE = 'TOOLBAR_LAYOUT_CONFIG_CHANGE'
 }
 
 /**
@@ -88,5 +94,23 @@ export class ToolbarCreateEvent extends DomainEvent {
 export class ToolbarUpdateEvent extends DomainEvent {
     constructor() {
         super(ToolbarEventType.TOOLBAR_UPDATE);
+    }
+}
+
+/**
+ * 카드 렌더링 설정 변경 이벤트
+ */
+export class ToolbarCardRenderConfigChangeEvent extends DomainEvent {
+    constructor(public config: ICardRenderConfig) {
+        super(ToolbarEventType.TOOLBAR_CARD_RENDER_CONFIG_CHANGE);
+    }
+}
+
+/**
+ * 레이아웃 설정 변경 이벤트
+ */
+export class ToolbarLayoutConfigChangeEvent extends DomainEvent {
+    constructor(public config: ILayoutConfig) {
+        super(ToolbarEventType.TOOLBAR_LAYOUT_CONFIG_CHANGE);
     }
 } 

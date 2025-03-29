@@ -12,7 +12,7 @@ export class CreateLayoutUseCase {
    * 레이아웃 생성
    */
   async execute(config: ILayoutConfig): Promise<Layout> {
-    return this.layoutService.createLayout(config);
+    return this.layoutService.createLayout('New Layout', 'New layout configuration', config);
   }
 }
 
@@ -183,7 +183,7 @@ export class UpdateLayoutConfigUseCase {
     if (!layout) {
       throw new Error(`Layout not found: ${layoutId}`);
     }
-    layout.updateConfig(config);
+    layout.config = { ...layout.config, ...config };
     await this.layoutService.updateLayout(layout);
     const updatedLayout = await this.layoutService.getLayout(layoutId);
     if (!updatedLayout) {
@@ -203,7 +203,11 @@ export class CalculateLayoutUseCase {
    * 레이아웃 계산
    */
   async execute(layoutId: string, cards: Card[]): Promise<Layout> {
-    await this.layoutService.calculateLayout(layoutId, cards);
+    const layout = await this.layoutService.getLayout(layoutId);
+    if (!layout) {
+      throw new Error(`Layout not found: ${layoutId}`);
+    }
+    await this.layoutService.calculateLayout(layout, cards);
     const updatedLayout = await this.layoutService.getLayout(layoutId);
     if (!updatedLayout) {
       throw new Error(`Layout not found after calculation: ${layoutId}`);

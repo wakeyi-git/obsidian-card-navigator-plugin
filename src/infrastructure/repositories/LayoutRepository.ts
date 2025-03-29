@@ -62,6 +62,8 @@ export class LayoutRepository implements ILayoutRepository {
   private _createLayoutFromData(data: any): Layout {
     return new Layout(
       data.id,
+      data.name,
+      data.description,
       data.config as ILayoutConfig,
       data.cardPositions as ICardPosition[],
       new Date(data.createdAt),

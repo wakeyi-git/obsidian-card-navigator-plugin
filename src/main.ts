@@ -19,6 +19,7 @@ import { CardSetEventHandler } from '@/domain/events/CardSetEventHandler';
 import { LayoutEventHandler } from '@/domain/events/LayoutEventHandler';
 import { PresetEventHandler } from '@/domain/events/PresetEventHandler';
 import { SearchService } from '@/domain/services/SearchService';
+import { LayoutType, LayoutDirection } from '@/domain/models/Layout';
 
 /**
  * 카드 내비게이터 플러그인
@@ -57,7 +58,7 @@ export default class CardNavigatorPlugin extends Plugin {
 
       // 서비스 초기화
       this.cardService = new CardService(this.app, cardRepository, this.eventDispatcher);
-      this.presetService = new PresetService(this.eventDispatcher);
+      this.presetService = new PresetService(this.app, this.eventDispatcher);
       this.layoutService = new LayoutService(this.eventDispatcher);
       
       // CardSetRepository 초기화
@@ -89,7 +90,7 @@ export default class CardNavigatorPlugin extends Plugin {
       this.cardRenderer = new CardRenderer(this.app, this.eventDispatcher);
       this.scroller = new Scroller();
       this.interactionManager = new CardInteractionManager(this.eventDispatcher);
-      this.keyboardNavigator = new KeyboardNavigator();
+      this.keyboardNavigator = new KeyboardNavigator(this.app);
 
       // 이벤트 핸들러 등록
       this._registerEventHandlers();
@@ -126,10 +127,60 @@ export default class CardNavigatorPlugin extends Plugin {
         }
       });
 
+      // 카드 내비게이터로 포커스
+      this.addCommand({
+        id: 'card-navigator-focus',
+        name: '카드 내비게이터로 포커스',
+        callback: () => {
+          const view = this.app.workspace.getLeavesOfType(CARD_NAVIGATOR_VIEW_TYPE)[0]?.view as CardNavigatorView;
+          if (view) {
+            view.setKeyboardNavigationEnabled(true);
+            view.focusContainer();
+          }
+        }
+      });
+
+      // 활성 파일의 카드로 포커스
+      this.addCommand({
+        id: 'card-navigator-focus-active',
+        name: '활성 파일의 카드로 포커스',
+        callback: () => {
+          const view = this.app.workspace.getLeavesOfType(CARD_NAVIGATOR_VIEW_TYPE)[0]?.view as CardNavigatorView;
+          if (view) {
+            view.focusActiveFileCard();
+          }
+        }
+      });
+
+      // 카드 내비게이터 활성화/비활성화
+      this.addCommand({
+        id: 'card-navigator-toggle',
+        name: '카드 내비게이터 활성화/비활성화',
+        callback: () => {
+          const view = this.app.workspace.getLeavesOfType(CARD_NAVIGATOR_VIEW_TYPE)[0]?.view as CardNavigatorView;
+          if (view) {
+            view.setKeyboardNavigationEnabled(!view.isKeyboardNavigationEnabled());
+          }
+        }
+      });
+
       // 리본 메뉴 아이콘 추가
       this.addRibbonIcon('layers', 'Card Navigator', () => {
         this.activateView();
       });
+
+      // 이벤트 핸들러 등록
+      this.registerEvent(
+        this.app.workspace.on('file-open', async (file) => {
+          if (file && this.presetService) {
+            const presets = await this.presetService.getAllPresets();
+            const preset = this.presetService.findApplicablePreset(file, presets);
+            if (preset) {
+              this._applyPreset(preset);
+            }
+          }
+        })
+      );
 
       console.log('Card Navigator plugin loaded successfully');
     } catch (error) {
@@ -167,6 +218,8 @@ export default class CardNavigatorPlugin extends Plugin {
             sortBy: this.settings.sortBy,
             sortOrder: this.settings.sortOrder,
             layout: {
+              type: this.settings.layout.type,
+              direction: this.settings.layout.direction,
               fixedHeight: this.settings.layout.fixedHeight,
               minCardWidth: this.settings.layout.minCardWidth,
               minCardHeight: this.settings.layout.minCardHeight
@@ -305,6 +358,8 @@ export default class CardNavigatorPlugin extends Plugin {
 
       // 레이아웃 설정
       layout: {
+        type: LayoutType.GRID,
+        direction: LayoutDirection.VERTICAL,
         fixedHeight: false,
         minCardWidth: 300,
         minCardHeight: 200
@@ -322,7 +377,12 @@ export default class CardNavigatorPlugin extends Plugin {
       maxSearchResults: 50,
       searchInFileName: true,
       searchInTags: true,
-      searchInLinks: true
+      searchInLinks: true,
+
+      // 네비게이션 설정
+      keyboardNavigationEnabled: true,
+      scrollBehavior: 'smooth',
+      autoFocusActiveCard: true
     };
 
     const savedSettings = await this.loadData();
@@ -372,7 +432,11 @@ export default class CardNavigatorPlugin extends Plugin {
     this.eventDispatcher.register('layout.calculated', layoutEventHandler);
 
     // 프리셋 이벤트 핸들러
-    const presetEventHandler = new PresetEventHandler(this.presetService);
+    const presetEventHandler = new PresetEventHandler(
+      this.app,
+      this.presetService,
+      this.eventDispatcher
+    );
     this.eventDispatcher.register('preset.created', presetEventHandler);
     this.eventDispatcher.register('preset.updated', presetEventHandler);
     this.eventDispatcher.register('preset.deleted', presetEventHandler);
@@ -423,5 +487,9 @@ export default class CardNavigatorPlugin extends Plugin {
     
     current[parts[parts.length - 1]] = value;
     this.saveSettings();
+  }
+
+  private _applyPreset(preset: any): void {
+    // Implementation of _applyPreset method
   }
 }

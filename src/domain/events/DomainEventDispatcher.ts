@@ -22,49 +22,41 @@ export interface IDomainEventDispatcher {
 }
 
 /**
- * 도메인 이벤트 디스패처 클래스
+ * 도메인 이벤트 디스패처
  */
-export class DomainEventDispatcher implements IDomainEventDispatcher {
-  private listeners: Map<string, Set<Function>> = new Map();
+export class DomainEventDispatcher {
+  private handlers: Map<string, IDomainEventHandler<DomainEvent>[]> = new Map();
 
+  /**
+   * 이벤트 핸들러를 등록합니다.
+   */
   register<T extends DomainEvent>(eventType: string, handler: IDomainEventHandler<T>): void {
-    this.addEventListener(
-      class extends DomainEvent {
-        constructor() {
-          super(eventType);
-        }
-      },
-      (event: T) => {
-        handler.handle(event);
-      }
-    );
-  }
-
-  addEventListener<T extends DomainEvent>(eventType: new () => T, listener: (event: T) => void): void {
-    const eventName = eventType.name;
-    if (!this.listeners.has(eventName)) {
-      this.listeners.set(eventName, new Set());
+    if (!this.handlers.has(eventType)) {
+      this.handlers.set(eventType, []);
     }
-    this.listeners.get(eventName)?.add(listener);
+    this.handlers.get(eventType)?.push(handler as IDomainEventHandler<DomainEvent>);
   }
 
-  removeEventListener<T extends DomainEvent>(eventType: new () => T, listener: (event: T) => void): void {
-    const eventName = eventType.name;
-    this.listeners.get(eventName)?.delete(listener);
+  /**
+   * 이벤트 핸들러를 제거합니다.
+   */
+  unregister<T extends DomainEvent>(eventType: string, handler: IDomainEventHandler<T>): void {
+    const handlers = this.handlers.get(eventType);
+    if (handlers) {
+      const index = handlers.findIndex(h => h === handler);
+      if (index !== -1) {
+        handlers.splice(index, 1);
+      }
+    }
   }
 
-  dispatch(event: DomainEvent): void {
-    const eventName = event.constructor.name;
-    const eventListeners = this.listeners.get(eventName);
-    
-    if (eventListeners) {
-      eventListeners.forEach(listener => {
-        try {
-          listener(event);
-        } catch (error) {
-          console.error(`Error handling event ${eventName}:`, error);
-        }
-      });
+  /**
+   * 이벤트를 디스패치합니다.
+   */
+  async dispatch(event: DomainEvent): Promise<void> {
+    const handlers = this.handlers.get(event.type);
+    if (handlers) {
+      await Promise.all(handlers.map(handler => handler.handle(event)));
     }
   }
 } 

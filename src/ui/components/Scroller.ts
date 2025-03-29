@@ -8,6 +8,7 @@ export class Scroller {
   private _container: HTMLElement | null = null;
   private _isScrolling = false;
   private _scrollBehavior: ScrollBehavior = 'smooth';
+  private _scrollToCenter = true;
 
   /**
    * 컨테이너 설정
@@ -24,6 +25,13 @@ export class Scroller {
   }
 
   /**
+   * 중앙 정렬 설정
+   */
+  setScrollToCenter(scrollToCenter: boolean): void {
+    this._scrollToCenter = scrollToCenter;
+  }
+
+  /**
    * 카드로 스크롤
    */
   scrollToCard(cardId: string): void {
@@ -36,8 +44,28 @@ export class Scroller {
 
     const containerRect = this._container.getBoundingClientRect();
     const cardRect = cardElement.getBoundingClientRect();
-    const scrollLeft = cardRect.left - containerRect.left - (containerRect.width - cardRect.width) / 2;
-    const scrollTop = cardRect.top - containerRect.top - (containerRect.height - cardRect.height) / 2;
+
+    let scrollLeft = 0;
+    let scrollTop = 0;
+
+    if (this._scrollToCenter) {
+      // 카드를 뷰포트 중앙에 위치
+      scrollLeft = cardRect.left - containerRect.left - (containerRect.width - cardRect.width) / 2;
+      scrollTop = cardRect.top - containerRect.top - (containerRect.height - cardRect.height) / 2;
+    } else {
+      // 카드가 뷰포트에 보이도록 스크롤
+      if (cardRect.left < containerRect.left) {
+        scrollLeft = cardRect.left - containerRect.left;
+      } else if (cardRect.right > containerRect.right) {
+        scrollLeft = cardRect.right - containerRect.right;
+      }
+
+      if (cardRect.top < containerRect.top) {
+        scrollTop = cardRect.top - containerRect.top;
+      } else if (cardRect.bottom > containerRect.bottom) {
+        scrollTop = cardRect.bottom - containerRect.bottom;
+      }
+    }
 
     this._container.scrollTo({
       left: this._container.scrollLeft + scrollLeft,
@@ -55,19 +83,13 @@ export class Scroller {
    * 스크롤 위치 초기화
    */
   resetScroll(): void {
-    if (!this._container || this._isScrolling) return;
-
-    this._isScrolling = true;
+    if (!this._container) return;
 
     this._container.scrollTo({
       left: 0,
       top: 0,
       behavior: this._scrollBehavior
     });
-
-    setTimeout(() => {
-      this._isScrolling = false;
-    }, 300);
   }
 
   /**

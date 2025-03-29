@@ -1,17 +1,17 @@
 import { ItemView, WorkspaceLeaf, PaneType, App, Setting, TFile } from 'obsidian';
 import { CardSet, CardSetType, CardFilter, ICardSetConfig } from '@/domain/models/CardSet';
-import { Layout } from '@/domain/models/Layout';
+import { Layout, LayoutType, LayoutDirection, ILayoutConfig } from '@/domain/models/Layout';
 import { Preset } from '@/domain/models/Preset';
-import { Card } from '@/domain/models/Card';
+import { Card, ICardRenderConfig } from '@/domain/models/Card';
 import { CardContainer } from '@/ui/components/CardContainer';
-import { Toolbar } from '@/ui/components/Toolbar';
+import { Toolbar } from '@/ui/toolbar/Toolbar';
 import { ContextMenu } from '@/ui/components/ContextMenu';
 import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
 import { CardEvent, CardCreatedEvent, CardUpdatedEvent, CardDeletedEvent, CardEventType } from '@/domain/events/CardEvents';
 import { CardSetEvent, CardSetCreatedEvent, CardSetUpdatedEvent, CardSetEventType } from '@/domain/events/CardSetEvents';
 import { LayoutEvent, LayoutCreatedEvent, LayoutUpdatedEvent, LayoutEventType } from '@/domain/events/LayoutEvents';
 import { DomainEvent } from '@/domain/events/DomainEvent';
-import { ToolbarEventType, ToolbarSearchEvent, ToolbarSortEvent, ToolbarSettingsEvent, ToolbarCardSetTypeChangeEvent, ToolbarPresetChangeEvent, ToolbarCreateEvent, ToolbarUpdateEvent } from '@/domain/events/ToolbarEvents';
+import { ToolbarEventType, ToolbarSearchEvent, ToolbarSortEvent, ToolbarSettingsEvent, ToolbarCardSetTypeChangeEvent, ToolbarPresetChangeEvent, ToolbarCreateEvent, ToolbarUpdateEvent, ToolbarCardRenderConfigChangeEvent, ToolbarLayoutConfigChangeEvent } from '@/domain/events/ToolbarEvents';
 import { ICardSetService } from '@/domain/services/CardSetService';
 import { ILayoutService } from '@/domain/services/LayoutService';
 import { CardRenderer } from '@/ui/components/CardRenderer';
@@ -119,15 +119,11 @@ export class CardNavigatorView extends ItemView {
       );
 
       // 기본 레이아웃 생성
-      const defaultLayout = await this._layoutService.createLayout({
-        type: 'grid',
-        cardWidth: 300,
-        cardHeight: 200,
-        gap: 10,
-        padding: 20,
-        viewportWidth: 800,
-        viewportHeight: 600
-      });
+      const defaultLayout = await this._layoutService.createLayout(
+        'Default',
+        'Default layout',
+        this._createDefaultLayoutConfig()
+      );
 
       // 카드셋 설정
       await this._cardSetService.setActiveCard(defaultCardSet.id, defaultCardSet.cards[0]?.id);
@@ -139,7 +135,7 @@ export class CardNavigatorView extends ItemView {
       this.setLayout(defaultLayout);
 
       // 레이아웃 계산
-      await this._layoutService.calculateLayout(defaultCardSet.id, defaultCardSet.cards);
+      await this._layoutService.calculateLayout(defaultLayout, defaultCardSet.cards);
 
       // 초기화 완료
       this.isInitialized = true;
@@ -169,42 +165,157 @@ export class CardNavigatorView extends ItemView {
     const toolbarContainer = this._container.createDiv('card-navigator-toolbar');
     this._toolbar = new Toolbar(
       this.app,
-      this.searchService,
-      this._eventDispatcher
+      toolbarContainer,
+      {
+        cardSetType: 'folder',
+        searchQuery: '',
+        sortBy: 'fileName',
+        sortOrder: 'asc',
+        cardRenderConfig: {
+          header: {
+            showFileName: true,
+            showFirstHeader: true,
+            showTags: true,
+            showCreatedDate: false,
+            showUpdatedDate: false,
+            showProperties: [],
+            renderMarkdown: true
+          },
+          body: {
+            showFileName: false,
+            showFirstHeader: false,
+            showContent: true,
+            showTags: false,
+            showCreatedDate: false,
+            showUpdatedDate: false,
+            showProperties: [],
+            contentLength: 200,
+            renderMarkdown: true
+          },
+          footer: {
+            showFileName: true,
+            showFirstHeader: false,
+            showTags: false,
+            showCreatedDate: false,
+            showUpdatedDate: false,
+            showProperties: [],
+            renderMarkdown: true
+          },
+          renderAsHtml: true
+        },
+        layoutConfig: {
+          type: LayoutType.GRID,
+          direction: LayoutDirection.VERTICAL,
+          fixedHeight: true,
+          minCardWidth: 200,
+          minCardHeight: 150,
+          cardWidth: 200,
+          cardHeight: 150,
+          gap: 16,
+          padding: 16,
+          viewportWidth: 800,
+          viewportHeight: 600
+        },
+        selectedPreset: null
+      },
+      this._eventDispatcher,
+      this.searchService
     );
-    this._toolbar.initialize(toolbarContainer);
   }
 
   private _createContent(): void {
     this._content = this._container.createDiv('card-navigator-content');
   }
 
+  /**
+   * 이벤트 리스너 설정
+   */
   private _setupEventListeners(): void {
-    if (!this._toolbar) return;
-
-    // 검색 입력
-    this._searchInput = this._toolbar.createEl('input', {
-      type: 'text',
-      placeholder: 'Search cards...'
+    // 키보드 이벤트
+    this._container.addEventListener('keydown', (event: KeyboardEvent) => {
+      this._keyboardNavigator.handleKeyDown(event);
     });
 
-    // 정렬 선택
-    this._sortSelect = this._toolbar.createEl('select');
-    this._sortSelect.add(new Option('Name', 'fileName'));
-    this._sortSelect.add(new Option('Updated', 'updatedDate'));
-    this._sortSelect.add(new Option('Created', 'createdDate'));
+    // 카드 클릭 이벤트
+    this._interactionManager.onCardClick = (card: Card) => {
+      this._handleCardClick(card);
+    };
 
-    // 레이아웃 선택
-    this._layoutSelect = this._toolbar.createEl('select');
-    this._layoutSelect.add(new Option('Grid', 'grid'));
-    this._layoutSelect.add(new Option('List', 'list'));
-    this._layoutSelect.add(new Option('Masonry', 'masonry'));
+    // 카드 열기 이벤트
+    this._keyboardNavigator.onCardOpen = (card: Card) => {
+      this._handleCardClick(card);
+    };
 
     // 카드셋 업데이트 이벤트
     this._eventDispatcher.register(CardSetEventType.CARD_SET_UPDATED, {
       handle: async (event: DomainEvent) => {
         if (event instanceof CardSetUpdatedEvent) {
           this._handleCardSetUpdate(event);
+        }
+      }
+    });
+
+    // 툴바 이벤트
+    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_SEARCH, {
+      handle: async (event: DomainEvent) => {
+        if (event instanceof ToolbarSearchEvent) {
+          await this._handleSearch(event);
+        }
+      }
+    });
+
+    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_SORT, {
+      handle: async (event: DomainEvent) => {
+        if (event instanceof ToolbarSortEvent) {
+          await this._handleSort(event);
+        }
+      }
+    });
+
+    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_CARD_SET_TYPE_CHANGE, {
+      handle: async (event: DomainEvent) => {
+        if (event instanceof ToolbarCardSetTypeChangeEvent) {
+          await this._handleCardSetTypeChange(event.type as CardSetType);
+        }
+      }
+    });
+
+    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_PRESET_CHANGE, {
+      handle: async (event: DomainEvent) => {
+        if (event instanceof ToolbarPresetChangeEvent) {
+          await this._handlePresetChange(event.presetId);
+        }
+      }
+    });
+
+    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_CREATE, {
+      handle: async (event: DomainEvent) => {
+        if (event instanceof ToolbarCreateEvent) {
+          await this._handleCreate();
+        }
+      }
+    });
+
+    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_UPDATE, {
+      handle: async (event: DomainEvent) => {
+        if (event instanceof ToolbarUpdateEvent) {
+          await this._handleUpdate();
+        }
+      }
+    });
+
+    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_CARD_RENDER_CONFIG_CHANGE, {
+      handle: async (event: DomainEvent) => {
+        if (event instanceof ToolbarCardRenderConfigChangeEvent) {
+          await this._handleCardRenderConfigChange(event.config);
+        }
+      }
+    });
+
+    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_LAYOUT_CONFIG_CHANGE, {
+      handle: async (event: DomainEvent) => {
+        if (event instanceof ToolbarLayoutConfigChangeEvent) {
+          await this._handleLayoutConfigChange(event.config);
         }
       }
     });
@@ -292,6 +403,9 @@ export class CardNavigatorView extends ItemView {
     return cardEl;
   }
 
+  /**
+   * 카드 클릭 처리
+   */
   private async _handleCardClick(card: Card): Promise<void> {
     if (!this._cardSet) return;
 
@@ -408,7 +522,7 @@ export class CardNavigatorView extends ItemView {
     this._eventDispatcher.register(ToolbarEventType.TOOLBAR_SEARCH, {
       handle: async (event: DomainEvent) => {
         if (event instanceof ToolbarSearchEvent) {
-          this._handleSearch(event);
+          await this._handleSearch(event);
         }
       }
     });
@@ -416,7 +530,7 @@ export class CardNavigatorView extends ItemView {
     this._eventDispatcher.register(ToolbarEventType.TOOLBAR_SORT, {
       handle: async (event: DomainEvent) => {
         if (event instanceof ToolbarSortEvent) {
-          this._handleSort(event);
+          await this._handleSort(event);
         }
       }
     });
@@ -440,7 +554,7 @@ export class CardNavigatorView extends ItemView {
     this._eventDispatcher.register(ToolbarEventType.TOOLBAR_PRESET_CHANGE, {
       handle: async (event: DomainEvent) => {
         if (event instanceof ToolbarPresetChangeEvent) {
-          this._handlePresetChange(event.presetId);
+          await this._handlePresetChange(event.presetId);
         }
       }
     });
@@ -448,7 +562,7 @@ export class CardNavigatorView extends ItemView {
     this._eventDispatcher.register(ToolbarEventType.TOOLBAR_CREATE, {
       handle: async (event: DomainEvent) => {
         if (event instanceof ToolbarCreateEvent) {
-          this._handleCreate();
+          await this._handleCreate();
         }
       }
     });
@@ -456,7 +570,23 @@ export class CardNavigatorView extends ItemView {
     this._eventDispatcher.register(ToolbarEventType.TOOLBAR_UPDATE, {
       handle: async (event: DomainEvent) => {
         if (event instanceof ToolbarUpdateEvent) {
-          this._handleUpdate();
+          await this._handleUpdate();
+        }
+      }
+    });
+
+    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_CARD_RENDER_CONFIG_CHANGE, {
+      handle: async (event: DomainEvent) => {
+        if (event instanceof ToolbarCardRenderConfigChangeEvent) {
+          await this._handleCardRenderConfigChange(event.config);
+        }
+      }
+    });
+
+    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_LAYOUT_CONFIG_CHANGE, {
+      handle: async (event: DomainEvent) => {
+        if (event instanceof ToolbarLayoutConfigChangeEvent) {
+          await this._handleLayoutConfigChange(event.config);
         }
       }
     });
@@ -604,5 +734,66 @@ export class CardNavigatorView extends ItemView {
         await this._cardSetService.updateCardSet(this._cardSet);
       }
     }
+  }
+
+  /**
+   * 기본 레이아웃 설정 생성
+   */
+  private _createDefaultLayoutConfig(): ILayoutConfig {
+    return {
+      type: LayoutType.GRID,
+      direction: LayoutDirection.VERTICAL,
+      fixedHeight: true,
+      minCardWidth: 200,
+      minCardHeight: 150,
+      cardWidth: 200,
+      cardHeight: 150,
+      gap: 16,
+      padding: 16,
+      viewportWidth: 800,
+      viewportHeight: 600
+    };
+  }
+
+  /**
+   * 키보드 내비게이션 활성화/비활성화
+   */
+  public setKeyboardNavigationEnabled(enabled: boolean): void {
+    this._keyboardNavigator.setEnabled(enabled);
+  }
+
+  /**
+   * 활성 파일의 카드로 포커스
+   */
+  public focusActiveFileCard(): void {
+    this._keyboardNavigator.focusActiveFileCard();
+  }
+
+  /**
+   * 컨테이너에 포커스
+   */
+  public focusContainer(): void {
+    this._container.focus();
+  }
+
+  /**
+   * 키보드 내비게이션 상태 반환
+   */
+  public isKeyboardNavigationEnabled(): boolean {
+    return this._keyboardNavigator.isEnabled;
+  }
+
+  private async _handleCardRenderConfigChange(config: ICardRenderConfig): Promise<void> {
+    if (!this._cardSet) return;
+    this._cardSet.cardRenderConfig = config;
+    await this._cardSetService.updateCardSet(this._cardSet);
+    this._renderCards();
+  }
+
+  private async _handleLayoutConfigChange(config: ILayoutConfig): Promise<void> {
+    if (!this._cardSet) return;
+    this._cardSet.layoutConfig = config;
+    await this._cardSetService.updateCardSet(this._cardSet);
+    this._renderCards();
   }
 }

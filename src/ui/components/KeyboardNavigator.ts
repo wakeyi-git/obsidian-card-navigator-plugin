@@ -1,5 +1,6 @@
 import { Card } from '@/domain/models/Card';
 import { CardSet } from '@/domain/models/CardSet';
+import { TFile } from 'obsidian';
 
 /**
  * 키보드 내비게이터 클래스
@@ -9,9 +10,22 @@ export class KeyboardNavigator {
   private _cardSet: CardSet | null = null;
   private _focusedCard: Card | null = null;
   private _isEnabled = false;
+  private _app: any;
 
   // 이벤트 핸들러
   onFocusChange: ((card: Card | null) => void) | null = null;
+  onCardOpen: ((card: Card) => void) | null = null;
+
+  constructor(app: any) {
+    this._app = app;
+  }
+
+  /**
+   * 활성화 상태 반환
+   */
+  get isEnabled(): boolean {
+    return this._isEnabled;
+  }
 
   /**
    * 카드셋 설정
@@ -43,6 +57,21 @@ export class KeyboardNavigator {
     this._focusedCard = card;
     if (this.onFocusChange) {
       this.onFocusChange(card);
+    }
+  }
+
+  /**
+   * 활성 파일의 카드로 포커스
+   */
+  focusActiveFileCard(): void {
+    if (!this._isEnabled || !this._cardSet) return;
+
+    const activeFile = this._app.workspace.getActiveFile();
+    if (!activeFile) return;
+
+    const activeCard = this._cardSet.cards.find(card => card.filePath === activeFile.path);
+    if (activeCard) {
+      this.setFocusedCard(activeCard);
     }
   }
 
@@ -120,14 +149,32 @@ export class KeyboardNavigator {
    * 왼쪽으로 이동
    */
   private _navigateLeft(): void {
-    // TODO: 그리드 레이아웃에서 왼쪽으로 이동 구현
+    if (!this._cardSet) return;
+
+    const currentIndex = this._focusedCard
+      ? this._cardSet.cards.findIndex(c => c.id === this._focusedCard!.id)
+      : -1;
+
+    const cardsPerRow = Math.floor(this._cardSet.layoutConfig.viewportWidth / this._cardSet.layoutConfig.minCardWidth);
+    if (currentIndex >= cardsPerRow) {
+      this.setFocusedCard(this._cardSet.cards[currentIndex - cardsPerRow]);
+    }
   }
 
   /**
    * 오른쪽으로 이동
    */
   private _navigateRight(): void {
-    // TODO: 그리드 레이아웃에서 오른쪽으로 이동 구현
+    if (!this._cardSet) return;
+
+    const currentIndex = this._focusedCard
+      ? this._cardSet.cards.findIndex(c => c.id === this._focusedCard!.id)
+      : -1;
+
+    const cardsPerRow = Math.floor(this._cardSet.layoutConfig.viewportWidth / this._cardSet.layoutConfig.minCardWidth);
+    if (currentIndex < this._cardSet.cards.length - cardsPerRow) {
+      this.setFocusedCard(this._cardSet.cards[currentIndex + cardsPerRow]);
+    }
   }
 
   /**
@@ -150,27 +197,53 @@ export class KeyboardNavigator {
    * 한 페이지 위로 이동
    */
   private _navigatePageUp(): void {
-    // TODO: 페이지 단위 위로 이동 구현
+    if (!this._cardSet) return;
+
+    const currentIndex = this._focusedCard
+      ? this._cardSet.cards.findIndex(c => c.id === this._focusedCard!.id)
+      : -1;
+
+    const cardsPerPage = Math.floor(
+      (this._cardSet.layoutConfig.viewportHeight / this._cardSet.layoutConfig.minCardHeight) *
+      (this._cardSet.layoutConfig.viewportWidth / this._cardSet.layoutConfig.minCardWidth)
+    );
+
+    if (currentIndex >= cardsPerPage) {
+      this.setFocusedCard(this._cardSet.cards[currentIndex - cardsPerPage]);
+    }
   }
 
   /**
    * 한 페이지 아래로 이동
    */
   private _navigatePageDown(): void {
-    // TODO: 페이지 단위 아래로 이동 구현
+    if (!this._cardSet) return;
+
+    const currentIndex = this._focusedCard
+      ? this._cardSet.cards.findIndex(c => c.id === this._focusedCard!.id)
+      : -1;
+
+    const cardsPerPage = Math.floor(
+      (this._cardSet.layoutConfig.viewportHeight / this._cardSet.layoutConfig.minCardHeight) *
+      (this._cardSet.layoutConfig.viewportWidth / this._cardSet.layoutConfig.minCardWidth)
+    );
+
+    if (currentIndex < this._cardSet.cards.length - cardsPerPage) {
+      this.setFocusedCard(this._cardSet.cards[currentIndex + cardsPerPage]);
+    }
   }
 
   /**
    * 엔터 키 처리
    */
   private _handleEnter(): void {
-    if (this._focusedCard) {
-      // TODO: 카드 열기 구현
+    if (this._focusedCard && this.onCardOpen) {
+      this.onCardOpen(this._focusedCard);
     }
   }
 
   /**
-   * 이스케이프 키 처리
+   * ESC 키 처리
    */
   private _handleEscape(): void {
     this.setEnabled(false);

@@ -1,6 +1,6 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import { CardSet, CardSetType, ICardSetConfig } from '@/domain/models/CardSet';
-import { Layout } from '@/domain/models/Layout';
+import { Layout, LayoutType, LayoutDirection, ILayoutConfig } from '@/domain/models/Layout';
 import { Preset } from '@/domain/models/Preset';
 import { ICardRenderConfig } from '@/domain/models/Card';
 import { PresetEditModal } from '@/ui/components/modals/PresetEditModal';
@@ -9,6 +9,10 @@ import { CardSettings } from '@/ui/settings/components/CardSettings';
 import { CardSetSettings } from '@/ui/settings/components/CardSetSettings';
 import { SearchSettings } from '@/ui/settings/components/SearchSettings';
 import { SortSettings } from '@/ui/settings/components/SortSettings';
+import { LayoutSettings } from '@/ui/settings/components/LayoutSettings';
+import { NavigationSettings } from '@/ui/settings/components/NavigationSettings';
+import { PresetSettings } from '@/ui/settings/components/PresetSettings';
+import { ToolbarSettings } from '@/ui/settings/components/ToolbarSettings';
 
 /**
  * 카드 내비게이터 설정 인터페이스
@@ -77,6 +81,8 @@ export interface ICardNavigatorSettings {
 
   // 레이아웃 설정
   layout: {
+    type: LayoutType;
+    direction: LayoutDirection;
     fixedHeight: boolean;
     minCardWidth: number;
     minCardHeight: number;
@@ -87,6 +93,11 @@ export interface ICardNavigatorSettings {
   folderPresets: Map<string, string>; // 폴더 경로 -> 프리셋 ID
   tagPresets: Map<string, string>; // 태그 -> 프리셋 ID
   presetPriority: string[]; // 프리셋 우선순위 (폴더/태그 ID)
+
+  // 네비게이션 설정
+  keyboardNavigationEnabled: boolean;
+  scrollBehavior: 'smooth' | 'instant';
+  autoFocusActiveCard: boolean;
 }
 
 /**
@@ -193,6 +204,8 @@ export class CardNavigatorSettingsTab extends PluginSettingTab {
         sortBy: 'fileName',
         sortOrder: 'asc',
         layout: {
+          type: LayoutType.GRID,
+          direction: LayoutDirection.VERTICAL,
           fixedHeight: false,
           minCardWidth: 300,
           minCardHeight: 200
@@ -200,7 +213,10 @@ export class CardNavigatorSettingsTab extends PluginSettingTab {
         presets: [],
         folderPresets: new Map(),
         tagPresets: new Map(),
-        presetPriority: []
+        presetPriority: [],
+        keyboardNavigationEnabled: true,
+        scrollBehavior: 'smooth',
+        autoFocusActiveCard: true
       };
       this.plugin.saveData();
     }
@@ -217,261 +233,16 @@ export class CardNavigatorSettingsTab extends PluginSettingTab {
     // 카드 설정
     new CardSettings(containerEl, this.plugin).display();
 
+    // 레이아웃 설정
+    new LayoutSettings(containerEl, this.plugin).display();
+
+    // 네비게이션 설정
+    new NavigationSettings(containerEl, this.plugin).display();
+
+    // 툴바 설정
+    new ToolbarSettings(containerEl, this.app, this.plugin).display();
+
     // 프리셋 설정
-    new Setting(containerEl)
-      .setName('프리셋 설정')
-      .setHeading();
-
-    this._addPresetSettings(containerEl);
-  }
-
-  /**
-   * 카드 설정 추가
-   */
-  private _addCardSettings(containerEl: HTMLElement): void {
-    new Setting(containerEl)
-      .setName('카드 설정')
-      .setHeading();
-
-    new CardSettings(containerEl, this.plugin);
-  }
-
-  /**
-   * 프리셋 설정 추가
-   */
-  private _addPresetSettings(containerEl: HTMLElement): void {
-    // 프리셋 목록
-    new Setting(containerEl)
-      .setName('프리셋 목록')
-      .setHeading();
-
-    this.plugin.settings.presets.forEach((preset: Preset) => {
-      const setting = new Setting(containerEl)
-        .setName(preset.name)
-        .setDesc(preset.description || '');
-
-      // 편집 버튼
-      setting.addButton(button => {
-        button
-          .setButtonText('편집')
-          .onClick(() => {
-            new PresetEditModal(this.app, preset, (updatedPreset) => {
-              const index = this.plugin.settings.presets.findIndex((p: Preset) => p.id === preset.id);
-              if (index !== -1) {
-                this.plugin.settings.presets[index] = updatedPreset;
-                this.plugin.saveData();
-                this.display();
-              }
-            }).open();
-          });
-      });
-
-      // 삭제 버튼
-      setting.addButton(button => {
-        button
-          .setButtonText('삭제')
-          .setWarning()
-          .onClick(() => {
-            if (confirm('이 프리셋을 삭제하시겠습니까?')) {
-              const index = this.plugin.settings.presets.findIndex((p: Preset) => p.id === preset.id);
-              if (index !== -1) {
-                this.plugin.settings.presets.splice(index, 1);
-                this.plugin.saveData();
-                this.display();
-              }
-            }
-          });
-      });
-    });
-
-    // 프리셋 생성 버튼
-    new Setting(containerEl)
-      .addButton(button => {
-        button
-          .setButtonText('프리셋 생성')
-          .onClick(() => {
-            this._handleCreatePreset();
-          });
-      });
-
-    // 프리셋 가져오기/내보내기 버튼
-    new Setting(containerEl)
-      .addButton(button => {
-        button
-          .setButtonText('프리셋 가져오기')
-          .onClick(() => {
-            new PresetImportExportModal(this.app, this.plugin.settings.presets, (presets) => {
-              this.plugin.settings.presets.push(...presets);
-              this.plugin.saveData();
-              this.display();
-            }).open();
-          });
-      })
-      .addButton(button => {
-        button
-          .setButtonText('프리셋 내보내기')
-          .onClick(() => {
-            new PresetImportExportModal(this.app, this.plugin.settings.presets, () => {}).open();
-          });
-      });
-
-    // 폴더 프리셋
-    new Setting(containerEl)
-      .setName('폴더 프리셋')
-      .setHeading();
-
-    this.plugin.settings.folderPresets.forEach((presetId: string, folderPath: string) => {
-      const preset = this.plugin.settings.presets.find((p: Preset) => p.id === presetId);
-      if (!preset) return;
-
-      new Setting(containerEl)
-        .setName(folderPath)
-        .setDesc(preset.name)
-        .addDropdown(dropdown => {
-          this.plugin.settings.presets.forEach((p: Preset) => {
-            dropdown.addOption(p.id, p.name);
-          });
-          dropdown.setValue(presetId);
-          dropdown.onChange(value => {
-            this.plugin.settings.folderPresets.set(folderPath, value);
-            this.plugin.saveData();
-          });
-        });
-    });
-
-    // 태그 프리셋
-    new Setting(containerEl)
-      .setName('태그 프리셋')
-      .setHeading();
-
-    this.plugin.settings.tagPresets.forEach((presetId: string, tag: string) => {
-      const preset = this.plugin.settings.presets.find((p: Preset) => p.id === presetId);
-      if (!preset) return;
-
-      new Setting(containerEl)
-        .setName(tag)
-        .setDesc(preset.name)
-        .addDropdown(dropdown => {
-          this.plugin.settings.presets.forEach((p: Preset) => {
-            dropdown.addOption(p.id, p.name);
-          });
-          dropdown.setValue(presetId);
-          dropdown.onChange(value => {
-            this.plugin.settings.tagPresets.set(tag, value);
-            this.plugin.saveData();
-          });
-        });
-    });
-
-    // 프리셋 우선순위
-    new Setting(containerEl)
-      .setName('프리셋 우선순위')
-      .setHeading();
-
-    this.plugin.settings.presetPriority.forEach((id: string, index: number) => {
-      const preset = this.plugin.settings.presets.find((p: Preset) => p.id === id);
-      if (!preset) return;
-
-      new Setting(containerEl)
-        .setName(preset.name)
-        .addButton(button => {
-          button
-            .setButtonText('위로')
-            .setDisabled(index === 0)
-            .onClick(() => {
-              const temp = this.plugin.settings.presetPriority[index];
-              this.plugin.settings.presetPriority[index] = this.plugin.settings.presetPriority[index - 1];
-              this.plugin.settings.presetPriority[index - 1] = temp;
-              this.plugin.saveData();
-              this.display();
-            });
-        })
-        .addButton(button => {
-          button
-            .setButtonText('아래로')
-            .setDisabled(index === this.plugin.settings.presetPriority.length - 1)
-            .onClick(() => {
-              const temp = this.plugin.settings.presetPriority[index];
-              this.plugin.settings.presetPriority[index] = this.plugin.settings.presetPriority[index + 1];
-              this.plugin.settings.presetPriority[index + 1] = temp;
-              this.plugin.saveData();
-              this.display();
-            });
-        });
-    });
-  }
-
-  private _handleCreatePreset(): void {
-    const preset = new Preset(
-      crypto.randomUUID(),
-      {
-        name: '새 프리셋',
-        description: '',
-        cardSetConfig: {
-          type: 'folder',
-          value: '',
-          includeSubfolders: true,
-          sortBy: this.plugin.settings.sortBy || 'fileName',
-          sortOrder: this.plugin.settings.sortOrder || 'asc'
-        },
-        layoutConfig: {
-          type: 'grid',
-          direction: 'vertical',
-          fixedHeight: false,
-          minCardWidth: 200,
-          minCardHeight: 150,
-          cardWidth: 300,
-          cardHeight: 200,
-          gap: 10,
-          padding: 20,
-          viewportWidth: 800,
-          viewportHeight: 600
-        },
-        cardRenderConfig: {
-          header: {
-            showFileName: true,
-            showFirstHeader: true,
-            showTags: true,
-            showCreatedDate: false,
-            showUpdatedDate: false,
-            showProperties: [],
-            renderMarkdown: true
-          },
-          body: {
-            showFileName: false,
-            showFirstHeader: false,
-            showContent: true,
-            showTags: false,
-            showCreatedDate: false,
-            showUpdatedDate: false,
-            showProperties: [],
-            contentLength: 200,
-            renderMarkdown: true
-          },
-          footer: {
-            showFileName: false,
-            showFirstHeader: false,
-            showTags: false,
-            showCreatedDate: false,
-            showUpdatedDate: false,
-            showProperties: [],
-            renderMarkdown: true
-          },
-          renderAsHtml: true
-        },
-        mappings: []
-      }
-    );
-
-    this.plugin.settings.presets.push(preset);
-    this.plugin.saveData();
-    this.display();
-  }
-
-  /**
-   * 프리셋 목록 새로고침
-   */
-  private _refreshPresetList(): void {
-    this.display();
+    new PresetSettings(containerEl, this.app, this.plugin).display();
   }
 } 
