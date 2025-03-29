@@ -2,76 +2,166 @@ import { App, TFile } from 'obsidian';
 import { Card } from '../models/Card';
 import { ICardRepository } from '../repositories/ICardRepository';
 import { CardContent, CardStyle, CardSectionType, CardPosition } from '../models/types';
+import { DomainEventDispatcher } from '../events/DomainEventDispatcher';
+import { CardCreatedEvent, CardUpdatedEvent, CardDeletedEvent, CardStyleChangedEvent, CardPositionChangedEvent } from '../events/CardEvents';
+import { CardResponseDto } from '../../application/dtos/CardDto';
+
+export interface ICardService {
+  createCard(file: TFile): Promise<Card>;
+  getCard(id: string): Promise<CardResponseDto>;
+  updateCard(card: Card): Promise<void>;
+  deleteCard(id: string): Promise<void>;
+  getAllCards(): Promise<Card[]>;
+  findCardByFile(file: TFile): Promise<Card | null>;
+  findCardById(cardId: string): Promise<Card | null>;
+  updateCardCache(card: Card): Promise<void>;
+  removeFromCardCache(card: Card): Promise<void>;
+  changeCardStyle(card: Card, style: CardStyle): Promise<void>;
+  changeCardPosition(card: Card, position: { x: number; y: number }): Promise<void>;
+}
 
 /**
  * 카드 서비스
  */
-export class CardService {
+export class CardService implements ICardService {
+  private cardCache: Map<string, Card> = new Map();
+
   constructor(
     private readonly app: App,
-    private readonly cardRepository: ICardRepository
+    private readonly cardRepository: ICardRepository,
+    private readonly eventDispatcher: DomainEventDispatcher
   ) {}
 
   /**
-   * 파일로부터 카드를 생성합니다.
+   * 모든 카드를 가져옵니다.
    */
-  async createCard(file: TFile): Promise<Card> {
-    return this.cardRepository.createFromFile(file, this.app);
+  async getAllCards(): Promise<Card[]> {
+    return Array.from(this.cardCache.values());
   }
 
   /**
-   * ID로 카드를 조회합니다.
-   */
-  async findCardById(id: string): Promise<Card | null> {
-    return this.cardRepository.findById(id);
-  }
-
-  /**
-   * 파일로 카드를 조회합니다.
+   * 파일로 카드를 찾습니다.
    */
   async findCardByFile(file: TFile): Promise<Card | null> {
-    return this.cardRepository.findByFile(file);
+    return this.cardCache.get(file.path) || null;
   }
 
   /**
-   * 카드의 컨텐츠를 업데이트합니다.
+   * ID로 카드를 찾습니다.
    */
-  async updateCardContent(card: Card, content: CardContent): Promise<void> {
-    await this.cardRepository.updateContent(card.getId(), content);
+  async findCardById(cardId: string): Promise<Card | null> {
+    return this.cardCache.get(cardId) || null;
   }
 
   /**
-   * 카드의 스타일을 업데이트합니다.
+   * 카드 캐시를 업데이트합니다.
    */
-  async updateCardStyle(card: Card, style: CardStyle): Promise<void> {
-    await this.cardRepository.updateStyle(card.getId(), style);
+  async updateCardCache(card: Card): Promise<void> {
+    this.cardCache.set(card.getId(), card);
   }
 
   /**
-   * 카드의 위치를 업데이트합니다.
+   * 카드 캐시에서 카드를 제거합니다.
    */
-  async updateCardPosition(card: Card, x: number, y: number): Promise<void> {
-    const currentPosition = card.getPosition();
-    const position: CardPosition = {
-      left: x,
-      top: y,
-      width: currentPosition.width,
-      height: currentPosition.height
+  async removeFromCardCache(card: Card): Promise<void> {
+    this.cardCache.delete(card.getId());
+  }
+
+  /**
+   * 카드를 생성합니다.
+   */
+  async createCard(file: TFile): Promise<Card> {
+    const content = await this.createCardContent(file);
+    const style = this.createDefaultCardStyle();
+    const position = { left: 0, top: 0, width: style.width, height: style.height };
+    const card = new Card(file.path, file, content, style, position, this.app);
+    
+    await this.updateCardCache(card);
+    
+    const event = new CardCreatedEvent(card);
+    await this.eventDispatcher.dispatch(event);
+    
+    return card;
+  }
+
+  /**
+   * 카드를 가져옵니다.
+   */
+  async getCard(id: string): Promise<CardResponseDto> {
+    const card = await this.findCardById(id);
+    if (!card) {
+      throw new Error(`Card not found: ${id}`);
+    }
+    return {
+      id: card.getId(),
+      filePath: card.getFilePath(),
+      content: card.getContent(),
+      style: card.getStyle(),
+      position: card.getPosition(),
+      isActive: false,
+      isFocused: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
-    await this.cardRepository.updatePosition(card.getId(), position);
+  }
+
+  /**
+   * 카드를 업데이트합니다.
+   */
+  async updateCard(card: Card): Promise<void> {
+    await this.updateCardCache(card);
+    
+    const event = new CardUpdatedEvent(card);
+    await this.eventDispatcher.dispatch(event);
   }
 
   /**
    * 카드를 삭제합니다.
    */
-  async deleteCard(card: Card): Promise<void> {
-    await this.cardRepository.delete(card.getId());
+  async deleteCard(id: string): Promise<void> {
+    const card = await this.findCardById(id);
+    if (!card) {
+      throw new Error(`Card not found: ${id}`);
+    }
+    await this.removeFromCardCache(card);
+    
+    const event = new CardDeletedEvent(card.getId());
+    await this.eventDispatcher.dispatch(event);
+  }
+
+  /**
+   * 카드 스타일을 변경합니다.
+   */
+  async changeCardStyle(card: Card, style: CardStyle): Promise<void> {
+    await this.cardRepository.updateStyle(card.getId(), style);
+    await this.updateCardCache(card);
+    
+    const event = new CardStyleChangedEvent(card.getId(), style);
+    await this.eventDispatcher.dispatch(event);
+  }
+
+  /**
+   * 카드 위치를 변경합니다.
+   */
+  async changeCardPosition(card: Card, position: { x: number; y: number }): Promise<void> {
+    const cardPosition: CardPosition = {
+      left: position.x,
+      top: position.y,
+      width: card.getStyle().width,
+      height: card.getStyle().height
+    };
+    
+    await this.cardRepository.updatePosition(card.getId(), cardPosition);
+    await this.updateCardCache(card);
+    
+    const event = new CardPositionChangedEvent(card.getId(), cardPosition);
+    await this.eventDispatcher.dispatch(event);
   }
 
   /**
    * 파일의 내용을 읽어 카드 컨텐츠를 생성합니다.
    */
-  async createCardContent(file: TFile): Promise<CardContent> {
+  private async createCardContent(file: TFile): Promise<CardContent> {
     const content = await file.vault.read(file);
     const { frontmatter, content: body } = this.parseContent(content);
 
@@ -97,26 +187,6 @@ export class CardService {
   }
 
   /**
-   * 기본 컨텐츠 스타일을 반환합니다.
-   */
-  private getDefaultContentStyle(): CardStyle {
-    return {
-      width: 300,
-      height: 200,
-      fontSize: 14,
-      lineHeight: 1.5,
-      padding: 12,
-      margin: 8,
-      borderRadius: 8,
-      backgroundColor: '#ffffff',
-      textColor: '#000000',
-      borderWidth: 1,
-      borderColor: '#e0e0e0',
-      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-    };
-  }
-
-  /**
    * 파일 내용을 파싱합니다.
    */
   private parseContent(content: string): { frontmatter?: any; content: string } {
@@ -133,46 +203,6 @@ export class CardService {
     }
 
     return { content };
-  }
-
-  /**
-   * 파일 내용을 파싱하여 카드 내용을 생성합니다.
-   */
-  private parseFileContent(content: string): CardContent {
-    const lines = content.split('\n');
-    const header: CardContent['header'] = [];
-    const body: CardContent['body'] = [];
-    const footer: CardContent['footer'] = [];
-
-    let currentSection = body;
-    let currentHeaderLevel = 0;
-
-    for (const line of lines) {
-      if (line.startsWith('#')) {
-        const level = line.match(/^#+/)?.[0].length || 1;
-        if (level <= 3) {
-          currentHeaderLevel = level;
-          header.push({
-            type: 'header' as CardSectionType,
-            content: line.replace(/^#+\s*/, ''),
-            level
-          });
-        } else {
-          body.push({
-            type: 'header' as CardSectionType,
-            content: line.replace(/^#+\s*/, ''),
-            level
-          });
-        }
-      } else if (line.trim()) {
-        body.push({
-          type: 'text' as CardSectionType,
-          content: line
-        });
-      }
-    }
-
-    return { header, body, footer };
   }
 
   /**

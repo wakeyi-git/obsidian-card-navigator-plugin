@@ -1,132 +1,100 @@
-import { ItemView, WorkspaceLeaf, Menu, TFile, TFolder } from "obsidian";
+import { ItemView, WorkspaceLeaf, Menu, TFile } from "obsidian";
 import CardNavigatorPlugin from '../../main';
-import { Toolbar } from './toolbar/toolbar';
-import { CardContainer } from './cardContainer/cardContainer';
-import { sortFiles } from '../../common/utils';
 import { t } from 'i18next';
-import { ScrollDirection } from '../../domain/models/types';
 import { CardNavigatorViewModel } from '../viewModels/CardNavigatorViewModel';
+import { CardNavigatorComponent } from '../components/CardNavigatorComponent';
+import { RefreshType } from '../../domain/models/types';
+import { Card } from '../../domain/models/Card';
 
 // 카드 네비게이터 뷰의 고유 식별자
 export const VIEW_TYPE_CARD_NAVIGATOR = "card-navigator-view";
 
-// 리프레시 유형을 정의하는 enum
-export enum RefreshType {
-    LAYOUT = 'layout',    // 레이아웃/리사이즈 관련 리프레시
-    CONTENT = 'content',  // 파일 내용 변경 관련 리프레시
-    SETTINGS = 'settings', // 설정 변경 관련 리프레시
-    ALL = 'all'           // 전체 업데이트
-}
-
+/**
+ * 카드 네비게이터 뷰
+ */
 export class CardNavigatorView extends ItemView {
-    //#region 클래스 속성
-    public toolbar: Toolbar;
-    public cardContainer: CardContainer;
+    private component: CardNavigatorComponent | null = null;
+    private readonly viewModel: CardNavigatorViewModel;
+    private readonly plugin: CardNavigatorPlugin;
     private refreshDebounceTimers: Map<RefreshType, NodeJS.Timeout> = new Map();
     private isRefreshInProgress = false;
     private pendingRefreshTypes = new Set<RefreshType>();
     private refreshTimeout: NodeJS.Timeout | null = null;
     private lastRefreshTime: number = 0;
     private readonly REFRESH_COOLDOWN = 50; // 50ms 쿨다운
-    private viewModel: CardNavigatorViewModel;
-    private plugin: CardNavigatorPlugin;
-    private isInitialized: boolean = false;
-    //#endregion
 
-    //#region 초기화 및 기본 메서드
     // 생성자
-    constructor(leaf: WorkspaceLeaf, plugin: CardNavigatorPlugin) {
+    constructor(
+        leaf: WorkspaceLeaf,
+        viewModel: CardNavigatorViewModel
+    ) {
         super(leaf);
-        this.plugin = plugin;
-        this.toolbar = new Toolbar(this.plugin);
-        this.cardContainer = new CardContainer(this.plugin, leaf);
-        this.viewModel = plugin.getViewModel();
+        this.viewModel = viewModel;
+        this.plugin = viewModel.getPlugin();
     }
 
-    // 뷰 타입 반환 메서드
+    /**
+     * 뷰 타입을 가져옵니다.
+     */
     getViewType(): string {
         return VIEW_TYPE_CARD_NAVIGATOR;
     }
 
-    // 표시 텍스트 반환 메서드
+    /**
+     * 뷰 제목을 가져옵니다.
+     */
     getDisplayText(): string {
-        return t("CARD_NAVIGATOR");
+        return t('CARD_NAVIGATOR');
     }
 
-    // 아이콘 반환 메서드
+    /**
+     * 뷰 아이콘을 가져옵니다.
+     */
     getIcon(): string {
-        return "layers-3";
+        return 'layers-3';
     }
 
-    // 뷰 열기 메서드
-    async onOpen() {
-        const container = this.containerEl.children[1] as HTMLElement;
+    /**
+     * 뷰를 초기화합니다.
+     */
+    async onOpen(): Promise<void> {
+        const container = this.containerEl.children[1];
         container.empty();
+        container.createEl('h4', { text: t('CARD_NAVIGATOR') });
 
-        const navigatorEl = container.createDiv('card-navigator');
-        const toolbarEl = navigatorEl.createDiv('card-navigator-toolbar');
-        const cardContainerEl = navigatorEl.createDiv('card-navigator-container');
+        const content = container.createDiv('card-navigator-content');
+        
+        // 컴포넌트 초기화
+        this.component = new CardNavigatorComponent(this.viewModel, this.app);
+        await this.component.initialize(content);
 
-        this.toolbar.initialize(toolbarEl);
-        this.cardContainer.initialize(cardContainerEl);
+        // 초기 카드 표시
+        await this.refresh(RefreshType.FULL);
     }
 
-    // 뷰 닫기 메서드
-    async onClose() {
-        this.toolbar.onClose();
-        this.cardContainer.onClose();
+    /**
+     * 뷰를 정리합니다.
+     */
+    async onClose(): Promise<void> {
+        if (this.component) {
+            await this.component.dispose();
+            this.component = null;
+        }
     }
-    //#endregion
 
-    //#region 폴더 및 파일 관리
-    // 현재 폴더 경로 반환 메서드
+    /**
+     * 현재 폴더 경로를 가져옵니다.
+     */
     public async getCurrentFolderPath(): Promise<string | null> {
-        const folder = await this.getCurrentFolder();
-        return folder?.path || null;
+        return this.viewModel.getCurrentFolderPath();
     }
 
-    // 현재 폴더 반환 메서드
-    private async getCurrentFolder(): Promise<TFolder | null> {
-        if (this.plugin.settings.cardSetType === 'selectedFolder' && this.plugin.settings.selectedFolder) {
-            const abstractFile = this.plugin.app.vault.getAbstractFileByPath(this.plugin.settings.selectedFolder);
-            return abstractFile instanceof TFolder ? abstractFile : null;
-        } else if (this.plugin.settings.cardSetType === 'vault') {
-            return this.plugin.app.vault.getRoot();
-        } else {
-            const activeFile = this.plugin.app.workspace.getActiveFile();
-            return activeFile?.parent || null;
-        }
+    /**
+     * 카드 컨테이너를 가져옵니다.
+     */
+    public get cardContainer() {
+        return this.component?.getCardContainer();
     }
-
-    // 파일 정렬 메서드
-    private sortFiles(files: TFile[]): TFile[] {
-        const mdFiles = files.filter(file => file.extension === 'md');
-        return sortFiles(mdFiles, this.plugin.settings.sortCriterion, this.plugin.settings.sortOrder);
-    }
-    //#endregion
-
-    //#region 카드 컨테이너 관리
-    // 카드 컨테이너 컨텐츠 업데이트 메서드
-    private async updateCardContainerContent() {
-        const folder = await this.getCurrentFolder();
-        if (!folder) return;
-
-        const files = folder.children.filter((file: any): file is TFile => file instanceof TFile);
-        const mdFiles = files.filter(file => file.extension === 'md');
-        const sortedFiles = this.sortFiles(mdFiles);
-        await this.cardContainer.displayCards(sortedFiles);
-    }
-
-    // 레이아웃 설정 업데이트 메서드
-    private updateLayout() {
-        const settings = this.plugin.settings;
-        if (settings.defaultLayout) {
-            this.cardContainer.setLayout(settings.defaultLayout);
-        } else {
-            this.cardContainer.setLayout('auto');
-        }
-    }
-    //#endregion
 
     //#region 카드 상호작용
     // 컨텍스트 메뉴 열기 메서드
@@ -134,32 +102,41 @@ export class CardNavigatorView extends ItemView {
         const focusedCard = this.getFocusedCard();
         if (!focusedCard) return;
 
-        const file = this.cardContainer.getFileFromCard(focusedCard);
-        if (!file) return;
+        const cardId = focusedCard.dataset.cardId;
+        if (!cardId) return;
+
+        const currentCardSet = this.viewModel.getCurrentCardSet();
+        if (!currentCardSet) return;
+
+        const card = currentCardSet.getCardById(cardId);
+        if (!card) return;
 
         const menu = new Menu();
+        const file = this.app.vault.getAbstractFileByPath(card.getFilePath());
+        if (file instanceof TFile) {
+            this.app.workspace.trigger('file-menu', menu, file, 'more-options');
 
-        this.plugin.app.workspace.trigger('file-menu', menu, file, 'more-options');
+            menu.addSeparator();
 
-        menu.addSeparator();
+            menu.addItem((item) => {
+                item
+                    .setTitle(t('COPY_AS_LINK'))
+                    .setIcon('link')
+                    .onClick(() => {
+                        navigator.clipboard.writeText(`[[${card.getFilePath()}]]`);
+                    });
+            });
 
-        menu.addItem((item) => {
-            item
-                .setTitle(t('COPY_AS_LINK'))
-                .setIcon('link')
-                .onClick(() => {
-                    this.cardContainer.cardMaker.copyLink(file);
-                });
-        });
-
-        menu.addItem((item) => {
-            item
-                .setTitle(t('COPY_CARD_CONTENT'))
-                .setIcon('file-text')
-                .onClick(async () => {
-                    await this.cardContainer.cardMaker.copyCardContent(file);
-                });
-        });
+            menu.addItem((item) => {
+                item
+                    .setTitle(t('COPY_CARD_CONTENT'))
+                    .setIcon('file-text')
+                    .onClick(async () => {
+                        const content = await this.app.vault.read(file);
+                        navigator.clipboard.writeText(content);
+                    });
+            });
+        }
 
         const rect = focusedCard.getBoundingClientRect();
         menu.showAtPosition({ x: rect.left, y: rect.bottom });
@@ -167,7 +144,7 @@ export class CardNavigatorView extends ItemView {
 
     // 키보드 네비게이터 포커스 메서드
     public focusNavigator() {
-        this.cardContainer.focusNavigator();
+        this.component?.focusCardNavigator();
     }
 
     // 포커스된 카드 요소 반환 메서드
@@ -178,10 +155,7 @@ export class CardNavigatorView extends ItemView {
 
     //#region 리프레시 관리
     // 배치 리프레시 실행 메서드
-    public async refreshBatch(types: RefreshType[]) {
-        if (!this.cardContainer) return;
-        
-
+    public async refreshBatch(types: RefreshType[]): Promise<void> {
         // 현재 시간과 마지막 리프레시 시간을 비교
         const now = Date.now();
         if (now - this.lastRefreshTime < this.REFRESH_COOLDOWN) {
@@ -220,19 +194,8 @@ export class CardNavigatorView extends ItemView {
             types.forEach(type => this.pendingRefreshTypes.add(type));
             this.pendingRefreshTypes.clear();
 
-            // 컨테이너 요소 가져오기
-            const containerEl = this.cardContainer.getContainerElement();
-            if (!containerEl) return;
-
-            try {
-                // 단일 통합 업데이트 실행
-                await this.refreshByType(RefreshType.SETTINGS);
-                
-                // 짧은 지연 후 레이아웃 재계산
-                await new Promise(resolve => setTimeout(resolve, 50));
-            } catch (error) {
-                console.error(`[CardNavigator] 리프레시 중 오류 발생:`, error);
-            }
+            // 컴포넌트 리프레시
+            await this.component?.refresh(types);
         } finally {
             this.isRefreshInProgress = false;
             this.pendingRefreshTypes.clear();
@@ -240,36 +203,92 @@ export class CardNavigatorView extends ItemView {
     }
 
     // 단일 리프레시 실행 메서드
-    public async refresh(type: RefreshType = RefreshType.CONTENT) {
+    public async refresh(type: RefreshType = RefreshType.CONTENT): Promise<void> {
         await this.refreshBatch([type]);
     }
-
-    private async refreshByType(type: RefreshType) {
-        if (!this.cardContainer) return;
-
-        try {
-            // 모든 타입을 단일 업데이트로 처리            
-            const folder = await this.getCurrentFolder();
-            if (folder) {
-                // 1. 설정 업데이트
-                this.cardContainer.updateSettings(this.plugin.settings);
-                
-                // 2. 레이아웃 업데이트
-                this.updateLayout();
-                
-                // 3. 컨텐츠 업데이트
-                const files = folder.children
-                    .filter((file): file is TFile => file instanceof TFile && file.extension === 'md');
-                const sortedFiles = this.sortFiles(files);
-                
-                // 단일 렌더링 사이클에서 모든 카드 업데이트
-                await this.cardContainer.displayCards(sortedFiles);
-            }
-            
-        } catch (error) {
-            console.error(`[CardNavigator] 리프레시 중 오류 발생:`, error);
-            throw error;
-        }
-    }
     //#endregion
+
+    /**
+     * 카드 뷰를 새로고침합니다.
+     */
+    public async refreshCardView(cardId: string): Promise<void> {
+        await this.refresh(RefreshType.CONTENT);
+    }
+
+    /**
+     * 카드 뷰를 제거합니다.
+     */
+    public async removeCardView(cardId: string): Promise<void> {
+        await this.refresh(RefreshType.SELECTION);
+    }
+
+    /**
+     * 카드 스타일을 업데이트합니다.
+     */
+    public async updateCardStyle(card: Card): Promise<void> {
+        await this.refresh(RefreshType.CONTENT);
+    }
+
+    /**
+     * 카드 위치를 업데이트합니다.
+     */
+    public async updateCardPosition(card: Card): Promise<void> {
+        await this.refresh(RefreshType.CONTENT);
+    }
+
+    /**
+     * 스크롤 방향을 가져옵니다.
+     */
+    public getIsVertical(): boolean {
+        return this.component?.getIsVertical() ?? true;
+    }
+
+    /**
+     * 스크롤 방향을 설정합니다.
+     */
+    public setIsVertical(isVertical: boolean): void {
+        this.component?.setIsVertical(isVertical);
+    }
+
+    /**
+     * 스크롤 양을 가져옵니다.
+     */
+    public getScrollAmount(): number {
+        return this.component?.getScrollAmount() ?? 100;
+    }
+
+    /**
+     * 스크롤 양을 설정합니다.
+     */
+    public setScrollAmount(amount: number): void {
+        this.component?.setScrollAmount(amount);
+    }
+
+    /**
+     * 위로 스크롤합니다.
+     */
+    public scrollUp(amount?: number): void {
+        this.component?.scrollUp(amount);
+    }
+
+    /**
+     * 아래로 스크롤합니다.
+     */
+    public scrollDown(amount?: number): void {
+        this.component?.scrollDown(amount);
+    }
+
+    /**
+     * 왼쪽으로 스크롤합니다.
+     */
+    public scrollLeft(amount?: number): void {
+        this.component?.scrollLeft(amount);
+    }
+
+    /**
+     * 오른쪽으로 스크롤합니다.
+     */
+    public scrollRight(amount?: number): void {
+        this.component?.scrollRight(amount);
+    }
 } 

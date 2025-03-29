@@ -6,16 +6,26 @@ import { CardContent, CardStyle, CardPosition } from './types';
  */
 export class Card {
   private readonly createdAt: Date;
-  private readonly updatedAt: Date;
+  private updatedAt: Date;
+  private content: CardContent;
+  private style: CardStyle;
+  private position: CardPosition;
+  private isActiveState: boolean = false;
+  private isFocusedState: boolean = false;
+  private file: TFile;
 
   constructor(
-    private readonly id: string,
-    private readonly file: TFile,
-    private content: CardContent,
-    private style: CardStyle,
-    private position: CardPosition,
+    private readonly filePath: string,
+    file: TFile,
+    content: CardContent,
+    style: CardStyle,
+    position: CardPosition = { left: 0, top: 0, width: style.width, height: style.height },
     private readonly app: App
   ) {
+    this.file = file;
+    this.content = content;
+    this.style = style;
+    this.position = position;
     this.createdAt = new Date();
     this.updatedAt = new Date();
   }
@@ -24,11 +34,18 @@ export class Card {
    * 카드 ID를 반환합니다.
    */
   getId(): string {
-    return this.id;
+    return this.filePath;
   }
 
   /**
-   * 카드의 파일을 반환합니다.
+   * 카드의 파일 경로를 반환합니다.
+   */
+  getFilePath(): string {
+    return this.filePath;
+  }
+
+  /**
+   * 카드의 파일 객체를 반환합니다.
    */
   getFile(): TFile {
     return this.file;
@@ -60,6 +77,7 @@ export class Card {
    */
   updateContent(content: CardContent): void {
     this.content = content;
+    this.updatedAt = new Date();
   }
 
   /**
@@ -67,6 +85,7 @@ export class Card {
    */
   updateStyle(style: CardStyle): void {
     this.style = style;
+    this.updatedAt = new Date();
   }
 
   /**
@@ -74,33 +93,50 @@ export class Card {
    */
   updatePosition(position: CardPosition): void {
     this.position = position;
+    this.updatedAt = new Date();
+  }
+
+  /**
+   * 카드 생성 시간을 반환합니다.
+   */
+  getCreatedAt(): Date {
+    return this.createdAt;
+  }
+
+  /**
+   * 카드 수정 시간을 반환합니다.
+   */
+  getUpdatedAt(): Date {
+    return this.updatedAt;
   }
 
   /**
    * 카드가 활성 상태인지 확인합니다.
    */
   isActive(): boolean {
-    const activeFile = this.app.workspace.getActiveFile();
-    return activeFile ? this.file.path === activeFile.path : false;
+    return this.isActiveState;
   }
 
   /**
    * 카드가 포커스 상태인지 확인합니다.
    */
   isFocused(): boolean {
-    const activeFile = this.app.workspace.getActiveFile();
-    return activeFile ? this.id === activeFile.path : false;
+    return this.isFocusedState;
   }
 
-  getFilePath(): string {
-    return this.file.path;
+  /**
+   * 카드의 활성 상태를 설정합니다.
+   */
+  setActive(active: boolean): void {
+    this.isActiveState = active;
+    this.updatedAt = new Date();
   }
 
-  getCreatedAt(): Date {
-    return this.createdAt;
-  }
-
-  getUpdatedAt(): Date {
-    return this.updatedAt;
+  /**
+   * 카드의 포커스 상태를 설정합니다.
+   */
+  setFocused(focused: boolean): void {
+    this.isFocusedState = focused;
+    this.updatedAt = new Date();
   }
 } 

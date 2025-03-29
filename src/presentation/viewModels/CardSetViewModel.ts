@@ -15,6 +15,7 @@ export class CardSetViewModel {
   private cardSet!: CardSet;
   private readonly cardRepository: ObsidianCardRepository;
   private cardPositions: Map<string, CardPosition> = new Map();
+  private cards: Card[] = [];
 
   constructor(
     cardSetOrDto: CardSet | CardSetResponseDto,
@@ -40,6 +41,8 @@ export class CardSetViewModel {
    */
   private initializeFromCardSet(cardSet: CardSet): void {
     this.cardSet = cardSet;
+    this.cards = cardSet.getCards();
+    console.log('[CardNavigator] 카드셋 초기화:', this.cards.length, '개 카드');
     this.initializeCardViewModels();
   }
 
@@ -160,6 +163,7 @@ export class CardSetViewModel {
    * 카드를 카드셋에 추가합니다.
    */
   addCard(card: Card): void {
+    this.cards.push(card);
     this.cardSet.addCard(card);
     this.cardViewModels.set(card.getId(), new CardViewModel(card));
   }
@@ -168,6 +172,7 @@ export class CardSetViewModel {
    * 카드를 카드셋에서 제거합니다.
    */
   removeCard(cardId: string): void {
+    this.cards = this.cards.filter(card => card.getId() !== cardId);
     this.cardSet.removeCard(cardId);
     this.cardViewModels.delete(cardId);
   }
@@ -217,5 +222,31 @@ export class CardSetViewModel {
    */
   loadAllCardPositions(): Map<string, CardPosition> {
     return new Map(this.cardPositions);
+  }
+
+  /**
+   * 카드 목록을 가져옵니다.
+   */
+  getCards(): Card[] {
+    const cards = this.cardSet.getCards();
+    console.log('[CardNavigator] 카드셋의 카드 목록 반환:', cards.length, '개 카드');
+    return cards;
+  }
+
+  /**
+   * 카드 목록을 설정합니다.
+   */
+  setCards(cards: Card[]): void {
+    this.cards = cards;
+  }
+
+  /**
+   * 카드를 업데이트합니다.
+   */
+  updateCard(card: Card): void {
+    const index = this.cards.findIndex(c => c.getId() === card.getId());
+    if (index !== -1) {
+      this.cards[index] = card;
+    }
   }
 } 

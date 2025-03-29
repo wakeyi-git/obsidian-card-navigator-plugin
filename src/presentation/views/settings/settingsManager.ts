@@ -1,9 +1,9 @@
 import { TFolder, TFile, debounce, Modal, App, WorkspaceLeaf } from 'obsidian';
 import type { CardNavigatorPlugin } from '@main';
-import { CardNavigatorSettings, NumberSettingKey, RangeSettingConfig, rangeSettingConfigs, FolderPresets, DEFAULT_SETTINGS, globalSettingsKeys } from '@domain/models/types';
+import { CardNavigatorSettings, NumberSettingKey, RangeSettingConfig, rangeSettingConfigs, FolderPresets, DEFAULT_SETTINGS, globalSettingsKeys, RefreshType } from '@domain/models/types';
 import { ISettingsManager, IPresetManager } from '@common/interface';
 import { t } from 'i18next';
-import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from '@presentation/views/CardNavigatorView';
+import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR } from '@presentation/views/CardNavigatorView';
 
 export class SettingsManager implements ISettingsManager {
     //#region 클래스 속성
@@ -224,9 +224,9 @@ export class SettingsManager implements ISettingsManager {
     }
 
     // 변경사항 적용
-    applyChanges() {
-        // 설정 저장만 트리거
-        this.saveSettingsDebounced();
+    async applyChanges(): Promise<void> {
+        await this.plugin.saveSettings();
+        this.plugin.refreshAllViews(RefreshType.FULL);
     }
 
     // 활성 폴더 가져오기
@@ -253,7 +253,7 @@ export class SettingsManager implements ISettingsManager {
         const leaves = this.plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach((leaf: WorkspaceLeaf) => {
             if (leaf.view instanceof CardNavigatorView) {
-                leaf.view.refresh(RefreshType.SETTINGS);
+                leaf.view.refresh(RefreshType.FULL);
             }
         });
     }

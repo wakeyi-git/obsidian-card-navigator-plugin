@@ -1,17 +1,23 @@
-import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf, App, PluginSettingTab, Setting } from 'obsidian';
-import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR, RefreshType } from './presentation/views/CardNavigatorView';
+import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf, App, PluginSettingTab, Setting, PluginManifest } from 'obsidian';
+import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR } from './presentation/views/CardNavigatorView';
 import { SettingTab } from './presentation/views/settings/settingsTab';
-import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS } from './domain/models/types';
+import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS, RefreshType } from './domain/models/types';
 import { SettingsManager } from './presentation/views/settings/settingsManager';
 import { PresetManager } from './presentation/views/settings/PresetManager';
 import i18next from 'i18next';
 import { t } from 'i18next';
-import { SearchService } from './presentation/views/toolbar/search/SearchService';
 import { CardNavigatorViewModel } from './presentation/viewModels/CardNavigatorViewModel';
 import { CardUseCase } from './application/useCases/CardUseCase';
 import { ObsidianCardRepository } from './infrastructure/obsidian/ObsidianCardRepository';
 import { CardSetUseCase } from './application/useCases/CardSetUseCase';
 import { ObsidianCardSetRepository } from './infrastructure/obsidian/ObsidianCardSetRepository';
+import { EventInitializer } from './infrastructure/events/EventInitializer';
+import { IEventStore } from './domain/events/IEventStore';
+import { ObsidianEventStore } from './infrastructure/events/ObsidianEventStore';
+import { ObsidianLogger } from './infrastructure/logging/Logger';
+import { DomainEventDispatcher } from './domain/events/DomainEventDispatcher';
+import { ExtendedApp } from './domain/models/types';
+import { CardEventHandler } from './domain/events/handlers/CardEventHandler';
 
 // 다국어 지원을 위한 언어 리소스 정의
 export const languageResources = {
@@ -27,14 +33,25 @@ export class CardNavigatorPlugin extends Plugin {
     //#region 클래스 속성
     public settings: CardNavigatorSettings = DEFAULT_SETTINGS;
     public settingsManager!: SettingsManager;
-    public searchService!: SearchService;
     public presetManager!: PresetManager;
     public settingTab!: SettingTab;
     private ribbonIconEl: HTMLElement | null = null;
     public events: Events = new Events();
     private view: CardNavigatorView | null = null;
     private viewModel: CardNavigatorViewModel | null = null;
+    
+    // 이벤트 시스템 관련 속성
+    private eventInitializer!: EventInitializer;
+    private eventStore!: IEventStore;
+    private logger!: ObsidianLogger;
+    private eventDispatcher!: DomainEventDispatcher;
+    public app!: ExtendedApp;
     //#endregion
+
+    constructor(app: App, manifest: PluginManifest) {
+        super(app, manifest);
+        this.app = app as ExtendedApp;
+    }
 
     //#region 초기화 및 설정 관리
     // 플러그인 로드 시 실행되는 메서드
@@ -42,20 +59,26 @@ export class CardNavigatorPlugin extends Plugin {
         await this.loadSettings();
         await this.initializeI18n();
         
+        // 이벤트 시스템 초기화
+        this.logger = new ObsidianLogger(this.app);
+        this.eventDispatcher = new DomainEventDispatcher();
+        this.eventStore = new ObsidianEventStore(this.app, this.eventDispatcher);
+        this.eventInitializer = new EventInitializer(this.app, this.eventStore, this.logger);
+        await this.eventInitializer.initialize();
+        
         // 의존성 초기화
         this.presetManager = new PresetManager(this.app, this, this.settings);
         this.settingsManager = new SettingsManager(this);
-        this.searchService = new SearchService(this);
         
         // 프리셋 초기화
         await this.presetManager.initialize();
         
         // 뷰모델 초기화
         const cardRepository = new ObsidianCardRepository(this.app);
-        const cardUseCase = new CardUseCase(cardRepository, this.app);
+        const cardUseCase = new CardUseCase(cardRepository, this.app, this.eventDispatcher);
         const cardSetRepository = new ObsidianCardSetRepository(this.app, cardRepository);
         const cardSetUseCase = new CardSetUseCase(cardSetRepository, this.app);
-        this.viewModel = new CardNavigatorViewModel(this.app, cardUseCase, cardSetUseCase);
+        this.viewModel = new CardNavigatorViewModel(this.app, this);
 
         // 기본 카드셋 생성
         const defaultCardSet = await this.viewModel.createCardSet({
@@ -73,7 +96,11 @@ export class CardNavigatorPlugin extends Plugin {
         });
 
         // 뷰 등록
-        this.registerView(VIEW_TYPE_CARD_NAVIGATOR, (leaf) => new CardNavigatorView(leaf, this));
+        if (!this.viewModel) {
+            throw new Error('ViewModel is not initialized');
+        }
+        const viewModel = this.viewModel; // 타입 추론을 위한 변수 할당
+        this.registerView(VIEW_TYPE_CARD_NAVIGATOR, (leaf) => new CardNavigatorView(leaf, viewModel));
 
         // 설정 탭 추가
         this.settingTab = new SettingTab(this.app, this);
@@ -81,7 +108,6 @@ export class CardNavigatorPlugin extends Plugin {
 
         // 명령어 추가
         this.addCommands();
-        this.addScrollCommands();
 
         // 이벤트 등록
         this.registerCentralizedEvents();
@@ -89,6 +115,11 @@ export class CardNavigatorPlugin extends Plugin {
 
     // 플러그인 언로드 시 실행되는 메서드
     async onunload() {
+        // 이벤트 시스템 정리
+        if (this.eventStore) {
+            await this.eventStore.deleteAll();
+        }
+        
         if (this.ribbonIconEl) {
             this.ribbonIconEl.detach();
         }
@@ -163,43 +194,21 @@ export class CardNavigatorPlugin extends Plugin {
     private getActiveCardNavigator(): CardNavigatorView | null {
         return this.app.workspace.getActiveViewOfType(CardNavigatorView);
     }
-    //#endregion
 
-    //#region 카드 조작
-    // 카드 스크롤 메서드
-    scrollCards(direction: ScrollDirection, count: number) {
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        leaves.forEach(leaf => {
-            const view = leaf.view as CardNavigatorView;
-            if (view instanceof CardNavigatorView) {
-                const { cardContainer } = view;
-                const isVertical = cardContainer.isVertical;
-    
-                switch (direction) {
-                    case 'up':
-                        isVertical ? cardContainer.scrollUp(count) : cardContainer.scrollLeft(count);
-                        break;
-                    case 'down':
-                        isVertical ? cardContainer.scrollDown(count) : cardContainer.scrollRight(count);
-                        break;
-                    case 'left':
-                        cardContainer.scrollLeft(count);
-                        break;
-                    case 'right':
-                        cardContainer.scrollRight(count);
-                        break;
-                }
-            }
-        });
+    /**
+     * 현재 활성화된 카드 네비게이터 뷰를 반환합니다.
+     */
+    private getView(): CardNavigatorView | null {
+        return this.getActiveCardNavigator();
     }
     //#endregion
 
     //#region 이벤트 처리
-    // 중앙 이벤트 등록 메서드
     private registerCentralizedEvents() {
+        // 기존 이벤트 등록
         this.registerEvent(
             this.app.workspace.on('layout-change', () => {
-                this.refreshAllViews(RefreshType.LAYOUT);
+                this.refreshAllViews(RefreshType.FULL);
             })
         );
 
@@ -213,7 +222,7 @@ export class CardNavigatorPlugin extends Plugin {
         let pendingSettingsUpdate = false;
         const processSettingsUpdate = debounce(() => {
             if (pendingSettingsUpdate) {
-                this.refreshAllViews(RefreshType.SETTINGS);
+                this.refreshAllViews(RefreshType.FULL);
                 pendingSettingsUpdate = false;
             }
         }, 250);
@@ -223,15 +232,43 @@ export class CardNavigatorPlugin extends Plugin {
             processSettingsUpdate();
         });
 
+        // 파일 시스템 이벤트 등록
         this.registerEvent(
-            this.app.vault.on('modify', () => {
-                this.refreshAllViews(RefreshType.CONTENT);
+            this.app.vault.on('modify', async (file) => {
+                if (file instanceof TFile) {
+                    await this.handleFileModify(file);
+                }
             })
         );
+
+        // 도메인 이벤트 핸들러 등록
+        const cardEventHandler = new CardEventHandler(this);
+        this.eventDispatcher.register('CardEvent', cardEventHandler);
+    }
+
+    /**
+     * 파일 수정 이벤트를 처리합니다.
+     */
+    private async handleFileModify(file: TFile): Promise<void> {
+        try {
+            if (!this.viewModel) return;
+            
+            const cardUseCase = this.viewModel.getCardUseCase();
+            const card = await cardUseCase.findCardByFile(file);
+            
+            if (card) {
+                // 파일 내용이 변경되었으므로 카드 내용 업데이트
+                await cardUseCase.updateCardContent(card);
+                // 카드 업데이트 이벤트 발생
+                await cardUseCase.updateCard(card);
+            }
+        } catch (error) {
+            console.error(`[CardNavigator] 파일 수정 이벤트 처리 중 오류 발생: ${file.path}`, error);
+        }
     }
 
     // 모든 뷰 새로고침 메서드
-    private refreshAllViews(type: RefreshType) {
+    public refreshAllViews(type: RefreshType) {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach(leaf => {
             const view = leaf.view as CardNavigatorView;
@@ -258,22 +295,32 @@ export class CardNavigatorPlugin extends Plugin {
             if (!(leaf.view instanceof CardNavigatorView)) continue;
 
             try {
-                await this.updateViewForFile(leaf.view, file);
+                await this.updateViewForFile(file);
             } catch (error) {
                 console.error('[카드 네비게이터] 뷰 업데이트 실패:', error);
             }
         }
     }
 
-    // 파일에 따른 뷰 업데이트 메서드
-    private async updateViewForFile(view: CardNavigatorView, file: TFile) {
-        const currentFolderPath = await view.getCurrentFolderPath();
-        if (!currentFolderPath || !file.parent) return;
+    /**
+     * 파일 변경에 따라 뷰를 업데이트합니다.
+     */
+    private async updateViewForFile(file: TFile): Promise<void> {
+        const view = this.getView();
+        if (!view) return;
 
-        if (currentFolderPath === file.parent.path) {
-            view.refresh(RefreshType.CONTENT);
-        } else {
-            view.refreshBatch([RefreshType.LAYOUT, RefreshType.SETTINGS, RefreshType.CONTENT]);
+        try {
+            const currentFolderPath = await view.getCurrentFolderPath();
+            if (!currentFolderPath) {
+                console.warn('[CardNavigator] 현재 폴더 경로를 가져올 수 없습니다.');
+                return;
+            }
+
+            if (file.path.startsWith(currentFolderPath)) {
+                await view.refresh(RefreshType.CONTENT);
+            }
+        } catch (error) {
+            console.error('[CardNavigator] 뷰 업데이트 실패:', error);
         }
     }
     //#endregion
@@ -314,28 +361,6 @@ export class CardNavigatorPlugin extends Plugin {
             }
         });
     }
-
-    // 스크롤 명령어 추가 메서드
-    private addScrollCommands() {
-        const scrollCommands = [
-            { id: 'scroll-up-one-card', name: t('SCROLL_UP_ONE_CARD'), direction: 'up', count: 1 },
-            { id: 'scroll-down-one-card', name: t('SCROLL_DOWN_ONE_CARD'), direction: 'down', count: 1 },
-            { id: 'scroll-left-one-card', name: t('SCROLL_LEFT_ONE_CARD'), direction: 'left', count: 1 },
-            { id: 'scroll-right-one-card', name: t('SCROLL_RIGHT_ONE_CARD'), direction: 'right', count: 1 },
-            { id: 'scroll-up-page', name: t('SCROLL_UP_LEFT_ONE_PAGE'), direction: 'up', count: this.settings.cardsPerView },
-            { id: 'scroll-down-page', name: t('SCROLL_DOWN_RIGHT_ONE_PAGE'), direction: 'down', count: this.settings.cardsPerView }
-        ];
-
-        scrollCommands.forEach(command => {
-            this.addCommand({
-                id: command.id,
-                name: command.name,
-                callback: () => {
-                    this.scrollCards(command.direction as ScrollDirection, command.count);
-                }
-            });
-        });
-    }
     //#endregion
 
     //#region 프리셋 관리
@@ -366,7 +391,7 @@ export class CardNavigatorPlugin extends Plugin {
     public updateLayout(layout: CardNavigatorSettings['defaultLayout']): void {
         this.settings.defaultLayout = layout;
         this.saveSettings();
-        this.refreshAllViews(RefreshType.LAYOUT);
+        this.refreshAllViews(RefreshType.FULL);
     }
 
     /**
@@ -378,6 +403,29 @@ export class CardNavigatorPlugin extends Plugin {
         }
         return this.viewModel;
     }
+
+    //#region 이벤트 디스패처 접근자
+    /**
+     * 이벤트 디스패처를 반환합니다.
+     */
+    public getEventDispatcher(): DomainEventDispatcher {
+        return this.eventDispatcher;
+    }
+
+    /**
+     * 이벤트 저장소를 반환합니다.
+     */
+    public getEventStore(): IEventStore {
+        return this.eventStore;
+    }
+
+    /**
+     * 로거를 반환합니다.
+     */
+    public getLogger(): ObsidianLogger {
+        return this.logger;
+    }
+    //#endregion
 }
 
 // 기본 내보내기

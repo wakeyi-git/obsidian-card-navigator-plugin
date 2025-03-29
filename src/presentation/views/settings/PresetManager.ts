@@ -3,7 +3,8 @@ import { CardNavigatorSettings, Preset, globalSettingsKeys, DEFAULT_SETTINGS, Gl
 import { IPresetManager } from '../../../common/interface';
 import CardNavigatorPlugin from '../../../main';
 import { t } from 'i18next';
-import { CardNavigatorView, RefreshType, VIEW_TYPE_CARD_NAVIGATOR } from '../../views/CardNavigatorView';
+import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR } from '../../views/CardNavigatorView';
+import { RefreshType } from '../../../domain/models/types';
 
 //#region 유틸리티 클래스 및 함수
 // LRU 캐시 클래스
@@ -144,7 +145,7 @@ export class PresetManager implements IPresetManager {
         leaves.forEach((leaf: WorkspaceLeaf) => {
             const view = leaf.view as CardNavigatorView;
             if (view instanceof CardNavigatorView) {
-                view.refresh(RefreshType.SETTINGS);
+                view.refresh(RefreshType.FULL);
             }
         });
     }
@@ -299,7 +300,7 @@ export class PresetManager implements IPresetManager {
 
     //#region 프리셋 적용
     // 전역 프리셋 적용
-    async applyGlobalPreset(presetName?: string): Promise<void> {
+    async applyGlobalPreset(presetName: string): Promise<void> {
         const globalPresetName = presetName || this.plugin.settings.GlobalPreset;
         if (!globalPresetName) {
             console.error(t('GLOBAL_PRESET_NOT_SET'));
@@ -310,6 +311,7 @@ export class PresetManager implements IPresetManager {
         
         this.plugin.settings.GlobalPreset = globalPresetName;
         await this.plugin.saveSettings();
+        this.plugin.refreshAllViews(RefreshType.FULL);
     }
 
     // 폴더 프리셋 적용
@@ -333,7 +335,7 @@ export class PresetManager implements IPresetManager {
         }
     
         if (!presetApplied) {
-            await this.applyGlobalPreset();
+            await this.applyGlobalPreset('default');
         }
     }
 
@@ -361,7 +363,7 @@ export class PresetManager implements IPresetManager {
             leaves.forEach((leaf: WorkspaceLeaf) => {
                 const view = leaf.view as CardNavigatorView;
                 if (view instanceof CardNavigatorView) {
-                    view.refresh(RefreshType.SETTINGS);
+                    view.refresh(RefreshType.FULL);
                 }
             });
         } else {
@@ -435,7 +437,7 @@ export class PresetManager implements IPresetManager {
     }
 
     // 모든 폴더에서 프리셋 제거
-    async removePresetFromAllFolders(presetName: string) {
+    async removePresetFromAllFolders(presetName: string): Promise<void> {
         if (this.plugin.settings.folderPresets) {
             for (const folderPath in this.plugin.settings.folderPresets) {
                 this.plugin.settings.folderPresets[folderPath] = this.plugin.settings.folderPresets[folderPath].filter((name: string) => name !== presetName);
@@ -445,6 +447,7 @@ export class PresetManager implements IPresetManager {
             }
             await this.plugin.saveSettings();
         }
+        this.plugin.refreshAllViews(RefreshType.FULL);
     }
 
     // 폴더 프리셋 자동 적용 설정

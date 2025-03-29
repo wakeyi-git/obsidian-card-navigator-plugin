@@ -1,5 +1,9 @@
 import { TFile } from 'obsidian';
 import { t } from 'i18next';
+import { App } from 'obsidian';
+import { ICardService } from '../services/ICardService';
+import { CardNavigatorView } from '../../presentation/views/CardNavigatorView';
+import { CardService } from '../services/CardService';
 
 /**
  * 검색 옵션 인터페이스
@@ -461,4 +465,32 @@ export const rangeSettingConfigs: Record<NumberSettingKey, RangeSettingConfig> =
     fileNameFontSize: { min: 12, max: 24, step: 1 },
     firstHeaderFontSize: { min: 12, max: 24, step: 1 },
     bodyFontSize: { min: 12, max: 24, step: 1 }
-}; 
+};
+
+/**
+ * 새로고침 유형을 정의하는 enum
+ */
+export enum RefreshType {
+    /**
+     * 전체 새로고침
+     */
+    FULL = 'FULL',
+
+    /**
+     * 선택된 항목만 새로고침
+     */
+    SELECTION = 'SELECTION',
+
+    /**
+     * 내용만 새로고침
+     */
+    CONTENT = 'CONTENT'
+}
+
+/**
+ * 확장된 App 인터페이스
+ */
+export interface ExtendedApp extends App {
+    cardService: CardService;
+    cardNavigatorView: CardNavigatorView;
+} 

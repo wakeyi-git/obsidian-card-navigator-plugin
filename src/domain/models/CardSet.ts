@@ -86,7 +86,17 @@ export class CardSet {
    * 카드를 카드셋에 추가합니다.
    */
   addCard(card: Card): void {
+    // 이미 존재하는 카드인지 확인
+    if (this.cards.some(c => c.getId() === card.getId())) {
+      console.warn('[CardNavigator] 이미 존재하는 카드입니다:', card.getId());
+      return;
+    }
+
+    // 카드 추가
     this.cards.push(card);
+    console.log('[CardNavigator] 카드 추가됨:', card.getId());
+
+    // 필터와 정렬 적용
     this.applyFilterAndSort();
   }
 
@@ -117,20 +127,30 @@ export class CardSet {
    * 필터와 정렬을 적용합니다.
    */
   private applyFilterAndSort(): void {
+    console.log('[CardNavigator] 필터와 정렬 적용 시작:', this.cards.length, '개 카드');
+
     // 필터 적용
     this.cards = this.cards.filter(card => {
-      switch (this.filter.type) {
-        case 'search':
-          return this.applySearchFilter(card);
-        case 'tag':
-          return this.applyTagFilter(card);
-        case 'folder':
-          return this.applyFolderFilter(card);
-        case 'date':
-          return this.applyDateFilter(card);
-        default:
-          return true;
+      const result = (() => {
+        switch (this.filter.type) {
+          case 'search':
+            return this.applySearchFilter(card);
+          case 'tag':
+            return this.applyTagFilter(card);
+          case 'folder':
+            return this.applyFolderFilter(card);
+          case 'date':
+            return this.applyDateFilter(card);
+          default:
+            return true;
+        }
+      })();
+
+      if (!result) {
+        console.log('[CardNavigator] 카드 필터링됨:', card.getId());
       }
+
+      return result;
     });
 
     // 정렬 적용
@@ -170,6 +190,8 @@ export class CardSet {
           return 0;
       }
     });
+
+    console.log('[CardNavigator] 필터와 정렬 적용 완료:', this.cards.length, '개 카드');
   }
 
   /**
@@ -216,7 +238,17 @@ export class CardSet {
    */
   private applyFolderFilter(card: Card): boolean {
     const folderPath = this.filter.criteria.value;
-    return card.getFile().path.startsWith(folderPath);
+    if (!folderPath) {
+      console.log('[CardNavigator] 폴더 경로가 비어있어 모든 카드가 표시됩니다.');
+      return true;
+    }
+
+    const result = card.getFile().path.startsWith(folderPath);
+    if (!result) {
+      console.log('[CardNavigator] 카드가 지정된 폴더에 없어 필터링됨:', card.getId(), '폴더:', folderPath);
+    }
+
+    return result;
   }
 
   /**
@@ -322,5 +354,15 @@ export class CardSet {
   resetCardPositions(): void {
     this.cardPositions.clear();
     this.updatedAt = new Date();
+  }
+
+  /**
+   * 카드셋의 폴더 경로를 반환합니다.
+   */
+  getFolderPath(): string | null {
+    if (this.type === 'folder' && this.source) {
+      return this.source;
+    }
+    return null;
   }
 } 

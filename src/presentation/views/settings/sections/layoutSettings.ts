@@ -4,7 +4,8 @@ import { SettingsManager } from '../settingsManager';
 import { CardNavigatorSettings } from '../../../../domain/models/types';
 import { SettingTab } from '../settingsTab';
 import { t } from 'i18next';
-import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR, RefreshType } from '../../CardNavigatorView';
+import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR } from '../../CardNavigatorView';
+import { RefreshType } from '../../../../domain/models/types';
 
 export function addLayoutSettings(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, settingTab: SettingTab): void {
     containerEl.createEl('div', { cls: 'settings-section-margin' });

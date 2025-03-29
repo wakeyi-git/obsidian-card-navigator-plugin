@@ -7,8 +7,8 @@ import { PresetImportExportModal } from '../modals/PresetImportExportModal';
 import { FolderSuggest } from '../components/FolderSuggest';
 import { SettingTab } from '../settingsTab';
 import { t } from 'i18next';
-import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR, RefreshType } from '../../CardNavigatorView';
-import { Preset } from '../../../../domain/models/types';
+import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR } from '../../CardNavigatorView';
+import { RefreshType, Preset } from '../../../../domain/models/types';
 
 //#region 전역 변수
 // 프리셋 목록을 표시할 컨테이너
@@ -26,7 +26,7 @@ export function addPresetSettings(containerEl: HTMLElement, plugin: CardNavigato
 		const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
 		leaves.forEach(leaf => {
 			if (leaf.view instanceof CardNavigatorView) {
-				leaf.view.refresh(RefreshType.SETTINGS);
+				leaf.view.refresh(RefreshType.FULL);
 			}
 		});
 		settingTab.updateAllSections();
@@ -69,7 +69,7 @@ function addAutoApplyPresetsSection(containerEl: HTMLElement, plugin: CardNaviga
 				.onChange(async (value) => {
 					plugin.settings.autoApplyPresets = value;
 					await plugin.saveSettings();
-					debouncedRefreshViews();
+					plugin.refreshAllViews(RefreshType.FULL);
 				})
 		);
 }

@@ -4,9 +4,8 @@ import { SettingsManager } from '../settingsManager';
 import { t } from 'i18next';
 import { FolderSuggest } from '../components/FolderSuggest';
 import { SettingTab } from '../settingsTab';
-import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR, RefreshType } from '../../CardNavigatorView';
-import { CardSetType } from '../../../../domain/models/types';
-import { getSearchService } from '../../toolbar/search';
+import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR } from '../../CardNavigatorView';
+import { CardSetType, RefreshType } from '../../../../domain/models/types';
 
 export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavigatorPlugin, settingsManager: SettingsManager, settingTab: SettingTab): void {
     
@@ -25,16 +24,12 @@ export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavig
                 .addOption('selectedFolder', t('SELECTED_FOLDER'))
                 .addOption('vault', t('ENTIRE_VAULT'))
                 .setValue(plugin.settings.cardSetType)
-                .onChange(async (value) => {
-                    const searchService = getSearchService(plugin);
-                    searchService.clearCache();
-                    
+                .onChange(async (value) => {                    
                     await settingsManager.updateSetting('cardSetType', value as CardSetType);
                     
                     const leaves = plugin.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
                     leaves.forEach(leaf => {
                         if (leaf.view instanceof CardNavigatorView) {
-                            leaf.view.cardContainer.setSearchResults(null);
                             leaf.view.refresh(RefreshType.CONTENT);
                         }
                     });
@@ -75,16 +70,7 @@ export function addContainerSettings(containerEl: HTMLElement, plugin: CardNavig
             leaves.forEach(leaf => {
                 if (leaf.view instanceof CardNavigatorView) {
                     const view = leaf.view;
-                    const searchService = getSearchService(plugin);
-                    const resortedResults = searchService.resortLastResults();
-                    if (resortedResults) {
-                        // 재정렬된 결과를 검색 결과로 설정하고 카드 업데이트
-                        view.cardContainer.setSearchResults(resortedResults);
-                        view.cardContainer.displayCards(resortedResults);
-                    } else {
-                        // 검색 결과가 없다면 일반 새로고침
-                        view.refresh(RefreshType.CONTENT);
-                    }
+
                 }
             });
         }
