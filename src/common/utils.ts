@@ -1,5 +1,5 @@
 import { TFile } from "obsidian";
-import { SortCriterion, SortOrder } from './types';
+import { SortCriterion, SortOrder } from '@domain/models/types';
 
 /**
  * 이 파일은 파일 처리, 정렬, 수치 연산을 위한 유틸리티 함수들을 포함합니다.

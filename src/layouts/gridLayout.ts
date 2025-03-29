@@ -1,6 +1,7 @@
-import { LayoutStrategy, CardPosition } from './layoutStrategy';
-import { Card, CardNavigatorSettings } from 'common/types';
-import { LayoutConfig } from './layoutConfig';
+import { LayoutStrategy, CardPosition } from '@layouts/layoutStrategy';
+import { CardNavigatorSettings } from '@domain/models/types';
+import { Card } from '@domain/models/Card';
+import { LayoutConfig } from '@layouts/layoutConfig';
 
 /**
  * 그리드 레이아웃 전략을 구현하는 클래스
@@ -11,6 +12,7 @@ export class GridLayout implements LayoutStrategy {
     private cardWidth: number = 0;
     private layoutConfig: LayoutConfig;
     private settings: CardNavigatorSettings;
+    private cardHeights = new Map<string, number>();
     //#endregion
 
     //#region 초기화
@@ -51,14 +53,25 @@ export class GridLayout implements LayoutStrategy {
             const col = index % this.columns;
             
             // 카드 ID (파일 경로 사용)
-            const cardId = card.file.path;
+            const cardId = card.getFile().path;
+
+            // 카드 높이 결정 (이미 계산된 높이가 있으면 재사용, 없으면 계산)
+            let contentHeight: number;
+            if (this.cardHeights.has(cardId)) {
+                // 이미 계산된 높이 재사용 (고정 높이 유지)
+                contentHeight = this.cardHeights.get(cardId)!;
+            } else {
+                // 새 카드의 경우 높이 계산 및 저장
+                contentHeight = this.calculateEstimatedHeight(card);
+                this.cardHeights.set(cardId, contentHeight);
+            }
 
             const position: CardPosition = {
                 id: cardId,
                 left: col * (cardWidth + cardGap),
                 top: row * (cardHeight + cardGap),
                 width: cardWidth,
-                height: cardHeight
+                height: contentHeight
             };
             positions.push(position);
         });
@@ -105,6 +118,15 @@ export class GridLayout implements LayoutStrategy {
         // 카드 너비 재계산
         const cardWidth = this.layoutConfig.calculateCardWidth(this.columns);
         this.setCardWidth(cardWidth);
+    }
+    //#endregion
+
+    //#region 카드 높이 계산
+    private calculateEstimatedHeight(card: Card): number {
+        // Implementation of calculateEstimatedHeight method
+        // This method should return an estimated height for a given card
+        // You can implement your logic here to calculate the height based on the card's content
+        return 200; // Placeholder return, actual implementation needed
     }
     //#endregion
 }

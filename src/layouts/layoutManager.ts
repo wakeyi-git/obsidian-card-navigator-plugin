@@ -1,10 +1,10 @@
-import { CardNavigatorSettings } from "common/types";
-import { CardMaker } from "ui/cardContainer/cardMaker";
-import { GridLayout } from "./gridLayout";
-import { ListLayout } from "./listLayout";
-import { MasonryLayout } from "./masonryLayout";
-import { LayoutStrategy } from "./layoutStrategy";
-import { LayoutConfig } from './layoutConfig';
+import { CardNavigatorSettings } from "@domain/models/types";
+import { CardMaker } from "@presentation/views/cardContainer/cardMaker";
+import { GridLayout } from "@layouts/gridLayout";
+import { ListLayout } from "@layouts/listLayout";
+import { MasonryLayout } from "@layouts/masonryLayout";
+import { LayoutStrategy } from "@layouts/layoutStrategy";
+import { LayoutConfig } from '@layouts/layoutConfig';
 
 export class LayoutManager {
     private currentLayout: CardNavigatorSettings['defaultLayout'];

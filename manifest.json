@@ -1,10 +1,10 @@
 {
-    "id": "card-navigator",
+    "id": "obsidian-card-navigator",
     "name": "Card Navigator",
     "version": "1.2.5",
-    "minAppVersion": "1.7.2",
-    "description": "Navigate your notes visually with card-based interface",
-    "author": "wakeyi",
+    "minAppVersion": "0.15.0",
+    "description": "A plugin for visualizing and navigating notes as cards",
+    "author": "Your Name",
     "authorUrl": "wakeyi-git/obsidian-card-navigator-plugin",
     "isDesktopOnly": false
 }

@@ -1,7 +1,8 @@
-import { LayoutStrategy, CardPosition } from './layoutStrategy';
-import { Card, CardNavigatorSettings } from 'common/types';
-import { CardMaker } from 'ui/cardContainer/cardMaker';
-import { LayoutConfig } from './layoutConfig';
+import { LayoutStrategy, CardPosition } from '@layouts/layoutStrategy';
+import { CardNavigatorSettings } from '@domain/models/types';
+import { Card } from '@domain/models/Card';
+import { CardMaker } from '@presentation/views/cardContainer/cardMaker';
+import { LayoutConfig } from '@layouts/layoutConfig';
 
 /**
  * 메이슨리 레이아웃 전략을 구현하는 클래스
@@ -356,7 +357,7 @@ export class MasonryLayout implements LayoutStrategy {
         // 카드 배치
         cards.forEach((card, index) => {
             // 카드 ID (파일 경로 사용)
-            const cardId = card.file.path;
+            const cardId = card.getFile().path;
             
             // 카드 높이 결정 (이미 계산된 높이가 있으면 재사용, 없으면 계산)
             let contentHeight: number;
@@ -432,137 +433,150 @@ export class MasonryLayout implements LayoutStrategy {
         let estimatedHeight = padding;  // 시작 높이는 패딩값
         
         // 1. 파일명 높이 계산
-        if (this.settings.showFileName && card.file.basename) {
-            estimatedHeight += Math.ceil(
-                (card.file.basename.length * this.settings.fileNameFontSize * 0.6) 
-                / (this.cardWidth - padding)
-            ) * this.settings.fileNameFontSize * lineHeight;
-            estimatedHeight += 8; // 파일명 아래 여백
+        if (this.settings.showFileName) {
+            const fileName = card.getFile().basename;
+            if (fileName) {
+                estimatedHeight += Math.ceil(
+                    (fileName.length * this.settings.fileNameFontSize * 0.6) 
+                    / (this.cardWidth - padding)
+                ) * this.settings.fileNameFontSize * lineHeight;
+                estimatedHeight += 8; // 파일명 아래 여백
+            }
         }
         
         // 2. 첫 번째 헤더 높이 계산
-        if (this.settings.showFirstHeader && card.firstHeader) {
-            estimatedHeight += Math.ceil(
-                (card.firstHeader.length * this.settings.firstHeaderFontSize * 0.6) 
-                / (this.cardWidth - padding)
-            ) * this.settings.firstHeaderFontSize * lineHeight;
-            estimatedHeight += 16; // 헤더 아래 여백
+        if (this.settings.showFirstHeader) {
+            const content = card.getContent();
+            const headerSection = content.header.find(section => section.type === 'header');
+            if (headerSection) {
+                estimatedHeight += Math.ceil(
+                    (headerSection.content.length * this.settings.firstHeaderFontSize * 0.6) 
+                    / (this.cardWidth - padding)
+                ) * this.settings.firstHeaderFontSize * lineHeight;
+                estimatedHeight += 16; // 헤더 아래 여백
+            }
         }
         
         // 3. 본문 텍스트 높이 계산
-        if (this.settings.showBody && card.body) {
-            // 마크다운 구문 제거 전에 이미지 카운트 계산
-            const markdownImages = (card.body.match(/!\[(?:.*?)\]\((?:.*?)\)/g) || []);
-            const htmlImages = (card.body.match(/<img[^>]+>/g) || []);
-            const embedImages = (card.body.match(/\[\[(?:.*?\.(?:png|jpg|jpeg|gif|bmp|svg))\]\]/gi) || []);
-            
-            // 총 이미지 개수
-            const imageCount = markdownImages.length + htmlImages.length + embedImages.length;
-            
-            if (imageCount > 0) {
-                // 이미지당 예상 높이 추가 (기본 500px)
-                const baseImageHeight = 200;
+        if (this.settings.showBody) {
+            const content = card.getContent();
+            const bodySection = content.body.find(section => section.type === 'text');
+            if (bodySection) {
+                const bodyText = bodySection.content;
                 
-                // 이미지 크기 힌트 확인 (예: ![|100x200])
-                let totalImageHeight = 0;
+                // 마크다운 구문 제거 전에 이미지 카운트 계산
+                const markdownImages = (bodyText.match(/!\[(?:.*?)\]\((?:.*?)\)/g) || []);
+                const htmlImages = (bodyText.match(/<img[^>]+>/g) || []);
+                const embedImages = (bodyText.match(/\[\[(?:.*?\.(?:png|jpg|jpeg|gif|bmp|svg))\]\]/gi) || []);
                 
-                // 마크다운 이미지 크기 분석
-                markdownImages.forEach(img => {
-                    const sizeHint = img.match(/\|(\d+)x(\d+)/);
-                    if (sizeHint) {
-                        totalImageHeight += parseInt(sizeHint[2]); // 높이값 사용
-                    } else {
-                        totalImageHeight += baseImageHeight;
-                    }
-                });
+                // 총 이미지 개수
+                const imageCount = markdownImages.length + htmlImages.length + embedImages.length;
                 
-                // HTML 이미지 크기 분석
-                htmlImages.forEach(img => {
-                    const heightMatch = img.match(/height="(\d+)"/);
-                    if (heightMatch) {
-                        totalImageHeight += parseInt(heightMatch[1]);
-                    } else {
-                        totalImageHeight += baseImageHeight;
-                    }
-                });
-                
-                // 임베드 이미지는 기본 크기 적용
-                totalImageHeight += embedImages.length * baseImageHeight;
-                
-                estimatedHeight += totalImageHeight;
-                estimatedHeight += imageCount * 32; // 이미지 간격
-            }
-            
-            // 마크다운 구문 제거 (이미지 제외)
-            const plainText = card.body
-                .replace(/!\[(?:.*?)\]\((?:.*?)\)/g, '') // 이미지 마크다운 제거
-                .replace(/<img[^>]+>/g, '') // HTML 이미지 태그 제거
-                .replace(/\[\[(?:.*?\.(?:png|jpg|jpeg|gif|bmp|svg))\]\]/gi, '') // 임베드 이미지 제거
-                .replace(/[#*`_~\[\]()]/g, ''); // 다른 마크다운 구문 제거
-            
-            // 텍스트 줄 수 계산 개선
-            const lines = plainText.split('\n');
-            let totalLines = 0;
-            
-            // HTML 렌더링 여부에 따른 계수 조정
-            const charWidthMultiplier = this.settings.renderContentAsHtml ? 
-                { korean: 1.0, other: 0.5 } : // HTML 렌더링 시 더 조밀하게
-                { korean: 0.9, other: 0.45 };  // 일반 텍스트 시 더 넓게
-            
-            const spaceMultiplier = this.settings.renderContentAsHtml ? 12 : 4; // 여유 공간 조정
-            const emptyLineHeight = this.settings.renderContentAsHtml ? 1.0 : 0.5; // 빈 줄 높이 조정
-            
-            lines.forEach(line => {
-                if (line.trim() === '') {
-                    // 빈 줄 계산 (HTML 렌더링 여부에 따라 다르게)
-                    totalLines += emptyLineHeight;
-                } else {
-                    // 한글/영문 너비 계산 (HTML 렌더링 여부에 따라 다르게)
-                    let lineWidth = 0;
-                    for (let char of line) {
-                        // 한글 유니코드 범위: AC00-D7AF
-                        if (/[\uAC00-\uD7AF]/.test(char)) {
-                            lineWidth += this.settings.bodyFontSize * charWidthMultiplier.korean;
+                if (imageCount > 0) {
+                    // 이미지당 예상 높이 추가 (기본 500px)
+                    const baseImageHeight = 200;
+                    
+                    // 이미지 크기 힌트 확인 (예: ![|100x200])
+                    let totalImageHeight = 0;
+                    
+                    // 마크다운 이미지 크기 분석
+                    markdownImages.forEach((img: string) => {
+                        const sizeHint = img.match(/\|(\d+)x(\d+)/);
+                        if (sizeHint) {
+                            totalImageHeight += parseInt(sizeHint[2]); // 높이값 사용
                         } else {
-                            lineWidth += this.settings.bodyFontSize * charWidthMultiplier.other;
+                            totalImageHeight += baseImageHeight;
                         }
-                    }
+                    });
                     
-                    // 실제 줄 수 계산 (HTML 렌더링 여부에 따라 여유 공간 다르게)
-                    const availableWidth = this.cardWidth - (padding + spaceMultiplier);
-                    const lineCount = Math.ceil(lineWidth / availableWidth);
+                    // HTML 이미지 크기 분석
+                    htmlImages.forEach((img: string) => {
+                        const heightMatch = img.match(/height="(\d+)"/);
+                        if (heightMatch) {
+                            totalImageHeight += parseInt(heightMatch[1]);
+                        } else {
+                            totalImageHeight += baseImageHeight;
+                        }
+                    });
                     
-                    // HTML 렌더링 시 더 조밀하게, 일반 텍스트 시 더 넓게
-                    const lineMultiplier = this.settings.renderContentAsHtml ? 1.0 : 0.7;
-                    totalLines += Math.max(1, lineCount * lineMultiplier);
+                    // 임베드 이미지는 기본 크기 적용
+                    totalImageHeight += embedImages.length * baseImageHeight;
+                    
+                    estimatedHeight += totalImageHeight;
+                    estimatedHeight += imageCount * 32; // 이미지 간격
                 }
-            });
-            
-            // 줄 간격을 고려한 높이 계산 (HTML 렌더링 여부에 따라 다르게)
-            const lineHeightMultiplier = this.settings.renderContentAsHtml ? 1.3 : 0.9;
-            estimatedHeight += totalLines * this.settings.bodyFontSize * lineHeightMultiplier;
-            
-            // 단락 간격 조정 (HTML 렌더링 여부에 따라 다르게)
-            const paragraphCount = plainText.split(/\n\s*\n/).length - 1;
-            if (paragraphCount > 0) {
-                const paragraphSpaceMultiplier = this.settings.renderContentAsHtml ? 0.8 : 0.3;
-                estimatedHeight += paragraphCount * this.settings.bodyFontSize * paragraphSpaceMultiplier;
+                
+                // 마크다운 구문 제거 (이미지 제외)
+                const plainText = bodyText
+                    .replace(/!\[(?:.*?)\]\((?:.*?)\)/g, '') // 이미지 마크다운 제거
+                    .replace(/<img[^>]+>/g, '') // HTML 이미지 태그 제거
+                    .replace(/\[\[(?:.*?\.(?:png|jpg|jpeg|gif|bmp|svg))\]\]/gi, '') // 임베드 이미지 제거
+                    .replace(/[#*`_~\[\]()]/g, ''); // 다른 마크다운 구문 제거
+                
+                // 텍스트 줄 수 계산 개선
+                const lines = plainText.split('\n');
+                let totalLines = 0;
+                
+                // HTML 렌더링 여부에 따른 계수 조정
+                const charWidthMultiplier = this.settings.renderContentAsHtml ? 
+                    { korean: 1.0, other: 0.5 } : // HTML 렌더링 시 더 조밀하게
+                    { korean: 0.9, other: 0.45 };  // 일반 텍스트 시 더 넓게
+                
+                const spaceMultiplier = this.settings.renderContentAsHtml ? 12 : 4; // 여유 공간 조정
+                const emptyLineHeight = this.settings.renderContentAsHtml ? 1.0 : 0.5; // 빈 줄 높이 조정
+                
+                lines.forEach((line: string) => {
+                    if (line.trim() === '') {
+                        // 빈 줄 계산 (HTML 렌더링 여부에 따라 다르게)
+                        totalLines += emptyLineHeight;
+                    } else {
+                        // 한글/영문 너비 계산 (HTML 렌더링 여부에 따라 다르게)
+                        let lineWidth = 0;
+                        for (let char of line) {
+                            // 한글 유니코드 범위: AC00-D7AF
+                            if (/[\uAC00-\uD7AF]/.test(char)) {
+                                lineWidth += this.settings.bodyFontSize * charWidthMultiplier.korean;
+                            } else {
+                                lineWidth += this.settings.bodyFontSize * charWidthMultiplier.other;
+                            }
+                        }
+                        
+                        // 실제 줄 수 계산 (HTML 렌더링 여부에 따라 여유 공간 다르게)
+                        const availableWidth = this.cardWidth - (padding + spaceMultiplier);
+                        const lineCount = Math.ceil(lineWidth / availableWidth);
+                        
+                        // HTML 렌더링 시 더 조밀하게, 일반 텍스트 시 더 넓게
+                        const lineMultiplier = this.settings.renderContentAsHtml ? 1.0 : 0.7;
+                        totalLines += Math.max(1, lineCount * lineMultiplier);
+                    }
+                });
+                
+                // 줄 간격을 고려한 높이 계산 (HTML 렌더링 여부에 따라 다르게)
+                const lineHeightMultiplier = this.settings.renderContentAsHtml ? 1.3 : 0.9;
+                estimatedHeight += totalLines * this.settings.bodyFontSize * lineHeightMultiplier;
+                
+                // 단락 간격 조정 (HTML 렌더링 여부에 따라 다르게)
+                const paragraphCount = plainText.split(/\n\s*\n/).length - 1;
+                if (paragraphCount > 0) {
+                    const paragraphSpaceMultiplier = this.settings.renderContentAsHtml ? 0.8 : 0.3;
+                    estimatedHeight += paragraphCount * this.settings.bodyFontSize * paragraphSpaceMultiplier;
+                }
+                
+                // HTML 태그가 있는 경우 추가 높이 계산
+                const htmlTagCount = (bodyText.match(/<[^>]*>/g) || []).length;
+                if (htmlTagCount > 0) {
+                    const tagHeightMultiplier = this.settings.renderContentAsHtml ? 0.8 : 0.3;
+                    estimatedHeight += htmlTagCount * this.settings.bodyFontSize * tagHeightMultiplier;
+                }
+                
+                // 코드 블록 높이 추가
+                const codeBlocks = bodyText.match(/```[\s\S]*?```/g) || [];
+                codeBlocks.forEach((block: string) => {
+                    const lines = block.split('\n').length;
+                    estimatedHeight += lines * this.settings.bodyFontSize * lineHeight;
+                    estimatedHeight += 32; // 코드 블록 여백
+                });
             }
-            
-            // HTML 태그가 있는 경우 추가 높이 계산
-            const htmlTagCount = (card.body.match(/<[^>]*>/g) || []).length;
-            if (htmlTagCount > 0) {
-                const tagHeightMultiplier = this.settings.renderContentAsHtml ? 0.8 : 0.3;
-                estimatedHeight += htmlTagCount * this.settings.bodyFontSize * tagHeightMultiplier;
-            }
-            
-            // 코드 블록 높이 추가
-            const codeBlocks = card.body.match(/```[\s\S]*?```/g) || [];
-            codeBlocks.forEach(block => {
-                const lines = block.split('\n').length;
-                estimatedHeight += lines * this.settings.bodyFontSize * lineHeight;
-                estimatedHeight += 32; // 코드 블록 여백
-            });
         }
         
         // 4. 최소 높이 보장

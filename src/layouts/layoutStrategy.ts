@@ -1,4 +1,4 @@
-import { Card } from 'common/types';
+import { Card } from '@domain/models/Card';
 
 /**
  * 레이아웃 전략을 정의하는 인터페이스

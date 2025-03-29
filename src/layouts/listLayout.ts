@@ -1,6 +1,7 @@
-import { LayoutStrategy, CardPosition } from './layoutStrategy';
-import { Card, CardNavigatorSettings } from 'common/types';
-import { LayoutConfig } from './layoutConfig';
+import { LayoutStrategy, CardPosition } from '@layouts/layoutStrategy';
+import { CardNavigatorSettings } from '@domain/models/types';
+import { Card } from '@domain/models/Card';
+import { LayoutConfig } from '@layouts/layoutConfig';
 
 /**
  * 리스트 레이아웃 전략을 구현하는 클래스
@@ -12,6 +13,7 @@ export class ListLayout implements LayoutStrategy {
     private layoutConfig: LayoutConfig;
     private settings: CardNavigatorSettings;
     private alignCardHeight: boolean;
+    private cardHeights = new Map<string, number>();
     //#endregion
 
     //#region 초기화
@@ -55,21 +57,32 @@ export class ListLayout implements LayoutStrategy {
         const cardHeight = cardHeightValue === 'auto' ? 200 : cardHeightValue;
         const cardWidth = this.isVertical ? containerWidth : this.cardWidth;
 
-        cards.forEach((card) => {
+        cards.forEach((card, index) => {
             // 카드 ID (파일 경로 사용)
-            const cardId = card.file.path;
+            const cardId = card.getFile().path;
             
+            // 카드 높이 결정 (이미 계산된 높이가 있으면 재사용, 없으면 계산)
+            let contentHeight: number;
+            if (this.cardHeights.has(cardId)) {
+                // 이미 계산된 높이 재사용 (고정 높이 유지)
+                contentHeight = this.cardHeights.get(cardId)!;
+            } else {
+                // 새 카드의 경우 높이 계산 및 저장
+                contentHeight = this.calculateEstimatedHeight(card);
+                this.cardHeights.set(cardId, contentHeight);
+            }
+
             const position: CardPosition = {
                 id: cardId,
                 left: this.isVertical ? 0 : currentPosition,
                 top: this.isVertical ? currentPosition : 0,
                 width: cardWidth,
-                height: cardHeight
+                height: contentHeight
             };
             positions.push(position);
 
             // 최신 설정값으로 위치 계산
-            const positionDelta = this.isVertical ? cardHeight : cardWidth;
+            const positionDelta = this.isVertical ? contentHeight : cardWidth;
             currentPosition += positionDelta + cardGap;
         });
 
@@ -108,4 +121,11 @@ export class ListLayout implements LayoutStrategy {
         this.setCardWidth(cardWidth);
     }
     //#endregion
+
+    private calculateEstimatedHeight(card: Card): number {
+        // Implementation of calculateEstimatedHeight method
+        // This method should return an estimated height for a given card
+        // You can implement your logic here to calculate the height based on the card's content
+        return 200; // Placeholder return, actual implementation needed
+    }
 }

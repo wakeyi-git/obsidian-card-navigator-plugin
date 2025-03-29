@@ -1,6 +1,16 @@
 {
 	"compilerOptions": {
-	  "baseUrl": "./src",
+	  "baseUrl": ".",
+	  "paths": {
+		"@/*": ["src/*"],
+		"@main": ["src/main"],
+		"@common/*": ["src/common/*"],
+		"@domain/*": ["src/domain/*"],
+		"@layouts/*": ["src/layouts/*"],
+		"@infrastructure/*": ["src/infrastructure/*"],
+		"@application/*": ["src/application/*"],
+		"@presentation/*": ["src/presentation/*"]
+	  },
 	  "inlineSourceMap": true,
 	  "inlineSources": true,
 	  "module": "ESNext",
@@ -25,8 +35,9 @@
 		"ES5",
 		"ES6",
 		"ES7"
-	  ]
+	  ],
+	  "outDir": "dist"
 	},
 	"include": ["src/**/*.ts", "main.ts"]
-  }
+}
   

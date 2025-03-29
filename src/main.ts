@@ -1,12 +1,17 @@
-import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf  } from 'obsidian';
-import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR, RefreshType } from './ui/cardNavigatorView';
-import { SettingTab } from './ui/settings/settingsTab';
-import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS } from './common/types';
-import { SettingsManager } from './ui/settings/settingsManager';
-import { PresetManager } from './ui/settings/PresetManager';
+import { Plugin, Events, TFile, debounce, moment, WorkspaceLeaf, App, PluginSettingTab, Setting } from 'obsidian';
+import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR, RefreshType } from './presentation/views/CardNavigatorView';
+import { SettingTab } from './presentation/views/settings/settingsTab';
+import { CardNavigatorSettings, ScrollDirection, SortCriterion, SortOrder, DEFAULT_SETTINGS } from './domain/models/types';
+import { SettingsManager } from './presentation/views/settings/settingsManager';
+import { PresetManager } from './presentation/views/settings/PresetManager';
 import i18next from 'i18next';
 import { t } from 'i18next';
-import { SearchService } from 'ui/toolbar/search/';
+import { SearchService } from './presentation/views/toolbar/search/SearchService';
+import { CardNavigatorViewModel } from './presentation/viewModels/CardNavigatorViewModel';
+import { CardUseCase } from './application/useCases/CardUseCase';
+import { ObsidianCardRepository } from './infrastructure/obsidian/ObsidianCardRepository';
+import { CardSetUseCase } from './application/useCases/CardSetUseCase';
+import { ObsidianCardSetRepository } from './infrastructure/obsidian/ObsidianCardSetRepository';
 
 // 다국어 지원을 위한 언어 리소스 정의
 export const languageResources = {
@@ -17,31 +22,69 @@ export const languageResources = {
 // 사용자 로케일에 기반한 번역 언어 설정 (기본값: 영어)
 export const translationLanguage = Object.keys(languageResources).includes(moment.locale()) ? moment.locale() : "en";
 
-export default class CardNavigatorPlugin extends Plugin {
+// 플러그인 클래스 정의
+export class CardNavigatorPlugin extends Plugin {
     //#region 클래스 속성
     public settings: CardNavigatorSettings = DEFAULT_SETTINGS;
     public settingsManager!: SettingsManager;
     public searchService!: SearchService;
-    selectedFolder: string | null = null;
-    presetManager!: PresetManager;
-    settingTab!: SettingTab;
+    public presetManager!: PresetManager;
+    public settingTab!: SettingTab;
     private ribbonIconEl: HTMLElement | null = null;
     public events: Events = new Events();
+    private view: CardNavigatorView | null = null;
+    private viewModel: CardNavigatorViewModel | null = null;
     //#endregion
 
     //#region 초기화 및 설정 관리
     // 플러그인 로드 시 실행되는 메서드
     async onload() {
         await this.loadSettings();
+        await this.initializeI18n();
+        
+        // 의존성 초기화
         this.presetManager = new PresetManager(this.app, this, this.settings);
-        this.settingsManager = new SettingsManager(this, this.presetManager);
+        this.settingsManager = new SettingsManager(this);
         this.searchService = new SearchService(this);
+        
+        // 프리셋 초기화
         await this.presetManager.initialize();
-        await this.initializePlugin();
-    
+        
+        // 뷰모델 초기화
+        const cardRepository = new ObsidianCardRepository(this.app);
+        const cardUseCase = new CardUseCase(cardRepository, this.app);
+        const cardSetRepository = new ObsidianCardSetRepository(this.app, cardRepository);
+        const cardSetUseCase = new CardSetUseCase(cardSetRepository, this.app);
+        this.viewModel = new CardNavigatorViewModel(this.app, cardUseCase, cardSetUseCase);
+
+        // 기본 카드셋 생성
+        const defaultCardSet = await this.viewModel.createCardSet({
+            name: 'Default',
+            type: this.settings.cardSetType,
+            source: this.settings.selectedFolder || '',
+            filter: { type: 'search', criteria: { value: '' } },
+            sort: { criterion: 'fileName', order: 'asc' }
+        });
+        this.viewModel.selectCardSet(defaultCardSet.getId());
+
+        // UI 초기화
         this.addRibbonIcon('layers-3', t('OPEN_CARD_NAVIGATOR'), () => {
             this.activateView();
         });
+
+        // 뷰 등록
+        this.registerView(VIEW_TYPE_CARD_NAVIGATOR, (leaf) => new CardNavigatorView(leaf, this));
+
+        // 설정 탭 추가
+        this.settingTab = new SettingTab(this.app, this);
+        this.addSettingTab(this.settingTab);
+
+        // 명령어 추가
+        this.addCommands();
+        this.addScrollCommands();
+
+        // 이벤트 등록
+        this.registerCentralizedEvents();
     }
 
     // 플러그인 언로드 시 실행되는 메서드
@@ -49,24 +92,7 @@ export default class CardNavigatorPlugin extends Plugin {
         if (this.ribbonIconEl) {
             this.ribbonIconEl.detach();
         }
-    }
-
-    // 플러그인 초기화 메서드
-    private async initializePlugin() {
-        await this.initializeI18n();
-
-        this.settingTab = new SettingTab(this.app, this);
-        this.addSettingTab(this.settingTab);
-
-        this.registerView(
-            VIEW_TYPE_CARD_NAVIGATOR,
-            (leaf) => new CardNavigatorView(leaf, this)
-        );
-
-        this.addCommands();
-        this.addScrollCommands();
-
-        this.registerCentralizedEvents();
+        this.app.workspace.detachLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
     }
 
     // i18n 초기화 메서드
@@ -93,14 +119,12 @@ export default class CardNavigatorPlugin extends Plugin {
 
     // 설정 로드 메서드
     async loadSettings() {
-        const loadedData = await this.loadData();
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, loadedData);
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     }
 
     // 설정 저장 메서드
     async saveSettings() {
         await this.saveData(this.settings);
-        // 여기서는 이벤트를 트리거하지 않음
     }
     //#endregion
 
@@ -146,8 +170,9 @@ export default class CardNavigatorPlugin extends Plugin {
     scrollCards(direction: ScrollDirection, count: number) {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach(leaf => {
-            if (leaf.view instanceof CardNavigatorView) {
-                const { cardContainer } = leaf.view;
+            const view = leaf.view as CardNavigatorView;
+            if (view instanceof CardNavigatorView) {
+                const { cardContainer } = view;
                 const isVertical = cardContainer.isVertical;
     
                 switch (direction) {
@@ -191,7 +216,7 @@ export default class CardNavigatorPlugin extends Plugin {
                 this.refreshAllViews(RefreshType.SETTINGS);
                 pendingSettingsUpdate = false;
             }
-        }, 250); // 디바운스 시간을 250ms로 증가
+        }, 250);
 
         this.events.on('settings-updated', () => {
             pendingSettingsUpdate = true;
@@ -209,8 +234,9 @@ export default class CardNavigatorPlugin extends Plugin {
     private refreshAllViews(type: RefreshType) {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
         leaves.forEach(leaf => {
-            if (leaf.view instanceof CardNavigatorView) {
-                leaf.view.refreshBatch([type]);
+            const view = leaf.view as CardNavigatorView;
+            if (view instanceof CardNavigatorView) {
+                view.refreshBatch([type]);
             }
         });
     }
@@ -248,27 +274,6 @@ export default class CardNavigatorPlugin extends Plugin {
             view.refresh(RefreshType.CONTENT);
         } else {
             view.refreshBatch([RefreshType.LAYOUT, RefreshType.SETTINGS, RefreshType.CONTENT]);
-        }
-    }
-    //#endregion
-
-    //#region 레이아웃 관리
-    // 레이아웃 업데이트 메서드
-    public updateLayout(layout: CardNavigatorSettings['defaultLayout']) {
-        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CARD_NAVIGATOR);
-        leaves.forEach(leaf => {
-            if (leaf.view instanceof CardNavigatorView) {
-                leaf.view.cardContainer.setLayout(layout);
-                // 설정 저장만 하고 리프레시는 settingsManager에서 처리
-                this.saveData(this.settings);
-            }
-        });
-    }
-
-    // 설정 탭 새로고침 메서드
-    refreshSettingsTab() {
-        if (this.settingTab instanceof SettingTab) {
-            this.settingTab.display();
         }
     }
     //#endregion
@@ -353,4 +358,27 @@ export default class CardNavigatorPlugin extends Plugin {
         }
     }
     //#endregion
+
+    /**
+     * 레이아웃 업데이트
+     * @param layout 새로운 레이아웃 설정
+     */
+    public updateLayout(layout: CardNavigatorSettings['defaultLayout']): void {
+        this.settings.defaultLayout = layout;
+        this.saveSettings();
+        this.refreshAllViews(RefreshType.LAYOUT);
+    }
+
+    /**
+     * ViewModel 반환
+     */
+    public getViewModel(): CardNavigatorViewModel {
+        if (!this.viewModel) {
+            throw new Error('ViewModel is not initialized');
+        }
+        return this.viewModel;
+    }
 }
+
+// 기본 내보내기
+export default CardNavigatorPlugin;

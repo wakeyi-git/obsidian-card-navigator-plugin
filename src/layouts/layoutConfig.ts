@@ -1,5 +1,5 @@
 import { App } from 'obsidian';
-import { CardNavigatorSettings } from 'common/types';
+import { CardNavigatorSettings } from '@domain/models/types';
 
 /**
  * 레이아웃 설정을 중앙에서 관리하는 클래스
