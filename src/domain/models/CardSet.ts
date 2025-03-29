@@ -1,7 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { Card } from './Card';
 import { Preset } from './Preset';
-import { Layout } from './Layout';
+import { Layout, ILayoutConfig, ICardPosition } from './Layout';
 import { ICardRenderConfig } from './Card';
 import { ICardService } from '../services/CardService';
 
@@ -208,7 +208,7 @@ export interface ICardSet {
   name: string;
   description: string;
   config: ICardSetConfig;
-  layoutConfig: Layout['config'];
+  layoutConfig: ILayoutConfig;
   cardRenderConfig: ICardRenderConfig;
   cards: Card[];
   activeCardId?: string;
@@ -225,7 +225,7 @@ export class CardSet implements ICardSet {
   private _name: string;
   private _description: string;
   private _config: ICardSetConfig;
-  private _layoutConfig: Layout['config'];
+  private _layout: Layout;
   private _cardRenderConfig: ICardRenderConfig;
   private _cards: Card[];
   private _activeCardId?: string;
@@ -240,8 +240,12 @@ export class CardSet implements ICardSet {
     config: ICardSetConfig,
     private readonly app: App,
     private readonly cardService: ICardService,
-    layoutConfig: Layout['config'] = {
+    layoutConfig: ILayoutConfig = {
       type: 'grid',
+      direction: 'vertical',
+      fixedHeight: false,
+      minCardWidth: 300,
+      minCardHeight: 200,
       cardWidth: 300,
       cardHeight: 200,
       gap: 10,
@@ -295,7 +299,7 @@ export class CardSet implements ICardSet {
       sortBy: config.sortBy || 'fileName',
       sortOrder: config.sortOrder || 'asc'
     };
-    this._layoutConfig = layoutConfig;
+    this._layout = new Layout(id, name, description, layoutConfig);
     this._cardRenderConfig = cardRenderConfig;
     this._cards = cards;
     this._activeCardId = activeCardId;
@@ -320,8 +324,8 @@ export class CardSet implements ICardSet {
     return this._config;
   }
 
-  get layoutConfig(): Layout['config'] {
-    return this._layoutConfig;
+  get layoutConfig(): ILayoutConfig {
+    return this._layout.config;
   }
 
   get cardRenderConfig(): ICardRenderConfig {
@@ -363,8 +367,8 @@ export class CardSet implements ICardSet {
     this._updatedAt = new Date();
   }
 
-  set layoutConfig(config: Layout['config']) {
-    this._layoutConfig = config;
+  set layoutConfig(config: ILayoutConfig) {
+    this._layout.config = config;
     this._updatedAt = new Date();
   }
 
@@ -495,7 +499,7 @@ export class CardSet implements ICardSet {
       { ...this._config },
       this.app,
       this.cardService,
-      { ...this._layoutConfig },
+      { ...this._layout.config },
       { ...this._cardRenderConfig },
       this._cards.map(card => card.clone()),
       this._activeCardId,
@@ -532,8 +536,8 @@ export class CardSet implements ICardSet {
     };
 
     // 레이아웃 설정 업데이트
-    this._layoutConfig = {
-      ...this._layoutConfig,
+    this._layout.config = {
+      ...this._layout.config,
       ...preset.layoutConfig
     };
 
@@ -702,5 +706,60 @@ export class CardSet implements ICardSet {
     
     const fileCache = this.app.metadataCache.getFileCache(activeFile);
     return (fileCache?.tags || []).map(t => t.tag);
+  }
+
+  /**
+   * 레이아웃 계산
+   */
+  calculateLayout(): void {
+    this._layout.calculateLayout(this._cards);
+    this._updatedAt = new Date();
+  }
+
+  /**
+   * 뷰포트 업데이트
+   */
+  updateViewport(width: number, height: number): void {
+    this._layout.updateViewport(width, height);
+    this._updatedAt = new Date();
+  }
+
+  /**
+   * 카드 위치 가져오기
+   */
+  getCardPosition(cardId: string): ICardPosition | undefined {
+    return this._layout.getCardPosition(cardId);
+  }
+
+  /**
+   * 카드 위치 업데이트
+   */
+  updateCardPosition(cardId: string, position: Omit<ICardPosition, 'cardId'>): void {
+    this._layout.updateCardPosition(cardId, position);
+    this._updatedAt = new Date();
+  }
+
+  /**
+   * 카드 위치 추가
+   */
+  addCardPosition(position: ICardPosition): void {
+    this._layout.addCardPosition(position);
+    this._updatedAt = new Date();
+  }
+
+  /**
+   * 카드 위치 제거
+   */
+  removeCardPosition(cardId: string): void {
+    this._layout.removeCardPosition(cardId);
+    this._updatedAt = new Date();
+  }
+
+  /**
+   * 카드 위치 초기화
+   */
+  resetCardPositions(): void {
+    this._layout.resetCardPositions();
+    this._updatedAt = new Date();
   }
 } 

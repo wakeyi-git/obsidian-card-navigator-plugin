@@ -446,6 +446,10 @@ export class Preset implements IPreset {
         },
         layoutConfig: {
           type: 'grid',
+          direction: 'vertical',
+          fixedHeight: false,
+          minCardWidth: 200,
+          minCardHeight: 150,
           cardWidth: 300,
           cardHeight: 200,
           gap: 10,

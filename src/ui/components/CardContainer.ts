@@ -281,12 +281,12 @@ export class CardContainer {
     if (!this._layout || !this._cardSet) return;
 
     const positions = await this.layoutService.calculateLayout(
-      this._layout.id,
+      this._layout,
       this._cardSet.cards
     );
 
     // 레이아웃 적용
-    positions.forEach((position) => {
+    this._layout.cardPositions.forEach((position) => {
       const cardElement = this._cards.get(position.cardId);
       if (cardElement) {
         cardElement.style.left = `${position.x}px`;

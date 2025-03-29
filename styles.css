@@ -164,10 +164,76 @@
 
 /* 카드 내비게이터 컨테이너 */
 .card-navigator-container {
-  display: flex;
-  flex-direction: column;
+  position: relative;
+  width: 100%;
   height: 100%;
-  background-color: var(--background-primary);
+  overflow: auto;
+  padding: var(--layout-padding);
+  box-sizing: border-box;
+}
+
+/* 그리드 레이아웃 */
+.card-navigator-container.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), 1fr);
+  grid-template-rows: repeat(var(--grid-rows), 1fr);
+  gap: var(--layout-gap);
+}
+
+/* 메이슨리 레이아웃 */
+.card-navigator-container.masonry {
+  columns: var(--masonry-columns);
+  column-gap: var(--layout-gap);
+}
+
+/* 카드 스타일 */
+.card-navigator-card {
+  position: relative;
+  width: 100%;
+  min-width: var(--card-min-width);
+  min-height: var(--card-min-height);
+  background: var(--card-background);
+  border: var(--card-border-width) solid var(--card-border-color);
+  border-radius: var(--card-border-radius);
+  padding: var(--card-padding);
+  margin-bottom: var(--layout-gap);
+  break-inside: avoid;
+  transition: all 0.2s ease;
+}
+
+/* 카드 상태 */
+.card-navigator-card.active {
+  background: var(--card-active-background);
+  border-color: var(--card-active-border-color);
+}
+
+.card-navigator-card.focused {
+  background: var(--card-focused-background);
+  border-color: var(--card-focused-border-color);
+  box-shadow: 0 0 0 2px var(--card-focused-border-color);
+}
+
+/* 가로 레이아웃 */
+.card-navigator-container.grid.horizontal {
+  grid-auto-flow: column;
+  grid-auto-columns: var(--card-min-width);
+}
+
+/* 세로 레이아웃 */
+.card-navigator-container.grid.vertical {
+  grid-auto-flow: row;
+  grid-auto-rows: var(--card-min-height);
+}
+
+/* 반응형 레이아웃 */
+@media (max-width: 768px) {
+  .card-navigator-container.grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .card-navigator-container.masonry {
+    columns: 1;
+  }
 }
 
 /* 툴바 */
@@ -271,31 +337,6 @@
   overflow: auto;
   padding: 16px;
   background-color: var(--background-primary);
-}
-
-/* 카드 */
-.card-navigator-card {
-  position: relative;
-  margin-bottom: 16px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  background-color: var(--background-primary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.card-navigator-card:hover {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.card-navigator-card.active {
-  border-color: var(--interactive-accent);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.card-navigator-card.focused {
-  border-color: var(--interactive-accent-hover);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* 카드 헤더 */

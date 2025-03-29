@@ -37,6 +37,7 @@ export default class CardNavigatorPlugin extends Plugin {
   private keyboardNavigator: KeyboardNavigator | null = null;
   private searchService: SearchService | null = null;
   private cardSetRepository: CardSetRepository | null = null;
+  private settingsTab: CardNavigatorSettingsTab;
 
   /**
    * 플러그인 활성화
@@ -79,6 +80,10 @@ export default class CardNavigatorPlugin extends Plugin {
         this.app,
         this.cardSetRepository
       );
+
+      // 설정 탭 초기화
+      this.settingsTab = new CardNavigatorSettingsTab(this.app, this, this.settings);
+      this.addSettingTab(this.settingsTab);
 
       // UI 컴포넌트 초기화
       this.cardRenderer = new CardRenderer(this.app, this.eventDispatcher);
@@ -418,35 +423,5 @@ export default class CardNavigatorPlugin extends Plugin {
     
     current[parts[parts.length - 1]] = value;
     this.saveSettings();
-  }
-}
-
-class CardNavigatorSettingTab extends PluginSettingTab {
-  private plugin: CardNavigatorPlugin;
-
-  constructor(app: App, plugin: CardNavigatorPlugin) {
-    super(app, plugin);
-    this.plugin = plugin;
-  }
-
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
-
-    containerEl.createEl('h2', { text: 'Card Navigator Settings' });
-
-    new Setting(containerEl)
-      .setName('Default Layout')
-      .setDesc('Choose the default layout for the Card Navigator')
-      .addDropdown(dropdown => {
-        dropdown
-          .addOption('grid', 'Grid')
-          .addOption('list', 'List')
-          .addOption('masonry', 'Masonry')
-          .setValue('grid')
-          .onChange(async (value) => {
-            // TODO: 레이아웃 설정 저장
-          });
-      });
   }
 }
