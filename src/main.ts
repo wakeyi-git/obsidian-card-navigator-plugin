@@ -219,7 +219,7 @@ export default class CardNavigatorPlugin extends Plugin {
       // 카드셋 설정
       defaultCardSetType: 'folder',
       includeSubfolders: true,
-      linkLevel: 2,
+      linkLevel: 1,
 
       // 카드 설정
       cardRenderConfig: {
@@ -244,7 +244,7 @@ export default class CardNavigatorPlugin extends Plugin {
           renderMarkdown: true
         },
         footer: {
-          showFileName: false,
+          showFileName: true,
           showFirstHeader: false,
           showTags: false,
           showCreatedDate: false,
@@ -256,39 +256,39 @@ export default class CardNavigatorPlugin extends Plugin {
       },
       cardStyle: {
         card: {
-          background: 'var(--background-secondary)',
+          background: '#ffffff',
           fontSize: '14px',
-          borderColor: 'var(--background-modifier-border)',
+          borderColor: '#e0e0e0',
           borderWidth: '1px'
         },
         activeCard: {
-          background: 'var(--background-modifier-hover)',
+          background: '#f0f0f0',
           fontSize: '14px',
-          borderColor: 'var(--interactive-accent)',
+          borderColor: '#2196f3',
           borderWidth: '2px'
         },
         focusedCard: {
-          background: 'var(--background-modifier-hover)',
+          background: '#e3f2fd',
           fontSize: '14px',
-          borderColor: 'var(--interactive-accent)',
+          borderColor: '#1976d2',
           borderWidth: '2px'
         },
         header: {
-          background: 'var(--background-secondary)',
+          background: '#ffffff',
           fontSize: '14px',
-          borderColor: 'var(--background-modifier-border)',
+          borderColor: '#e0e0e0',
           borderWidth: '1px'
         },
         body: {
-          background: 'var(--background-primary)',
+          background: '#ffffff',
           fontSize: '14px',
-          borderColor: 'var(--background-modifier-border)',
+          borderColor: '#e0e0e0',
           borderWidth: '1px'
         },
         footer: {
-          background: 'var(--background-secondary)',
+          background: '#ffffff',
           fontSize: '12px',
-          borderColor: 'var(--background-modifier-border)',
+          borderColor: '#e0e0e0',
           borderWidth: '1px'
         }
       },
@@ -309,7 +309,15 @@ export default class CardNavigatorPlugin extends Plugin {
       presets: [],
       folderPresets: new Map(),
       tagPresets: new Map(),
-      presetPriority: []
+      presetPriority: [],
+
+      // 검색 설정
+      defaultSearchScope: 'current',
+      realtimeSearch: true,
+      maxSearchResults: 50,
+      searchInFileName: true,
+      searchInTags: true,
+      searchInLinks: true
     };
 
     const savedSettings = await this.loadData();
@@ -319,8 +327,8 @@ export default class CardNavigatorPlugin extends Plugin {
   /**
    * 설정 저장
    */
-  private async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
+  saveSettings(): void {
+    this.saveData(this.settings);
   }
 
   /**

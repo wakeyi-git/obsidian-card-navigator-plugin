@@ -6,6 +6,8 @@ import { ICardRenderConfig } from '@/domain/models/Card';
 import { PresetEditModal } from '@/ui/components/modals/PresetEditModal';
 import { PresetImportExportModal } from '@/ui/components/modals/PresetImportExportModal';
 import { CardSettings } from '@/ui/settings/components/CardSettings';
+import { CardSetSettings } from '@/ui/settings/components/CardSetSettings';
+import { SearchSettings } from '@/ui/settings/components/SearchSettings';
 
 /**
  * 카드 내비게이터 설정 인터페이스
@@ -15,6 +17,14 @@ export interface ICardNavigatorSettings {
   defaultCardSetType: CardSetType;
   includeSubfolders: boolean;
   linkLevel: number;
+
+  // 검색 설정
+  defaultSearchScope: 'vault' | 'current';
+  realtimeSearch: boolean;
+  maxSearchResults: number;
+  searchInFileName: boolean;
+  searchInTags: boolean;
+  searchInLinks: boolean;
 
   // 카드 설정
   cardRenderConfig: ICardRenderConfig;
@@ -101,6 +111,12 @@ export class CardNavigatorSettingsTab extends PluginSettingTab {
         defaultCardSetType: 'folder',
         includeSubfolders: true,
         linkLevel: 1,
+        defaultSearchScope: 'current',
+        realtimeSearch: true,
+        maxSearchResults: 50,
+        searchInFileName: true,
+        searchInTags: true,
+        searchInLinks: true,
         cardRenderConfig: {
           header: {
             showFileName: true,
@@ -186,168 +202,14 @@ export class CardNavigatorSettingsTab extends PluginSettingTab {
       this.plugin.saveData();
     }
 
-    // cardRenderConfig가 없으면 기본값으로 초기화
-    if (!this.plugin.settings.cardRenderConfig) {
-      this.plugin.settings.cardRenderConfig = {
-        header: {
-          showFileName: true,
-          showFirstHeader: true,
-          showTags: true,
-          showCreatedDate: false,
-          showUpdatedDate: false,
-          showProperties: [],
-          renderMarkdown: true
-        },
-        body: {
-          showFileName: false,
-          showFirstHeader: false,
-          showContent: true,
-          showTags: false,
-          showCreatedDate: false,
-          showUpdatedDate: false,
-          showProperties: [],
-          contentLength: 200,
-          renderMarkdown: true
-        },
-        footer: {
-          showFileName: false,
-          showFirstHeader: false,
-          showTags: false,
-          showCreatedDate: false,
-          showUpdatedDate: false,
-          showProperties: [],
-          renderMarkdown: true
-        },
-        renderAsHtml: true
-      };
-      this.plugin.saveData();
-    }
-
-    // cardStyle이 없으면 기본값으로 초기화
-    if (!this.plugin.settings.cardStyle) {
-      this.plugin.settings.cardStyle = {
-        card: {
-          background: 'var(--background-secondary)',
-          fontSize: '14px',
-          borderColor: 'var(--background-modifier-border)',
-          borderWidth: '1px'
-        },
-        activeCard: {
-          background: 'var(--background-modifier-hover)',
-          fontSize: '14px',
-          borderColor: 'var(--interactive-accent)',
-          borderWidth: '2px'
-        },
-        focusedCard: {
-          background: 'var(--background-modifier-hover)',
-          fontSize: '14px',
-          borderColor: 'var(--interactive-accent)',
-          borderWidth: '2px'
-        },
-        header: {
-          background: 'var(--background-secondary)',
-          fontSize: '14px',
-          borderColor: 'var(--background-modifier-border)',
-          borderWidth: '1px'
-        },
-        body: {
-          background: 'var(--background-primary)',
-          fontSize: '14px',
-          borderColor: 'var(--background-modifier-border)',
-          borderWidth: '1px'
-        },
-        footer: {
-          background: 'var(--background-secondary)',
-          fontSize: '12px',
-          borderColor: 'var(--background-modifier-border)',
-          borderWidth: '1px'
-        }
-      };
-      this.plugin.saveData();
-    }
-
-    // layout이 없으면 기본값으로 초기화
-    if (!this.plugin.settings.layout) {
-      this.plugin.settings.layout = {
-        fixedHeight: false,
-        minCardWidth: 300,
-        minCardHeight: 200
-      };
-      this.plugin.saveData();
-    }
-
-    // presets이 없으면 빈 배열로 초기화
-    if (!this.plugin.settings.presets) {
-      this.plugin.settings.presets = [];
-      this.plugin.saveData();
-    }
-
-    // folderPresets이 없으면 빈 Map으로 초기화
-    if (!this.plugin.settings.folderPresets) {
-      this.plugin.settings.folderPresets = new Map();
-      this.plugin.saveData();
-    }
-
-    // tagPresets이 없으면 빈 Map으로 초기화
-    if (!this.plugin.settings.tagPresets) {
-      this.plugin.settings.tagPresets = new Map();
-      this.plugin.saveData();
-    }
-
-    // presetPriority가 없으면 빈 배열로 초기화
-    if (!this.plugin.settings.presetPriority) {
-      this.plugin.settings.presetPriority = [];
-      this.plugin.saveData();
-    }
-
     // 카드셋 설정
-    new Setting(containerEl)
-      .setName('카드셋 설정')
-      .setHeading();
+    new CardSetSettings(containerEl, this.plugin).display();
 
-    new Setting(containerEl)
-      .setName('기본 카드셋 타입')
-      .setDesc('새 카드셋을 생성할 때 사용할 기본 타입을 선택합니다.')
-      .addDropdown(dropdown => {
-        dropdown
-          .addOption('folder', '폴더')
-          .addOption('tag', '태그')
-          .addOption('link', '링크')
-          .setValue(this.plugin.settings.defaultCardSetType)
-          .onChange(value => {
-            this.plugin.settings.defaultCardSetType = value as CardSetType;
-            this.plugin.saveData();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName('하위 폴더 포함')
-      .setDesc('폴더 카드셋에서 하위 폴더의 노트도 포함합니다.')
-      .addToggle(toggle => {
-        toggle
-          .setValue(this.plugin.settings.includeSubfolders)
-          .onChange(value => {
-            this.plugin.settings.includeSubfolders = value;
-            this.plugin.saveData();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName('링크 레벨')
-      .setDesc('링크 카드셋에서 탐색할 링크의 깊이를 설정합니다.')
-      .addSlider(slider => {
-        slider
-          .setLimits(1, 5, 1)
-          .setValue(this.plugin.settings.linkLevel)
-          .setDynamicTooltip()
-          .onChange(value => {
-            this.plugin.settings.linkLevel = value;
-            this.plugin.saveData();
-          });
-      });
+    // 검색 설정
+    new SearchSettings(containerEl, this.plugin).display();
 
     // 카드 설정
-    this._addCardSettings(containerEl);
+    new CardSettings(containerEl, this.plugin).display();
 
     // 정렬 설정
     new Setting(containerEl)
