@@ -123,7 +123,8 @@ export default class CardNavigatorPlugin extends Plugin {
           this.app,
           this.eventDispatcher,
           this.services.card,
-          this.services.logging
+          this.services.logging,
+          this.settings.cardRenderConfig
         ),
         scroller: new Scroller(),
         interactionManager: new CardInteractionManager(
@@ -258,37 +259,37 @@ export default class CardNavigatorPlugin extends Plugin {
       cardStyle: {
         card: {
           background: 'var(--background-secondary)',
-          fontSize: '14px',
+          fontSize: 'var(--font-ui-medium)',
           borderColor: 'var(--background-modifier-border)',
           borderWidth: '1px'
         },
         activeCard: {
           background: 'var(--background-modifier-hover)',
-          fontSize: '14px',
+          fontSize: 'var(--font-ui-medium)',
           borderColor: 'var(--interactive-accent)',
           borderWidth: '2px'
         },
         focusedCard: {
           background: 'var(--background-modifier-hover)',
-          fontSize: '14px',
+          fontSize: 'var(--font-ui-medium)',
           borderColor: 'var(--interactive-accent)',
           borderWidth: '2px'
         },
         header: {
           background: 'var(--background-secondary)',
-          fontSize: '14px',
+          fontSize: 'var(--font-ui-medium)',
           borderColor: 'var(--background-modifier-border)',
           borderWidth: '1px'
         },
         body: {
           background: 'var(--background-primary)',
-          fontSize: '14px',
+          fontSize: 'var(--font-ui-medium)',
           borderColor: 'var(--background-modifier-border)',
           borderWidth: '1px'
         },
         footer: {
           background: 'var(--background-secondary)',
-          fontSize: '12px',
+          fontSize: 'var(--font-ui-small)',
           borderColor: 'var(--background-modifier-border)',
           borderWidth: '1px'
         }
@@ -432,7 +433,8 @@ export default class CardNavigatorPlugin extends Plugin {
           this.app,
           this.eventDispatcher,
           this.services.card,
-          this.services.logging
+          this.services.logging,
+          this.settings.cardRenderConfig
         ),
         scroller: new Scroller(),
         interactionManager: new CardInteractionManager(

@@ -30,57 +30,68 @@ export class CardRenderer {
     app: App,
     eventDispatcher: DomainEventDispatcher,
     cardService: ICardService,
-    loggingService: LoggingService
+    loggingService: LoggingService,
+    renderConfig: ICardRenderConfig
   ) {
     this.app = app;
     this.eventDispatcher = eventDispatcher;
     this.cardService = cardService;
     this.loggingService = loggingService;
     this.markdownRenderer = new MarkdownRenderer(app);
-    this.renderConfig = {
-      header: {
-        showFileName: true,
-        showFirstHeader: true,
-        showTags: true,
-        showCreatedDate: false,
-        showUpdatedDate: false,
-        showProperties: [],
-        renderMarkdown: true
-      },
-      body: {
-        showFileName: false,
-        showFirstHeader: false,
-        showContent: true,
-        showTags: false,
-        showCreatedDate: false,
-        showUpdatedDate: false,
-        showProperties: [],
-        contentLength: 200,
-        renderMarkdown: true
-      },
-      footer: {
-        showFileName: true,
-        showFirstHeader: false,
-        showTags: false,
-        showCreatedDate: false,
-        showUpdatedDate: false,
-        showProperties: [],
-        renderMarkdown: true
-      },
-      renderAsHtml: true
-    };
+    this.renderConfig = renderConfig;
 
     this.renderDebouncer = new Debouncer(async () => {
       await this.processRenderQueue();
     }, 16);
+
+    // 설정 변경 이벤트 구독
+    this.eventDispatcher.registerHandler('cardRenderConfigChanged', {
+      handle: async (config: ICardRenderConfig): Promise<void> => {
+        await this.updateRenderConfig(config);
+      }
+    });
   }
 
   /**
    * 렌더링 설정 업데이트
    */
-  public updateRenderConfig(config: ICardRenderConfig): void {
+  public async updateRenderConfig(config: ICardRenderConfig): Promise<void> {
+    this.loggingService.debug('렌더링 설정 업데이트:', config);
     this.renderConfig = config;
+    
+    // 캐시와 렌더링 큐 초기화
     this.renderCache.clear();
+    this.renderQueue.clear();
+    
+    // 현재 표시된 모든 카드 요소 찾기
+    const cardElements = Array.from(document.querySelectorAll('[data-card-id]'));
+    
+    // 각 카드 요소를 다시 렌더링
+    for (const element of cardElements) {
+      const cardId = element.getAttribute('data-card-id');
+      if (!cardId) continue;
+      
+      try {
+        const card = await this.cardService.getCardById(cardId);
+        if (!card) continue;
+        
+        // 새로운 렌더링 수행
+        const updatedElement = await this._render(card);
+        
+        // 기존 요소의 내용을 새로운 렌더링 결과로 교체
+        element.innerHTML = updatedElement.innerHTML;
+        
+        // 이벤트 리스너 다시 등록
+        this._attachEventListeners(element as HTMLElement, card);
+        
+        // 이벤트 발생
+        this.eventDispatcher.dispatch(new CardRenderedEvent(cardId, element.innerHTML));
+        
+        this.loggingService.debug(`카드 ${cardId} 렌더링 업데이트 완료`);
+      } catch (error) {
+        this.loggingService.error(`카드 ${cardId} 렌더링 실패:`, error);
+      }
+    }
   }
 
   /**
@@ -100,26 +111,8 @@ export class CardRenderer {
    * @returns 렌더링된 HTML 요소
    */
   public async renderCard(card: Card, style?: ICardStyle): Promise<HTMLElement> {
-    // 캐시된 렌더링 결과가 있는지 확인
-    const cachedHtml = this.renderCache.get(card.id);
-    if (cachedHtml) {
-      const element = document.createElement('div');
-      element.dataset.cardId = card.id;
-      element.innerHTML = cachedHtml;
-      if (style) {
-        this._applyStyle(element, style);
-      }
-      return element;
-    }
-
-    // 렌더링 큐에 추가
-    this.renderQueue.add(card.id);
-    this.scheduleRender();
-
-    // 임시 렌더링 결과 반환
-    const element = document.createElement('div');
-    element.dataset.cardId = card.id;
-    element.innerHTML = this.renderPlaceholder(card);
+    // 항상 새로운 렌더링 수행
+    const element = await this._render(card);
     if (style) {
       this._applyStyle(element, style);
     }
@@ -215,16 +208,41 @@ export class CardRenderer {
     const { header } = this.renderConfig;
     let html = '<div class="card-header">';
     
+    // 파일명 표시
     if (header.showFileName) {
       html += `<div class="card-title">${card.fileName}</div>`;
     }
     
+    // 첫 번째 헤더 표시
     if (header.showFirstHeader && card.firstHeader) {
       html += `<div class="card-first-header">${card.firstHeader}</div>`;
     }
     
+    // 태그 표시
     if (header.showTags && card.tags.length > 0) {
       html += `<div class="card-tags">${card.tags.map(tag => `<span class="card-tag">${tag}</span>`).join('')}</div>`;
+    }
+    
+    // 생성일 표시
+    if (header.showCreatedDate) {
+      html += `<div class="card-created-date">${new Date(card.createdAt).toLocaleDateString()}</div>`;
+    }
+    
+    // 수정일 표시
+    if (header.showUpdatedDate) {
+      html += `<div class="card-updated-date">${new Date(card.updatedAt).toLocaleDateString()}</div>`;
+    }
+    
+    // 사용자 정의 속성 표시
+    if (header.showProperties && header.showProperties.length > 0) {
+      const properties = header.showProperties
+        .map(prop => card.frontmatter[prop])
+        .filter(value => value !== undefined)
+        .map(value => `<div class="card-property">${value}</div>`)
+        .join('');
+      if (properties) {
+        html += `<div class="card-properties">${properties}</div>`;
+      }
     }
     
     html += '</div>';
@@ -238,6 +256,17 @@ export class CardRenderer {
     const { body } = this.renderConfig;
     let html = '<div class="card-body">';
     
+    // 파일명 표시
+    if (body.showFileName) {
+      html += `<div class="card-title">${card.fileName}</div>`;
+    }
+    
+    // 첫 번째 헤더 표시
+    if (body.showFirstHeader && card.firstHeader) {
+      html += `<div class="card-first-header">${card.firstHeader}</div>`;
+    }
+    
+    // 본문 내용 표시
     if (body.showContent) {
       let content = card.content;
       if (body.contentLength && body.contentLength > 0) {
@@ -251,6 +280,33 @@ export class CardRenderer {
       html += `<div class="card-content">${content}</div>`;
     }
     
+    // 태그 표시
+    if (body.showTags && card.tags.length > 0) {
+      html += `<div class="card-tags">${card.tags.map(tag => `<span class="card-tag">${tag}</span>`).join('')}</div>`;
+    }
+    
+    // 생성일 표시
+    if (body.showCreatedDate) {
+      html += `<div class="card-created-date">${new Date(card.createdAt).toLocaleDateString()}</div>`;
+    }
+    
+    // 수정일 표시
+    if (body.showUpdatedDate) {
+      html += `<div class="card-updated-date">${new Date(card.updatedAt).toLocaleDateString()}</div>`;
+    }
+    
+    // 사용자 정의 속성 표시
+    if (body.showProperties && body.showProperties.length > 0) {
+      const properties = body.showProperties
+        .map(prop => card.frontmatter[prop])
+        .filter(value => value !== undefined)
+        .map(value => `<div class="card-property">${value}</div>`)
+        .join('');
+      if (properties) {
+        html += `<div class="card-properties">${properties}</div>`;
+      }
+    }
+    
     html += '</div>';
     return html;
   }
@@ -262,16 +318,41 @@ export class CardRenderer {
     const { footer } = this.renderConfig;
     let html = '<div class="card-footer">';
     
+    // 파일명 표시
     if (footer.showFileName) {
-      html += `<div class="card-file-name">${card.fileName}</div>`;
+      html += `<div class="card-title">${card.fileName}</div>`;
     }
     
+    // 첫 번째 헤더 표시
+    if (footer.showFirstHeader && card.firstHeader) {
+      html += `<div class="card-first-header">${card.firstHeader}</div>`;
+    }
+    
+    // 태그 표시
+    if (footer.showTags && card.tags.length > 0) {
+      html += `<div class="card-tags">${card.tags.map(tag => `<span class="card-tag">${tag}</span>`).join('')}</div>`;
+    }
+    
+    // 생성일 표시
     if (footer.showCreatedDate) {
       html += `<div class="card-created-date">${new Date(card.createdAt).toLocaleDateString()}</div>`;
     }
     
+    // 수정일 표시
     if (footer.showUpdatedDate) {
       html += `<div class="card-updated-date">${new Date(card.updatedAt).toLocaleDateString()}</div>`;
+    }
+    
+    // 사용자 정의 속성 표시
+    if (footer.showProperties && footer.showProperties.length > 0) {
+      const properties = footer.showProperties
+        .map(prop => card.frontmatter[prop])
+        .filter(value => value !== undefined)
+        .map(value => `<div class="card-property">${value}</div>`)
+        .join('');
+      if (properties) {
+        html += `<div class="card-properties">${properties}</div>`;
+      }
     }
     
     html += '</div>';

@@ -1,6 +1,6 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
-import { CardSet, CardSetType, ICardSetConfig } from '@/domain/models/CardSet';
-import { Layout, LayoutType, LayoutDirection, ILayoutConfig } from '@/domain/models/Layout';
+import { App, PluginSettingTab } from 'obsidian';
+import { CardSetType, ICardSetConfig } from '@/domain/models/CardSet';
+import { LayoutType, LayoutDirection } from '@/domain/models/Layout';
 import { Preset } from '@/domain/models/Preset';
 import { ICardRenderConfig } from '@/domain/models/Card';
 import { CardSettings } from '@/ui/settings/components/CardSettings';
@@ -12,6 +12,7 @@ import { NavigationSettings } from '@/ui/settings/components/NavigationSettings'
 import { PresetSettings } from '@/ui/settings/components/PresetSettings';
 import { Command } from 'obsidian';
 import CardNavigatorPlugin from '@/main';
+import { LoggingService } from '@/infrastructure/services/LoggingService';
 
 /**
  * 카드 내비게이터 설정 인터페이스
@@ -100,12 +101,15 @@ export interface IPluginWithSettings {
  * 카드 내비게이터 설정 탭
  */
 export class CardNavigatorSettingsTab extends PluginSettingTab {
+  private readonly loggingService: LoggingService;
+
   constructor(
     app: App,
     private readonly plugin: CardNavigatorPlugin,
     private readonly settings: ICardNavigatorSettings
   ) {
     super(app, plugin);
+    this.loggingService = new LoggingService(app);
   }
 
   /**
@@ -118,8 +122,14 @@ export class CardNavigatorSettingsTab extends PluginSettingTab {
     // 설정 탭 제목 추가
     containerEl.createEl('h2', { text: '카드 내비게이터 설정' });
 
-    // 설정 컨테이너 생성
-    const settingsContainer = containerEl.createDiv('card-navigator-settings');
+    // 탭 컨테이너 생성
+    const tabContainer = containerEl.createDiv('card-navigator-settings-tabs');
+    
+    // 탭 버튼 컨테이너
+    const tabButtonsContainer = tabContainer.createDiv('card-navigator-settings-tab-buttons');
+    
+    // 설정 컨테이너
+    const settingsContainer = tabContainer.createDiv('card-navigator-settings-container');
 
     // settings가 없으면 기본값으로 초기화
     if (!this.settings) {
@@ -226,9 +236,10 @@ export class CardNavigatorSettingsTab extends PluginSettingTab {
     }
 
     // 각 설정 컴포넌트에 전달할 plugin 객체 준비
-    const pluginWithSettings: IPluginWithSettings = {
-      settings: this.settings,
+    const pluginWithSettings: IPluginWithSettings & App = {
+      ...this.app,
       app: this.app,
+      settings: this.settings,
       getSetting: (key: string) => {
         const parts = key.split('.');
         let value: any = this.settings;
@@ -257,35 +268,75 @@ export class CardNavigatorSettingsTab extends PluginSettingTab {
       }
     };
 
-    // 카드셋 설정
-    const cardSetContainer = settingsContainer.createDiv('card-navigator-settings-section');
-    new CardSetSettings(cardSetContainer, pluginWithSettings).display();
-
-    // 검색 설정
-    const searchContainer = settingsContainer.createDiv('card-navigator-settings-section');
-    new SearchSettings(searchContainer, pluginWithSettings).display();
-
-    // 정렬 설정
-    const sortContainer = settingsContainer.createDiv('card-navigator-settings-section');
-    new SortSettings(sortContainer, pluginWithSettings).display();
-
-    // 카드 설정
-    const cardContainer = settingsContainer.createDiv('card-navigator-settings-section');
-    new CardSettings(cardContainer, pluginWithSettings).display();
-
-    // 레이아웃 설정
-    const layoutContainer = settingsContainer.createDiv('card-navigator-settings-section');
-    new LayoutSettings(layoutContainer, pluginWithSettings).display();
-
-    // 네비게이션 설정
-    const navigationContainer = settingsContainer.createDiv('card-navigator-settings-section');
-    new NavigationSettings(navigationContainer, pluginWithSettings).display();
-
-    // 프리셋 설정
-    const presetService = this.plugin.getPresetService();
-    if (presetService) {
-      const presetContainer = settingsContainer.createDiv('card-navigator-settings-section');
-      new PresetSettings(presetContainer, this.app, pluginWithSettings, presetService).display();
+    // 탭 정의
+    type TabComponent = typeof CardSetSettings | typeof SearchSettings | typeof SortSettings | typeof CardSettings | typeof LayoutSettings | typeof NavigationSettings | typeof PresetSettings;
+    interface Tab {
+      id: string;
+      label: string;
+      component: TabComponent;
     }
+    const tabs: Tab[] = [
+      { id: 'card-set', label: '카드셋', component: CardSetSettings },
+      { id: 'card', label: '카드', component: CardSettings },
+      { id: 'search', label: '검색', component: SearchSettings },
+      { id: 'sort', label: '정렬', component: SortSettings },
+      { id: 'layout', label: '레이아웃', component: LayoutSettings },
+      { id: 'navigation', label: '네비게이션', component: NavigationSettings },
+      { id: 'preset', label: '프리셋', component: PresetSettings }
+    ];
+
+    // 탭 버튼 생성
+    tabs.forEach((tab, index) => {
+      const button = tabButtonsContainer.createEl('button', {
+        text: tab.label,
+        cls: index === 0 ? 'active' : ''
+      });
+      
+      button.addEventListener('click', () => {
+        // 활성 탭 버튼 스타일 변경
+        tabButtonsContainer.querySelectorAll('button').forEach(btn => {
+          btn.removeClass('active');
+        });
+        button.addClass('active');
+        
+        // 탭 컨텐츠 표시/숨김
+        settingsContainer.querySelectorAll('.card-navigator-settings-section').forEach(section => {
+          (section as HTMLElement).style.display = 'none';
+        });
+        const targetSection = settingsContainer.querySelector(`#${tab.id}-settings`);
+        if (targetSection) {
+          (targetSection as HTMLElement).style.display = 'block';
+        }
+      });
+    });
+
+    // 탭 컨텐츠 생성
+    tabs.forEach((tab, index) => {
+      const section = settingsContainer.createDiv('card-navigator-settings-section');
+      section.id = `${tab.id}-settings`;
+      section.style.display = index === 0 ? 'block' : 'none';
+      
+      if (tab.id === 'preset') {
+        const presetService = this.plugin.getPresetService();
+        if (presetService) {
+          new tab.component(section, pluginWithSettings, pluginWithSettings, presetService).display();
+        }
+      } else {
+        // 각 컴포넌트의 생성자 인자에 맞게 전달
+        const presetService = this.plugin.getPresetService();
+        switch (tab.id) {
+          case 'card-set':
+          case 'card':
+          case 'search':
+          case 'sort':
+          case 'layout':
+          case 'navigation':
+            new tab.component(section, pluginWithSettings, pluginWithSettings, presetService).display();
+            break;
+          default:
+            this.loggingService.error(`알 수 없는 탭 ID: ${tab.id}`);
+        }
+      }
+    });
   }
 } 

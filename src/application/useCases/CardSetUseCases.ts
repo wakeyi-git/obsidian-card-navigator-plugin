@@ -18,7 +18,8 @@ export class CardSetUseCases {
     private readonly cardService: ICardService,
     private readonly cardSetRepository: ICardSetRepository,
     private readonly layoutService: ILayoutService,
-    private readonly presetService: IPresetService
+    private readonly presetService: IPresetService,
+    private readonly loggingService: LoggingService
   ) {}
 
   /**
@@ -61,7 +62,13 @@ export class CardSetUseCases {
    * 카드셋 조회
    */
   async getCardSet(id: string): Promise<CardSet | undefined> {
-    return await this.cardSetRepository.getCardSet(id);
+    try {
+      const cardSet = await this.cardSetRepository.getCardSet(id);
+      return cardSet || undefined;
+    } catch (error) {
+      this.loggingService.error('카드셋 조회 실패:', error);
+      return undefined;
+    }
   }
 
   /**

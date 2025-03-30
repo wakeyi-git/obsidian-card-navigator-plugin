@@ -121,12 +121,45 @@ export class CardSettings {
       .setHeading();
 
     new Setting(this.containerEl)
-      .setName('푸터 표시')
+      .setName('파일명 표시')
       .addToggle(toggle => {
         toggle
           .setValue(this.plugin.getSetting('cardRenderConfig.footer.showFileName'))
           .onChange(value => {
             this.plugin.setSetting('cardRenderConfig.footer.showFileName', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(this.containerEl)
+      .setName('태그 표시')
+      .addToggle(toggle => {
+        toggle
+          .setValue(this.plugin.getSetting('cardRenderConfig.footer.showTags'))
+          .onChange(value => {
+            this.plugin.setSetting('cardRenderConfig.footer.showTags', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(this.containerEl)
+      .setName('생성일 표시')
+      .addToggle(toggle => {
+        toggle
+          .setValue(this.plugin.getSetting('cardRenderConfig.footer.showCreatedDate'))
+          .onChange(value => {
+            this.plugin.setSetting('cardRenderConfig.footer.showCreatedDate', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(this.containerEl)
+      .setName('수정일 표시')
+      .addToggle(toggle => {
+        toggle
+          .setValue(this.plugin.getSetting('cardRenderConfig.footer.showUpdatedDate'))
+          .onChange(value => {
+            this.plugin.setSetting('cardRenderConfig.footer.showUpdatedDate', value);
             this.plugin.saveSettings();
           });
       });
@@ -292,6 +325,153 @@ export class CardSettings {
           .setValue(this.plugin.getSetting('cardStyle.focusedCard.borderWidth'))
           .onChange(value => {
             this.plugin.setSetting('cardStyle.focusedCard.borderWidth', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    // 헤더 스타일
+    new Setting(this.containerEl)
+      .setName('헤더 스타일')
+      .setHeading();
+
+    new Setting(this.containerEl)
+      .setName('배경색')
+      .addText(text => {
+        text
+          .setValue(this.plugin.getSetting('cardStyle.header.background'))
+          .onChange(value => {
+            this.plugin.setSetting('cardStyle.header.background', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(this.containerEl)
+      .setName('글꼴 크기')
+      .addText(text => {
+        text
+          .setValue(this.plugin.getSetting('cardStyle.header.fontSize'))
+          .onChange(value => {
+            this.plugin.setSetting('cardStyle.header.fontSize', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(this.containerEl)
+      .setName('테두리 색상')
+      .addText(text => {
+        text
+          .setValue(this.plugin.getSetting('cardStyle.header.borderColor'))
+          .onChange(value => {
+            this.plugin.setSetting('cardStyle.header.borderColor', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(this.containerEl)
+      .setName('테두리 두께')
+      .addText(text => {
+        text
+          .setValue(this.plugin.getSetting('cardStyle.header.borderWidth'))
+          .onChange(value => {
+            this.plugin.setSetting('cardStyle.header.borderWidth', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    // 바디 스타일
+    new Setting(this.containerEl)
+      .setName('바디 스타일')
+      .setHeading();
+
+    new Setting(this.containerEl)
+      .setName('배경색')
+      .addText(text => {
+        text
+          .setValue(this.plugin.getSetting('cardStyle.body.background'))
+          .onChange(value => {
+            this.plugin.setSetting('cardStyle.body.background', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(this.containerEl)
+      .setName('글꼴 크기')
+      .addText(text => {
+        text
+          .setValue(this.plugin.getSetting('cardStyle.body.fontSize'))
+          .onChange(value => {
+            this.plugin.setSetting('cardStyle.body.fontSize', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(this.containerEl)
+      .setName('테두리 색상')
+      .addText(text => {
+        text
+          .setValue(this.plugin.getSetting('cardStyle.body.borderColor'))
+          .onChange(value => {
+            this.plugin.setSetting('cardStyle.body.borderColor', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(this.containerEl)
+      .setName('테두리 두께')
+      .addText(text => {
+        text
+          .setValue(this.plugin.getSetting('cardStyle.body.borderWidth'))
+          .onChange(value => {
+            this.plugin.setSetting('cardStyle.body.borderWidth', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    // 풋터 스타일
+    new Setting(this.containerEl)
+      .setName('풋터 스타일')
+      .setHeading();
+
+    new Setting(this.containerEl)
+      .setName('배경색')
+      .addText(text => {
+        text
+          .setValue(this.plugin.getSetting('cardStyle.footer.background'))
+          .onChange(value => {
+            this.plugin.setSetting('cardStyle.footer.background', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(this.containerEl)
+      .setName('글꼴 크기')
+      .addText(text => {
+        text
+          .setValue(this.plugin.getSetting('cardStyle.footer.fontSize'))
+          .onChange(value => {
+            this.plugin.setSetting('cardStyle.footer.fontSize', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(this.containerEl)
+      .setName('테두리 색상')
+      .addText(text => {
+        text
+          .setValue(this.plugin.getSetting('cardStyle.footer.borderColor'))
+          .onChange(value => {
+            this.plugin.setSetting('cardStyle.footer.borderColor', value);
+            this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(this.containerEl)
+      .setName('테두리 두께')
+      .addText(text => {
+        text
+          .setValue(this.plugin.getSetting('cardStyle.footer.borderWidth'))
+          .onChange(value => {
+            this.plugin.setSetting('cardStyle.footer.borderWidth', value);
             this.plugin.saveSettings();
           });
       });

@@ -320,6 +320,42 @@
   overflow: hidden;
 }
 
+.card-footer {
+  margin: 0;
+  font-size: 0.9em;
+  color: var(--text-muted);
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: 8px;
+}
+
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.card-tag {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: var(--background-modifier-hover);
+  font-size: 0.8em;
+  color: var(--text-muted);
+}
+
+.card-created-date,
+.card-updated-date {
+  font-size: 0.8em;
+  color: var(--text-muted);
+  margin: 4px 0;
+}
+
+.card-first-header {
+  font-size: 0.9em;
+  color: var(--text-normal);
+  margin: 4px 0;
+}
+
 /* 드래그 앤 드롭 */
 .card.dragging {
   opacity: 0.5;
@@ -1073,3 +1109,50 @@
     overflow: hidden;
   }
 }
+
+/* 설정 탭 스타일 */
+.card-navigator-settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card-navigator-settings-tab-buttons {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: 0.5rem;
+}
+
+.card-navigator-settings-tab-buttons button {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.card-navigator-settings-tab-buttons button:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.card-navigator-settings-tab-buttons button.active {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+.card-navigator-settings-container {
+  padding: 1rem 0;
+}
+
+.card-navigator-settings-section {
+  display: none;
+}
+
+.card-navigator-settings-section:first-child {
+  display: block;
+} 
