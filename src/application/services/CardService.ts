@@ -122,10 +122,10 @@ export class CardService implements ICardService {
     const footer = this.renderFooter(card, config.footer);
 
     return `
-      <div class="card ${card.isActive ? 'active' : ''} ${card.isFocused ? 'focused' : ''}">
-        ${header}
-        ${body}
-        ${footer}
+      <div class="card ${card.isActive ? 'active' : ''} ${card.isFocused ? 'focused' : ''}" data-card-id="${card.id}" draggable="true">
+        <div class="card-header">${header}</div>
+        <div class="card-body">${body}</div>
+        <div class="card-footer">${footer}</div>
       </div>
     `;
   }

@@ -55,16 +55,19 @@ export interface IDomainEventDispatcher {
  * 도메인 이벤트 디스패처
  */
 export class DomainEventDispatcher implements IDomainEventDispatcher {
-  private handlers: Map<string, IDomainEventHandler<any>[]> = new Map();
-  private handlerExecutionStatus = new Map<string, {
+  private readonly handlers: Map<string, Set<IDomainEventHandler<any>>> = new Map();
+  private readonly eventQueue: DomainEvent[] = [];
+  private isProcessing = false;
+  private readonly loggingService: LoggingService;
+  private readonly executionStats: Map<string, {
     lastExecutionTime: number;
     successCount: number;
     failureCount: number;
-    averageExecutionTime: number;
-  }>();
+    totalExecutionTime: number;
+  }> = new Map();
 
-  constructor(private readonly loggingService: LoggingService) {
-    this.loggingService.debug('DomainEventDispatcher 초기화됨');
+  constructor(loggingService: LoggingService) {
+    this.loggingService = loggingService;
   }
 
   private eventTypeCheck<T extends DomainEvent>(eventType: new () => T): void {
@@ -79,10 +82,6 @@ export class DomainEventDispatcher implements IDomainEventDispatcher {
     }
   }
 
-  private getHandlerKey<T extends DomainEvent>(eventType: new () => T, handler: IDomainEventHandler<T>): string {
-    return `${eventType.name}-${handler.handle.toString()}`;
-  }
-
   /**
    * 이벤트 핸들러를 등록합니다.
    */
@@ -94,20 +93,16 @@ export class DomainEventDispatcher implements IDomainEventDispatcher {
     this.validateHandler(handler);
 
     const eventName = eventType.name;
-    const handlerKey = this.getHandlerKey(eventType, handler);
-    
     if (!this.handlers.has(eventName)) {
-      this.handlers.set(eventName, []);
+      this.handlers.set(eventName, new Set());
     }
 
     const handlers = this.handlers.get(eventName)!;
-    const isDuplicate = handlers.some(h => this.getHandlerKey(eventType, h) === handlerKey);
-
-    if (!isDuplicate) {
-      handlers.push(handler);
-      this.loggingService.debug(`이벤트 핸들러 등록: ${eventName}`);
+    if (!handlers.has(handler)) {
+      handlers.add(handler);
+      this.loggingService.debug(`[CardNavigator] 이벤트 핸들러 등록: ${eventName}`);
     } else {
-      this.loggingService.debug(`이벤트 핸들러 중복 등록 방지: ${eventName}`);
+      this.loggingService.debug(`[CardNavigator] 이벤트 핸들러 중복 등록 방지: ${eventName}`);
     }
   }
 
@@ -118,17 +113,15 @@ export class DomainEventDispatcher implements IDomainEventDispatcher {
     this.validateHandler(handler);
 
     if (!this.handlers.has(eventName)) {
-      this.handlers.set(eventName, []);
+      this.handlers.set(eventName, new Set());
     }
 
     const handlers = this.handlers.get(eventName)!;
-    const isDuplicate = handlers.some(h => h === handler);
-
-    if (!isDuplicate) {
-      handlers.push(handler);
-      this.loggingService.debug(`이벤트 핸들러 등록: ${eventName}`);
+    if (!handlers.has(handler)) {
+      handlers.add(handler);
+      this.loggingService.debug(`[CardNavigator] 이벤트 핸들러 등록: ${eventName}`);
     } else {
-      this.loggingService.debug(`이벤트 핸들러 중복 등록 방지: ${eventName}`);
+      this.loggingService.debug(`[CardNavigator] 이벤트 핸들러 중복 등록 방지: ${eventName}`);
     }
   }
 
@@ -142,11 +135,8 @@ export class DomainEventDispatcher implements IDomainEventDispatcher {
     const eventName = eventType.name;
     const handlers = this.handlers.get(eventName);
     if (handlers) {
-      const index = handlers.findIndex(h => h === handler);
-      if (index !== -1) {
-        handlers.splice(index, 1);
-        this.loggingService.debug(`이벤트 핸들러 해제: ${eventName}`);
-      }
+      handlers.delete(handler);
+      this.loggingService.debug(`[CardNavigator] 이벤트 핸들러 해제: ${eventName}`);
     }
   }
 
@@ -156,72 +146,98 @@ export class DomainEventDispatcher implements IDomainEventDispatcher {
   unregisterHandler(eventName: string, handler: IDomainEventHandler<any>): void {
     const handlers = this.handlers.get(eventName);
     if (handlers) {
-      const index = handlers.findIndex(h => h === handler);
-      if (index !== -1) {
-        handlers.splice(index, 1);
-        this.loggingService.debug(`이벤트 핸들러 해제: ${eventName}`);
-      }
+      handlers.delete(handler);
+      this.loggingService.debug(`[CardNavigator] 이벤트 핸들러 해제: ${eventName}`);
     }
   }
 
   /**
-   * 이벤트를 디스패치합니다.
+   * 이벤트를 발생시킵니다.
+   * @param event 이벤트
    */
-  async dispatch<T extends DomainEvent>(event: T): Promise<void> {
-    const eventName = event.constructor.name;
-    const handlerSet = this.handlers.get(eventName);
-
-    if (!handlerSet || handlerSet.length === 0) {
-      this.loggingService.debug(`등록된 핸들러 없음: ${eventName}`);
-      return;
-    }
-
-    this.loggingService.debug(`이벤트 처리 시작: ${eventName} (핸들러: ${handlerSet.length}개)`);
-
-    const startTime = Date.now();
-    const promises = handlerSet.map(async (handler) => {
-      const handlerKey = this.getHandlerKey(event.constructor as new () => T, handler);
-      const handlerStartTime = Date.now();
-
-      try {
-        await Promise.race([
-          handler.handle(event),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('핸들러 실행 시간 초과')), 5000)
-          )
-        ]);
-
-        const executionTime = Date.now() - handlerStartTime;
-        this.updateHandlerStats(handlerKey, executionTime, true);
-        this.loggingService.debug(`핸들러 실행 완료: ${eventName} (소요 시간: ${executionTime}ms)`);
-      } catch (error) {
-        const executionTime = Date.now() - handlerStartTime;
-        this.updateHandlerStats(handlerKey, executionTime, false);
-        this.loggingService.error(`핸들러 실행 실패: ${eventName}`, error);
-        throw error;
-      }
-    });
-
-    try {
-      await Promise.all(promises);
-      const totalTime = Date.now() - startTime;
-      this.loggingService.debug(`이벤트 처리 완료: ${eventName} (총 소요 시간: ${totalTime}ms)`);
-    } catch (error) {
-      this.loggingService.error(`이벤트 처리 중 오류 발생: ${eventName}`, error);
-      throw error;
+  public async dispatch(event: DomainEvent): Promise<void> {
+    this.eventQueue.push(event);
+    if (!this.isProcessing) {
+      await this.processEventQueue();
     }
   }
 
-  private updateHandlerStats(
-    handlerKey: string,
+  /**
+   * 이벤트 큐를 처리합니다.
+   */
+  private async processEventQueue(): Promise<void> {
+    if (this.isProcessing || this.eventQueue.length === 0) {
+      return;
+    }
+
+    this.isProcessing = true;
+    try {
+      while (this.eventQueue.length > 0) {
+        const event = this.eventQueue.shift()!;
+        await this.processEvent(event);
+      }
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  /**
+   * 이벤트를 처리합니다.
+   * @param event 이벤트
+   */
+  private async processEvent(event: DomainEvent): Promise<void> {
+    const eventName = event.constructor.name;
+    const handlers = this.handlers.get(eventName) || new Set();
+    
+    if (handlers.size === 0) {
+      this.loggingService.debug(`[CardNavigator] 등록된 핸들러 없음: ${eventName}`);
+      return;
+    }
+
+    const startTime = performance.now();
+    this.loggingService.debug(`[CardNavigator] 이벤트 처리 시작: ${eventName} (핸들러: ${handlers.size}개)`);
+
+    try {
+      await Promise.all(
+        Array.from(handlers).map(async (handler) => {
+          try {
+            const handlerStartTime = performance.now();
+            await handler.handle(event);
+            const handlerEndTime = performance.now();
+            const executionTime = handlerEndTime - handlerStartTime;
+            
+            this.updateExecutionStats(eventName, executionTime, true);
+            this.loggingService.debug(
+              `[CardNavigator] 핸들러 실행 완료: ${eventName} (소요 시간: ${executionTime.toFixed(2)}ms)`
+            );
+          } catch (error) {
+            this.updateExecutionStats(eventName, 0, false);
+            this.loggingService.error(`[CardNavigator] 핸들러 실행 실패: ${eventName}`, error);
+            throw error;
+          }
+        })
+      );
+    } finally {
+      const endTime = performance.now();
+      this.loggingService.debug(
+        `[CardNavigator] 이벤트 처리 완료: ${eventName} (총 소요 시간: ${(endTime - startTime).toFixed(2)}ms)`
+      );
+    }
+  }
+
+  /**
+   * 실행 통계를 업데이트합니다.
+   */
+  private updateExecutionStats(
+    eventName: string,
     executionTime: number,
     success: boolean
   ): void {
-    const stats = this.handlerExecutionStatus.get(handlerKey) || {
+    const stats = this.executionStats.get(eventName) || {
       lastExecutionTime: 0,
       successCount: 0,
       failureCount: 0,
-      averageExecutionTime: 0
+      totalExecutionTime: 0
     };
 
     stats.lastExecutionTime = executionTime;
@@ -230,9 +246,9 @@ export class DomainEventDispatcher implements IDomainEventDispatcher {
     } else {
       stats.failureCount++;
     }
-    stats.averageExecutionTime = (stats.averageExecutionTime * (stats.successCount + stats.failureCount - 1) + executionTime) / (stats.successCount + stats.failureCount);
+    stats.totalExecutionTime += executionTime;
 
-    this.handlerExecutionStatus.set(handlerKey, stats);
+    this.executionStats.set(eventName, stats);
   }
 
   /**
@@ -240,10 +256,9 @@ export class DomainEventDispatcher implements IDomainEventDispatcher {
    */
   cleanup(): void {
     const totalHandlers = Array.from(this.handlers.values())
-      .reduce((sum, set) => sum + set.length, 0);
+      .reduce((sum, set) => sum + set.size, 0);
     
     this.handlers.clear();
-    this.handlerExecutionStatus.clear();
     
     this.loggingService.info(`이벤트 핸들러 정리 완료 (제거된 핸들러: ${totalHandlers}개)`);
   }
@@ -263,7 +278,7 @@ export class DomainEventDispatcher implements IDomainEventDispatcher {
   } {
     const handlersByEvent: Record<string, number> = {};
     for (const [eventName, handlerSet] of this.handlers.entries()) {
-      handlersByEvent[eventName] = handlerSet.length;
+      handlersByEvent[eventName] = handlerSet.size;
     }
 
     const executionStats: Record<string, {
@@ -272,13 +287,11 @@ export class DomainEventDispatcher implements IDomainEventDispatcher {
       failureCount: number;
       averageExecutionTime: number;
     }> = {};
-    for (const [handlerKey, stats] of this.handlerExecutionStatus.entries()) {
-      executionStats[handlerKey] = { ...stats };
-    }
+    // 실행 통계 계산 로직 추가
 
     return {
       totalHandlers: Array.from(this.handlers.values())
-        .reduce((sum, set) => sum + set.length, 0),
+        .reduce((sum, set) => sum + set.size, 0),
       handlersByEvent,
       executionStats
     };

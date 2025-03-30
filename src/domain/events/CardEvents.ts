@@ -1,5 +1,6 @@
 import { DomainEvent } from './DomainEvent';
 import { Card } from '@/domain/models/Card';
+import { ICardRenderConfig } from '../models/Card';
 
 /**
  * 카드 이벤트 타입
@@ -36,7 +37,10 @@ export const CardEventType = {
  * 카드 생성 이벤트
  */
 export class CardCreatedEvent extends DomainEvent {
-    constructor(public readonly card: Card) {
+    constructor(
+        public readonly card: Card,
+        public readonly renderConfig?: ICardRenderConfig
+    ) {
         super(CardEventType.CARD_CREATED);
     }
 }
@@ -45,7 +49,10 @@ export class CardCreatedEvent extends DomainEvent {
  * 카드 수정 이벤트
  */
 export class CardUpdatedEvent extends DomainEvent {
-    constructor(public readonly card: Card) {
+    constructor(
+        public readonly card: Card,
+        public readonly renderConfig?: ICardRenderConfig
+    ) {
         super(CardEventType.CARD_UPDATED);
     }
 }

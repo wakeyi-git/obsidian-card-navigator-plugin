@@ -104,7 +104,6 @@ export class CardRenderer {
     const cachedHtml = this.renderCache.get(card.id);
     if (cachedHtml) {
       const element = document.createElement('div');
-      element.className = 'card';
       element.dataset.cardId = card.id;
       element.innerHTML = cachedHtml;
       if (style) {
@@ -119,7 +118,6 @@ export class CardRenderer {
 
     // 임시 렌더링 결과 반환
     const element = document.createElement('div');
-    element.className = 'card';
     element.dataset.cardId = card.id;
     element.innerHTML = this.renderPlaceholder(card);
     if (style) {
@@ -175,7 +173,6 @@ export class CardRenderer {
     try {
       // 카드 컨테이너 생성
       const cardElement = document.createElement('div');
-      cardElement.className = 'card';
       cardElement.dataset.cardId = card.id;
       
       // 기본 스타일 적용

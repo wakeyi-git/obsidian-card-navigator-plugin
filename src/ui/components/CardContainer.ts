@@ -15,6 +15,7 @@ import { App, TFile } from 'obsidian';
 import { ICardService } from '@/domain/services/ICardService';
 import { LoggingService } from '@/infrastructure/services/LoggingService';
 import { CardRenderedEvent } from '@/domain/events/CardEvents';
+import { ICardRenderConfig, ICardStyle } from '@/domain/models/Card';
 
 /**
  * 카드 컨테이너 의존성 인터페이스
@@ -73,6 +74,14 @@ export class CardContainer {
   private _focusedCardId: string | null = null;
   private _element: HTMLElement;
   private _isKeyboardNavigationEnabled: boolean = true;
+  private _cardSetId: string = '';
+  private _callbacks: ICardContainerHandlers = {
+    onCardClick: () => {},
+    onCardContextMenu: () => {},
+    onCardDragStart: () => {},
+    onCardDragEnd: () => {},
+    onCardDrop: () => {}
+  };
 
   // 이벤트 핸들러
   private readonly _cardSetEventHandlers = {
@@ -145,8 +154,9 @@ export class CardContainer {
   /**
    * 컨테이너 초기화
    */
-  initialize(handlers: ICardContainerHandlers): void {
-    this._handlers = handlers;
+  async initialize(callbacks: ICardContainerHandlers): Promise<void> {
+    this._callbacks = callbacks;
+    this._setupEventListeners();
   }
 
   /**
@@ -273,7 +283,7 @@ export class CardContainer {
     // 상호작용 이벤트
     this.dependencies.interactionManager.onCardClick = (card) => {
       this.setFocusedCard(card);
-      this._handlers?.onCardClick(card.id);
+      this._callbacks.onCardClick(card.id);
     };
     
     this.dependencies.interactionManager.onCardDoubleClick = (card) => {
@@ -282,26 +292,26 @@ export class CardContainer {
     
     this.dependencies.interactionManager.onCardContextMenu = (card, event) => {
       if (event instanceof MouseEvent) {
-        this._handlers?.onCardContextMenu(event, card.id);
+        this._callbacks.onCardContextMenu(event, card.id);
       }
     };
 
     // 드래그 이벤트
     this.dependencies.interactionManager.onCardDragStart = (card, event) => {
       if (event instanceof DragEvent) {
-        this._handlers?.onCardDragStart(event, card.id);
+        this._callbacks.onCardDragStart(event, card.id);
       }
     };
 
     this.dependencies.interactionManager.onCardDragEnd = (card, event) => {
       if (event instanceof DragEvent) {
-        this._handlers?.onCardDragEnd(event, card.id);
+        this._callbacks.onCardDragEnd(event, card.id);
       }
     };
 
     this.dependencies.interactionManager.onCardDrop = (card, event) => {
       if (event instanceof DragEvent) {
-        this._handlers?.onCardDrop(event, card.id);
+        this._callbacks.onCardDrop(event, card.id);
       }
     };
 
@@ -541,5 +551,69 @@ export class CardContainer {
    */
   focus(): void {
     this._element.focus();
+  }
+
+  /**
+   * 카드 렌더링
+   */
+  async renderCard(card: Card, config: ICardRenderConfig): Promise<void> {
+    try {
+      // 기존 카드 요소가 있다면 제거
+      if (this._cardElements.has(card.id)) {
+        this._cardElements.get(card.id)?.remove();
+        this._cardElements.delete(card.id);
+      }
+
+      // ICardRenderConfig를 ICardStyle로 변환
+      const style: ICardStyle = {
+        card: {
+          background: '#ffffff',
+          fontSize: '14px',
+          borderColor: '#e0e0e0',
+          borderWidth: '1px'
+        },
+        header: {
+          background: '#f5f5f5',
+          fontSize: '16px',
+          borderColor: '#e0e0e0',
+          borderWidth: '1px'
+        },
+        body: {
+          background: '#ffffff',
+          fontSize: '14px',
+          borderColor: '#e0e0e0',
+          borderWidth: '1px'
+        },
+        footer: {
+          background: '#f5f5f5',
+          fontSize: '12px',
+          borderColor: '#e0e0e0',
+          borderWidth: '1px'
+        },
+        activeCard: {
+          background: '#e3f2fd',
+          fontSize: '14px',
+          borderColor: '#2196f3',
+          borderWidth: '2px'
+        },
+        focusedCard: {
+          background: '#fff3e0',
+          fontSize: '14px',
+          borderColor: '#ff9800',
+          borderWidth: '2px'
+        }
+      };
+
+      // 새 카드 요소 생성
+      const cardElement = await this.dependencies.cardRenderer.renderCard(card, style);
+      if (cardElement) {
+        this._cardElements.set(card.id, cardElement);
+        this._element.appendChild(cardElement);
+        this._setupEventListeners();
+      }
+    } catch (error) {
+      this.dependencies.loggingService.error(`[CardNavigator] 카드 렌더링 실패: ${card.id}`, error);
+      throw error;
+    }
   }
 } 

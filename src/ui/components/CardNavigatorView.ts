@@ -601,14 +601,14 @@ export class CardNavigatorView extends ItemView {
     if (!this._cardSet) return;
     this._cardSet.cardRenderConfig = config;
     await this._cardSetService.updateCardSet(this._cardSet);
-    this._renderCards();
+    await this._renderCards();
   }
 
   private async _handleLayoutConfigChange(config: ILayoutConfig): Promise<void> {
     if (!this._cardSet) return;
     this._cardSet.layoutConfig = config;
     await this._cardSetService.updateCardSet(this._cardSet);
-    this._renderCards();
+    await this._renderCards();
   }
 
   /**
@@ -714,7 +714,7 @@ export class CardNavigatorView extends ItemView {
     if (!this._cardSet) return;
     this._cardSet.layoutConfig = event.layout.config;
     await this._cardSetService.updateCardSet(this._cardSet);
-    this._renderCards();
+    await this._renderCards();
   }
 
   private async _createAndSaveDefaultLayout(): Promise<Layout> {
@@ -837,7 +837,7 @@ export class CardNavigatorView extends ItemView {
     this._cardSet.config.sortBy = event.criterion as ICardSetConfig['sortBy'];
     this._cardSet.config.sortOrder = event.order;
     this._cardSet.sortCards();
-    this._renderCards();
+    await this._renderCards();
   }
 
   private _handleCardSetUpdate(event: CardSetUpdatedEvent): void {
@@ -846,9 +846,30 @@ export class CardNavigatorView extends ItemView {
     }
   }
 
-  private _renderCards(): void {
+  private async _renderCards(): Promise<void> {
     if (!this._cardSet || !this._cardContainer) return;
-    this._cardContainer.setCardSet(this._cardSet.id);
+
+    try {
+      this._loggingService.debug('카드 렌더링 시작');
+      
+      // 카드 컨테이너에 카드셋 설정
+      this._cardContainer.setCardSet(this._cardSet.id);
+
+      // 카드 렌더링
+      for (const card of this._cardSet.cards) {
+        try {
+          await this._cardContainer.renderCard(card, this._cardSet.cardRenderConfig);
+          this._loggingService.debug(`카드 렌더링 완료: ${card.id}`);
+        } catch (error) {
+          this._loggingService.error(`카드 렌더링 실패: ${card.id}`, error);
+        }
+      }
+
+      this._loggingService.debug('카드 렌더링 완료');
+    } catch (error) {
+      this._loggingService.error('카드 렌더링 실패:', error);
+      throw error;
+    }
   }
 
   private _createToolbar(): void {

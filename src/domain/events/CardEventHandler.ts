@@ -1,26 +1,30 @@
-import { ICardService } from '@/domain/services/ICardService';
 import { IDomainEventHandler } from './IDomainEventHandler';
-import {
-  CardEvent,
-  CardCreatedEvent,
-  CardUpdatedEvent,
-  CardDeletedEvent,
-  CardStyleChangedEvent,
-  CardPositionChangedEvent
-} from './CardEvents';
+import { ICardService } from '../services/ICardService';
+import { CardCreatedEvent, CardUpdatedEvent, CardDeletedEvent } from './CardEvents';
+import { LoggingService } from '@/infrastructure/services/LoggingService';
+import { ICardRenderConfig } from '@/domain/models/Card';
 
 /**
  * 카드 이벤트 핸들러
  */
-export class CardEventHandler implements IDomainEventHandler<CardEvent> {
-  constructor(private readonly cardService: ICardService) {}
+export class CardEventHandler implements IDomainEventHandler<CardCreatedEvent | CardUpdatedEvent | CardDeletedEvent> {
+  private readonly defaultRenderConfig: ICardRenderConfig;
+
+  constructor(
+    private readonly cardService: ICardService,
+    private readonly loggingService: LoggingService
+  ) {
+    this.defaultRenderConfig = this.cardService.getDefaultRenderConfig();
+  }
 
   /**
    * 이벤트를 처리합니다.
+   * @param event 이벤트
    */
-  async handle(event: CardEvent): Promise<void> {
-    console.debug(`[CardNavigator] 이벤트 처리 시작: ${event.constructor.name}`);
-    
+  async handle(event: CardCreatedEvent | CardUpdatedEvent | CardDeletedEvent): Promise<void> {
+    const startTime = performance.now();
+    this.loggingService.debug(`[CardNavigator] 카드 이벤트 처리 시작: ${event.constructor.name}`);
+
     try {
       switch (event.constructor.name) {
         case 'CardCreatedEvent':
@@ -32,96 +36,68 @@ export class CardEventHandler implements IDomainEventHandler<CardEvent> {
         case 'CardDeletedEvent':
           await this.handleCardDeleted(event as CardDeletedEvent);
           break;
-        case 'CardStyleChangedEvent':
-          await this.handleCardStyleChanged(event as CardStyleChangedEvent);
-          break;
-        case 'CardPositionChangedEvent':
-          await this.handleCardPositionChanged(event as CardPositionChangedEvent);
-          break;
         default:
-          console.warn(`[CardNavigator] 알 수 없는 이벤트 타입: ${event.constructor.name}`);
+          this.loggingService.warn(`[CardNavigator] 처리하지 않는 이벤트 타입: ${event.constructor.name}`);
       }
     } catch (error) {
-      console.error(`[CardNavigator] 이벤트 처리 중 오류 발생: ${event.constructor.name}`, error);
+      this.loggingService.error(`[CardNavigator] 카드 이벤트 처리 실패: ${event.constructor.name}`, error);
       throw error;
+    } finally {
+      const endTime = performance.now();
+      this.loggingService.debug(
+        `[CardNavigator] 카드 이벤트 처리 완료: ${event.constructor.name} (소요 시간: ${(endTime - startTime).toFixed(2)}ms)`
+      );
     }
   }
 
   /**
-   * 카드 생성 이벤트 처리
+   * 카드 생성 이벤트를 처리합니다.
+   * @param event 카드 생성 이벤트
    */
   private async handleCardCreated(event: CardCreatedEvent): Promise<void> {
+    const { card } = event;
     try {
-      console.debug('카드 생성 이벤트 처리 시작:', { cardId: event.card.id });
-
-      const card = await this.cardService.getCardById(event.card.id);
-      if (!card) {
-        console.warn('카드를 찾을 수 없음:', { cardId: event.card.id });
-        return;
-      }
-
-      // 카드 생성 이벤트 발생
-      await this.cardService.updateCard(card);
-
-      console.debug('카드 생성 이벤트 처리 완료:', { cardId: event.card.id });
+      // 이벤트에 렌더링 설정이 포함되어 있으면 사용하고, 없으면 기본 설정 사용
+      const renderConfig = event.renderConfig || this.defaultRenderConfig;
+      await this.cardService.renderCard(card, renderConfig);
+      this.loggingService.debug(`[CardNavigator] 카드 렌더링 완료: ${card.id}`);
     } catch (error) {
-      console.error('카드 생성 이벤트 처리 실패:', error);
+      this.loggingService.error(`[CardNavigator] 카드 렌더링 실패: ${card.id}`, error);
       throw error;
     }
   }
 
   /**
-   * 카드 업데이트 이벤트 처리
+   * 카드 업데이트 이벤트를 처리합니다.
+   * @param event 카드 업데이트 이벤트
    */
   private async handleCardUpdated(event: CardUpdatedEvent): Promise<void> {
+    const { card } = event;
     try {
-      console.debug('카드 업데이트 이벤트 처리 시작:', { cardId: event.card.id });
-
-      const card = await this.cardService.getCardById(event.card.id);
-      if (!card) {
-        console.warn('카드를 찾을 수 없음:', { cardId: event.card.id });
-        return;
+      // 이벤트에 렌더링 설정이 포함되어 있으면 카드의 렌더링 설정 업데이트
+      if (event.renderConfig) {
+        card.updateRenderConfig(event.renderConfig);
       }
-
-      // 카드 업데이트 이벤트 발생
       await this.cardService.updateCard(card);
-
-      console.debug('카드 업데이트 이벤트 처리 완료:', { cardId: event.card.id });
+      this.loggingService.debug(`[CardNavigator] 카드 업데이트 완료: ${card.id}`);
     } catch (error) {
-      console.error('카드 업데이트 이벤트 처리 실패:', error);
+      this.loggingService.error(`[CardNavigator] 카드 업데이트 실패: ${card.id}`, error);
       throw error;
     }
   }
 
   /**
-   * 카드 삭제 이벤트 처리
+   * 카드 삭제 이벤트를 처리합니다.
+   * @param event 카드 삭제 이벤트
    */
   private async handleCardDeleted(event: CardDeletedEvent): Promise<void> {
-    const cardId = event.cardId;
-    await this.cardService.deleteCard(cardId);
-  }
-
-  /**
-   * 카드 스타일 변경 이벤트 처리
-   */
-  private async handleCardStyleChanged(event: CardStyleChangedEvent): Promise<void> {
-    const card = await this.cardService.getCardById(event.cardId);
-    if (!card) {
-      throw new Error(`Card not found: ${event.cardId}`);
+    const { cardId } = event;
+    try {
+      await this.cardService.deleteCard(cardId);
+      this.loggingService.debug(`[CardNavigator] 카드 삭제 완료: ${cardId}`);
+    } catch (error) {
+      this.loggingService.error(`[CardNavigator] 카드 삭제 실패: ${cardId}`, error);
+      throw error;
     }
-
-    // 카드 스타일 변경 후 처리 로직
-  }
-
-  /**
-   * 카드 위치 변경 이벤트 처리
-   */
-  private async handleCardPositionChanged(event: CardPositionChangedEvent): Promise<void> {
-    const card = await this.cardService.getCardById(event.cardId);
-    if (!card) {
-      throw new Error(`Card not found: ${event.cardId}`);
-    }
-
-    // 카드 위치 변경 후 처리 로직
   }
 } 
