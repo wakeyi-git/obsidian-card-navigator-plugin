@@ -1,6 +1,6 @@
 import { DomainEvent } from './DomainEvent';
-import { ICardRenderConfig } from '../models/Card';
-import { ILayoutConfig } from '../models/Layout';
+import { ICardRenderConfig } from '@/domain/models/Card';
+import { ILayoutConfig } from '@/domain/models/Layout';
 
 /**
  * 툴바 이벤트 타입

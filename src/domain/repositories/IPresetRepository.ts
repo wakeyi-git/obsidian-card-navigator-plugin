@@ -1,4 +1,4 @@
-import { IPreset, IPresetConfig } from '../models/Preset';
+import { IPreset, IPresetConfig } from '@/domain/models/Preset';
 
 /**
  * 프리셋 저장소 인터페이스

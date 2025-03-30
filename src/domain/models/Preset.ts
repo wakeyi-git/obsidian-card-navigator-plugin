@@ -1,7 +1,6 @@
-import { CardSet, CardSetType, ICardSetConfig } from './CardSet';
-import { Layout, LayoutType, LayoutDirection, ILayoutConfig } from './Layout';
+import { ICardSetConfig } from './CardSet';
+import { LayoutType, LayoutDirection, ILayoutConfig } from './Layout';
 import { ICardRenderConfig } from './Card';
-import { ILinkConfig } from './CardSet';
 
 /**
  * 프리셋 타입
@@ -12,7 +11,11 @@ export enum PresetType {
   /** 폴더별 프리셋 */
   FOLDER = 'FOLDER',
   /** 태그별 프리셋 */
-  TAG = 'TAG'
+  TAG = 'TAG',
+  /** 날짜별 프리셋 */
+  DATE = 'DATE',
+  /** 속성별 프리셋 */
+  PROPERTY = 'PROPERTY'
 }
 
 /**
@@ -24,15 +27,22 @@ export type PresetMappingType = 'folder' | 'tag' | 'date' | 'property';
  * 프리셋 매핑 인터페이스
  */
 export interface IPresetMapping {
+  /** 매핑 ID */
   id: string;
-  type: PresetMappingType;
+  /** 매핑 타입 */
+  type: PresetType;
+  /** 매핑 값 */
   value: string;
-  priority: number;
+  /** 매핑 우선순위 */
+  priority?: number;
+  /** 하위 폴더 포함 여부 */
   includeSubfolders?: boolean;
+  /** 날짜 범위 */
   dateRange?: {
     start: Date;
     end: Date;
   };
+  /** 속성 */
   property?: {
     name: string;
     value: string;
@@ -134,6 +144,72 @@ export class Preset implements IPreset {
   ) {}
 
   /**
+   * 매핑 추가
+   */
+  addMapping(mapping: IPresetMapping): void {
+    this.mappings.push(mapping);
+  }
+
+  /**
+   * 매핑 업데이트
+   */
+  updateMapping(mappingId: string, mapping: Partial<IPresetMapping>): void {
+    const index = this.mappings.findIndex(m => m.id === mappingId);
+    if (index !== -1) {
+      this.mappings[index] = { ...this.mappings[index], ...mapping };
+    }
+  }
+
+  /**
+   * 매핑 삭제
+   */
+  removeMapping(mappingId: string): void {
+    this.mappings = this.mappings.filter(m => m.id !== mappingId);
+  }
+
+  /**
+   * 매핑 우선순위 업데이트
+   */
+  updateMappingPriority(priority: string[]): void {
+    const sortedMappings: IPresetMapping[] = [];
+    priority.forEach(id => {
+      const mapping = this.mappings.find(m => m.id === id);
+      if (mapping) {
+        sortedMappings.push(mapping);
+      }
+    });
+    this.mappings = sortedMappings;
+  }
+
+  /**
+   * 매핑 존재 여부 확인
+   */
+  hasMapping(type: PresetType, value: string): boolean {
+    return this.mappings.some(m => m.type === type && m.value === value);
+  }
+
+  /**
+   * 매핑 목록 가져오기
+   */
+  getMappingsByType(type: PresetType): IPresetMapping[] {
+    return this.mappings.filter(m => m.type === type);
+  }
+
+  /**
+   * 매핑 목록 가져오기
+   */
+  getMappingsByValue(value: string): IPresetMapping[] {
+    return this.mappings.filter(m => m.value === value);
+  }
+
+  /**
+   * 매핑 가져오기
+   */
+  getMapping(mappingId: string): IPresetMapping | undefined {
+    return this.mappings.find(m => m.id === mappingId);
+  }
+
+  /**
    * 프리셋 복제
    */
   clone(): Preset {
@@ -149,99 +225,45 @@ export class Preset implements IPreset {
   }
 
   /**
-   * 프리셋 매핑 추가
+   * 프리셋 유효성 검사
    */
-  addMapping(mapping: IPresetMapping): void {
-    this.mappings.push(mapping);
-  }
-
-  /**
-   * 프리셋 매핑 제거
-   */
-  removeMapping(mappingId: string): void {
-    this.mappings = this.mappings.filter(m => m.id !== mappingId);
-  }
-
-  /**
-   * 프리셋 매핑 업데이트
-   */
-  updateMapping(mappingId: string, mapping: IPresetMapping): void {
-    const index = this.mappings.findIndex(m => m.id === mappingId);
-    if (index !== -1) {
-      this.mappings[index] = mapping;
+  validate(): boolean {
+    if (!this.name) {
+      return false;
     }
+
+    if (!this.cardSetConfig) {
+      return false;
+    }
+
+    if (!this.layoutConfig) {
+      return false;
+    }
+
+    if (!this.cardRenderConfig) {
+      return false;
+    }
+
+    return true;
   }
 
   /**
-   * 프리셋 매핑 찾기
+   * 프리셋 데이터 직렬화
    */
-  findMapping(mappingId: string): IPresetMapping | undefined {
-    return this.mappings.find(m => m.id === mappingId);
-  }
-
-  /**
-   * 프리셋 매핑 정렬
-   */
-  sortMappings(priority: string[]): void {
-    this.mappings.sort((a, b) => {
-      const aIndex = priority.indexOf(a.id);
-      const bIndex = priority.indexOf(b.id);
-      if (aIndex === -1) return 1;
-      if (bIndex === -1) return -1;
-      return aIndex - bIndex;
+  toJSON(): string {
+    return JSON.stringify({
+      id: this.id,
+      name: this.name,
+      description: this.description,
+      cardSetConfig: this.cardSetConfig,
+      layoutConfig: this.layoutConfig,
+      cardRenderConfig: this.cardRenderConfig,
+      mappings: this.mappings
     });
   }
 
   /**
-   * 매핑 우선순위 업데이트
-   */
-  updateMappingPriority(priority: string[]): void {
-    this.mappings.sort((a, b) => {
-      const aIndex = priority.indexOf(a.id);
-      const bIndex = priority.indexOf(b.id);
-      if (aIndex === -1) return 1;
-      if (bIndex === -1) return -1;
-      return aIndex - bIndex;
-    });
-  }
-
-  /**
-   * 매핑 우선순위 정렬
-   */
-  sortMappingsByPriority(): void {
-    this.mappings.sort((a, b) => b.priority - a.priority);
-  }
-
-  /**
-   * 매핑 조회
-   */
-  getMapping(mappingId: string): IPresetMapping | undefined {
-    return this.mappings.find(m => m.id === mappingId);
-  }
-
-  /**
-   * 타입별 매핑 조회
-   */
-  getMappingsByType(type: string): IPresetMapping[] {
-    return this.mappings.filter(m => m.type === type);
-  }
-
-  /**
-   * 값별 매핑 조회
-   */
-  getMappingsByValue(value: string): IPresetMapping[] {
-    return this.mappings.filter(m => m.value === value);
-  }
-
-  /**
-   * 매핑 존재 여부 확인
-   */
-  hasMapping(type: string, value: string): boolean {
-    return this.mappings.some(m => m.type === type && m.value === value);
-  }
-
-  /**
-   * 프리셋 가져오기
+   * 프리셋 데이터 역직렬화
    */
   static fromJSON(json: string): Preset {
     const data = JSON.parse(json);
@@ -254,21 +276,6 @@ export class Preset implements IPreset {
       data.cardRenderConfig,
       data.mappings
     );
-  }
-
-  /**
-   * 프리셋 내보내기
-   */
-  toJSON(): string {
-    return JSON.stringify({
-      id: this.id,
-      name: this.name,
-      description: this.description,
-      cardSetConfig: this.cardSetConfig,
-      layoutConfig: this.layoutConfig,
-      cardRenderConfig: this.cardRenderConfig,
-      mappings: this.mappings
-    });
   }
 
   /**
@@ -299,18 +306,9 @@ export class Preset implements IPreset {
 export class PresetMapping implements IPresetMapping {
   constructor(
     public readonly id: string,
-    public readonly type: PresetMappingType,
+    public readonly type: PresetType,
     public readonly value: string,
-    public readonly priority: number,
-    public readonly includeSubfolders?: boolean,
-    public readonly dateRange?: {
-      start: Date;
-      end: Date;
-    },
-    public readonly property?: {
-      name: string;
-      value: string;
-    }
+    public readonly priority: number
   ) {}
 
   clone(): PresetMapping {
@@ -318,13 +316,7 @@ export class PresetMapping implements IPresetMapping {
       crypto.randomUUID(),
       this.type,
       this.value,
-      this.priority,
-      this.includeSubfolders,
-      this.dateRange ? {
-        start: new Date(this.dateRange.start),
-        end: new Date(this.dateRange.end)
-      } : undefined,
-      this.property ? { ...this.property } : undefined
+      this.priority
     );
   }
 } 

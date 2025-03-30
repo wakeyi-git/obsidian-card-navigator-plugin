@@ -1,5 +1,3 @@
-import { TFile } from 'obsidian';
-
 /**
  * 카드 컨텐츠 타입
  */
@@ -39,18 +37,49 @@ export type CardStyle = {
 };
 
 /**
- * 카드 위치 타입
+ * 카드 위치 인터페이스
  */
-export type CardPosition = {
-  /** 왼쪽 위치 */
-  left: number;
-  /** 위쪽 위치 */
-  top: number;
-  /** 너비 */
-  width: number;
-  /** 높이 */
-  height: number;
-};
+export interface CardPosition {
+    /**
+     * 카드 ID
+     */
+    cardId: string;
+
+    /**
+     * 왼쪽 위치
+     */
+    left: number;
+
+    /**
+     * 상단 위치
+     */
+    top: number;
+
+    /**
+     * 너비
+     */
+    width: number;
+
+    /**
+     * 높이
+     */
+    height: number;
+
+    /**
+     * X 좌표 (그리드 레이아웃용)
+     */
+    x?: number;
+
+    /**
+     * Y 좌표 (그리드 레이아웃용)
+     */
+    y?: number;
+
+    /**
+     * Z-index
+     */
+    zIndex?: number;
+}
 
 /**
  * 카드 렌더링 옵션
@@ -188,16 +217,6 @@ export interface ICardStyle {
 }
 
 /**
- * 카드 위치
- */
-export interface ICardPosition {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-/**
  * 카드 인터페이스
  */
 export interface ICard {
@@ -265,6 +284,11 @@ export interface ICard {
    * 스타일
    */
   style: ICardStyle;
+
+  /**
+   * 카드 위치
+   */
+  position?: CardPosition;
 }
 
 /**
@@ -282,7 +306,7 @@ export class Card implements ICard {
   private _frontmatter: Record<string, any>;
   private _isActive: boolean;
   private _isFocused: boolean;
-  private _position?: ICardPosition;
+  private _position?: CardPosition;
   private _renderConfig: ICardRenderConfig;
   private _style: ICardStyle;
 
@@ -394,7 +418,7 @@ export class Card implements ICard {
   /**
    * 위치 반환
    */
-  get position(): ICardPosition | undefined {
+  get position(): CardPosition | undefined {
     return this._position;
   }
 
@@ -415,7 +439,7 @@ export class Card implements ICard {
   /**
    * 위치 설정
    */
-  set position(position: ICardPosition | undefined) {
+  set position(position: CardPosition | undefined) {
     this._position = position;
   }
 
@@ -454,10 +478,10 @@ export class Card implements ICard {
   }
 
   /**
-   * 카드 복사본 생성
+   * 카드 복제
    */
   clone(): Card {
-    return new Card(
+    const clonedCard = new Card(
       this._id,
       this._filePath,
       this._fileName,
@@ -467,9 +491,30 @@ export class Card implements ICard {
       this._createdAt,
       this._updatedAt,
       { ...this._frontmatter },
-      { ...this._renderConfig },
-      { ...this._style }
+      {
+        header: { ...this._renderConfig.header },
+        body: { ...this._renderConfig.body },
+        footer: { ...this._renderConfig.footer },
+        renderAsHtml: this._renderConfig.renderAsHtml
+      },
+      {
+        card: { ...this._style.card },
+        activeCard: { ...this._style.activeCard },
+        focusedCard: { ...this._style.focusedCard },
+        header: { ...this._style.header },
+        body: { ...this._style.body },
+        footer: { ...this._style.footer }
+      }
     );
+
+    if (this._position) {
+      clonedCard.position = { ...this._position };
+    }
+
+    clonedCard.setActive(this._isActive);
+    clonedCard.setFocused(this._isFocused);
+
+    return clonedCard;
   }
 
   /**

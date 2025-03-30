@@ -22,7 +22,18 @@ export interface IDomainEvent {
  * 도메인 이벤트 기본 클래스
  */
 export abstract class DomainEvent {
-  constructor(public readonly type: string) {}
+  /**
+   * 이벤트 발생 시간
+   */
+  public readonly timestamp: number;
+
+  /**
+   * 생성자
+   * @param type 이벤트 타입
+   */
+  constructor(public readonly type: string) {
+    this.timestamp = Date.now();
+  }
 }
 
 /**

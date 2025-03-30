@@ -1,4 +1,4 @@
-import { App, SuggestModal, TFile } from 'obsidian';
+import { App, SuggestModal } from 'obsidian';
 
 /**
  * 태그 제안 모달

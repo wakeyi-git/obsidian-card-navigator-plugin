@@ -1,137 +1,214 @@
 import { Card } from '@/domain/models/Card';
+import { ILayoutConfig } from '@/domain/models/Layout';
+
+/**
+ * 스크롤러 설정 인터페이스
+ */
+interface IScrollerConfig {
+  containerHeight: number;
+  cardHeight: number;
+  cardGap: number;
+  overscan: number;
+}
 
 /**
  * 스크롤러 클래스
  * 카드 스크롤 및 포커스 관련 기능을 관리하는 클래스
  */
 export class Scroller {
-  private _container: HTMLElement | null = null;
-  private _isScrolling = false;
-  private _scrollBehavior: ScrollBehavior = 'smooth';
-  private _scrollToCenter = true;
+  private container: HTMLElement | null = null;
+  private config: IScrollerConfig;
+  private cards: Card[] = [];
+  private visibleRange: { start: number; end: number } = { start: 0, end: 0 };
+  private scrollTop: number = 0;
+  private isScrolling: boolean = false;
+  private scrollTimeout: number | null = null;
+  private cardCache: Map<string, HTMLElement> = new Map();
+  private layoutConfig: ILayoutConfig | null = null;
 
-  /**
-   * 컨테이너 설정
-   */
-  setContainer(container: HTMLElement): void {
-    this._container = container;
-  }
-
-  /**
-   * 스크롤 동작 설정
-   */
-  setScrollBehavior(behavior: ScrollBehavior): void {
-    this._scrollBehavior = behavior;
-  }
-
-  /**
-   * 중앙 정렬 설정
-   */
-  setScrollToCenter(scrollToCenter: boolean): void {
-    this._scrollToCenter = scrollToCenter;
-  }
-
-  /**
-   * 카드로 스크롤
-   */
-  scrollToCard(cardId: string): void {
-    if (!this._container || this._isScrolling) return;
-
-    const cardElement = this._container.querySelector(`[data-card-id="${cardId}"]`);
-    if (!cardElement) return;
-
-    this._isScrolling = true;
-
-    const containerRect = this._container.getBoundingClientRect();
-    const cardRect = cardElement.getBoundingClientRect();
-
-    let scrollLeft = 0;
-    let scrollTop = 0;
-
-    if (this._scrollToCenter) {
-      // 카드를 뷰포트 중앙에 위치
-      scrollLeft = cardRect.left - containerRect.left - (containerRect.width - cardRect.width) / 2;
-      scrollTop = cardRect.top - containerRect.top - (containerRect.height - cardRect.height) / 2;
-    } else {
-      // 카드가 뷰포트에 보이도록 스크롤
-      if (cardRect.left < containerRect.left) {
-        scrollLeft = cardRect.left - containerRect.left;
-      } else if (cardRect.right > containerRect.right) {
-        scrollLeft = cardRect.right - containerRect.right;
-      }
-
-      if (cardRect.top < containerRect.top) {
-        scrollTop = cardRect.top - containerRect.top;
-      } else if (cardRect.bottom > containerRect.bottom) {
-        scrollTop = cardRect.bottom - containerRect.bottom;
-      }
-    }
-
-    this._container.scrollTo({
-      left: this._container.scrollLeft + scrollLeft,
-      top: this._container.scrollTop + scrollTop,
-      behavior: this._scrollBehavior
-    });
-
-    // 스크롤 완료 후 상태 초기화
-    setTimeout(() => {
-      this._isScrolling = false;
-    }, 300);
-  }
-
-  /**
-   * 스크롤 위치 초기화
-   */
-  resetScroll(): void {
-    if (!this._container) return;
-
-    this._container.scrollTo({
-      left: 0,
-      top: 0,
-      behavior: this._scrollBehavior
-    });
-  }
-
-  /**
-   * 스크롤 위치 저장
-   */
-  saveScrollPosition(): { x: number; y: number } | null {
-    if (!this._container) return null;
-
-    return {
-      x: this._container.scrollLeft,
-      y: this._container.scrollTop
+  constructor() {
+    this.config = {
+      containerHeight: 0,
+      cardHeight: 0,
+      cardGap: 0,
+      overscan: 5 // 화면에 보이지 않는 카드의 수
     };
   }
 
   /**
-   * 스크롤 위치 복원
+   * 스크롤러 초기화
    */
-  restoreScrollPosition(position: { x: number; y: number }): void {
-    if (!this._container || this._isScrolling) return;
+  public initialize(container: HTMLElement, layoutConfig: ILayoutConfig): void {
+    this.container = container;
+    this.layoutConfig = layoutConfig;
+    this.updateConfig();
+    this.setupScrollListener();
+  }
 
-    this._isScrolling = true;
+  /**
+   * 설정 업데이트
+   */
+  private updateConfig(): void {
+    if (!this.layoutConfig) return;
 
-    this._container.scrollTo({
-      left: position.x,
-      top: position.y,
-      behavior: this._scrollBehavior
+    this.config = {
+      containerHeight: this.container?.clientHeight || 0,
+      cardHeight: this.layoutConfig.cardHeight,
+      cardGap: this.layoutConfig.gap,
+      overscan: 5
+    };
+  }
+
+  /**
+   * 스크롤 리스너 설정
+   */
+  private setupScrollListener(): void {
+    if (!this.container) return;
+
+    this.container.addEventListener('scroll', () => {
+      if (this.scrollTimeout) {
+        window.clearTimeout(this.scrollTimeout);
+      }
+
+      this.scrollTimeout = window.setTimeout(() => {
+        this.handleScroll();
+      }, 16); // 약 60fps
     });
-
-    setTimeout(() => {
-      this._isScrolling = false;
-    }, 300);
   }
 
   /**
    * 스크롤 이벤트 처리
    */
-  handleScroll(): void {
-    if (this._isScrolling) return;
+  private handleScroll(): void {
+    if (!this.container) return;
 
-    this._isScrolling = true;
-    requestAnimationFrame(() => {
-      this._isScrolling = false;
+    this.scrollTop = this.container.scrollTop;
+    this.updateVisibleRange();
+    this.renderVisibleCards();
+  }
+
+  /**
+   * 보이는 범위 업데이트
+   */
+  private updateVisibleRange(): void {
+    const { containerHeight, cardHeight, cardGap, overscan } = this.config;
+    const totalItemHeight = cardHeight + cardGap;
+
+    // 현재 보이는 카드의 시작과 끝 인덱스 계산
+    const startIndex = Math.max(0, Math.floor(this.scrollTop / totalItemHeight) - overscan);
+    const visibleCount = Math.ceil(containerHeight / totalItemHeight) + overscan * 2;
+    const endIndex = Math.min(this.cards.length - 1, startIndex + visibleCount);
+
+    this.visibleRange = { start: startIndex, end: endIndex };
+  }
+
+  /**
+   * 보이는 카드 렌더링
+   */
+  private renderVisibleCards(): void {
+    if (!this.container) return;
+
+    const { start, end } = this.visibleRange;
+    const fragment = document.createDocumentFragment();
+
+    // 보이지 않는 카드 제거
+    this.cardCache.forEach((element, id) => {
+      const card = this.cards.find(c => c.id === id);
+      if (!card || this.isCardVisible(card)) {
+        return;
+      }
+      element.remove();
+      this.cardCache.delete(id);
     });
+
+    // 보이는 카드 렌더링
+    for (let i = start; i <= end; i++) {
+      const card = this.cards[i];
+      if (!card) continue;
+
+      let element = this.cardCache.get(card.id);
+      if (!element) {
+        element = this.createCardElement(card);
+        this.cardCache.set(card.id, element);
+      }
+
+      // 카드 위치 업데이트
+      this.updateCardPosition(element, i);
+      fragment.appendChild(element);
+    }
+
+    this.container.appendChild(fragment);
+  }
+
+  /**
+   * 카드 요소 생성
+   */
+  private createCardElement(card: Card): HTMLElement {
+    const element = document.createElement('div');
+    element.className = 'card-navigator-card';
+    element.dataset.cardId = card.id;
+    // 카드 내용 렌더링 로직 추가
+    return element;
+  }
+
+  /**
+   * 카드 위치 업데이트
+   */
+  private updateCardPosition(element: HTMLElement, index: number): void {
+    const { cardHeight, cardGap } = this.config;
+    const top = index * (cardHeight + cardGap);
+    element.style.transform = `translateY(${top}px)`;
+  }
+
+  /**
+   * 카드가 보이는지 확인
+   */
+  private isCardVisible(card: Card): boolean {
+    const index = this.cards.findIndex(c => c.id === card.id);
+    if (index === -1) return false;
+
+    const { start, end } = this.visibleRange;
+    return index >= start && index <= end;
+  }
+
+  /**
+   * 카드 목록 업데이트
+   */
+  public updateCards(cards: Card[]): void {
+    this.cards = cards;
+    this.updateVisibleRange();
+    this.renderVisibleCards();
+  }
+
+  /**
+   * 레이아웃 설정 업데이트
+   */
+  public updateLayoutConfig(layoutConfig: ILayoutConfig): void {
+    this.layoutConfig = layoutConfig;
+    this.updateConfig();
+    this.updateVisibleRange();
+    this.renderVisibleCards();
+  }
+
+  /**
+   * 스크롤 위치 업데이트
+   */
+  public scrollTo(index: number): void {
+    if (!this.container) return;
+
+    const { cardHeight, cardGap } = this.config;
+    const scrollTop = index * (cardHeight + cardGap);
+    this.container.scrollTop = scrollTop;
+  }
+
+  /**
+   * 스크롤러 정리
+   */
+  public cleanup(): void {
+    if (this.scrollTimeout) {
+      window.clearTimeout(this.scrollTimeout);
+    }
+    this.cardCache.clear();
+    this.container = null;
   }
 } 

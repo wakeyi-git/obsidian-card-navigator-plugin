@@ -1,6 +1,6 @@
 import { App, SearchComponent, Setting, Modal } from 'obsidian';
 import { ISearchOptions, ISearchResult } from '@/domain/models/Search';
-import { ISearchService } from '@/domain/services/SearchService';
+import { ISearchService } from '@/domain/services/ISearchService';
 import { Debouncer } from '@/domain/utils/Debouncer';
 
 /**

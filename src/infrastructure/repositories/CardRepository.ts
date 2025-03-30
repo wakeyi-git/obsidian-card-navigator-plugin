@@ -1,12 +1,18 @@
 import { App, TFile } from 'obsidian';
 import { Card } from '@/domain/models/Card';
 import { ICardRepository } from '@/domain/repositories/ICardRepository';
+import { LoggingService } from '@/infrastructure/services/LoggingService';
 
 /**
  * 카드 리포지토리 클래스
  */
 export class CardRepository implements ICardRepository {
-  constructor(private readonly app: App) {}
+  private readonly _cards = new Map<string, Card>();
+  private readonly loggingService: LoggingService;
+
+  constructor(private readonly app: App) {
+    this.loggingService = new LoggingService(app);
+  }
 
   async save(card: Card): Promise<void> {
     const file = this.app.vault.getAbstractFileByPath(card.filePath);
@@ -29,25 +35,46 @@ export class CardRepository implements ICardRepository {
     });
   }
 
-  async findById(id: string): Promise<Card | undefined> {
-    const files = this.app.vault.getMarkdownFiles();
-    for (const file of files) {
-      const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
-      if (frontmatter?.cardId === id) {
-        return this._createCardFromFile(file, frontmatter);
+  /**
+   * ID로 카드 조회
+   */
+  async findById(id: string): Promise<Card | null> {
+    try {
+      this.loggingService.debug('ID로 카드 조회 시작:', id);
+
+      const card = this._cards.get(id);
+      if (!card) {
+        this.loggingService.debug('카드를 찾을 수 없음');
+        return null;
       }
+
+      this.loggingService.debug('ID로 카드 조회 완료');
+      return card;
+    } catch (error) {
+      this.loggingService.error('ID로 카드 조회 실패:', error);
+      throw error;
     }
-    return undefined;
   }
 
-  async findByPath(filePath: string): Promise<Card | undefined> {
-    const file = this.app.vault.getAbstractFileByPath(filePath);
-    if (!file || !(file instanceof TFile)) {
-      return undefined;
-    }
+  /**
+   * 파일 경로로 카드 조회
+   */
+  async findByPath(filePath: string): Promise<Card | null> {
+    try {
+      this.loggingService.debug('파일 경로로 카드 조회 시작:', filePath);
 
-    const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
-    return this._createCardFromFile(file, frontmatter);
+      const card = Array.from(this._cards.values()).find(card => card.filePath === filePath);
+      if (!card) {
+        this.loggingService.debug('카드를 찾을 수 없음');
+        return null;
+      }
+
+      this.loggingService.debug('파일 경로로 카드 조회 완료');
+      return card;
+    } catch (error) {
+      this.loggingService.error('파일 경로로 카드 조회 실패:', error);
+      throw error;
+    }
   }
 
   async findAll(): Promise<Card[]> {
@@ -116,5 +143,43 @@ export class CardRepository implements ICardRepository {
       frontmatter.cardRenderConfig || {},
       frontmatter.cardStyle || {}
     );
+  }
+
+  /**
+   * 카드 조회 또는 생성
+   */
+  async getOrCreateCard(file: TFile): Promise<Card> {
+    try {
+      this.loggingService.debug('카드 조회 또는 생성 시작:', file.path);
+
+      // 기존 카드 조회
+      const existingCard = await this.findByPath(file.path);
+      if (existingCard) {
+        this.loggingService.debug('기존 카드 발견');
+        return existingCard;
+      }
+
+      // 프론트매터 조회
+      const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
+      if (!frontmatter?.cardId) {
+        this.loggingService.warn('카드 ID를 찾을 수 없음');
+        throw new Error('카드 ID를 찾을 수 없음');
+      }
+
+      // 새 카드 생성
+      const card = await this._createCardFromFile(file, frontmatter);
+      if (!card) {
+        this.loggingService.warn('카드를 생성할 수 없음');
+        throw new Error('카드를 생성할 수 없음');
+      }
+
+      // 카드 저장
+      this._cards.set(card.id, card);
+      this.loggingService.debug('새 카드 생성 완료');
+      return card;
+    } catch (error) {
+      this.loggingService.error('카드 조회 또는 생성 실패:', error);
+      throw error;
+    }
   }
 } 

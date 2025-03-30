@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, PaneType, App, Setting, TFile } from 'obsidian';
+import { ItemView, WorkspaceLeaf, PaneType, App, TFile } from 'obsidian';
 import { CardSet, CardSetType, CardFilter, ICardSetConfig } from '@/domain/models/CardSet';
 import { Layout, LayoutType, LayoutDirection, ILayoutConfig } from '@/domain/models/Layout';
 import { Preset } from '@/domain/models/Preset';
@@ -7,26 +7,46 @@ import { CardContainer } from '@/ui/components/CardContainer';
 import { Toolbar } from '@/ui/toolbar/Toolbar';
 import { ContextMenu } from '@/ui/components/ContextMenu';
 import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
-import { CardEvent, CardCreatedEvent, CardUpdatedEvent, CardDeletedEvent, CardEventType } from '@/domain/events/CardEvents';
-import { CardSetEvent, CardSetCreatedEvent, CardSetUpdatedEvent, CardSetEventType } from '@/domain/events/CardSetEvents';
-import { LayoutEvent, LayoutCreatedEvent, LayoutUpdatedEvent, LayoutEventType } from '@/domain/events/LayoutEvents';
-import { DomainEvent } from '@/domain/events/DomainEvent';
-import { ToolbarEventType, ToolbarSearchEvent, ToolbarSortEvent, ToolbarSettingsEvent, ToolbarCardSetTypeChangeEvent, ToolbarPresetChangeEvent, ToolbarCreateEvent, ToolbarUpdateEvent, ToolbarCardRenderConfigChangeEvent, ToolbarLayoutConfigChangeEvent } from '@/domain/events/ToolbarEvents';
-import { ICardSetService } from '@/domain/services/CardSetService';
-import { ILayoutService } from '@/domain/services/LayoutService';
+import { CardSetUpdatedEvent } from '@/domain/events/CardSetEvents';
+import { ToolbarSearchEvent, ToolbarSortEvent, ToolbarSettingsEvent, ToolbarCardSetTypeChangeEvent, ToolbarPresetChangeEvent, ToolbarCreateEvent, ToolbarUpdateEvent, ToolbarCardRenderConfigChangeEvent, ToolbarLayoutConfigChangeEvent } from '@/domain/events/ToolbarEvents';
+import { ICardSetService } from '@/domain/services/ICardSetService';
+import { ILayoutService } from '@/domain/services/ILayoutService';
 import { CardRenderer } from '@/ui/components/CardRenderer';
 import { Scroller } from '@/ui/components/Scroller';
 import { CardInteractionManager } from '@/ui/components/CardInteractionManager';
 import { KeyboardNavigator } from '@/ui/components/KeyboardNavigator';
-import { ICardService } from '@/domain/services/CardService';
-import { ISearchService } from '@/domain/services/SearchService';
-import { CardSetUpdatedEvent as DomainCardSetUpdatedEvent } from '@/domain/events/DomainEvent';
-import { ViewInitializedEvent } from '@/domain/events/ViewEvents';
+import { ICardService } from '@/domain/services/ICardService';
+import { ISearchService } from '@/domain/services/ISearchService';
+import { IPresetService } from '@/domain/services/IPresetService';
+import { LoggingService } from '@/infrastructure/services/LoggingService';
+import CardNavigatorPlugin from '@/main';
+import { LayoutUpdatedEvent } from '@/domain/events/LayoutEvents';
 
 /**
  * Card Navigator 뷰 타입
  */
 export const CARD_NAVIGATOR_VIEW_TYPE = 'card-navigator-view' as PaneType;
+
+interface CardNavigatorViewProps {
+  plugin: CardNavigatorPlugin;
+  leaf: WorkspaceLeaf;
+  eventDispatcher: DomainEventDispatcher;
+  services: {
+    card: ICardService;
+    cardSet: ICardSetService;
+    layout: ILayoutService;
+    preset: IPresetService;
+    search: ISearchService;
+    logging: LoggingService;
+  };
+  ui: {
+    cardRenderer: CardRenderer;
+    scroller: Scroller;
+    interactionManager: CardInteractionManager;
+    keyboardNavigator: KeyboardNavigator;
+  };
+  app: App;
+}
 
 /**
  * Card Navigator 뷰 클래스
@@ -45,34 +65,100 @@ export class CardNavigatorView extends ItemView {
   private readonly _scroller: Scroller;
   private readonly _interactionManager: CardInteractionManager;
   private readonly _keyboardNavigator: KeyboardNavigator;
-  private _container: HTMLElement;
-  private _content: HTMLElement;
+  private _container: HTMLElement | null = null;
+  private _content: HTMLElement | null = null;
   private _searchInput: HTMLInputElement | null = null;
   private _sortSelect: HTMLSelectElement | null = null;
   private _layoutSelect: HTMLSelectElement | null = null;
   public isInitialized: boolean = false;
+  private readonly _presetService: IPresetService;
+  private _loggingService: LoggingService;
+  private _eventListenersRegistered: boolean = false;
+  private _keydownHandler: (event: KeyboardEvent) => void;
 
-  constructor(
-    leaf: WorkspaceLeaf,
-    eventDispatcher: DomainEventDispatcher,
-    cardSetService: ICardSetService,
-    layoutService: ILayoutService,
-    cardRenderer: CardRenderer,
-    scroller: Scroller,
-    interactionManager: CardInteractionManager,
-    keyboardNavigator: KeyboardNavigator,
-    public readonly app: App,
-    private readonly cardService: ICardService,
-    private readonly searchService: ISearchService
-  ) {
-    super(leaf);
-    this._eventDispatcher = eventDispatcher;
-    this._cardSetService = cardSetService;
-    this._layoutService = layoutService;
-    this._cardRenderer = cardRenderer;
-    this._scroller = scroller;
-    this._interactionManager = interactionManager;
-    this._keyboardNavigator = keyboardNavigator;
+  // 이벤트 핸들러
+  private readonly _toolbarEventHandlers = {
+    search: {
+      handle: async (event: ToolbarSearchEvent) => {
+        await this._handleSearch(event);
+      }
+    },
+    sort: {
+      handle: async (event: ToolbarSortEvent) => {
+        await this._handleSort(event);
+      }
+    },
+    cardSetTypeChange: {
+      handle: async (event: ToolbarCardSetTypeChangeEvent) => {
+        await this._handleCardSetTypeChange(event.type as CardSetType);
+      }
+    },
+    presetChange: {
+      handle: async (event: ToolbarPresetChangeEvent) => {
+        await this._handlePresetChange(event.presetId);
+      }
+    },
+    create: {
+      handle: async (event: ToolbarCreateEvent) => {
+        await this._handleCreate();
+      }
+    },
+    update: {
+      handle: async (event: ToolbarUpdateEvent) => {
+        this._handleUpdate();
+      }
+    },
+    cardRenderConfigChange: {
+      handle: async (event: ToolbarCardRenderConfigChangeEvent) => {
+        await this._handleCardRenderConfigChange(event.config);
+      }
+    },
+    layoutConfigChange: {
+      handle: async (event: ToolbarLayoutConfigChangeEvent) => {
+        await this._handleLayoutConfigChange(event.config);
+      }
+    },
+    settings: {
+      handle: async (event: ToolbarSettingsEvent) => {
+        this._handleSettings();
+      }
+    }
+  };
+
+  private readonly _cardSetEventHandlers = {
+    cardSetUpdated: {
+      handle: async (event: CardSetUpdatedEvent) => {
+        if (event.cardSet.id === this._cardSet?.id) {
+          this._handleCardSetUpdate(event);
+        }
+      }
+    }
+  };
+
+  private readonly _layoutEventHandlers = {
+    layoutUpdated: {
+      handle: async (event: LayoutUpdatedEvent) => {
+        if (event.layout.id === this._layout?.id) {
+          await this._handleLayoutUpdate(event);
+        }
+      }
+    }
+  };
+
+  constructor(private props: CardNavigatorViewProps) {
+    super(props.leaf);
+    this._eventDispatcher = props.eventDispatcher;
+    this._cardSetService = props.services.cardSet;
+    this._layoutService = props.services.layout;
+    this._cardRenderer = props.ui.cardRenderer;
+    this._scroller = props.ui.scroller;
+    this._interactionManager = props.ui.interactionManager;
+    this._keyboardNavigator = props.ui.keyboardNavigator;
+    this._presetService = props.services.preset;
+    this._loggingService = new LoggingService(props.app);
+    this._keydownHandler = (event: KeyboardEvent) => {
+      this._keyboardNavigator.handleKeyDown(event);
+    };
   }
 
   /**
@@ -99,290 +185,137 @@ export class CardNavigatorView extends ItemView {
   /**
    * 뷰 초기화
    */
-  public async initialize(): Promise<void> {
+  async initialize(): Promise<void> {
+    if (this.isInitialized) {
+      this._loggingService.debug('이미 초기화된 뷰');
+      return;
+    }
+
     try {
-      // 기본 카드셋 생성
-      const defaultCardSet = this._cardSetService.createCardSet(
-        'Default',
-        'Default card set',
-        {
-          type: 'folder',
-          value: '',
-          includeSubfolders: true,
-          linkConfig: {
-            type: 'outgoing',
-            depth: 2
-          },
-          sortBy: 'fileName',
-          sortOrder: 'asc'
-        }
-      );
+      this._loggingService.startMeasure('뷰 초기화');
+      this._loggingService.debug('뷰 초기화 시작');
 
-      // 기본 레이아웃 생성
-      const defaultLayout = await this._layoutService.createLayout(
-        'Default',
-        'Default layout',
-        this._createDefaultLayoutConfig()
-      );
+      // 각 단계별 성능 측정
+      const initSteps = [
+        { name: '컨테이너', fn: () => this._initializeContainer() },
+        { name: '툴바', fn: () => this._initializeToolbar() },
+        { name: '카드 컨테이너', fn: () => this._initializeCardContainer() },
+        { name: '이벤트 리스너', fn: () => this._initializeEventListeners() }
+      ];
 
-      // 카드셋 설정
-      await this._cardSetService.setActiveCard(defaultCardSet.id, defaultCardSet.cards[0]?.id);
+      // 순차적으로 초기화 실행
+      for (const { name, fn } of initSteps) {
+        this._loggingService.startMeasure(`${name} 초기화`);
+        await fn();
+        this._loggingService.endMeasure(`${name} 초기화`);
+      }
 
-      // 카드셋 설정
-      this.setCardSet(defaultCardSet);
-
-      // 레이아웃 설정
-      this.setLayout(defaultLayout);
-
-      // 레이아웃 계산
-      await this._layoutService.calculateLayout(defaultLayout, defaultCardSet.cards);
-
-      // 초기화 완료
+      await this._loadInitialCardSet();
       this.isInitialized = true;
-
-      // 이벤트 발생
-      this._eventDispatcher.dispatch(new ViewInitializedEvent());
+      
+      this._loggingService.logMemoryUsage();
+      this._loggingService.endMeasure('뷰 초기화');
+      this._loggingService.info('뷰 초기화 완료');
     } catch (error) {
-      console.error('Failed to initialize view:', error);
+      this._loggingService.error('뷰 초기화 실패:', error);
       throw error;
     }
   }
 
   /**
-   * 뷰 초기화
+   * 컨테이너 초기화
    */
-  async onOpen(): Promise<void> {
-    this._container = this.containerEl.children[1] as HTMLElement;
-    this._container.empty();
-    this._container.createEl('h4', { text: 'Card Navigator' });
-
-    this._createToolbar();
-    this._createContent();
-    this._setupEventListeners();
-  }
-
-  private _createToolbar(): void {
-    const toolbarContainer = this._container.createDiv('card-navigator-toolbar');
-    this._toolbar = new Toolbar(
-      this.app,
-      toolbarContainer,
-      {
-        cardSetType: 'folder',
-        searchQuery: '',
-        sortBy: 'fileName',
-        sortOrder: 'asc',
-        cardRenderConfig: {
-          header: {
-            showFileName: true,
-            showFirstHeader: true,
-            showTags: true,
-            showCreatedDate: false,
-            showUpdatedDate: false,
-            showProperties: [],
-            renderMarkdown: true
-          },
-          body: {
-            showFileName: false,
-            showFirstHeader: false,
-            showContent: true,
-            showTags: false,
-            showCreatedDate: false,
-            showUpdatedDate: false,
-            showProperties: [],
-            contentLength: 200,
-            renderMarkdown: true
-          },
-          footer: {
-            showFileName: true,
-            showFirstHeader: false,
-            showTags: false,
-            showCreatedDate: false,
-            showUpdatedDate: false,
-            showProperties: [],
-            renderMarkdown: true
-          },
-          renderAsHtml: true
-        },
-        layoutConfig: {
-          type: LayoutType.GRID,
-          direction: LayoutDirection.VERTICAL,
-          fixedHeight: true,
-          minCardWidth: 200,
-          minCardHeight: 150,
-          cardWidth: 200,
-          cardHeight: 150,
-          gap: 16,
-          padding: 16,
-          viewportWidth: 800,
-          viewportHeight: 600
-        },
-        selectedPreset: null
-      },
-      this._eventDispatcher,
-      this.searchService
-    );
-  }
-
-  private _createContent(): void {
-    this._content = this._container.createDiv('card-navigator-content');
-  }
-
-  /**
-   * 이벤트 리스너 설정
-   */
-  private _setupEventListeners(): void {
-    // 키보드 이벤트
-    this._container.addEventListener('keydown', (event: KeyboardEvent) => {
-      this._keyboardNavigator.handleKeyDown(event);
-    });
-
-    // 카드 클릭 이벤트
-    this._interactionManager.onCardClick = (card: Card) => {
-      this._handleCardClick(card);
-    };
-
-    // 카드 열기 이벤트
-    this._keyboardNavigator.onCardOpen = (card: Card) => {
-      this._handleCardClick(card);
-    };
-
-    // 카드셋 업데이트 이벤트
-    this._eventDispatcher.register(CardSetEventType.CARD_SET_UPDATED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof CardSetUpdatedEvent) {
-          this._handleCardSetUpdate(event);
-        }
+  private async _initializeContainer(): Promise<void> {
+    if (!this._container) {
+      this._loggingService.startMeasure('컨테이너 생성');
+      const viewContent = this.containerEl.querySelector('.view-content');
+      if (!viewContent) {
+        throw new Error('view-content를 찾을 수 없습니다.');
       }
-    });
-
-    // 툴바 이벤트
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_SEARCH, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarSearchEvent) {
-          await this._handleSearch(event);
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_SORT, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarSortEvent) {
-          await this._handleSort(event);
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_CARD_SET_TYPE_CHANGE, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarCardSetTypeChangeEvent) {
-          await this._handleCardSetTypeChange(event.type as CardSetType);
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_PRESET_CHANGE, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarPresetChangeEvent) {
-          await this._handlePresetChange(event.presetId);
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_CREATE, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarCreateEvent) {
-          await this._handleCreate();
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_UPDATE, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarUpdateEvent) {
-          await this._handleUpdate();
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_CARD_RENDER_CONFIG_CHANGE, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarCardRenderConfigChangeEvent) {
-          await this._handleCardRenderConfigChange(event.config);
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_LAYOUT_CONFIG_CHANGE, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarLayoutConfigChangeEvent) {
-          await this._handleLayoutConfigChange(event.config);
-        }
-      }
-    });
-  }
-
-  private async _handleSearch(event: ToolbarSearchEvent): Promise<void> {
-    const query = event.query;
-    if (!this._cardSet) return;
-
-    // 현재 카드셋의 모든 카드 ID를 가져옵니다
-    const cardIds = this._cardSet.cards.map(card => card.id);
-    
-    // 각 카드의 상세 정보를 가져옵니다
-    const cards = await Promise.all(
-      cardIds.map(id => this.cardService.getCard(id))
-    );
-
-    // 검색어로 필터링합니다
-    const filteredCards = cards.filter((card: Card) => 
-      card.fileName.toLowerCase().includes(query.toLowerCase()) ||
-      card.content.toLowerCase().includes(query.toLowerCase())
-    );
-
-    // 필터링된 카드 ID로 카드셋을 필터링합니다
-    this._cardSet.filterCards((card: Card) => 
-      filteredCards.some((c: Card) => c.id === card.id)
-    );
-    
-    this._renderCards();
-  }
-
-  private async _handleSort(event: ToolbarSortEvent): Promise<void> {
-    if (!this._cardSet) return;
-
-    this._cardSet.config.sortBy = event.criterion as ICardSetConfig['sortBy'];
-    this._cardSet.config.sortOrder = event.order;
-    this._cardSet.sortCards();
-    this._renderCards();
-  }
-
-  private async _handleLayoutChange(event: Event): Promise<void> {
-    const layout = (event.target as HTMLSelectElement).value as Layout['config']['type'];
-    if (!this._cardSet) return;
-
-    this._cardSet.layoutConfig.type = layout;
-    this._renderCards();
-  }
-
-  private _handleCardSetUpdate(event: CardSetUpdatedEvent): void {
-    if (event.cardSet.id === this._cardSet?.id) {
-      this._renderCards();
+      this._container = viewContent.createDiv('card-navigator-view');
+      this._content = this._container.createDiv('card-navigator-content');
+      this._loggingService.endMeasure('컨테이너 생성');
     }
   }
 
-  private _renderCards(): void {
-    if (!this._cardSet) return;
+  /**
+   * 툴바 초기화
+   */
+  private async _initializeToolbar(): Promise<void> {
+    if (!this._toolbar) {
+      this._loggingService.startMeasure('툴바 생성');
+      await this._createToolbar();
+      this._loggingService.endMeasure('툴바 생성');
+    }
+  }
 
-    this._content.empty();
-    const cards = this._cardSet.cards;
+  /**
+   * 카드 컨테이너 초기화
+   */
+  private async _initializeCardContainer(): Promise<void> {
+    if (!this._cardContainer) {
+      this._loggingService.startMeasure('카드 컨테이너 생성');
+      await this._createContent();
+      this._loggingService.endMeasure('카드 컨테이너 생성');
+    }
 
-    cards.forEach(card => {
-      const cardEl = this._createCardElement(card);
-      this._content.appendChild(cardEl);
-    });
+    if (this._cardContainer) {
+      this._loggingService.startMeasure('카드 컨테이너 초기화');
+      await this._cardContainer.initialize({
+        onCardClick: (cardId: string) => this._handleCardClick(this._cardSet?.cards.find(c => c.id === cardId) || null),
+        onCardContextMenu: (event: MouseEvent, cardId: string) => this._handleCardContextMenu(event, cardId),
+        onCardDragStart: (event: DragEvent, cardId: string) => this._handleCardDragStart(event, cardId),
+        onCardDragEnd: (event: DragEvent, cardId: string) => this._handleCardDragEnd(event, cardId),
+        onCardDrop: (event: DragEvent, cardId: string) => this._handleCardDrop(event, cardId)
+      });
+      this._loggingService.endMeasure('카드 컨테이너 초기화');
+    }
+  }
+
+  /**
+   * 이벤트 리스너 초기화
+   */
+  private async _initializeEventListeners(): Promise<void> {
+    this._loggingService.startMeasure('이벤트 리스너 등록');
+    
+    // 이벤트 핸들러를 한 번에 등록
+    const eventHandlers = [
+      { event: ToolbarSearchEvent, handler: this._toolbarEventHandlers.search },
+      { event: ToolbarSortEvent, handler: this._toolbarEventHandlers.sort },
+      { event: ToolbarCardSetTypeChangeEvent, handler: this._toolbarEventHandlers.cardSetTypeChange },
+      { event: ToolbarPresetChangeEvent, handler: this._toolbarEventHandlers.presetChange },
+      { event: ToolbarCreateEvent, handler: this._toolbarEventHandlers.create },
+      { event: ToolbarUpdateEvent, handler: this._toolbarEventHandlers.update },
+      { event: ToolbarCardRenderConfigChangeEvent, handler: this._toolbarEventHandlers.cardRenderConfigChange },
+      { event: ToolbarLayoutConfigChangeEvent, handler: this._toolbarEventHandlers.layoutConfigChange },
+      { event: ToolbarSettingsEvent, handler: this._toolbarEventHandlers.settings },
+      { event: CardSetUpdatedEvent, handler: this._cardSetEventHandlers.cardSetUpdated },
+      { event: LayoutUpdatedEvent, handler: this._layoutEventHandlers.layoutUpdated }
+    ];
+
+    await Promise.all(
+      eventHandlers.map(({ event, handler }) => 
+        this._eventDispatcher.register(event, handler)
+      )
+    );
+
+    this._eventListenersRegistered = true;
+    this._loggingService.endMeasure('이벤트 리스너 등록');
+  }
+
+  /**
+   * 뷰 열기
+   */
+  async onOpen(): Promise<void> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
   }
 
   private _createCardElement(card: Card): HTMLElement {
+    if (!this._content) {
+      throw new Error('컨텐츠 컨테이너가 초기화되지 않았습니다.');
+    }
     const cardEl = this._content.createDiv('card-navigator-card');
     
     // 카드 헤더
@@ -406,8 +339,8 @@ export class CardNavigatorView extends ItemView {
   /**
    * 카드 클릭 처리
    */
-  private async _handleCardClick(card: Card): Promise<void> {
-    if (!this._cardSet) return;
+  private async _handleCardClick(card: Card | null): Promise<void> {
+    if (!card || !this._cardSet) return;
 
     this._cardSet.activeCardId = card.id;
     const file = this.app.vault.getAbstractFileByPath(card.filePath);
@@ -421,191 +354,52 @@ export class CardNavigatorView extends ItemView {
    * 뷰 정리
    */
   async onClose(): Promise<void> {
-    // 이벤트 리스너 해제
-    this._unregisterEventListeners();
-
-    // 컴포넌트 정리
-    this._cardContainer?.cleanup();
-    this._toolbar?.cleanup();
-    this._contextMenu?.cleanup();
+    this._loggingService.debug('뷰 정리 시작');
+    this._cleanupResources();
+    this._loggingService.debug('뷰 정리 완료');
   }
 
   /**
    * 카드셋 설정
    */
-  setCardSet(cardSet: CardSet | null): void {
+  async setCardSet(cardSet: CardSet | null): Promise<void> {
     this._cardSet = cardSet;
-    this._cardContainer?.setCardSet(cardSet?.id || '');
-    this._toolbar?.updateCardSet(cardSet);
+    if (this._cardContainer) {
+      await this._cardContainer.setCardSet(cardSet?.id || '');
+    }
+    if (this._toolbar) {
+      await this._toolbar.updateCardSet(cardSet);
+    }
   }
 
   /**
    * 레이아웃 설정
    */
-  setLayout(layout: Layout | null): void {
+  async setLayout(layout: Layout | null): Promise<void> {
     this._layout = layout;
-    this._cardContainer?.setLayout(layout?.id || '');
+    if (this._cardContainer) {
+      await this._cardContainer.setLayout(layout?.id || '');
+    }
   }
 
   /**
    * 프리셋 설정
    */
-  setPreset(preset: Preset | null): void {
+  async setPreset(preset: Preset | null): Promise<void> {
     this._preset = preset;
-    this._toolbar?.updatePreset(preset);
-  }
-
-  /**
-   * 이벤트 리스너 등록
-   */
-  private _registerEventListeners(): void {
-    // 카드셋 이벤트
-    this._eventDispatcher.register(CardSetEventType.CARD_SET_CREATED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof CardSetCreatedEvent) {
-          this.setCardSet(event.cardSet);
-        }
-      }
-    });
-
-    this._eventDispatcher.register(CardSetEventType.CARD_SET_UPDATED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof CardSetUpdatedEvent) {
-          this.setCardSet(event.cardSet);
-        }
-      }
-    });
-
-    // 레이아웃 이벤트
-    this._eventDispatcher.register(LayoutEventType.LAYOUT_CREATED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof LayoutCreatedEvent) {
-          this.setLayout(event.layout);
-        }
-      }
-    });
-
-    this._eventDispatcher.register(LayoutEventType.LAYOUT_UPDATED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof LayoutUpdatedEvent) {
-          this.setLayout(event.layout);
-        }
-      }
-    });
-
-    // 카드 이벤트
-    this._eventDispatcher.register(CardEventType.CARD_CREATED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof CardCreatedEvent) {
-          await this._cardContainer?.setCardSet(this._cardSet?.id || '');
-        }
-      }
-    });
-
-    this._eventDispatcher.register(CardEventType.CARD_UPDATED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof CardUpdatedEvent) {
-          await this._cardContainer?.setCardSet(this._cardSet?.id || '');
-        }
-      }
-    });
-
-    this._eventDispatcher.register(CardEventType.CARD_DELETED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof CardDeletedEvent) {
-          await this._cardContainer?.setCardSet(this._cardSet?.id || '');
-        }
-      }
-    });
-
-    // 툴바 이벤트
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_SEARCH, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarSearchEvent) {
-          await this._handleSearch(event);
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_SORT, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarSortEvent) {
-          await this._handleSort(event);
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_SETTINGS, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarSettingsEvent) {
-          this._handleSettings();
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_CARD_SET_TYPE_CHANGE, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarCardSetTypeChangeEvent) {
-          await this._handleCardSetTypeChange(event.type as CardSetType);
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_PRESET_CHANGE, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarPresetChangeEvent) {
-          await this._handlePresetChange(event.presetId);
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_CREATE, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarCreateEvent) {
-          await this._handleCreate();
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_UPDATE, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarUpdateEvent) {
-          await this._handleUpdate();
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_CARD_RENDER_CONFIG_CHANGE, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarCardRenderConfigChangeEvent) {
-          await this._handleCardRenderConfigChange(event.config);
-        }
-      }
-    });
-
-    this._eventDispatcher.register(ToolbarEventType.TOOLBAR_LAYOUT_CONFIG_CHANGE, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof ToolbarLayoutConfigChangeEvent) {
-          await this._handleLayoutConfigChange(event.config);
-        }
-      }
-    });
-  }
-
-  /**
-   * 이벤트 리스너 해제
-   */
-  private _unregisterEventListeners(): void {
-    // TODO: 이벤트 리스너 해제 로직 구현
+    if (this._toolbar) {
+      await this._toolbar.updatePreset(preset);
+    }
   }
 
   /**
    * 설정 핸들러
    */
   private _handleSettings(): void {
+    this._loggingService.debug('설정 UI 열기');
     // 설정 탭 열기
-    (this.app as any).setting.open();
-    (this.app as any).setting.openTab('card-navigator');
+    (this.props.app as any).setting.open();
+    (this.props.app as any).setting.openTab('card-navigator');
   }
 
   /**
@@ -620,13 +414,11 @@ export class CardNavigatorView extends ItemView {
   /**
    * 프리셋 변경 핸들러
    */
-  private _handlePresetChange(presetId: string): void {
-    if (!this._cardSet) {
-      return;
+  private async _handlePresetChange(presetId: string): Promise<void> {
+    const preset = await this._presetService.getPreset(presetId);
+    if (preset) {
+      await this.setPreset(preset);
     }
-
-    // 프리셋 적용
-    this._cardSetService.applyPreset(this._cardSet.id, presetId);
   }
 
   /**
@@ -642,9 +434,11 @@ export class CardNavigatorView extends ItemView {
         includeSubfolders: false,
         sortBy: 'fileName',
         sortOrder: 'asc'
-      }
+      },
+      this._createDefaultLayoutConfig(),
+      this._createDefaultCardRenderConfig()
     );
-    this.setCardSet(cardSet);
+    await this.setCardSet(cardSet);
   }
 
   /**
@@ -657,18 +451,6 @@ export class CardNavigatorView extends ItemView {
 
     // 카드셋 업데이트
     this._cardSetService.updateCardSet(this._cardSet);
-  }
-
-  /**
-   * 특정 카드로 스크롤
-   * @param filePath 카드의 파일 경로
-   */
-  public async scrollToCard(filePath: string): Promise<void> {
-    const card = await this.cardService.getCardByPath(filePath);
-    if (card) {
-      await this._scroller.scrollToCard(card.id);
-      this._interactionManager.focusCard(card);
-    }
   }
 
   /**
@@ -759,21 +541,49 @@ export class CardNavigatorView extends ItemView {
    * 키보드 내비게이션 활성화/비활성화
    */
   public setKeyboardNavigationEnabled(enabled: boolean): void {
-    this._keyboardNavigator.setEnabled(enabled);
+    this._loggingService.debug('키보드 내비게이션 설정:', enabled);
+    if (this._keyboardNavigator) {
+      this._keyboardNavigator.setEnabled(enabled);
+    }
   }
 
   /**
    * 활성 파일의 카드로 포커스
    */
-  public focusActiveFileCard(): void {
-    this._keyboardNavigator.focusActiveFileCard();
+  public async focusActiveFileCard(): Promise<void> {
+    this._loggingService.debug('활성 파일의 카드로 포커스 시작');
+
+    try {
+      const activeFile = this.props.app.workspace.getActiveFile();
+      if (!activeFile || !this._cardContainer) {
+        this._loggingService.warn('활성 파일이 없거나 카드 컨테이너가 초기화되지 않음');
+        return;
+      }
+
+      const card = await this.props.services.card.getCardByPath(activeFile.path);
+      if (!card) {
+        this._loggingService.warn('활성 파일에 대한 카드를 찾을 수 없음');
+        return;
+      }
+
+      await this._cardContainer.setActiveCard(card);
+      this._cardContainer.focus();
+      this._loggingService.debug('활성 파일의 카드로 포커스 완료');
+    } catch (error) {
+      this._loggingService.error('활성 파일의 카드로 포커스 실패:', error);
+      throw error;
+    }
   }
 
   /**
    * 컨테이너에 포커스
    */
   public focusContainer(): void {
-    this._container.focus();
+    this._loggingService.debug('컨테이너 포커스');
+    this.containerEl.focus();
+    if (this._cardContainer) {
+      this._cardContainer.focus();
+    }
   }
 
   /**
@@ -795,5 +605,333 @@ export class CardNavigatorView extends ItemView {
     this._cardSet.layoutConfig = config;
     await this._cardSetService.updateCardSet(this._cardSet);
     this._renderCards();
+  }
+
+  /**
+   * 초기 카드셋 로드
+   */
+  private async _loadInitialCardSet(): Promise<void> {
+    try {
+      this._loggingService.debug('초기 카드셋 로드 시작');
+
+      const activeFile = this.props.app.workspace.getActiveFile();
+      if (!activeFile) {
+        this._loggingService.warn('활성 파일이 없음');
+        return;
+      }
+      this._loggingService.debug('활성 파일:', activeFile.path);
+
+      // 병렬로 레이아웃과 카드셋 생성
+      const [layout, cardSet] = await Promise.all([
+        this._createAndSaveDefaultLayout(),
+        this._createInitialCardSet(activeFile)
+      ]);
+
+      await this.setCardSet(cardSet);
+      this._loggingService.info('초기 카드셋 로드 완료');
+    } catch (error) {
+      this._loggingService.error('초기 카드셋 로드 실패:', error);
+      throw error;
+    }
+  }
+
+  private _createDefaultCardRenderConfig(): ICardRenderConfig {
+    return {
+      header: {
+        showFileName: true,
+        showFirstHeader: true,
+        showTags: true,
+        showCreatedDate: false,
+        showUpdatedDate: false,
+        showProperties: [],
+        renderMarkdown: true
+      },
+      body: {
+        showFileName: false,
+        showFirstHeader: false,
+        showContent: true,
+        showTags: false,
+        showCreatedDate: false,
+        showUpdatedDate: false,
+        showProperties: [],
+        contentLength: 200,
+        renderMarkdown: true
+      },
+      footer: {
+        showFileName: true,
+        showFirstHeader: false,
+        showTags: false,
+        showCreatedDate: false,
+        showUpdatedDate: false,
+        showProperties: [],
+        renderMarkdown: true
+      },
+      renderAsHtml: true
+    };
+  }
+
+  private _handleCardContextMenu(event: MouseEvent, cardId: string): void {
+    event.preventDefault();
+    // 컨텍스트 메뉴 구현
+  }
+
+  private _handleCardDragStart(event: DragEvent, cardId: string): void {
+    if (!event.dataTransfer) return;
+    event.dataTransfer.setData('text/plain', cardId);
+  }
+
+  private _handleCardDragEnd(event: DragEvent, cardId: string): void {
+    // 드래그 종료 처리
+  }
+
+  private _handleCardDrop(event: DragEvent, cardId: string): void {
+    event.preventDefault();
+    if (!event.dataTransfer) return;
+    
+    const sourceCardId = event.dataTransfer.getData('text/plain');
+    if (sourceCardId && sourceCardId !== cardId) {
+      // 카드 간 링크 생성 로직 구현
+    }
+  }
+
+  /**
+   * 카드 컨테이너에 포커스
+   */
+  public focus(): void {
+    this._cardContainer?.focus();
+  }
+
+  /**
+   * 레이아웃 업데이트 핸들러
+   */
+  private async _handleLayoutUpdate(event: LayoutUpdatedEvent): Promise<void> {
+    if (!this._cardSet) return;
+    this._cardSet.layoutConfig = event.layout.config;
+    await this._cardSetService.updateCardSet(this._cardSet);
+    this._renderCards();
+  }
+
+  private async _createAndSaveDefaultLayout(): Promise<Layout> {
+    const layoutConfig = this._createDefaultLayoutConfig();
+    const layout = new Layout(
+      crypto.randomUUID(),
+      '기본 레이아웃',
+      '기본 그리드 레이아웃입니다.',
+      layoutConfig,
+      undefined,
+      []
+    );
+    await this._layoutService.updateLayout(layout);
+    return layout;
+  }
+
+  private async _createInitialCardSet(activeFile: TFile): Promise<CardSet> {
+    const layoutConfig = this._createDefaultLayoutConfig();
+    const cardRenderConfig = this._createDefaultCardRenderConfig();
+
+    return this._cardSetService.createCardSet(
+      '활성 폴더',
+      '현재 활성화된 폴더의 노트들을 표시합니다.',
+      {
+        type: 'folder',
+        value: activeFile.parent?.path || '',
+        includeSubfolders: true,
+        sortBy: 'fileName',
+        sortOrder: 'asc'
+      },
+      layoutConfig,
+      cardRenderConfig
+    );
+  }
+
+  private _cleanupResources(): void {
+    // 불필요한 참조 해제
+    this._cardSet = null;
+    this._layout = null;
+    this._preset = null;
+    
+    // 이벤트 리스너 정리
+    this._unregisterEventListeners();
+    
+    // 컴포넌트 정리
+    if (this._cardContainer) {
+      this._cardContainer.cleanup();
+    }
+    if (this._toolbar) {
+      this._toolbar.cleanup();
+    }
+    if (this._contextMenu) {
+      this._contextMenu.cleanup();
+    }
+
+    // 컨테이너 정리
+    if (this._container) {
+      this._container.remove();
+      this._container = null;
+      this._content = null;
+    }
+  }
+
+  /**
+   * 이벤트 리스너 해제
+   */
+  private _unregisterEventListeners(): void {
+    if (!this._eventListenersRegistered) {
+      this._loggingService.debug('이벤트 리스너가 이미 해제됨');
+      return;
+    }
+
+    this._loggingService.debug('이벤트 리스너 해제 시작');
+
+    // 툴바 이벤트 핸들러 해제
+    this._eventDispatcher.unregister(ToolbarSearchEvent, this._toolbarEventHandlers.search);
+    this._eventDispatcher.unregister(ToolbarSortEvent, this._toolbarEventHandlers.sort);
+    this._eventDispatcher.unregister(ToolbarCardSetTypeChangeEvent, this._toolbarEventHandlers.cardSetTypeChange);
+    this._eventDispatcher.unregister(ToolbarPresetChangeEvent, this._toolbarEventHandlers.presetChange);
+    this._eventDispatcher.unregister(ToolbarCreateEvent, this._toolbarEventHandlers.create);
+    this._eventDispatcher.unregister(ToolbarUpdateEvent, this._toolbarEventHandlers.update);
+    this._eventDispatcher.unregister(ToolbarCardRenderConfigChangeEvent, this._toolbarEventHandlers.cardRenderConfigChange);
+    this._eventDispatcher.unregister(ToolbarLayoutConfigChangeEvent, this._toolbarEventHandlers.layoutConfigChange);
+    this._eventDispatcher.unregister(ToolbarSettingsEvent, this._toolbarEventHandlers.settings);
+
+    // 카드셋 이벤트 핸들러 해제
+    this._eventDispatcher.unregister(CardSetUpdatedEvent, this._cardSetEventHandlers.cardSetUpdated);
+
+    // 레이아웃 이벤트 핸들러 해제
+    this._eventDispatcher.unregister(LayoutUpdatedEvent, this._layoutEventHandlers.layoutUpdated);
+
+    // DOM 이벤트 리스너 해제
+    this._container?.removeEventListener('keydown', this._keydownHandler);
+
+    this._eventListenersRegistered = false;
+    this._loggingService.debug('이벤트 리스너 해제 완료');
+  }
+
+  private async _handleSearch(event: ToolbarSearchEvent): Promise<void> {
+    if (!this._cardSet) return;
+
+    const searchQuery = event.query.toLowerCase();
+    const filter: CardFilter = {
+      type: 'search',
+      criteria: {
+        value: searchQuery
+      }
+    };
+
+    await this._cardSetService.filterCards(this._cardSet.id, filter);
+  }
+
+  private async _handleSort(event: ToolbarSortEvent): Promise<void> {
+    if (!this._cardSet) return;
+
+    this._cardSet.config.sortBy = event.criterion as ICardSetConfig['sortBy'];
+    this._cardSet.config.sortOrder = event.order;
+    this._cardSet.sortCards();
+    this._renderCards();
+  }
+
+  private _handleCardSetUpdate(event: CardSetUpdatedEvent): void {
+    if (event.cardSet.id === this._cardSet?.id) {
+      this._renderCards();
+    }
+  }
+
+  private _renderCards(): void {
+    if (!this._cardSet || !this._cardContainer) return;
+    this._cardContainer.setCardSet(this._cardSet.id);
+  }
+
+  private _createToolbar(): void {
+    this._loggingService.debug('툴바 생성 시작');
+    if (!this._content) {
+      throw new Error('컨텐츠 컨테이너가 초기화되지 않았습니다.');
+    }
+    
+    // 툴바 컨테이너 생성
+    const toolbarContainer = this._content.createDiv('card-navigator-toolbar');
+    
+    // 툴바 초기화
+    this._toolbar = new Toolbar(
+      this.props.app,
+      toolbarContainer,
+      {
+        cardSetType: 'folder',
+        searchQuery: '',
+        sortBy: 'fileName',
+        sortOrder: 'asc',
+        cardRenderConfig: this._createDefaultCardRenderConfig(),
+        layoutConfig: this._createDefaultLayoutConfig(),
+        selectedPreset: null
+      },
+      this._eventDispatcher,
+      this.props.services.search,
+      this._presetService
+    );
+    
+    this._loggingService.debug('툴바 생성 완료');
+  }
+
+  private _createContent(): void {
+    this._loggingService.debug('카드 컨테이너 생성 시작');
+    if (!this._content) {
+      throw new Error('컨텐츠 컨테이너가 초기화되지 않았습니다.');
+    }
+
+    // 카드 컨테이너를 생성하고 컨텐츠에 추가
+    const cardContainerEl = this._content.createDiv('card-container');
+    const cardListEl = cardContainerEl.createDiv('card-list');
+    
+    this._cardContainer = new CardContainer({
+      app: this.app,
+      cardService: this.props.services.card,
+      cardSetService: this._cardSetService,
+      layoutService: this._layoutService,
+      eventDispatcher: this._eventDispatcher,
+      loggingService: this._loggingService,
+      cardRenderer: this._cardRenderer,
+      scroller: this._scroller,
+      interactionManager: this._interactionManager,
+      keyboardNavigator: this._keyboardNavigator,
+      element: cardListEl
+    });
+    
+    this._keyboardNavigator.setCardContainer(this._cardContainer);
+    this._loggingService.debug('카드 컨테이너 생성 완료');
+  }
+
+  /**
+   * 카드 업데이트
+   */
+  async updateCard(file: TFile): Promise<void> {
+    if (!this._cardContainer) {
+      this._loggingService.warn('카드 컨테이너가 초기화되지 않음');
+      return;
+    }
+
+    try {
+      const cardElement = await this._cardRenderer.renderCardFromFile(file);
+      if (!cardElement) {
+        this._loggingService.warn('카드 요소를 렌더링할 수 없음');
+        return;
+      }
+
+      const cardId = cardElement.dataset.cardId;
+      if (!cardId) {
+        this._loggingService.warn('카드 ID를 찾을 수 없음');
+        return;
+      }
+
+      const card = await this.props.services.card.getCardById(cardId);
+      if (!card) {
+        this._loggingService.warn('카드를 찾을 수 없음');
+        return;
+      }
+
+      await this._cardContainer.updateCard(file);
+      this._loggingService.debug('카드 업데이트 완료');
+    } catch (error) {
+      this._loggingService.error('카드 업데이트 실패:', error);
+      throw error;
+    }
   }
 }

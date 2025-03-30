@@ -1,5 +1,5 @@
-import { ICardSetService } from '@/domain/services/CardSetService';
-import { ILayoutService } from '@/domain/services/LayoutService';
+import { ICardSetService } from '@/domain/services/ICardSetService';
+import { ILayoutService } from '@/domain/services/ILayoutService';
 import { Card } from '@/domain/models/Card';
 import { CardSet } from '@/domain/models/CardSet';
 import { Layout } from '@/domain/models/Layout';
@@ -8,10 +8,29 @@ import { Scroller } from './Scroller';
 import { CardInteractionManager } from './CardInteractionManager';
 import { KeyboardNavigator } from './KeyboardNavigator';
 import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
-import { CardEvent, CardCreatedEvent, CardUpdatedEvent, CardDeletedEvent, CardEventType } from '@/domain/events/CardEvents';
-import { CardSetEvent, CardSetCreatedEvent, CardSetUpdatedEvent, CardSetEventType } from '@/domain/events/CardSetEvents';
-import { LayoutEvent, LayoutCreatedEvent, LayoutUpdatedEvent, LayoutEventType } from '@/domain/events/LayoutEvents';
-import { DomainEvent } from '@/domain/events/DomainEvent';
+import { CardCreatedEvent, CardUpdatedEvent, CardDeletedEvent } from '@/domain/events/CardEvents';
+import { CardSetCreatedEvent, CardSetUpdatedEvent } from '@/domain/events/CardSetEvents';
+import { LayoutCreatedEvent, LayoutUpdatedEvent } from '@/domain/events/LayoutEvents';
+import { App, TFile } from 'obsidian';
+import { ICardService } from '@/domain/services/ICardService';
+import { LoggingService } from '@/infrastructure/services/LoggingService';
+
+/**
+ * 카드 컨테이너 의존성 인터페이스
+ */
+interface ICardContainerDependencies {
+  app: App;
+  cardService: ICardService;
+  cardSetService: ICardSetService;
+  layoutService: ILayoutService;
+  eventDispatcher: DomainEventDispatcher;
+  loggingService: LoggingService;
+  cardRenderer: CardRenderer;
+  scroller: Scroller;
+  interactionManager: CardInteractionManager;
+  keyboardNavigator: KeyboardNavigator;
+  element?: HTMLElement;
+}
 
 /**
  * 카드 컨테이너 이벤트 핸들러 인터페이스
@@ -45,23 +64,72 @@ export class CardContainer {
   private _layout: Layout | null = null;
   private _activeCard: Card | null = null;
   private _focusedCard: Card | null = null;
-  private _cards: Map<string, HTMLElement> = new Map();
+  private _cardElements: Map<string, HTMLElement> = new Map();
+  private _cards: Map<string, Card> = new Map();
   private _isScrolling = false;
   private _handlers: ICardContainerHandlers | null = null;
+  private _activeCardId: string | null = null;
+  private _focusedCardId: string | null = null;
+  private _element: HTMLElement;
+  private _isKeyboardNavigationEnabled: boolean = true;
 
-  constructor(
-    private readonly cardSetService: ICardSetService,
-    private readonly layoutService: ILayoutService,
-    private readonly cardRenderer: CardRenderer,
-    private readonly scroller: Scroller,
-    private readonly interactionManager: CardInteractionManager,
-    private readonly keyboardNavigator: KeyboardNavigator,
-    private readonly eventDispatcher: DomainEventDispatcher
-  ) {
-    this._container = document.createElement('div');
-    this._container.className = 'card-navigator-container';
+  // 이벤트 핸들러
+  private readonly _cardSetEventHandlers = {
+    cardSetCreated: {
+      handle: async (event: CardSetCreatedEvent) => {
+        await this.setCardSet(event.cardSet.id);
+      }
+    },
+    cardSetUpdated: {
+      handle: async (event: CardSetUpdatedEvent) => {
+        await this.setCardSet(event.cardSet.id);
+      }
+    }
+  };
+
+  private readonly _layoutEventHandlers = {
+    layoutCreated: {
+      handle: async (event: LayoutCreatedEvent) => {
+        await this.setLayout(event.layout.id);
+      }
+    },
+    layoutUpdated: {
+      handle: async (event: LayoutUpdatedEvent) => {
+        await this._updateLayout();
+      }
+    }
+  };
+
+  private readonly _cardEventHandlers = {
+    cardCreated: {
+      handle: async (event: CardCreatedEvent) => {
+        await this._renderCards();
+      }
+    },
+    cardUpdated: {
+      handle: async (event: CardUpdatedEvent) => {
+        await this._updateCard(event.card.id);
+      }
+    },
+    cardDeleted: {
+      handle: async (event: CardDeletedEvent) => {
+        this._removeCard(event.cardId);
+      }
+    }
+  };
+
+  constructor(private readonly dependencies: ICardContainerDependencies) {
+    if (dependencies.element) {
+      this._element = dependencies.element;
+      this._container = this._element;
+    } else {
+      this._element = document.createElement('div');
+      this._element.className = 'card-container';
+      this._container = document.createElement('div');
+      this._container.className = 'card-list';
+      this._element.appendChild(this._container);
+    }
     this._setupEventListeners();
-    this._registerEventHandlers();
   }
 
   /**
@@ -75,7 +143,18 @@ export class CardContainer {
    * 컨테이너 정리
    */
   cleanup(): void {
+    // 이벤트 핸들러 해제
+    this.dependencies.eventDispatcher.unregister(CardSetCreatedEvent, this._cardSetEventHandlers.cardSetCreated);
+    this.dependencies.eventDispatcher.unregister(CardSetUpdatedEvent, this._cardSetEventHandlers.cardSetUpdated);
+    this.dependencies.eventDispatcher.unregister(LayoutCreatedEvent, this._layoutEventHandlers.layoutCreated);
+    this.dependencies.eventDispatcher.unregister(LayoutUpdatedEvent, this._layoutEventHandlers.layoutUpdated);
+    this.dependencies.eventDispatcher.unregister(CardCreatedEvent, this._cardEventHandlers.cardCreated);
+    this.dependencies.eventDispatcher.unregister(CardUpdatedEvent, this._cardEventHandlers.cardUpdated);
+    this.dependencies.eventDispatcher.unregister(CardDeletedEvent, this._cardEventHandlers.cardDeleted);
+
+    // DOM 요소 정리
     this._container.innerHTML = '';
+    this._cardElements.clear();
     this._cards.clear();
     this._cardSet = null;
     this._layout = null;
@@ -88,26 +167,51 @@ export class CardContainer {
    * 컨테이너 요소 반환
    */
   get element(): HTMLElement {
-    return this._container;
+    return this._element;
   }
 
   /**
    * 카드셋 설정
    */
   async setCardSet(cardSetId: string): Promise<void> {
-    const cardSet = await this.cardSetService.getCardSet(cardSetId);
-    if (!cardSet) {
-      throw new Error(`CardSet not found: ${cardSetId}`);
+    try {
+      const cardSet = await this.dependencies.cardSetService.getCardSet(cardSetId);
+      if (!cardSet) {
+        throw new Error(`CardSet not found: ${cardSetId}`);
+      }
+      
+      this._cardSet = cardSet;
+      
+      // 기존 카드 제거
+      this._container.empty();
+      
+      // 카드 렌더링
+      await this._renderCards();
+      
+      // 레이아웃 설정
+      if (cardSet.layoutConfig) {
+        const layout = new Layout(
+          cardSetId,
+          'Default Layout',
+          'Default layout for card set',
+          cardSet.layoutConfig,
+          undefined,
+          []
+        );
+        this._layout = layout;
+        await this._updateLayout();
+      }
+    } catch (error) {
+      this.dependencies.loggingService.error('Failed to set card set:', error);
+      throw error;
     }
-    this._cardSet = cardSet;
-    await this._renderCards();
   }
 
   /**
    * 레이아웃 설정
    */
   async setLayout(layoutId: string): Promise<void> {
-    const layout = await this.layoutService.getLayout(layoutId);
+    const layout = await this.dependencies.layoutService.getLayout(layoutId);
     if (!layout) {
       throw new Error(`Layout not found: ${layoutId}`);
     }
@@ -116,14 +220,13 @@ export class CardContainer {
   }
 
   /**
-   * 활성 카드 설정
+   * 휴성 카드 설정
    */
-  setActiveCard(card: Card | null): void {
+  async setActiveCard(card: Card): Promise<void> {
+    this._activeCardId = card.id;
     this._activeCard = card;
-    this._updateCardStates();
-    if (card) {
-      this.eventDispatcher.dispatch(new CardUpdatedEvent(card));
-    }
+    this._renderCards();
+    this.dependencies.eventDispatcher.dispatch(new CardUpdatedEvent(card));
   }
 
   /**
@@ -131,10 +234,11 @@ export class CardContainer {
    */
   setFocusedCard(card: Card | null): void {
     this._focusedCard = card;
+    this._focusedCardId = card?.id || null;
     this._updateCardStates();
     if (card) {
-      this.scroller.scrollToCard(card.id);
-      this.eventDispatcher.dispatch(new CardUpdatedEvent(card));
+      this.scrollToCard(card.id);
+      this.dependencies.eventDispatcher.dispatch(new CardUpdatedEvent(card));
     }
   }
 
@@ -142,6 +246,8 @@ export class CardContainer {
    * 이벤트 리스너 설정
    */
   private _setupEventListeners(): void {
+    this.dependencies.loggingService.debug('CardContainer 이벤트 리스너 설정 시작');
+
     // 스크롤 이벤트
     this._container.addEventListener('scroll', this._handleScroll.bind(this));
     
@@ -149,129 +255,81 @@ export class CardContainer {
     window.addEventListener('resize', this._handleResize.bind(this));
     
     // 키보드 이벤트
-    this.keyboardNavigator.onFocusChange = (card) => {
+    this.dependencies.keyboardNavigator.onFocusChange = (card) => {
       this.setFocusedCard(card);
     };
     
     // 상호작용 이벤트
-    this.interactionManager.onCardClick = (card) => {
+    this.dependencies.interactionManager.onCardClick = (card) => {
       this.setFocusedCard(card);
       this._handlers?.onCardClick(card.id);
     };
     
-    this.interactionManager.onCardDoubleClick = (card) => {
-      this.eventDispatcher.dispatch(new CardUpdatedEvent(card));
+    this.dependencies.interactionManager.onCardDoubleClick = (card) => {
+      this.dependencies.eventDispatcher.dispatch(new CardUpdatedEvent(card));
     };
     
-    this.interactionManager.onCardContextMenu = (card, event) => {
+    this.dependencies.interactionManager.onCardContextMenu = (card, event) => {
       if (event instanceof MouseEvent) {
         this._handlers?.onCardContextMenu(event, card.id);
       }
     };
 
     // 드래그 이벤트
-    this.interactionManager.onCardDragStart = (card, event) => {
+    this.dependencies.interactionManager.onCardDragStart = (card, event) => {
       if (event instanceof DragEvent) {
         this._handlers?.onCardDragStart(event, card.id);
       }
     };
 
-    this.interactionManager.onCardDragEnd = (card, event) => {
+    this.dependencies.interactionManager.onCardDragEnd = (card, event) => {
       if (event instanceof DragEvent) {
         this._handlers?.onCardDragEnd(event, card.id);
       }
     };
 
-    this.interactionManager.onCardDrop = (card, event) => {
+    this.dependencies.interactionManager.onCardDrop = (card, event) => {
       if (event instanceof DragEvent) {
         this._handlers?.onCardDrop(event, card.id);
       }
     };
-  }
 
-  /**
-   * 도메인 이벤트 핸들러 등록
-   */
-  private _registerEventHandlers(): void {
-    // 카드셋 이벤트
-    this.eventDispatcher.register(CardSetEventType.CARD_SET_CREATED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof CardSetCreatedEvent) {
-          await this.setCardSet(event.cardSet.id);
-        }
-      }
-    });
+    // 카드 이벤트 핸들러 등록
+    this.dependencies.eventDispatcher.register(CardCreatedEvent, this._cardEventHandlers.cardCreated);
+    this.dependencies.eventDispatcher.register(CardUpdatedEvent, this._cardEventHandlers.cardUpdated);
+    this.dependencies.eventDispatcher.register(CardDeletedEvent, this._cardEventHandlers.cardDeleted);
 
-    this.eventDispatcher.register(CardSetEventType.CARD_SET_UPDATED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof CardSetUpdatedEvent) {
-          await this.setCardSet(event.cardSet.id);
-        }
-      }
-    });
-
-    // 레이아웃 이벤트
-    this.eventDispatcher.register(LayoutEventType.LAYOUT_CREATED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof LayoutCreatedEvent) {
-          await this.setLayout(event.layout.id);
-        }
-      }
-    });
-
-    this.eventDispatcher.register(LayoutEventType.LAYOUT_UPDATED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof LayoutUpdatedEvent) {
-          await this.setLayout(event.layout.id);
-        }
-      }
-    });
-
-    // 카드 이벤트
-    this.eventDispatcher.register(CardEventType.CARD_CREATED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof CardCreatedEvent) {
-          await this._renderCards();
-        }
-      }
-    });
-
-    this.eventDispatcher.register(CardEventType.CARD_UPDATED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof CardUpdatedEvent) {
-          this._updateCard(event.card);
-        }
-      }
-    });
-
-    this.eventDispatcher.register(CardEventType.CARD_DELETED, {
-      handle: async (event: DomainEvent) => {
-        if (event instanceof CardDeletedEvent) {
-          this._removeCard(event.cardId);
-        }
-      }
-    });
+    this.dependencies.loggingService.debug('CardContainer 이벤트 리스너 설정 완료');
   }
 
   /**
    * 카드 렌더링
    */
   private async _renderCards(): Promise<void> {
-    if (!this._cardSet) return;
-
-    // 기존 카드 제거
-    this._container.innerHTML = '';
-    this._cards.clear();
-
-    // 새 카드 렌더링
-    for (const card of this._cardSet.cards) {
-      const cardElement = await this.cardRenderer.render(card, card.style);
-      this._container.appendChild(cardElement);
-      this._cards.set(card.id, cardElement);
+    if (!this._cardSet) {
+      throw new Error('Card set is not set');
     }
 
-    // 레이아웃 업데이트
-    await this._updateLayout();
+    try {
+      const cards = await this._cardSet.getCards();
+      if (!cards || cards.length === 0) {
+        this.dependencies.loggingService.debug('No cards to render');
+        return;
+      }
+
+      for (const card of cards) {
+        const cardElement = await this.dependencies.cardRenderer.renderCard(card);
+        if (cardElement) {
+          this._container.appendChild(cardElement);
+        }
+      }
+
+      // 레이아웃 업데이트
+      await this._updateLayout();
+    } catch (error) {
+      this.dependencies.loggingService.error('Failed to render cards:', error);
+      throw error;
+    }
   }
 
   /**
@@ -280,14 +338,15 @@ export class CardContainer {
   private async _updateLayout(): Promise<void> {
     if (!this._layout || !this._cardSet) return;
 
-    const positions = await this.layoutService.calculateLayout(
-      this._layout,
-      this._cardSet.cards
+    await this.dependencies.layoutService.calculateLayout(
+      this._cardSet,
+      this._container.clientWidth,
+      this._container.clientHeight
     );
 
     // 레이아웃 적용
     this._layout.cardPositions.forEach((position) => {
-      const cardElement = this._cards.get(position.cardId);
+      const cardElement = this._cardElements.get(position.cardId);
       if (cardElement) {
         cardElement.style.left = `${position.x}px`;
         cardElement.style.top = `${position.y}px`;
@@ -301,7 +360,7 @@ export class CardContainer {
    * 카드 상태 업데이트
    */
   private _updateCardStates(): void {
-    for (const [cardId, element] of this._cards) {
+    for (const [cardId, element] of this._cardElements) {
       element.classList.remove('active', 'focused');
       
       if (this._activeCard?.id === cardId) {
@@ -317,12 +376,23 @@ export class CardContainer {
   /**
    * 카드 업데이트
    */
-  private async _updateCard(card: Card): Promise<void> {
-    const cardElement = this._cards.get(card.id);
-    if (cardElement) {
-      const newCardElement = await this.cardRenderer.render(card, card.style);
-      cardElement.replaceWith(newCardElement);
-      this._cards.set(card.id, newCardElement);
+  private async _updateCard(cardId: string): Promise<void> {
+    try {
+      const card = await this.dependencies.cardService.getCardById(cardId);
+      if (!card) {
+        this.dependencies.loggingService.warn(`Card not found: ${cardId}`);
+        return;
+      }
+
+      const cardElement = await this.dependencies.cardRenderer.renderCard(card);
+      if (cardElement) {
+        const existingCard = this._container.querySelector(`[data-card-id="${cardId}"]`);
+        if (existingCard) {
+          existingCard.replaceWith(cardElement);
+        }
+      }
+    } catch (error) {
+      this.dependencies.loggingService.error(`Failed to update card ${cardId}:`, error);
     }
   }
 
@@ -330,10 +400,10 @@ export class CardContainer {
    * 카드 제거
    */
   private _removeCard(cardId: string): void {
-    const cardElement = this._cards.get(cardId);
+    const cardElement = this._cardElements.get(cardId);
     if (cardElement) {
       cardElement.remove();
-      this._cards.delete(cardId);
+      this._cardElements.delete(cardId);
     }
   }
 
@@ -354,5 +424,89 @@ export class CardContainer {
    */
   private _handleResize(): void {
     this._updateLayout();
+  }
+
+  /**
+   * 카드로 스크롤
+   */
+  public scrollToCard(cardId: string): void {
+    const cardIndex = this.getCardIndex(cardId);
+    if (cardIndex !== -1) {
+      this.dependencies.scroller.scrollTo(cardIndex);
+    }
+  }
+
+  /**
+   * 카드 인덱스 조회
+   */
+  public getCardIndex(cardId: string): number {
+    return Array.from(this._cardElements.keys()).indexOf(cardId);
+  }
+
+  /**
+   * 카드 업데이트
+   */
+  async updateCard(file: TFile): Promise<void> {
+    const cardElement = await this.dependencies.cardRenderer.renderCardFromFile(file);
+    if (cardElement) {
+      const cardId = cardElement.dataset.cardId;
+      if (cardId) {
+        const card = await this.dependencies.cardService.getCardById(cardId);
+        if (card) {
+          this._cards.set(cardId, card);
+          await this._renderCards();
+        }
+      }
+    }
+  }
+
+  /**
+   * 카드 제거
+   */
+  async removeCard(filePath: string): Promise<void> {
+    const cardId = Array.from(this._cards.entries())
+      .find(([_, card]) => card.filePath === filePath)?.[0];
+    
+    if (cardId) {
+      this._cards.delete(cardId);
+      await this._renderCards();
+    }
+  }
+
+  /**
+   * 카드 경로 업데이트
+   */
+  async updateCardPath(oldPath: string, newPath: string): Promise<void> {
+    const cardId = Array.from(this._cards.entries())
+      .find(([_, card]) => card.filePath === oldPath)?.[0];
+    
+    if (cardId) {
+      const oldCard = this._cards.get(cardId);
+      if (oldCard) {
+        // 새로운 Card 객체 생성
+        const newCard = new Card(
+          oldCard.id,
+          newPath,
+          oldCard.fileName,
+          oldCard.firstHeader,
+          oldCard.content,
+          oldCard.tags,
+          oldCard.createdAt,
+          oldCard.updatedAt,
+          oldCard.frontmatter,
+          oldCard.renderConfig,
+          oldCard.style
+        );
+        this._cards.set(cardId, newCard);
+        await this._renderCards();
+      }
+    }
+  }
+
+  /**
+   * 포커스 설정
+   */
+  focus(): void {
+    this._element.focus();
   }
 } 

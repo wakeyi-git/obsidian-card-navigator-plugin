@@ -5,7 +5,7 @@ import { DomainEvent } from './DomainEvent';
  */
 export interface IDomainEventHandler<T extends DomainEvent> {
   /**
-   * 이벤트를 처리합니다.
+   * 이벤트 처리
    */
   handle(event: T): Promise<void>;
 } 

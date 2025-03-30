@@ -1,4 +1,5 @@
 import { Setting } from 'obsidian';
+import { IPluginWithSettings } from '@/ui/settings/SettingsTab';
 
 /**
  * 검색 설정 컴포넌트
@@ -6,7 +7,7 @@ import { Setting } from 'obsidian';
 export class SearchSettings {
   constructor(
     private readonly containerEl: HTMLElement,
-    private readonly plugin: any
+    private readonly plugin: IPluginWithSettings
   ) {}
 
   /**
@@ -26,10 +27,10 @@ export class SearchSettings {
         dropdown
           .addOption('vault', '볼트 전체')
           .addOption('current', '현재 카드셋')
-          .setValue(this.plugin.settings.defaultSearchScope)
+          .setValue(this.plugin.getSetting('defaultSearchScope'))
           .onChange(value => {
-            this.plugin.settings.defaultSearchScope = value;
-            this.plugin.saveData();
+            this.plugin.setSetting('defaultSearchScope', value);
+            this.plugin.saveSettings();
           });
       });
 
@@ -39,10 +40,10 @@ export class SearchSettings {
       .setDesc('검색어 입력 시 즉시 결과를 필터링합니다.')
       .addToggle(toggle => {
         toggle
-          .setValue(this.plugin.settings.realtimeSearch)
+          .setValue(this.plugin.getSetting('realtimeSearch'))
           .onChange(value => {
-            this.plugin.settings.realtimeSearch = value;
-            this.plugin.saveData();
+            this.plugin.setSetting('realtimeSearch', value);
+            this.plugin.saveSettings();
           });
       });
 
@@ -53,11 +54,11 @@ export class SearchSettings {
       .addSlider(slider => {
         slider
           .setLimits(10, 100, 10)
-          .setValue(this.plugin.settings.maxSearchResults)
+          .setValue(this.plugin.getSetting('maxSearchResults'))
           .setDynamicTooltip()
           .onChange(value => {
-            this.plugin.settings.maxSearchResults = value;
-            this.plugin.saveData();
+            this.plugin.setSetting('maxSearchResults', value);
+            this.plugin.saveSettings();
           });
       });
 
@@ -72,10 +73,10 @@ export class SearchSettings {
       .setDesc('파일명에서도 검색합니다.')
       .addToggle(toggle => {
         toggle
-          .setValue(this.plugin.settings.searchInFileName)
+          .setValue(this.plugin.getSetting('searchInFileName'))
           .onChange(value => {
-            this.plugin.settings.searchInFileName = value;
-            this.plugin.saveData();
+            this.plugin.setSetting('searchInFileName', value);
+            this.plugin.saveSettings();
           });
       });
 
@@ -85,10 +86,10 @@ export class SearchSettings {
       .setDesc('태그에서도 검색합니다.')
       .addToggle(toggle => {
         toggle
-          .setValue(this.plugin.settings.searchInTags)
+          .setValue(this.plugin.getSetting('searchInTags'))
           .onChange(value => {
-            this.plugin.settings.searchInTags = value;
-            this.plugin.saveData();
+            this.plugin.setSetting('searchInTags', value);
+            this.plugin.saveSettings();
           });
       });
 
@@ -98,10 +99,10 @@ export class SearchSettings {
       .setDesc('링크에서도 검색합니다.')
       .addToggle(toggle => {
         toggle
-          .setValue(this.plugin.settings.searchInLinks)
+          .setValue(this.plugin.getSetting('searchInLinks'))
           .onChange(value => {
-            this.plugin.settings.searchInLinks = value;
-            this.plugin.saveData();
+            this.plugin.setSetting('searchInLinks', value);
+            this.plugin.saveSettings();
           });
       });
   }

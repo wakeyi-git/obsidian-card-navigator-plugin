@@ -1,29 +1,50 @@
-import { CardSet } from '@/domain/models/CardSet';
+import { App } from 'obsidian';
+import { CardSet, ICardSetConfig } from '@/domain/models/CardSet';
+import { ICardService } from '@/domain/services/ICardService';
+import { ILayoutService } from '@/domain/services/ILayoutService';
+import { ILayoutConfig } from '@/domain/models/Layout';
+import { ICardRenderConfig } from '@/domain/models/Card';
 
 /**
- * 카드셋 리포지토리 인터페이스
+ * 카드셋 저장소 인터페이스
  */
 export interface ICardSetRepository {
   /**
-   * 카드셋 저장
-   * @param cardSet 저장할 카드셋
+   * 카드셋 생성
    */
-  save(cardSet: CardSet): Promise<void>;
+  createCardSet(
+    name: string,
+    description: string,
+    config: ICardSetConfig,
+    app: App,
+    cardService: ICardService,
+    layoutService: ILayoutService,
+    layoutConfig: ILayoutConfig,
+    cardRenderConfig: ICardRenderConfig
+  ): Promise<CardSet>;
 
   /**
-   * ID로 카드셋 찾기
-   * @param id 카드셋 ID
+   * 카드셋 업데이트
    */
-  findById(id: string): Promise<CardSet | undefined>;
-
-  /**
-   * 모든 카드셋 찾기
-   */
-  findAll(): Promise<CardSet[]>;
+  updateCardSet(cardSet: CardSet): Promise<void>;
 
   /**
    * 카드셋 삭제
-   * @param id 카드셋 ID
    */
-  delete(id: string): Promise<void>;
+  deleteCardSet(id: string): Promise<void>;
+
+  /**
+   * 카드셋 조회
+   */
+  getCardSet(id: string): Promise<CardSet | undefined>;
+
+  /**
+   * 모든 카드셋 조회
+   */
+  getAllCardSets(): Promise<CardSet[]>;
+
+  /**
+   * 저장소 정리
+   */
+  dispose(): void;
 } 

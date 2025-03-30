@@ -1,5 +1,5 @@
 import { Setting } from 'obsidian';
-import { LayoutType, LayoutDirection } from '@/domain/models/Layout';
+import { IPluginWithSettings } from '@/ui/settings/SettingsTab';
 
 /**
  * 레이아웃 설정 컴포넌트
@@ -7,7 +7,7 @@ import { LayoutType, LayoutDirection } from '@/domain/models/Layout';
 export class LayoutSettings {
   constructor(
     private readonly containerEl: HTMLElement,
-    private readonly plugin: any
+    private readonly plugin: IPluginWithSettings
   ) {}
 
   /**
@@ -27,9 +27,9 @@ export class LayoutSettings {
         dropdown
           .addOption('grid', '그리드')
           .addOption('masonry', '메이슨리')
-          .setValue(this.plugin.settings.layout.type)
-          .onChange(async (value: LayoutType) => {
-            this.plugin.settings.layout.type = value;
+          .setValue(this.plugin.getSetting('layout.type'))
+          .onChange(value => {
+            this.plugin.setSetting('layout.type', value);
             this.plugin.saveSettings();
             this._updateLayoutSettings();
           });
@@ -43,9 +43,9 @@ export class LayoutSettings {
         dropdown
           .addOption('horizontal', '가로')
           .addOption('vertical', '세로')
-          .setValue(this.plugin.settings.layout.direction)
-          .onChange(async (value: LayoutDirection) => {
-            this.plugin.settings.layout.direction = value;
+          .setValue(this.plugin.getSetting('layout.direction'))
+          .onChange(value => {
+            this.plugin.setSetting('layout.direction', value);
             this.plugin.saveSettings();
           });
       });
@@ -56,9 +56,9 @@ export class LayoutSettings {
       .setDesc('카드의 높이를 고정하여 그리드 레이아웃을 사용합니다.')
       .addToggle(toggle => {
         toggle
-          .setValue(this.plugin.settings.layout.fixedHeight)
-          .onChange(async (value) => {
-            this.plugin.settings.layout.fixedHeight = value;
+          .setValue(this.plugin.getSetting('layout.fixedHeight'))
+          .onChange(value => {
+            this.plugin.setSetting('layout.fixedHeight', value);
             this.plugin.saveSettings();
             this._updateLayoutSettings();
           });
@@ -71,10 +71,10 @@ export class LayoutSettings {
       .addSlider(slider => {
         slider
           .setLimits(200, 800, 50)
-          .setValue(this.plugin.settings.layout.minCardWidth)
+          .setValue(this.plugin.getSetting('layout.minCardWidth'))
           .setDynamicTooltip()
-          .onChange(async (value) => {
-            this.plugin.settings.layout.minCardWidth = value;
+          .onChange(value => {
+            this.plugin.setSetting('layout.minCardWidth', value);
             this.plugin.saveSettings();
           });
       });
@@ -86,10 +86,10 @@ export class LayoutSettings {
       .addSlider(slider => {
         slider
           .setLimits(200, 800, 50)
-          .setValue(this.plugin.settings.layout.minCardHeight)
+          .setValue(this.plugin.getSetting('layout.minCardHeight'))
           .setDynamicTooltip()
-          .onChange(async (value) => {
-            this.plugin.settings.layout.minCardHeight = value;
+          .onChange(value => {
+            this.plugin.setSetting('layout.minCardHeight', value);
             this.plugin.saveSettings();
           });
       });
@@ -101,10 +101,10 @@ export class LayoutSettings {
       .addSlider(slider => {
         slider
           .setLimits(0, 50, 5)
-          .setValue(this.plugin.settings.layout.gap)
+          .setValue(this.plugin.getSetting('layout.gap'))
           .setDynamicTooltip()
-          .onChange(async (value) => {
-            this.plugin.settings.layout.gap = value;
+          .onChange(value => {
+            this.plugin.setSetting('layout.gap', value);
             this.plugin.saveSettings();
           });
       });
@@ -116,10 +116,10 @@ export class LayoutSettings {
       .addSlider(slider => {
         slider
           .setLimits(0, 50, 5)
-          .setValue(this.plugin.settings.layout.padding)
+          .setValue(this.plugin.getSetting('layout.padding'))
           .setDynamicTooltip()
-          .onChange(async (value) => {
-            this.plugin.settings.layout.padding = value;
+          .onChange(value => {
+            this.plugin.setSetting('layout.padding', value);
             this.plugin.saveSettings();
           });
       });
@@ -132,7 +132,8 @@ export class LayoutSettings {
    * 레이아웃 설정 상태 업데이트
    */
   private _updateLayoutSettings(): void {
-    const { type, fixedHeight } = this.plugin.settings.layout;
+    const type = this.plugin.getSetting('layout.type');
+    const fixedHeight = this.plugin.getSetting('layout.fixedHeight');
     const layoutDirectionSetting = this.containerEl.querySelector('.setting-item:has(.dropdown)') as HTMLElement;
     const cardHeightSetting = this.containerEl.querySelector('.setting-item:has(.checkbox)') as HTMLElement;
 

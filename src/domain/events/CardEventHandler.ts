@@ -1,5 +1,4 @@
-import { Card } from '../models/Card';
-import { ICardService } from '../services/CardService';
+import { ICardService } from '@/domain/services/ICardService';
 import { IDomainEventHandler } from './IDomainEventHandler';
 import {
   CardEvent,
@@ -52,16 +51,46 @@ export class CardEventHandler implements IDomainEventHandler<CardEvent> {
    * 카드 생성 이벤트 처리
    */
   private async handleCardCreated(event: CardCreatedEvent): Promise<void> {
-    const card = event.card;
-    await this.cardService.updateCard(card);
+    try {
+      console.debug('카드 생성 이벤트 처리 시작:', { cardId: event.card.id });
+
+      const card = await this.cardService.getCardById(event.card.id);
+      if (!card) {
+        console.warn('카드를 찾을 수 없음:', { cardId: event.card.id });
+        return;
+      }
+
+      // 카드 생성 이벤트 발생
+      await this.cardService.updateCard(card);
+
+      console.debug('카드 생성 이벤트 처리 완료:', { cardId: event.card.id });
+    } catch (error) {
+      console.error('카드 생성 이벤트 처리 실패:', error);
+      throw error;
+    }
   }
 
   /**
    * 카드 업데이트 이벤트 처리
    */
   private async handleCardUpdated(event: CardUpdatedEvent): Promise<void> {
-    const card = event.card;
-    await this.cardService.updateCard(card);
+    try {
+      console.debug('카드 업데이트 이벤트 처리 시작:', { cardId: event.card.id });
+
+      const card = await this.cardService.getCardById(event.card.id);
+      if (!card) {
+        console.warn('카드를 찾을 수 없음:', { cardId: event.card.id });
+        return;
+      }
+
+      // 카드 업데이트 이벤트 발생
+      await this.cardService.updateCard(card);
+
+      console.debug('카드 업데이트 이벤트 처리 완료:', { cardId: event.card.id });
+    } catch (error) {
+      console.error('카드 업데이트 이벤트 처리 실패:', error);
+      throw error;
+    }
   }
 
   /**
@@ -76,7 +105,7 @@ export class CardEventHandler implements IDomainEventHandler<CardEvent> {
    * 카드 스타일 변경 이벤트 처리
    */
   private async handleCardStyleChanged(event: CardStyleChangedEvent): Promise<void> {
-    const card = await this.cardService.getCard(event.cardId);
+    const card = await this.cardService.getCardById(event.cardId);
     if (!card) {
       throw new Error(`Card not found: ${event.cardId}`);
     }
@@ -88,7 +117,7 @@ export class CardEventHandler implements IDomainEventHandler<CardEvent> {
    * 카드 위치 변경 이벤트 처리
    */
   private async handleCardPositionChanged(event: CardPositionChangedEvent): Promise<void> {
-    const card = await this.cardService.getCard(event.cardId);
+    const card = await this.cardService.getCardById(event.cardId);
     if (!card) {
       throw new Error(`Card not found: ${event.cardId}`);
     }

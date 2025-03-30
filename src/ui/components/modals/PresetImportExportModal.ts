@@ -7,6 +7,7 @@ import { Preset } from '@/domain/models/Preset';
 export class PresetImportExportModal extends Modal {
   private presets: Preset[];
   private onImport: (presets: Preset[]) => void;
+  private selectedPresets: Set<string> = new Set();
 
   constructor(
     app: App,
@@ -38,7 +39,14 @@ export class PresetImportExportModal extends Modal {
         .setName(preset.name)
         .setDesc(preset.description || '')
         .addToggle(toggle => {
-          toggle.setValue(true);
+          toggle.setValue(this.selectedPresets.has(preset.id));
+          toggle.onChange(value => {
+            if (value) {
+              this.selectedPresets.add(preset.id);
+            } else {
+              this.selectedPresets.delete(preset.id);
+            }
+          });
         });
     });
 
@@ -54,7 +62,24 @@ export class PresetImportExportModal extends Modal {
         button
           .setButtonText('파일 선택')
           .onClick(() => {
-            // TODO: 파일 선택 다이얼로그 표시
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = async (e) => {
+              const file = (e.target as HTMLInputElement).files?.[0];
+              if (!file) return;
+
+              try {
+                const text = await file.text();
+                const presets = JSON.parse(text);
+                this.onImport(presets);
+                this.close();
+              } catch (error) {
+                console.error('Error importing presets:', error);
+                alert('프리셋 가져오기 실패');
+              }
+            };
+            input.click();
           });
       });
 
@@ -70,7 +95,20 @@ export class PresetImportExportModal extends Modal {
         button
           .setButtonText('내보내기')
           .onClick(() => {
-            // TODO: 파일 저장 다이얼로그 표시
+            const selectedPresets = this.presets.filter(preset => this.selectedPresets.has(preset.id));
+            if (selectedPresets.length === 0) {
+              alert('내보낼 프리셋을 선택해주세요.');
+              return;
+            }
+
+            const json = JSON.stringify(selectedPresets, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'presets.json';
+            a.click();
+            URL.revokeObjectURL(url);
           });
       });
 
@@ -83,19 +121,5 @@ export class PresetImportExportModal extends Modal {
             this.close();
           });
       });
-  }
-
-  /**
-   * JSON 파일 가져오기
-   */
-  private async _importJsonFile(): Promise<void> {
-    // TODO: 파일 선택 다이얼로그 표시 및 JSON 파일 가져오기
-  }
-
-  /**
-   * JSON 파일 내보내기
-   */
-  private async _exportJsonFile(): Promise<void> {
-    // TODO: 파일 저장 다이얼로그 표시 및 JSON 파일 내보내기
   }
 } 

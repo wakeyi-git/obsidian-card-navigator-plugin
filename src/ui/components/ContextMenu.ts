@@ -1,4 +1,3 @@
-import { App } from 'obsidian';
 import { Card } from '@/domain/models/Card';
 
 /**

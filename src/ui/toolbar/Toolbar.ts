@@ -1,11 +1,12 @@
 import { App } from 'obsidian';
 import { CardSet, CardSetType } from '@/domain/models/CardSet';
 import { ICardRenderConfig } from '@/domain/models/Card';
-import { ILayoutConfig, LayoutType, LayoutDirection } from '@/domain/models/Layout';
+import { ILayoutConfig } from '@/domain/models/Layout';
 import { IPreset } from '@/domain/models/Preset';
 import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
 import { SearchBar } from '@/ui/components/search/SearchBar';
-import { ISearchService } from '@/domain/services/SearchService';
+import { ISearchService } from '@/domain/services/ISearchService';
+import { IPresetService } from '@/domain/services/IPresetService';
 import {
   ToolbarSearchEvent,
   ToolbarSortEvent,
@@ -42,16 +43,18 @@ export class Toolbar {
   private settingsButton: HTMLElement;
   private sortMenu: HTMLElement;
   private settingsMenu: HTMLElement;
+  private quickSettingsMenu: HTMLElement;
 
   constructor(
     private readonly app: App,
     private readonly containerEl: HTMLElement,
     initialConfig: IToolbarConfig,
     private readonly eventDispatcher: DomainEventDispatcher,
-    private readonly searchService: ISearchService
+    private readonly searchService: ISearchService,
+    private readonly presetService: IPresetService
   ) {
     this.config = initialConfig;
-    this.container = containerEl.createDiv('card-navigator-toolbar');
+    this.container = containerEl;
     this.initialize();
   }
 
@@ -89,6 +92,10 @@ export class Toolbar {
     // 설정 메뉴
     this.settingsMenu = this.container.createDiv('settings-menu');
     this.setupSettingsMenu();
+
+    // 빠른 설정 메뉴
+    this.quickSettingsMenu = this.container.createDiv('quick-settings-menu');
+    this.setupQuickSettingsMenu();
   }
 
   /**
@@ -249,12 +256,70 @@ export class Toolbar {
   }
 
   /**
+   * 빠른 설정 메뉴 설정
+   */
+  private setupQuickSettingsMenu(): void {
+    // 카드셋 타입 빠른 전환
+    const cardSetTypeSection = this.quickSettingsMenu.createDiv('quick-settings-section');
+    ['folder', 'tag', 'link'].forEach(type => {
+      const button = cardSetTypeSection.createEl('button');
+      button.createEl('i', { cls: `fas fa-${type}` });
+      button.addEventListener('click', () => {
+        this.config.cardSetType = type as CardSetType;
+        this.updateCardSetTypeIcon();
+        this.onCardSetTypeChange(this.config.cardSetType);
+      });
+    });
+
+    // 정렬 옵션 빠른 전환
+    const sortSection = this.quickSettingsMenu.createDiv('quick-settings-section');
+    const sortOptions = [
+      { icon: 'sort-alpha-down', label: '파일 이름 (알파벳 순)', value: 'fileName', order: 'asc' },
+      { icon: 'sort-alpha-up', label: '파일 이름 (알파벳 역순)', value: 'fileName', order: 'desc' },
+      { icon: 'clock', label: '업데이트 날짜 (최신순)', value: 'updated', order: 'desc' },
+      { icon: 'calendar', label: '생성일 (최신순)', value: 'created', order: 'desc' }
+    ];
+
+    sortOptions.forEach(option => {
+      const button = sortSection.createEl('button');
+      button.createEl('i', { cls: `fas fa-${option.icon}` });
+      button.title = option.label;
+      button.addEventListener('click', () => {
+        this.config.sortBy = option.value;
+        this.config.sortOrder = option.order as 'asc' | 'desc';
+        this.onSortChange(this.config.sortBy, this.config.sortOrder);
+      });
+    });
+
+    // 레이아웃 모드 빠른 전환
+    const layoutSection = this.quickSettingsMenu.createDiv('quick-settings-section');
+    const layoutButton = layoutSection.createEl('button');
+    layoutButton.createEl('i', { cls: 'fas fa-th-large' });
+    layoutButton.title = '레이아웃 모드';
+    layoutButton.addEventListener('click', () => {
+      this.config.layoutConfig.fixedHeight = !this.config.layoutConfig.fixedHeight;
+      this.onLayoutConfigChange(this.config.layoutConfig);
+    });
+
+    // 렌더링 모드 빠른 전환
+    const renderSection = this.quickSettingsMenu.createDiv('quick-settings-section');
+    const renderButton = renderSection.createEl('button');
+    renderButton.createEl('i', { cls: 'fas fa-code' });
+    renderButton.title = '렌더링 모드';
+    renderButton.addEventListener('click', () => {
+      this.config.cardRenderConfig.renderAsHtml = !this.config.cardRenderConfig.renderAsHtml;
+      this.onCardRenderConfigChange(this.config.cardRenderConfig);
+    });
+  }
+
+  /**
    * 정렬 메뉴 토글
    */
   private toggleSortMenu(): void {
     this.sortMenu.classList.toggle('active');
     if (this.sortMenu.classList.contains('active')) {
       this.settingsMenu.classList.remove('active');
+      this.quickSettingsMenu.classList.remove('active');
     }
   }
 
@@ -265,6 +330,7 @@ export class Toolbar {
     this.settingsMenu.classList.toggle('active');
     if (this.settingsMenu.classList.contains('active')) {
       this.sortMenu.classList.remove('active');
+      this.quickSettingsMenu.classList.remove('active');
     }
   }
 
@@ -323,26 +389,53 @@ export class Toolbar {
    * 프리셋 목록 로드
    */
   private async loadPresets(select: HTMLSelectElement): Promise<void> {
-    // TODO: 프리셋 목록을 서비스에서 가져와서 select에 추가
-    // const presets = await this.presetService.getAllPresets();
-    // presets.forEach(preset => {
-    //   const option = select.createEl('option');
-    //   option.value = preset.id;
-    //   option.setText(preset.name);
-    // });
-    // select.value = this.config.selectedPreset?.id || '';
-    // select.addEventListener('change', (e) => {
-    //   const target = e.target as HTMLSelectElement;
-    //   const preset = presets.find(p => p.id === target.value);
-    //   this.onPresetChange(preset || null);
-    // });
+    try {
+      // 프리셋 목록 가져오기
+      const presets = await this.presetService.getAllPresets();
+      
+      // select 초기화
+      select.empty();
+      
+      // 기본 옵션 추가
+      const defaultOption = select.createEl('option');
+      defaultOption.value = '';
+      defaultOption.setText('프리셋 선택');
+      
+      // 프리셋 목록 추가
+      presets.forEach(preset => {
+        const option = select.createEl('option');
+        option.value = preset.id;
+        option.setText(preset.name);
+      });
+      
+      // 현재 선택된 프리셋 설정
+      if (this.config.selectedPreset) {
+        select.value = this.config.selectedPreset.id;
+      }
+      
+      // 변경 이벤트 리스너 등록
+      select.addEventListener('change', (e) => {
+        const target = e.target as HTMLSelectElement;
+        const preset = presets.find(p => p.id === target.value);
+        this.onPresetChange(preset || null);
+      });
+    } catch (error) {
+      console.error('프리셋 목록을 로드하는 중 오류가 발생했습니다:', error);
+      // 오류 발생 시 사용자에게 알림
+      const errorOption = select.createEl('option');
+      errorOption.value = '';
+      errorOption.setText('프리셋 로드 실패');
+    }
   }
 
   /**
    * 툴바 정리
    */
   public cleanup(): void {
-    this.container.remove();
+    // 메뉴 제거
+    this.sortMenu.remove();
+    this.settingsMenu.remove();
+    this.quickSettingsMenu.remove();
   }
 
   /**

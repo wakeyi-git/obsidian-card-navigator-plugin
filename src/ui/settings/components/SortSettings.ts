@@ -1,10 +1,10 @@
 import { Setting } from 'obsidian';
-import { ICardNavigatorSettings } from '@/ui/components/SettingsTab';
+import { IPluginWithSettings } from '@/ui/settings/SettingsTab';
 
 export class SortSettings {
   constructor(
     private readonly containerEl: HTMLElement,
-    private readonly plugin: any
+    private readonly plugin: IPluginWithSettings
   ) {}
 
   display(): void {
@@ -28,9 +28,9 @@ export class SortSettings {
           .addOption('createdAt', '생성일')
           .addOption('updatedAt', '수정일')
           .addOption('custom', '사용자 지정')
-          .setValue(this.plugin.settings.sortBy)
+          .setValue(this.plugin.getSetting('sortBy'))
           .onChange(async (value: 'fileName' | 'firstHeader' | 'createdAt' | 'updatedAt' | 'custom') => {
-            this.plugin.settings.sortBy = value;
+            this.plugin.setSetting('sortBy', value);
             if (value === 'custom') {
               this._showCustomSortField();
             } else {
@@ -47,9 +47,9 @@ export class SortSettings {
         dropdown
           .addOption('asc', '오름차순')
           .addOption('desc', '내림차순')
-          .setValue(this.plugin.settings.sortOrder)
+          .setValue(this.plugin.getSetting('sortOrder'))
           .onChange(async (value: 'asc' | 'desc') => {
-            this.plugin.settings.sortOrder = value;
+            this.plugin.setSetting('sortOrder', value);
             this.plugin.saveSettings();
           });
       });
@@ -65,12 +65,12 @@ export class SortSettings {
       .setDesc('쉼표로 구분된 태그 목록을 입력하세요. (예: #중요, #프로젝트, #할일)')
       .addTextArea(text => {
         text
-          .setValue(this.plugin.settings.priorityTags?.join(', ') || '')
+          .setValue(this.plugin.getSetting('priorityTags')?.join(', ') || '')
           .onChange(async (value: string) => {
-            this.plugin.settings.priorityTags = value
+            this.plugin.setSetting('priorityTags', value
               .split(',')
               .map(tag => tag.trim())
-              .filter(tag => tag.startsWith('#'));
+              .filter(tag => tag.startsWith('#')));
             this.plugin.saveSettings();
           });
       });
@@ -81,18 +81,18 @@ export class SortSettings {
       .setDesc('쉼표로 구분된 폴더 경로를 입력하세요. (예: /프로젝트, /일일노트, /중요)')
       .addTextArea(text => {
         text
-          .setValue(this.plugin.settings.priorityFolders?.join(', ') || '')
+          .setValue(this.plugin.getSetting('priorityFolders')?.join(', ') || '')
           .onChange(async (value: string) => {
-            this.plugin.settings.priorityFolders = value
+            this.plugin.setSetting('priorityFolders', value
               .split(',')
               .map(folder => folder.trim())
-              .filter(folder => folder.startsWith('/'));
+              .filter(folder => folder.startsWith('/')));
             this.plugin.saveSettings();
           });
       });
 
     // 사용자 지정 정렬 필드
-    if (this.plugin.settings.sortBy === 'custom') {
+    if (this.plugin.getSetting('sortBy') === 'custom') {
       this._showCustomSortField();
     }
   }
@@ -103,9 +103,9 @@ export class SortSettings {
       .setDesc('frontmatter에서 사용할 필드명을 입력하세요.')
       .addText(text => {
         text
-          .setValue(this.plugin.settings.customSortField || '')
+          .setValue(this.plugin.getSetting('customSortField') || '')
           .onChange(async (value: string) => {
-            this.plugin.settings.customSortField = value || undefined;
+            this.plugin.setSetting('customSortField', value || undefined);
             this.plugin.saveSettings();
           });
       });

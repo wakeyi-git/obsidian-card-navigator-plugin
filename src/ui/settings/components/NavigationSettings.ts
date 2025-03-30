@@ -1,5 +1,5 @@
 import { Setting } from 'obsidian';
-import { ICardNavigatorSettings } from '@/ui/components/SettingsTab';
+import { IPluginWithSettings } from '@/ui/settings/SettingsTab';
 
 /**
  * 네비게이션 설정 컴포넌트
@@ -7,7 +7,7 @@ import { ICardNavigatorSettings } from '@/ui/components/SettingsTab';
 export class NavigationSettings {
   constructor(
     private containerEl: HTMLElement,
-    private plugin: any
+    private plugin: IPluginWithSettings
   ) {}
 
   /**
@@ -24,10 +24,10 @@ export class NavigationSettings {
       .setDesc('키보드로 카드 간 이동이 가능합니다.')
       .addToggle(toggle => {
         toggle
-          .setValue(this.plugin.settings.keyboardNavigationEnabled)
+          .setValue(this.plugin.getSetting('keyboardNavigationEnabled'))
           .onChange(async (value) => {
-            this.plugin.settings.keyboardNavigationEnabled = value;
-            await this.plugin.saveData();
+            this.plugin.setSetting('keyboardNavigationEnabled', value);
+            await this.plugin.saveSettings();
           });
       });
 
@@ -39,10 +39,10 @@ export class NavigationSettings {
         dropdown
           .addOption('smooth', '부드러운 스크롤')
           .addOption('instant', '즉시 스크롤')
-          .setValue(this.plugin.settings.scrollBehavior)
+          .setValue(this.plugin.getSetting('scrollBehavior'))
           .onChange(async (value) => {
-            this.plugin.settings.scrollBehavior = value;
-            await this.plugin.saveData();
+            this.plugin.setSetting('scrollBehavior', value);
+            await this.plugin.saveSettings();
           });
       });
 
@@ -52,10 +52,10 @@ export class NavigationSettings {
       .setDesc('현재 활성화된 파일의 카드에 자동으로 포커스합니다.')
       .addToggle(toggle => {
         toggle
-          .setValue(this.plugin.settings.autoFocusActiveCard)
+          .setValue(this.plugin.getSetting('autoFocusActiveCard'))
           .onChange(async (value) => {
-            this.plugin.settings.autoFocusActiveCard = value;
-            await this.plugin.saveData();
+            this.plugin.setSetting('autoFocusActiveCard', value);
+            await this.plugin.saveSettings();
           });
       });
 
@@ -67,8 +67,26 @@ export class NavigationSettings {
         button
           .setButtonText('단축키 설정 열기')
           .onClick(() => {
-            this.plugin.app.setting.open();
-            this.plugin.app.setting.openTab('hotkeys');
+            // 단축키 설정을 여는 명령어 추가
+            this.plugin.addCommand({
+              id: 'open-hotkeys',
+              name: '단축키 설정 열기',
+              callback: () => {
+                // 단축키 설정 열기
+                const settingsView = this.plugin.app.workspace.getLeavesOfType('markdown').find(leaf => 
+                  leaf.getViewState().type === 'settings'
+                );
+                
+                if (settingsView) {
+                  this.plugin.app.workspace.revealLeaf(settingsView);
+                } else {
+                  this.plugin.app.workspace.getLeaf('tab').setViewState({
+                    type: 'settings',
+                    state: { settingTab: 'hotkeys' }
+                  });
+                }
+              }
+            });
           });
       });
   }

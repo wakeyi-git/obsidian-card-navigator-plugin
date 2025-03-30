@@ -1,99 +1,131 @@
 import { App } from 'obsidian';
-import { CardSet } from '@/domain/models/CardSet';
+import { CardSet, ICardSetConfig } from '@/domain/models/CardSet';
+import { ICardRenderConfig } from '@/domain/models/Card';
 import { ICardSetRepository } from '@/domain/repositories/ICardSetRepository';
-import { ICardService } from '@/domain/services/CardService';
+import { ICardService } from '@/domain/services/ICardService';
+import { ILayoutService } from '@/domain/services/ILayoutService';
+import { ILayoutConfig } from '@/domain/models/Layout';
+import { LoggingService } from '@/infrastructure/services/LoggingService';
 
 /**
- * 카드셋 리포지토리 클래스
+ * 카드셋 저장소 클래스
  */
 export class CardSetRepository implements ICardSetRepository {
-  private readonly DATA_FILE = '.card-navigator/cardsets.json';
+  private _cardSets: Map<string, CardSet> = new Map();
 
   constructor(
     private readonly app: App,
-    private readonly cardService: ICardService
+    private readonly cardService: ICardService,
+    private readonly layoutService: ILayoutService,
+    private readonly loggingService: LoggingService
   ) {}
 
-  async save(cardSet: CardSet): Promise<void> {
-    const data = await this._loadData();
-    const index = data.findIndex((cs: any) => cs.id === cardSet.id);
-    
-    const cardSetData = this._convertToData(cardSet);
-    
-    if (index === -1) {
-      data.push(cardSetData);
-    } else {
-      data[index] = cardSetData;
-    }
-
-    await this._saveData(data);
-  }
-
-  async findById(id: string): Promise<CardSet | undefined> {
-    const data = await this._loadData();
-    const cardSetData = data.find((cs: any) => cs.id === id);
-    
-    if (!cardSetData) {
-      return undefined;
-    }
-
-    return this._createCardSetFromData(cardSetData);
-  }
-
-  async findAll(): Promise<CardSet[]> {
-    const data = await this._loadData();
-    return data.map((cs: any) => this._createCardSetFromData(cs));
-  }
-
-  async delete(id: string): Promise<void> {
-    const data = await this._loadData();
-    const filteredData = data.filter((cs: any) => cs.id !== id);
-    await this._saveData(filteredData);
-  }
-
-  private async _loadData(): Promise<any[]> {
+  /**
+   * 카드셋 생성
+   */
+  async createCardSet(
+    name: string,
+    description: string,
+    config: ICardSetConfig,
+    app: App,
+    cardService: ICardService,
+    layoutService: ILayoutService,
+    layoutConfig: ILayoutConfig,
+    cardRenderConfig: ICardRenderConfig
+  ): Promise<CardSet> {
     try {
-      const data = await this.app.vault.adapter.read(this.DATA_FILE);
-      return JSON.parse(data);
+      this.loggingService.debug('카드셋 생성 시작:', { name, description });
+
+      const cardSet = new CardSet(
+        crypto.randomUUID(),
+        name,
+        description,
+        config,
+        app,
+        cardService,
+        layoutService,
+        layoutConfig,
+        cardRenderConfig,
+        [],
+        undefined,
+        undefined,
+        new Date(),
+        new Date()
+      );
+
+      this._cardSets.set(cardSet.id, cardSet);
+      this.loggingService.debug('카드셋 생성 완료:', cardSet.id);
+      return cardSet;
     } catch (error) {
-      return [];
+      this.loggingService.error('카드셋 생성 실패:', error);
+      throw error;
     }
   }
 
-  private async _saveData(data: any[]): Promise<void> {
-    const jsonData = JSON.stringify(data, null, 2);
-    await this.app.vault.adapter.write(this.DATA_FILE, jsonData);
+  /**
+   * 카드셋에 카드 추가
+   */
+  async addCardToCardSet(cardSetId: string, cardId: string): Promise<void> {
+    try {
+      this.loggingService.debug('카드셋에 카드 추가 시작:', { cardSetId, cardId });
+
+      const cardSet = this._cardSets.get(cardSetId);
+      if (!cardSet) {
+        throw new Error('카드셋을 찾을 수 없음');
+      }
+
+      const card = await this.cardService.getCardById(cardId);
+      if (!card) {
+        throw new Error('카드를 찾을 수 없음');
+      }
+
+      cardSet.addCard(card);
+      this.loggingService.debug('카드셋에 카드 추가 완료');
+    } catch (error) {
+      this.loggingService.error('카드셋에 카드 추가 실패:', error);
+      throw error;
+    }
   }
 
-  private _createCardSetFromData(data: any): CardSet {
-    return new CardSet(
-      data.id,
-      data.name,
-      data.description,
-      data.config,
-      this.app,
-      this.cardService,
-      data.layoutConfig,
-      data.cardRenderConfig,
-      data.cards.map((card: any) => ({
-        id: card.id,
-        fileName: card.fileName,
-        filePath: card.filePath,
-        firstHeader: card.firstHeader,
-        content: card.content,
-        tags: card.tags,
-        frontmatter: card.frontmatter,
-        createdAt: new Date(card.createdAt),
-        updatedAt: new Date(card.updatedAt)
-      })),
-      data.activeCardId,
-      data.focusedCardId,
-      new Date(data.createdAt),
-      new Date(data.updatedAt)
-    );
+  /**
+   * 카드셋 업데이트
+   */
+  async updateCardSet(cardSet: CardSet): Promise<void> {
+    this._cardSets.set(cardSet.id, cardSet);
   }
 
-  private _convertToData(cardSet: CardSet): any {
+  /**
+   * 카드셋 삭제
+   */
+  async deleteCardSet(id: string): Promise<void> {
+    this._cardSets.delete(id);
+  }
+
+  /**
+   * 카드셋 조회
+   */
+  async getCardSet(id: string): Promise<CardSet | undefined> {
+    return this._cardSets.get(id);
+  }
+
+  /**
+   * 모든 카드셋 조회
+   */
+  async getAllCardSets(): Promise<CardSet[]> {
+    return Array.from(this._cardSets.values());
+  }
+
+  /**
+   * 카드셋 저장
+   */
+  private _saveCardSet(cardSet: CardSet): void {
+    this._cardSets.set(cardSet.id, cardSet);
+  }
+
+  /**
+   * 카드셋 데이터를 저장소 형식으로 변환
+   */
+  private _toStorageFormat(cardSet: CardSet): any {
     return {
       id: cardSet.id,
       name: cardSet.name,
@@ -101,21 +133,55 @@ export class CardSetRepository implements ICardSetRepository {
       config: cardSet.config,
       layoutConfig: cardSet.layoutConfig,
       cardRenderConfig: cardSet.cardRenderConfig,
-      cards: cardSet.cards.map(card => ({
-        id: card.id,
-        fileName: card.fileName,
-        filePath: card.filePath,
-        firstHeader: card.firstHeader,
-        content: card.content,
-        tags: card.tags,
-        frontmatter: card.frontmatter,
-        createdAt: new Date(card.createdAt).toISOString(),
-        updatedAt: new Date(card.updatedAt).toISOString()
-      })),
+      cards: cardSet.cards.map(card => card.id),
       activeCardId: cardSet.activeCardId,
       focusedCardId: cardSet.focusedCardId,
-      createdAt: new Date(cardSet.createdAt).toISOString(),
-      updatedAt: new Date(cardSet.updatedAt).toISOString()
+      createdAt: cardSet.createdAt.toISOString(),
+      updatedAt: cardSet.updatedAt.toISOString()
     };
+  }
+
+  /**
+   * 저장소 데이터를 카드셋으로 변환
+   */
+  private async _fromStorageFormat(data: any): Promise<CardSet> {
+    try {
+      const cards = await Promise.all(
+        data.cards.map(async (cardId: string) => {
+          const card = await this.cardService.getCardById(cardId);
+          if (!card) {
+            throw new Error(`카드를 찾을 수 없음: ${cardId}`);
+          }
+          return card;
+        })
+      );
+
+      return new CardSet(
+        data.id,
+        data.name,
+        data.description,
+        data.config,
+        this.app,
+        this.cardService,
+        this.layoutService,
+        data.layoutConfig,
+        data.cardRenderConfig,
+        cards,
+        data.activeCardId,
+        data.focusedCardId,
+        new Date(data.createdAt),
+        new Date(data.updatedAt)
+      );
+    } catch (error) {
+      this.loggingService.error('저장소 데이터를 카드셋으로 변환 실패:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 저장소 정리
+   */
+  dispose(): void {
+    this._cardSets.clear();
   }
 } 

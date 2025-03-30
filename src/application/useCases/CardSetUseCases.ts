@@ -1,9 +1,13 @@
 import { App } from 'obsidian';
-import { Card } from '../../domain/models/Card';
-import { CardSet, CardFilter, CardSort, ICardSetConfig, ICardSetFilters, ICardSetSortConfig } from '../../domain/models/CardSet';
-import { ICardSetService } from '../../domain/services/CardSetService';
-import { ICardSetRepository } from '../../domain/repositories/ICardSetRepository';
-import { ICardService } from '../../domain/services/CardService';
+import { ICardRenderConfig } from '@/domain/models/Card';
+import { CardSet, CardFilter, CardSort, ICardSetConfig, CardSetType } from '@/domain/models/CardSet';
+import { ICardSetService } from '@/domain/services/ICardSetService';
+import { ICardSetRepository } from '@/domain/repositories/ICardSetRepository';
+import { ICardService } from '@/domain/services/ICardService';
+import { ILayoutConfig } from '@/domain/models/Layout';
+import { ILayoutService } from '@/domain/services/ILayoutService';
+import { IPresetService } from '@/domain/services/IPresetService';
+import { LoggingService } from '@/infrastructure/services/LoggingService';
 
 /**
  * 카드셋 유스케이스 클래스
@@ -12,24 +16,30 @@ export class CardSetUseCases {
   constructor(
     private readonly app: App,
     private readonly cardService: ICardService,
-    private readonly cardSetRepository: ICardSetRepository
+    private readonly cardSetRepository: ICardSetRepository,
+    private readonly layoutService: ILayoutService,
+    private readonly presetService: IPresetService
   ) {}
 
   /**
    * 카드셋 생성
    */
-  async createCardSet(config: ICardSetConfig): Promise<CardSet> {
-    const id = crypto.randomUUID();
-    const name = config.sourceFolder || '새 카드셋';
-    const description = `카드셋: ${name}`;
-
-    return new CardSet(
-      id,
+  async createCardSet(
+    name: string,
+    description: string,
+    config: ICardSetConfig,
+    layoutConfig: ILayoutConfig,
+    cardRenderConfig: ICardRenderConfig
+  ): Promise<CardSet> {
+    return await this.cardSetRepository.createCardSet(
       name,
       description,
       config,
       this.app,
-      this.cardService
+      this.cardService,
+      this.layoutService,
+      layoutConfig,
+      cardRenderConfig
     );
   }
 
@@ -37,104 +47,142 @@ export class CardSetUseCases {
    * 카드셋 업데이트
    */
   async updateCardSet(cardSet: CardSet): Promise<void> {
-    await this.cardSetRepository.save(cardSet);
+    await this.cardSetRepository.updateCardSet(cardSet);
   }
 
   /**
    * 카드셋 삭제
    */
-  async deleteCardSet(cardSetId: string): Promise<void> {
-    await this.cardSetRepository.delete(cardSetId);
+  async deleteCardSet(id: string): Promise<void> {
+    await this.cardSetRepository.deleteCardSet(id);
   }
 
   /**
    * 카드셋 조회
    */
-  async getCardSet(cardSetId: string): Promise<CardSet | null> {
-    const cardSet = await this.cardSetRepository.findById(cardSetId);
-    return cardSet || null;
+  async getCardSet(id: string): Promise<CardSet | undefined> {
+    return await this.cardSetRepository.getCardSet(id);
   }
 
   /**
-   * 카드셋 목록 조회
+   * 모든 카드셋 조회
    */
-  async getCardSets(): Promise<CardSet[]> {
-    return this.cardSetRepository.findAll();
+  async getAllCardSets(): Promise<CardSet[]> {
+    return await this.cardSetRepository.getAllCardSets();
   }
 
   /**
-   * 카드셋 필터링
+   * 카드셋에 카드 추가
    */
-  filterCardSet(cardSet: CardSet, filters: ICardSetFilters): void {
-    cardSet.filterCards(card => {
-      // 태그 필터링
-      if (filters.tags?.length && !filters.tags.some(tag => card.tags.includes(tag))) {
-        return false;
-      }
+  async addCardToSet(cardSetId: string, cardId: string): Promise<void> {
+    const cardSet = await this.getCardSet(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
 
-      // 날짜 범위 필터링
-      if (filters.dateRange) {
-        const { start, end, dateField } = filters.dateRange;
-        const cardDate = card[dateField];
+    const card = await this.cardService.getCardById(cardId);
+    if (!card) {
+      throw new Error(`Card not found: ${cardId}`);
+    }
 
-        if (start && cardDate < start.getTime()) {
-          return false;
-        }
-        if (end && cardDate > end.getTime()) {
-          return false;
-        }
-      }
-
-      // 프론트매터 필터링
-      if (filters.frontmatter) {
-        for (const [key, value] of Object.entries(filters.frontmatter)) {
-          if (card.frontmatter?.[key] !== value) {
-            return false;
-          }
-        }
-      }
-
-      return true;
-    });
+    cardSet.addCard(card);
+    await this.updateCardSet(cardSet);
   }
 
   /**
-   * 카드셋 정렬
+   * 카드셋에서 카드 제거
    */
-  sortCardSet(cardSet: CardSet, sortConfig: ICardSetSortConfig): void {
-    cardSet.config.sortBy = sortConfig.field;
-    cardSet.config.sortOrder = sortConfig.order;
-    cardSet.config.customSortField = sortConfig.customField;
+  async removeCardFromSet(cardSetId: string, cardId: string): Promise<void> {
+    const cardSet = await this.getCardSet(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
+
+    cardSet.removeCard(cardId);
+    await this.updateCardSet(cardSet);
+  }
+
+  /**
+   * 카드셋 활성 카드 설정
+   */
+  async setActiveCard(cardSetId: string, cardId: string): Promise<void> {
+    const cardSet = await this.getCardSet(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
+
+    cardSet.activeCardId = cardId;
+    await this.updateCardSet(cardSet);
+  }
+
+  /**
+   * 카드셋 포커스 카드 설정
+   */
+  async setFocusedCard(cardSetId: string, cardId: string): Promise<void> {
+    const cardSet = await this.getCardSet(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
+
+    cardSet.focusedCardId = cardId;
+    await this.updateCardSet(cardSet);
+  }
+
+  /**
+   * 카드셋 카드 정렬
+   */
+  async sortCards(cardSetId: string): Promise<void> {
+    const cardSet = await this.getCardSet(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
+
     cardSet.sortCards();
+    await this.updateCardSet(cardSet);
   }
 
   /**
-   * 카드셋 검색
+   * 카드셋 카드 필터링
    */
-  async searchCardSet(cardSet: CardSet, query: string): Promise<CardSet> {
-    const searchResults = cardSet.cards.filter(card => {
-      const searchableContent = [
-        card.fileName,
-        card.firstHeader,
-        card.content,
-        ...card.tags,
-        ...Object.values(card.frontmatter || {})
-      ].join(' ').toLowerCase();
+  async filterCards(cardSetId: string, filter: CardFilter): Promise<void> {
+    const cardSet = await this.getCardSet(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
 
-      return searchableContent.includes(query.toLowerCase());
-    });
+    cardSet.filterCards(filter);
+    await this.updateCardSet(cardSet);
+  }
 
-    const resultSet = new CardSet(
-      crypto.randomUUID(),
-      `${cardSet.name} - 검색 결과`,
-      `"${query}" 검색 결과`,
-      cardSet.config,
-      this.app,
-      this.cardService
-    );
+  /**
+   * 카드셋 타입 업데이트
+   */
+  async updateCardSetType(cardSetId: string, type: CardSetType): Promise<void> {
+    const cardSet = await this.getCardSet(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
 
-    searchResults.forEach(card => resultSet.addCard(card));
-    return resultSet;
+    cardSet.updateType(type);
+    await this.updateCardSet(cardSet);
+  }
+
+  /**
+   * 프리셋 적용
+   */
+  async applyPreset(cardSetId: string, presetId: string): Promise<void> {
+    const cardSet = await this.getCardSet(cardSetId);
+    if (!cardSet) {
+      throw new Error(`CardSet not found: ${cardSetId}`);
+    }
+
+    const preset = await this.presetService.getPreset(presetId);
+    if (!preset) {
+      throw new Error(`Preset not found: ${presetId}`);
+    }
+
+    cardSet.applyPreset(preset);
+    await this.updateCardSet(cardSet);
   }
 }
 
@@ -142,13 +190,33 @@ export class CardSetUseCases {
  * 카드셋 생성 유스케이스
  */
 export class CreateCardSetUseCase {
-  constructor(private readonly cardSetService: ICardSetService) {}
+  constructor(
+    private readonly cardSetService: ICardSetService,
+    private readonly loggingService: LoggingService
+  ) {}
 
-  /**
-   * 카드셋 생성
-   */
-  async execute(name: string, description: string, config: CardSet['config']): Promise<CardSet> {
-    return this.cardSetService.createCardSet(name, description, config);
+  async execute(
+    name: string,
+    description: string,
+    config: ICardSetConfig,
+    layoutConfig: ILayoutConfig,
+    cardRenderConfig: ICardRenderConfig
+  ): Promise<CardSet> {
+    try {
+      this.loggingService.debug('카드셋 생성 시작:', name);
+      const cardSet = await this.cardSetService.createCardSet(
+        name,
+        description,
+        config,
+        layoutConfig,
+        cardRenderConfig
+      );
+      this.loggingService.debug('카드셋 생성 완료:', cardSet.id);
+      return cardSet;
+    } catch (error) {
+      this.loggingService.error('카드셋 생성 실패:', error);
+      throw error;
+    }
   }
 }
 
@@ -194,14 +262,21 @@ export class DeleteCardSetUseCase {
  * 카드셋 조회 유스케이스
  */
 export class GetCardSetUseCase {
-  constructor(private readonly cardSetService: ICardSetService) {}
+  constructor(
+    private readonly cardSetService: ICardSetService,
+    private readonly loggingService: LoggingService
+  ) {}
 
-  /**
-   * 카드셋 조회
-   */
-  async execute(cardSetId: string): Promise<CardSet | null> {
-    const cardSet = await this.cardSetService.getCardSet(cardSetId);
-    return cardSet || null;
+  async execute(id: string): Promise<CardSet | null> {
+    try {
+      this.loggingService.debug('카드셋 조회 시작:', id);
+      const cardSet = await this.cardSetService.getCardSet(id);
+      this.loggingService.debug('카드셋 조회 완료:', id);
+      return cardSet || null;
+    } catch (error) {
+      this.loggingService.error('카드셋 조회 실패:', error);
+      throw error;
+    }
   }
 }
 
@@ -209,13 +284,21 @@ export class GetCardSetUseCase {
  * 모든 카드셋 조회 유스케이스
  */
 export class GetAllCardSetsUseCase {
-  constructor(private readonly cardSetService: ICardSetService) {}
+  constructor(
+    private readonly cardSetService: ICardSetService,
+    private readonly loggingService: LoggingService
+  ) {}
 
-  /**
-   * 모든 카드셋 조회
-   */
   async execute(): Promise<CardSet[]> {
-    return this.cardSetService.getAllCardSets();
+    try {
+      this.loggingService.debug('모든 카드셋 조회 시작');
+      const cardSets = await this.cardSetService.getAllCardSets();
+      this.loggingService.debug('모든 카드셋 조회 완료:', cardSets.length);
+      return cardSets;
+    } catch (error) {
+      this.loggingService.error('모든 카드셋 조회 실패:', error);
+      throw error;
+    }
   }
 }
 
@@ -223,18 +306,25 @@ export class GetAllCardSetsUseCase {
  * 카드셋에 카드 추가 유스케이스
  */
 export class AddCardToSetUseCase {
-  constructor(private readonly cardSetService: ICardSetService) {}
+  constructor(
+    private readonly cardSetService: ICardSetService,
+    private readonly cardService: ICardService,
+    private readonly loggingService: LoggingService
+  ) {}
 
-  /**
-   * 카드셋에 카드 추가
-   */
-  async execute(cardSetId: string, cardId: string): Promise<CardSet> {
-    await this.cardSetService.addCardToSet(cardSetId, cardId);
-    const updatedCardSet = await this.cardSetService.getCardSet(cardSetId);
-    if (!updatedCardSet) {
-      throw new Error(`CardSet not found after adding card: ${cardSetId}`);
+  async execute(cardSetId: string, cardId: string): Promise<void> {
+    try {
+      this.loggingService.debug('카드셋에 카드 추가 시작:', { cardSetId, cardId });
+      const card = await this.cardService.getCardById(cardId);
+      if (!card) {
+        throw new Error(`Card not found: ${cardId}`);
+      }
+      await this.cardSetService.addCardToSet(cardSetId, cardId);
+      this.loggingService.debug('카드셋에 카드 추가 완료:', { cardSetId, cardId });
+    } catch (error) {
+      this.loggingService.error('카드셋에 카드 추가 실패:', error);
+      throw error;
     }
-    return updatedCardSet;
   }
 }
 
@@ -324,32 +414,7 @@ export class FilterCardsUseCase {
    * 카드셋의 카드 필터링
    */
   async execute(cardSetId: string, filter: CardFilter): Promise<CardSet> {
-    const filterFn = (card: Card): boolean => {
-      switch (filter.type) {
-        case 'search':
-          return filter.criteria.value ? 
-            card.content.toLowerCase().includes(filter.criteria.value.toLowerCase()) : true;
-        case 'tag':
-          return filter.criteria.tags ? 
-            filter.criteria.tags.every(tag => card.tags.includes(tag)) : true;
-        case 'folder':
-          return filter.criteria.folderPath ? 
-            card.filePath.startsWith(filter.criteria.folderPath) : true;
-        case 'date':
-          const cardDate = card.updatedAt;
-          const startDate = filter.criteria.startDate?.getTime();
-          const endDate = filter.criteria.endDate?.getTime();
-          
-          if (!startDate && !endDate) return true;
-          if (startDate && !endDate) return cardDate >= startDate;
-          if (!startDate && endDate) return cardDate <= endDate;
-          return cardDate >= startDate! && cardDate <= endDate!;
-        default:
-          return true;
-      }
-    };
-
-    await this.cardSetService.filterCards(cardSetId, filterFn);
+    await this.cardSetService.filterCards(cardSetId, filter);
     const updatedCardSet = await this.cardSetService.getCardSet(cardSetId);
     if (!updatedCardSet) {
       throw new Error(`CardSet not found after filtering cards: ${cardSetId}`);

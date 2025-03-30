@@ -1,6 +1,6 @@
 import { Card } from '@/domain/models/Card';
 import { CardSet } from '@/domain/models/CardSet';
-import { TFile } from 'obsidian';
+import { CardContainer } from '@/ui/components/CardContainer';
 
 /**
  * 키보드 내비게이터 클래스
@@ -11,6 +11,7 @@ export class KeyboardNavigator {
   private _focusedCard: Card | null = null;
   private _isEnabled = false;
   private _app: any;
+  private _cardContainer: CardContainer | null = null;
 
   // 이벤트 핸들러
   onFocusChange: ((card: Card | null) => void) | null = null;
@@ -55,6 +56,9 @@ export class KeyboardNavigator {
     if (!this._isEnabled) return;
 
     this._focusedCard = card;
+    if (card) {
+      this.scrollToCard(card.id);
+    }
     if (this.onFocusChange) {
       this.onFocusChange(card);
     }
@@ -83,33 +87,43 @@ export class KeyboardNavigator {
 
     switch (event.key) {
       case 'ArrowUp':
+        event.preventDefault();
         this._navigateUp();
         break;
       case 'ArrowDown':
+        event.preventDefault();
         this._navigateDown();
         break;
       case 'ArrowLeft':
+        event.preventDefault();
         this._navigateLeft();
         break;
       case 'ArrowRight':
+        event.preventDefault();
         this._navigateRight();
         break;
       case 'Home':
+        event.preventDefault();
         this._navigateToFirst();
         break;
       case 'End':
+        event.preventDefault();
         this._navigateToLast();
         break;
       case 'PageUp':
+        event.preventDefault();
         this._navigatePageUp();
         break;
       case 'PageDown':
+        event.preventDefault();
         this._navigatePageDown();
         break;
       case 'Enter':
+        event.preventDefault();
         this._handleEnter();
         break;
       case 'Escape':
+        event.preventDefault();
         this._handleEscape();
         break;
     }
@@ -247,5 +261,15 @@ export class KeyboardNavigator {
    */
   private _handleEscape(): void {
     this.setEnabled(false);
+  }
+
+  public setCardContainer(cardContainer: CardContainer): void {
+    this._cardContainer = cardContainer;
+  }
+
+  private scrollToCard(cardId: string): void {
+    if (this._cardContainer) {
+      this._cardContainer.scrollToCard(cardId);
+    }
   }
 } 

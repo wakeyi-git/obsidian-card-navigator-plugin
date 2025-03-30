@@ -1,5 +1,6 @@
 import { Card } from './Card';
-import { LayoutUtils } from '../utils/layoutUtils';
+import { LayoutUtils } from '@/domain/utils/layoutUtils';
+import { CardSet } from './CardSet';
 
 /**
  * 레이아웃 타입
@@ -96,6 +97,7 @@ export interface ICardPosition {
   y: number;
   width: number;
   height: number;
+  zIndex?: number;
 }
 
 /**
@@ -107,6 +109,7 @@ export interface ILayout {
   description: string;
   config: ILayoutConfig;
   cardPositions: ICardPosition[];
+  cardSet?: CardSet;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -120,6 +123,7 @@ export class Layout implements ILayout {
   private _description: string;
   private _config: ILayoutConfig;
   private _cardPositions: ICardPosition[];
+  private _cardSet?: CardSet;
   private _createdAt: Date;
   private _updatedAt: Date;
 
@@ -128,6 +132,7 @@ export class Layout implements ILayout {
     name: string,
     description: string,
     config: ILayoutConfig,
+    cardSet?: CardSet,
     cardPositions: ICardPosition[] = [],
     createdAt: Date = new Date(),
     updatedAt: Date = new Date()
@@ -136,6 +141,7 @@ export class Layout implements ILayout {
     this._name = name;
     this._description = description;
     this._config = config;
+    this._cardSet = cardSet;
     this._cardPositions = cardPositions;
     this._createdAt = createdAt;
     this._updatedAt = updatedAt;
@@ -161,6 +167,10 @@ export class Layout implements ILayout {
     return this._cardPositions;
   }
 
+  get cardSet(): CardSet | undefined {
+    return this._cardSet;
+  }
+
   get createdAt(): Date {
     return this._createdAt;
   }
@@ -181,6 +191,11 @@ export class Layout implements ILayout {
 
   set config(config: ILayoutConfig) {
     this._config = config;
+    this._updatedAt = new Date();
+  }
+
+  set cardSet(cardSet: CardSet | undefined) {
+    this._cardSet = cardSet;
     this._updatedAt = new Date();
   }
 
@@ -251,6 +266,7 @@ export class Layout implements ILayout {
       this._name,
       this._description,
       { ...this._config },
+      this._cardSet?.clone(),
       this._cardPositions.map(p => ({ ...p })),
       new Date(this._createdAt),
       new Date(this._updatedAt)

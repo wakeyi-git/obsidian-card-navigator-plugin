@@ -1,6 +1,5 @@
 import { App, Modal, Setting } from 'obsidian';
-import { Preset, IPresetConfig } from '@/domain/models/Preset';
-import { PresetService } from '@/domain/services/PresetService';
+import { Preset } from '@/domain/models/Preset';
 
 /**
  * 프리셋 수정 모달

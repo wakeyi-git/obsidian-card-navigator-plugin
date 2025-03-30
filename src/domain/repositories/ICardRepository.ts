@@ -1,4 +1,5 @@
 import { Card } from '@/domain/models/Card';
+import { TFile } from 'obsidian';
 
 /**
  * 카드 리포지토리 인터페이스
@@ -14,13 +15,19 @@ export interface ICardRepository {
    * ID로 카드 찾기
    * @param id 카드 ID
    */
-  findById(id: string): Promise<Card | undefined>;
+  findById(id: string): Promise<Card | null>;
 
   /**
    * 경로로 카드 찾기
    * @param filePath 파일 경로
    */
-  findByPath(filePath: string): Promise<Card | undefined>;
+  findByPath(filePath: string): Promise<Card | null>;
+
+  /**
+   * 파일로부터 카드 생성 또는 조회
+   * @param file 파일
+   */
+  getOrCreateCard(file: TFile): Promise<Card>;
 
   /**
    * 모든 카드 찾기

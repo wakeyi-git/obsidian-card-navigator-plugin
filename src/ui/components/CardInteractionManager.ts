@@ -1,6 +1,7 @@
 import { Card } from '@/domain/models/Card';
 import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
 import { CardFocusedEvent, CardBlurredEvent } from '@/domain/events/DomainEvent';
+import { ICardService } from '@/domain/services/ICardService';
 
 /**
  * 카드 상호작용 이벤트 핸들러 타입
@@ -17,6 +18,7 @@ export class CardInteractionManager {
   private _selectedCards: Set<string> = new Set();
   private _focusedCard: Card | null = null;
   private _eventDispatcher: DomainEventDispatcher;
+  private _cardService: ICardService;
 
   // 이벤트 핸들러
   onCardClick: CardEventHandler | null = null;
@@ -30,12 +32,17 @@ export class CardInteractionManager {
   /**
    * 생성자
    * @param eventDispatcher 이벤트 디스패처
+   * @param cardService 카드 서비스
    */
-  constructor(eventDispatcher: DomainEventDispatcher) {
+  constructor(eventDispatcher: DomainEventDispatcher, cardService: ICardService) {
     if (!eventDispatcher) {
       throw new Error('Event dispatcher is required');
     }
+    if (!cardService) {
+      throw new Error('Card service is required');
+    }
     this._eventDispatcher = eventDispatcher;
+    this._cardService = cardService;
   }
 
   /**
@@ -53,22 +60,46 @@ export class CardInteractionManager {
     if (!this._container) return;
 
     // 클릭 이벤트
-    this._container.addEventListener('click', this._handleClick.bind(this));
+    this._container.addEventListener('click', (event) => {
+      this._handleClick(event).catch(error => {
+        console.error('Failed to handle click event:', error);
+      });
+    });
     
     // 더블클릭 이벤트
-    this._container.addEventListener('dblclick', this._handleDoubleClick.bind(this));
+    this._container.addEventListener('dblclick', (event) => {
+      this._handleDoubleClick(event).catch(error => {
+        console.error('Failed to handle double click event:', error);
+      });
+    });
     
     // 컨텍스트 메뉴 이벤트
-    this._container.addEventListener('contextmenu', this._handleContextMenu.bind(this));
+    this._container.addEventListener('contextmenu', (event) => {
+      this._handleContextMenu(event).catch(error => {
+        console.error('Failed to handle context menu event:', error);
+      });
+    });
     
     // 드래그 이벤트
-    this._container.addEventListener('dragstart', this._handleDragStart.bind(this));
+    this._container.addEventListener('dragstart', (event) => {
+      this._handleDragStart(event as DragEvent).catch(error => {
+        console.error('Failed to handle drag start event:', error);
+      });
+    });
     this._container.addEventListener('dragend', this._handleDragEnd.bind(this));
     this._container.addEventListener('dragover', this._handleDragOver.bind(this));
-    this._container.addEventListener('drop', this._handleDrop.bind(this));
+    this._container.addEventListener('drop', (event) => {
+      this._handleDrop(event as DragEvent).catch(error => {
+        console.error('Failed to handle drop event:', error);
+      });
+    });
     
     // 선택 이벤트
-    this._container.addEventListener('mousedown', this._handleMouseDown.bind(this));
+    this._container.addEventListener('mousedown', (event) => {
+      this._handleMouseDown(event as MouseEvent).catch(error => {
+        console.error('Failed to handle mouse down event:', error);
+      });
+    });
     this._container.addEventListener('mouseup', this._handleMouseUp.bind(this));
   }
 
@@ -106,8 +137,8 @@ export class CardInteractionManager {
   /**
    * 클릭 이벤트 처리
    */
-  private _handleClick(event: Event): void {
-    const card = this._getCardFromEvent(event);
+  private async _handleClick(event: Event): Promise<void> {
+    const card = await this._getCardFromEvent(event);
     if (!card || !this.onCardClick) return;
 
     this.onCardClick(card, event);
@@ -116,8 +147,8 @@ export class CardInteractionManager {
   /**
    * 더블클릭 이벤트 처리
    */
-  private _handleDoubleClick(event: Event): void {
-    const card = this._getCardFromEvent(event);
+  private async _handleDoubleClick(event: Event): Promise<void> {
+    const card = await this._getCardFromEvent(event);
     if (!card || !this.onCardDoubleClick) return;
 
     this.onCardDoubleClick(card, event);
@@ -126,8 +157,8 @@ export class CardInteractionManager {
   /**
    * 컨텍스트 메뉴 이벤트 처리
    */
-  private _handleContextMenu(event: Event): void {
-    const card = this._getCardFromEvent(event);
+  private async _handleContextMenu(event: Event): Promise<void> {
+    const card = await this._getCardFromEvent(event);
     if (!card || !this.onCardContextMenu) return;
 
     this.onCardContextMenu(card, event);
@@ -136,8 +167,8 @@ export class CardInteractionManager {
   /**
    * 드래그 시작 이벤트 처리
    */
-  private _handleDragStart(event: DragEvent): void {
-    const card = this._getCardFromEvent(event);
+  private async _handleDragStart(event: DragEvent): Promise<void> {
+    const card = await this._getCardFromEvent(event);
     if (!card || !this.onCardDragStart) return;
 
     this._draggedCard = card;
@@ -165,11 +196,11 @@ export class CardInteractionManager {
   /**
    * 드롭 이벤트 처리
    */
-  private _handleDrop(event: DragEvent): void {
+  private async _handleDrop(event: DragEvent): Promise<void> {
     event.preventDefault();
     event.stopPropagation();
 
-    const targetCard = this._getCardFromEvent(event);
+    const targetCard = await this._getCardFromEvent(event);
     if (!targetCard || !this._draggedCard || !this.onCardDrop) return;
 
     this.onCardDrop(targetCard, event);
@@ -178,8 +209,8 @@ export class CardInteractionManager {
   /**
    * 마우스 다운 이벤트 처리
    */
-  private _handleMouseDown(event: MouseEvent): void {
-    const card = this._getCardFromEvent(event);
+  private async _handleMouseDown(event: MouseEvent): Promise<void> {
+    const card = await this._getCardFromEvent(event);
     if (!card) return;
 
     if (event.shiftKey) {
@@ -204,7 +235,7 @@ export class CardInteractionManager {
   /**
    * 이벤트에서 카드 가져오기
    */
-  private _getCardFromEvent(event: Event): Card | null {
+  private async _getCardFromEvent(event: Event): Promise<Card | null> {
     const target = event.target as HTMLElement;
     const cardElement = target.closest('.card-navigator-card');
     if (!cardElement) return null;
@@ -212,8 +243,12 @@ export class CardInteractionManager {
     const cardId = cardElement.getAttribute('data-card-id');
     if (!cardId) return null;
 
-    // TODO: CardService를 통해 카드 가져오기
-    return null;
+    try {
+      return await this._cardService.getCardById(cardId);
+    } catch (error) {
+      console.error('Failed to get card:', error);
+      return null;
+    }
   }
 
   /**

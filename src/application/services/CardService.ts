@@ -1,63 +1,9 @@
-import { App, TFile, TAbstractFile } from 'obsidian';
-import { Card, ICard, ICardRenderConfig, ICardStyle } from '../models/Card';
-import { CardCreatedEvent, CardUpdatedEvent, CardDeletedEvent, CardStyleChangedEvent, CardPositionChangedEvent } from '../events/CardEvents';
+import { App, TFile } from 'obsidian';
+import { Card, ICardRenderConfig, ICardStyle } from '@/domain/models/Card';
+import { CardCreatedEvent, CardUpdatedEvent, CardDeletedEvent } from '@/domain/events/CardEvents';
 import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
 import { ICardRepository } from '@/domain/repositories/ICardRepository';
-
-/**
- * 카드 서비스 인터페이스
- */
-export interface ICardService {
-  /**
-   * 파일로부터 카드 생성
-   */
-  createCardFromFile(file: TFile): Promise<Card>;
-
-  /**
-   * 파일 경로로부터 카드 생성
-   */
-  createCardFromPath(filePath: string): Promise<Card>;
-
-  /**
-   * 카드 업데이트
-   */
-  updateCard(card: Card): Promise<void>;
-
-  /**
-   * 카드 삭제
-   */
-  deleteCard(cardId: string): Promise<void>;
-
-  /**
-   * 카드 조회
-   */
-  getCard(cardId: string): Promise<Card | null>;
-
-  /**
-   * 파일 경로로 카드 조회
-   */
-  getCardByPath(filePath: string): Promise<Card | null>;
-
-  /**
-   * 모든 카드 조회
-   */
-  getAllCards(): Promise<Card[]>;
-
-  /**
-   * 카드 렌더링
-   */
-  renderCard(card: Card, config: ICardRenderConfig): Promise<string>;
-
-  /**
-   * 기본 렌더링 설정 반환
-   */
-  getDefaultRenderConfig(): ICardRenderConfig;
-
-  /**
-   * 기본 스타일 반환
-   */
-  getDefaultStyle(): ICardStyle;
-}
+import { ICardService } from '@/domain/services/ICardService';
 
 /**
  * 카드 서비스 클래스
@@ -80,45 +26,20 @@ export class CardService implements ICardService {
   }
 
   /**
-   * 파일로부터 카드 생성
+   * ID로 카드 조회
    */
-  async createCardFromFile(file: TFile): Promise<Card> {
-    const content = await this.app.vault.read(file);
-    const frontmatter = this.parseFrontmatter(content);
-    const firstHeader = this.extractFirstHeader(content);
-    const tags = this.extractTags(content);
-    const createdAt = file.stat.ctime;
-    const updatedAt = file.stat.mtime;
-
-    const card = new Card(
-      file.path,
-      file.path,
-      file.name,
-      firstHeader,
-      content,
-      tags,
-      createdAt,
-      updatedAt,
-      frontmatter,
-      this.defaultRenderConfig,
-      this.defaultStyle
-    );
-
-    this._cards.set(card.id, card);
-    this.eventDispatcher.dispatch(new CardCreatedEvent(card));
-    return card;
+  async getCardById(id: string): Promise<Card | null> {
+    const card = await this.cardRepository.findById(id);
+    return card || null;
   }
 
   /**
-   * 파일 경로로부터 카드 생성
+   * 파일로부터 카드 생성
    */
-  async createCardFromPath(filePath: string): Promise<Card> {
-    const file = this.app.vault.getAbstractFileByPath(filePath);
-    if (!(file instanceof TFile)) {
-      throw new Error(`File not found: ${filePath}`);
-    }
-
-    return this.createCardFromFile(file);
+  async createFromFile(file: TFile): Promise<Card> {
+    const card = await this.cardRepository.getOrCreateCard(file);
+    this.eventDispatcher.dispatch(new CardCreatedEvent(card));
+    return card;
   }
 
   /**
@@ -152,37 +73,10 @@ export class CardService implements ICardService {
   }
 
   /**
-   * 카드 조회
-   */
-  async getCard(cardId: string): Promise<Card | null> {
-    return this._cards.get(cardId) || null;
-  }
-
-  /**
-   * 파일 경로로 카드 조회
-   */
-  async getCardByPath(filePath: string): Promise<Card | null> {
-    const file = this.app.vault.getAbstractFileByPath(filePath);
-    if (!(file instanceof TFile)) {
-      return null;
-    }
-
-    const existingCard = Array.from(this._cards.values()).find(
-      card => card.filePath === filePath
-    );
-
-    if (existingCard) {
-      return existingCard;
-    }
-
-    return this.createCardFromFile(file);
-  }
-
-  /**
    * 모든 카드 조회
    */
-  async getAllCards(): Promise<Card[]> {
-    return Array.from(this._cards.values());
+  async getCards(): Promise<Card[]> {
+    return this.cardRepository.findAll();
   }
 
   /**
@@ -390,5 +284,24 @@ export class CardService implements ICardService {
         borderWidth: '1px'
       }
     };
+  }
+
+  /**
+   * 파일 경로로 카드 조회
+   */
+  async getCardByPath(filePath: string): Promise<Card | null> {
+    const file = this.app.vault.getAbstractFileByPath(filePath);
+    if (!file || !(file instanceof TFile)) {
+      return null;
+    }
+
+    // 기존 카드 확인
+    const existingCard = await this.cardRepository.findByPath(filePath);
+    if (existingCard) {
+      return existingCard;
+    }
+
+    // 새 카드 생성
+    return this.createFromFile(file);
   }
 } 

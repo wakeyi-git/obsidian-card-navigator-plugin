@@ -1,5 +1,5 @@
 import { DomainEvent } from './DomainEvent';
-import { IPreset, IPresetMapping } from '../models/Preset';
+import { IPreset, IPresetMapping } from '@/domain/models/Preset';
 
 /**
  * 프리셋 이벤트 타입

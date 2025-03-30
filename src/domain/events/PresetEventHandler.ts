@@ -1,4 +1,4 @@
-import { IPresetService } from '../services/PresetService';
+import { IPresetService } from '@/domain/services/IPresetService';
 import { IDomainEventHandler } from './IDomainEventHandler';
 import {
   PresetEvent,
@@ -12,8 +12,7 @@ import {
   PresetImportedEvent,
   PresetExportedEvent
 } from './PresetEvents';
-import { IPresetConfig } from '../models/Preset';
-import { Preset, IPreset, IPresetMapping } from '@/domain/models/Preset';
+import { Preset, IPreset } from '@/domain/models/Preset';
 import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
 import { App } from 'obsidian';
 
@@ -169,15 +168,13 @@ export class PresetEventHandler implements IDomainEventHandler<PresetEvent> {
    */
   private async handlePresetImported(event: PresetImportedEvent): Promise<void> {
     const preset = this.convertToPreset(event.preset);
-    const config: IPresetConfig = {
-      name: preset.name,
-      description: preset.description,
-      cardSetConfig: preset.cardSetConfig,
-      layoutConfig: preset.layoutConfig,
-      cardRenderConfig: preset.cardRenderConfig,
-      mappings: preset.mappings
-    };
-    await this.presetService.createPreset(config);
+    await this.presetService.createPreset(
+      preset.name,
+      preset.description || '',
+      preset.cardSetConfig,
+      preset.layoutConfig,
+      preset.cardRenderConfig
+    );
   }
 
   /**

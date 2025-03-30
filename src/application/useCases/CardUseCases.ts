@@ -1,18 +1,30 @@
-import { Card, ICardRenderConfig } from '../../domain/models/Card';
-import { ICardService } from '../../domain/services/CardService';
+import { Card, ICardRenderConfig } from '@/domain/models/Card';
+import { ICardService } from '@/domain/services/ICardService';
 import { TFile } from 'obsidian';
+import { LoggingService } from '@/infrastructure/services/LoggingService';
 
 /**
  * 카드 생성 유스케이스
  */
 export class CreateCardUseCase {
-  constructor(private readonly cardService: ICardService) {}
+  constructor(
+    private readonly cardService: ICardService,
+    private readonly loggingService: LoggingService
+  ) {}
 
   /**
    * 파일로부터 카드 생성
    */
   async execute(file: TFile): Promise<Card> {
-    return this.cardService.createCardFromFile(file);
+    try {
+      this.loggingService.debug('카드 생성 시작:', file.path);
+      const card = await this.cardService.createFromFile(file);
+      this.loggingService.debug('카드 생성 완료:', card.id);
+      return card;
+    } catch (error) {
+      this.loggingService.error('카드 생성 실패:', error);
+      throw error;
+    }
   }
 }
 
@@ -20,18 +32,23 @@ export class CreateCardUseCase {
  * 카드 업데이트 유스케이스
  */
 export class UpdateCardUseCase {
-  constructor(private readonly cardService: ICardService) {}
+  constructor(
+    private readonly cardService: ICardService,
+    private readonly loggingService: LoggingService
+  ) {}
 
   /**
    * 카드 업데이트
    */
-  async execute(card: Card): Promise<Card> {
-    await this.cardService.updateCard(card);
-    const updatedCard = await this.cardService.getCard(card.id);
-    if (!updatedCard) {
-      throw new Error(`Card not found after update: ${card.id}`);
+  async execute(card: Card): Promise<void> {
+    try {
+      this.loggingService.debug('카드 업데이트 시작:', card.id);
+      await this.cardService.updateCard(card);
+      this.loggingService.debug('카드 업데이트 완료:', card.id);
+    } catch (error) {
+      this.loggingService.error('카드 업데이트 실패:', error);
+      throw error;
     }
-    return updatedCard;
   }
 }
 
@@ -39,18 +56,23 @@ export class UpdateCardUseCase {
  * 카드 삭제 유스케이스
  */
 export class DeleteCardUseCase {
-  constructor(private readonly cardService: ICardService) {}
+  constructor(
+    private readonly cardService: ICardService,
+    private readonly loggingService: LoggingService
+  ) {}
 
   /**
    * 카드 삭제
    */
-  async execute(cardId: string): Promise<Card> {
-    const card = await this.cardService.getCard(cardId);
-    if (!card) {
-      throw new Error(`Card not found: ${cardId}`);
+  async execute(id: string): Promise<void> {
+    try {
+      this.loggingService.debug('카드 삭제 시작:', id);
+      await this.cardService.deleteCard(id);
+      this.loggingService.debug('카드 삭제 완료:', id);
+    } catch (error) {
+      this.loggingService.error('카드 삭제 실패:', error);
+      throw error;
     }
-    await this.cardService.deleteCard(cardId);
-    return card;
   }
 }
 
@@ -58,14 +80,24 @@ export class DeleteCardUseCase {
  * 카드 조회 유스케이스
  */
 export class GetCardUseCase {
-  constructor(private readonly cardService: ICardService) {}
+  constructor(
+    private readonly cardService: ICardService,
+    private readonly loggingService: LoggingService
+  ) {}
 
   /**
    * 카드 조회
    */
-  async execute(cardId: string): Promise<Card | null> {
-    const card = await this.cardService.getCard(cardId);
-    return card || null;
+  async execute(id: string): Promise<Card | null> {
+    try {
+      this.loggingService.debug('카드 조회 시작:', id);
+      const card = await this.cardService.getCardById(id);
+      this.loggingService.debug('카드 조회 완료:', id);
+      return card;
+    } catch (error) {
+      this.loggingService.error('카드 조회 실패:', error);
+      throw error;
+    }
   }
 }
 
@@ -88,13 +120,24 @@ export class GetCardByPathUseCase {
  * 모든 카드 조회 유스케이스
  */
 export class GetAllCardsUseCase {
-  constructor(private readonly cardService: ICardService) {}
+  constructor(
+    private readonly cardService: ICardService,
+    private readonly loggingService: LoggingService
+  ) {}
 
   /**
    * 모든 카드 조회
    */
   async execute(): Promise<Card[]> {
-    return this.cardService.getAllCards();
+    try {
+      this.loggingService.debug('모든 카드 조회 시작');
+      const cards = await this.cardService.getCards();
+      this.loggingService.debug('모든 카드 조회 완료:', cards.length);
+      return cards;
+    } catch (error) {
+      this.loggingService.error('모든 카드 조회 실패:', error);
+      throw error;
+    }
   }
 }
 

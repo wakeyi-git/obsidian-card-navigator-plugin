@@ -1,6 +1,5 @@
-import { Setting, ToggleComponent, ColorComponent } from 'obsidian';
-import CardNavigatorPlugin from '@/main';
-import { ICardRenderConfig, ICardStyle } from '@/domain/models/Card';
+import { Setting } from 'obsidian';
+import { IPluginWithSettings } from '@/ui/settings/SettingsTab';
 
 /**
  * 카드 설정 컴포넌트
@@ -8,7 +7,7 @@ import { ICardRenderConfig, ICardStyle } from '@/domain/models/Card';
 export class CardSettings {
   private containerEl: HTMLElement;
 
-  constructor(containerEl: HTMLElement, private plugin: CardNavigatorPlugin) {
+  constructor(containerEl: HTMLElement, private plugin: IPluginWithSettings) {
     this.containerEl = containerEl;
   }
 
@@ -28,7 +27,7 @@ export class CardSettings {
 
     // 헤더 설정
     new Setting(this.containerEl)
-      .setName('헤더 설정')
+      .setName('헤더')
       .setHeading();
 
     new Setting(this.containerEl)
@@ -88,7 +87,7 @@ export class CardSettings {
 
     // 본문 설정
     new Setting(this.containerEl)
-      .setName('본문 설정')
+      .setName('바디')
       .setHeading();
 
     new Setting(this.containerEl)
@@ -118,7 +117,7 @@ export class CardSettings {
 
     // 푸터 설정
     new Setting(this.containerEl)
-      .setName('푸터 설정')
+      .setName('풋터')
       .setHeading();
 
     new Setting(this.containerEl)

@@ -1,5 +1,6 @@
 import { Setting } from 'obsidian';
 import { CardSetType } from '@/domain/models/CardSet';
+import { IPluginWithSettings } from '@/ui/settings/SettingsTab';
 
 /**
  * 카드셋 설정 컴포넌트
@@ -7,7 +8,7 @@ import { CardSetType } from '@/domain/models/CardSet';
 export class CardSetSettings {
   constructor(
     private readonly containerEl: HTMLElement,
-    private readonly plugin: any
+    private readonly plugin: IPluginWithSettings
   ) {}
 
   /**
@@ -28,10 +29,10 @@ export class CardSetSettings {
           .addOption('folder', '폴더')
           .addOption('tag', '태그')
           .addOption('link', '링크')
-          .setValue(this.plugin.settings.defaultCardSetType)
+          .setValue(this.plugin.getSetting('defaultCardSetType'))
           .onChange(value => {
-            this.plugin.settings.defaultCardSetType = value as CardSetType;
-            this.plugin.saveData();
+            this.plugin.setSetting('defaultCardSetType', value as CardSetType);
+            this.plugin.saveSettings();
           });
       });
 
@@ -41,10 +42,10 @@ export class CardSetSettings {
       .setDesc('폴더 카드셋에서 하위 폴더의 노트도 포함합니다.')
       .addToggle(toggle => {
         toggle
-          .setValue(this.plugin.settings.includeSubfolders)
+          .setValue(this.plugin.getSetting('includeSubfolders'))
           .onChange(value => {
-            this.plugin.settings.includeSubfolders = value;
-            this.plugin.saveData();
+            this.plugin.setSetting('includeSubfolders', value);
+            this.plugin.saveSettings();
           });
       });
 
@@ -55,11 +56,11 @@ export class CardSetSettings {
       .addSlider(slider => {
         slider
           .setLimits(1, 5, 1)
-          .setValue(this.plugin.settings.linkLevel)
+          .setValue(this.plugin.getSetting('linkLevel'))
           .setDynamicTooltip()
           .onChange(value => {
-            this.plugin.settings.linkLevel = value;
-            this.plugin.saveData();
+            this.plugin.setSetting('linkLevel', value);
+            this.plugin.saveSettings();
           });
       });
   }

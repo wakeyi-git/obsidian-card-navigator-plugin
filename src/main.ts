@@ -1,24 +1,22 @@
-import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf, PaneType } from 'obsidian';
-import { CardNavigatorSettingsTab, ICardNavigatorSettings } from '@/ui/components/SettingsTab';
+import { Plugin, WorkspaceLeaf } from 'obsidian';
+import { CardNavigatorSettingsTab, ICardNavigatorSettings } from '@/ui/settings/SettingsTab';
 import { CardNavigatorView, CARD_NAVIGATOR_VIEW_TYPE } from '@/ui/components/CardNavigatorView';
-import { CardService } from '@/domain/services/CardService';
-import { CardSetService } from '@/domain/services/CardSetService';
-import { LayoutService } from '@/domain/services/LayoutService';
-import { PresetService } from '@/domain/services/PresetService';
-import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
+import { CardService } from '@/application/services/CardService';
+import { CardSetService } from '@/application/services/CardSetService';
+import { LayoutService } from '@/application/services/LayoutService';
+import { PresetService } from '@/application/services/PresetService';
+import { CacheService } from '@/application/services/CacheService';
+import { SearchService } from '@/application/services/SearchService';
+import { LoggingService } from '@/infrastructure/services/LoggingService';
 import { CardRenderer } from '@/ui/components/CardRenderer';
 import { Scroller } from '@/ui/components/Scroller';
 import { CardInteractionManager } from '@/ui/components/CardInteractionManager';
 import { KeyboardNavigator } from '@/ui/components/KeyboardNavigator';
-import { CardRepository } from '@/domain/repositories/CardRepository';
-import { CardSetRepository } from '@/domain/repositories/CardSetRepository';
+import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
+import { CardRepository } from '@/infrastructure/repositories/CardRepository';
+import { CardSetRepository } from '@/infrastructure/repositories/CardSetRepository';
 import { LayoutRepository } from '@/infrastructure/repositories/LayoutRepository';
 import { PresetRepository } from '@/infrastructure/repositories/PresetRepository';
-import { CardEventHandler } from '@/domain/events/CardEventHandler';
-import { CardSetEventHandler } from '@/domain/events/CardSetEventHandler';
-import { LayoutEventHandler } from '@/domain/events/LayoutEventHandler';
-import { PresetEventHandler } from '@/domain/events/PresetEventHandler';
-import { SearchService } from '@/domain/services/SearchService';
 import { LayoutType, LayoutDirection } from '@/domain/models/Layout';
 
 /**
@@ -26,165 +24,144 @@ import { LayoutType, LayoutDirection } from '@/domain/models/Layout';
  */
 export default class CardNavigatorPlugin extends Plugin {
   private settings: ICardNavigatorSettings;
-  private cardService: CardService | null = null;
-  private cardSetService: CardSetService | null = null;
-  private layoutService: LayoutService | null = null;
-  private presetService: PresetService | null = null;
-  private eventDispatcher: DomainEventDispatcher | null = null;
-  private view: CardNavigatorView | null = null;
-  private cardRenderer: CardRenderer | null = null;
-  private scroller: Scroller | null = null;
-  private interactionManager: CardInteractionManager | null = null;
-  private keyboardNavigator: KeyboardNavigator | null = null;
-  private searchService: SearchService | null = null;
-  private cardSetRepository: CardSetRepository | null = null;
+  private services: {
+    card: CardService;
+    cardSet: CardSetService;
+    layout: LayoutService;
+    preset: PresetService;
+    cache: CacheService;
+    search: SearchService;
+    logging: LoggingService;
+  };
+  private repositories: {
+    card: CardRepository;
+    cardSet: CardSetRepository;
+    layout: LayoutRepository;
+    preset: PresetRepository;
+  };
+  private ui: {
+    cardRenderer: CardRenderer;
+    scroller: Scroller;
+    interactionManager: CardInteractionManager;
+    keyboardNavigator: KeyboardNavigator;
+  };
+  private eventDispatcher: DomainEventDispatcher;
   private settingsTab: CardNavigatorSettingsTab;
+  private view: CardNavigatorView | null = null;
 
   /**
    * 플러그인 활성화
    */
   async onload(): Promise<void> {
     try {
+      // 로깅 서비스 초기화
+      this.services = {} as any;
+      this.services.logging = new LoggingService(this.app);
+      this.services.logging.info('플러그인 로딩 시작');
+
       // 설정 로드
       await this.loadSettings();
 
-      // 서비스 초기화
-      this.eventDispatcher = new DomainEventDispatcher();
-      
-      // 리포지토리 초기화
-      const cardRepository = new CardRepository(this.app);
-      const layoutRepository = new LayoutRepository(this.app);
-      const presetRepository = new PresetRepository(this.app);
+      // 이벤트 디스패처 초기화
+      this.eventDispatcher = new DomainEventDispatcher(this.services.logging);
 
-      // 서비스 초기화
-      this.cardService = new CardService(this.app, cardRepository, this.eventDispatcher);
-      this.presetService = new PresetService(this.app, this.eventDispatcher);
-      this.layoutService = new LayoutService(this.eventDispatcher);
-      
+      // 기본 리포지토리 초기화
+      this.repositories = {
+        card: new CardRepository(this.app),
+        layout: new LayoutRepository(this.app),
+        preset: new PresetRepository(this.app),
+        cardSet: new CardSetRepository(
+          this.app,
+          this.services.card,
+          this.services.layout,
+          this.services.logging
+        )
+      };
+
+      // 기본 서비스 초기화
+      this.services = {
+        logging: this.services.logging,
+        card: new CardService(this.app, this.repositories.card, this.eventDispatcher),
+        layout: new LayoutService(this.app, this.eventDispatcher, this.services.card),
+        preset: new PresetService(this.app, this.eventDispatcher, this.services.logging),
+        cache: new CacheService(this.app, this.eventDispatcher, this.services.logging),
+        cardSet: null as any,
+        search: null as any
+      };
+
       // CardSetRepository 초기화
-      this.cardSetRepository = new CardSetRepository(
+      this.repositories.cardSet = new CardSetRepository(
         this.app,
-        cardRepository,
-        this.cardService
-      );
-      
-      // CardSetService는 CardService와 PresetService에 의존
-      this.cardSetService = new CardSetService(
-        this.app,
-        this.cardService,
-        this.eventDispatcher,
-        this.presetService
+        this.services.card,
+        this.services.layout,
+        this.services.logging
       );
 
-      // SearchService는 CardService와 CardSetService에 의존
-      this.searchService = new SearchService(
-        this.app,
-        this.cardSetRepository
+      // CardSetService 초기화
+      this.services.cardSet = new CardSetService(
+        this.repositories.cardSet,
+        this.eventDispatcher,
+        this.services.logging,
+        this.services.layout,
+        this.services.card,
+        this.app
       );
+
+      // SearchService 초기화
+      this.services.search = new SearchService(
+        this.app,
+        this.services.card,
+        this.services.layout,
+        this.eventDispatcher,
+        this.services.preset,
+        this.repositories.cardSet
+      );
+
+      // UI 컴포넌트 초기화
+      this.ui = {
+        cardRenderer: new CardRenderer(
+          this.app,
+          this.eventDispatcher,
+          this.services.card,
+          this.services.logging
+        ),
+        scroller: new Scroller(),
+        interactionManager: new CardInteractionManager(
+          this.eventDispatcher,
+          this.services.card
+        ),
+        keyboardNavigator: new KeyboardNavigator(this.app)
+      };
 
       // 설정 탭 초기화
       this.settingsTab = new CardNavigatorSettingsTab(this.app, this, this.settings);
       this.addSettingTab(this.settingsTab);
 
-      // UI 컴포넌트 초기화
-      this.cardRenderer = new CardRenderer(this.app, this.eventDispatcher);
-      this.scroller = new Scroller();
-      this.interactionManager = new CardInteractionManager(this.eventDispatcher);
-      this.keyboardNavigator = new KeyboardNavigator(this.app);
-
-      // 이벤트 핸들러 등록
-      this._registerEventHandlers();
-
       // 뷰 등록
-      this.registerView(CARD_NAVIGATOR_VIEW_TYPE, (leaf) => {
-        if (this.eventDispatcher && this.cardSetService && this.layoutService && 
-            this.cardRenderer && this.scroller && this.interactionManager && 
-            this.keyboardNavigator && this.cardService && this.searchService) {
-          this.view = new CardNavigatorView(
-            leaf,
-            this.eventDispatcher,
-            this.cardSetService,
-            this.layoutService,
-            this.cardRenderer,
-            this.scroller,
-            this.interactionManager,
-            this.keyboardNavigator,
-            this.app,
-            this.cardService,
-            this.searchService
-          );
-          return this.view;
-        }
-        throw new Error('Required services or components are not initialized');
+      this.registerView(CARD_NAVIGATOR_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
+        this.view = new CardNavigatorView({
+          plugin: this,
+          leaf,
+          eventDispatcher: this.eventDispatcher,
+          services: this.services,
+          ui: this.ui,
+          app: this.app
+        });
+        return this.view;
       });
 
       // 명령어 등록
-      this.addCommand({
-        id: 'open-card-navigator',
-        name: 'Open Card Navigator',
-        callback: () => {
-          this.activateView();
-        }
-      });
+      this.addCommands();
 
-      // 카드 내비게이터로 포커스
-      this.addCommand({
-        id: 'card-navigator-focus',
-        name: '카드 내비게이터로 포커스',
-        callback: () => {
-          const view = this.app.workspace.getLeavesOfType(CARD_NAVIGATOR_VIEW_TYPE)[0]?.view as CardNavigatorView;
-          if (view) {
-            view.setKeyboardNavigationEnabled(true);
-            view.focusContainer();
-          }
-        }
-      });
-
-      // 활성 파일의 카드로 포커스
-      this.addCommand({
-        id: 'card-navigator-focus-active',
-        name: '활성 파일의 카드로 포커스',
-        callback: () => {
-          const view = this.app.workspace.getLeavesOfType(CARD_NAVIGATOR_VIEW_TYPE)[0]?.view as CardNavigatorView;
-          if (view) {
-            view.focusActiveFileCard();
-          }
-        }
-      });
-
-      // 카드 내비게이터 활성화/비활성화
-      this.addCommand({
-        id: 'card-navigator-toggle',
-        name: '카드 내비게이터 활성화/비활성화',
-        callback: () => {
-          const view = this.app.workspace.getLeavesOfType(CARD_NAVIGATOR_VIEW_TYPE)[0]?.view as CardNavigatorView;
-          if (view) {
-            view.setKeyboardNavigationEnabled(!view.isKeyboardNavigationEnabled());
-          }
-        }
-      });
-
-      // 리본 메뉴 아이콘 추가
+      // 리본 아이콘 추가
       this.addRibbonIcon('layers', 'Card Navigator', () => {
         this.activateView();
       });
 
-      // 이벤트 핸들러 등록
-      this.registerEvent(
-        this.app.workspace.on('file-open', async (file) => {
-          if (file && this.presetService) {
-            const presets = await this.presetService.getAllPresets();
-            const preset = this.presetService.findApplicablePreset(file, presets);
-            if (preset) {
-              this._applyPreset(preset);
-            }
-          }
-        })
-      );
-
-      console.log('Card Navigator plugin loaded successfully');
+      this.services.logging.info('플러그인 로딩 완료');
     } catch (error) {
-      console.error('Failed to load Card Navigator plugin:', error);
+      this.services?.logging.error('플러그인 로딩 실패:', error);
+      throw error;
     }
   }
 
@@ -193,53 +170,33 @@ export default class CardNavigatorPlugin extends Plugin {
    */
   private async activateView(): Promise<void> {
     try {
+      this.services.logging.debug('뷰 활성화 시작');
       const { workspace } = this.app;
-      let leaf: WorkspaceLeaf | null = null;
-      const leaves = workspace.getLeavesOfType(CARD_NAVIGATOR_VIEW_TYPE);
-
-      if (leaves.length > 0) {
-        // 이미 존재하는 리프 사용
-        leaf = leaves[0];
-      } else {
-        // 오른쪽 사이드바에 새 리프 생성
-        leaf = workspace.getRightLeaf(false);
-        if (!leaf) {
-          console.error('Failed to create leaf');
-          return;
+      
+      let leaf = workspace.getLeavesOfType(CARD_NAVIGATOR_VIEW_TYPE)[0];
+      
+      if (!leaf) {
+        const rightLeaf = workspace.getRightLeaf(false);
+        if (!rightLeaf) {
+          throw new Error('우측 리프를 생성할 수 없습니다.');
         }
-
+        leaf = rightLeaf;
         await leaf.setViewState({
           type: CARD_NAVIGATOR_VIEW_TYPE,
-          active: true,
-          state: {
-            cardSetType: this.settings.defaultCardSetType,
-            includeSubfolders: this.settings.includeSubfolders,
-            linkLevel: this.settings.linkLevel,
-            sortBy: this.settings.sortBy,
-            sortOrder: this.settings.sortOrder,
-            layout: {
-              type: this.settings.layout.type,
-              direction: this.settings.layout.direction,
-              fixedHeight: this.settings.layout.fixedHeight,
-              minCardWidth: this.settings.layout.minCardWidth,
-              minCardHeight: this.settings.layout.minCardHeight
-            }
-          }
+          active: true
         });
       }
 
-      if (leaf) {
-        // 리프 표시
-        workspace.revealLeaf(leaf);
-
-        // 뷰 초기화
-        const view = leaf.view as CardNavigatorView;
-        if (view && !view.isInitialized) {
-          await view.initialize();
-        }
+      workspace.revealLeaf(leaf);
+      
+      if (this.view) {
+        this.view.focusContainer();
       }
+
+      this.services.logging.info('뷰 활성화 완료');
     } catch (error) {
-      console.error('Failed to activate view:', error);
+      this.services.logging.error('뷰 활성화 실패:', error);
+      throw error;
     }
   }
 
@@ -247,26 +204,9 @@ export default class CardNavigatorPlugin extends Plugin {
    * 플러그인 비활성화
    */
   onunload(): void {
-    // 이벤트 핸들러 제거
-    this._unregisterEventHandlers();
-
-    // 뷰 제거
+    this.services.logging.info('플러그인 언로드 시작');
     this.app.workspace.detachLeavesOfType(CARD_NAVIGATOR_VIEW_TYPE);
-
-    // 서비스 정리
-    this.cardService = null;
-    this.cardSetService = null;
-    this.layoutService = null;
-    this.presetService = null;
-
-    // UI 컴포넌트 정리
-    this.cardRenderer = null;
-    this.scroller = null;
-    this.interactionManager = null;
-    this.keyboardNavigator = null;
-
-    // 이벤트 디스패처 정리
-    this.eventDispatcher = null;
+    this.services.logging.info('플러그인 언로드 완료');
   }
 
   /**
@@ -274,12 +214,15 @@ export default class CardNavigatorPlugin extends Plugin {
    */
   private async loadSettings(): Promise<void> {
     const defaultSettings: ICardNavigatorSettings = {
-      // 카드셋 설정
       defaultCardSetType: 'folder',
       includeSubfolders: true,
       linkLevel: 1,
-
-      // 카드 설정
+      defaultSearchScope: 'current',
+      realtimeSearch: true,
+      maxSearchResults: 50,
+      searchInFileName: true,
+      searchInTags: true,
+      searchInLinks: true,
       cardRenderConfig: {
         header: {
           showFileName: true,
@@ -302,7 +245,7 @@ export default class CardNavigatorPlugin extends Plugin {
           renderMarkdown: true
         },
         footer: {
-          showFileName: true,
+          showFileName: false,
           showFirstHeader: false,
           showTags: false,
           showCreatedDate: false,
@@ -314,182 +257,196 @@ export default class CardNavigatorPlugin extends Plugin {
       },
       cardStyle: {
         card: {
-          background: '#ffffff',
+          background: 'var(--background-secondary)',
           fontSize: '14px',
-          borderColor: '#e0e0e0',
+          borderColor: 'var(--background-modifier-border)',
           borderWidth: '1px'
         },
         activeCard: {
-          background: '#f0f0f0',
+          background: 'var(--background-modifier-hover)',
           fontSize: '14px',
-          borderColor: '#2196f3',
+          borderColor: 'var(--interactive-accent)',
           borderWidth: '2px'
         },
         focusedCard: {
-          background: '#e3f2fd',
+          background: 'var(--background-modifier-hover)',
           fontSize: '14px',
-          borderColor: '#1976d2',
+          borderColor: 'var(--interactive-accent)',
           borderWidth: '2px'
         },
         header: {
-          background: '#ffffff',
+          background: 'var(--background-secondary)',
           fontSize: '14px',
-          borderColor: '#e0e0e0',
+          borderColor: 'var(--background-modifier-border)',
           borderWidth: '1px'
         },
         body: {
-          background: '#ffffff',
+          background: 'var(--background-primary)',
           fontSize: '14px',
-          borderColor: '#e0e0e0',
+          borderColor: 'var(--background-modifier-border)',
           borderWidth: '1px'
         },
         footer: {
-          background: '#ffffff',
+          background: 'var(--background-secondary)',
           fontSize: '12px',
-          borderColor: '#e0e0e0',
+          borderColor: 'var(--background-modifier-border)',
           borderWidth: '1px'
         }
       },
-
-      // 정렬 설정
       sortBy: 'fileName',
       sortOrder: 'asc',
-      customSortField: '',
-
-      // 레이아웃 설정
       layout: {
         type: LayoutType.GRID,
         direction: LayoutDirection.VERTICAL,
         fixedHeight: false,
         minCardWidth: 300,
-        minCardHeight: 200
+        minCardHeight: 200,
+        gap: 16,
+        padding: 16
       },
-
-      // 프리셋 설정
       presets: [],
       folderPresets: new Map(),
       tagPresets: new Map(),
       presetPriority: [],
-
-      // 검색 설정
-      defaultSearchScope: 'current',
-      realtimeSearch: true,
-      maxSearchResults: 50,
-      searchInFileName: true,
-      searchInTags: true,
-      searchInLinks: true,
-
-      // 네비게이션 설정
       keyboardNavigationEnabled: true,
       scrollBehavior: 'smooth',
       autoFocusActiveCard: true
     };
+    
+    this.settings = Object.assign({}, defaultSettings, await this.loadData());
+  }
 
-    const savedSettings = await this.loadData();
-    this.settings = Object.assign({}, defaultSettings, savedSettings);
+  private addCommands() {
+    this.addCommand({
+      id: 'open-card-navigator',
+      name: 'Open Card Navigator',
+      callback: () => this.activateView()
+    });
+
+    this.addCommand({
+      id: 'focus-card-navigator',
+      name: 'Focus Card Navigator',
+      callback: () => {
+        const view = this.app.workspace.getLeavesOfType(CARD_NAVIGATOR_VIEW_TYPE)[0]?.view as CardNavigatorView;
+        if (view) view.focusContainer();
+      }
+    });
+  }
+
+  /**
+   * 설정 가져오기
+   */
+  getSettings(): ICardNavigatorSettings {
+    return this.settings;
   }
 
   /**
    * 설정 저장
    */
-  saveSettings(): void {
-    this.saveData(this.settings);
+  async saveSettings(): Promise<void> {
+    await this.saveData(this.settings);
   }
 
   /**
-   * 이벤트 핸들러 등록
+   * 설정 업데이트
    */
-  private _registerEventHandlers(): void {
-    if (!this.eventDispatcher || !this.cardService || !this.cardSetService || 
-        !this.layoutService || !this.presetService) {
-      return;
-    }
-
-    // 카드 이벤트 핸들러
-    const cardEventHandler = new CardEventHandler(this.cardService);
-    this.eventDispatcher.register('card.created', cardEventHandler);
-    this.eventDispatcher.register('card.updated', cardEventHandler);
-    this.eventDispatcher.register('card.deleted', cardEventHandler);
-    this.eventDispatcher.register('card.styleChanged', cardEventHandler);
-    this.eventDispatcher.register('card.positionChanged', cardEventHandler);
-
-    // 카드셋 이벤트 핸들러
-    const cardSetEventHandler = new CardSetEventHandler(this.cardSetService);
-    this.eventDispatcher.register('cardSet.created', cardSetEventHandler);
-    this.eventDispatcher.register('cardSet.updated', cardSetEventHandler);
-    this.eventDispatcher.register('cardSet.deleted', cardSetEventHandler);
-
-    // 레이아웃 이벤트 핸들러
-    const layoutEventHandler = new LayoutEventHandler(this.layoutService);
-    this.eventDispatcher.register('layout.created', layoutEventHandler);
-    this.eventDispatcher.register('layout.updated', layoutEventHandler);
-    this.eventDispatcher.register('layout.deleted', layoutEventHandler);
-    this.eventDispatcher.register('layout.cardPositionUpdated', layoutEventHandler);
-    this.eventDispatcher.register('layout.cardPositionAdded', layoutEventHandler);
-    this.eventDispatcher.register('layout.cardPositionRemoved', layoutEventHandler);
-    this.eventDispatcher.register('layout.cardPositionsReset', layoutEventHandler);
-    this.eventDispatcher.register('layout.configUpdated', layoutEventHandler);
-    this.eventDispatcher.register('layout.calculated', layoutEventHandler);
-
-    // 프리셋 이벤트 핸들러
-    const presetEventHandler = new PresetEventHandler(
-      this.app,
-      this.presetService,
-      this.eventDispatcher
-    );
-    this.eventDispatcher.register('preset.created', presetEventHandler);
-    this.eventDispatcher.register('preset.updated', presetEventHandler);
-    this.eventDispatcher.register('preset.deleted', presetEventHandler);
-    this.eventDispatcher.register('preset.mappingCreated', presetEventHandler);
-    this.eventDispatcher.register('preset.mappingUpdated', presetEventHandler);
-    this.eventDispatcher.register('preset.mappingDeleted', presetEventHandler);
-    this.eventDispatcher.register('preset.mappingPriorityUpdated', presetEventHandler);
-    this.eventDispatcher.register('preset.imported', presetEventHandler);
-    this.eventDispatcher.register('preset.exported', presetEventHandler);
+  setSettings(settings: ICardNavigatorSettings): void {
+    this.settings = settings;
   }
 
   /**
-   * 이벤트 핸들러 제거
+   * 특정 설정값 업데이트
    */
-  private _unregisterEventHandlers(): void {
-    if (!this.eventDispatcher) {
-      return;
-    }
-
-    // 모든 이벤트 핸들러 제거
-    this.eventDispatcher = new DomainEventDispatcher();
-  }
-
-  /**
-   * 설정값 가져오기
-   */
-  public getSetting<T>(path: string): T {
-    const parts = path.split('.');
-    let value: any = this.settings;
-    
-    for (const part of parts) {
-      value = value[part];
-    }
-    
-    return value;
-  }
-  
-  /**
-   * 설정값 설정하기
-   */
-  public setSetting<T>(path: string, value: T): void {
-    const parts = path.split('.');
+  setSetting(key: string, value: any): void {
+    const parts = key.split('.');
     let current: any = this.settings;
     
     for (let i = 0; i < parts.length - 1; i++) {
+      if (!(parts[i] in current)) {
+        current[parts[i]] = {};
+      }
       current = current[parts[i]];
     }
     
     current[parts[parts.length - 1]] = value;
-    this.saveSettings();
   }
 
-  private _applyPreset(preset: any): void {
-    // Implementation of _applyPreset method
+  /**
+   * 프리셋 서비스 가져오기
+   */
+  getPresetService(): PresetService {
+    return this.services.preset;
+  }
+
+  private async initializeServices(): Promise<void> {
+    try {
+      this.services.logging.info('서비스 초기화 시작');
+
+      // 1. 이벤트 디스패처
+      this.eventDispatcher = new DomainEventDispatcher(this.services.logging);
+      this.services.logging.debug('이벤트 디스패처 초기화 완료');
+
+      // 2. 기본 리포지토리
+      this.repositories = {
+        card: new CardRepository(this.app),
+        layout: new LayoutRepository(this.app),
+        preset: new PresetRepository(this.app),
+        cardSet: new CardSetRepository(
+          this.app,
+          this.services.card,
+          this.services.layout,
+          this.services.logging
+        )
+      };
+      this.services.logging.debug('기본 리포지토리 초기화 완료');
+
+      // 3. 기본 서비스
+      this.services = {
+        logging: new LoggingService(this.app),
+        card: new CardService(this.app, this.repositories.card, this.eventDispatcher),
+        layout: new LayoutService(this.app, this.eventDispatcher, this.services.card),
+        preset: new PresetService(this.app, this.eventDispatcher, this.services.logging),
+        cache: new CacheService(this.app, this.eventDispatcher, this.services.logging),
+        cardSet: new CardSetService(
+          this.repositories.cardSet,
+          this.eventDispatcher,
+          this.services.logging,
+          this.services.layout,
+          this.services.card,
+          this.app
+        ),
+        search: new SearchService(
+          this.app,
+          this.services.card,
+          this.services.layout,
+          this.eventDispatcher,
+          this.services.preset,
+          this.repositories.cardSet
+        )
+      };
+      this.services.logging.debug('기본 서비스 초기화 완료');
+
+      // 4. UI 컴포넌트
+      this.ui = {
+        cardRenderer: new CardRenderer(
+          this.app,
+          this.eventDispatcher,
+          this.services.card,
+          this.services.logging
+        ),
+        scroller: new Scroller(),
+        interactionManager: new CardInteractionManager(
+          this.eventDispatcher,
+          this.services.card
+        ),
+        keyboardNavigator: new KeyboardNavigator(this.app)
+      };
+      this.services.logging.debug('UI 컴포넌트 초기화 완료');
+
+      this.services.logging.info('서비스 초기화 완료');
+    } catch (error) {
+      this.services.logging.error('서비스 초기화 중 오류 발생:', error);
+      throw error;
+    }
   }
 }

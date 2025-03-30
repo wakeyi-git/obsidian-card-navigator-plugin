@@ -3,7 +3,8 @@ import { Card } from './Card';
 import { Preset } from './Preset';
 import { Layout, LayoutType, LayoutDirection, ILayoutConfig, ICardPosition } from './Layout';
 import { ICardRenderConfig } from './Card';
-import { ICardService } from '../services/CardService';
+import { ICardService } from '@/domain/services/ICardService';
+import { ILayoutService } from '@/domain/services/ILayoutService';
 
 /**
  * 카드셋 타입
@@ -240,6 +241,7 @@ export class CardSet implements ICardSet {
     config: ICardSetConfig,
     private readonly app: App,
     private readonly cardService: ICardService,
+    private readonly layoutService: ILayoutService,
     layoutConfig: ILayoutConfig = {
       type: LayoutType.GRID,
       direction: LayoutDirection.VERTICAL,
@@ -291,6 +293,9 @@ export class CardSet implements ICardSet {
     createdAt: Date = new Date(),
     updatedAt: Date = new Date()
   ) {
+    const startTime = performance.now();
+    console.debug(`[CardSet] 초기화 시작: ${name}`);
+
     this._id = id;
     this._name = name;
     this._description = description;
@@ -299,13 +304,23 @@ export class CardSet implements ICardSet {
       sortBy: config.sortBy || 'fileName',
       sortOrder: config.sortOrder || 'asc'
     };
-    this._layout = new Layout(id, name, description, layoutConfig);
+    
+    // 카드셋 속성 초기화
     this._cardRenderConfig = cardRenderConfig;
     this._cards = cards;
     this._activeCardId = activeCardId;
     this._focusedCardId = focusedCardId;
     this._createdAt = createdAt;
     this._updatedAt = updatedAt;
+    
+    // 레이아웃 생성 및 등록
+    const layoutId = crypto.randomUUID();
+    this._layout = new Layout(layoutId, name, description, layoutConfig);
+    this._layout.cardSet = this;
+    this.layoutService.createLayout(name, description, layoutConfig);
+
+    const endTime = performance.now();
+    console.debug(`[CardSet] 초기화 완료: ${name} (소요 시간: ${(endTime - startTime).toFixed(2)}ms)`);
   }
 
   get id(): string {
@@ -480,8 +495,36 @@ export class CardSet implements ICardSet {
     return priority;
   }
 
-  filterCards(predicate: (card: Card) => boolean): void {
-    this._cards = this._cards.filter(predicate);
+  /**
+   * 카드 필터링
+   */
+  filterCards(filter: CardFilter): void {
+    const filterFn = (card: Card): boolean => {
+      switch (filter.type) {
+        case 'search':
+          return filter.criteria.value ? 
+            card.content.toLowerCase().includes(filter.criteria.value.toLowerCase()) : true;
+        case 'tag':
+          return filter.criteria.tags ? 
+            filter.criteria.tags.every(tag => card.tags.includes(tag)) : true;
+        case 'folder':
+          return filter.criteria.folderPath ? 
+            card.filePath.startsWith(filter.criteria.folderPath) : true;
+        case 'date':
+          const cardDate = card.updatedAt;
+          const startDate = filter.criteria.startDate?.getTime();
+          const endDate = filter.criteria.endDate?.getTime();
+          
+          if (!startDate && !endDate) return true;
+          if (startDate && !endDate) return cardDate >= startDate;
+          if (!startDate && endDate) return cardDate <= endDate;
+          return cardDate >= startDate! && cardDate <= endDate!;
+        default:
+          return true;
+      }
+    };
+
+    this._cards = this._cards.filter(filterFn);
     if (this._activeCardId && !this.getCard(this._activeCardId)) {
       this._activeCardId = undefined;
     }
@@ -491,6 +534,9 @@ export class CardSet implements ICardSet {
     this._updatedAt = new Date();
   }
 
+  /**
+   * 카드셋 복제
+   */
   clone(): CardSet {
     return new CardSet(
       this._id,
@@ -499,8 +545,14 @@ export class CardSet implements ICardSet {
       { ...this._config },
       this.app,
       this.cardService,
+      this.layoutService,
       { ...this._layout.config },
-      { ...this._cardRenderConfig },
+      {
+        header: { ...this._cardRenderConfig.header },
+        body: { ...this._cardRenderConfig.body },
+        footer: { ...this._cardRenderConfig.footer },
+        renderAsHtml: this._cardRenderConfig.renderAsHtml
+      },
       this._cards.map(card => card.clone()),
       this._activeCardId,
       this._focusedCardId,
@@ -653,7 +705,9 @@ export class CardSet implements ICardSet {
 
     if (this._config.isActiveFolder) {
       // 활성 폴더인 경우 현재 파일의 폴더와 비교
-      const activeFolder = file.parent?.path || '';
+      const activeFile = this.app.workspace.getActiveFile();
+      if (!activeFile) return false;
+      const activeFolder = activeFile.parent?.path || '';
       return filePath.startsWith(activeFolder);
     }
 
@@ -712,7 +766,26 @@ export class CardSet implements ICardSet {
    * 레이아웃 계산
    */
   calculateLayout(): void {
+    if (!this._layout) return;
+    
+    // 레이아웃 계산
     this._layout.calculateLayout(this._cards);
+    
+    // 카드 위치 업데이트
+    this._cards.forEach(card => {
+      const position = this._layout.getCardPosition(card.id);
+      if (position) {
+        // ICardPosition을 CardPosition으로 변환
+        card.position = {
+          cardId: position.cardId,
+          left: position.x,
+          top: position.y,
+          width: position.width,
+          height: position.height
+        };
+      }
+    });
+    
     this._updatedAt = new Date();
   }
 
@@ -780,5 +853,26 @@ export class CardSet implements ICardSet {
       viewportWidth: 800,
       viewportHeight: 600
     };
+  }
+
+  /**
+   * 모든 카드 조회
+   */
+  async getCards(): Promise<Card[]> {
+    return this.cards;
+  }
+
+  /**
+   * ID로 카드 조회
+   */
+  async getCardById(id: string): Promise<Card | null> {
+    return this.cards.find(card => card.id === id) || null;
+  }
+
+  /**
+   * 경로로 카드 조회
+   */
+  async getCardByPath(filePath: string): Promise<Card | null> {
+    return this.cards.find(card => card.filePath === filePath) || null;
   }
 } 

@@ -65,6 +65,7 @@ export class LayoutRepository implements ILayoutRepository {
       data.name,
       data.description,
       data.config as ILayoutConfig,
+      undefined,
       data.cardPositions as ICardPosition[],
       new Date(data.createdAt),
       new Date(data.updatedAt)

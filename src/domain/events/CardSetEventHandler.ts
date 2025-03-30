@@ -1,5 +1,4 @@
-import { CardSet } from '../models/CardSet';
-import { ICardSetService } from '../services/CardSetService';
+import { ICardSetService } from '@/domain/services/ICardSetService';
 import { IDomainEventHandler } from './IDomainEventHandler';
 import {
   CardSetEvent,
