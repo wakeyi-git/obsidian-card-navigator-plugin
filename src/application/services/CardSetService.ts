@@ -73,33 +73,48 @@ export class CardSetService implements ICardSetService {
   /**
    * 카드셋 생성
    */
-  async createCardSet(
-    name: string,
-    description: string,
-    config: ICardSetConfig,
-    layoutConfig: ILayoutConfig,
-    cardRenderConfig: ICardRenderConfig
-  ): Promise<CardSet> {
-    try {
-      this.loggingService.debug('카드셋 생성 시작:', { name, description });
+  async createCardSet(name: string, description: string, config: ICardSetConfig): Promise<CardSet> {
+    const startTime = performance.now();
+    this.loggingService.debug(`[CardNavigator] 카드셋 생성 시작: {name: '${name}', description: '${description}', config: ${JSON.stringify(config)}}`);
 
-      const cardSet = await this.repository.createCardSet(
+    try {
+      // 활성 폴더 설정이 있는 경우 활성 파일의 폴더 경로 설정
+      if (config.isActiveFolder) {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (activeFile) {
+          const activeFolderPath = activeFile.parent?.path || '';
+          config.value = activeFolderPath;
+          this.loggingService.debug(`[CardNavigator] 활성 폴더 설정: ${activeFolderPath}`);
+        } else {
+          this.loggingService.warn('[CardNavigator] 활성 파일이 없어 활성 폴더를 설정할 수 없습니다.');
+        }
+      }
+
+      // 카드셋 생성
+      const cardSet = new CardSet(
+        crypto.randomUUID(),
         name,
         description,
         config,
         this.app,
         this.cardService,
-        this.layoutService,
-        layoutConfig,
-        cardRenderConfig
+        this.layoutService
       );
 
+      // 카드셋 초기화
+      await cardSet.initialize();
+
+      // 카드셋 저장
+      await this.repository.saveCardSet(cardSet);
       this._cardSets.set(cardSet.id, cardSet);
       this.eventDispatcher.dispatch(new CardSetCreatedEvent(cardSet));
-      this.loggingService.debug('카드셋 생성 완료:', cardSet.id);
+
+      const endTime = performance.now();
+      this.loggingService.debug(`[CardNavigator] 카드셋 생성 및 초기화 완료: {id: '${cardSet.id}', name: '${cardSet.name}', cardCount: ${cardSet.cards.length}, elapsedTime: '${(endTime - startTime).toFixed(2)}ms'}`);
+
       return cardSet;
     } catch (error) {
-      this.loggingService.error('카드셋 생성 실패:', error);
+      this.loggingService.error('[CardNavigator] 카드셋 생성 실패:', error);
       throw error;
     }
   }

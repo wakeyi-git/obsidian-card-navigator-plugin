@@ -12,9 +12,19 @@ export interface IDomainEventDispatcher {
   register<T extends DomainEvent>(eventType: new () => T, handler: IDomainEventHandler<T>): void;
 
   /**
+   * 이벤트 핸들러 등록 (이벤트 이름으로)
+   */
+  registerHandler(eventName: string, handler: IDomainEventHandler<any>): void;
+
+  /**
    * 이벤트 핸들러 제거
    */
   unregister<T extends DomainEvent>(eventType: new () => T, handler: IDomainEventHandler<T>): void;
+
+  /**
+   * 이벤트 핸들러 제거 (이벤트 이름으로)
+   */
+  unregisterHandler(eventName: string, handler: IDomainEventHandler<any>): void;
 
   /**
    * 이벤트 발생
@@ -102,6 +112,27 @@ export class DomainEventDispatcher implements IDomainEventDispatcher {
   }
 
   /**
+   * 이벤트 핸들러를 등록합니다 (이벤트 이름으로).
+   */
+  registerHandler(eventName: string, handler: IDomainEventHandler<any>): void {
+    this.validateHandler(handler);
+
+    if (!this.handlers.has(eventName)) {
+      this.handlers.set(eventName, []);
+    }
+
+    const handlers = this.handlers.get(eventName)!;
+    const isDuplicate = handlers.some(h => h === handler);
+
+    if (!isDuplicate) {
+      handlers.push(handler);
+      this.loggingService.debug(`이벤트 핸들러 등록: ${eventName}`);
+    } else {
+      this.loggingService.debug(`이벤트 핸들러 중복 등록 방지: ${eventName}`);
+    }
+  }
+
+  /**
    * 이벤트 핸들러를 제거합니다.
    */
   unregister<T extends DomainEvent>(
@@ -109,6 +140,20 @@ export class DomainEventDispatcher implements IDomainEventDispatcher {
     handler: IDomainEventHandler<T>
   ): void {
     const eventName = eventType.name;
+    const handlers = this.handlers.get(eventName);
+    if (handlers) {
+      const index = handlers.findIndex(h => h === handler);
+      if (index !== -1) {
+        handlers.splice(index, 1);
+        this.loggingService.debug(`이벤트 핸들러 해제: ${eventName}`);
+      }
+    }
+  }
+
+  /**
+   * 이벤트 핸들러를 제거합니다 (이벤트 이름으로).
+   */
+  unregisterHandler(eventName: string, handler: IDomainEventHandler<any>): void {
     const handlers = this.handlers.get(eventName);
     if (handlers) {
       const index = handlers.findIndex(h => h === handler);

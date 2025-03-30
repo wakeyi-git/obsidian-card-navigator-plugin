@@ -37,13 +37,14 @@ export interface IToolbarConfig {
 export class Toolbar {
   private container: HTMLElement;
   private config: IToolbarConfig;
-  private cardSetTypeIcon: HTMLElement;
-  private searchBar: SearchBar;
-  private sortButton: HTMLElement;
-  private settingsButton: HTMLElement;
-  private sortMenu: HTMLElement;
-  private settingsMenu: HTMLElement;
-  private quickSettingsMenu: HTMLElement;
+  private cardSetTypeIcon: HTMLElement | null = null;
+  private searchBar: SearchBar | null = null;
+  private sortButton: HTMLElement | null = null;
+  private settingsButton: HTMLElement | null = null;
+  private sortMenu: HTMLElement | null = null;
+  private settingsMenu: HTMLElement | null = null;
+  private quickSettingsMenu: HTMLElement | null = null;
+  private _handleOutsideClick: (event: MouseEvent) => void;
 
   constructor(
     private readonly app: App,
@@ -55,6 +56,7 @@ export class Toolbar {
   ) {
     this.config = initialConfig;
     this.container = containerEl;
+    this._handleOutsideClick = this._handleOutsideClickImpl.bind(this);
     this.initialize();
   }
 
@@ -64,6 +66,9 @@ export class Toolbar {
   private initialize(): void {
     // 카드셋 타입 아이콘
     this.cardSetTypeIcon = this.container.createDiv('card-set-type-icon');
+    if (!this.cardSetTypeIcon) {
+      throw new Error('카드셋 타입 아이콘 생성 실패');
+    }
     this.updateCardSetTypeIcon();
 
     // 검색 바
@@ -79,22 +84,37 @@ export class Toolbar {
 
     // 정렬 버튼
     this.sortButton = this.container.createDiv('sort-button');
+    if (!this.sortButton) {
+      throw new Error('정렬 버튼 생성 실패');
+    }
     this.setupSortButton();
 
     // 설정 버튼
     this.settingsButton = this.container.createDiv('settings-button');
+    if (!this.settingsButton) {
+      throw new Error('설정 버튼 생성 실패');
+    }
     this.setupSettingsButton();
 
     // 정렬 메뉴
     this.sortMenu = this.container.createDiv('sort-menu');
+    if (!this.sortMenu) {
+      throw new Error('정렬 메뉴 생성 실패');
+    }
     this.setupSortMenu();
 
     // 설정 메뉴
     this.settingsMenu = this.container.createDiv('settings-menu');
+    if (!this.settingsMenu) {
+      throw new Error('설정 메뉴 생성 실패');
+    }
     this.setupSettingsMenu();
 
     // 빠른 설정 메뉴
     this.quickSettingsMenu = this.container.createDiv('quick-settings-menu');
+    if (!this.quickSettingsMenu) {
+      throw new Error('빠른 설정 메뉴 생성 실패');
+    }
     this.setupQuickSettingsMenu();
   }
 
@@ -102,17 +122,17 @@ export class Toolbar {
    * 카드셋 타입 아이콘 업데이트
    */
   private updateCardSetTypeIcon(): void {
+    if (!this.cardSetTypeIcon) return;
+
     const iconMap: Record<CardSetType, string> = {
-      folder: 'folder',
-      tag: 'tag',
-      link: 'link',
-      search: 'search'
+      folder: 'fa-folder',
+      tag: 'fa-tag',
+      link: 'fa-link',
+      search: 'fa-search'
     };
 
     this.cardSetTypeIcon.empty();
-    this.cardSetTypeIcon.createEl('i', {
-      cls: `fas fa-${iconMap[this.config.cardSetType]}`
-    });
+    const icon = this.cardSetTypeIcon.createEl('i', { cls: `fas ${iconMap[this.config.cardSetType]}` });
   }
 
   /**
@@ -126,7 +146,9 @@ export class Toolbar {
    * 정렬 버튼 설정
    */
   private setupSortButton(): void {
-    this.sortButton.createEl('i', { cls: 'fas fa-sort' });
+    if (!this.sortButton) return;
+
+    const icon = this.sortButton.createEl('i', { cls: 'fas fa-sort' });
     this.sortButton.addEventListener('click', () => {
       this.toggleSortMenu();
     });
@@ -136,7 +158,9 @@ export class Toolbar {
    * 설정 버튼 설정
    */
   private setupSettingsButton(): void {
-    this.settingsButton.createEl('i', { cls: 'fas fa-cog' });
+    if (!this.settingsButton) return;
+
+    const icon = this.settingsButton.createEl('i', { cls: 'fas fa-cog' });
     this.settingsButton.addEventListener('click', () => {
       this.toggleSettingsMenu();
     });
@@ -146,6 +170,8 @@ export class Toolbar {
    * 정렬 메뉴 설정
    */
   private setupSortMenu(): void {
+    if (!this.sortMenu) return;
+
     const sortOptions = [
       { label: '파일 이름 (알파벳 순)', value: 'fileName', order: 'asc' },
       { label: '파일 이름 (알파벳 역순)', value: 'fileName', order: 'desc' },
@@ -156,7 +182,11 @@ export class Toolbar {
     ];
 
     sortOptions.forEach(option => {
-      const item = this.sortMenu.createDiv('sort-menu-item');
+      const item = this.sortMenu?.createDiv('sort-menu-item');
+      if (!item) {
+        console.error('정렬 메뉴 아이템 생성 실패');
+        return;
+      }
       item.setText(option.label);
       item.addEventListener('click', () => {
         this.config.sortBy = option.value;
@@ -171,6 +201,8 @@ export class Toolbar {
    * 설정 메뉴 설정
    */
   private setupSettingsMenu(): void {
+    if (!this.settingsMenu) return;
+
     // 카드셋 생성 방식 선택
     const cardSetTypeSection = this.settingsMenu.createDiv('settings-section');
     cardSetTypeSection.createEl('h4').setText('카드셋 생성 방식');
@@ -198,7 +230,10 @@ export class Toolbar {
 
     // 프리셋 생성/업데이트 버튼
     const presetButtons = presetSection.createDiv('preset-buttons');
+    
+    // 프리셋 생성 버튼
     const createButton = presetButtons.createEl('button');
+    const createIcon = createButton.createEl('i', { cls: 'fas fa-plus' });
     createButton.setText('현재 설정으로 생성');
     createButton.addEventListener('click', () => {
       const name = prompt('프리셋 이름을 입력하세요:');
@@ -207,7 +242,9 @@ export class Toolbar {
       }
     });
 
+    // 프리셋 업데이트 버튼
     const updateButton = presetButtons.createEl('button');
+    const updateIcon = updateButton.createEl('i', { cls: 'fas fa-save' });
     updateButton.setText('현재 설정으로 업데이트');
     updateButton.addEventListener('click', () => {
       if (this.config.selectedPreset) {
@@ -259,13 +296,22 @@ export class Toolbar {
    * 빠른 설정 메뉴 설정
    */
   private setupQuickSettingsMenu(): void {
+    if (!this.quickSettingsMenu) return;
+
     // 카드셋 타입 빠른 전환
     const cardSetTypeSection = this.quickSettingsMenu.createDiv('quick-settings-section');
-    ['folder', 'tag', 'link'].forEach(type => {
+    const cardSetTypeIcons = [
+      { type: 'folder' as CardSetType, icon: 'fa-folder' },
+      { type: 'tag' as CardSetType, icon: 'fa-tag' },
+      { type: 'link' as CardSetType, icon: 'fa-link' }
+    ];
+
+    cardSetTypeIcons.forEach(({ type, icon }) => {
       const button = cardSetTypeSection.createEl('button');
-      button.createEl('i', { cls: `fas fa-${type}` });
+      const iconEl = button.createEl('i', { cls: `fas ${icon}` });
+      button.title = type;
       button.addEventListener('click', () => {
-        this.config.cardSetType = type as CardSetType;
+        this.config.cardSetType = type;
         this.updateCardSetTypeIcon();
         this.onCardSetTypeChange(this.config.cardSetType);
       });
@@ -274,15 +320,15 @@ export class Toolbar {
     // 정렬 옵션 빠른 전환
     const sortSection = this.quickSettingsMenu.createDiv('quick-settings-section');
     const sortOptions = [
-      { icon: 'sort-alpha-down', label: '파일 이름 (알파벳 순)', value: 'fileName', order: 'asc' },
-      { icon: 'sort-alpha-up', label: '파일 이름 (알파벳 역순)', value: 'fileName', order: 'desc' },
-      { icon: 'clock', label: '업데이트 날짜 (최신순)', value: 'updated', order: 'desc' },
-      { icon: 'calendar', label: '생성일 (최신순)', value: 'created', order: 'desc' }
+      { icon: 'fa-sort-alpha-down', label: '파일 이름 (알파벳 순)', value: 'fileName', order: 'asc' },
+      { icon: 'fa-sort-alpha-up', label: '파일 이름 (알파벳 역순)', value: 'fileName', order: 'desc' },
+      { icon: 'fa-clock', label: '업데이트 날짜 (최신순)', value: 'updated', order: 'desc' },
+      { icon: 'fa-calendar', label: '생성일 (최신순)', value: 'created', order: 'desc' }
     ];
 
     sortOptions.forEach(option => {
       const button = sortSection.createEl('button');
-      button.createEl('i', { cls: `fas fa-${option.icon}` });
+      const iconEl = button.createEl('i', { cls: `fas ${option.icon}` });
       button.title = option.label;
       button.addEventListener('click', () => {
         this.config.sortBy = option.value;
@@ -294,7 +340,7 @@ export class Toolbar {
     // 레이아웃 모드 빠른 전환
     const layoutSection = this.quickSettingsMenu.createDiv('quick-settings-section');
     const layoutButton = layoutSection.createEl('button');
-    layoutButton.createEl('i', { cls: 'fas fa-th-large' });
+    const layoutIcon = layoutButton.createEl('i', { cls: 'fas fa-th-large' });
     layoutButton.title = '레이아웃 모드';
     layoutButton.addEventListener('click', () => {
       this.config.layoutConfig.fixedHeight = !this.config.layoutConfig.fixedHeight;
@@ -304,7 +350,7 @@ export class Toolbar {
     // 렌더링 모드 빠른 전환
     const renderSection = this.quickSettingsMenu.createDiv('quick-settings-section');
     const renderButton = renderSection.createEl('button');
-    renderButton.createEl('i', { cls: 'fas fa-code' });
+    const renderIcon = renderButton.createEl('i', { cls: 'fas fa-code' });
     renderButton.title = '렌더링 모드';
     renderButton.addEventListener('click', () => {
       this.config.cardRenderConfig.renderAsHtml = !this.config.cardRenderConfig.renderAsHtml;
@@ -316,6 +362,8 @@ export class Toolbar {
    * 정렬 메뉴 토글
    */
   private toggleSortMenu(): void {
+    if (!this.sortMenu || !this.settingsMenu || !this.quickSettingsMenu) return;
+
     this.sortMenu.classList.toggle('active');
     if (this.sortMenu.classList.contains('active')) {
       this.settingsMenu.classList.remove('active');
@@ -327,6 +375,8 @@ export class Toolbar {
    * 설정 메뉴 토글
    */
   private toggleSettingsMenu(): void {
+    if (!this.settingsMenu || !this.sortMenu || !this.quickSettingsMenu) return;
+
     this.settingsMenu.classList.toggle('active');
     if (this.settingsMenu.classList.contains('active')) {
       this.sortMenu.classList.remove('active');
@@ -429,13 +479,38 @@ export class Toolbar {
   }
 
   /**
+   * 외부 클릭 처리
+   */
+  private _handleOutsideClickImpl(event: MouseEvent): void {
+    if (this.sortMenu?.classList.contains('active') && !this.sortMenu.contains(event.target as Node)) {
+      this.sortMenu.classList.remove('active');
+    }
+    if (this.settingsMenu?.classList.contains('active') && !this.settingsMenu.contains(event.target as Node)) {
+      this.settingsMenu.classList.remove('active');
+    }
+    if (this.quickSettingsMenu?.classList.contains('active') && !this.quickSettingsMenu.contains(event.target as Node)) {
+      this.quickSettingsMenu.classList.remove('active');
+    }
+  }
+
+  /**
    * 툴바 정리
    */
-  public cleanup(): void {
-    // 메뉴 제거
-    this.sortMenu.remove();
-    this.settingsMenu.remove();
-    this.quickSettingsMenu.remove();
+  destroy(): void {
+    // 이벤트 리스너 해제
+    this.container.removeEventListener('click', this._handleOutsideClick);
+    
+    // DOM 요소 정리
+    this.container.empty();
+    
+    // 컴포넌트 정리
+    this.cardSetTypeIcon = null;
+    this.searchBar = null;
+    this.sortButton = null;
+    this.settingsButton = null;
+    this.sortMenu = null;
+    this.settingsMenu = null;
+    this.quickSettingsMenu = null;
   }
 
   /**

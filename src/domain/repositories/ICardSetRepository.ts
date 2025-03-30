@@ -24,6 +24,11 @@ export interface ICardSetRepository {
   ): Promise<CardSet>;
 
   /**
+   * 카드셋 저장
+   */
+  saveCardSet(cardSet: CardSet): Promise<void>;
+
+  /**
    * 카드셋 업데이트
    */
   updateCardSet(cardSet: CardSet): Promise<void>;
@@ -36,7 +41,7 @@ export interface ICardSetRepository {
   /**
    * 카드셋 조회
    */
-  getCardSet(id: string): Promise<CardSet | undefined>;
+  getCardSet(id: string): Promise<CardSet | null>;
 
   /**
    * 모든 카드셋 조회

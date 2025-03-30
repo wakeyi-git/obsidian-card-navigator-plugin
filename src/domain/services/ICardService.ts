@@ -19,6 +19,12 @@ export interface ICardService {
   getCardByPath(filePath: string): Promise<Card | null>;
 
   /**
+   * 파일로부터 카드 조회
+   * @param file 파일
+   */
+  getCardByFile(file: TFile): Promise<Card | null>;
+
+  /**
    * 파일로부터 카드 생성
    * @param file 파일
    */

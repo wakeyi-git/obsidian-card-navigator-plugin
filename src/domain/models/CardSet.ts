@@ -323,6 +323,66 @@ export class CardSet implements ICardSet {
     console.debug(`[CardSet] 초기화 완료: ${name} (소요 시간: ${(endTime - startTime).toFixed(2)}ms)`);
   }
 
+  /**
+   * 카드셋 초기화
+   */
+  async initialize(): Promise<void> {
+    try {
+      console.debug(`[CardSet] 카드 로드 시작: ${this._name}`);
+      const startTime = performance.now();
+      
+      // 파일 목록 조회
+      const files = await this._getFiles();
+      
+      // 카드 로드
+      await this._loadCards(files);
+      
+      const endTime = performance.now();
+      console.debug(`[CardSet] 카드 로드 완료: ${this._name} (소요 시간: ${(endTime - startTime).toFixed(2)}ms)`);
+      console.debug(`[CardSet] 로드된 카드 수: ${this._cards.length}`);
+    } catch (error) {
+      console.error(`[CardSet] 카드 로드 실패: ${this._name}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 카드 로드
+   */
+  private async _loadCards(files: TFile[]): Promise<void> {
+    try {
+      // 카드 생성
+      const cards = await Promise.all(
+        files.map(async file => {
+          try {
+            console.debug(`[CardSet] 카드 생성 시작: ${file.path}`);
+            
+            // 기존 카드 확인
+            let card = await this.cardService.getCardByFile(file);
+            if (!card) {
+              // 새 카드 생성
+              card = await this.cardService.createFromFile(file);
+            }
+            
+            console.debug(`[CardSet] 카드 생성 완료: ${file.path}`);
+            return card;
+          } catch (error) {
+            console.error(`[CardSet] 카드 생성 실패: ${file.path}`, error);
+            return null;
+          }
+        })
+      );
+
+      // null 값 제거
+      this._cards = cards.filter((card): card is Card => card !== null);
+      this._updatedAt = new Date();
+      console.debug(`[CardSet] 카드 로드 완료: ${this._cards.length}개 카드`);
+    } catch (error) {
+      console.error('[CardSet] 카드 로드 실패:', error);
+      throw error;
+    }
+  }
+
   get id(): string {
     return this._id;
   }
@@ -874,5 +934,133 @@ export class CardSet implements ICardSet {
    */
   async getCardByPath(filePath: string): Promise<Card | null> {
     return this.cards.find(card => card.filePath === filePath) || null;
+  }
+
+  /**
+   * 파일 목록 조회
+   */
+  private async _getFiles(): Promise<TFile[]> {
+    const { type, value, includeSubfolders } = this._config;
+    console.debug(`[CardSet] 파일 목록 조회 시작: type=${type}, value=${value}, includeSubfolders=${includeSubfolders}`);
+
+    let files: TFile[];
+    switch (type) {
+      case 'folder':
+        files = await this._getFilesByFolder(value, includeSubfolders);
+        break;
+      case 'tag':
+        files = await this._getFilesByTag(value);
+        break;
+      case 'link':
+        files = await this._getFilesByLink(value);
+        break;
+      case 'search':
+        files = await this._getFilesBySearch(value);
+        break;
+      default:
+        throw new Error(`지원하지 않는 카드셋 타입: ${type}`);
+    }
+
+    console.debug(`[CardSet] 파일 목록 조회 완료: ${files.length}개 파일`);
+    return files;
+  }
+
+  /**
+   * 폴더별 파일 목록 조회
+   */
+  private async _getFilesByFolder(folderPath: string, includeSubfolders: boolean = false): Promise<TFile[]> {
+    try {
+      console.debug(`[CardSet] 폴더별 파일 목록 조회 시작: ${folderPath}, includeSubfolders=${includeSubfolders}`);
+
+      // 활성 폴더 설정이 있는 경우 활성 파일의 폴더 경로 사용
+      if (this._config.isActiveFolder) {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (activeFile) {
+          folderPath = activeFile.parent?.path || '';
+          console.debug(`[CardSet] 활성 폴더 설정: ${folderPath}`);
+        }
+      }
+
+      // 폴더 내 모든 마크다운 파일 조회
+      const files = this.app.vault.getMarkdownFiles();
+      console.debug(`[CardSet] 전체 마크다운 파일 수: ${files.length}`);
+
+      // 폴더별 파일 필터링
+      const filteredFiles = files.filter(file => {
+        const filePath = file.path;
+        const fileFolder = file.parent?.path || '';
+        
+        // 정확한 폴더 경로 매칭
+        if (fileFolder === folderPath) {
+          return true;
+        }
+        
+        // 하위 폴더 포함 여부 확인
+        if (includeSubfolders && fileFolder.startsWith(folderPath + '/')) {
+          return true;
+        }
+        
+        return false;
+      });
+
+      console.debug(`[CardSet] 폴더별 파일 목록 조회 완료: ${filteredFiles.length}개 파일`);
+      return filteredFiles;
+    } catch (error) {
+      console.error(`[CardSet] 폴더별 파일 목록 조회 실패: ${folderPath}`, error);
+      return [];
+    }
+  }
+
+  /**
+   * 태그별 파일 목록 조회
+   */
+  private async _getFilesByTag(tag: string): Promise<TFile[]> {
+    const files = this.app.vault.getMarkdownFiles();
+    const filteredFiles: TFile[] = [];
+    
+    for (const file of files) {
+      const content = await this.app.vault.cachedRead(file);
+      if (content.includes(`#${tag}`)) {
+        filteredFiles.push(file);
+      }
+    }
+    
+    return filteredFiles;
+  }
+
+  /**
+   * 링크별 파일 목록 조회
+   */
+  private async _getFilesByLink(filePath: string): Promise<TFile[]> {
+    const file = this.app.vault.getAbstractFileByPath(filePath);
+    if (!file || !(file instanceof TFile)) {
+      return [];
+    }
+
+    const content = await this.app.vault.cachedRead(file);
+    const links = content.match(/\[\[(.*?)\]\]/g) || [];
+    const linkedFiles = links.map(link => {
+      const linkPath = link.slice(2, -2);
+      return this.app.vault.getAbstractFileByPath(linkPath);
+    }).filter((file): file is TFile => file instanceof TFile);
+
+    return linkedFiles;
+  }
+
+  /**
+   * 검색어별 파일 목록 조회
+   */
+  private async _getFilesBySearch(query: string): Promise<TFile[]> {
+    const files = this.app.vault.getMarkdownFiles();
+    const filteredFiles: TFile[] = [];
+    
+    for (const file of files) {
+      const content = await this.app.vault.cachedRead(file);
+      if (content.includes(query)) {
+        filteredFiles.push(file);
+      }
+    }
+    
+    return filteredFiles;
   }
 } 

@@ -74,6 +74,7 @@ export class CardNavigatorView extends ItemView {
   private readonly _presetService: IPresetService;
   private _loggingService: LoggingService;
   private _eventListenersRegistered: boolean = false;
+  private _cardSetInitialized: boolean = false;
   private _keydownHandler: (event: KeyboardEvent) => void;
 
   // 이벤트 핸들러
@@ -276,28 +277,31 @@ export class CardNavigatorView extends ItemView {
    * 이벤트 리스너 초기화
    */
   private async _initializeEventListeners(): Promise<void> {
-    this._loggingService.startMeasure('이벤트 리스너 등록');
-    
-    // 이벤트 핸들러를 한 번에 등록
-    const eventHandlers = [
-      { event: ToolbarSearchEvent, handler: this._toolbarEventHandlers.search },
-      { event: ToolbarSortEvent, handler: this._toolbarEventHandlers.sort },
-      { event: ToolbarCardSetTypeChangeEvent, handler: this._toolbarEventHandlers.cardSetTypeChange },
-      { event: ToolbarPresetChangeEvent, handler: this._toolbarEventHandlers.presetChange },
-      { event: ToolbarCreateEvent, handler: this._toolbarEventHandlers.create },
-      { event: ToolbarUpdateEvent, handler: this._toolbarEventHandlers.update },
-      { event: ToolbarCardRenderConfigChangeEvent, handler: this._toolbarEventHandlers.cardRenderConfigChange },
-      { event: ToolbarLayoutConfigChangeEvent, handler: this._toolbarEventHandlers.layoutConfigChange },
-      { event: ToolbarSettingsEvent, handler: this._toolbarEventHandlers.settings },
-      { event: CardSetUpdatedEvent, handler: this._cardSetEventHandlers.cardSetUpdated },
-      { event: LayoutUpdatedEvent, handler: this._layoutEventHandlers.layoutUpdated }
-    ];
+    if (this._eventListenersRegistered) {
+      this._loggingService.debug('이벤트 리스너가 이미 등록됨');
+      return;
+    }
 
-    await Promise.all(
-      eventHandlers.map(({ event, handler }) => 
-        this._eventDispatcher.register(event, handler)
-      )
-    );
+    this._loggingService.startMeasure('이벤트 리스너 등록');
+    this._loggingService.debug('이벤트 리스너 등록 측정 시작');
+
+    // 툴바 이벤트 핸들러 등록
+    Object.entries(this._toolbarEventHandlers).forEach(([eventName, handler]) => {
+      this._eventDispatcher.registerHandler(eventName, handler);
+      this._loggingService.debug(`이벤트 핸들러 등록: ${eventName}`);
+    });
+
+    // 카드셋 이벤트 핸들러 등록
+    Object.entries(this._cardSetEventHandlers).forEach(([eventName, handler]) => {
+      this._eventDispatcher.registerHandler(eventName, handler);
+      this._loggingService.debug(`이벤트 핸들러 등록: ${eventName}`);
+    });
+
+    // 레이아웃 이벤트 핸들러 등록
+    Object.entries(this._layoutEventHandlers).forEach(([eventName, handler]) => {
+      this._eventDispatcher.registerHandler(eventName, handler);
+      this._loggingService.debug(`이벤트 핸들러 등록: ${eventName}`);
+    });
 
     this._eventListenersRegistered = true;
     this._loggingService.endMeasure('이벤트 리스너 등록');
@@ -611,28 +615,30 @@ export class CardNavigatorView extends ItemView {
    * 초기 카드셋 로드
    */
   private async _loadInitialCardSet(): Promise<void> {
+    if (this._cardSetInitialized) {
+      this._loggingService.debug('초기 카드셋이 이미 로드됨');
+      return;
+    }
+
+    this._loggingService.debug('초기 카드셋 로드 시작');
+    const activeFile = this.app.workspace.getActiveFile();
+    
+    if (!activeFile) {
+      this._loggingService.debug('활성 파일이 없음');
+      return;
+    }
+
+    this._loggingService.debug(`활성 파일: ${activeFile.path}`);
+    
     try {
-      this._loggingService.debug('초기 카드셋 로드 시작');
-
-      const activeFile = this.props.app.workspace.getActiveFile();
-      if (!activeFile) {
-        this._loggingService.warn('활성 파일이 없음');
-        return;
-      }
-      this._loggingService.debug('활성 파일:', activeFile.path);
-
-      // 병렬로 레이아웃과 카드셋 생성
-      const [layout, cardSet] = await Promise.all([
-        this._createAndSaveDefaultLayout(),
-        this._createInitialCardSet(activeFile)
-      ]);
-
+      const cardSet = await this._createInitialCardSet(activeFile);
       await this.setCardSet(cardSet);
-      this._loggingService.info('초기 카드셋 로드 완료');
+      this._cardSetInitialized = true;
     } catch (error) {
       this._loggingService.error('초기 카드셋 로드 실패:', error);
-      throw error;
     }
+
+    this._loggingService.debug('초기 카드셋 로드 완료');
   }
 
   private _createDefaultCardRenderConfig(): ICardRenderConfig {
@@ -745,31 +751,34 @@ export class CardNavigatorView extends ItemView {
   }
 
   private _cleanupResources(): void {
-    // 불필요한 참조 해제
-    this._cardSet = null;
-    this._layout = null;
-    this._preset = null;
+    this._loggingService.debug('리소스 정리 시작');
     
-    // 이벤트 리스너 정리
-    this._unregisterEventListeners();
-    
-    // 컴포넌트 정리
-    if (this._cardContainer) {
-      this._cardContainer.cleanup();
-    }
-    if (this._toolbar) {
-      this._toolbar.cleanup();
-    }
-    if (this._contextMenu) {
-      this._contextMenu.cleanup();
+    // 이벤트 리스너 해제
+    if (this._eventListenersRegistered) {
+      this._unregisterEventListeners();
+      this._eventListenersRegistered = false;
     }
 
-    // 컨테이너 정리
-    if (this._container) {
-      this._container.remove();
-      this._container = null;
-      this._content = null;
+    // 카드셋 초기화
+    this._cardSetInitialized = false;
+    
+    // 기타 리소스 정리
+    if (this._cardContainer) {
+      this._cardContainer.destroy();
+      this._cardContainer = null;
     }
+
+    if (this._toolbar) {
+      this._toolbar.destroy();
+      this._toolbar = null;
+    }
+
+    if (this._contextMenu) {
+      this._contextMenu.destroy();
+      this._contextMenu = null;
+    }
+
+    this._loggingService.debug('리소스 정리 완료');
   }
 
   /**
@@ -784,21 +793,22 @@ export class CardNavigatorView extends ItemView {
     this._loggingService.debug('이벤트 리스너 해제 시작');
 
     // 툴바 이벤트 핸들러 해제
-    this._eventDispatcher.unregister(ToolbarSearchEvent, this._toolbarEventHandlers.search);
-    this._eventDispatcher.unregister(ToolbarSortEvent, this._toolbarEventHandlers.sort);
-    this._eventDispatcher.unregister(ToolbarCardSetTypeChangeEvent, this._toolbarEventHandlers.cardSetTypeChange);
-    this._eventDispatcher.unregister(ToolbarPresetChangeEvent, this._toolbarEventHandlers.presetChange);
-    this._eventDispatcher.unregister(ToolbarCreateEvent, this._toolbarEventHandlers.create);
-    this._eventDispatcher.unregister(ToolbarUpdateEvent, this._toolbarEventHandlers.update);
-    this._eventDispatcher.unregister(ToolbarCardRenderConfigChangeEvent, this._toolbarEventHandlers.cardRenderConfigChange);
-    this._eventDispatcher.unregister(ToolbarLayoutConfigChangeEvent, this._toolbarEventHandlers.layoutConfigChange);
-    this._eventDispatcher.unregister(ToolbarSettingsEvent, this._toolbarEventHandlers.settings);
+    Object.entries(this._toolbarEventHandlers).forEach(([eventName, handler]) => {
+      this._eventDispatcher.unregisterHandler(eventName, handler);
+      this._loggingService.debug(`이벤트 핸들러 해제: ${eventName}`);
+    });
 
     // 카드셋 이벤트 핸들러 해제
-    this._eventDispatcher.unregister(CardSetUpdatedEvent, this._cardSetEventHandlers.cardSetUpdated);
+    Object.entries(this._cardSetEventHandlers).forEach(([eventName, handler]) => {
+      this._eventDispatcher.unregisterHandler(eventName, handler);
+      this._loggingService.debug(`이벤트 핸들러 해제: ${eventName}`);
+    });
 
     // 레이아웃 이벤트 핸들러 해제
-    this._eventDispatcher.unregister(LayoutUpdatedEvent, this._layoutEventHandlers.layoutUpdated);
+    Object.entries(this._layoutEventHandlers).forEach(([eventName, handler]) => {
+      this._eventDispatcher.unregisterHandler(eventName, handler);
+      this._loggingService.debug(`이벤트 핸들러 해제: ${eventName}`);
+    });
 
     // DOM 이벤트 리스너 해제
     this._container?.removeEventListener('keydown', this._keydownHandler);

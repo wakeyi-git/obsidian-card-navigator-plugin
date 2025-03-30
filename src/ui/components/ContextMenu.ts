@@ -51,7 +51,7 @@ export class ContextMenu {
   /**
    * 컨텍스트 메뉴 정리
    */
-  cleanup(): void {
+  destroy(): void {
     this._container?.removeEventListener('click', this._handleOutsideClick);
     this._container = null;
     this._handlers = null;

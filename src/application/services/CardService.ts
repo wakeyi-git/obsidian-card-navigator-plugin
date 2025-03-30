@@ -37,9 +37,43 @@ export class CardService implements ICardService {
    * 파일로부터 카드 생성
    */
   async createFromFile(file: TFile): Promise<Card> {
-    const card = await this.cardRepository.getOrCreateCard(file);
-    this.eventDispatcher.dispatch(new CardCreatedEvent(card));
-    return card;
+    try {
+      console.debug(`[CardNavigator] 파일로부터 카드 생성 시작: ${file.path}`);
+      
+      // 새 카드 생성
+      const card = await this.cardRepository.getOrCreateCard(file);
+      
+      // 이벤트 발생
+      this.eventDispatcher.dispatch(new CardCreatedEvent(card));
+      
+      console.debug(`[CardNavigator] 새 카드 생성 완료`);
+      return card;
+    } catch (error) {
+      console.error(`[CardNavigator] 카드 생성 실패: ${file.path}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 파일로부터 카드 조회
+   */
+  async getCardByFile(file: TFile): Promise<Card | null> {
+    try {
+      console.debug(`[CardNavigator] 파일 경로로 카드 조회 시작: ${file.path}`);
+      
+      // 기존 카드 확인
+      const existingCard = await this.cardRepository.findByPath(file.path);
+      if (existingCard) {
+        console.debug(`[CardNavigator] 기존 카드 발견: ${file.path}`);
+        return existingCard;
+      }
+
+      console.debug(`[CardNavigator] 카드를 찾을 수 없음`);
+      return null;
+    } catch (error) {
+      console.error(`[CardNavigator] 카드 조회 실패: ${file.path}`, error);
+      return null;
+    }
   }
 
   /**

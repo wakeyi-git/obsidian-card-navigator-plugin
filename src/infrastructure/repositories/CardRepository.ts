@@ -120,29 +120,124 @@ export class CardRepository implements ICardRepository {
     });
   }
 
+  /**
+   * 파일로부터 카드 생성
+   */
   private async _createCardFromFile(file: TFile, frontmatter?: Record<string, any>): Promise<Card | undefined> {
-    if (!frontmatter?.cardId) {
-      return undefined;
+    try {
+      this.loggingService.debug('파일로부터 카드 생성 시작:', file.path);
+
+      // 프론트매터가 있고 카드 ID가 있는 경우
+      if (frontmatter?.cardId) {
+        const cache = this.app.metadataCache.getFileCache(file);
+        const firstHeader = cache?.headings?.[0]?.heading;
+        const tags = cache?.tags?.map(tag => tag.tag) || [];
+        const content = await this.app.vault.read(file);
+
+        return new Card(
+          frontmatter.cardId,
+          file.path,
+          frontmatter.cardFileName || file.basename,
+          frontmatter.cardFirstHeader || firstHeader || '',
+          frontmatter.cardContent || content,
+          frontmatter.cardTags || tags,
+          frontmatter.cardCreatedAt ? new Date(frontmatter.cardCreatedAt).getTime() : file.stat.ctime,
+          frontmatter.cardUpdatedAt ? new Date(frontmatter.cardUpdatedAt).getTime() : file.stat.mtime,
+          frontmatter.cardFrontmatter || {},
+          frontmatter.cardRenderConfig || {},
+          frontmatter.cardStyle || {}
+        );
+      }
+
+      // 새로운 카드 생성
+      const content = await this.app.vault.read(file);
+      const firstHeaderMatch = content.match(/^#\s+(.+)$/m);
+      const firstHeader = firstHeaderMatch ? firstHeaderMatch[1] : '';
+      const tags = this.app.metadataCache.getFileCache(file)?.tags || [];
+      const createdAt = new Date(file.stat.ctime);
+      const updatedAt = new Date(file.stat.mtime);
+
+      return new Card(
+        crypto.randomUUID(),
+        file.path,
+        file.name,
+        firstHeader,
+        content,
+        tags.map(t => t.tag),
+        createdAt.getTime(),
+        updatedAt.getTime(),
+        frontmatter || {},
+        {
+          header: {
+            showFileName: true,
+            showFirstHeader: true,
+            showTags: true,
+            showCreatedDate: true,
+            showUpdatedDate: true,
+            showProperties: []
+          },
+          body: {
+            showFileName: true,
+            showFirstHeader: true,
+            showContent: true,
+            showTags: true,
+            showCreatedDate: true,
+            showUpdatedDate: true,
+            showProperties: []
+          },
+          footer: {
+            showFileName: true,
+            showFirstHeader: true,
+            showTags: true,
+            showCreatedDate: true,
+            showUpdatedDate: true,
+            showProperties: []
+          },
+          renderAsHtml: false
+        },
+        {
+          card: {
+            background: '',
+            fontSize: '',
+            borderColor: '',
+            borderWidth: ''
+          },
+          activeCard: {
+            background: '',
+            fontSize: '',
+            borderColor: '',
+            borderWidth: ''
+          },
+          focusedCard: {
+            background: '',
+            fontSize: '',
+            borderColor: '',
+            borderWidth: ''
+          },
+          header: {
+            background: '',
+            fontSize: '',
+            borderColor: '',
+            borderWidth: ''
+          },
+          body: {
+            background: '',
+            fontSize: '',
+            borderColor: '',
+            borderWidth: ''
+          },
+          footer: {
+            background: '',
+            fontSize: '',
+            borderColor: '',
+            borderWidth: ''
+          }
+        }
+      );
+    } catch (error) {
+      this.loggingService.error('파일로부터 카드 생성 실패:', error);
+      throw error;
     }
-
-    const cache = this.app.metadataCache.getFileCache(file);
-    const firstHeader = cache?.headings?.[0]?.heading;
-    const tags = cache?.tags?.map(tag => tag.tag) || [];
-    const content = await this.app.vault.read(file);
-
-    return new Card(
-      frontmatter.cardId,
-      file.path,
-      frontmatter.cardFileName || file.basename,
-      frontmatter.cardFirstHeader || firstHeader || '',
-      frontmatter.cardContent || content,
-      frontmatter.cardTags || tags,
-      frontmatter.cardCreatedAt ? new Date(frontmatter.cardCreatedAt).getTime() : file.stat.ctime,
-      frontmatter.cardUpdatedAt ? new Date(frontmatter.cardUpdatedAt).getTime() : file.stat.mtime,
-      frontmatter.cardFrontmatter || {},
-      frontmatter.cardRenderConfig || {},
-      frontmatter.cardStyle || {}
-    );
   }
 
   /**
@@ -161,11 +256,7 @@ export class CardRepository implements ICardRepository {
 
       // 프론트매터 조회
       const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
-      if (!frontmatter?.cardId) {
-        this.loggingService.warn('카드 ID를 찾을 수 없음');
-        throw new Error('카드 ID를 찾을 수 없음');
-      }
-
+      
       // 새 카드 생성
       const card = await this._createCardFromFile(file, frontmatter);
       if (!card) {

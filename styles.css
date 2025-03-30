@@ -1,24 +1,180 @@
 /* 카드 네비게이터 뷰 */
+.view-content {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
 .card-navigator-view {
   display: flex;
   flex-direction: column;
   height: 100%;
   width: 100%;
   overflow: hidden;
+  flex: 1;
+  position: relative;
+}
+
+.card-navigator-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  flex: 1;
+  position: relative;
 }
 
 /* 툴바 */
-.toolbar {
+.card-navigator-toolbar {
   display: flex;
   align-items: center;
   padding: 8px;
   background-color: var(--background-secondary);
   border-bottom: 1px solid var(--background-modifier-border);
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-.toolbar select,
-.toolbar input {
-  margin: 0 8px;
+.card-set-type-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.card-set-type-icon:hover {
+  color: var(--text-normal);
+}
+
+.search-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 200px;
+  padding: 4px 8px;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+}
+
+.search-options-button {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.search-options-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  color: var(--text-normal);
+  font-size: 14px;
+  width: 100%;
+}
+
+.search-input:focus {
+  outline: none;
+}
+
+.search-clear-button {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.search-clear-button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.search-clear-button:not(:hover) {
+  opacity: 0.5;
+}
+
+.sort-button,
+.settings-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.sort-button:hover,
+.settings-button:hover {
+  color: var(--text-normal);
+}
+
+.sort-menu,
+.settings-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  min-width: 200px;
+  max-width: 300px;
+}
+
+.sort-menu.active,
+.settings-menu.active {
+  display: block;
+}
+
+.sort-menu-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text-normal);
+}
+
+.sort-menu-item:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.settings-section {
+  padding: 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.settings-section:last-child {
+  border-bottom: none;
+}
+
+.settings-section h4 {
+  margin: 0 0 8px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settings-section select {
+  width: 100%;
   padding: 4px 8px;
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
@@ -26,15 +182,45 @@
   color: var(--text-normal);
 }
 
-.toolbar select:hover,
-.toolbar input:hover {
-  border-color: var(--interactive-hover);
+.toggle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
 }
 
-.toolbar select:focus,
-.toolbar input:focus {
-  outline: none;
-  border-color: var(--interactive-accent);
+.toggle-item span {
+  color: var(--text-normal);
+  font-size: 12px;
+}
+
+.toggle-item input[type="checkbox"] {
+  margin: 0;
+}
+
+.preset-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.preset-buttons button {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.preset-buttons button:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.preset-buttons button:active {
+  background-color: var(--background-modifier-active);
 }
 
 /* 카드 컨테이너 */
@@ -44,17 +230,39 @@
   overflow: auto;
   padding: 16px;
   background-color: var(--background-primary);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.card-list {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  padding: 8px;
+  box-sizing: border-box;
 }
 
 /* 카드 */
 .card {
-  position: absolute;
+  position: relative;
   background-color: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease-in-out;
   cursor: pointer;
+  width: 100%;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
 
 .card:hover {
@@ -112,14 +320,6 @@
   overflow: hidden;
 }
 
-.card-footer {
-  margin: 0;
-  font-size: 0.8em;
-  color: var(--text-muted);
-  border-top: 1px solid var(--background-modifier-border);
-  padding-top: 8px;
-}
-
 /* 드래그 앤 드롭 */
 .card.dragging {
   opacity: 0.5;
@@ -132,18 +332,17 @@
 
 /* 반응형 레이아웃 */
 @media (max-width: 768px) {
-  .toolbar {
+  .card-navigator-toolbar {
     flex-wrap: wrap;
   }
 
-  .toolbar select,
-  .toolbar input {
-    margin: 4px;
-    width: calc(50% - 8px);
+  .search-container {
+    width: 100%;
+    margin: 4px 0;
   }
 
-  .card-container {
-    padding: 8px;
+  .card-list {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -802,61 +1001,6 @@
 .card-navigator-preset-priority-item-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-} 
-
-.search-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  background-color: var(--background-secondary);
-  border-radius: 4px;
-  margin-bottom: 8px;
-}
-
-.search-options-button {
-  background: none;
-  border: none;
-  padding: 4px;
-  cursor: pointer;
-  color: var(--text-muted);
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-.search-options-button:hover {
-  background-color: var(--background-modifier-hover);
-}
-
-.search-input {
-  flex: 1;
-  background: none;
-  border: none;
-  padding: 4px 8px;
-  color: var(--text-normal);
-  font-size: 14px;
-}
-
-.search-input:focus {
-  outline: none;
-}
-
-.search-clear-button {
-  background: none;
-  border: none;
-  padding: 4px;
-  cursor: pointer;
-  color: var(--text-muted);
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-.search-clear-button:hover {
-  background-color: var(--background-modifier-hover);
-}
-
-.search-clear-button:not(:hover) {
-  opacity: 0.5;
 }
 
 /* 검색 결과 하이라이트 */
@@ -928,154 +1072,4 @@
     min-height: var(--min-card-height);
     overflow: hidden;
   }
-} 
-
-.card-navigator-toolbar {
-  display: flex;
-  align-items: center;
-  padding: 8px;
-  background-color: var(--background-secondary);
-  border-bottom: 1px solid var(--background-modifier-border);
-  gap: 8px;
-}
-
-.card-set-type-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  color: var(--text-muted);
-}
-
-.card-set-type-icon:hover {
-  color: var(--text-normal);
-}
-
-.search-input {
-  flex: 1;
-  min-width: 200px;
-  padding: 4px 8px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  background-color: var(--background-primary);
-  color: var(--text-normal);
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: var(--interactive-accent);
-}
-
-.sort-button,
-.settings-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  color: var(--text-muted);
-}
-
-.sort-button:hover,
-.settings-button:hover {
-  color: var(--text-normal);
-}
-
-.sort-menu,
-.settings-menu {
-  display: none;
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background-color: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  min-width: 200px;
-  max-width: 300px;
-}
-
-.sort-menu.active,
-.settings-menu.active {
-  display: block;
-}
-
-.sort-menu-item {
-  padding: 8px 12px;
-  cursor: pointer;
-  color: var(--text-normal);
-}
-
-.sort-menu-item:hover {
-  background-color: var(--background-modifier-hover);
-}
-
-.settings-section {
-  padding: 12px;
-  border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.settings-section:last-child {
-  border-bottom: none;
-}
-
-.settings-section h4 {
-  margin: 0 0 8px 0;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.settings-section select {
-  width: 100%;
-  padding: 4px 8px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  background-color: var(--background-primary);
-  color: var(--text-normal);
-}
-
-.toggle-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 0;
-}
-
-.toggle-item span {
-  color: var(--text-normal);
-  font-size: 12px;
-}
-
-.toggle-item input[type="checkbox"] {
-  margin: 0;
-}
-
-.preset-buttons {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.preset-buttons button {
-  flex: 1;
-  padding: 4px 8px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  background-color: var(--background-primary);
-  color: var(--text-normal);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.preset-buttons button:hover {
-  background-color: var(--background-modifier-hover);
-}
-
-.preset-buttons button:active {
-  background-color: var(--background-modifier-active);
 }

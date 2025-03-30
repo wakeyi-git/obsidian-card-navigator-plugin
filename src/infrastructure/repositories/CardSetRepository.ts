@@ -104,8 +104,15 @@ export class CardSetRepository implements ICardSetRepository {
   /**
    * 카드셋 조회
    */
-  async getCardSet(id: string): Promise<CardSet | undefined> {
-    return this._cardSets.get(id);
+  async getCardSet(id: string): Promise<CardSet | null> {
+    return this._cardSets.get(id) || null;
+  }
+
+  /**
+   * 카드셋 파일 경로 조회
+   */
+  private _getCardSetPath(id: string): string {
+    return `.obsidian/plugins/obsidian-card-navigator-plugin/card-sets/${id}.json`;
   }
 
   /**
@@ -118,8 +125,50 @@ export class CardSetRepository implements ICardSetRepository {
   /**
    * 카드셋 저장
    */
-  private _saveCardSet(cardSet: CardSet): void {
-    this._cardSets.set(cardSet.id, cardSet);
+  async saveCardSet(cardSet: CardSet): Promise<void> {
+    try {
+      this.loggingService.debug(`[CardSetRepository] 카드셋 저장 시작: ${cardSet.id}`);
+
+      // 카드셋 데이터 준비
+      const cardSetData = {
+        id: cardSet.id,
+        name: cardSet.name,
+        description: cardSet.description,
+        config: cardSet.config,
+        cards: cardSet.cards.map(card => card.id),
+        activeCardId: cardSet.activeCardId,
+        focusedCardId: cardSet.focusedCardId,
+        createdAt: cardSet.createdAt,
+        updatedAt: cardSet.updatedAt
+      };
+
+      // 저장 디렉토리 생성
+      const cardSetPath = this._getCardSetPath(cardSet.id);
+      const cardSetDir = cardSetPath.substring(0, cardSetPath.lastIndexOf('/'));
+      
+      try {
+        await this.app.vault.adapter.mkdir(cardSetDir);
+      } catch (error) {
+        // 디렉토리가 이미 존재하는 경우 무시
+        if (error.code !== 'EEXIST') {
+          throw error;
+        }
+      }
+
+      // 카드셋 데이터 저장
+      await this.app.vault.adapter.write(
+        cardSetPath,
+        JSON.stringify(cardSetData, null, 2)
+      );
+
+      // 카드셋을 메모리에 추가
+      this._cardSets.set(cardSet.id, cardSet);
+
+      this.loggingService.debug(`[CardSetRepository] 카드셋 저장 완료: ${cardSet.id}`);
+    } catch (error) {
+      this.loggingService.error(`[CardSetRepository] 카드셋 저장 실패: ${cardSet.id}`, error);
+      throw error;
+    }
   }
 
   /**

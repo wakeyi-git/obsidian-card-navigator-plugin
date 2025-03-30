@@ -14,6 +14,7 @@ import { LayoutCreatedEvent, LayoutUpdatedEvent } from '@/domain/events/LayoutEv
 import { App, TFile } from 'obsidian';
 import { ICardService } from '@/domain/services/ICardService';
 import { LoggingService } from '@/infrastructure/services/LoggingService';
+import { CardRenderedEvent } from '@/domain/events/CardEvents';
 
 /**
  * 카드 컨테이너 의존성 인터페이스
@@ -115,6 +116,15 @@ export class CardContainer {
       handle: async (event: CardDeletedEvent) => {
         this._removeCard(event.cardId);
       }
+    },
+    cardRendered: {
+      handle: async (event: CardRenderedEvent) => {
+        const cardElement = this._cardElements.get(event.cardId);
+        if (cardElement) {
+          cardElement.innerHTML = event.html;
+          this._updateCardStates();
+        }
+      }
     }
   };
 
@@ -142,7 +152,7 @@ export class CardContainer {
   /**
    * 컨테이너 정리
    */
-  cleanup(): void {
+  destroy(): void {
     // 이벤트 핸들러 해제
     this.dependencies.eventDispatcher.unregister(CardSetCreatedEvent, this._cardSetEventHandlers.cardSetCreated);
     this.dependencies.eventDispatcher.unregister(CardSetUpdatedEvent, this._cardSetEventHandlers.cardSetUpdated);
@@ -151,6 +161,7 @@ export class CardContainer {
     this.dependencies.eventDispatcher.unregister(CardCreatedEvent, this._cardEventHandlers.cardCreated);
     this.dependencies.eventDispatcher.unregister(CardUpdatedEvent, this._cardEventHandlers.cardUpdated);
     this.dependencies.eventDispatcher.unregister(CardDeletedEvent, this._cardEventHandlers.cardDeleted);
+    this.dependencies.eventDispatcher.unregister(CardRenderedEvent, this._cardEventHandlers.cardRendered);
 
     // DOM 요소 정리
     this._container.innerHTML = '';
@@ -298,6 +309,7 @@ export class CardContainer {
     this.dependencies.eventDispatcher.register(CardCreatedEvent, this._cardEventHandlers.cardCreated);
     this.dependencies.eventDispatcher.register(CardUpdatedEvent, this._cardEventHandlers.cardUpdated);
     this.dependencies.eventDispatcher.register(CardDeletedEvent, this._cardEventHandlers.cardDeleted);
+    this.dependencies.eventDispatcher.register(CardRenderedEvent, this._cardEventHandlers.cardRendered);
 
     this.dependencies.loggingService.debug('CardContainer 이벤트 리스너 설정 완료');
   }
@@ -306,26 +318,47 @@ export class CardContainer {
    * 카드 렌더링
    */
   private async _renderCards(): Promise<void> {
-    if (!this._cardSet) {
-      throw new Error('Card set is not set');
-    }
-
     try {
-      const cards = await this._cardSet.getCards();
+      // 카드셋이 설정되지 않은 경우 현재 카드 목록 사용
+      const cards = this._cardSet ? await this._cardSet.getCards() : Array.from(this._cards.values());
+      
       if (!cards || cards.length === 0) {
         this.dependencies.loggingService.debug('No cards to render');
         return;
       }
 
+      this.dependencies.loggingService.debug(`Rendering ${cards.length} cards`);
+
+      // 기존 카드 요소 제거
+      this._container.innerHTML = '';
+      this._cardElements.clear();
+
+      // 카드 렌더링
       for (const card of cards) {
-        const cardElement = await this.dependencies.cardRenderer.renderCard(card);
-        if (cardElement) {
-          this._container.appendChild(cardElement);
+        try {
+          const cardElement = await this.dependencies.cardRenderer.renderCard(card);
+          if (cardElement) {
+            this._container.appendChild(cardElement);
+            this._cardElements.set(card.id, cardElement);
+            this._cards.set(card.id, card);
+            this.dependencies.loggingService.debug(`Card rendered: ${card.id}`);
+          } else {
+            this.dependencies.loggingService.warn(`Failed to render card: ${card.id}`);
+          }
+        } catch (error) {
+          this.dependencies.loggingService.error(`Error rendering card ${card.id}:`, error);
         }
       }
 
+      // 카드 상태 업데이트
+      this._updateCardStates();
+
       // 레이아웃 업데이트
-      await this._updateLayout();
+      if (this._layout) {
+        await this._updateLayout();
+      }
+
+      this.dependencies.loggingService.debug(`Rendered ${this._cardElements.size} cards`);
     } catch (error) {
       this.dependencies.loggingService.error('Failed to render cards:', error);
       throw error;
