@@ -1,5 +1,5 @@
 import { IUseCase } from './IUseCase';
-import { IFocusManager, FocusDirection } from '../../domain/services/IFocusManager';
+import { IFocusManager, FocusDirection } from '../../domain/managers/IFocusManager';
 import { ICard } from '../../domain/models/Card';
 import { TFile } from 'obsidian';
 import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';

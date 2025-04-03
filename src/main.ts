@@ -15,7 +15,7 @@ import { CardFactory } from './application/factories/CardFactory';
 import { LayoutService } from './application/services/LayoutService';
 import { SearchService } from './application/services/SearchService';
 import { SortService } from './application/services/SortService';
-import { FocusManager } from './application/services/FocusManager';
+import { FocusManager } from './application/manager/FocusManager';
 import { ActiveFileWatcher } from './application/services/ActiveFileWatcher';
 import { ClipboardService } from './application/services/ClipboardService';
 import { FileService } from './application/services/FileService';

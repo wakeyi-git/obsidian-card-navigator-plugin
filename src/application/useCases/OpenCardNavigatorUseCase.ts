@@ -1,7 +1,7 @@
 import { IUseCase } from './IUseCase';
 import { ICardSetService } from '../../domain/services/ICardSetService';
 import { ILayoutService } from '../../domain/services/ILayoutService';
-import { IFocusManager } from '../../domain/services/IFocusManager';
+import { IFocusManager } from '../../domain/managers/IFocusManager';
 import { IActiveFileWatcher } from '../../domain/services/IActiveFileWatcher';
 import { TFile } from 'obsidian';
 import { CardSetType } from '../../domain/models/CardSet';
