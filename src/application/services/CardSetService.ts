@@ -1,381 +1,395 @@
-import { CardSet, CardSetType, CardFilter, ICardSetConfig } from '@/domain/models/CardSet';
-import { ILayoutConfig } from '@/domain/models/Layout';
-import { ICardRenderConfig } from '@/domain/models/Card';
-import { ICardSetRepository } from '@/domain/repositories/ICardSetRepository';
-import { LoggingService } from '@/infrastructure/services/LoggingService';
-import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
-import { CardSetCreatedEvent, CardSetUpdatedEvent, CardSetDeletedEvent } from '@/domain/events/CardSetEvents';
-import { IDomainEventHandler } from '@/domain/events/IDomainEventHandler';
-import { Preset } from '@/domain/models/Preset';
-import { ILayoutService } from '@/domain/services/ILayoutService';
-import { ICardService } from '@/domain/services/ICardService';
-import { ICardSetService } from '@/domain/services/ICardSetService';
-import { App } from 'obsidian';
+import { App, TFile } from 'obsidian';
+import { ICardSetService } from '../../domain/services/ICardSetService';
+import { ICard } from '../../domain/models/Card';
+import { ICardSet, DEFAULT_CARD_SET_CONFIG } from '../../domain/models/CardSet';
+import { CardSetType } from '../../domain/models/CardSet';
+import { ISortConfig } from '../../domain/models/SortConfig';
+import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
+import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
+import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
+import { IEventDispatcher } from '@/domain/interfaces/events/IEventDispatcher';
+import { Container } from '@/infrastructure/di/Container';
+import { CardSetError } from '../../domain/errors/CardSetError';
+import { ICardService } from '../../domain/services/ICardService';
 
 /**
- * 카드셋 서비스
+ * 카드셋 서비스 구현체
  */
 export class CardSetService implements ICardSetService {
-  private _cardSets: Map<string, CardSet> = new Map();
-  private _startTime: number;
+  private static instance: CardSetService;
+  private cardSets: Map<string, ICardSet> = new Map();
+  private eventSubscribers: Set<(event: any) => void> = new Set();
 
-  constructor(
-    private readonly repository: ICardSetRepository,
-    private readonly eventDispatcher: DomainEventDispatcher,
-    private readonly loggingService: LoggingService,
-    private readonly layoutService: ILayoutService,
+  private constructor(
+    private readonly app: App,
     private readonly cardService: ICardService,
-    private readonly app: App
-  ) {
-    this._startTime = performance.now();
-    this.loggingService.debug('CardSetService 초기화 시작');
+    private readonly errorHandler: IErrorHandler,
+    private readonly loggingService: ILoggingService,
+    private readonly performanceMonitor: IPerformanceMonitor,
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
+  ) {}
 
-    // 이벤트 핸들러 등록
-    const handlers: Record<string, IDomainEventHandler<any>> = {
-      cardSetCreated: {
-        handle: async (event: CardSetCreatedEvent) => {
-          this._handleCardSetCreated(event);
-        }
-      },
-      cardSetUpdated: {
-        handle: async (event: CardSetUpdatedEvent) => {
-          this._handleCardSetUpdated(event);
-        }
-      },
-      cardSetDeleted: {
-        handle: async (event: CardSetDeletedEvent) => {
-          this._handleCardSetDeleted(event);
-        }
-      }
-    };
+  static getInstance(): CardSetService {
+    if (!CardSetService.instance) {
+      const container = Container.getInstance();
+      CardSetService.instance = new CardSetService(
+        container.resolve('App'),
+        container.resolve('ICardService'),
+        container.resolve('IErrorHandler'),
+        container.resolve('ILoggingService'),
+        container.resolve('IPerformanceMonitor'),
+        container.resolve('IAnalyticsService'),
+        container.resolve('IEventDispatcher')
+      );
+    }
+    return CardSetService.instance;
+  }
 
-    // 이벤트 핸들러 등록
-    Object.entries(handlers).forEach(([key, handler]) => {
-      switch (key) {
-        case 'cardSetCreated':
-          this.eventDispatcher.register(CardSetCreatedEvent, handler);
-          break;
-        case 'cardSetUpdated':
-          this.eventDispatcher.register(CardSetUpdatedEvent, handler);
-          break;
-        case 'cardSetDeleted':
-          this.eventDispatcher.register(CardSetDeletedEvent, handler);
-          break;
-        default:
-          this.loggingService.warn(`알 수 없는 이벤트 핸들러: ${key}`);
-      }
-    });
+  /**
+   * 초기화
+   */
+  initialize(): void {
+    // 초기화 로직
+  }
 
-    const endTime = performance.now();
-    this.loggingService.debug(`CardSetService 초기화 완료, 소요 시간: ${endTime - this._startTime}ms`);
+  /**
+   * 정리
+   */
+  cleanup(): void {
+    this.cardSets.clear();
+    this.eventSubscribers.clear();
   }
 
   /**
    * 카드셋 생성
+   * @param type 카드셋 타입
+   * @param criteria 기준 (폴더 경로 또는 태그)
+   * @param options 옵션
    */
-  async createCardSet(name: string, description: string, config: ICardSetConfig): Promise<CardSet> {
-    const startTime = performance.now();
-    this.loggingService.debug(`[CardNavigator] 카드셋 생성 시작: {name: '${name}', description: '${description}', config: ${JSON.stringify(config)}}`);
-
+  async createCardSet(
+    type: CardSetType,
+    criteria: string,
+    options?: {
+      includeSubfolders?: boolean;
+      sortConfig?: ISortConfig;
+    }
+  ): Promise<ICardSet> {
     try {
-      // 활성 폴더 설정이 있는 경우 활성 파일의 폴더 경로 설정
-      if (config.isActiveFolder) {
-        const activeFile = this.app.workspace.getActiveFile();
-        if (activeFile) {
-          const activeFolderPath = activeFile.parent?.path || '';
-          config.value = activeFolderPath;
-          this.loggingService.debug(`[CardNavigator] 활성 폴더 설정: ${activeFolderPath}`);
-        } else {
-          this.loggingService.warn('[CardNavigator] 활성 파일이 없어 활성 폴더를 설정할 수 없습니다.');
-        }
+      this.performanceMonitor.startMeasure('CardSetService.createCardSet');
+      this.loggingService.debug('카드셋 생성 시작', { type, criteria });
+
+      // 카드 로드
+      let cards: ICard[] = [];
+      switch (type) {
+        case CardSetType.FOLDER:
+          cards = await this.loadCardsFromFolder(criteria, options?.includeSubfolders);
+          break;
+        case CardSetType.TAG:
+          cards = await this.loadCardsFromTag(criteria);
+          break;
+        case CardSetType.LINK:
+          cards = await this.loadCardsFromLink(criteria);
+          break;
+      }
+
+      // 정렬 적용
+      if (options?.sortConfig) {
+        cards = await this.sortCards(cards, options.sortConfig);
       }
 
       // 카드셋 생성
-      const cardSet = new CardSet(
-        crypto.randomUUID(),
-        name,
-        description,
-        config,
-        this.app,
-        this.cardService,
-        this.layoutService
-      );
+      const cardSet: ICardSet = {
+        id: crypto.randomUUID(),
+        type,
+        criteria,
+        config: DEFAULT_CARD_SET_CONFIG,
+        cards,
+        options: options || {},
+        validate: function() {
+          return this.id !== '' && this.cards.length >= 0;
+        }
+      };
 
-      // 카드셋 초기화
-      await cardSet.initialize();
+      this.cardSets.set(cardSet.id, cardSet);
+      this.notifyEvent('create', cardSet.id, cardSet);
 
-      // 카드셋 저장
-      await this.repository.saveCardSet(cardSet);
-      this._cardSets.set(cardSet.id, cardSet);
-      this.eventDispatcher.dispatch(new CardSetCreatedEvent(cardSet));
-
-      const endTime = performance.now();
-      this.loggingService.debug(`[CardNavigator] 카드셋 생성 및 초기화 완료: {id: '${cardSet.id}', name: '${cardSet.name}', cardCount: ${cardSet.cards.length}, elapsedTime: '${(endTime - startTime).toFixed(2)}ms'}`);
-
+      this.loggingService.info('카드셋 생성 완료', { cardSetId: cardSet.id, cardCount: cards.length });
       return cardSet;
     } catch (error) {
-      this.loggingService.error('[CardNavigator] 카드셋 생성 실패:', error);
-      throw error;
+      this.loggingService.error('카드셋 생성 실패', { error, type, criteria });
+      throw new CardSetError('카드셋 생성 중 오류가 발생했습니다.');
+    } finally {
+      this.performanceMonitor.endMeasure('CardSetService.createCardSet');
+    }
+  }
+
+  private async loadCardsFromFolder(folderPath: string, includeSubfolders: boolean = false): Promise<ICard[]> {
+    try {
+      this.performanceMonitor.startMeasure('CardSetService.loadCardsFromFolder');
+      this.loggingService.debug('폴더에서 카드 로드 시작', { folderPath, includeSubfolders });
+
+      const files = this.app.vault.getFiles();
+      const cards: ICard[] = [];
+      const BATCH_SIZE = 5; // 한 번에 처리할 파일 수
+
+      // 파일 필터링
+      const targetFiles = files.filter(file => {
+        if (folderPath === '/') {
+          return file.parent?.path === folderPath || !file.parent;
+        }
+        if (!file.path.startsWith(folderPath)) {
+          return false;
+        }
+        return includeSubfolders || file.parent?.path === folderPath;
+      });
+
+      // 배치 처리
+      for (let i = 0; i < targetFiles.length; i += BATCH_SIZE) {
+        const batch = targetFiles.slice(i, i + BATCH_SIZE);
+        const batchPromises = batch.map(file => this.cardService.createFromFile(file));
+        const batchResults = await Promise.all(batchPromises);
+        cards.push(...batchResults.filter((card): card is ICard => card !== null));
+      }
+
+      this.loggingService.info('폴더에서 카드 로드 완료', { folderPath, cardCount: cards.length });
+      return cards;
+    } catch (error) {
+      this.loggingService.error('폴더에서 카드 로드 실패', { error, folderPath });
+      throw new CardSetError('폴더에서 카드 로드 중 오류가 발생했습니다.');
+    } finally {
+      this.performanceMonitor.endMeasure('CardSetService.loadCardsFromFolder');
+    }
+  }
+
+  private async loadCardsFromTag(tag: string): Promise<ICard[]> {
+    try {
+      this.performanceMonitor.startMeasure('CardSetService.loadCardsFromTag');
+      this.loggingService.debug('태그에서 카드 로드 시작', { tag });
+
+      const files = this.app.vault.getFiles();
+      const cards: ICard[] = [];
+
+      for (const file of files) {
+        const content = await this.app.vault.read(file);
+        if (content.includes(tag)) {
+          const card = await this.cardService.createFromFile(file);
+          if (card) {
+            cards.push(card);
+          }
+        }
+      }
+
+      this.loggingService.info('태그에서 카드 로드 완료', { tag, cardCount: cards.length });
+      return cards;
+    } catch (error) {
+      this.loggingService.error('태그에서 카드 로드 실패', { error, tag });
+      throw new CardSetError('태그에서 카드 로드 중 오류가 발생했습니다.');
+    } finally {
+      this.performanceMonitor.endMeasure('CardSetService.loadCardsFromTag');
+    }
+  }
+
+  private async loadCardsFromLink(filePath: string): Promise<ICard[]> {
+    try {
+      this.performanceMonitor.startMeasure('CardSetService.loadCardsFromLink');
+      this.loggingService.debug('링크에서 카드 로드 시작', { filePath });
+
+      const file = this.app.vault.getAbstractFileByPath(filePath);
+      if (!file || !(file instanceof TFile)) {
+        return [];
+      }
+
+      const content = await this.app.vault.read(file);
+      const links = content.match(/\[\[(.*?)\]\]/g) || [];
+      const cards: ICard[] = [];
+
+      for (const link of links) {
+        const linkPath = link.slice(2, -2);
+        const linkedFile = this.app.vault.getAbstractFileByPath(linkPath);
+        if (linkedFile && linkedFile instanceof TFile) {
+          const card = await this.cardService.createFromFile(linkedFile);
+          if (card) {
+            cards.push(card);
+          }
+        }
+      }
+
+      this.loggingService.info('링크에서 카드 로드 완료', { filePath, cardCount: cards.length });
+      return cards;
+    } catch (error) {
+      this.loggingService.error('링크에서 카드 로드 실패', { error, filePath });
+      throw new CardSetError('링크에서 카드 로드 중 오류가 발생했습니다.');
+    } finally {
+      this.performanceMonitor.endMeasure('CardSetService.loadCardsFromLink');
+    }
+  }
+
+  private async sortCards(cards: ICard[], sortConfig: ISortConfig): Promise<ICard[]> {
+    try {
+      this.performanceMonitor.startMeasure('CardSetService.sortCards');
+      this.loggingService.debug('카드 정렬 시작', { sortConfig });
+
+      const sortedCards = [...cards].sort((a, b) => {
+        const aValue = this.getSortValue(a, sortConfig.field);
+        const bValue = this.getSortValue(b, sortConfig.field);
+
+        if (aValue < bValue) return sortConfig.order === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.order === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      this.loggingService.info('카드 정렬 완료', { cardCount: sortedCards.length });
+      return sortedCards;
+    } catch (error) {
+      this.loggingService.error('카드 정렬 실패', { error });
+      throw new CardSetError('카드 정렬 중 오류가 발생했습니다.');
+    } finally {
+      this.performanceMonitor.endMeasure('CardSetService.sortCards');
+    }
+  }
+
+  private getSortValue(card: ICard, field: string): string | number | Date {
+    switch (field) {
+      case 'name':
+        return card.fileName;
+      case 'createdAt':
+        return card.createdAt;
+      case 'updatedAt':
+        return card.updatedAt;
+      default:
+        return '';
     }
   }
 
   /**
    * 카드셋 업데이트
+   * @param cardSet 카드셋
    */
-  async updateCardSet(cardSet: CardSet): Promise<void> {
-    try {
-      this.loggingService.debug('카드셋 업데이트 시작:', cardSet.id);
-      await this.repository.updateCardSet(cardSet);
-      this._cardSets.set(cardSet.id, cardSet);
-      this.eventDispatcher.dispatch(new CardSetUpdatedEvent(cardSet));
-      this.loggingService.debug('카드셋 업데이트 완료:', cardSet.id);
-    } catch (error) {
-      this.loggingService.error('카드셋 업데이트 실패:', error);
-      throw error;
-    }
+  async updateCardSet(cardSet: ICardSet): Promise<void> {
+    this.cardSets.set(cardSet.id, cardSet);
+    this.notifyEvent('update', cardSet.id, cardSet);
   }
 
   /**
    * 카드셋 삭제
+   * @param cardSetId 카드셋 ID
    */
-  async deleteCardSet(id: string): Promise<void> {
-    try {
-      this.loggingService.debug('카드셋 삭제 시작:', id);
-      await this.repository.deleteCardSet(id);
-      this._cardSets.delete(id);
-      this.eventDispatcher.dispatch(new CardSetDeletedEvent(id));
-      this.loggingService.debug('카드셋 삭제 완료:', id);
-    } catch (error) {
-      this.loggingService.error('카드셋 삭제 실패:', error);
-      throw error;
-    }
+  async deleteCardSet(cardSetId: string): Promise<void> {
+    this.cardSets.delete(cardSetId);
+    this.notifyEvent('delete', cardSetId);
   }
 
   /**
-   * 카드셋 조회
+   * 카드셋 가져오기
+   * @param cardSetId 카드셋 ID
    */
-  async getCardSet(id: string): Promise<CardSet | null> {
+  async getCardSet(cardSetId: string): Promise<ICardSet | null> {
+    return this.cardSets.get(cardSetId) || null;
+  }
+
+  /**
+   * 모든 카드셋 가져오기
+   */
+  async getAllCardSets(): Promise<ICardSet[]> {
+    return Array.from(this.cardSets.values());
+  }
+
+  /**
+   * 폴더별 카드셋 가져오기
+   * @param folderPath 폴더 경로
+   */
+  async getCardSetByFolder(folderPath: string): Promise<ICardSet | null> {
     try {
-      this.loggingService.debug('카드셋 조회 시작:', id);
-      const cardSet = await this.repository.getCardSet(id);
-      if (cardSet) {
-        this._cardSets.set(id, cardSet);
+      this.performanceMonitor.startMeasure('CardSetService.getCardSetByFolder');
+      this.loggingService.debug('폴더별 카드셋 가져오기 시작', { folderPath });
+
+      // 기존 카드셋 찾기
+      for (const cardSet of this.cardSets.values()) {
+        if (cardSet.type === CardSetType.FOLDER && cardSet.criteria === folderPath) {
+          this.loggingService.debug('기존 카드셋 찾음', { cardSetId: cardSet.id });
+          return cardSet;
+        }
       }
-      this.loggingService.debug('카드셋 조회 완료:', id);
-      return cardSet || null;
+
+      // 새로운 카드셋 생성
+      this.loggingService.debug('새로운 카드셋 생성 시작');
+      const cardSet = await this.createCardSet(
+        CardSetType.FOLDER,
+        folderPath,
+        {
+          includeSubfolders: false,
+          sortConfig: DEFAULT_CARD_SET_CONFIG.sortConfig
+        }
+      );
+
+      this.loggingService.debug('폴더별 카드셋 가져오기 완료', { cardSetId: cardSet.id });
+      return cardSet;
     } catch (error) {
-      this.loggingService.error('카드셋 조회 실패:', error);
-      throw error;
+      this.loggingService.error('폴더별 카드셋 가져오기 실패', { error, folderPath });
+      throw new CardSetError('폴더별 카드셋 가져오기 중 오류가 발생했습니다.');
+    } finally {
+      this.performanceMonitor.endMeasure('CardSetService.getCardSetByFolder');
     }
   }
 
   /**
-   * 모든 카드셋 조회
+   * 카드셋 필터링
+   * @param cardSet 카드셋
+   * @param filter 필터 함수
    */
-  async getAllCardSets(): Promise<CardSet[]> {
-    try {
-      this.loggingService.debug('모든 카드셋 조회 시작');
-      const cardSets = await this.repository.getAllCardSets();
-      cardSets.forEach(cardSet => {
-        this._cardSets.set(cardSet.id, cardSet);
-      });
-      this.loggingService.debug('모든 카드셋 조회 완료:', cardSets.length);
-      return cardSets;
-    } catch (error) {
-      this.loggingService.error('모든 카드셋 조회 실패:', error);
-      throw error;
-    }
+  async filterCardSet(
+    cardSet: ICardSet,
+    filter: (card: ICard) => boolean
+  ): Promise<ICardSet> {
+    const filteredCards = cardSet.cards.filter(filter);
+    const filteredCardSet = { ...cardSet, cards: filteredCards };
+    this.notifyEvent('filter', cardSet.id, filteredCardSet);
+    return filteredCardSet;
   }
 
   /**
-   * 카드셋 타입 업데이트
+   * 카드셋 정렬
+   * @param cardSet 카드셋
+   * @param sortConfig 정렬 설정
    */
-  async updateCardSetType(id: string, type: CardSetType): Promise<void> {
-    try {
-      this.loggingService.debug('카드셋 타입 업데이트 시작:', { id, type });
-      const cardSet = await this.getCardSet(id);
-      if (!cardSet) {
-        throw new Error(`카드셋을 찾을 수 없습니다: ${id}`);
-      }
-      cardSet.config.type = type;
-      await this.updateCardSet(cardSet);
-      this.loggingService.debug('카드셋 타입 업데이트 완료:', id);
-    } catch (error) {
-      this.loggingService.error('카드셋 타입 업데이트 실패:', error);
-      throw error;
-    }
+  async sortCardSet(
+    cardSet: ICardSet,
+    sortConfig: ISortConfig
+  ): Promise<ICardSet> {
+    // 정렬 로직
+    const sortedCards = [...cardSet.cards];
+    // 정렬 로직 구현
+    const sortedCardSet = { ...cardSet, cards: sortedCards };
+    this.notifyEvent('sort', cardSet.id, sortedCardSet);
+    return sortedCardSet;
   }
 
   /**
-   * 프리셋 적용
+   * 카드셋 이벤트 구독
+   * @param callback 콜백 함수
    */
-  async applyPreset(id: string, preset: Preset): Promise<void> {
-    try {
-      this.loggingService.debug('프리셋 적용 시작:', { id, presetId: preset.id });
-      const cardSet = await this.getCardSet(id);
-      if (!cardSet) {
-        throw new Error(`카드셋을 찾을 수 없습니다: ${id}`);
-      }
-      cardSet.applyPreset(preset);
-      await this.updateCardSet(cardSet);
-      this.loggingService.debug('프리셋 적용 완료:', id);
-    } catch (error) {
-      this.loggingService.error('프리셋 적용 실패:', error);
-      throw error;
-    }
+  subscribeToCardSetEvents(callback: (event: any) => void): void {
+    this.eventSubscribers.add(callback);
   }
 
   /**
-   * 카드셋에 카드 추가
+   * 카드셋 이벤트 구독 해제
+   * @param callback 콜백 함수
    */
-  async addCardToSet(cardSetId: string, cardId: string): Promise<void> {
-    try {
-      this.loggingService.debug('카드 추가 시작:', { cardSetId, cardId });
-      const cardSet = await this.getCardSet(cardSetId);
-      if (!cardSet) {
-        throw new Error(`카드셋을 찾을 수 없습니다: ${cardSetId}`);
-      }
-      const card = await this.cardService.getCardById(cardId);
-      if (!card) {
-        throw new Error(`카드를 찾을 수 없습니다: ${cardId}`);
-      }
-      cardSet.addCard(card);
-      await this.updateCardSet(cardSet);
-      this.loggingService.debug('카드 추가 완료:', { cardSetId, cardId });
-    } catch (error) {
-      this.loggingService.error('카드 추가 실패:', error);
-      throw error;
-    }
+  unsubscribeFromCardSetEvents(callback: (event: any) => void): void {
+    this.eventSubscribers.delete(callback);
   }
 
   /**
-   * 카드셋에서 카드 제거
+   * 이벤트 알림
+   * @param type 이벤트 타입
+   * @param cardSetId 카드셋 ID
+   * @param data 이벤트 데이터
    */
-  async removeCardFromSet(cardSetId: string, cardId: string): Promise<void> {
-    try {
-      this.loggingService.debug('카드 제거 시작:', { cardSetId, cardId });
-      const cardSet = await this.getCardSet(cardSetId);
-      if (!cardSet) {
-        throw new Error(`카드셋을 찾을 수 없습니다: ${cardSetId}`);
-      }
-      cardSet.removeCard(cardId);
-      await this.updateCardSet(cardSet);
-      this.loggingService.debug('카드 제거 완료:', { cardSetId, cardId });
-    } catch (error) {
-      this.loggingService.error('카드 제거 실패:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * 카드셋 활성 카드 설정
-   */
-  async setActiveCard(cardSetId: string, cardId: string): Promise<void> {
-    try {
-      this.loggingService.debug('활성 카드 설정 시작:', { cardSetId, cardId });
-      const cardSet = await this.getCardSet(cardSetId);
-      if (!cardSet) {
-        throw new Error(`카드셋을 찾을 수 없습니다: ${cardSetId}`);
-      }
-      cardSet.activeCardId = cardId;
-      await this.updateCardSet(cardSet);
-      this.loggingService.debug('활성 카드 설정 완료:', { cardSetId, cardId });
-    } catch (error) {
-      this.loggingService.error('활성 카드 설정 실패:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * 카드셋 포커스 카드 설정
-   */
-  async setFocusedCard(cardSetId: string, cardId: string): Promise<void> {
-    try {
-      this.loggingService.debug('포커스 카드 설정 시작:', { cardSetId, cardId });
-      const cardSet = await this.getCardSet(cardSetId);
-      if (!cardSet) {
-        throw new Error(`카드셋을 찾을 수 없습니다: ${cardSetId}`);
-      }
-      cardSet.focusedCardId = cardId;
-      await this.updateCardSet(cardSet);
-      this.loggingService.debug('포커스 카드 설정 완료:', { cardSetId, cardId });
-    } catch (error) {
-      this.loggingService.error('포커스 카드 설정 실패:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * 카드셋 카드 정렬
-   */
-  async sortCards(cardSetId: string): Promise<void> {
-    try {
-      this.loggingService.debug('카드 정렬 시작:', cardSetId);
-      const cardSet = await this.getCardSet(cardSetId);
-      if (!cardSet) {
-        throw new Error(`카드셋을 찾을 수 없습니다: ${cardSetId}`);
-      }
-      cardSet.sortCards();
-      await this.updateCardSet(cardSet);
-      this.loggingService.debug('카드 정렬 완료:', cardSetId);
-    } catch (error) {
-      this.loggingService.error('카드 정렬 실패:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * 카드셋 카드 필터링
-   */
-  async filterCards(cardSetId: string, filter: CardFilter): Promise<void> {
-    try {
-      this.loggingService.debug('카드 필터링 시작:', { cardSetId, filter });
-      const cardSet = await this.getCardSet(cardSetId);
-      if (!cardSet) {
-        throw new Error(`카드셋을 찾을 수 없습니다: ${cardSetId}`);
-      }
-      cardSet.filterCards(filter);
-      await this.updateCardSet(cardSet);
-      this.loggingService.debug('카드 필터링 완료:', cardSetId);
-    } catch (error) {
-      this.loggingService.error('카드 필터링 실패:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * 서비스 정리
-   */
-  dispose(): void {
-    this.loggingService.debug('CardSetService 정리');
-    this._cardSets.clear();
-    this.repository.dispose();
-  }
-
-  /**
-   * 카드셋 생성 이벤트 처리
-   */
-  private async _handleCardSetCreated(event: CardSetCreatedEvent): Promise<void> {
-    const cardSet = await this.getCardSet(event.cardSet.id);
-    if (cardSet) {
-      this._cardSets.set(event.cardSet.id, cardSet);
-    }
-  }
-
-  /**
-   * 카드셋 업데이트 이벤트 처리
-   */
-  private async _handleCardSetUpdated(event: CardSetUpdatedEvent): Promise<void> {
-    const cardSet = await this.getCardSet(event.cardSet.id);
-    if (cardSet) {
-      this._cardSets.set(event.cardSet.id, cardSet);
-    }
-  }
-
-  /**
-   * 카드셋 삭제 이벤트 처리
-   */
-  private async _handleCardSetDeleted(event: CardSetDeletedEvent): Promise<void> {
-    this._cardSets.delete(event.cardSetId);
+  private notifyEvent(type: string, cardSetId: string, data?: any): void {
+    const event = { type, cardSetId, data };
+    this.eventSubscribers.forEach(callback => callback(event));
   }
 } 

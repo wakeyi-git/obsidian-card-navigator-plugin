@@ -1,15 +1,34 @@
-import { ICardRenderConfig } from '../models/Card';
+import { ICardRenderConfig, ISectionDisplayConfig } from '../models/CardRenderConfig';
+import { MarkdownRenderer } from './markdownRenderer';
+import { App } from 'obsidian';
 
 /**
  * 렌더링 유틸리티
  */
 export class RenderUtils {
+  private static markdownRenderer: MarkdownRenderer;
+
+  /**
+   * 마크다운 렌더러 초기화
+   */
+  static initialize(app: App): void {
+    this.markdownRenderer = new MarkdownRenderer(app);
+  }
+
   /**
    * 마크다운 텍스트를 HTML로 변환
    */
-  static markdownToHtml(markdown: string): string {
-    // TODO: 마크다운 파서를 사용하여 HTML로 변환
-    return markdown;
+  static async markdownToHtml(markdown: string): Promise<string> {
+    if (!this.markdownRenderer) {
+      throw new Error('MarkdownRenderer가 초기화되지 않았습니다.');
+    }
+
+    return await this.markdownRenderer.render(markdown, {
+      showImages: true,
+      highlightCode: true,
+      supportCallouts: true,
+      supportMath: true
+    });
   }
 
   /**
@@ -54,120 +73,89 @@ export class RenderUtils {
   }
 
   /**
-   * 카드 헤더 렌더링
+   * 섹션 내용 렌더링
    */
-  static renderCardHeader(card: any, config: ICardRenderConfig['header']): string {
+  private static renderSectionContent(card: any, displayConfig: ISectionDisplayConfig): string {
     const parts: string[] = [];
 
-    if (config.showFileName) {
+    if (displayConfig.showFileName) {
       parts.push(`<div class="file-name">${card.fileName}</div>`);
     }
 
-    if (config.showFirstHeader && card.firstHeader) {
+    if (displayConfig.showFirstHeader && card.firstHeader) {
       parts.push(`<div class="first-header">${card.firstHeader}</div>`);
     }
 
-    if (config.showTags && card.tags.length > 0) {
+    if (displayConfig.showContent) {
+      parts.push(`<div class="content">${card.content}</div>`);
+    }
+
+    if (displayConfig.showTags && card.tags.length > 0) {
       parts.push(`<div class="tags">${this.renderTags(card.tags)}</div>`);
     }
 
-    if (config.showCreatedDate) {
+    if (displayConfig.showCreatedDate) {
       parts.push(`<div class="created-date">Created: ${this.formatDate(card.createdAt)}</div>`);
     }
 
-    if (config.showUpdatedDate) {
+    if (displayConfig.showUpdatedDate) {
       parts.push(`<div class="updated-date">Updated: ${this.formatDate(card.updatedAt)}</div>`);
     }
 
-    if (config.showProperties.length > 0) {
+    if (displayConfig.showProperties.length > 0) {
       const selectedProperties = Object.entries(card.frontmatter)
-        .filter(([key]) => config.showProperties.includes(key))
+        .filter(([key]) => displayConfig.showProperties.includes(key))
         .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
       parts.push(`<div class="properties">${this.renderProperties(selectedProperties)}</div>`);
     }
 
     return parts.join('');
+  }
+
+  /**
+   * 카드 헤더 렌더링
+   */
+  static renderCardHeader(card: any, config: ICardRenderConfig): string {
+    if (!config.showHeader) {
+      return '';
+    }
+
+    const content = this.renderSectionContent(card, config.headerDisplay);
+    return content ? `<div class="card-header">${content}</div>` : '';
   }
 
   /**
    * 카드 본문 렌더링
    */
-  static renderCardBody(card: any, config: ICardRenderConfig['body']): string {
-    const parts: string[] = [];
-
-    if (config.showFileName) {
-      parts.push(`<div class="file-name">${card.fileName}</div>`);
+  static async renderCardBody(card: any, config: ICardRenderConfig): Promise<string> {
+    if (!config.showBody) {
+      return '';
     }
 
-    if (config.showFirstHeader && card.firstHeader) {
-      parts.push(`<div class="first-header">${card.firstHeader}</div>`);
+    let content = this.renderSectionContent(card, config.bodyDisplay);
+    
+    // 본문 내용이 있고 마크다운 렌더링이 활성화된 경우
+    if (content && config.renderMarkdown) {
+      content = await this.markdownToHtml(content);
     }
 
-    if (config.showContent) {
-      const content = config.contentLength
-        ? this.truncateText(card.content, config.contentLength)
-        : card.content;
-      const htmlContent = config.renderMarkdown
-        ? this.markdownToHtml(content)
-        : content;
-      parts.push(`<div class="content">${htmlContent}</div>`);
+    // 본문 길이 제한이 설정된 경우
+    if (config.contentLength) {
+      content = this.truncateText(content, config.contentLength);
     }
 
-    if (config.showTags && card.tags.length > 0) {
-      parts.push(`<div class="tags">${this.renderTags(card.tags)}</div>`);
-    }
-
-    if (config.showCreatedDate) {
-      parts.push(`<div class="created-date">Created: ${this.formatDate(card.createdAt)}</div>`);
-    }
-
-    if (config.showUpdatedDate) {
-      parts.push(`<div class="updated-date">Updated: ${this.formatDate(card.updatedAt)}</div>`);
-    }
-
-    if (config.showProperties.length > 0) {
-      const selectedProperties = Object.entries(card.frontmatter)
-        .filter(([key]) => config.showProperties.includes(key))
-        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
-      parts.push(`<div class="properties">${this.renderProperties(selectedProperties)}</div>`);
-    }
-
-    return parts.join('');
+    return content ? `<div class="card-body">${content}</div>` : '';
   }
 
   /**
    * 카드 푸터 렌더링
    */
-  static renderCardFooter(card: any, config: ICardRenderConfig['footer']): string {
-    const parts: string[] = [];
-
-    if (config.showFileName) {
-      parts.push(`<div class="file-name">${card.fileName}</div>`);
+  static renderCardFooter(card: any, config: ICardRenderConfig): string {
+    if (!config.showFooter) {
+      return '';
     }
 
-    if (config.showFirstHeader && card.firstHeader) {
-      parts.push(`<div class="first-header">${card.firstHeader}</div>`);
-    }
-
-    if (config.showTags && card.tags.length > 0) {
-      parts.push(`<div class="tags">${this.renderTags(card.tags)}</div>`);
-    }
-
-    if (config.showCreatedDate) {
-      parts.push(`<div class="created-date">Created: ${this.formatDate(card.createdAt)}</div>`);
-    }
-
-    if (config.showUpdatedDate) {
-      parts.push(`<div class="updated-date">Updated: ${this.formatDate(card.updatedAt)}</div>`);
-    }
-
-    if (config.showProperties.length > 0) {
-      const selectedProperties = Object.entries(card.frontmatter)
-        .filter(([key]) => config.showProperties.includes(key))
-        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
-      parts.push(`<div class="properties">${this.renderProperties(selectedProperties)}</div>`);
-    }
-
-    return parts.join('');
+    const content = this.renderSectionContent(card, config.footerDisplay);
+    return content ? `<div class="card-footer">${content}</div>` : '';
   }
 } 

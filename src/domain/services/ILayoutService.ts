@@ -1,6 +1,7 @@
-import { Layout, ILayoutConfig } from '@/domain/models/Layout';
-import { Card } from '@/domain/models/Card';
-import { CardSet } from '@/domain/models/CardSet';
+import { ICard } from '../models/Card';
+import { ICardSet } from '../models/CardSet';
+import { ILayoutConfig } from '../models/Layout';
+import { ILayoutResult } from '../models/Layout';
 
 /**
  * 레이아웃 서비스 인터페이스
@@ -23,76 +24,82 @@ export interface ILayoutService {
 
   /**
    * 레이아웃 설정 업데이트
+   * @param config 레이아웃 설정
    */
   updateLayoutConfig(config: ILayoutConfig): void;
 
   /**
-   * 레이아웃 생성
+   * 레이아웃 계산
+   * @param cardSet 카드셋
+   * @param containerWidth 컨테이너 너비
+   * @param containerHeight 컨테이너 높이
    */
-  createLayout(name: string, description: string, config: ILayoutConfig): Promise<Layout>;
-
-  /**
-   * 레이아웃 업데이트
-   */
-  updateLayout(layout: Layout): Promise<void>;
-
-  /**
-   * 레이아웃 삭제
-   */
-  deleteLayout(id: string): Promise<void>;
-
-  /**
-   * 레이아웃 조회
-   */
-  getLayout(id: string): Promise<Layout | undefined>;
-
-  /**
-   * 모든 레이아웃 조회
-   */
-  getAllLayouts(): Promise<Layout[]>;
+  calculateLayout(
+    cardSet: ICardSet,
+    containerWidth: number,
+    containerHeight: number
+  ): ILayoutResult;
 
   /**
    * 뷰포트 크기 업데이트
+   * @param width 컨테이너 너비
+   * @param height 컨테이너 높이
    */
-  updateViewportDimensions(layoutId: string, width: number, height: number): Promise<void>;
+  updateViewportDimensions(width: number, height: number): void;
 
   /**
    * 카드 위치 업데이트
+   * @param cardId 카드 ID
+   * @param x x 좌표
+   * @param y y 좌표
    */
-  updateCardPosition(card: Card, x: number, y: number): void;
-
-  /**
-   * 카드 크기 업데이트
-   */
-  updateCardSize(card: Card, width: number, height: number): void;
-
-  /**
-   * 카드 Z-인덱스 업데이트
-   */
-  updateCardZIndex(card: Card, zIndex: number): void;
+  updateCardPosition(cardId: string, x: number, y: number): void;
 
   /**
    * 카드 위치 초기화
    */
-  resetCardPositions(layoutId: string): Promise<void>;
+  resetCardPositions(): void;
 
   /**
-   * 레이아웃 계산
+   * 기본 레이아웃 설정 반환
    */
-  calculateLayout(cardSet: CardSet, containerWidth: number, containerHeight: number): void;
+  getDefaultLayoutConfig(): ILayoutConfig;
 
   /**
-   * 카드 위치 업데이트 (일괄)
+   * 레이아웃 타입 결정
+   * @param containerWidth 컨테이너 너비
+   * @param containerHeight 컨테이너 높이
+   * @param config 레이아웃 설정
    */
-  updateCardPositions(layoutId: string, positions: { cardId: string; x: number; y: number }[]): Promise<void>;
+  determineLayoutType(
+    containerWidth: number,
+    containerHeight: number,
+    config: ILayoutConfig
+  ): 'masonry' | 'grid';
 
   /**
-   * 카드 위치 추가
+   * 레이아웃 방향 결정
+   * @param containerWidth 컨테이너 너비
+   * @param containerHeight 컨테이너 높이
+   * @param config 레이아웃 설정
    */
-  addCardPosition(layoutId: string, cardId: string, x: number, y: number, width: number, height: number): Promise<void>;
+  determineLayoutDirection(
+    containerWidth: number,
+    containerHeight: number,
+    config: ILayoutConfig
+  ): 'horizontal' | 'vertical';
 
   /**
-   * 카드 위치 제거
+   * 열 수 계산
+   * @param containerWidth 컨테이너 너비
+   * @param config 레이아웃 설정
    */
-  removeCardPosition(layoutId: string, cardId: string): Promise<void>;
+  calculateColumnCount(containerWidth: number, config: ILayoutConfig): number;
+
+  /**
+   * 행 수 계산
+   * @param containerHeight 컨테이너 높이
+   * @param config 레이아웃 설정
+   */
+  calculateRowCount(containerHeight: number, config: ILayoutConfig): number;
 } 

@@ -45,4 +45,15 @@ export class Debouncer<T extends any[], R> {
     this.lastArgs = null;
     this.lastResult = null;
   }
+
+  /**
+   * 디바운스된 함수 즉시 실행
+   * @param args 함수 인자
+   * @returns 함수 실행 결과
+   */
+  public execute(...args: T): R {
+    this.lastArgs = args;
+    this.lastResult = this.fn(...args);
+    return this.lastResult;
+  }
 } 

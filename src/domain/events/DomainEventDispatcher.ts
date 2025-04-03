@@ -1,299 +1,169 @@
-import { DomainEvent } from './DomainEvent';
-import { IDomainEventHandler } from './IDomainEventHandler';
-import { LoggingService } from '@/infrastructure/services/LoggingService';
+import { DomainEvent, DomainEventType, IEventDispatcher, IEventHandler } from './DomainEvent';
+import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
+import { EventError, EventErrorType } from '../errors/EventError';
+import { Container } from '@/infrastructure/di/Container';
 
 /**
- * 도메인 이벤트 디스패처 인터페이스
+ * 도메인 이벤트 디스패처 클래스
+ * - 싱글톤 패턴으로 구현
+ * - 이벤트 발행 및 구독 관리
  */
-export interface IDomainEventDispatcher {
+export class DomainEventDispatcher implements IEventDispatcher {
+  private static instance: DomainEventDispatcher;
+  private readonly handlers: Map<DomainEventType, Set<IEventHandler<DomainEvent>>>;
+  private readonly errorHandler: IErrorHandler;
+  private readonly logger: ILoggingService;
+
+  private constructor(
+    errorHandler: IErrorHandler,
+    logger: ILoggingService
+  ) {
+    this.handlers = new Map();
+    this.errorHandler = errorHandler;
+    this.logger = logger;
+  }
+
+  /**
+   * DomainEventDispatcher 인스턴스 가져오기
+   */
+  public static getInstance(): DomainEventDispatcher {
+    if (!DomainEventDispatcher.instance) {
+      const container = Container.getInstance();
+      DomainEventDispatcher.instance = new DomainEventDispatcher(
+        container.resolve('IErrorHandler'),
+        container.resolve('ILoggingService')
+      );
+    }
+    return DomainEventDispatcher.instance;
+  }
+
+  /**
+   * 이벤트 발행
+   */
+  public async dispatch<T extends DomainEvent>(event: T): Promise<void> {
+    try {
+      const handlers = this.handlers.get(event.type) || new Set();
+      
+      // 이벤트 처리 시작 로깅
+      this.logger.debug(`[Event] Dispatching ${event.toString()}`);
+      
+      // 모든 핸들러 실행
+      const promises = Array.from(handlers).map(handler =>
+        this.executeHandler(handler, event)
+      );
+      
+      await Promise.all(promises);
+      
+      // 이벤트 처리 완료 로깅
+      this.logger.debug(`[Event] Completed ${event.toString()}`);
+    } catch (error) {
+      const eventError = new EventError(
+        '이벤트 발행 중 오류가 발생했습니다',
+        event.type,
+        'dispatch' as EventErrorType,
+        { event: event.toString() },
+        error as Error
+      );
+      this.errorHandler.handleError(eventError, 'DomainEventDispatcher.dispatch');
+      throw eventError;
+    }
+  }
+
   /**
    * 이벤트 핸들러 등록
    */
-  register<T extends DomainEvent>(eventType: new () => T, handler: IDomainEventHandler<T>): void;
-
-  /**
-   * 이벤트 핸들러 등록 (이벤트 이름으로)
-   */
-  registerHandler(eventName: string, handler: IDomainEventHandler<any>): void;
-
-  /**
-   * 이벤트 핸들러 제거
-   */
-  unregister<T extends DomainEvent>(eventType: new () => T, handler: IDomainEventHandler<T>): void;
-
-  /**
-   * 이벤트 핸들러 제거 (이벤트 이름으로)
-   */
-  unregisterHandler(eventName: string, handler: IDomainEventHandler<any>): void;
-
-  /**
-   * 이벤트 발생
-   */
-  dispatch<T extends DomainEvent>(event: T): Promise<void>;
-
-  /**
-   * 모든 이벤트 핸들러 제거
-   */
-  cleanup(): void;
-
-  /**
-   * 현재 등록된 모든 핸들러의 상태를 반환합니다.
-   */
-  getDebugInfo(): {
-    totalHandlers: number;
-    handlersByEvent: Record<string, number>;
-    executionStats: Record<string, {
-      lastExecutionTime: number;
-      successCount: number;
-      failureCount: number;
-      averageExecutionTime: number;
-    }>;
-  };
-}
-
-/**
- * 도메인 이벤트 디스패처
- */
-export class DomainEventDispatcher implements IDomainEventDispatcher {
-  private readonly handlers: Map<string, Set<IDomainEventHandler<any>>> = new Map();
-  private readonly eventQueue: DomainEvent[] = [];
-  private isProcessing = false;
-  private readonly loggingService: LoggingService;
-  private readonly executionStats: Map<string, {
-    lastExecutionTime: number;
-    successCount: number;
-    failureCount: number;
-    totalExecutionTime: number;
-  }> = new Map();
-
-  constructor(loggingService: LoggingService) {
-    this.loggingService = loggingService;
-  }
-
-  private eventTypeCheck<T extends DomainEvent>(eventType: new () => T): void {
-    if (!(eventType.prototype instanceof DomainEvent)) {
-      throw new Error('유효하지 않은 이벤트 타입입니다.');
-    }
-  }
-
-  private validateHandler<T extends DomainEvent>(handler: IDomainEventHandler<T>): void {
-    if (!handler || typeof handler.handle !== 'function') {
-      throw new Error('유효하지 않은 핸들러입니다.');
-    }
-  }
-
-  /**
-   * 이벤트 핸들러를 등록합니다.
-   */
-  register<T extends DomainEvent>(
-    eventType: new (...args: any[]) => T,
-    handler: IDomainEventHandler<T>
+  public subscribe<T extends DomainEvent>(
+    eventType: DomainEventType,
+    handler: IEventHandler<T>
   ): void {
-    this.eventTypeCheck(eventType);
-    this.validateHandler(handler);
-
-    const eventName = eventType.name;
-    if (!this.handlers.has(eventName)) {
-      this.handlers.set(eventName, new Set());
-    }
-
-    const handlers = this.handlers.get(eventName)!;
-    if (!handlers.has(handler)) {
-      handlers.add(handler);
-      this.loggingService.debug(`[CardNavigator] 이벤트 핸들러 등록: ${eventName}`);
-    } else {
-      this.loggingService.debug(`[CardNavigator] 이벤트 핸들러 중복 등록 방지: ${eventName}`);
-    }
-  }
-
-  /**
-   * 이벤트 핸들러를 등록합니다 (이벤트 이름으로).
-   */
-  registerHandler(eventName: string, handler: IDomainEventHandler<any>): void {
-    this.validateHandler(handler);
-
-    if (!this.handlers.has(eventName)) {
-      this.handlers.set(eventName, new Set());
-    }
-
-    const handlers = this.handlers.get(eventName)!;
-    if (!handlers.has(handler)) {
-      handlers.add(handler);
-      this.loggingService.debug(`[CardNavigator] 이벤트 핸들러 등록: ${eventName}`);
-    } else {
-      this.loggingService.debug(`[CardNavigator] 이벤트 핸들러 중복 등록 방지: ${eventName}`);
-    }
-  }
-
-  /**
-   * 이벤트 핸들러를 제거합니다.
-   */
-  unregister<T extends DomainEvent>(
-    eventType: new (...args: any[]) => T,
-    handler: IDomainEventHandler<T>
-  ): void {
-    const eventName = eventType.name;
-    const handlers = this.handlers.get(eventName);
-    if (handlers) {
-      handlers.delete(handler);
-      this.loggingService.debug(`[CardNavigator] 이벤트 핸들러 해제: ${eventName}`);
-    }
-  }
-
-  /**
-   * 이벤트 핸들러를 제거합니다 (이벤트 이름으로).
-   */
-  unregisterHandler(eventName: string, handler: IDomainEventHandler<any>): void {
-    const handlers = this.handlers.get(eventName);
-    if (handlers) {
-      handlers.delete(handler);
-      this.loggingService.debug(`[CardNavigator] 이벤트 핸들러 해제: ${eventName}`);
-    }
-  }
-
-  /**
-   * 이벤트를 발생시킵니다.
-   * @param event 이벤트
-   */
-  public async dispatch(event: DomainEvent): Promise<void> {
-    this.eventQueue.push(event);
-    if (!this.isProcessing) {
-      await this.processEventQueue();
-    }
-  }
-
-  /**
-   * 이벤트 큐를 처리합니다.
-   */
-  private async processEventQueue(): Promise<void> {
-    if (this.isProcessing || this.eventQueue.length === 0) {
-      return;
-    }
-
-    this.isProcessing = true;
     try {
-      while (this.eventQueue.length > 0) {
-        const event = this.eventQueue.shift()!;
-        await this.processEvent(event);
+      if (!this.handlers.has(eventType)) {
+        this.handlers.set(eventType, new Set());
       }
-    } finally {
-      this.isProcessing = false;
+      this.handlers.get(eventType)!.add(handler as IEventHandler<DomainEvent>);
+      this.logger.debug(`[Event] Subscribed to ${eventType}`);
+    } catch (error) {
+      const eventError = new EventError(
+        '이벤트 핸들러 등록 중 오류가 발생했습니다',
+        eventType,
+        'subscribe' as EventErrorType,
+        { handler: handler.toString() },
+        error as Error
+      );
+      this.errorHandler.handleError(eventError, 'DomainEventDispatcher.subscribe');
+      throw eventError;
     }
   }
 
   /**
-   * 이벤트를 처리합니다.
-   * @param event 이벤트
+   * 이벤트 핸들러 해제
    */
-  private async processEvent(event: DomainEvent): Promise<void> {
-    const eventName = event.constructor.name;
-    const handlers = this.handlers.get(eventName) || new Set();
-    
-    if (handlers.size === 0) {
-      this.loggingService.debug(`[CardNavigator] 등록된 핸들러 없음: ${eventName}`);
-      return;
-    }
-
-    const startTime = performance.now();
-    this.loggingService.debug(`[CardNavigator] 이벤트 처리 시작: ${eventName} (핸들러: ${handlers.size}개)`);
-
-    try {
-      await Promise.all(
-        Array.from(handlers).map(async (handler) => {
-          try {
-            const handlerStartTime = performance.now();
-            await handler.handle(event);
-            const handlerEndTime = performance.now();
-            const executionTime = handlerEndTime - handlerStartTime;
-            
-            this.updateExecutionStats(eventName, executionTime, true);
-            this.loggingService.debug(
-              `[CardNavigator] 핸들러 실행 완료: ${eventName} (소요 시간: ${executionTime.toFixed(2)}ms)`
-            );
-          } catch (error) {
-            this.updateExecutionStats(eventName, 0, false);
-            this.loggingService.error(`[CardNavigator] 핸들러 실행 실패: ${eventName}`, error);
-            throw error;
-          }
-        })
-      );
-    } finally {
-      const endTime = performance.now();
-      this.loggingService.debug(
-        `[CardNavigator] 이벤트 처리 완료: ${eventName} (총 소요 시간: ${(endTime - startTime).toFixed(2)}ms)`
-      );
-    }
-  }
-
-  /**
-   * 실행 통계를 업데이트합니다.
-   */
-  private updateExecutionStats(
-    eventName: string,
-    executionTime: number,
-    success: boolean
+  public unsubscribe<T extends DomainEvent>(
+    eventType: DomainEventType,
+    handler: IEventHandler<T>
   ): void {
-    const stats = this.executionStats.get(eventName) || {
-      lastExecutionTime: 0,
-      successCount: 0,
-      failureCount: 0,
-      totalExecutionTime: 0
-    };
-
-    stats.lastExecutionTime = executionTime;
-    if (success) {
-      stats.successCount++;
-    } else {
-      stats.failureCount++;
+    try {
+      const handlers = this.handlers.get(eventType);
+      if (handlers) {
+        handlers.delete(handler as IEventHandler<DomainEvent>);
+        this.logger.debug(`[Event] Unsubscribed from ${eventType}`);
+      }
+    } catch (error) {
+      const eventError = new EventError(
+        '이벤트 핸들러 해제 중 오류가 발생했습니다',
+        eventType,
+        'unsubscribe' as EventErrorType,
+        { handler: handler.toString() },
+        error as Error
+      );
+      this.errorHandler.handleError(eventError, 'DomainEventDispatcher.unsubscribe');
+      throw eventError;
     }
-    stats.totalExecutionTime += executionTime;
-
-    this.executionStats.set(eventName, stats);
   }
 
   /**
-   * 모든 이벤트 핸들러를 제거합니다.
+   * 모든 이벤트 핸들러 해제
    */
-  cleanup(): void {
-    const totalHandlers = Array.from(this.handlers.values())
-      .reduce((sum, set) => sum + set.size, 0);
-    
-    this.handlers.clear();
-    
-    this.loggingService.info(`이벤트 핸들러 정리 완료 (제거된 핸들러: ${totalHandlers}개)`);
+  public clear(): void {
+    try {
+      this.handlers.clear();
+      this.logger.debug('[Event] All handlers cleared');
+    } catch (error) {
+      const eventError = new EventError(
+        '이벤트 핸들러 초기화 중 오류가 발생했습니다',
+        'CLEAR',
+        'validation' as EventErrorType,
+        {},
+        error as Error
+      );
+      this.errorHandler.handleError(eventError, 'DomainEventDispatcher.clear');
+      throw eventError;
+    }
   }
 
   /**
-   * 현재 등록된 모든 핸들러의 상태를 반환합니다.
+   * 이벤트 핸들러 실행
    */
-  getDebugInfo(): {
-    totalHandlers: number;
-    handlersByEvent: Record<string, number>;
-    executionStats: Record<string, {
-      lastExecutionTime: number;
-      successCount: number;
-      failureCount: number;
-      averageExecutionTime: number;
-    }>;
-  } {
-    const handlersByEvent: Record<string, number> = {};
-    for (const [eventName, handlerSet] of this.handlers.entries()) {
-      handlersByEvent[eventName] = handlerSet.size;
+  private async executeHandler(
+    handler: IEventHandler<DomainEvent>,
+    event: DomainEvent
+  ): Promise<void> {
+    try {
+      const result = handler.handle(event);
+      if (result instanceof Promise) {
+        await result;
+      }
+    } catch (error) {
+      const eventError = new EventError(
+        '이벤트 핸들러 실행 중 오류가 발생했습니다',
+        event.type,
+        'handle' as EventErrorType,
+        { event: event.toString() },
+        error as Error
+      );
+      this.errorHandler.handleError(eventError, 'DomainEventDispatcher.executeHandler');
+      throw eventError;
     }
-
-    const executionStats: Record<string, {
-      lastExecutionTime: number;
-      successCount: number;
-      failureCount: number;
-      averageExecutionTime: number;
-    }> = {};
-    // 실행 통계 계산 로직 추가
-
-    return {
-      totalHandlers: Array.from(this.handlers.values())
-        .reduce((sum, set) => sum + set.size, 0),
-      handlersByEvent,
-      executionStats
-    };
   }
 } 

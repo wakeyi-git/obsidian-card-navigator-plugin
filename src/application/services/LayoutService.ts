@@ -1,516 +1,387 @@
-import { Layout, ILayoutConfig } from '@/domain/models/Layout';
-import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
-import { LayoutUpdatedEvent } from '@/domain/events/LayoutEvents';
-import { Card } from '@/domain/models/Card';
-import { App } from 'obsidian';
-import { CardSet } from '@/domain/models/CardSet';
-import { LoggingService } from '@/infrastructure/services/LoggingService';
 import { ILayoutService } from '@/domain/services/ILayoutService';
+import { ICardSet } from '@/domain/models/CardSet';
+import { ILayoutResult, ICardPosition } from '@/domain/models/Layout';
+import { 
+  ILayoutConfig, 
+  DEFAULT_LAYOUT_CONFIG,
+  LayoutType,
+  LayoutDirection,
+} from '@/domain/models/LayoutConfig';
+import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
+import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
+import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
+import { IEventDispatcher } from '@/domain/interfaces/events/IEventDispatcher';
+import { LayoutConfigUpdatedEvent, CardPositionUpdatedEvent } from '@/domain/events/LayoutEvents';
 import { LayoutServiceError } from '@/domain/errors/LayoutServiceError';
-import { ICardService } from '@/domain/services/ICardService';
+import { LayoutUtils } from '@/domain/utils/layoutUtils';
+import { Container } from '@/infrastructure/di/Container';
 
 /**
- * 레이아웃 서비스 클래스
+ * 레이아웃 서비스 구현체
  */
 export class LayoutService implements ILayoutService {
-  private layouts: Map<string, Layout> = new Map();
-  private readonly loggingService: LoggingService;
-  private currentLayoutId: string | null = null;
+  private static instance: LayoutService;
 
-  constructor(
-    private readonly app: App,
-    private readonly eventDispatcher: DomainEventDispatcher,
-    private readonly cardService: ICardService
+  private config: ILayoutConfig;
+  private viewportWidth: number;
+  private viewportHeight: number;
+  private cardPositions: Map<string, { x: number; y: number }>;
+
+  private constructor(
+    private readonly errorHandler: IErrorHandler,
+    private readonly loggingService: ILoggingService,
+    private readonly performanceMonitor: IPerformanceMonitor,
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
   ) {
-    this.loggingService = new LoggingService(app);
+    this.config = DEFAULT_LAYOUT_CONFIG;
+    this.viewportWidth = 0;
+    this.viewportHeight = 0;
+    this.cardPositions = new Map();
+  }
+
+  static getInstance(): LayoutService {
+    if (!LayoutService.instance) {
+      const container = Container.getInstance();
+      LayoutService.instance = new LayoutService(
+        container.resolve('IErrorHandler'),
+        container.resolve('ILoggingService'),
+        container.resolve('IPerformanceMonitor'),
+        container.resolve('IAnalyticsService'),
+        container.resolve('IEventDispatcher')
+      );
+    }
+    return LayoutService.instance;
   }
 
   /**
    * 서비스 초기화
    */
   initialize(): void {
-    this.loggingService.info('LayoutService 초기화');
+    const perfMark = 'LayoutService.initialize';
+    this.performanceMonitor.startMeasure(perfMark);
+    try {
+      this.loggingService.debug('레이아웃 서비스 초기화 시작');
+      // 초기화 시 필요한 작업이 있다면 여기에 구현
+      this.loggingService.info('레이아웃 서비스 초기화 완료');
+    } catch (error) {
+      this.loggingService.error('레이아웃 서비스 초기화 실패', { error });
+      this.errorHandler.handleError(error as Error, 'LayoutService.initialize');
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
+    }
   }
 
   /**
    * 서비스 정리
    */
   cleanup(): void {
-    this.loggingService.info('LayoutService 정리');
-    this.layouts.clear();
+    const perfMark = 'LayoutService.cleanup';
+    this.performanceMonitor.startMeasure(perfMark);
+    try {
+      this.loggingService.debug('레이아웃 서비스 정리 시작');
+      this.cardPositions.clear();
+      this.loggingService.info('레이아웃 서비스 정리 완료');
+    } catch (error) {
+      this.loggingService.error('레이아웃 서비스 정리 실패', { error });
+      this.errorHandler.handleError(error as Error, 'LayoutService.cleanup');
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
+    }
   }
 
   /**
    * 레이아웃 설정 조회
    */
   getLayoutConfig(): ILayoutConfig {
-    if (!this.currentLayoutId) {
-      throw new LayoutServiceError('현재 레이아웃이 설정되지 않았습니다.');
+    const perfMark = 'LayoutService.getLayoutConfig';
+    this.performanceMonitor.startMeasure(perfMark);
+    try {
+      this.loggingService.debug('레이아웃 설정 조회');
+      return { ...this.config };
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
     }
-
-    const layout = this.layouts.get(this.currentLayoutId);
-    if (!layout) {
-      throw new LayoutServiceError(`레이아웃을 찾을 수 없습니다: ${this.currentLayoutId}`);
-    }
-
-    return layout.config;
   }
 
   /**
    * 레이아웃 설정 업데이트
    */
   updateLayoutConfig(config: ILayoutConfig): void {
-    if (!this.currentLayoutId) {
-      throw new LayoutServiceError('현재 레이아웃이 설정되지 않았습니다.');
-    }
-
-    const layout = this.layouts.get(this.currentLayoutId);
-    if (!layout) {
-      throw new LayoutServiceError(`레이아웃을 찾을 수 없습니다: ${this.currentLayoutId}`);
-    }
-
-    layout.config = config;
-    this.layouts.set(this.currentLayoutId, layout);
-  }
-
-  /**
-   * 레이아웃 생성
-   */
-  async createLayout(name: string, description: string, config: ILayoutConfig): Promise<Layout> {
+    const perfMark = 'LayoutService.updateLayoutConfig';
+    this.performanceMonitor.startMeasure(perfMark);
     try {
-      const id = crypto.randomUUID();
-      const layout = new Layout(id, name, description, config);
-      this.layouts.set(id, layout);
-      this.currentLayoutId = id;
-      await this.eventDispatcher.dispatch(new LayoutUpdatedEvent(layout));
-      return layout;
+      this.loggingService.debug('레이아웃 설정 업데이트 시작', { config });
+      this.config = { ...config };
+      this.eventDispatcher.dispatch(new LayoutConfigUpdatedEvent(this.config));
+
+      this.analyticsService.trackEvent('layout_config_updated', {
+        fixedHeight: config.fixedHeight,
+        minCardWidth: config.minCardWidth,
+        minCardHeight: config.minCardHeight,
+        padding: config.padding,
+        gap: config.gap
+      });
+
+      this.loggingService.info('레이아웃 설정 업데이트 완료');
     } catch (error) {
-      throw new LayoutServiceError(`레이아웃 생성 실패: ${error.message}`);
+      this.loggingService.error('레이아웃 설정 업데이트 실패', { error });
+      this.errorHandler.handleError(error as Error, 'LayoutService.updateLayoutConfig');
+      throw new LayoutServiceError('LAYOUT_CONFIG_UPDATE_FAILED', '레이아웃 설정 업데이트에 실패했습니다.');
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
     }
   }
 
   /**
-   * 레이아웃을 업데이트합니다.
+   * 레이아웃 계산
    */
-  async updateLayout(layout: Layout): Promise<void> {
-    const existingLayout = this.layouts.get(layout.id);
-    if (!existingLayout) {
-      throw new LayoutServiceError(`레이아웃을 찾을 수 없습니다: ${layout.id}`);
-    }
-
-    // 레이아웃이 실제로 변경되었는지 확인
-    if (this.areLayoutsEqual(existingLayout, layout)) {
-      return;
-    }
-
-    this.layouts.set(layout.id, layout);
-    this.currentLayoutId = layout.id;
-    await this.saveLayout(layout);
-
-    // 레이아웃 업데이트 이벤트 발생
-    const event = new LayoutUpdatedEvent(layout);
-    await this.eventDispatcher.dispatch(event);
-  }
-
-  /**
-   * 레이아웃 삭제
-   */
-  async deleteLayout(id: string): Promise<void> {
+  calculateLayout(
+    cardSet: ICardSet,
+    containerWidth: number,
+    containerHeight: number
+  ): ILayoutResult {
+    const perfMark = 'LayoutService.calculateLayout';
+    this.performanceMonitor.startMeasure(perfMark);
     try {
-      if (!this.layouts.has(id)) {
-        throw new LayoutServiceError(`레이아웃을 찾을 수 없습니다: ${id}`);
-      }
-      this.layouts.delete(id);
-      if (this.currentLayoutId === id) {
-        this.currentLayoutId = null;
-      }
+      this.loggingService.debug('레이아웃 계산 시작', { 
+        cardCount: cardSet.cards.length,
+        containerWidth,
+        containerHeight
+      });
+
+      const layoutType = this.determineLayoutType(containerWidth, containerHeight, this.config);
+      const direction = this.determineLayoutDirection(containerWidth, containerHeight, this.config);
+      
+      // 카드 위치 초기화
+      const initialPositions: ICardPosition[] = cardSet.cards.map(card => ({
+        cardId: card.id,
+        columnIndex: 0,
+        rowIndex: 0,
+        x: 0,
+        y: 0,
+        width: this.config.minCardWidth,
+        height: this.config.minCardHeight
+      }));
+
+      // LayoutUtils를 사용하여 레이아웃 계산
+      const cardPositions = LayoutUtils.calculateLayout(
+        initialPositions,
+        this.config,
+        containerWidth,
+        containerHeight,
+        layoutType,
+        direction
+      );
+
+      // 열 수와 행 수 계산
+      const columnCount = this.calculateColumnCount(containerWidth, this.config);
+      const rowCount = this.calculateRowCount(containerHeight, this.config);
+
+      this.analyticsService.trackEvent('layout_calculated', {
+        cardCount: cardSet.cards.length,
+        layoutType,
+        direction,
+        columnCount,
+        rowCount
+      });
+
+      this.loggingService.info('레이아웃 계산 완료', { 
+        cardCount: cardSet.cards.length,
+        columnCount,
+        rowCount
+      });
+
+      return {
+        cardPositions,
+        columnCount,
+        rowCount
+      };
     } catch (error) {
-      throw new LayoutServiceError(`레이아웃 삭제 실패: ${error.message}`);
+      this.loggingService.error('레이아웃 계산 실패', { error });
+      this.errorHandler.handleError(error as Error, 'LayoutService.calculateLayout');
+      throw new LayoutServiceError('LAYOUT_CALCULATION_FAILED', '레이아웃 계산에 실패했습니다.');
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
     }
-  }
-
-  /**
-   * 레이아웃 조회
-   */
-  async getLayout(id: string): Promise<Layout | undefined> {
-    return this.layouts.get(id);
-  }
-
-  /**
-   * 모든 레이아웃 조회
-   */
-  async getAllLayouts(): Promise<Layout[]> {
-    return Array.from(this.layouts.values());
   }
 
   /**
    * 뷰포트 크기 업데이트
    */
-  async updateViewportDimensions(layoutId: string, width: number, height: number): Promise<void> {
+  updateViewportDimensions(width: number, height: number): void {
+    const perfMark = 'LayoutService.updateViewportDimensions';
+    this.performanceMonitor.startMeasure(perfMark);
     try {
-      const layout = await this._getLayoutOrThrow(layoutId);
-      layout.config.viewportWidth = width;
-      layout.config.viewportHeight = height;
-      
-      // 현재 레이아웃의 카드셋 가져오기
-      const cardSet = await this._getCurrentCardSet();
-      if (cardSet) {
-        await this.calculateLayout(cardSet, width, height);
-      }
-    } catch (error) {
-      throw new LayoutServiceError(`뷰포트 크기 업데이트 실패: ${error.message}`);
+      this.loggingService.debug('뷰포트 크기 업데이트 시작', { width, height });
+      this.viewportWidth = width;
+      this.viewportHeight = height;
+      this.loggingService.info('뷰포트 크기 업데이트 완료');
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
     }
-  }
-
-  /**
-   * 현재 레이아웃 가져오기
-   */
-  private _getCurrentLayout(): Layout | undefined {
-    if (!this.currentLayoutId) {
-      return undefined;
-    }
-    return this.layouts.get(this.currentLayoutId);
   }
 
   /**
    * 카드 위치 업데이트
    */
-  updateCardPosition(card: Card, x: number, y: number): void {
+  updateCardPosition(cardId: string, x: number, y: number): void {
+    const perfMark = 'LayoutService.updateCardPosition';
+    this.performanceMonitor.startMeasure(perfMark);
     try {
-      this.loggingService.debug('카드 위치 업데이트:', { cardId: card.id, x, y });
-      const layout = this._getCurrentLayout();
-      if (!layout) {
-        throw new LayoutServiceError('현재 레이아웃이 없습니다.');
-      }
-      const position = layout.getCardPosition(card.id);
-      if (!position) {
-        throw new LayoutServiceError(`카드 위치를 찾을 수 없습니다: ${card.id}`);
-      }
-      layout.updateCardPosition(card.id, {
+      this.loggingService.debug('카드 위치 업데이트 시작', { cardId, x, y });
+      this.cardPositions.set(cardId, { x, y });
+      this.eventDispatcher.dispatch(new CardPositionUpdatedEvent(cardId, x, y));
+
+      this.analyticsService.trackEvent('card_position_updated', {
+        cardId,
         x,
-        y,
-        width: position.width,
-        height: position.height
+        y
       });
-      this.loggingService.debug('카드 위치 업데이트 완료:', { cardId: card.id });
-    } catch (error) {
-      this.loggingService.error('카드 위치 업데이트 실패:', error);
-      throw error;
-    }
-  }
 
-  /**
-   * 카드 크기 업데이트
-   */
-  updateCardSize(card: Card, width: number, height: number): void {
-    try {
-      this.loggingService.debug('카드 크기 업데이트:', { cardId: card.id, width, height });
-      const layout = this._getCurrentLayout();
-      if (!layout) {
-        throw new LayoutServiceError('현재 레이아웃이 없습니다.');
-      }
-      const position = layout.getCardPosition(card.id);
-      if (!position) {
-        throw new LayoutServiceError(`카드 위치를 찾을 수 없습니다: ${card.id}`);
-      }
-      layout.updateCardPosition(card.id, {
-        ...position,
-        width,
-        height
-      });
-      this.loggingService.debug('카드 크기 업데이트 완료:', { cardId: card.id });
+      this.loggingService.info('카드 위치 업데이트 완료', { cardId });
     } catch (error) {
-      this.loggingService.error('카드 크기 업데이트 실패:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * 카드 Z-인덱스 업데이트
-   */
-  updateCardZIndex(card: Card, zIndex: number): void {
-    try {
-      this.loggingService.debug('카드 Z-인덱스 업데이트:', { cardId: card.id, zIndex });
-      const layout = this._getCurrentLayout();
-      if (!layout) {
-        throw new LayoutServiceError('현재 레이아웃이 없습니다.');
-      }
-      const position = layout.getCardPosition(card.id);
-      if (!position) {
-        throw new LayoutServiceError(`카드 위치를 찾을 수 없습니다: ${card.id}`);
-      }
-      layout.updateCardPosition(card.id, {
-        ...position,
-        zIndex
-      });
-      this.loggingService.debug('카드 Z-인덱스 업데이트 완료:', { cardId: card.id });
-    } catch (error) {
-      this.loggingService.error('카드 Z-인덱스 업데이트 실패:', error);
-      throw error;
+      this.loggingService.error('카드 위치 업데이트 실패', { error, cardId });
+      this.errorHandler.handleError(error as Error, 'LayoutService.updateCardPosition');
+      throw new LayoutServiceError('CARD_POSITION_UPDATE_FAILED', '카드 위치 업데이트에 실패했습니다.');
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
     }
   }
 
   /**
    * 카드 위치 초기화
    */
-  async resetCardPositions(layoutId: string): Promise<void> {
+  resetCardPositions(): void {
+    const perfMark = 'LayoutService.resetCardPositions';
+    this.performanceMonitor.startMeasure(perfMark);
     try {
-      const layout = await this._getLayoutOrThrow(layoutId);
-      layout.resetCardPositions();
-      
-      // 현재 레이아웃의 카드셋 가져오기
-      const cardSet = await this._getCurrentCardSet();
-      if (cardSet) {
-        await this.calculateLayout(cardSet, layout.config.viewportWidth, layout.config.viewportHeight);
-      }
-    } catch (error) {
-      throw new LayoutServiceError(`카드 위치 초기화 실패: ${error.message}`);
-    }
-  }
+      this.loggingService.debug('카드 위치 초기화 시작');
+      const previousCount = this.cardPositions.size;
+      this.cardPositions.clear();
 
-  /**
-   * 현재 카드셋 가져오기
-   */
-  private async _getCurrentCardSet(): Promise<CardSet | null> {
-    if (!this.currentLayoutId) {
-      return null;
-    }
-
-    const layout = this.layouts.get(this.currentLayoutId);
-    if (!layout) {
-      return null;
-    }
-
-    // TODO: CardSetRepository를 통해 현재 카드셋 가져오기
-    return null;
-  }
-
-  /**
-   * 레이아웃 계산
-   */
-  calculateLayout(cardSet: CardSet, containerWidth: number, containerHeight: number): void {
-    if (!this.currentLayoutId) {
-      throw new LayoutServiceError('현재 레이아웃이 설정되지 않았습니다.');
-    }
-
-    const layout = this.layouts.get(this.currentLayoutId);
-    if (!layout) {
-      throw new LayoutServiceError(`레이아웃을 찾을 수 없습니다: ${this.currentLayoutId}`);
-    }
-
-    this.loggingService.debug('레이아웃 계산 시작:', {
-      layoutId: layout.id,
-      cardSetId: cardSet.id,
-      containerWidth,
-      containerHeight,
-      cardCount: cardSet.cards.length
-    });
-
-    try {
-      // 레이아웃 타입에 따른 카드 위치 계산
-      switch (layout.config.type) {
-        case 'grid':
-          this._calculateGridLayout(layout, cardSet, containerWidth, containerHeight);
-          break;
-        case 'masonry':
-          this._calculateMasonryLayout(layout, cardSet, containerWidth);
-          break;
-        default:
-          this.loggingService.warn('지원하지 않는 레이아웃 타입:', layout.config.type);
-      }
-
-      this.loggingService.debug('레이아웃 계산 완료');
-    } catch (error) {
-      this.loggingService.error('레이아웃 계산 실패:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * 그리드 레이아웃 계산
-   */
-  private _calculateGridLayout(layout: Layout, cardSet: CardSet, containerWidth: number, containerHeight: number): void {
-    const { cardWidth, cardHeight, gap, padding } = layout.config;
-    const cards = cardSet.cards;
-    
-    // 컨테이너 내부 사용 가능한 공간 계산
-    const availableWidth = containerWidth - (padding * 2);
-    const availableHeight = containerHeight - (padding * 2);
-    
-    // 열과 행 수 계산
-    const columns = Math.floor(availableWidth / (cardWidth + gap));
-    const rows = Math.floor(availableHeight / (cardHeight + gap));
-    
-    // 카드 위치 계산
-    cards.forEach((card, index) => {
-      const row = Math.floor(index / columns);
-      const col = index % columns;
-      
-      const x = padding + (col * (cardWidth + gap));
-      const y = padding + (row * (cardHeight + gap));
-      
-      layout.updateCardPosition(card.id, {
-        x,
-        y,
-        width: cardWidth,
-        height: cardHeight
+      this.analyticsService.trackEvent('card_positions_reset', {
+        previousCount
       });
-    });
+
+      this.loggingService.info('카드 위치 초기화 완료', { previousCount });
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
+    }
   }
 
   /**
-   * 메이슨리 레이아웃 계산
+   * 기본 레이아웃 설정 반환
    */
-  private _calculateMasonryLayout(layout: Layout, cardSet: CardSet, containerWidth: number): void {
-    const { cardWidth, gap, padding } = layout.config;
-    const cards = cardSet.cards;
-    
-    // 컨테이너 내부 사용 가능한 공간 계산
-    const availableWidth = containerWidth - (padding * 2);
-    
-    // 열 수 계산
-    const columns = Math.floor(availableWidth / (cardWidth + gap));
-    
-    // 각 열의 현재 높이를 추적
-    const columnHeights = new Array(columns).fill(0);
-    
-    // 카드 위치 계산
-    cards.forEach((card) => {
-      // 가장 짧은 열 찾기
-      const minHeight = Math.min(...columnHeights);
-      const columnIndex = columnHeights.indexOf(minHeight);
-      
-      const x = padding + (columnIndex * (cardWidth + gap));
-      const y = padding + minHeight;
-      
-      // 카드의 기본 높이 사용
-      const cardHeight = layout.config.cardHeight;
-      
-      layout.updateCardPosition(card.id, {
-        x,
-        y,
-        width: cardWidth,
-        height: cardHeight
+  getDefaultLayoutConfig(): ILayoutConfig {
+    const perfMark = 'LayoutService.getDefaultLayoutConfig';
+    this.performanceMonitor.startMeasure(perfMark);
+    try {
+      this.loggingService.debug('기본 레이아웃 설정 조회');
+      return { ...DEFAULT_LAYOUT_CONFIG };
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
+    }
+  }
+
+  /**
+   * 레이아웃 타입 결정
+   */
+  determineLayoutType(
+    containerWidth: number,
+    containerHeight: number,
+    config: ILayoutConfig
+  ): LayoutType {
+    const perfMark = 'LayoutService.determineLayoutType';
+    this.performanceMonitor.startMeasure(perfMark);
+    try {
+      const layoutType = config.fixedHeight ? LayoutType.GRID : LayoutType.MASONRY;
+      this.loggingService.debug('레이아웃 타입 결정', { 
+        layoutType,
+        containerWidth,
+        containerHeight,
+        fixedHeight: config.fixedHeight
       });
-      
-      // 열 높이 업데이트
-      columnHeights[columnIndex] += cardHeight + gap;
-    });
-  }
-
-  /**
-   * 레이아웃 저장
-   */
-  saveLayout(layout: Layout): void {
-    this.layouts.set(layout.id, layout);
-  }
-
-  /**
-   * 레이아웃 조회 또는 에러 발생
-   */
-  private async _getLayoutOrThrow(layoutId: string): Promise<Layout> {
-    const layout = await this.getLayout(layoutId);
-    if (!layout) {
-      throw new LayoutServiceError(`레이아웃을 찾을 수 없습니다: ${layoutId}`);
+      return layoutType;
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
     }
-    return layout;
   }
 
   /**
-   * 두 레이아웃이 동일한지 확인합니다.
+   * 레이아웃 방향 결정
    */
-  private areLayoutsEqual(layout1: Layout, layout2: Layout): boolean {
-    // 기본 속성 비교
-    if (layout1.id !== layout2.id ||
-        layout1.config.type !== layout2.config.type ||
-        layout1.config.direction !== layout2.config.direction ||
-        layout1.config.fixedHeight !== layout2.config.fixedHeight ||
-        layout1.config.minCardWidth !== layout2.config.minCardWidth ||
-        layout1.config.minCardHeight !== layout2.config.minCardHeight ||
-        layout1.config.cardWidth !== layout2.config.cardWidth ||
-        layout1.config.cardHeight !== layout2.config.cardHeight ||
-        layout1.config.gap !== layout2.config.gap ||
-        layout1.config.padding !== layout2.config.padding ||
-        layout1.config.viewportWidth !== layout2.config.viewportWidth ||
-        layout1.config.viewportHeight !== layout2.config.viewportHeight) {
-      return false;
-    }
-
-    // 카드 위치 비교
-    const positions1 = layout1.cardPositions || [];
-    const positions2 = layout2.cardPositions || [];
-
-    if (positions1.length !== positions2.length) {
-      return false;
-    }
-
-    return positions1.every((pos1, index) => {
-      const pos2 = positions2[index];
-      return pos1.cardId === pos2.cardId &&
-             pos1.x === pos2.x &&
-             pos1.y === pos2.y &&
-             pos1.width === pos2.width &&
-             pos1.height === pos2.height;
-    });
-  }
-
-  /**
-   * 카드 위치 업데이트 (일괄)
-   */
-  async updateCardPositions(layoutId: string, positions: { cardId: string; x: number; y: number }[]): Promise<void> {
+  determineLayoutDirection(
+    containerWidth: number,
+    containerHeight: number,
+    config: ILayoutConfig
+  ): LayoutDirection {
+    const perfMark = 'LayoutService.determineLayoutDirection';
+    this.performanceMonitor.startMeasure(perfMark);
     try {
-      const layout = await this._getLayoutOrThrow(layoutId);
-      
-      for (const position of positions) {
-        const card = await this._getCardOrThrow(position.cardId);
-        layout.updateCardPosition(card.id, {
-          x: position.x,
-          y: position.y,
-          width: layout.getCardPosition(card.id)?.width || layout.config.cardWidth,
-          height: layout.getCardPosition(card.id)?.height || layout.config.cardHeight
-        });
+      let direction: LayoutDirection;
+      if (config.fixedHeight) {
+        direction = containerWidth > containerHeight ? LayoutDirection.HORIZONTAL : LayoutDirection.VERTICAL;
+      } else {
+        direction = LayoutDirection.VERTICAL; // 메이슨리 레이아웃은 항상 세로 방향
       }
-    } catch (error) {
-      throw new LayoutServiceError(`카드 위치 일괄 업데이트 실패: ${error.message}`);
+
+      this.loggingService.debug('레이아웃 방향 결정', { 
+        direction,
+        containerWidth,
+        containerHeight,
+        fixedHeight: config.fixedHeight
+      });
+      return direction;
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
     }
   }
 
   /**
-   * 카드 위치 추가
+   * 열 수 계산
    */
-  async addCardPosition(layoutId: string, cardId: string, x: number, y: number, width: number, height: number): Promise<void> {
+  calculateColumnCount(containerWidth: number, config: ILayoutConfig): number {
+    const perfMark = 'LayoutService.calculateColumnCount';
+    this.performanceMonitor.startMeasure(perfMark);
     try {
-      const layout = await this._getLayoutOrThrow(layoutId);
-      const card = await this._getCardOrThrow(cardId);
-      
-      layout.updateCardPosition(card.id, { x, y, width, height });
-    } catch (error) {
-      throw new LayoutServiceError(`카드 위치 추가 실패: ${error.message}`);
+      const availableWidth = containerWidth - (2 * config.padding);
+      const columnCount = Math.floor(
+        (availableWidth + config.gap) / (config.minCardWidth + config.gap)
+      );
+      const result = Math.max(1, columnCount);
+      this.loggingService.debug('열 수 계산', { 
+        containerWidth,
+        availableWidth,
+        columnCount: result
+      });
+      return result;
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
     }
   }
 
   /**
-   * 카드 위치 제거
+   * 행 수 계산
    */
-  async removeCardPosition(layoutId: string, cardId: string): Promise<void> {
+  calculateRowCount(containerHeight: number, config: ILayoutConfig): number {
+    const perfMark = 'LayoutService.calculateRowCount';
+    this.performanceMonitor.startMeasure(perfMark);
     try {
-      const layout = await this._getLayoutOrThrow(layoutId);
-      const card = await this._getCardOrThrow(cardId);
-      
-      layout.removeCardPosition(card.id);
-    } catch (error) {
-      throw new LayoutServiceError(`카드 위치 제거 실패: ${error.message}`);
+      const availableHeight = containerHeight - (2 * config.padding);
+      const rowCount = Math.floor(
+        (availableHeight + config.gap) / (config.minCardHeight + config.gap)
+      );
+      const result = Math.max(1, rowCount);
+      this.loggingService.debug('행 수 계산', { 
+        containerHeight,
+        availableHeight,
+        rowCount: result
+      });
+      return result;
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
     }
-  }
-
-  /**
-   * 카드 조회 또는 에러 발생
-   */
-  private async _getCardOrThrow(cardId: string): Promise<Card> {
-    const card = await this.cardService.getCardById(cardId);
-    if (!card) {
-      throw new LayoutServiceError(`카드를 찾을 수 없습니다: ${cardId}`);
-    }
-    return card;
   }
 } 

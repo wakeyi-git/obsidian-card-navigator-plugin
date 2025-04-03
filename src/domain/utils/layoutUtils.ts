@@ -1,4 +1,5 @@
-import { LayoutType, LayoutDirection, ICardPosition, ILayoutConfig } from '../models/Layout';
+import { ICardPosition } from '../models/Layout';
+import { LayoutType, LayoutDirection, ILayoutConfig } from '../models/LayoutConfig';
 
 /**
  * 레이아웃 유틸리티
@@ -9,9 +10,13 @@ export class LayoutUtils {
    */
   static calculateLayout(
     cardPositions: ICardPosition[],
-    config: ILayoutConfig
+    config: ILayoutConfig,
+    viewportWidth: number,
+    viewportHeight: number,
+    type: LayoutType = LayoutType.GRID,
+    direction: LayoutDirection = LayoutDirection.VERTICAL
   ): ICardPosition[] {
-    const { type, direction, fixedHeight, minCardWidth, minCardHeight, gap, padding, viewportWidth, viewportHeight } = config;
+    const { fixedHeight, minCardWidth, minCardHeight, gap, padding } = config;
 
     // 사용 가능한 공간 계산
     const availableWidth = viewportWidth - padding * 2;
