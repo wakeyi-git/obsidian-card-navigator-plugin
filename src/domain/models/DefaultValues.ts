@@ -120,7 +120,8 @@ export const DefaultValues = {
     sortOrder: SortOrder.DESC,
     priorityTags: [] as string[],
     priorityFolders: [] as string[],
-    cardStyle: DEFAULT_CARD_STYLE
+    cardStyle: DEFAULT_CARD_STYLE,
+    cardRenderConfig: DEFAULT_CARD_RENDER_CONFIG
   } as PluginSettings
 } as const;
 
@@ -165,4 +166,5 @@ export type PluginSettings = {
   priorityTags: string[];
   priorityFolders: string[];
   cardStyle: ICardStyle;
+  cardRenderConfig: ICardRenderConfig;
 }; 

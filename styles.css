@@ -157,3 +157,139 @@
   margin: 0;
   font-size: 14px;
 }
+
+/* 카드 프리뷰 */
+.card-preview-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.card-preview {
+  width: 300px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 20px;
+}
+
+.card-preview.selected-card {
+  outline: 2px solid var(--interactive-accent);
+}
+
+.card-preview .card-header,
+.card-preview .card-body,
+.card-preview .card-footer {
+  padding: 12px;
+  transition: all 0.2s ease;
+  margin: 4px;
+  border-radius: 4px;
+}
+
+.card-preview .card-header {
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: 8px;
+}
+
+.card-preview .card-header.selected-header {
+  outline: 2px solid var(--interactive-accent);
+}
+
+.card-preview .card-body {
+  min-height: 100px;
+  margin: 8px 4px;
+}
+
+.card-preview .card-body.selected-body {
+  outline: 2px solid var(--interactive-accent);
+}
+
+.card-preview .card-footer {
+  border-top: 1px solid var(--background-modifier-border);
+  margin-top: 8px;
+}
+
+.card-preview .card-footer.selected-footer {
+  outline: 2px solid var(--interactive-accent);
+}
+
+/* 프리뷰 내용 스타일 */
+.preview-filename {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.preview-header {
+  font-size: 1.2em;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.preview-content {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.preview-tags span {
+  background-color: var(--background-modifier-hover);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.preview-date {
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+/* 슬라이더 스타일 */
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.slider-container input[type="range"] {
+  flex: 1;
+  height: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--background-modifier-border);
+  border-radius: 2px;
+  outline: none;
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--interactive-accent);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+.slider-value {
+  min-width: 48px;
+  text-align: right;
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
