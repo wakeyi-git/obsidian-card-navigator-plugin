@@ -1,4 +1,3 @@
-import { View } from 'obsidian';
 import { ICardNavigatorView } from '../views/ICardNavigatorView';
 
 /**

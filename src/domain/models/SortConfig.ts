@@ -1,11 +1,10 @@
 /**
- * 정렬 필드
+ * 정렬 기준
  */
 export enum SortField {
   FILENAME = 'filename',
-  UPDATED_AT = 'updatedAt',
-  CREATED_AT = 'createdAt',
-  CUSTOM_FIELD = 'customField'
+  UPDATED = 'updated',
+  CREATED = 'created'
 }
 
 /**
@@ -25,17 +24,12 @@ export interface ISortConfig {
   /**
    * 정렬 기준
    */
-  readonly field: SortField;
+  field: SortField;
 
   /**
    * 정렬 순서
    */
-  readonly order: SortOrder;
-
-  /**
-   * 사용자 정의 필드
-   */
-  readonly customField?: string;
+  order: SortOrder;
 
   /**
    * 우선순위 태그
@@ -57,8 +51,8 @@ export interface ISortConfig {
  * 기본 정렬 설정
  */
 export const DEFAULT_SORT_CONFIG: ISortConfig = {
-  field: SortField.UPDATED_AT, // 수정일 기준 정렬
-  order: SortOrder.DESC, // 내림차순 정렬
+  field: SortField.FILENAME,
+  order: SortOrder.ASC,
   priorityTags: [], // 우선순위 태그 없음
   priorityFolders: [], // 우선순위 폴더 없음
 
@@ -77,7 +71,6 @@ export class SortConfig implements ISortConfig {
   constructor(
     public readonly field: SortField,
     public readonly order: SortOrder,
-    public readonly customField?: string,
     priorityTags?: string[],
     priorityFolders?: string[]
   ) {
@@ -95,10 +88,6 @@ export class SortConfig implements ISortConfig {
     }
 
     if (!this.order || !Object.values(SortOrder).includes(this.order)) {
-      return false;
-    }
-
-    if (this.field === SortField.CUSTOM_FIELD && !this.customField) {
       return false;
     }
 

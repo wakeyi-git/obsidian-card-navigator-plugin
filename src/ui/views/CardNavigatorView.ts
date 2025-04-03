@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf } from 'obsidian';
+import { ItemView, WorkspaceLeaf, setIcon } from 'obsidian';
 import { ICardNavigatorViewModel } from '../viewModels/ICardNavigatorViewModel';
 import { Container } from '@/infrastructure/di/Container';
 import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
@@ -293,8 +293,8 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
   }
 
   private createToolbarButton(container: HTMLElement, action: string, title: string): void {
-    const button = container.createEl('button', { 
-      cls: 'card-navigator-toolbar-button',
+    const button = container.createEl('div', { 
+      cls: 'card-navigator-toolbar-button clickable-icon',
       attr: { 
         'data-action': action,
         'aria-label': title
@@ -304,19 +304,19 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
     // Obsidian 내장 아이콘 사용
     switch (action) {
       case 'folder':
-        button.createEl('i', { cls: 'folder' });
+        setIcon(button, 'folder');
         break;
       case 'tag':
-        button.createEl('i', { cls: 'tags' });
+        setIcon(button, 'tags');
         break;
       case 'link':
-        button.createEl('i', { cls: 'link' });
+        setIcon(button, 'link');
         break;
       case 'sort':
-        button.createEl('i', { cls: 'arrow-up-narrow-wide' });
+        setIcon(button, 'arrow-up-narrow-wide');
         break;
       case 'settings':
-        button.createEl('i', { cls: 'settings' });
+        setIcon(button, 'settings');
         break;
     }
   }

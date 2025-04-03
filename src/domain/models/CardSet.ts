@@ -14,7 +14,10 @@ export enum CardSetType {
 /**
  * 링크 타입
  */
-export type LinkType = 'backlink' | 'outgoing';
+export enum LinkType {
+  BACKLINK = 'backlink',
+  OUTGOING = 'outgoing'
+}
 
 /**
  * 링크 설정
@@ -91,7 +94,7 @@ export interface ICardSet {
  * 기본 링크 설정
  */
 export const DEFAULT_LINK_CONFIG: ILinkConfig = {
-  type: 'backlink',
+  type: LinkType.BACKLINK,
   level: 1,
   includeBacklinks: true,
   includeOutgoingLinks: false,

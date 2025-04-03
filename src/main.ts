@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { Plugin } from 'obsidian';
 import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR } from './ui/views/CardNavigatorView';
 import { Container } from './infrastructure/di/Container';
 import { LoggingService } from './infrastructure/LoggingService';
@@ -23,33 +23,11 @@ import { RenderManager } from './application/manager/RenderManager';
 import { PresetManager } from './application/manager/PresetManager';
 import { PresetService } from './application/services/PresetService';
 import { ToolbarService } from './application/services/ToolbarService';
-
-interface CardNavigatorSettings {
-  defaultCardSetType: 'folder' | 'tag' | 'link';
-  defaultCardSetCriteria: string;
-  includeSubfolders: boolean;
-  linkLevel: number;
-  cardHeightFixed: boolean;
-  cardMinWidth: number;
-  cardMinHeight: number;
-  priorityTags: string[];
-  priorityFolders: string[];
-}
-
-const DEFAULT_SETTINGS: CardNavigatorSettings = {
-  defaultCardSetType: 'folder',
-  defaultCardSetCriteria: '',
-  includeSubfolders: true,
-  linkLevel: 1,
-  cardHeightFixed: false,
-  cardMinWidth: 300,
-  cardMinHeight: 200,
-  priorityTags: [],
-  priorityFolders: []
-};
+import { DefaultValues, PluginSettings } from './domain/models/DefaultValues';
+import { CardNavigatorSettingTab } from '@/ui/settings/CardNavigatorSettingTab';
 
 export default class CardNavigatorPlugin extends Plugin {
-  settings: CardNavigatorSettings;
+  settings: PluginSettings;
   private container: Container;
 
   async onload() {
@@ -80,7 +58,11 @@ export default class CardNavigatorPlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const savedSettings = await this.loadData();
+    this.settings = {
+      ...DefaultValues.plugin,
+      ...savedSettings
+    };
   }
 
   async saveSettings() {
@@ -118,6 +100,9 @@ export default class CardNavigatorPlugin extends Plugin {
 
     // 뷰모델 등록
     this.container.register('ICardNavigatorViewModel', () => CardNavigatorViewModel.getInstance(), true);
+
+    // 기본값 등록
+    this.container.register('DefaultValues', () => DefaultValues, true);
   }
 
   private async activateView() {
@@ -130,129 +115,5 @@ export default class CardNavigatorPlugin extends Plugin {
       type: VIEW_TYPE_CARD_NAVIGATOR,
       active: true,
     });
-  }
-}
-
-class CardNavigatorSettingTab extends PluginSettingTab {
-  plugin: CardNavigatorPlugin;
-
-  constructor(app: App, plugin: CardNavigatorPlugin) {
-    super(app, plugin);
-    this.plugin = plugin;
-  }
-
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
-
-    containerEl.createEl('h2', { text: '카드 내비게이터 설정' });
-
-    new Setting(containerEl)
-      .setName('기본 카드셋 타입')
-      .setDesc('카드 내비게이터를 열 때 사용할 기본 카드셋 타입을 선택합니다.')
-      .addDropdown(dropdown =>
-        dropdown
-          .addOption('folder', '폴더')
-          .addOption('tag', '태그')
-          .addOption('link', '링크')
-          .setValue(this.plugin.settings.defaultCardSetType)
-          .onChange(async (value) => {
-            this.plugin.settings.defaultCardSetType = value as 'folder' | 'tag' | 'link';
-            await this.plugin.saveSettings();
-          }));
-
-    new Setting(containerEl)
-      .setName('기본 카드셋 기준')
-      .setDesc('기본 카드셋의 기준값을 입력합니다.')
-      .addText(text =>
-        text
-          .setValue(this.plugin.settings.defaultCardSetCriteria)
-          .onChange(async (value) => {
-            this.plugin.settings.defaultCardSetCriteria = value;
-            await this.plugin.saveSettings();
-          }));
-
-    new Setting(containerEl)
-      .setName('하위 폴더 포함')
-      .setDesc('폴더 카드셋에서 하위 폴더의 노트도 포함합니다.')
-      .addToggle(toggle =>
-        toggle
-          .setValue(this.plugin.settings.includeSubfolders)
-          .onChange(async (value) => {
-            this.plugin.settings.includeSubfolders = value;
-            await this.plugin.saveSettings();
-          }));
-
-    new Setting(containerEl)
-      .setName('링크 레벨')
-      .setDesc('링크 카드셋에서 표시할 링크의 깊이를 설정합니다.')
-      .addSlider(slider =>
-        slider
-          .setLimits(1, 5, 1)
-          .setValue(this.plugin.settings.linkLevel)
-          .setDynamicTooltip()
-          .onChange(async (value) => {
-            this.plugin.settings.linkLevel = value;
-            await this.plugin.saveSettings();
-          }));
-
-    new Setting(containerEl)
-      .setName('카드 높이 고정')
-      .setDesc('카드의 높이를 고정하여 그리드 레이아웃을 사용합니다.')
-      .addToggle(toggle =>
-        toggle
-          .setValue(this.plugin.settings.cardHeightFixed)
-          .onChange(async (value) => {
-            this.plugin.settings.cardHeightFixed = value;
-            await this.plugin.saveSettings();
-          }));
-
-    new Setting(containerEl)
-      .setName('카드 최소 너비')
-      .setDesc('카드의 최소 너비를 설정합니다.')
-      .addSlider(slider =>
-        slider
-          .setLimits(200, 800, 50)
-          .setValue(this.plugin.settings.cardMinWidth)
-          .setDynamicTooltip()
-          .onChange(async (value) => {
-            this.plugin.settings.cardMinWidth = value;
-            await this.plugin.saveSettings();
-          }));
-
-    new Setting(containerEl)
-      .setName('카드 최소 높이')
-      .setDesc('카드의 최소 높이를 설정합니다.')
-      .addSlider(slider =>
-        slider
-          .setLimits(100, 600, 50)
-          .setValue(this.plugin.settings.cardMinHeight)
-          .setDynamicTooltip()
-          .onChange(async (value) => {
-            this.plugin.settings.cardMinHeight = value;
-            await this.plugin.saveSettings();
-          }));
-
-    new Setting(containerEl)
-      .setName('우선 순위 태그')
-      .setDesc('우선 순위로 표시할 태그를 쉼표로 구분하여 입력합니다.')
-      .addText(text =>
-        text
-          .setValue(this.plugin.settings.priorityTags.join(', '))
-          .onChange(async (value) => {
-            this.plugin.settings.priorityTags = value.split(',').map(tag => tag.trim());
-            await this.plugin.saveSettings();
-          }));
-
-    new Setting(containerEl)
-      .setName('우선 순위 폴더')
-      .setDesc('우선 순위로 표시할 폴더를 쉼표로 구분하여 입력합니다.')
-      .addText(text =>
-        text
-          .setValue(this.plugin.settings.priorityFolders.join(', '))
-          .onChange(async (value) => {
-            this.plugin.settings.priorityFolders = value.split(',').map(folder => folder.trim());
-            await this.plugin.saveSettings();
-          }));
   }
 } 

@@ -46,9 +46,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
+  width: var(--icon-size-s);
+  height: var(--icon-size-s);
+  padding: var(--size-2-2);
   border: none;
   border-radius: 4px;
   background: transparent;
@@ -60,14 +60,6 @@
 .card-navigator-toolbar-button:hover {
   background-color: var(--background-modifier-hover);
   color: var(--text-normal);
-}
-
-.card-navigator-toolbar-button i {
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* 검색 입력창 */
