@@ -72,15 +72,7 @@ export class ManagePresetUseCase implements IUseCase<ManagePresetInput, IPreset 
               input.preset.metadata.description || '',
               {
                 renderConfig: input.preset.config.cardRenderConfig,
-                cardStyle: {
-                  card: input.preset.config.cardRenderConfig.style.card,
-                  activeCard: input.preset.config.cardRenderConfig.style.activeCard,
-                  focusedCard: input.preset.config.cardRenderConfig.style.focusedCard,
-                  header: input.preset.config.cardRenderConfig.style.header,
-                  body: input.preset.config.cardRenderConfig.style.body,
-                  footer: input.preset.config.cardRenderConfig.style.footer,
-                  validate: () => true
-                },
+                cardStyle: input.preset.config.cardStyle,
                 searchFilter: input.preset.config.cardSetConfig.searchFilter || DEFAULT_SEARCH_FILTER,
                 sortConfig: input.preset.config.cardSetConfig.sortConfig || DEFAULT_SORT_CONFIG
               }
@@ -109,15 +101,7 @@ export class ManagePresetUseCase implements IUseCase<ManagePresetInput, IPreset 
                 clonedPreset.metadata.description || '',
                 {
                   renderConfig: clonedPreset.config.cardRenderConfig,
-                  cardStyle: {
-                    card: clonedPreset.config.cardRenderConfig.style.card,
-                    activeCard: clonedPreset.config.cardRenderConfig.style.activeCard,
-                    focusedCard: clonedPreset.config.cardRenderConfig.style.focusedCard,
-                    header: clonedPreset.config.cardRenderConfig.style.header,
-                    body: clonedPreset.config.cardRenderConfig.style.body,
-                    footer: clonedPreset.config.cardRenderConfig.style.footer,
-                    validate: () => true
-                  },
+                  cardStyle: clonedPreset.config.cardStyle,
                   searchFilter: clonedPreset.config.cardSetConfig.searchFilter || DEFAULT_SEARCH_FILTER,
                   sortConfig: clonedPreset.config.cardSetConfig.sortConfig || DEFAULT_SORT_CONFIG
                 }

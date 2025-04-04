@@ -99,7 +99,8 @@ export class PresetService implements IPresetService {
       config: {
         cardSetConfig: DEFAULT_PRESET_CONFIG.cardSetConfig,
         layoutConfig: config.layoutConfig || DEFAULT_PRESET_CONFIG.layoutConfig,
-        cardRenderConfig: config.cardRenderConfig || DEFAULT_PRESET_CONFIG.cardRenderConfig
+        cardRenderConfig: config.cardRenderConfig || DEFAULT_PRESET_CONFIG.cardRenderConfig,
+        cardStyle: DEFAULT_PRESET_CONFIG.cardStyle
       },
       validate: function() {
         return this.metadata.id !== '' && this.metadata.name !== '';

@@ -2,7 +2,7 @@ import { IUseCase } from './IUseCase';
 import { ICardSetService } from '../../domain/services/ICardSetService';
 import { ILayoutService } from '../../domain/services/ILayoutService';
 import { ICardSet } from '../../domain/models/CardSet';
-import { CardSetType } from '../../domain/models/CardSet';
+import { CardSetType, LinkType } from '../../domain/models/CardSet';
 import { ISortConfig } from '../../domain/models/SortConfig';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
@@ -26,6 +26,14 @@ export interface CreateCardSetInput {
   containerWidth: number;
   /** 컨테이너 높이 */
   containerHeight: number;
+  /** 링크 타입 (백링크/아웃고잉) */
+  linkType?: LinkType;
+  /** 링크 레벨 (1: 직접 링크, 2: 2단계 링크, ...) */
+  linkLevel?: number;
+  /** 백링크 포함 여부 */
+  includeBacklinks?: boolean;
+  /** 아웃고잉 링크 포함 여부 */
+  includeOutgoingLinks?: boolean;
 }
 
 /**

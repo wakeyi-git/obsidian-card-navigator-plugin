@@ -85,40 +85,45 @@ export default class CardNavigatorPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
-  private initializeContainer() {
-    // App 인스턴스 등록
-    this.container.register('App', () => this.app, true);
+  private initializeContainer(): void {
+    const container = this.container;
+    
+    // 플러그인 자신을 컨테이너에 등록
+    container.register('Plugin', () => this, true);
+    
+    // App 등록
+    container.register('App', () => this.app, true);
 
     // 인프라스트럭처 서비스 등록
-    this.container.register('ILoggingService', () => LoggingService.getInstance(), true);
-    this.container.register('IErrorHandler', () => ErrorHandler.getInstance(), true);
-    this.container.register('IPerformanceMonitor', () => PerformanceMonitor.getInstance(), true);
-    this.container.register('IAnalyticsService', () => AnalyticsService.getInstance(), true);
-    this.container.register('IEventDispatcher', () => EventDispatcher.getInstance(), true);
+    container.register('ILoggingService', () => LoggingService.getInstance(), true);
+    container.register('IErrorHandler', () => ErrorHandler.getInstance(), true);
+    container.register('IPerformanceMonitor', () => PerformanceMonitor.getInstance(), true);
+    container.register('IAnalyticsService', () => AnalyticsService.getInstance(), true);
+    container.register('IEventDispatcher', () => EventDispatcher.getInstance(), true);
 
     // 애플리케이션 서비스 등록
-    this.container.register('ICardService', () => CardService.getInstance(), true);
-    this.container.register('ICardSetService', () => CardSetService.getInstance(), true);
-    this.container.register('ICardDisplayManager', () => CardDisplayManager.getInstance(), true);
-    this.container.register('ICardInteractionService', () => CardInteractionService.getInstance(), true);
-    this.container.register('ICardFactory', () => CardFactory.getInstance(), true);
-    this.container.register('ILayoutService', () => LayoutService.getInstance(), true);
-    this.container.register('ISearchService', () => SearchService.getInstance(), true);
-    this.container.register('ISortService', () => SortService.getInstance(), true);
-    this.container.register('IFocusManager', () => FocusManager.getInstance(), true);
-    this.container.register('IActiveFileWatcher', () => ActiveFileWatcher.getInstance(), true);
-    this.container.register('IClipboardService', () => ClipboardService.getInstance(), true);
-    this.container.register('IFileService', () => FileService.getInstance(), true);
-    this.container.register('IRenderManager', () => RenderManager.getInstance(), true);
-    this.container.register('IPresetManager', () => PresetManager.getInstance(), true);
-    this.container.register('IPresetService', () => PresetService.getInstance(), true);
-    this.container.register('IToolbarService', () => ToolbarService.getInstance(), true);
+    container.register('ICardService', () => CardService.getInstance(), true);
+    container.register('ICardSetService', () => CardSetService.getInstance(), true);
+    container.register('ICardDisplayManager', () => CardDisplayManager.getInstance(), true);
+    container.register('ICardInteractionService', () => CardInteractionService.getInstance(), true);
+    container.register('ICardFactory', () => CardFactory.getInstance(), true);
+    container.register('ILayoutService', () => LayoutService.getInstance(), true);
+    container.register('ISearchService', () => SearchService.getInstance(), true);
+    container.register('ISortService', () => SortService.getInstance(), true);
+    container.register('IFocusManager', () => FocusManager.getInstance(), true);
+    container.register('IActiveFileWatcher', () => ActiveFileWatcher.getInstance(), true);
+    container.register('IClipboardService', () => ClipboardService.getInstance(), true);
+    container.register('IFileService', () => FileService.getInstance(), true);
+    container.register('IRenderManager', () => RenderManager.getInstance(), true);
+    container.register('IPresetManager', () => PresetManager.getInstance(), true);
+    container.register('IPresetService', () => PresetService.getInstance(), true);
+    container.register('IToolbarService', () => ToolbarService.getInstance(), true);
 
     // 뷰모델 등록
-    this.container.register('ICardNavigatorViewModel', () => CardNavigatorViewModel.getInstance(), true);
+    container.register('ICardNavigatorViewModel', () => CardNavigatorViewModel.getInstance(), true);
 
     // 기본값 등록
-    this.container.register('DefaultValues', () => DefaultValues, true);
+    container.register('DefaultValues', () => DefaultValues, true);
   }
 
   private async activateView() {

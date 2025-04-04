@@ -150,7 +150,8 @@ export class PresetManager implements IPresetManager {
             gap: 16,
             padding: 16
           },
-          cardRenderConfig: config.renderConfig
+          cardRenderConfig: config.renderConfig,
+          cardStyle: config.cardStyle
         },
         validate() {
           return true;

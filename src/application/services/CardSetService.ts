@@ -2,7 +2,7 @@ import { App, TFile } from 'obsidian';
 import { ICardSetService } from '../../domain/services/ICardSetService';
 import { ICard } from '../../domain/models/Card';
 import { ICardSet, DEFAULT_CARD_SET_CONFIG } from '../../domain/models/CardSet';
-import { CardSetType } from '../../domain/models/CardSet';
+import { CardSetType, LinkType } from '../../domain/models/CardSet';
 import { ISortConfig } from '../../domain/models/SortConfig';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
@@ -74,6 +74,10 @@ export class CardSetService implements ICardSetService {
     options?: {
       includeSubfolders?: boolean;
       sortConfig?: ISortConfig;
+      linkType?: LinkType;
+      linkLevel?: number;
+      includeBacklinks?: boolean;
+      includeOutgoingLinks?: boolean;
     }
   ): Promise<ICardSet> {
     try {
@@ -90,7 +94,16 @@ export class CardSetService implements ICardSetService {
           cards = await this.loadCardsFromTag(criteria);
           break;
         case CardSetType.LINK:
-          cards = await this.loadCardsFromLink(criteria);
+          // 링크 관련 옵션 사용
+          const linkOptions = {
+            type: options?.linkType || LinkType.BACKLINK,
+            level: options?.linkLevel || 1,
+            includeBacklinks: options?.includeBacklinks !== undefined ? options.includeBacklinks : true,
+            includeOutgoingLinks: options?.includeOutgoingLinks !== undefined ? options.includeOutgoingLinks : false
+          };
+          
+          this.loggingService.debug('링크 카드셋 옵션', linkOptions);
+          cards = await this.loadCardsFromLink(criteria, linkOptions);
           break;
       }
 
@@ -213,23 +226,42 @@ export class CardSetService implements ICardSetService {
     }
   }
 
-  private async loadCardsFromLink(filePath: string): Promise<ICard[]> {
+  private async loadCardsFromLink(filePath: string, options: {
+    type: LinkType;
+    level: number;
+    includeBacklinks: boolean;
+    includeOutgoingLinks: boolean;
+  }): Promise<ICard[]> {
     try {
       this.performanceMonitor.startMeasure('CardSetService.loadCardsFromLink');
-      this.loggingService.debug('링크에서 카드 로드 시작', { filePath });
+      this.loggingService.debug('링크에서 카드 로드 시작', { filePath, options });
 
       const file = this.app.vault.getAbstractFileByPath(filePath);
       if (!file || !(file instanceof TFile)) {
+        this.loggingService.warn('링크 카드셋 대상 파일을 찾을 수 없음', { filePath });
         return [];
       }
 
-      const content = await this.app.vault.read(file);
-      const links = content.match(/\[\[(.*?)\]\]/g) || [];
+      // 링크 수집을 위한 집합
+      const linkedFilePaths = new Set<string>();
+      
+      // 링크 레벨 (깊이) 제한
+      const maxLevel = Math.min(options.level, 3); // 최대 3단계까지만 허용
+      
+      // 백링크 처리
+      if (options.includeBacklinks || options.type === LinkType.BACKLINK) {
+        await this.collectBacklinks(file, linkedFilePaths, maxLevel);
+      }
+      
+      // 아웃고잉 링크 처리
+      if (options.includeOutgoingLinks || options.type === LinkType.OUTGOING) {
+        await this.collectOutgoingLinks(file, linkedFilePaths, maxLevel);
+      }
+      
+      // 수집된 파일 경로로부터 카드 생성
       const cards: ICard[] = [];
-
-      for (const link of links) {
-        const linkPath = link.slice(2, -2);
-        const linkedFile = this.app.vault.getAbstractFileByPath(linkPath);
+      for (const linkedPath of linkedFilePaths) {
+        const linkedFile = this.app.vault.getAbstractFileByPath(linkedPath);
         if (linkedFile && linkedFile instanceof TFile) {
           const card = await this.cardService.createFromFile(linkedFile);
           if (card) {
@@ -238,13 +270,120 @@ export class CardSetService implements ICardSetService {
         }
       }
 
-      this.loggingService.info('링크에서 카드 로드 완료', { filePath, cardCount: cards.length });
+      this.loggingService.info('링크에서 카드 로드 완료', { 
+        filePath, 
+        cardCount: cards.length,
+        linkLevel: maxLevel,
+        backlinks: options.includeBacklinks,
+        outgoingLinks: options.includeOutgoingLinks
+      });
       return cards;
     } catch (error) {
       this.loggingService.error('링크에서 카드 로드 실패', { error, filePath });
       throw new CardSetError('링크에서 카드 로드 중 오류가 발생했습니다.');
     } finally {
       this.performanceMonitor.endMeasure('CardSetService.loadCardsFromLink');
+    }
+  }
+  
+  /**
+   * 백링크 수집
+   * @param file 대상 파일
+   * @param result 결과 저장 집합
+   * @param maxLevel 최대 레벨(깊이)
+   * @param currentLevel 현재 레벨(깊이)
+   * @param visited 방문한 파일 집합
+   */
+  private async collectBacklinks(
+    file: TFile, 
+    result: Set<string>, 
+    maxLevel: number,
+    currentLevel: number = 1,
+    visited: Set<string> = new Set()
+  ): Promise<void> {
+    if (currentLevel > maxLevel || visited.has(file.path)) {
+      return;
+    }
+    
+    visited.add(file.path);
+    
+    // 메타데이터 캐시에서 백링크 정보 가져오기
+    const resolvedLinks = this.app.metadataCache.resolvedLinks;
+    if (!resolvedLinks) {
+      return;
+    }
+
+    // 현재 파일을 참조하는 모든 파일 찾기
+    for (const [sourcePath, links] of Object.entries(resolvedLinks)) {
+      // 현재 파일 경로가 링크에 포함되어 있는지 확인
+      if (Object.keys(links).includes(file.path)) {
+        result.add(sourcePath);
+        
+        // 재귀적으로 다음 레벨 탐색 (현재 레벨이 maxLevel보다 작을 경우)
+        if (currentLevel < maxLevel) {
+          const backlinkFile = this.app.vault.getAbstractFileByPath(sourcePath);
+          if (backlinkFile && backlinkFile instanceof TFile) {
+            await this.collectBacklinks(
+              backlinkFile, 
+              result, 
+              maxLevel, 
+              currentLevel + 1, 
+              visited
+            );
+          }
+        }
+      }
+    }
+  }
+  
+  /**
+   * 아웃고잉 링크 수집
+   * @param file 대상 파일
+   * @param result 결과 저장 집합
+   * @param maxLevel 최대 레벨(깊이)
+   * @param currentLevel 현재 레벨(깊이)
+   * @param visited 방문한 파일 집합
+   */
+  private async collectOutgoingLinks(
+    file: TFile, 
+    result: Set<string>, 
+    maxLevel: number,
+    currentLevel: number = 1,
+    visited: Set<string> = new Set()
+  ): Promise<void> {
+    if (currentLevel > maxLevel || visited.has(file.path)) {
+      return;
+    }
+    
+    visited.add(file.path);
+    
+    // 메타데이터 캐시에서 파일 정보 가져오기
+    const cache = this.app.metadataCache.getFileCache(file);
+    if (!cache || !cache.links) {
+      return;
+    }
+    
+    // 아웃고잉 링크 처리
+    for (const link of cache.links) {
+      const linkedFilePath = this.app.metadataCache.getFirstLinkpathDest(link.link, file.path)?.path;
+      
+      if (linkedFilePath) {
+        result.add(linkedFilePath);
+        
+        // 재귀적으로 다음 레벨 탐색 (현재 레벨이 maxLevel보다 작을 경우)
+        if (currentLevel < maxLevel) {
+          const linkedFile = this.app.vault.getAbstractFileByPath(linkedFilePath);
+          if (linkedFile && linkedFile instanceof TFile) {
+            await this.collectOutgoingLinks(
+              linkedFile, 
+              result, 
+              maxLevel, 
+              currentLevel + 1, 
+              visited
+            );
+          }
+        }
+      }
     }
   }
 

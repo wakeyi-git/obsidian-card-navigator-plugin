@@ -1,6 +1,8 @@
-import { Setting } from 'obsidian';
+import { Setting, TextComponent } from 'obsidian';
 import type CardNavigatorPlugin from '@/main';
 import { CardSetType, LinkType } from '@/domain/models/CardSet';
+import { FolderSuggestModal } from '@/ui/modals/FolderSuggestModal';
+import { TagSuggestModal } from '@/ui/modals/TagSuggestModal';
 
 /**
  * 카드셋 설정 섹션
@@ -14,6 +16,33 @@ export class CardSetSettingsSection {
   create(containerEl: HTMLElement): void {
     containerEl.createEl('h3', { text: '카드셋 설정' });
 
+    // CSS 스타일 추가
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `
+      .card-navigator-folder-settings,
+      .card-navigator-tag-settings,
+      .card-navigator-link-settings {
+        display: none;
+        margin-left: 0.5em;
+        border-left: 1px solid var(--background-modifier-border);
+        padding-left: 1em;
+      }
+      
+      .card-navigator-folder-settings.is-visible,
+      .card-navigator-tag-settings.is-visible,
+      .card-navigator-link-settings.is-visible {
+        display: block;
+      }
+      
+      .card-navigator-browse-button {
+        margin-left: 0.5em;
+        font-size: 0.9em;
+        padding: 3px 6px;
+      }
+    `;
+    containerEl.appendChild(styleEl);
+
+    // 기본 카드셋 타입 선택
     new Setting(containerEl)
       .setName('기본 카드셋 타입')
       .setDesc('카드 내비게이터를 열 때 사용할 기본 카드셋 타입을 선택합니다.')
@@ -29,23 +58,85 @@ export class CardSetSettingsSection {
               defaultCardSetType: value as CardSetType
             };
             await this.plugin.saveSettings();
+            
+            // 카드셋 타입에 따라 관련 설정 영역 표시/숨김
+            this.updateCardSetVisibility(containerEl, value as CardSetType);
           }));
 
-    new Setting(containerEl)
-      .setName('기본 카드셋 기준')
-      .setDesc('기본 카드셋의 기준값을 입력합니다.')
-      .addText(text =>
-        text
-          .setValue(this.plugin.settings.defaultCardSetCriteria)
+    // 폴더 카드셋 설정 섹션
+    const folderSettingsEl = containerEl.createDiv({ cls: 'card-navigator-folder-settings' });
+    folderSettingsEl.createEl('h4', { text: '폴더 카드셋 설정' });
+
+    // 폴더 카드셋 모드
+    new Setting(folderSettingsEl)
+      .setName('폴더 카드셋 모드')
+      .setDesc('폴더 카드셋의 동작 방식을 선택합니다.')
+      .addDropdown(dropdown => 
+        dropdown
+          .addOption('active', '활성 폴더 (활성 파일의 폴더)')
+          .addOption('fixed', '고정 폴더 (지정한 폴더)')
+          .setValue((this.plugin.settings as any).folderSetMode || 'active')
           .onChange(async (value) => {
             this.plugin.settings = {
               ...this.plugin.settings,
-              defaultCardSetCriteria: value
-            };
+              folderSetMode: value
+            } as any;
             await this.plugin.saveSettings();
+            
+            // 고정 폴더 입력 필드 표시/숨김
+            const fixedFolderSetting = folderSettingsEl.querySelector('.card-navigator-fixed-folder-setting');
+            if (fixedFolderSetting) {
+              (fixedFolderSetting as any).style.display = value === 'fixed' ? 'block' : 'none';
+            }
           }));
+    
+    // 고정 폴더 경로 설정
+    const fixedFolderSetting = new Setting(folderSettingsEl)
+      .setClass('card-navigator-fixed-folder-setting')
+      .setName('고정 폴더 경로')
+      .setDesc('카드를 표시할 고정 폴더의 경로를 지정합니다.')
+      .addText(text => {
+        text.setValue((this.plugin.settings as any).fixedFolderPath || '')
+            .setPlaceholder('예: 폴더/하위폴더')
+            .onChange(async (value) => {
+              this.plugin.settings = {
+                ...this.plugin.settings,
+                fixedFolderPath: value
+              } as any;
+              await this.plugin.saveSettings();
+            });
+        
+        // 폴더 선택 버튼 추가
+        text.inputEl.style.width = 'calc(100% - 40px)';
+        const browseButton = createEl('button', {
+          text: '찾기',
+          cls: 'card-navigator-browse-button'
+        });
+        
+        browseButton.addEventListener('click', () => {
+          const modal = new FolderSuggestModal(this.plugin.app);
+          modal.onChoose = (folder: string) => {
+            text.setValue(folder);
+            text.onChanged();
+          };
+          modal.open();
+        });
+        
+        // TextComponent의 containerEl에 접근
+        const parentEl = text.inputEl.parentElement;
+        if (parentEl) {
+          parentEl.appendChild(browseButton);
+        }
+        
+        return text;
+      });
+    
+    // 고정 폴더 설정 초기 표시 여부
+    fixedFolderSetting.settingEl.style.display = 
+      ((this.plugin.settings as any).folderSetMode === 'fixed') ? 'block' : 'none';
 
-    new Setting(containerEl)
+    // 하위 폴더 포함 설정
+    new Setting(folderSettingsEl)
       .setName('하위 폴더 포함')
       .setDesc('폴더 카드셋에서 하위 폴더의 노트도 포함합니다.')
       .addToggle(toggle =>
@@ -58,10 +149,85 @@ export class CardSetSettingsSection {
             };
             await this.plugin.saveSettings();
           }));
+    
+    // 태그 카드셋 설정 섹션
+    const tagSettingsEl = containerEl.createDiv({ cls: 'card-navigator-tag-settings' });
+    tagSettingsEl.createEl('h4', { text: '태그 카드셋 설정' });
+    
+    // 태그 카드셋 모드
+    new Setting(tagSettingsEl)
+      .setName('태그 카드셋 모드')
+      .setDesc('태그 카드셋의 동작 방식을 선택합니다.')
+      .addDropdown(dropdown => 
+        dropdown
+          .addOption('active', '활성 태그 (활성 파일의 태그)')
+          .addOption('fixed', '고정 태그 (지정한 태그)')
+          .setValue((this.plugin.settings as any).tagSetMode || 'active')
+          .onChange(async (value) => {
+            this.plugin.settings = {
+              ...this.plugin.settings,
+              tagSetMode: value
+            } as any;
+            await this.plugin.saveSettings();
+            
+            // 고정 태그 입력 필드 표시/숨김
+            const fixedTagSetting = tagSettingsEl.querySelector('.card-navigator-fixed-tag-setting');
+            if (fixedTagSetting) {
+              (fixedTagSetting as any).style.display = value === 'fixed' ? 'block' : 'none';
+            }
+          }));
+    
+    // 고정 태그 설정
+    const fixedTagSetting = new Setting(tagSettingsEl)
+      .setClass('card-navigator-fixed-tag-setting')
+      .setName('고정 태그')
+      .setDesc('카드를 표시할 고정 태그를 지정합니다.')
+      .addText(text => {
+        text.setValue((this.plugin.settings as any).fixedTag || '')
+            .setPlaceholder('예: #태그명')
+            .onChange(async (value) => {
+              this.plugin.settings = {
+                ...this.plugin.settings,
+                fixedTag: value
+              } as any;
+              await this.plugin.saveSettings();
+            });
+        
+        // 태그 선택 버튼 추가
+        text.inputEl.style.width = 'calc(100% - 40px)';
+        const browseButton = createEl('button', {
+          text: '찾기',
+          cls: 'card-navigator-browse-button'
+        });
+        
+        browseButton.addEventListener('click', () => {
+          const modal = new TagSuggestModal(this.plugin.app);
+          modal.onChoose = (tag: string) => {
+            text.setValue(tag);
+            text.onChanged();
+          };
+          modal.open();
+        });
+        
+        // TextComponent의 containerEl에 접근
+        const parentEl = text.inputEl.parentElement;
+        if (parentEl) {
+          parentEl.appendChild(browseButton);
+        }
+        
+        return text;
+      });
+    
+    // 고정 태그 설정 초기 표시 여부
+    fixedTagSetting.settingEl.style.display = 
+      ((this.plugin.settings as any).tagSetMode === 'fixed') ? 'block' : 'none';
+    
+    // 링크 카드셋 설정 섹션
+    const linkSettingsEl = containerEl.createDiv({ cls: 'card-navigator-link-settings' });
+    linkSettingsEl.createEl('h4', { text: '링크 카드셋 설정' });
 
-    containerEl.createEl('h4', { text: '링크 설정' });
-
-    new Setting(containerEl)
+    // 링크 타입
+    new Setting(linkSettingsEl)
       .setName('링크 타입')
       .setDesc('링크 카드셋에서 사용할 링크 타입을 선택합니다.')
       .addDropdown(dropdown =>
@@ -77,21 +243,25 @@ export class CardSetSettingsSection {
             await this.plugin.saveSettings();
           }));
 
-    new Setting(containerEl)
+    // 링크 레벨
+    new Setting(linkSettingsEl)
       .setName('링크 레벨')
-      .setDesc('링크 카드셋에서 표시할 링크의 깊이를 설정합니다.')
-      .addText(text =>
-        text
-          .setValue(this.plugin.settings.linkLevel.toString())
+      .setDesc('링크 카드셋에서 표시할 링크의 깊이를 설정합니다 (1: 직접 링크, 2: 2단계 링크, ...)')
+      .addSlider(slider =>
+        slider
+          .setLimits(1, 5, 1)
+          .setValue(this.plugin.settings.linkLevel)
+          .setDynamicTooltip()
           .onChange(async (value) => {
             this.plugin.settings = {
               ...this.plugin.settings,
-              linkLevel: parseInt(value) || 1
+              linkLevel: value
             };
             await this.plugin.saveSettings();
           }));
 
-    new Setting(containerEl)
+    // 백링크 포함
+    new Setting(linkSettingsEl)
       .setName('백링크 포함')
       .setDesc('링크 카드셋에서 백링크를 포함합니다.')
       .addToggle(toggle =>
@@ -105,7 +275,8 @@ export class CardSetSettingsSection {
             await this.plugin.saveSettings();
           }));
 
-    new Setting(containerEl)
+    // 아웃고잉 링크 포함
+    new Setting(linkSettingsEl)
       .setName('아웃고잉 링크 포함')
       .setDesc('링크 카드셋에서 아웃고잉 링크를 포함합니다.')
       .addToggle(toggle =>
@@ -119,32 +290,40 @@ export class CardSetSettingsSection {
             await this.plugin.saveSettings();
           }));
 
-    new Setting(containerEl)
-      .setName('포함 패턴')
-      .setDesc('링크 카드셋에서 포함할 파일 패턴을 입력합니다. (쉼표로 구분)')
-      .addText(text =>
-        text
-          .setValue(this.plugin.settings.includePatterns?.join(', ') || '')
-          .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              includePatterns: value.split(',').map(p => p.trim()).filter(p => p)
-            };
-            await this.plugin.saveSettings();
-          }));
+    // 초기 상태에서 현재 선택된 카드셋 타입에 따른 설정 영역 표시
+    this.updateCardSetVisibility(containerEl, this.plugin.settings.defaultCardSetType);
+  }
 
-    new Setting(containerEl)
-      .setName('제외 패턴')
-      .setDesc('링크 카드셋에서 제외할 파일 패턴을 입력합니다. (쉼표로 구분)')
-      .addText(text =>
-        text
-          .setValue(this.plugin.settings.excludePatterns?.join(', ') || '')
-          .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              excludePatterns: value.split(',').map(p => p.trim()).filter(p => p)
-            };
-            await this.plugin.saveSettings();
-          }));
+  /**
+   * 카드셋 타입에 따른 설정 영역 표시/숨김 처리
+   */
+  private updateCardSetVisibility(containerEl: HTMLElement, cardSetType: CardSetType): void {
+    const folderSettings = containerEl.querySelector('.card-navigator-folder-settings');
+    const tagSettings = containerEl.querySelector('.card-navigator-tag-settings');
+    const linkSettings = containerEl.querySelector('.card-navigator-link-settings');
+    
+    if (folderSettings) {
+      if (cardSetType === CardSetType.FOLDER) {
+        folderSettings.classList.add('is-visible');
+      } else {
+        folderSettings.classList.remove('is-visible');
+      }
+    }
+    
+    if (tagSettings) {
+      if (cardSetType === CardSetType.TAG) {
+        tagSettings.classList.add('is-visible');
+      } else {
+        tagSettings.classList.remove('is-visible');
+      }
+    }
+    
+    if (linkSettings) {
+      if (cardSetType === CardSetType.LINK) {
+        linkSettings.classList.add('is-visible');
+      } else {
+        linkSettings.classList.remove('is-visible');
+      }
+    }
   }
 } 

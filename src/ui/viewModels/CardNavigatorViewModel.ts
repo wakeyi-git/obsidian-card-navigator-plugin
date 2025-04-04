@@ -13,7 +13,7 @@ import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { IActiveFileWatcher } from '@/domain/services/IActiveFileWatcher';
 import { CardSetCreatedEvent, CardSetUpdatedEvent, CardSetDeletedEvent } from '@/domain/events/CardSetEvents';
 import { ICardSet } from '@/domain/models/CardSet';
-import { CardSetType } from '@/domain/models/CardSet';
+import { CardSetType, LinkType } from '@/domain/models/CardSet';
 import { ICardSetService } from '@/domain/services/ICardSetService';
 import { ICardDisplayManager } from '@/domain/managers/ICardDisplayManager';
 import { ICardInteractionService } from '@/domain/services/ICardInteractionService';
@@ -29,6 +29,7 @@ import { SearchStartedEvent, SearchCompletedEvent, SearchClearedEvent } from '..
 import { LayoutChangedEvent } from '../../domain/events/LayoutEvents';
 import { ToolbarActionEvent } from '../../domain/events/ToolbarEvents';
 import { ViewChangedEvent, ViewActivatedEvent, ViewDeactivatedEvent } from '../../domain/events/ViewEvents';
+import type CardNavigatorPlugin from '@/main';
 
 // useCases import
 import { OpenCardNavigatorUseCase } from '@/application/useCases/OpenCardNavigatorUseCase';
@@ -90,11 +91,15 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
   private currentRenderConfig: ICardRenderConfig | null = null;
   private currentStyle: ICardStyle | null = null;
   private isInitialized: boolean = false;
+  private plugin: CardNavigatorPlugin;
 
   constructor() {
     try {
       const container = Container.getInstance();
       console.debug('CardNavigatorViewModel 생성자 시작');
+
+      // 플러그인 인스턴스 가져오기 
+      this.plugin = container.resolve<CardNavigatorPlugin>('Plugin');
 
       // ILoggingService를 가장 먼저 주입
       console.debug('ILoggingService 서비스 해결 시도');
@@ -607,12 +612,48 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
       }
       
       // 1. 카드셋 생성
+      // 사용자 설정에 따라 입력 매개변수 구성
+      let finalCriteria = criteria;
+      let includeSubfolders = false;
+      
+      // 타입별 설정 적용
+      if (type === CardSetType.FOLDER) {
+        // 폴더 모드 및 하위 폴더 설정 적용
+        const folderSetMode = (this.plugin.settings as any).folderSetMode || 'active';
+        if (folderSetMode === 'fixed' && criteria === '') {
+          // 고정 폴더 모드이고 명시적 criteria가 없을 경우, 설정의 고정 폴더 경로 사용
+          finalCriteria = (this.plugin.settings as any).fixedFolderPath || '/';
+          this.logger.debug('고정 폴더 경로 적용', { fixedFolderPath: finalCriteria });
+        }
+        includeSubfolders = this.plugin.settings.includeSubfolders;
+      } else if (type === CardSetType.TAG) {
+        // 태그 모드 설정 적용
+        const tagSetMode = (this.plugin.settings as any).tagSetMode || 'active';
+        if (tagSetMode === 'fixed' && criteria === '') {
+          // 고정 태그 모드이고 명시적 criteria가 없을 경우, 설정의 고정 태그 사용
+          finalCriteria = (this.plugin.settings as any).fixedTag || '';
+          this.logger.debug('고정 태그 적용', { fixedTag: finalCriteria });
+        }
+      }
+      
+      // 카드셋 생성 입력 구성
       const input: CreateCardSetInput = {
         type,
-        criteria,
+        criteria: finalCriteria,
+        includeSubfolders: includeSubfolders,
         containerWidth: this.getContainerDimensions().width,
         containerHeight: this.getContainerDimensions().height
       };
+      
+      // 링크 타입인 경우 링크 설정 추가
+      if (type === CardSetType.LINK) {
+        input.linkType = this.plugin.settings.linkType;
+        input.linkLevel = this.plugin.settings.linkLevel;
+        input.includeBacklinks = this.plugin.settings.includeBacklinks; 
+        input.includeOutgoingLinks = this.plugin.settings.includeOutgoingLinks;
+      }
+      
+      this.logger.debug('카드셋 생성 요청', { input });
       this.currentCardSet = await this.createCardSetUseCase.execute(input);
       this.logger.debug('카드셋 생성 완료', { cardSetId: this.currentCardSet.id });
       

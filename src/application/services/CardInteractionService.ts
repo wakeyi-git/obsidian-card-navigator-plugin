@@ -6,6 +6,7 @@ import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Container } from '@/infrastructure/di/Container';
+import { ICard } from '../../domain/models/Card';
 
 /**
  * 카드 상호작용 서비스 구현체
@@ -132,5 +133,57 @@ export class CardInteractionService implements ICardInteractionService {
    */
   updateUI(): void {
     // UI 업데이트 로직
+  }
+
+  /**
+   * 두 카드 간의 링크를 생성합니다.
+   * @param sourceCard 소스 카드
+   * @param targetCard 타겟 카드
+   */
+  async createLink(sourceCard: ICard, targetCard: ICard): Promise<void> {
+    try {
+      this.performanceMonitor.startMeasure('CardInteractionService.createLink');
+      this.loggingService.debug('카드 간 링크 생성 시작', { 
+        sourceCardId: sourceCard.id, 
+        targetCardId: targetCard.id 
+      });
+
+      // 카드 객체에서 직접 파일 객체 사용
+      const sourceFile = sourceCard.file;
+      const targetFile = targetCard.file;
+
+      if (!sourceFile || !targetFile) {
+        throw new Error('카드에 유효한 파일 정보가 없습니다.');
+      }
+
+      // 소스 파일에 타겟 파일 링크 추가
+      const sourceContent = await this.app.vault.read(sourceFile);
+      const linkText = `[[${targetCard.fileName}]]`;
+      
+      if (!sourceContent.includes(linkText)) {
+        const newContent = sourceContent + '\n\n' + linkText;
+        await this.app.vault.modify(sourceFile, newContent);
+      }
+
+      this.analyticsService.trackEvent('card_link_created', {
+        sourceCardId: sourceCard.id,
+        targetCardId: targetCard.id
+      });
+      
+      this.loggingService.info('카드 간 링크 생성 완료', {
+        sourceCardId: sourceCard.id,
+        targetCardId: targetCard.id
+      });
+    } catch (error) {
+      this.loggingService.error('카드 간 링크 생성 실패', {
+        error,
+        sourceCardId: sourceCard.id,
+        targetCardId: targetCard.id
+      });
+      this.errorHandler.handleError(error as Error, 'CardInteractionService.createLink');
+      throw error;
+    } finally {
+      this.performanceMonitor.endMeasure('CardInteractionService.createLink');
+    }
   }
 } 
