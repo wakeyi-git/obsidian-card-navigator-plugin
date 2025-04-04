@@ -151,13 +151,25 @@ export class CardSetService implements ICardSetService {
 
       // 파일 필터링
       const targetFiles = files.filter(file => {
+        // 루트 폴더인 경우
         if (folderPath === '/') {
-          return file.parent?.path === folderPath || !file.parent;
+          return file.parent === null || file.parent.path === '/';
         }
-        if (!file.path.startsWith(folderPath)) {
-          return false;
+
+        // 폴더 경로에 슬래시를 추가하여 정확한 경로 검사
+        const folderPathWithSlash = folderPath.endsWith('/') ? folderPath : folderPath + '/';
+        
+        // 파일이 해당 폴더 내에 있는지 확인
+        const isInFolder = file.path.startsWith(folderPathWithSlash) || file.path === folderPath;
+        
+        // 하위 폴더 포함 옵션에 따른 처리
+        if (!includeSubfolders) {
+          // 하위 폴더 미포함 시 직접적인 자식 파일만 포함
+          return isInFolder && (file.parent?.path === folderPath);
         }
-        return includeSubfolders || file.parent?.path === folderPath;
+        
+        // 하위 폴더 포함 옵션이 활성화된 경우 모든 하위 파일 포함
+        return isInFolder;
       });
       
       this.loggingService.debug('필터링된 파일', { 
@@ -205,13 +217,62 @@ export class CardSetService implements ICardSetService {
 
       const files = this.app.vault.getFiles();
       const cards: ICard[] = [];
+      const tagWithoutHash = tag.startsWith('#') ? tag.substring(1) : tag;
 
       for (const file of files) {
-        const content = await this.app.vault.read(file);
-        if (content.includes(tag)) {
+        let hasTag = false;
+        
+        // 메타데이터 캐시를 통해 태그 확인
+        const cache = this.app.metadataCache.getFileCache(file);
+        if (cache) {
+          // 1. 인라인 태그 확인 (예: #태그)
+          if (cache.tags) {
+            for (const tagObj of cache.tags) {
+              // #tag 형식으로 저장된 태그를 검사
+              if (tagObj.tag === tag || tagObj.tag === '#' + tagWithoutHash) {
+                hasTag = true;
+                break;
+              }
+            }
+          }
+          
+          // 2. 프론트매터 태그 확인
+          if (!hasTag && cache.frontmatter) {
+            // 2.1 frontmatter.tags 배열 확인
+            if (cache.frontmatter.tags && Array.isArray(cache.frontmatter.tags)) {
+              if (cache.frontmatter.tags.includes(tagWithoutHash)) {
+                hasTag = true;
+              }
+            }
+            // 2.2 frontmatter.tags 문자열 확인
+            else if (cache.frontmatter.tags && typeof cache.frontmatter.tags === 'string') {
+              if (cache.frontmatter.tags === tagWithoutHash) {
+                hasTag = true;
+              }
+            }
+            // 2.3 frontmatter.tag 문자열 확인 (단수형)
+            else if (cache.frontmatter.tag && typeof cache.frontmatter.tag === 'string') {
+              if (cache.frontmatter.tag === tagWithoutHash) {
+                hasTag = true;
+              }
+            }
+          }
+        }
+        
+        // 3. 위 검사로 태그를 찾지 못했다면, 파일 내용도 확인 (기존 방식 유지)
+        if (!hasTag) {
+          const content = await this.app.vault.read(file);
+          if (content.includes(tag)) {
+            hasTag = true;
+          }
+        }
+        
+        // 태그가 있으면 카드 생성
+        if (hasTag) {
           const card = await this.cardService.createFromFile(file);
           if (card) {
             cards.push(card);
+            this.loggingService.debug('태그가 있는 카드 추가', { filePath: file.path, tag });
           }
         }
       }
@@ -509,6 +570,60 @@ export class CardSetService implements ICardSetService {
       throw new CardSetError('폴더별 카드셋 가져오기 중 오류가 발생했습니다.');
     } finally {
       this.performanceMonitor.endMeasure('CardSetService.getCardSetByFolder');
+    }
+  }
+
+  /**
+   * 태그별 카드셋 가져오기
+   * @param tag 태그
+   */
+  async getCardSetByTag(tag: string): Promise<ICardSet | null> {
+    try {
+      this.performanceMonitor.startMeasure('CardSetService.getCardSetByTag');
+      this.loggingService.debug('태그별 카드셋 가져오기 시작', { tag });
+
+      // 태그 유효성 검사
+      if (!tag) {
+        this.loggingService.warn('태그가 없어 빈 카드셋 반환');
+        return null;
+      }
+
+      // 기존 카드셋 찾기
+      for (const cardSet of this.cardSets.values()) {
+        if (cardSet.type === CardSetType.TAG && cardSet.criteria === tag) {
+          this.loggingService.debug('기존 카드셋 찾음', { 
+            cardSetId: cardSet.id,
+            cardCount: cardSet.cards.length
+          });
+          return cardSet;
+        }
+      }
+
+      // 새로운 카드셋 생성
+      this.loggingService.debug('새로운 태그 카드셋 생성 시작', { tag });
+      try {
+        const cardSet = await this.createCardSet(
+          CardSetType.TAG,
+          tag,
+          {
+            sortConfig: DEFAULT_CARD_SET_CONFIG.sortConfig
+          }
+        );
+
+        this.loggingService.debug('태그별 카드셋 생성 완료', { 
+          cardSetId: cardSet.id,
+          cardCount: cardSet.cards.length
+        });
+        return cardSet;
+      } catch (error) {
+        this.loggingService.error('새로운 태그 카드셋 생성 실패', { error, tag });
+        throw error;
+      }
+    } catch (error) {
+      this.loggingService.error('태그별 카드셋 가져오기 실패', { error, tag });
+      throw new CardSetError('태그별 카드셋 가져오기 중 오류가 발생했습니다.');
+    } finally {
+      this.performanceMonitor.endMeasure('CardSetService.getCardSetByTag');
     }
   }
 

@@ -1,6 +1,7 @@
 import { ICardNavigatorView } from './ICardNavigatorView';
 import { ICardRenderConfig } from '@/domain/models/CardRenderConfig';
 import { ICardStyle } from '@/domain/models/CardStyle';
+import { ICardSet } from '@/domain/models/CardSet';
 
 /**
  * 포커스 이동 방향
@@ -140,6 +141,12 @@ export interface ICardNavigatorViewModel {
    * 카드 스타일 가져오기
    */
   getCardStyle(): ICardStyle;
+
+  /**
+   * 현재 카드셋 가져오기
+   * @returns 현재 카드셋 또는 null
+   */
+  getCurrentCardSet(): ICardSet | null;
 
   /**
    * 두 카드 간의 링크를 생성합니다.

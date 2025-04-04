@@ -65,6 +65,12 @@ export interface ICardSetService {
   getCardSetByFolder(folderPath: string): Promise<ICardSet | null>;
 
   /**
+   * 태그별 카드셋 가져오기
+   * @param tag 태그
+   */
+  getCardSetByTag(tag: string): Promise<ICardSet | null>;
+
+  /**
    * 카드셋 필터링
    * @param cardSet 카드셋
    * @param filter 필터 함수
