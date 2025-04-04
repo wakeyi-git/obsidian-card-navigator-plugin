@@ -1,6 +1,6 @@
 import { IDomainEventHandler } from './IDomainEventHandler';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
-import { IEventDispatcher } from '@/domain/interfaces/infrastructure/IEventDispatcher';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { DomainEvent, IEventHandler } from './DomainEvent';
 import { Container } from '@/infrastructure/di/Container';
 import { EventError, EventErrorType } from '@/domain/errors/EventError';

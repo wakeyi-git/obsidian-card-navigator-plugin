@@ -1,4 +1,4 @@
-import { IPreset, PresetType, IPresetConfig } from '../../domain/models/Preset';
+import { IPreset, PresetType } from '../../domain/models/Preset';
 import { ICardRenderConfig } from '../../domain/models/CardRenderConfig';
 import { ICardStyle } from '../../domain/models/CardStyle';
 import { ISearchFilter } from '../../domain/models/SearchFilter';
@@ -8,11 +8,11 @@ import { IPresetManager } from '../../domain/managers/IPresetManager';
 import { PresetServiceError } from '../../domain/errors/PresetServiceError';
 import { PresetCreatedEvent, PresetUpdatedEvent, PresetDeletedEvent, PresetAppliedEvent } from '../../domain/events/PresetEvents';
 import { App } from 'obsidian';
-import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
-import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
-import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
-import { IEventDispatcher } from '@/domain/interfaces/events/IEventDispatcher';
+import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
+import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
+import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Container } from '@/infrastructure/di/Container';
 
 /**
@@ -294,7 +294,7 @@ export class PresetManager implements IPresetManager {
       }
 
       // 이벤트 발생
-      this.eventDispatcher.dispatch(new PresetDeletedEvent(presetId));
+      this.eventDispatcher.dispatch(new PresetDeletedEvent(preset));
 
       this.analyticsService.trackEvent('preset_deleted', {
         presetId,

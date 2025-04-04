@@ -3,12 +3,12 @@ import { ICard, NoteTitleDisplayType } from '@/domain/models/Card';
 import { ICardService } from '@/domain/services/ICardService';
 import { ICardFactory } from '@/domain/factories/ICardFactory';
 import { ICardRenderConfig, DEFAULT_CARD_RENDER_CONFIG } from '@/domain/models/CardRenderConfig';
-import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
-import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
-import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
-import { IEventDispatcher } from '@/domain/interfaces/events/IEventDispatcher';
-import { CardCreatedEvent, CardUpdatedEvent, CardDeletedEvent } from '@/domain/events/CardEvents';
+import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
+import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
+import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
+import { CardCreatedEvent, CardUpdatedEvent, CardDeletedEvent, CardSelectedEvent, CardDeselectedEvent } from '@/domain/events/CardEvents';
 import { CardServiceError } from '@/domain/errors/CardServiceError';
 import { ICardStyle, DEFAULT_CARD_STYLE } from '@/domain/models/CardStyle';
 import { Container } from '@/infrastructure/di/Container';
@@ -20,6 +20,7 @@ import { RenderManager } from '@/application/manager/RenderManager';
 export class CardService implements ICardService {
   private static instance: CardService;
   private readonly renderManager: RenderManager;
+  private selectedCards: Set<string> = new Set();
 
   private constructor(
     private readonly app: App,
@@ -266,6 +267,7 @@ export class CardService implements ICardService {
     this.performanceMonitor.startMeasure(perfMark);
     try {
       this.loggingService.debug('카드 삭제 시작', { cardId });
+
       const file = this.app.vault.getAbstractFileByPath(cardId);
       if (!file || !(file instanceof TFile)) {
         throw new Error('파일을 찾을 수 없습니다.');
@@ -367,5 +369,45 @@ export class CardService implements ICardService {
    */
   getDefaultStyle(): ICardStyle {
     return DEFAULT_CARD_STYLE;
+  }
+
+  /**
+   * 카드 선택
+   */
+  async selectCard(cardId: string): Promise<void> {
+    try {
+      this.selectedCards.add(cardId);
+      await this.eventDispatcher.dispatch(new CardSelectedEvent(cardId));
+      this.loggingService.debug(`[CardService] Card selected: ${cardId}`);
+    } catch (error) {
+      this.errorHandler.handleError(error, 'CardService.selectCard');
+      throw error;
+    }
+  }
+
+  /**
+   * 카드 선택 해제
+   */
+  async deselectCard(cardId: string): Promise<void> {
+    try {
+      this.selectedCards.delete(cardId);
+      await this.eventDispatcher.dispatch(new CardDeselectedEvent(cardId));
+      this.loggingService.debug(`[CardService] Card deselected: ${cardId}`);
+    } catch (error) {
+      this.errorHandler.handleError(error, 'CardService.deselectCard');
+      throw error;
+    }
+  }
+
+  /**
+   * 선택된 카드 목록 조회
+   */
+  async getSelectedCards(): Promise<string[]> {
+    try {
+      return Array.from(this.selectedCards);
+    } catch (error) {
+      this.errorHandler.handleError(error, 'CardService.getSelectedCards');
+      throw error;
+    }
   }
 } 

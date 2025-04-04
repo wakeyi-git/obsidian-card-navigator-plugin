@@ -1,7 +1,10 @@
+import { DomainEventType } from './DomainEventType';
+import { v4 as uuidv4 } from 'uuid';
+
 /**
  * 도메인 이벤트 인터페이스
  */
-export interface IDomainEvent {
+export interface IDomainEvent<T = any> {
   /**
    * 이벤트 발생 시간
    */
@@ -15,66 +18,66 @@ export interface IDomainEvent {
   /**
    * 이벤트 타입
    */
-  readonly type: string;
+  readonly type: DomainEventType;
 
   /**
    * 이벤트 발생 시간
    */
   readonly timestamp: Date;
-}
 
-/**
- * 도메인 이벤트 타입
- */
-export type DomainEventType = 
-  | 'card-set-created'
-  | 'card-set-updated'
-  | 'card-set-deleted'
-  | 'card-created'
-  | 'card-updated'
-  | 'card-deleted'
-  | 'card-selected'
-  | 'card-focused'
-  | 'card-dragged'
-  | 'card-dropped'
-  | 'preset-created'
-  | 'preset-updated'
-  | 'preset-deleted'
-  | 'layout:configUpdated'
-  | 'layout:modeChanged'
-  | 'layout:cardWidthChanged'
-  | 'layout:cardHeightChanged'
-  | 'layout:cardPositionUpdated'
-  | 'layout:changed'
-  | 'layout:resized';
+  /**
+   * 이벤트 데이터
+   */
+  readonly data: T;
+}
 
 /**
  * 도메인 이벤트 기본 클래스
  */
-export abstract class DomainEvent implements IDomainEvent {
-  readonly eventId: string;
-  readonly type: DomainEventType;
-  readonly timestamp: Date;
-  readonly occurredOn: Date;
+export abstract class DomainEvent<T = any> {
+  /**
+   * 이벤트 생성 시간
+   */
+  public readonly timestamp: Date;
 
-  constructor(type: DomainEventType) {
-    this.eventId = crypto.randomUUID();
-    this.type = type;
+  /**
+   * 이벤트 ID
+   */
+  public readonly id: string;
+
+  /**
+   * 이벤트 타입
+   */
+  public readonly type: DomainEventType;
+
+  /**
+   * 이벤트 데이터
+   */
+  public readonly data: T;
+
+  /**
+   * 생성자
+   * @param type 이벤트 타입
+   * @param data 이벤트 데이터
+   */
+  constructor(type: DomainEventType, data: T) {
     this.timestamp = new Date();
-    this.occurredOn = new Date();
+    this.id = uuidv4();
+    this.type = type;
+    this.data = data;
   }
 
   /**
    * 이벤트 데이터를 문자열로 변환
    */
   toString(): string {
-    return `[${this.type}]`;
+    return `[${this.type}] ${JSON.stringify(this.data)}`;
   }
 
   /**
    * 이벤트 데이터를 복사
    */
-  clone(): DomainEvent {
+  clone(): DomainEvent<T> {
     return Object.assign(Object.create(this), this);
   }
 }
@@ -82,90 +85,90 @@ export abstract class DomainEvent implements IDomainEvent {
 /**
  * 카드셋 이벤트
  */
-export class CardSetCreatedEvent extends DomainEvent {
+export class CardSetCreatedEvent extends DomainEvent<null> {
   constructor() {
-    super('card-set-created');
+    super(DomainEventType.CARDSET_CREATED, null);
   }
 }
 
-export class CardSetUpdatedEvent extends DomainEvent {
+export class CardSetUpdatedEvent extends DomainEvent<null> {
   constructor() {
-    super('card-set-updated');
+    super(DomainEventType.CARDSET_UPDATED, null);
   }
 }
 
-export class CardSetDeletedEvent extends DomainEvent {
+export class CardSetDeletedEvent extends DomainEvent<null> {
   constructor() {
-    super('card-set-deleted');
+    super(DomainEventType.CARDSET_DELETED, null);
   }
 }
 
 /**
  * 카드 이벤트
  */
-export class CardCreatedEvent extends DomainEvent {
+export class CardCreatedEvent extends DomainEvent<null> {
   constructor() {
-    super('card-created');
+    super(DomainEventType.CARD_CREATED, null);
   }
 }
 
-export class CardUpdatedEvent extends DomainEvent {
+export class CardUpdatedEvent extends DomainEvent<null> {
   constructor() {
-    super('card-updated');
+    super(DomainEventType.CARD_UPDATED, null);
   }
 }
 
-export class CardDeletedEvent extends DomainEvent {
+export class CardDeletedEvent extends DomainEvent<null> {
   constructor() {
-    super('card-deleted');
+    super(DomainEventType.CARD_DELETED, null);
   }
 }
 
 /**
  * 카드 포커스 이벤트
  */
-export class CardFocusedEvent extends DomainEvent {
+export class CardFocusedEvent extends DomainEvent<null> {
   constructor() {
-    super('card-focused');
+    super(DomainEventType.CARD_FOCUSED, null);
   }
 }
 
-export class CardSelectedEvent extends DomainEvent {
+export class CardSelectedEvent extends DomainEvent<null> {
   constructor() {
-    super('card-selected');
+    super(DomainEventType.CARD_SELECTED, null);
   }
 }
 
-export class CardDraggedEvent extends DomainEvent {
+export class CardDraggedEvent extends DomainEvent<null> {
   constructor() {
-    super('card-dragged');
+    super(DomainEventType.CARD_DRAGGED, null);
   }
 }
 
-export class CardDroppedEvent extends DomainEvent {
+export class CardDroppedEvent extends DomainEvent<null> {
   constructor() {
-    super('card-dropped');
+    super(DomainEventType.CARD_DROPPED, null);
   }
 }
 
 /**
  * 프리셋 이벤트
  */
-export class PresetCreatedEvent extends DomainEvent {
+export class PresetCreatedEvent extends DomainEvent<null> {
   constructor() {
-    super('preset-created');
+    super(DomainEventType.PRESET_CREATED, null);
   }
 }
 
-export class PresetUpdatedEvent extends DomainEvent {
+export class PresetUpdatedEvent extends DomainEvent<null> {
   constructor() {
-    super('preset-updated');
+    super(DomainEventType.PRESET_UPDATED, null);
   }
 }
 
-export class PresetDeletedEvent extends DomainEvent {
+export class PresetDeletedEvent extends DomainEvent<null> {
   constructor() {
-    super('preset-deleted');
+    super(DomainEventType.PRESET_DELETED, null);
   }
 }
 

@@ -1,10 +1,10 @@
 import { ICardInteractionService, ContextMenuActionType, DragDropTargetType, IDragDropTarget } from '../../domain/services/ICardInteractionService';
 import { TFile, App } from 'obsidian';
-import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
-import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
-import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
-import { IEventDispatcher } from '@/domain/interfaces/events/IEventDispatcher';
+import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
+import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
+import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Container } from '@/infrastructure/di/Container';
 
 /**

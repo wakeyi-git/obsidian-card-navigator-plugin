@@ -1,6 +1,9 @@
-import { DomainEvent, DomainEventType, IEventDispatcher, IEventHandler } from './DomainEvent';
-import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
+import { DomainEvent } from './DomainEvent';
+import { DomainEventType } from './DomainEventType';
+import { IEventHandler } from './DomainEvent';
+import { IEventDispatcher } from './DomainEvent';
+import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { EventError, EventErrorType } from '../errors/EventError';
 import { Container } from '@/infrastructure/di/Container';
 

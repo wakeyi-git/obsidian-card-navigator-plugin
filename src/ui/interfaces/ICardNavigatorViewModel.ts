@@ -1,4 +1,6 @@
-import { ICardNavigatorView } from '../views/ICardNavigatorView';
+import { ICardNavigatorView } from './ICardNavigatorView';
+import { ICardRenderConfig } from '@/domain/models/CardRenderConfig';
+import { ICardStyle } from '@/domain/models/CardStyle';
 
 /**
  * 포커스 이동 방향
@@ -52,6 +54,18 @@ export interface ICardNavigatorViewModel {
    * @param cardId 카드 ID
    */
   deselectCard(cardId: string): Promise<void>;
+
+  /**
+   * 카드 범위 선택
+   * @param cardId 카드 ID
+   */
+  selectCardsInRange(cardId: string): Promise<void>;
+
+  /**
+   * 카드 선택 토글
+   * @param cardId 카드 ID
+   */
+  toggleCardSelection(cardId: string): Promise<void>;
 
   /**
    * 카드 포커스
@@ -116,4 +130,21 @@ export interface ICardNavigatorViewModel {
    * 컨테이너 크기 가져오기
    */
   getContainerDimensions(): { width: number; height: number };
+
+  /**
+   * 렌더링 설정 가져오기
+   */
+  getRenderConfig(): ICardRenderConfig;
+
+  /**
+   * 카드 스타일 가져오기
+   */
+  getCardStyle(): ICardStyle;
+
+  /**
+   * 두 카드 간의 링크를 생성합니다.
+   * @param sourceCardId 소스 카드 ID
+   * @param targetCardId 타겟 카드 ID
+   */
+  createLinkBetweenCards(sourceCardId: string, targetCardId: string): Promise<void>;
 } 

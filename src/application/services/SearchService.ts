@@ -2,14 +2,15 @@ import { ICard } from '../../domain/models/Card';
 import { ICardSet, CardSetType, ICardSetConfig } from '../../domain/models/CardSet';
 import { ISearchFilter, SearchFilter } from '../../domain/models/SearchFilter';
 import { ISearchService, ISearchResultItem } from '../../domain/services/ISearchService';
+import { ISearchResult } from '../../domain/models/SearchResult';
 import { SearchServiceError } from '../../domain/errors/SearchServiceError';
 import { SearchStartedEvent, SearchCompletedEvent, SearchFailedEvent } from '../../domain/events/SearchEvents';
-import { IEventDispatcher } from '@/domain/interfaces/events/IEventDispatcher';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Debouncer } from '../../domain/utils/Debouncer';
-import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
-import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
-import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
+import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
+import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
+import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { ISortService } from '@/domain/services/ISortService';
 import { Container } from '@/infrastructure/di/Container';
 
@@ -91,11 +92,24 @@ export class SearchService implements ISearchService {
     try {
       this.eventDispatcher.dispatch(new SearchStartedEvent(filter.query));
 
+      const startTime = new Date();
       const results = await this.searchDebouncer.execute(filter);
       const sortedResults = await this.sortService.sort(results, filter.sortConfig);
+      const endTime = new Date();
+      const duration = endTime.getTime() - startTime.getTime();
 
       const cardSet = this.convertSearchResultsToCardSet(sortedResults, filter, CardSetType.FOLDER, { searchFilter: filter });
-      this.eventDispatcher.dispatch(new SearchCompletedEvent(cardSet));
+      
+      const searchResult: ISearchResult = {
+        query: filter.query,
+        results: cardSet,
+        startTime,
+        endTime,
+        duration,
+        resultCount: sortedResults.length
+      };
+
+      this.eventDispatcher.dispatch(new SearchCompletedEvent(searchResult));
 
       return sortedResults;
     } catch (error) {

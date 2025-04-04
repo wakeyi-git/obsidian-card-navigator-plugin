@@ -1,4 +1,4 @@
-import { IStyleProperties, DEFAULT_CARD_STYLE } from './CardStyle';
+import { IStyleProperties, DEFAULT_CARD_STYLE, ICardStyle } from './CardStyle';
 import { NoteTitleDisplayType } from './Card';
 
 /**
@@ -41,19 +41,14 @@ export interface ICardRenderConfig {
   readonly bodyDisplay: ISectionDisplayConfig;
   readonly footerDisplay: ISectionDisplayConfig;
 
-  // 스타일 설정
-  readonly headerStyle: IStyleProperties;
-  readonly bodyStyle: IStyleProperties;
-  readonly footerStyle: IStyleProperties;
-  readonly normalCardStyle: IStyleProperties;
-  readonly activeCardStyle: IStyleProperties;
-  readonly focusedCardStyle: IStyleProperties;
-
   // 렌더링 기능 설정
   readonly showImages: boolean;
   readonly highlightCode: boolean;
   readonly supportCallouts: boolean;
   readonly supportMath: boolean;
+
+  // 카드 스타일 설정
+  readonly style: ICardStyle;
 
   /**
    * 렌더링 설정 유효성 검사
@@ -75,16 +70,11 @@ export interface ICardRenderConfig {
     headerDisplay: ISectionDisplayConfig;
     bodyDisplay: ISectionDisplayConfig;
     footerDisplay: ISectionDisplayConfig;
-    headerStyle: IStyleProperties;
-    bodyStyle: IStyleProperties;
-    footerStyle: IStyleProperties;
-    normalCardStyle: IStyleProperties;
-    activeCardStyle: IStyleProperties;
-    focusedCardStyle: IStyleProperties;
     showImages: boolean;
     highlightCode: boolean;
     supportCallouts: boolean;
     supportMath: boolean;
+    style: ICardStyle;
   };
 }
 
@@ -127,16 +117,11 @@ export const DEFAULT_CARD_RENDER_CONFIG: ICardRenderConfig = {
     showUpdatedDate: true,
     showProperties: []
   },
-  headerStyle: DEFAULT_CARD_STYLE.header,
-  bodyStyle: DEFAULT_CARD_STYLE.body,
-  footerStyle: DEFAULT_CARD_STYLE.footer,
-  normalCardStyle: DEFAULT_CARD_STYLE.card,
-  activeCardStyle: DEFAULT_CARD_STYLE.activeCard,
-  focusedCardStyle: DEFAULT_CARD_STYLE.focusedCard,
   showImages: true,
   highlightCode: true,
   supportCallouts: true,
   supportMath: true,
+  style: DEFAULT_CARD_STYLE,
   validate: () => true,
   preview: function() {
     return {
@@ -151,16 +136,11 @@ export const DEFAULT_CARD_RENDER_CONFIG: ICardRenderConfig = {
       headerDisplay: this.headerDisplay,
       bodyDisplay: this.bodyDisplay,
       footerDisplay: this.footerDisplay,
-      headerStyle: this.headerStyle,
-      bodyStyle: this.bodyStyle,
-      footerStyle: this.footerStyle,
-      normalCardStyle: this.normalCardStyle,
-      activeCardStyle: this.activeCardStyle,
-      focusedCardStyle: this.focusedCardStyle,
       showImages: this.showImages,
       highlightCode: this.highlightCode,
       supportCallouts: this.supportCallouts,
-      supportMath: this.supportMath
+      supportMath: this.supportMath,
+      style: this.style
     };
   }
 };

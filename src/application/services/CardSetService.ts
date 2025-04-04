@@ -4,11 +4,11 @@ import { ICard } from '../../domain/models/Card';
 import { ICardSet, DEFAULT_CARD_SET_CONFIG } from '../../domain/models/CardSet';
 import { CardSetType } from '../../domain/models/CardSet';
 import { ISortConfig } from '../../domain/models/SortConfig';
-import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
-import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
-import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
-import { IEventDispatcher } from '@/domain/interfaces/events/IEventDispatcher';
+import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
+import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
+import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Container } from '@/infrastructure/di/Container';
 import { CardSetError } from '../../domain/errors/CardSetError';
 import { ICardService } from '../../domain/services/ICardService';
@@ -131,6 +131,8 @@ export class CardSetService implements ICardSetService {
       this.loggingService.debug('폴더에서 카드 로드 시작', { folderPath, includeSubfolders });
 
       const files = this.app.vault.getFiles();
+      this.loggingService.debug('볼트에서 파일 가져옴', { totalFiles: files.length });
+      
       const cards: ICard[] = [];
       const BATCH_SIZE = 5; // 한 번에 처리할 파일 수
 
@@ -144,20 +146,40 @@ export class CardSetService implements ICardSetService {
         }
         return includeSubfolders || file.parent?.path === folderPath;
       });
+      
+      this.loggingService.debug('필터링된 파일', { 
+        targetFilesCount: targetFiles.length,
+        folderPath,
+        includeSubfolders
+      });
+
+      if (targetFiles.length === 0) {
+        this.loggingService.warn('폴더에 파일이 없음', { folderPath });
+        return [];
+      }
 
       // 배치 처리
       for (let i = 0; i < targetFiles.length; i += BATCH_SIZE) {
         const batch = targetFiles.slice(i, i + BATCH_SIZE);
+        this.loggingService.debug(`배치 처리 중 (${i+1}-${Math.min(i+BATCH_SIZE, targetFiles.length)}/${targetFiles.length})`);
+        
         const batchPromises = batch.map(file => this.cardService.createFromFile(file));
         const batchResults = await Promise.all(batchPromises);
-        cards.push(...batchResults.filter((card): card is ICard => card !== null));
+        const validCards = batchResults.filter((card): card is ICard => card !== null);
+        
+        this.loggingService.debug('배치 결과', { 
+          batchSize: batch.length, 
+          validCardsCount: validCards.length 
+        });
+        
+        cards.push(...validCards);
       }
 
       this.loggingService.info('폴더에서 카드 로드 완료', { folderPath, cardCount: cards.length });
       return cards;
     } catch (error) {
       this.loggingService.error('폴더에서 카드 로드 실패', { error, folderPath });
-      throw new CardSetError('폴더에서 카드 로드 중 오류가 발생했습니다.');
+      throw new CardSetError(`폴더에서 카드 로드 중 오류가 발생했습니다: ${error.message}`);
     } finally {
       this.performanceMonitor.endMeasure('CardSetService.loadCardsFromFolder');
     }
@@ -305,27 +327,44 @@ export class CardSetService implements ICardSetService {
       this.performanceMonitor.startMeasure('CardSetService.getCardSetByFolder');
       this.loggingService.debug('폴더별 카드셋 가져오기 시작', { folderPath });
 
+      // 폴더 경로 유효성 검사
+      if (!folderPath) {
+        folderPath = '/';
+        this.loggingService.warn('폴더 경로가 없어 루트 폴더로 설정');
+      }
+
       // 기존 카드셋 찾기
       for (const cardSet of this.cardSets.values()) {
         if (cardSet.type === CardSetType.FOLDER && cardSet.criteria === folderPath) {
-          this.loggingService.debug('기존 카드셋 찾음', { cardSetId: cardSet.id });
+          this.loggingService.debug('기존 카드셋 찾음', { 
+            cardSetId: cardSet.id,
+            cardCount: cardSet.cards.length
+          });
           return cardSet;
         }
       }
 
       // 새로운 카드셋 생성
-      this.loggingService.debug('새로운 카드셋 생성 시작');
-      const cardSet = await this.createCardSet(
-        CardSetType.FOLDER,
-        folderPath,
-        {
-          includeSubfolders: false,
-          sortConfig: DEFAULT_CARD_SET_CONFIG.sortConfig
-        }
-      );
+      this.loggingService.debug('새로운 카드셋 생성 시작', { folderPath });
+      try {
+        const cardSet = await this.createCardSet(
+          CardSetType.FOLDER,
+          folderPath,
+          {
+            includeSubfolders: false,
+            sortConfig: DEFAULT_CARD_SET_CONFIG.sortConfig
+          }
+        );
 
-      this.loggingService.debug('폴더별 카드셋 가져오기 완료', { cardSetId: cardSet.id });
-      return cardSet;
+        this.loggingService.debug('폴더별 카드셋 생성 완료', { 
+          cardSetId: cardSet.id,
+          cardCount: cardSet.cards.length
+        });
+        return cardSet;
+      } catch (error) {
+        this.loggingService.error('새로운 카드셋 생성 실패', { error, folderPath });
+        throw error;
+      }
     } catch (error) {
       this.loggingService.error('폴더별 카드셋 가져오기 실패', { error, folderPath });
       throw new CardSetError('폴더별 카드셋 가져오기 중 오류가 발생했습니다.');
@@ -391,5 +430,34 @@ export class CardSetService implements ICardSetService {
   private notifyEvent(type: string, cardSetId: string, data?: any): void {
     const event = { type, cardSetId, data };
     this.eventSubscribers.forEach(callback => callback(event));
+  }
+
+  /**
+   * ID로 카드를 가져옵니다.
+   * @param cardId 카드 ID
+   * @returns 카드 또는 null
+   */
+  getCardById(cardId: string): ICard | null {
+    try {
+      this.performanceMonitor.startMeasure('CardSetService.getCardById');
+      this.loggingService.debug('ID로 카드 조회 시작', { cardId });
+
+      // 모든 카드셋에서 해당 ID의 카드 찾기
+      for (const cardSet of this.cardSets.values()) {
+        const card = cardSet.cards.find(c => c.id === cardId);
+        if (card) {
+          this.loggingService.debug('카드 찾음', { cardId, cardSetId: cardSet.id });
+          return card;
+        }
+      }
+
+      this.loggingService.debug('카드를 찾을 수 없음', { cardId });
+      return null;
+    } catch (error) {
+      this.loggingService.error('ID로 카드 조회 중 오류 발생', { error, cardId });
+      return null;
+    } finally {
+      this.performanceMonitor.endMeasure('CardSetService.getCardById');
+    }
   }
 } 

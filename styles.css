@@ -293,3 +293,32 @@
   font-size: 0.9em;
   color: var(--text-muted);
 }
+
+/* 카드 스타일 */
+.card-navigator-card {
+  cursor: move;
+  user-select: none;
+  transition: all 0.2s ease-in-out;
+}
+
+/* 드래그 중인 카드 */
+.card-navigator-card.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+  box-shadow: 0 0 20px rgba(var(--interactive-accent-rgb), 0.3);
+}
+
+/* 드롭 대상 카드 */
+.card-navigator-card.drop-target {
+  border: 2px dashed var(--interactive-accent);
+  background-color: rgba(var(--interactive-accent-rgb), 0.1);
+}
+
+/* 드래그 중인 카드의 미리보기 */
+.card-navigator-card.drag-preview {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  transform: scale(0.8);
+  opacity: 0.8;
+}

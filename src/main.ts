@@ -20,6 +20,7 @@ import { ActiveFileWatcher } from './application/services/ActiveFileWatcher';
 import { ClipboardService } from './application/services/ClipboardService';
 import { FileService } from './application/services/FileService';
 import { RenderManager } from './application/manager/RenderManager';
+import { IRenderManager } from './domain/managers/IRenderManager';
 import { PresetManager } from './application/manager/PresetManager';
 import { PresetService } from './application/services/PresetService';
 import { ToolbarService } from './application/services/ToolbarService';
@@ -36,6 +37,15 @@ export default class CardNavigatorPlugin extends Plugin {
     // DI 컨테이너 초기화
     this.container = Container.getInstance();
     this.initializeContainer();
+
+    // 주요 매니저 초기화
+    try {
+      const renderManager = this.container.resolve<IRenderManager>('IRenderManager');
+      renderManager.initialize();
+      console.log('렌더링 관리자 초기화 완료');
+    } catch (error) {
+      console.error('렌더링 관리자 초기화 실패:', error);
+    }
 
     // 뷰 등록
     this.registerView(

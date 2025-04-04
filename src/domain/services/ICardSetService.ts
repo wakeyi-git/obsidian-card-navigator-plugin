@@ -99,4 +99,11 @@ export interface ICardSetService {
    * @param callback 콜백 함수
    */
   unsubscribeFromCardSetEvents(callback: (event: any) => void): void;
+
+  /**
+   * ID로 카드를 가져옵니다.
+   * @param cardId 카드 ID
+   * @returns 카드 또는 null
+   */
+  getCardById(cardId: string): ICard | null;
 } 

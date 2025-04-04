@@ -1,6 +1,6 @@
 import { App } from 'obsidian';
-import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
+import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { Container } from '@/infrastructure/di/Container';
 
 /**

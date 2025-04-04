@@ -21,6 +21,11 @@ export interface IPresetService {
   cleanup(): void;
 
   /**
+   * 현재 적용된 프리셋 가져오기
+   */
+  getCurrentPreset(): IPreset | null;
+
+  /**
    * 프리셋 생성
    * @param name 프리셋 이름
    * @param type 프리셋 타입

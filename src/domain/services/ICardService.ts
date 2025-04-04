@@ -64,4 +64,19 @@ export interface ICardService {
    * 기본 스타일 반환
    */
   getDefaultStyle(): ICardStyle;
+
+  /**
+   * 카드 선택
+   */
+  selectCard(cardId: string): Promise<void>;
+
+  /**
+   * 카드 선택 해제
+   */
+  deselectCard(cardId: string): Promise<void>;
+
+  /**
+   * 선택된 카드 목록 조회
+   */
+  getSelectedCards(): Promise<string[]>;
 } 

@@ -6,6 +6,9 @@ import { DEFAULT_CARD_STYLE } from '@/domain/models/CardStyle';
 import { CardPreview } from '../components/CardPreview';
 import { ICardStyle, IStyleProperties } from '@/domain/models/CardStyle';
 import { ICardRenderConfig, ISectionDisplayConfig } from '@/domain/models/CardRenderConfig';
+import { ICardDisplayManager } from '@/domain/managers/ICardDisplayManager';
+import { IRenderManager } from '@/domain/managers/IRenderManager';
+import { Container } from '@/infrastructure/di/Container';
 
 type SectionType = 'card' | 'header' | 'body' | 'footer';
 
@@ -20,8 +23,14 @@ export class CardSettingsSection {
   private contentLengthLimitSlider: Setting | null = null;
   private styleSettingsTitle: HTMLElement;
   private displaySettingsTitle: HTMLElement;
+  private cardDisplayManager: ICardDisplayManager;
+  private renderManager: IRenderManager;
 
-  constructor(private plugin: CardNavigatorPlugin) {}
+  constructor(private plugin: CardNavigatorPlugin) {
+    const container = Container.getInstance();
+    this.cardDisplayManager = container.resolve<ICardDisplayManager>('ICardDisplayManager');
+    this.renderManager = container.resolve<IRenderManager>('IRenderManager');
+  }
 
   /**
    * 설정 섹션 생성
@@ -414,6 +423,7 @@ export class CardSettingsSection {
    * 스타일 업데이트
    */
   private async updateStyle(styleKey: 'card' | 'activeCard' | 'focusedCard' | 'header' | 'body' | 'footer', property: keyof IStyleProperties, value: string): Promise<void> {
+    // cardStyle 업데이트
     this.plugin.settings = {
       ...this.plugin.settings,
       cardStyle: {
@@ -425,7 +435,13 @@ export class CardSettingsSection {
       }
     };
     await this.plugin.saveSettings();
+    
+    // 카드 프리뷰 업데이트
     this.cardPreview.updateStyle(this.plugin.settings.cardStyle);
+    
+    // 카드 표시 관리자와 렌더링 관리자에 스타일 업데이트 알림
+    this.cardDisplayManager.updateCardStyle('*', this.plugin.settings.cardStyle);
+    this.renderManager.updateStyle(this.plugin.settings.cardStyle);
   }
 
   /**
@@ -442,6 +458,7 @@ export class CardSettingsSection {
 
     if (!sectionConfig) return;
 
+    // cardRenderConfig 업데이트
     this.plugin.settings = {
       ...this.plugin.settings,
       cardRenderConfig: {
@@ -453,7 +470,13 @@ export class CardSettingsSection {
       }
     };
     await this.plugin.saveSettings();
+    
+    // 카드 프리뷰 업데이트
     this.cardPreview.updateRenderConfig(this.plugin.settings.cardRenderConfig);
+    
+    // 카드 표시 관리자와 렌더링 관리자에 렌더링 설정 업데이트 알림
+    this.cardDisplayManager.updateRenderConfig(this.plugin.settings.cardRenderConfig);
+    this.renderManager.updateRenderConfig(this.plugin.settings.cardRenderConfig);
   }
 
   /**

@@ -7,12 +7,12 @@ import {
   LayoutType,
   LayoutDirection,
 } from '@/domain/models/LayoutConfig';
-import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
-import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
-import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
-import { IEventDispatcher } from '@/domain/interfaces/events/IEventDispatcher';
-import { LayoutConfigUpdatedEvent, CardPositionUpdatedEvent } from '@/domain/events/LayoutEvents';
+import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
+import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
+import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
+import { LayoutConfigUpdatedEvent, LayoutCardPositionUpdatedEvent } from '@/domain/events/LayoutEvents';
 import { LayoutServiceError } from '@/domain/errors/LayoutServiceError';
 import { LayoutUtils } from '@/domain/utils/layoutUtils';
 import { Container } from '@/infrastructure/di/Container';
@@ -232,7 +232,14 @@ export class LayoutService implements ILayoutService {
     try {
       this.loggingService.debug('카드 위치 업데이트 시작', { cardId, x, y });
       this.cardPositions.set(cardId, { x, y });
-      this.eventDispatcher.dispatch(new CardPositionUpdatedEvent(cardId, x, y));
+      this.eventDispatcher.dispatch(new LayoutCardPositionUpdatedEvent({
+        type: this.config.type,
+        fixedHeight: this.config.fixedHeight,
+        minCardWidth: this.config.minCardWidth,
+        minCardHeight: this.config.minCardHeight,
+        gap: this.config.gap,
+        padding: this.config.padding
+      }));
 
       this.analyticsService.trackEvent('card_position_updated', {
         cardId,
@@ -240,9 +247,9 @@ export class LayoutService implements ILayoutService {
         y
       });
 
-      this.loggingService.info('카드 위치 업데이트 완료', { cardId });
+      this.loggingService.info('카드 위치 업데이트 완료', { cardId, x, y });
     } catch (error) {
-      this.loggingService.error('카드 위치 업데이트 실패', { error, cardId });
+      this.loggingService.error('카드 위치 업데이트 실패', { error, cardId, x, y });
       this.errorHandler.handleError(error as Error, 'LayoutService.updateCardPosition');
       throw new LayoutServiceError('CARD_POSITION_UPDATE_FAILED', '카드 위치 업데이트에 실패했습니다.');
     } finally {

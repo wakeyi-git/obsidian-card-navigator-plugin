@@ -6,11 +6,11 @@ import { ILayoutConfig } from '../../domain/models/LayoutConfig';
 import { DEFAULT_SORT_CONFIG } from '../../domain/models/SortConfig';
 import { DEFAULT_CARD_RENDER_CONFIG } from '../../domain/models/CardRenderConfig';
 import { DEFAULT_LAYOUT_CONFIG } from '../../domain/models/LayoutConfig';
-import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
-import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
-import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
-import { IEventDispatcher } from '@/domain/interfaces/events/IEventDispatcher';
+import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
+import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
+import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Container } from '@/infrastructure/di/Container';
 
 /**

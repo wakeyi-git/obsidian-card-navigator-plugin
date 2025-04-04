@@ -4,11 +4,11 @@ import { ISortConfig, SortConfig, SortField, SortOrder } from '../../domain/mode
 import { ISortService } from '../../domain/services/ISortService';
 import { CardSetError } from '../../domain/errors/CardSetServiceError';
 import { CardSetSortedEvent } from '../../domain/events/CardSetEvents';
-import { IEventDispatcher } from '@/domain/interfaces/events/IEventDispatcher';
-import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
-import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
-import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
+import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
+import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
+import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { ISearchResultItem } from '@/domain/services/ISearchService';
 import { Container } from '@/infrastructure/di/Container';
 
@@ -99,24 +99,16 @@ export class SortService implements ISortService {
             comparison = a.fileName.localeCompare(b.fileName);
             break;
 
-          case SortField.UPDATED_AT:
-            comparison = (a.updatedAt?.getTime() ?? 0) - (b.updatedAt?.getTime() ?? 0);
+          case SortField.UPDATED:
+            comparison = this.sortByUpdatedAt(sortedCards, config.order).indexOf(a) - this.sortByUpdatedAt(sortedCards, config.order).indexOf(b);
             break;
 
-          case SortField.CREATED_AT:
-            comparison = (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0);
-            break;
-
-          case SortField.CUSTOM_FIELD:
-            if (config.customField) {
-              const aValue = a.properties[config.customField];
-              const bValue = b.properties[config.customField];
-              comparison = String(aValue).localeCompare(String(bValue));
-            }
+          case SortField.CREATED:
+            comparison = this.sortByCreatedAt(sortedCards, config.order).indexOf(a) - this.sortByCreatedAt(sortedCards, config.order).indexOf(b);
             break;
         }
 
-        return config.order === SortOrder.ASC ? comparison : -comparison;
+        return comparison;
       });
 
       const sortedCardSet: ICardSet = {
@@ -414,14 +406,28 @@ export class SortService implements ISortService {
     switch (field) {
       case SortField.FILENAME:
         return card.fileName;
-      case SortField.CREATED_AT:
-        return card.createdAt.toISOString();
-      case SortField.UPDATED_AT:
+      case SortField.UPDATED:
         return card.updatedAt.toISOString();
-      case SortField.CUSTOM_FIELD:
-        return '';
+      case SortField.CREATED:
+        return card.createdAt.toISOString();
       default:
         return '';
     }
+  }
+
+  private sortByUpdatedAt(cards: ICard[], order: SortOrder): ICard[] {
+    return [...cards].sort((a, b) => {
+      const dateA = a.updatedAt.getTime();
+      const dateB = b.updatedAt.getTime();
+      return order === SortOrder.ASC ? dateA - dateB : dateB - dateA;
+    });
+  }
+
+  private sortByCreatedAt(cards: ICard[], order: SortOrder): ICard[] {
+    return [...cards].sort((a, b) => {
+      const dateA = a.createdAt.getTime();
+      const dateB = b.createdAt.getTime();
+      return order === SortOrder.ASC ? dateA - dateB : dateB - dateA;
+    });
   }
 } 

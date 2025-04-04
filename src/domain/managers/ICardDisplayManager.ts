@@ -26,6 +26,13 @@ export interface ICardDisplayManager {
   displayCardSet(cardSet: ICardSet): void;
 
   /**
+   * 카드 등록
+   * @param cardId 카드 ID
+   * @param element 카드 요소
+   */
+  registerCard(cardId: string, element: HTMLElement): void;
+
+  /**
    * 카드 선택
    * @param cardId 카드 ID
    */

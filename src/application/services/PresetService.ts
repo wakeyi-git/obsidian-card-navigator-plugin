@@ -4,11 +4,11 @@ import { ICardRenderConfig } from '../../domain/models/CardRenderConfig';
 import { ILayoutConfig } from '../../domain/models/LayoutConfig';
 import { ISortConfig } from '../../domain/models/SortConfig';
 import { DEFAULT_PRESET_CONFIG } from '../../domain/models/Preset';
-import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
-import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
-import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
-import { IEventDispatcher } from '@/domain/interfaces/events/IEventDispatcher';
+import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
+import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
+import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Container } from '@/infrastructure/di/Container';
 
 /**
@@ -19,6 +19,7 @@ export class PresetService implements IPresetService {
   private presets: Map<string, IPreset> = new Map();
   private mappings: Map<string, IPresetMapping> = new Map();
   private eventCallbacks: ((event: any) => void)[] = [];
+  private currentPresetId: string | null = null;
 
   private constructor(
     private readonly errorHandler: IErrorHandler,
@@ -56,6 +57,18 @@ export class PresetService implements IPresetService {
     this.presets.clear();
     this.mappings.clear();
     this.eventCallbacks = [];
+    this.currentPresetId = null;
+  }
+
+  /**
+   * 현재 적용된 프리셋 가져오기
+   * @returns 현재 프리셋 또는 null
+   */
+  getCurrentPreset(): IPreset | null {
+    if (!this.currentPresetId) {
+      return null;
+    }
+    return this.presets.get(this.currentPresetId) || null;
   }
 
   /**
@@ -144,6 +157,7 @@ export class PresetService implements IPresetService {
   async applyPreset(presetId: string): Promise<void> {
     const preset = await this.getPreset(presetId);
     if (preset) {
+      this.currentPresetId = presetId;
       this.notifyEvent('apply', presetId, preset);
     }
   }

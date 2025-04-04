@@ -1,6 +1,6 @@
 import { App, Notice } from 'obsidian';
-import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
+import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { Container } from '@/infrastructure/di/Container';
 import { ErrorHandlerError } from '@/domain/errors/ErrorHandlerError';
 import { CacheServiceError } from '@/domain/errors/CacheServiceError';

@@ -80,4 +80,11 @@ export interface ICardInteractionService {
    * UI 업데이트
    */
   updateUI(): void;
+
+  /**
+   * 두 카드 간의 링크를 생성합니다.
+   * @param sourceCard 소스 카드
+   * @param targetCard 타겟 카드
+   */
+  createLink(sourceCard: ICard, targetCard: ICard): Promise<void>;
 } 

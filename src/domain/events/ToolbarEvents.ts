@@ -1,10 +1,11 @@
-import { DomainEvent, DomainEventType } from './DomainEvent';
+import { DomainEvent } from './DomainEvent';
+import { DomainEventType } from './DomainEventType';
 
 /**
  * 툴바 액션 이벤트
  */
-export class ToolbarActionEvent extends DomainEvent {
-  constructor(public readonly action: string) {
-    super('toolbar.action' as DomainEventType);
+export class ToolbarActionEvent extends DomainEvent<{ action: string }> {
+  constructor(data: { action: string }) {
+    super(DomainEventType.TOOLBAR_ACTION, data);
   }
 } 

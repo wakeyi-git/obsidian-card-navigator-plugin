@@ -1,15 +1,15 @@
 import { App, View, Menu, Editor } from 'obsidian';
 import { Container } from '@/infrastructure/di/Container';
-import { ICardNavigatorViewModel, FocusDirection } from './ICardNavigatorViewModel';
+import { ICardNavigatorViewModel, FocusDirection } from '../interfaces/ICardNavigatorViewModel';
 import { ICardService } from '@/domain/services/ICardService';
 import { ILayoutService } from '@/domain/services/ILayoutService';
 import { ISearchService } from '@/domain/services/ISearchService';
 import { ISortService } from '@/domain/services/ISortService';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
-import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
-import { IEventDispatcher } from '@/domain/interfaces/infrastructure/IEventDispatcher';
-import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
-import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
+import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
+import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
+import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { IActiveFileWatcher } from '@/domain/services/IActiveFileWatcher';
 import { CardSetCreatedEvent, CardSetUpdatedEvent, CardSetDeletedEvent } from '@/domain/events/CardSetEvents';
 import { ICardSet } from '@/domain/models/CardSet';
@@ -17,9 +17,18 @@ import { CardSetType } from '@/domain/models/CardSet';
 import { ICardSetService } from '@/domain/services/ICardSetService';
 import { ICardDisplayManager } from '@/domain/managers/ICardDisplayManager';
 import { ICardInteractionService } from '@/domain/services/ICardInteractionService';
-import { ICardRenderConfig } from '@/domain/models/CardRenderConfig';
-import { ICardStyle } from '@/domain/models/CardStyle';
-import { ICardNavigatorView } from '../views/ICardNavigatorView';
+import { ICardRenderConfig, DEFAULT_CARD_RENDER_CONFIG } from '@/domain/models/CardRenderConfig';
+import { ICardStyle, DEFAULT_CARD_STYLE } from '@/domain/models/CardStyle';
+import { ICardNavigatorView } from '../interfaces/ICardNavigatorView';
+import { IPresetService } from '@/domain/services/IPresetService';
+import { BehaviorSubject, Subscription } from 'rxjs';
+import { ICardNavigatorState, DEFAULT_CARD_NAVIGATOR_STATE } from '../../domain/models/CardNavigatorState';
+import { EventBus } from '../../domain/events/EventBus';
+import { CardFocusedEvent, CardSelectedEvent, CardDeselectedEvent, CardActivatedEvent } from '../../domain/events/CardEvents';
+import { SearchStartedEvent, SearchCompletedEvent, SearchClearedEvent } from '../../domain/events/SearchEvents';
+import { LayoutChangedEvent } from '../../domain/events/LayoutEvents';
+import { ToolbarActionEvent } from '../../domain/events/ToolbarEvents';
+import { ViewChangedEvent, ViewActivatedEvent, ViewDeactivatedEvent } from '../../domain/events/ViewEvents';
 
 // useCases import
 import { OpenCardNavigatorUseCase } from '@/application/useCases/OpenCardNavigatorUseCase';
@@ -33,6 +42,7 @@ import { MapPresetUseCase } from '@/application/useCases/MapPresetUseCase';
 import { HandleToolbarUseCase } from '@/application/useCases/HandleToolbarUseCase';
 import { CustomizeCardUseCase } from '@/application/useCases/CustomizeCardUseCase';
 import { ApplyLayoutUseCase } from '@/application/useCases/ApplyLayoutUseCase';
+import { IRenderManager } from '@/domain/managers/IRenderManager';
 
 export class CardNavigatorViewModel implements ICardNavigatorViewModel {
   private static instance: CardNavigatorViewModel;
@@ -49,7 +59,11 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
   private cardSetService: ICardSetService;
   private cardDisplayManager: ICardDisplayManager;
   private cardInteractionService: ICardInteractionService;
+  private presetService: IPresetService;
   private view: ICardNavigatorView;
+  private stateSubject: BehaviorSubject<ICardNavigatorState>;
+  private subscriptions: Subscription[] = [];
+  private eventBus: EventBus;
 
   // useCases
   private openCardNavigatorUseCase: OpenCardNavigatorUseCase;
@@ -77,7 +91,7 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
   private currentStyle: ICardStyle | null = null;
   private isInitialized: boolean = false;
 
-  private constructor() {
+  constructor() {
     try {
       const container = Container.getInstance();
       console.debug('CardNavigatorViewModel 생성자 시작');
@@ -135,6 +149,10 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
       this.cardInteractionService = container.resolve<ICardInteractionService>('ICardInteractionService');
       this.logger.debug('ICardInteractionService 서비스 해결 완료');
 
+      this.logger.debug('IPresetService 서비스 해결 시도');
+      this.presetService = container.resolve<IPresetService>('IPresetService');
+      this.logger.debug('IPresetService 서비스 해결 완료');
+
       // useCases 주입
       this.logger.debug('useCases 주입 시작');
       this.openCardNavigatorUseCase = OpenCardNavigatorUseCase.getInstance();
@@ -153,6 +171,10 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
       // 이벤트 리스너 등록
       this.registerEventListeners();
 
+      this.stateSubject = new BehaviorSubject<ICardNavigatorState>(DEFAULT_CARD_NAVIGATOR_STATE);
+      this.eventBus = EventBus.getInstance();
+      this.initializeEventHandlers();
+
       this.logger.debug('CardNavigatorViewModel 생성자 완료');
     } catch (error) {
       console.error('CardNavigatorViewModel 생성자 실패:', error);
@@ -168,7 +190,43 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
   }
 
   public setView(view: ICardNavigatorView): void {
+    this.logger.debug('뷰 설정 시작');
     this.view = view;
+    
+    // 렌더링 관리자 초기화 추가
+    try {
+      const renderManager = Container.getInstance().resolve<IRenderManager>('IRenderManager');
+      renderManager.initialize();
+      this.logger.debug('렌더링 관리자 초기화 완료');
+    } catch (error) {
+      this.logger.error('렌더링 관리자 초기화 실패', { error });
+      this.errorHandler.handleError(error, '렌더링 관리자 초기화 실패');
+    }
+    
+    // 뷰가 설정된 후 초기화 수행
+    if (!this.isInitialized) {
+      this.logger.debug('뷰 설정 후 초기화 시작');
+      this.initialize().then(() => {
+        this.logger.debug('뷰 설정 후 초기화 완료');
+        this.isInitialized = true;
+      }).catch(error => {
+        this.logger.error('뷰 설정 후 초기화 실패', { error });
+        this.errorHandler.handleError(error, '뷰 설정 후 초기화 실패');
+        this.view.showError('카드 내비게이터를 초기화하는 중 오류가 발생했습니다.');
+      });
+    } else {
+      // 이미 초기화된 경우 상태 업데이트
+      this.logger.debug('이미 초기화된 뷰에 상태 업데이트');
+      this.updateState(state => ({
+        ...state,
+        currentCardSet: this.currentCardSet,
+        focusedCardId: this.focusedCardId,
+        selectedCardIds: this.selectedCardIds,
+        activeCardId: this.activeCardId
+      }));
+    }
+    
+    this.logger.debug('뷰 설정 완료');
   }
 
   async initialize(): Promise<void> {
@@ -183,25 +241,74 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
       await activeFileWatcher.initialize();
 
       // 카드 내비게이터 열기
-      await this.openCardNavigatorUseCase.execute();
+      try {
+        await this.openCardNavigatorUseCase.execute();
+      } catch (error) {
+        this.logger.error('카드 내비게이터 열기 실패', { error });
+        // 오류가 발생해도 계속 진행
+      }
 
       // 현재 카드셋 가져오기
       const activeFile = activeFileWatcher.getActiveFile();
+      let folderPath = '/';
+      
       if (activeFile) {
-        const activeFolder = activeFile.parent?.path || '/';
-        this.currentCardSet = await this.cardSetService.getCardSetByFolder(activeFolder);
+        this.logger.debug('활성 파일 감지됨', { filePath: activeFile.path });
+        folderPath = activeFile.parent?.path || '/';
+        this.logger.debug('활성 폴더 경로', { folderPath });
       } else {
-        this.currentCardSet = await this.cardSetService.getCardSetByFolder('/');
+        this.logger.debug('활성 파일이 없음, 루트 폴더 사용');
       }
 
-      // 카드셋이 생성되었는지 확인
-      if (this.currentCardSet) {
-        // 카드셋 표시
-        this.view.updateCardSet(this.currentCardSet);
+      try {
+        this.logger.debug('카드셋 생성 시작', { folderPath });
+        this.currentCardSet = await this.cardSetService.getCardSetByFolder(folderPath);
         
-        // 활성 카드 포커스
-        if (this.activeCardId) {
-          await this.focusCard(this.activeCardId);
+        if (this.currentCardSet) {
+          this.logger.debug('카드셋 생성 완료', { 
+            cardSetId: this.currentCardSet.id, 
+            cardCount: this.currentCardSet.cards.length 
+          });
+          
+          // 카드셋 표시
+          if (this.view) {
+            try {
+              this.logger.debug('뷰에 카드셋 업데이트');
+              this.view.updateCardSet(this.currentCardSet);
+            } catch (viewError) {
+              this.logger.error('뷰 업데이트 실패', { error: viewError });
+              // 오류가 발생해도 계속 진행
+            }
+          } else {
+            this.logger.warn('뷰가 없어 카드셋을 표시할 수 없음');
+          }
+          
+          // 활성 카드 포커스
+          if (activeFile && this.currentCardSet.cards.length > 0) {
+            const activeCard = this.currentCardSet.cards.find(
+              card => card.file && card.file.path === activeFile.path
+            );
+            
+            if (activeCard) {
+              try {
+                this.logger.debug('활성 카드 포커스', { cardId: activeCard.id });
+                await this.focusCard(activeCard.id);
+                this.activeCardId = activeCard.id;
+              } catch (focusError) {
+                this.logger.error('활성 카드 포커스 실패', { error: focusError });
+                // 오류가 발생해도 계속 진행
+              }
+            } else {
+              this.logger.debug('활성 파일에 해당하는 카드를 찾을 수 없음');
+            }
+          }
+        } else {
+          this.logger.warn('카드셋 생성 실패');
+        }
+      } catch (cardSetError) {
+        this.logger.error('카드셋 생성 중 오류 발생', { error: cardSetError });
+        if (this.view) {
+          this.view.showError('카드 로드 중 오류가 발생했습니다.');
         }
       }
 
@@ -210,6 +317,9 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
     } catch (error) {
       this.errorHandler.handleError(error, '카드 내비게이터 뷰모델 초기화 실패');
       this.analyticsService.trackEvent('CardNavigatorViewModel.initialize.error', { error: error.message });
+      if (this.view) {
+        this.view.showError('카드 내비게이터 초기화 중 오류가 발생했습니다.');
+      }
       throw error;
     } finally {
       this.performanceMonitor.endMeasure(perfMark);
@@ -321,23 +431,16 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
     }
   }
 
-  async selectCard(cardId: string): Promise<void> {
+  /**
+   * 카드 선택
+   * @param cardId 카드 ID
+   */
+  public async selectCard(cardId: string): Promise<void> {
     try {
-      this.performanceMonitor.startMeasure('CardNavigatorViewModel.selectCard');
-      this.analyticsService.trackEvent('CardNavigatorViewModel.selectCard', { cardId });
-
-      const card = await this.cardService.getCardById(cardId);
-      if (!card) return;
-
-      this.selectedCardIds.add(cardId);
-      this.cardDisplayManager.selectCard(cardId);
-      this.cardInteractionService.openFile(card.file);
+      await this.cardService.selectCard(cardId);
+      this.eventDispatcher.dispatch(new CardSelectedEvent(cardId));
     } catch (error) {
       this.errorHandler.handleError(error, '카드 선택 실패');
-      this.analyticsService.trackEvent('CardNavigatorViewModel.selectCard.error', { error: error.message });
-      throw error;
-    } finally {
-      this.performanceMonitor.endMeasure('CardNavigatorViewModel.selectCard');
     }
   }
 
@@ -459,41 +562,18 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
     }
   }
 
-  private async handleCardSetUpdated(event: CardSetUpdatedEvent): Promise<void> {
-    try {
-      this.performanceMonitor.startMeasure('CardNavigatorViewModel.handleCardSetUpdated');
-      this.logger.debug('카드셋 업데이트 이벤트 처리');
-      this.analyticsService.trackEvent('CardNavigatorViewModel.handleCardSetUpdated', { cardSetId: event.cardSet.id });
-
-      // 레이아웃 업데이트는 CardDisplayManager가 처리
-      this.cardDisplayManager.displayCardSet(event.cardSet);
-      
-      // 뷰 업데이트
-      if (this.view) {
-        (this.view as any).updateCardSet(event.cardSet);
-      }
-    } catch (error) {
-      this.errorHandler.handleError(error, '카드셋 업데이트 이벤트 처리 실패');
-      this.analyticsService.trackEvent('CardNavigatorViewModel.handleCardSetUpdated.error', { error: error.message });
-    } finally {
-      this.performanceMonitor.endMeasure('CardNavigatorViewModel.handleCardSetUpdated');
-    }
+  private handleCardSetUpdated(cardSet: ICardSet): void {
+    this.currentCardSet = cardSet;
+    this.eventDispatcher.dispatch(new CardSetUpdatedEvent(cardSet));
+    this.notifyViewUpdate();
   }
 
-  private async handleCardSetDeleted(event: CardSetDeletedEvent): Promise<void> {
-    try {
-      this.performanceMonitor.startMeasure('CardNavigatorViewModel.handleCardSetDeleted');
-      this.logger.debug('카드셋 삭제 이벤트 처리');
-      this.analyticsService.trackEvent('CardNavigatorViewModel.handleCardSetDeleted', { cardSetId: event.cardSetId });
-
-      // 레이아웃 업데이트는 CardDisplayManager가 처리
+  private handleCardSetDeleted(cardSetId: string): void {
+    if (this.currentCardSet?.id === cardSetId) {
       this.currentCardSet = null;
-    } catch (error) {
-      this.errorHandler.handleError(error, '카드셋 삭제 이벤트 처리 실패');
-      this.analyticsService.trackEvent('CardNavigatorViewModel.handleCardSetDeleted.error', { error: error.message });
-    } finally {
-      this.performanceMonitor.endMeasure('CardNavigatorViewModel.handleCardSetDeleted');
     }
+    this.eventDispatcher.dispatch(new CardSetDeletedEvent(cardSetId));
+    this.notifyViewUpdate();
   }
 
   async createCardSet(type: CardSetType, criteria: string): Promise<void> {
@@ -528,23 +608,24 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
     }
   }
 
-  async deselectCard(cardId: string): Promise<void> {
+  /**
+   * 카드 선택 해제
+   * @param cardId 카드 ID
+   */
+  public async deselectCard(cardId: string): Promise<void> {
     try {
-      this.performanceMonitor.startMeasure('CardNavigatorViewModel.deselectCard');
-      this.analyticsService.trackEvent('CardNavigatorViewModel.deselectCard', { cardId });
-
-      this.selectedCardIds.delete(cardId);
-      // TODO: cardDisplayManager에 deselectCard 메서드 추가 필요
+      await this.cardService.deselectCard(cardId);
+      this.eventDispatcher.dispatch(new CardDeselectedEvent(cardId));
     } catch (error) {
       this.errorHandler.handleError(error, '카드 선택 해제 실패');
-      this.analyticsService.trackEvent('CardNavigatorViewModel.deselectCard.error', { error: error.message });
-      throw error;
-    } finally {
-      this.performanceMonitor.endMeasure('CardNavigatorViewModel.deselectCard');
     }
   }
 
-  async focusCard(cardId: string): Promise<void> {
+  /**
+   * 카드 포커스
+   * @param cardId 카드 ID
+   */
+  public async focusCard(cardId: string): Promise<void> {
     try {
       this.performanceMonitor.startMeasure('CardNavigatorViewModel.focusCard');
       this.analyticsService.trackEvent('CardNavigatorViewModel.focusCard', { cardId });
@@ -641,6 +722,343 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
     } catch (error) {
       this.errorHandler.handleError(error as Error, '뷰 업데이트');
       this.logger.error('뷰 업데이트 실패', { error });
+    }
+  }
+
+  /**
+   * 렌더링 설정 가져오기
+   */
+  getRenderConfig(): ICardRenderConfig {
+    try {
+      this.performanceMonitor.startMeasure('CardNavigatorViewModel.getRenderConfig');
+      this.analyticsService.trackEvent('CardNavigatorViewModel.getRenderConfig');
+
+      // 현재 적용된 프리셋의 렌더링 설정 가져오기
+      const currentPreset = this.presetService.getCurrentPreset();
+      if (currentPreset) {
+        return currentPreset.config.cardRenderConfig;
+      }
+
+      // 기본 렌더링 설정 반환
+      return DEFAULT_CARD_RENDER_CONFIG;
+    } catch (error) {
+      this.errorHandler.handleError(error, '렌더링 설정 가져오기 실패');
+      this.analyticsService.trackEvent('CardNavigatorViewModel.getRenderConfig.error', { error: error.message });
+      return DEFAULT_CARD_RENDER_CONFIG;
+    } finally {
+      this.performanceMonitor.endMeasure('CardNavigatorViewModel.getRenderConfig');
+    }
+  }
+
+  /**
+   * 현재 카드 스타일을 반환합니다.
+   * @returns 현재 카드 스타일
+   */
+  public getCardStyle(): ICardStyle {
+    try {
+      this.performanceMonitor.startMeasure('getCardStyle');
+      const preset = this.presetService.getCurrentPreset();
+      if (!preset) {
+        return DEFAULT_CARD_STYLE;
+      }
+      return preset.config.cardRenderConfig.style || DEFAULT_CARD_STYLE;
+    } catch (error) {
+      this.errorHandler.handleError(error, 'Failed to get card style');
+      return DEFAULT_CARD_STYLE;
+    } finally {
+      this.performanceMonitor.endMeasure('getCardStyle');
+    }
+  }
+
+  /**
+   * 이벤트 핸들러 초기화
+   */
+  private initializeEventHandlers(): void {
+    // 카드셋 이벤트
+    this.subscriptions.push(
+      this.eventBus.subscribe<ICardSet>((event) => {
+        if (event instanceof CardSetCreatedEvent || event instanceof CardSetUpdatedEvent) {
+          this.handleCardSetUpdated(event.data);
+        } else if (event instanceof CardSetDeletedEvent) {
+          this.handleCardSetDeleted(event.data);
+        }
+      })
+    );
+
+    // 카드 이벤트
+    this.subscriptions.push(
+      this.eventBus.subscribe<string>((event) => {
+        if (event instanceof CardFocusedEvent) {
+          this.handleCardFocused(event.data);
+        } else if (event instanceof CardSelectedEvent) {
+          this.handleCardSelected(event.data);
+        } else if (event instanceof CardActivatedEvent) {
+          this.handleCardActivated(event.data);
+        }
+      })
+    );
+
+    // 검색 이벤트
+    this.subscriptions.push(
+      this.eventBus.subscribe<any>((event) => {
+        if (event instanceof SearchStartedEvent) {
+          this.handleSearchStarted(event.data);
+        } else if (event instanceof SearchCompletedEvent) {
+          this.handleSearchCompleted(event.data);
+        } else if (event instanceof SearchClearedEvent) {
+          this.handleSearchCleared();
+        }
+      })
+    );
+
+    // 레이아웃 이벤트
+    this.subscriptions.push(
+      this.eventBus.subscribe<any>((event) => {
+        if (event instanceof LayoutChangedEvent) {
+          this.handleLayoutChanged(event.data);
+        }
+      })
+    );
+
+    // 툴바 이벤트
+    this.subscriptions.push(
+      this.eventBus.subscribe<{ action: string }>((event) => {
+        if (event instanceof ToolbarActionEvent) {
+          this.handleToolbarAction(event.data.action);
+        }
+      })
+    );
+
+    // 뷰 이벤트
+    this.subscriptions.push(
+      this.eventBus.subscribe<any>((event) => {
+        if (event instanceof ViewChangedEvent) {
+          this.handleViewChanged(event.data);
+        } else if (event instanceof ViewActivatedEvent) {
+          this.handleViewActivated();
+        } else if (event instanceof ViewDeactivatedEvent) {
+          this.handleViewDeactivated();
+        }
+      })
+    );
+  }
+
+  /**
+   * 상태 업데이트
+   * @param updater 상태 업데이트 함수
+   */
+  private updateState(updater: (state: ICardNavigatorState) => ICardNavigatorState): void {
+    const newState = updater(this.stateSubject.value);
+    this.stateSubject.next(newState);
+    this.view?.updateState(newState);
+  }
+
+  /**
+   * 카드 포커스 처리
+   * @param cardId 포커스된 카드 ID
+   */
+  private handleCardFocused(cardId: string | null): void {
+    this.updateState(state => ({
+      ...state,
+      focusedCardId: cardId
+    }));
+  }
+
+  /**
+   * 카드 선택 처리
+   * @param cardId 선택된 카드 ID
+   */
+  private handleCardSelected(cardId: string): void {
+    this.updateState(state => {
+      const selectedCardIds = new Set(state.selectedCardIds);
+      if (selectedCardIds.has(cardId)) {
+        selectedCardIds.delete(cardId);
+      } else {
+        selectedCardIds.add(cardId);
+      }
+      return {
+        ...state,
+        selectedCardIds
+      };
+    });
+  }
+
+  /**
+   * 카드 활성화 처리
+   * @param cardId 활성화된 카드 ID
+   */
+  private handleCardActivated(cardId: string | null): void {
+    this.updateState(state => ({
+      ...state,
+      activeCardId: cardId
+    }));
+  }
+
+  /**
+   * 검색 시작 처리
+   * @param query 검색어
+   */
+  private handleSearchStarted(query: string): void {
+    this.updateState(state => ({
+      ...state,
+      isSearchMode: true,
+      searchQuery: query
+    }));
+  }
+
+  /**
+   * 검색 완료 처리
+   * @param results 검색 결과
+   */
+  private handleSearchCompleted(results: any): void {
+    this.updateState(state => ({
+      ...state,
+      isSearchMode: false,
+      searchQuery: ''
+    }));
+  }
+
+  /**
+   * 검색 취소 처리
+   */
+  private handleSearchCleared(): void {
+    this.isSearchMode = false;
+    this.searchQuery = '';
+    this.eventDispatcher.dispatch(new SearchClearedEvent());
+    this.notifyViewUpdate();
+  }
+
+  /**
+   * 레이아웃 변경 처리
+   * @param layoutConfig 새로운 레이아웃 설정
+   */
+  private handleLayoutChanged(layoutConfig: any): void {
+    this.updateState(state => ({
+      ...state,
+      currentLayoutConfig: layoutConfig
+    }));
+  }
+
+  /**
+   * 툴바 액션 처리
+   * @param action 액션 타입
+   */
+  private handleToolbarAction(action: string): void {
+    // 툴바 액션에 따른 처리
+    switch (action) {
+      case 'sort':
+        // 정렬 처리
+        break;
+      case 'filter':
+        // 필터 처리
+        break;
+      case 'search':
+        // 검색 처리
+        break;
+      default:
+        break;
+    }
+  }
+
+  /**
+   * 뷰 변경 처리
+   * @param viewConfig 새로운 뷰 설정
+   */
+  private handleViewChanged(viewConfig: any): void {
+    // 뷰 설정 업데이트
+  }
+
+  /**
+   * 뷰 활성화 처리
+   */
+  private handleViewActivated(): void {
+    this.eventDispatcher.dispatch(new ViewActivatedEvent());
+    this.notifyViewUpdate();
+  }
+
+  /**
+   * 뷰 비활성화 처리
+   */
+  private handleViewDeactivated(): void {
+    this.eventDispatcher.dispatch(new ViewDeactivatedEvent());
+    this.notifyViewUpdate();
+  }
+
+  /**
+   * 카드 범위 선택
+   * @param cardId 카드 ID
+   */
+  public async selectCardsInRange(cardId: string): Promise<void> {
+    try {
+      const cards = await this.cardService.getCards();
+      const selectedCards = await this.cardService.getSelectedCards();
+      const lastSelectedCardId = selectedCards[selectedCards.length - 1];
+      
+      if (!lastSelectedCardId) {
+        await this.selectCard(cardId);
+        return;
+      }
+
+      const startIndex = cards.findIndex(card => card.id === lastSelectedCardId);
+      const endIndex = cards.findIndex(card => card.id === cardId);
+      
+      if (startIndex === -1 || endIndex === -1) {
+        return;
+      }
+
+      const [minIndex, maxIndex] = [Math.min(startIndex, endIndex), Math.max(startIndex, endIndex)];
+      const cardsToSelect = cards.slice(minIndex, maxIndex + 1);
+
+      for (const card of cardsToSelect) {
+        await this.selectCard(card.id);
+      }
+    } catch (error) {
+      this.errorHandler.handleError(error, '카드 범위 선택 실패');
+    }
+  }
+
+  /**
+   * 카드 선택 토글
+   * @param cardId 카드 ID
+   */
+  public async toggleCardSelection(cardId: string): Promise<void> {
+    try {
+      const selectedCards = await this.cardService.getSelectedCards();
+      if (selectedCards.includes(cardId)) {
+        await this.deselectCard(cardId);
+      } else {
+        await this.selectCard(cardId);
+      }
+    } catch (error) {
+      this.errorHandler.handleError(error, '카드 선택 토글 실패');
+    }
+  }
+
+  async createLinkBetweenCards(sourceCardId: string, targetCardId: string): Promise<void> {
+    try {
+      this.logger.debug(`카드 간 링크 생성: ${sourceCardId} -> ${targetCardId}`);
+      
+      // 소스 카드와 타겟 카드 가져오기
+      const sourceCard = this.cardSetService.getCardById(sourceCardId);
+      const targetCard = this.cardSetService.getCardById(targetCardId);
+      
+      if (!sourceCard || !targetCard) {
+        throw new Error('카드를 찾을 수 없습니다.');
+      }
+      
+      // 카드 간 링크 생성
+      await this.cardInteractionService.createLink(sourceCard, targetCard);
+      
+      // 상태 업데이트
+      this.updateState(state => ({
+        ...state,
+        currentCardSet: this.currentCardSet
+      }));
+      
+      this.logger.debug('카드 간 링크 생성 완료');
+    } catch (error) {
+      this.errorHandler.handleError(error, '카드 간 링크 생성 실패');
+      throw error;
     }
   }
 } 

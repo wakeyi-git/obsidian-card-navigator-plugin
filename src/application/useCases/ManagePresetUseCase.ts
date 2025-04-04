@@ -1,10 +1,10 @@
 import { IUseCase } from './IUseCase';
 import { IPresetManager } from '../../domain/managers/IPresetManager';
 import { IPreset } from '../../domain/models/Preset';
-import { IErrorHandler } from '@/domain/interfaces/infrastructure/IErrorHandler';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
-import { IPerformanceMonitor } from '@/domain/interfaces/infrastructure/IPerformanceMonitor';
-import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
+import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
+import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
+import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
 import { DEFAULT_SEARCH_FILTER } from '@/domain/models/SearchFilter';
 import { DEFAULT_SORT_CONFIG } from '@/domain/models/SortConfig';
@@ -73,12 +73,12 @@ export class ManagePresetUseCase implements IUseCase<ManagePresetInput, IPreset 
               {
                 renderConfig: input.preset.config.cardRenderConfig,
                 cardStyle: {
-                  card: input.preset.config.cardRenderConfig.normalCardStyle,
-                  activeCard: input.preset.config.cardRenderConfig.activeCardStyle,
-                  focusedCard: input.preset.config.cardRenderConfig.focusedCardStyle,
-                  header: input.preset.config.cardRenderConfig.headerStyle,
-                  body: input.preset.config.cardRenderConfig.bodyStyle,
-                  footer: input.preset.config.cardRenderConfig.footerStyle,
+                  card: input.preset.config.cardRenderConfig.style.card,
+                  activeCard: input.preset.config.cardRenderConfig.style.activeCard,
+                  focusedCard: input.preset.config.cardRenderConfig.style.focusedCard,
+                  header: input.preset.config.cardRenderConfig.style.header,
+                  body: input.preset.config.cardRenderConfig.style.body,
+                  footer: input.preset.config.cardRenderConfig.style.footer,
                   validate: () => true
                 },
                 searchFilter: input.preset.config.cardSetConfig.searchFilter || DEFAULT_SEARCH_FILTER,
@@ -110,12 +110,12 @@ export class ManagePresetUseCase implements IUseCase<ManagePresetInput, IPreset 
                 {
                   renderConfig: clonedPreset.config.cardRenderConfig,
                   cardStyle: {
-                    card: clonedPreset.config.cardRenderConfig.normalCardStyle,
-                    activeCard: clonedPreset.config.cardRenderConfig.activeCardStyle,
-                    focusedCard: clonedPreset.config.cardRenderConfig.focusedCardStyle,
-                    header: clonedPreset.config.cardRenderConfig.headerStyle,
-                    body: clonedPreset.config.cardRenderConfig.bodyStyle,
-                    footer: clonedPreset.config.cardRenderConfig.footerStyle,
+                    card: clonedPreset.config.cardRenderConfig.style.card,
+                    activeCard: clonedPreset.config.cardRenderConfig.style.activeCard,
+                    focusedCard: clonedPreset.config.cardRenderConfig.style.focusedCard,
+                    header: clonedPreset.config.cardRenderConfig.style.header,
+                    body: clonedPreset.config.cardRenderConfig.style.body,
+                    footer: clonedPreset.config.cardRenderConfig.style.footer,
                     validate: () => true
                   },
                   searchFilter: clonedPreset.config.cardSetConfig.searchFilter || DEFAULT_SEARCH_FILTER,

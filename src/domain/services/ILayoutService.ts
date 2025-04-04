@@ -1,6 +1,6 @@
 import { ICard } from '../models/Card';
 import { ICardSet } from '../models/CardSet';
-import { ILayoutConfig } from '../models/Layout';
+import { ILayoutConfig } from '../models/LayoutConfig';
 import { ILayoutResult } from '../models/Layout';
 
 /**

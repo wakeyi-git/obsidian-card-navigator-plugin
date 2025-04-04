@@ -1,5 +1,5 @@
-import { IAnalyticsService } from '@/domain/interfaces/infrastructure/IAnalyticsService';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
+import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { Container } from '@/infrastructure/di/Container';
 
 interface AnalyticsEvent {

@@ -1,5 +1,5 @@
 import { App } from 'obsidian';
-import { ILoggingService } from '@/domain/interfaces/infrastructure/ILoggingService';
+import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { Container } from '@/infrastructure/di/Container';
 
 /**
