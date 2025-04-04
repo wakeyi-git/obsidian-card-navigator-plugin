@@ -16,6 +16,8 @@ export interface ICardCreateConfig {
   metadata: Record<string, any>;
   renderConfig: ICardRenderConfig;
   titleDisplayType?: NoteTitleDisplayType;
+  contentLengthLimitEnabled?: boolean;
+  contentLengthLimit?: number;
 }
 
 /**

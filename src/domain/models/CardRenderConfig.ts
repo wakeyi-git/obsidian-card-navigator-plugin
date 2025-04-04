@@ -1,4 +1,5 @@
 import { IStyleProperties, DEFAULT_CARD_STYLE } from './CardStyle';
+import { NoteTitleDisplayType } from './Card';
 
 /**
  * 카드 렌더링 타입
@@ -30,8 +31,10 @@ export interface ICardRenderConfig {
   readonly showHeader: boolean;
   readonly showBody: boolean;
   readonly showFooter: boolean;
-  readonly contentLength?: number;
   readonly renderMarkdown: boolean;
+  readonly contentLengthLimitEnabled: boolean;
+  readonly contentLengthLimit: number;
+  readonly titleDisplayType: NoteTitleDisplayType;
   
   // 섹션별 표시 항목 설정
   readonly headerDisplay: ISectionDisplayConfig;
@@ -46,6 +49,12 @@ export interface ICardRenderConfig {
   readonly activeCardStyle: IStyleProperties;
   readonly focusedCardStyle: IStyleProperties;
 
+  // 렌더링 기능 설정
+  readonly showImages: boolean;
+  readonly highlightCode: boolean;
+  readonly supportCallouts: boolean;
+  readonly supportMath: boolean;
+
   /**
    * 렌더링 설정 유효성 검사
    */
@@ -59,8 +68,10 @@ export interface ICardRenderConfig {
     showHeader: boolean;
     showBody: boolean;
     showFooter: boolean;
-    contentLength?: number;
     renderMarkdown: boolean;
+    contentLengthLimitEnabled: boolean;
+    contentLengthLimit: number;
+    titleDisplayType: NoteTitleDisplayType;
     headerDisplay: ISectionDisplayConfig;
     bodyDisplay: ISectionDisplayConfig;
     footerDisplay: ISectionDisplayConfig;
@@ -70,38 +81,25 @@ export interface ICardRenderConfig {
     normalCardStyle: IStyleProperties;
     activeCardStyle: IStyleProperties;
     focusedCardStyle: IStyleProperties;
+    showImages: boolean;
+    highlightCode: boolean;
+    supportCallouts: boolean;
+    supportMath: boolean;
   };
-
-  /**
-   * 이미지 표시 여부
-   */
-  showImages?: boolean;
-
-  /**
-   * 코드 하이라이팅 여부
-   */
-  highlightCode?: boolean;
-
-  /**
-   * 콜아웃 지원 여부
-   */
-  supportCallouts?: boolean;
-
-  /**
-   * 수식 지원 여부
-   */
-  supportMath?: boolean;
 }
 
 /**
  * 카드 렌더링 설정 기본값
  */
 export const DEFAULT_CARD_RENDER_CONFIG: ICardRenderConfig = {
-  type: CardRenderType.TEXT,
+  type: CardRenderType.HTML,
   showHeader: true,
   showBody: true,
   showFooter: true,
   renderMarkdown: true,
+  contentLengthLimitEnabled: false,
+  contentLengthLimit: 200,
+  titleDisplayType: NoteTitleDisplayType.FILENAME,
   headerDisplay: {
     showFileName: true,
     showFirstHeader: true,
@@ -135,6 +133,10 @@ export const DEFAULT_CARD_RENDER_CONFIG: ICardRenderConfig = {
   normalCardStyle: DEFAULT_CARD_STYLE.card,
   activeCardStyle: DEFAULT_CARD_STYLE.activeCard,
   focusedCardStyle: DEFAULT_CARD_STYLE.focusedCard,
+  showImages: true,
+  highlightCode: true,
+  supportCallouts: true,
+  supportMath: true,
   validate: () => true,
   preview: function() {
     return {
@@ -143,6 +145,9 @@ export const DEFAULT_CARD_RENDER_CONFIG: ICardRenderConfig = {
       showBody: this.showBody,
       showFooter: this.showFooter,
       renderMarkdown: this.renderMarkdown,
+      contentLengthLimitEnabled: this.contentLengthLimitEnabled,
+      contentLengthLimit: this.contentLengthLimit,
+      titleDisplayType: this.titleDisplayType,
       headerDisplay: this.headerDisplay,
       bodyDisplay: this.bodyDisplay,
       footerDisplay: this.footerDisplay,
@@ -151,7 +156,11 @@ export const DEFAULT_CARD_RENDER_CONFIG: ICardRenderConfig = {
       footerStyle: this.footerStyle,
       normalCardStyle: this.normalCardStyle,
       activeCardStyle: this.activeCardStyle,
-      focusedCardStyle: this.focusedCardStyle
+      focusedCardStyle: this.focusedCardStyle,
+      showImages: this.showImages,
+      highlightCode: this.highlightCode,
+      supportCallouts: this.supportCallouts,
+      supportMath: this.supportMath
     };
   }
-}; 
+};

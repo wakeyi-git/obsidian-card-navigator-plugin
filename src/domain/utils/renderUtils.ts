@@ -140,8 +140,8 @@ export class RenderUtils {
     }
 
     // 본문 길이 제한이 설정된 경우
-    if (config.contentLength) {
-      content = this.truncateText(content, config.contentLength);
+    if (config.contentLengthLimitEnabled && config.contentLengthLimit) {
+      content = this.truncateText(content, config.contentLengthLimit);
     }
 
     return content ? `<div class="card-body">${content}</div>` : '';

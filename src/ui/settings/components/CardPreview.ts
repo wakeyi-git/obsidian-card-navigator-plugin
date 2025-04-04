@@ -47,11 +47,29 @@ export class CardPreview {
    * 프리뷰 생성
    */
   private createPreview(): void {
+    // 기존 프리뷰가 있다면 제거
+    if (this.previewEl) {
+      this.previewEl.remove();
+    }
+
     // 프리뷰 컨테이너
-    this.previewEl = this.containerEl.createDiv('card-preview-container');
+    this.previewEl = this.containerEl.createDiv('card-preview-wrapper');
+    this.previewEl.style.display = 'flex';
+    this.previewEl.style.justifyContent = 'center';
+    this.previewEl.style.alignItems = 'center';
+    this.previewEl.style.padding = '20px';
+    this.previewEl.style.backgroundColor = 'var(--background-secondary)';
+    this.previewEl.style.borderRadius = '8px';
+    this.previewEl.style.margin = '20px 0';
     
     // 카드 프리뷰
     const cardEl = this.previewEl.createDiv('card-preview');
+    cardEl.style.width = '300px';
+    cardEl.style.maxWidth = '100%';
+    cardEl.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+    cardEl.style.borderRadius = '8px';
+    cardEl.style.overflow = 'hidden';
+    cardEl.style.backgroundColor = 'var(--background-primary)';
     cardEl.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       if (target.closest('.card-header')) {

@@ -17,6 +17,9 @@ export class CardSettingsSection {
   private styleSettingsEl: HTMLElement;
   private displaySettingsEl: HTMLElement;
   private containerEl: HTMLElement;
+  private contentLengthLimitSlider: Setting | null = null;
+  private styleSettingsTitle: HTMLElement;
+  private displaySettingsTitle: HTMLElement;
 
   constructor(private plugin: CardNavigatorPlugin) {}
 
@@ -29,46 +32,31 @@ export class CardSettingsSection {
     // 카드 설정 제목
     containerEl.createEl('h3', { text: '카드 설정' });
 
-    // 노트 타이틀 표시 방식
-    // new Setting(containerEl)
-    //   .setName('노트 타이틀 표시 방식')
-    //   .setDesc('노트의 타이틀을 어떤 방식으로 표시할지 선택합니다.')
-    //   .addDropdown(dropdown =>
-    //     dropdown
-    //       .addOption(NoteTitleDisplayType.FILENAME, '파일명')
-    //       .addOption(NoteTitleDisplayType.FIRST_HEADER, '첫 번째 헤더')
-    //       .setValue(this.plugin.settings.cardTitleDisplayType)
-    //       .onChange(async (value) => {
-    //         this.plugin.settings = {
-    //           ...this.plugin.settings,
-    //           cardTitleDisplayType: value as NoteTitleDisplayType
-    //         };
-    //         await this.plugin.saveSettings();
-    //       }));
-
     // 렌더링 설정
     this.createRenderSettings();
 
     // 카드 프리뷰
-    const previewContainer = containerEl.createDiv();
-    this.cardPreview = new CardPreview(
-      previewContainer,
-      this.plugin.settings.cardRenderConfig,
-      this.plugin.settings.cardStyle
-    );
+    const previewContainer = containerEl.createDiv('card-preview-section');
+    if (!this.cardPreview) {
+      this.cardPreview = new CardPreview(
+        previewContainer,
+        this.plugin.settings.cardRenderConfig,
+        this.plugin.settings.cardStyle
+      );
+    }
 
     // 스타일 설정
-    containerEl.createEl('h4', { text: '스타일 설정' });
+    this.styleSettingsTitle = containerEl.createEl('h4');
     this.styleSettingsEl = containerEl.createDiv('style-settings');
 
     // 표시 항목 설정
-    const displaySettingsTitle = containerEl.createEl('h4', { text: '표시 항목 설정' });
+    this.displaySettingsTitle = containerEl.createEl('h4');
     this.displaySettingsEl = containerEl.createDiv('display-settings');
 
     // 초기 선택 설정
     this.cardPreview.selectSection('card');
     // 초기 화면에서 카드 영역이 선택되어 있을 때는 표시 항목 설정 타이틀 숨김
-    displaySettingsTitle.style.display = 'none';
+    this.displaySettingsTitle.style.display = 'none';
 
     // 선택된 섹션에 따른 스타일 설정
     this.createStyleSettings();
@@ -79,7 +67,7 @@ export class CardSettingsSection {
       this.updateStyleSettings(section);
       this.updateDisplaySettings(section);
       // 카드 영역이 선택되었을 때는 표시 항목 설정 타이틀 숨김
-      displaySettingsTitle.style.display = section === 'card' ? 'none' : 'block';
+      this.displaySettingsTitle.style.display = section === 'card' ? 'none' : 'block';
     });
   }
 
@@ -87,11 +75,6 @@ export class CardSettingsSection {
    * 렌더링 설정 생성
    */
   private createRenderSettings(): void {
-    // 렌더링 설정 섹션
-    // new Setting(this.containerEl)
-    //   .setName('렌더링 설정')
-    //   .setHeading();
-
     // 마크다운 렌더링
     new Setting(this.containerEl)
       .setName('HTML 렌더링')
@@ -112,11 +95,67 @@ export class CardSettingsSection {
             this.cardPreview.updateRenderConfig(this.plugin.settings.cardRenderConfig);
           }));
 
+    // 본문 길이 제한
+    new Setting(this.containerEl)
+      .setName('본문 길이 제한')
+      .setDesc('본문의 길이를 제한합니다.')
+      .addToggle(toggle =>
+        toggle
+          .setValue(this.plugin.settings.cardRenderConfig.contentLengthLimitEnabled)
+          .onChange(async (value) => {
+            this.plugin.settings = {
+              ...this.plugin.settings,
+              cardRenderConfig: {
+                ...this.plugin.settings.cardRenderConfig,
+                contentLengthLimitEnabled: value
+              }
+            };
+            await this.plugin.saveSettings();
+            this.cardPreview.updateRenderConfig(this.plugin.settings.cardRenderConfig);
+            this.updateContentLengthLimitSlider();
+          }));
+
+    // 본문 길이 제한 값 설정
+    this.contentLengthLimitSlider = new Setting(this.containerEl)
+      .setName('본문 길이 제한 값')
+      .setDesc('표시할 본문의 최대 길이를 설정합니다.')
+      .addSlider(slider => {
+        const value = this.plugin.settings.cardRenderConfig.contentLengthLimit;
+        slider
+          .setValue(value)
+          .setLimits(50, 1000, 50)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings = {
+              ...this.plugin.settings,
+              cardRenderConfig: {
+                ...this.plugin.settings.cardRenderConfig,
+                contentLengthLimit: value
+              }
+            };
+            await this.plugin.saveSettings();
+            this.cardPreview.updateRenderConfig(this.plugin.settings.cardRenderConfig);
+          });
+      });
+
+    // 초기 상태 설정
+    this.updateContentLengthLimitSlider();
+
     // 구분선
     new Setting(this.containerEl)
       .setName('')
       .setDesc('')
       .setClass('setting-item-separator');
+  }
+
+  /**
+   * 본문 길이 제한 슬라이더 업데이트
+   */
+  private updateContentLengthLimitSlider(): void {
+    if (this.contentLengthLimitSlider) {
+      this.contentLengthLimitSlider.settingEl.style.display = 
+        this.plugin.settings.cardRenderConfig.contentLengthLimitEnabled ? 'flex' : 'none';
+    }
   }
 
   /**
@@ -159,8 +198,8 @@ export class CardSettingsSection {
   private createCardStyleSettings(styleKey: 'card' | 'activeCard' | 'focusedCard' | 'header' | 'body' | 'footer', label: string): void {
     // 배경색 설정
     new Setting(this.styleSettingsEl)
-      .setName(`${label} 배경색`)
-      .setDesc(`${label}의 배경색을 설정합니다.`)
+      .setName('배경색')
+      .setDesc('배경색을 설정합니다.')
       .addColorPicker(color =>
         color
           .setValue(this.getStyleValue(styleKey, 'backgroundColor'))
@@ -170,8 +209,8 @@ export class CardSettingsSection {
 
     // 폰트 크기 설정
     new Setting(this.styleSettingsEl)
-      .setName(`${label} 폰트 크기`)
-      .setDesc(`${label}의 폰트 크기를 설정합니다.`)
+      .setName('폰트 크기')
+      .setDesc('폰트 크기를 설정합니다.')
       .addSlider(slider => {
         const value = parseInt(this.getStyleValue(styleKey, 'fontSize'));
         slider
@@ -185,8 +224,8 @@ export class CardSettingsSection {
 
     // 테두리 색상 설정
     new Setting(this.styleSettingsEl)
-      .setName(`${label} 테두리 색상`)
-      .setDesc(`${label}의 테두리 색상을 설정합니다.`)
+      .setName('테두리 색상')
+      .setDesc('테두리 색상을 설정합니다.')
       .addColorPicker(color =>
         color
           .setValue(this.getStyleValue(styleKey, 'borderColor'))
@@ -196,8 +235,8 @@ export class CardSettingsSection {
 
     // 테두리 두께 설정
     new Setting(this.styleSettingsEl)
-      .setName(`${label} 테두리 두께`)
-      .setDesc(`${label}의 테두리 두께를 설정합니다.`)
+      .setName('테두리 두께')
+      .setDesc('테두리 두께를 설정합니다.')
       .addSlider(slider => {
         const value = parseInt(this.getStyleValue(styleKey, 'borderWidth'));
         slider
@@ -216,8 +255,8 @@ export class CardSettingsSection {
   private createSectionStyleSettings(section: SectionType): void {
     // 배경색 설정
     new Setting(this.styleSettingsEl)
-      .setName(`${section} 배경색`)
-      .setDesc(`${section}의 배경색을 설정합니다.`)
+      .setName('배경색')
+      .setDesc('배경색을 설정합니다.')
       .addColorPicker(color =>
         color
           .setValue(this.getStyleValue(section, 'backgroundColor'))
@@ -227,8 +266,8 @@ export class CardSettingsSection {
 
     // 폰트 크기 설정
     new Setting(this.styleSettingsEl)
-      .setName(`${section} 폰트 크기`)
-      .setDesc(`${section}의 폰트 크기를 설정합니다.`)
+      .setName('폰트 크기')
+      .setDesc('폰트 크기를 설정합니다.')
       .addSlider(slider => {
         const value = parseInt(this.getStyleValue(section, 'fontSize'));
         slider
@@ -242,8 +281,8 @@ export class CardSettingsSection {
 
     // 테두리 색상 설정
     new Setting(this.styleSettingsEl)
-      .setName(`${section} 테두리 색상`)
-      .setDesc(`${section}의 테두리 색상을 설정합니다.`)
+      .setName('테두리 색상')
+      .setDesc('테두리 색상을 설정합니다.')
       .addColorPicker(color =>
         color
           .setValue(this.getStyleValue(section, 'borderColor'))
@@ -253,8 +292,8 @@ export class CardSettingsSection {
 
     // 테두리 두께 설정
     new Setting(this.styleSettingsEl)
-      .setName(`${section} 테두리 두께`)
-      .setDesc(`${section}의 테두리 두께를 설정합니다.`)
+      .setName('테두리 두께')
+      .setDesc('테두리 두께를 설정합니다.')
       .addSlider(slider => {
         const value = parseInt(this.getStyleValue(section, 'borderWidth'));
         slider
@@ -421,6 +460,10 @@ export class CardSettingsSection {
    * 스타일 설정 업데이트
    */
   private updateStyleSettings(section: SectionType): void {
+    // 스타일 설정 제목 업데이트
+    const sectionName = this.getSectionName(section);
+    this.styleSettingsTitle.setText(`${sectionName} 스타일 설정`);
+
     this.styleSettingsEl.empty();
     this.createStyleSettings();
   }
@@ -429,7 +472,29 @@ export class CardSettingsSection {
    * 표시 설정 업데이트
    */
   private updateDisplaySettings(section: SectionType): void {
+    // 표시 항목 설정 제목 업데이트
+    const sectionName = this.getSectionName(section);
+    this.displaySettingsTitle.setText(`${sectionName} 표시 항목 설정`);
+
     this.displaySettingsEl.empty();
     this.createDisplaySettings();
+  }
+
+  /**
+   * 섹션 이름 가져오기
+   */
+  private getSectionName(section: SectionType): string {
+    switch (section) {
+      case 'card':
+        return '카드';
+      case 'header':
+        return '헤더';
+      case 'body':
+        return '본문';
+      case 'footer':
+        return '푸터';
+      default:
+        return '';
+    }
   }
 } 

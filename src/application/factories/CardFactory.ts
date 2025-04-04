@@ -82,9 +82,8 @@ export class CardFactory implements ICardFactory {
         updatedAt: config.updatedAt,
         metadata: config.metadata,
         renderConfig: config.renderConfig,
-        titleDisplayType: config.titleDisplayType || NoteTitleDisplayType.FILENAME,
         validate: () => true,
-        toString: () => `Card(${config.fileName})`
+        toString: () => `Card(${config.renderConfig.titleDisplayType === NoteTitleDisplayType.FILENAME ? config.fileName : config.firstHeader || config.fileName})`
       };
 
       this.eventDispatcher.dispatch(new CardCreatedEvent(card));
@@ -93,7 +92,7 @@ export class CardFactory implements ICardFactory {
         fileName: config.fileName,
         hasFirstHeader: !!config.firstHeader,
         tagCount: config.tags.length,
-        contentLength: config.content.length
+        contentLengthLimit: config.contentLengthLimitEnabled ? config.contentLengthLimit : undefined
       });
 
       this.loggingService.info('카드 생성 완료', { fileName: config.fileName });
@@ -173,8 +172,7 @@ export class CardFactory implements ICardFactory {
         createdAt: new Date(abstractFile.stat.ctime),
         updatedAt: new Date(abstractFile.stat.mtime),
         metadata: metadata.frontmatter || {},
-        renderConfig,
-        titleDisplayType: NoteTitleDisplayType.FILENAME // 기본값으로 파일명 사용
+        renderConfig
       };
 
       const card = await this.create(config);

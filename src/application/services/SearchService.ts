@@ -287,12 +287,12 @@ export class SearchService implements ISearchService {
       this.analyticsService.trackEvent('search_results_highlighted', {
         cardId: card.id,
         query: filter.query,
-        contentLength: highlightedContent.length
+        contentLengthLimit: card.renderConfig.contentLengthLimitEnabled ? card.renderConfig.contentLengthLimit : undefined
       });
 
       this.loggingService.info('검색 결과 하이라이팅 완료', { 
         cardId: card.id,
-        contentLength: highlightedContent.length
+        contentLengthLimit: card.renderConfig.contentLengthLimitEnabled ? card.renderConfig.contentLengthLimit : undefined
       });
 
       return highlightedContent;
@@ -331,7 +331,7 @@ export class SearchService implements ISearchService {
         cardId: card.id,
         hasFirstHeader: !!card.firstHeader,
         tagCount: card.tags.length,
-        contentLength: card.content.length
+        contentLengthLimit: card.renderConfig.contentLengthLimitEnabled ? card.renderConfig.contentLengthLimit : undefined
       });
 
       this.loggingService.info('검색 인덱스 업데이트 완료', { cardId: card.id });

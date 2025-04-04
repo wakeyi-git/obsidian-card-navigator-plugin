@@ -77,11 +77,6 @@ export interface ICard {
   readonly renderConfig: ICardRenderConfig;
 
   /**
-   * 노트 타이틀 표시 방식
-   */
-  readonly titleDisplayType: NoteTitleDisplayType;
-
-  /**
    * 카드 유효성 검사
    */
   validate(): boolean;
@@ -107,9 +102,19 @@ export const DEFAULT_CARD: ICard = {
   updatedAt: new Date(),
   metadata: {},
   renderConfig: DEFAULT_CARD_RENDER_CONFIG,
-  titleDisplayType: NoteTitleDisplayType.FILENAME,
   validate: () => true,
   toString: function() {
-    return `Card(${this.titleDisplayType === NoteTitleDisplayType.FILENAME ? this.fileName : this.firstHeader || this.fileName})`;
+    return `Card(${this.renderConfig.titleDisplayType === NoteTitleDisplayType.FILENAME ? this.fileName : this.firstHeader || this.fileName})`;
   }
-}; 
+};
+
+export interface ICardCreateConfig {
+  readonly fileName: string;
+  readonly firstHeader: string | null;
+  readonly content: string;
+  readonly tags: string[];
+  readonly createdDate: Date;
+  readonly updatedDate: Date;
+  readonly properties: Record<string, any>;
+  readonly renderConfig: ICardRenderConfig;
+}
