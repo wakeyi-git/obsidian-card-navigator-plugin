@@ -99,7 +99,7 @@ export class CardSetService implements ICardSetService {
             type: options?.linkType || LinkType.BACKLINK,
             level: options?.linkLevel || 1,
             includeBacklinks: options?.includeBacklinks !== undefined ? options.includeBacklinks : true,
-            includeOutgoingLinks: options?.includeOutgoingLinks !== undefined ? options.includeOutgoingLinks : false
+            includeOutgoingLinks: options?.includeOutgoingLinks !== undefined ? options.includeOutgoingLinks : true
           };
           
           this.loggingService.debug('링크 카드셋 옵션', linkOptions);
@@ -288,7 +288,6 @@ export class CardSetService implements ICardSetService {
   }
 
   private async loadCardsFromLink(filePath: string, options: {
-    type: LinkType;
     level: number;
     includeBacklinks: boolean;
     includeOutgoingLinks: boolean;
@@ -308,16 +307,37 @@ export class CardSetService implements ICardSetService {
       
       // 링크 레벨 (깊이) 제한
       const maxLevel = Math.min(options.level, 3); // 최대 3단계까지만 허용
+
+      // 기본 설정이 없는 경우 양쪽 모두 활성화
+      const includeBacklinks = options.includeBacklinks !== undefined ? options.includeBacklinks : true;
+      const includeOutgoingLinks = options.includeOutgoingLinks !== undefined ? options.includeOutgoingLinks : true;
+      
+      this.loggingService.debug('링크 설정 적용', { 
+        includeBacklinks, 
+        includeOutgoingLinks, 
+        maxLevel
+      });
       
       // 백링크 처리
-      if (options.includeBacklinks || options.type === LinkType.BACKLINK) {
+      if (includeBacklinks) {
         await this.collectBacklinks(file, linkedFilePaths, maxLevel);
+        this.loggingService.debug('백링크 수집 완료', { count: linkedFilePaths.size });
       }
       
       // 아웃고잉 링크 처리
-      if (options.includeOutgoingLinks || options.type === LinkType.OUTGOING) {
+      if (includeOutgoingLinks) {
         await this.collectOutgoingLinks(file, linkedFilePaths, maxLevel);
+        this.loggingService.debug('아웃고잉 링크 수집 완료', { count: linkedFilePaths.size });
       }
+
+      // 활성 파일은 제외 (자기 자신의 링크는 제외)
+      linkedFilePaths.delete(file.path);
+      
+      // 링크 파일 경로 디버그 출력
+      this.loggingService.debug('수집된 링크 파일 경로', { 
+        linkedPaths: Array.from(linkedFilePaths),
+        totalCount: linkedFilePaths.size
+      });
       
       // 수집된 파일 경로로부터 카드 생성
       const cards: ICard[] = [];
@@ -327,6 +347,7 @@ export class CardSetService implements ICardSetService {
           const card = await this.cardService.createFromFile(linkedFile);
           if (card) {
             cards.push(card);
+            this.loggingService.debug('링크에서 카드 생성 완료', { filePath: linkedFile.path });
           }
         }
       }
@@ -335,9 +356,10 @@ export class CardSetService implements ICardSetService {
         filePath, 
         cardCount: cards.length,
         linkLevel: maxLevel,
-        backlinks: options.includeBacklinks,
-        outgoingLinks: options.includeOutgoingLinks
+        backlinks: includeBacklinks,
+        outgoingLinks: includeOutgoingLinks
       });
+      
       return cards;
     } catch (error) {
       this.loggingService.error('링크에서 카드 로드 실패', { error, filePath });
@@ -367,18 +389,23 @@ export class CardSetService implements ICardSetService {
     }
     
     visited.add(file.path);
+    this.loggingService.debug('백링크 수집 시작', { filePath: file.path, currentLevel, maxLevel });
     
     // 메타데이터 캐시에서 백링크 정보 가져오기
     const resolvedLinks = this.app.metadataCache.resolvedLinks;
     if (!resolvedLinks) {
+      this.loggingService.warn('resolvedLinks가 null입니다', { filePath: file.path });
       return;
     }
 
+    let backlinkCount = 0;
     // 현재 파일을 참조하는 모든 파일 찾기
     for (const [sourcePath, links] of Object.entries(resolvedLinks)) {
       // 현재 파일 경로가 링크에 포함되어 있는지 확인
       if (Object.keys(links).includes(file.path)) {
         result.add(sourcePath);
+        backlinkCount++;
+        this.loggingService.debug('백링크 발견', { filePath: file.path, backlinkPath: sourcePath });
         
         // 재귀적으로 다음 레벨 탐색 (현재 레벨이 maxLevel보다 작을 경우)
         if (currentLevel < maxLevel) {
@@ -395,6 +422,13 @@ export class CardSetService implements ICardSetService {
         }
       }
     }
+    
+    this.loggingService.debug('백링크 수집 완료', { 
+      filePath: file.path, 
+      backlinkCount, 
+      currentLevel, 
+      totalLinks: result.size 
+    });
   }
   
   /**
@@ -417,19 +451,34 @@ export class CardSetService implements ICardSetService {
     }
     
     visited.add(file.path);
+    this.loggingService.debug('아웃고잉 링크 수집 시작', { filePath: file.path, currentLevel, maxLevel });
     
     // 메타데이터 캐시에서 파일 정보 가져오기
     const cache = this.app.metadataCache.getFileCache(file);
-    if (!cache || !cache.links) {
+    if (!cache) {
+      this.loggingService.warn('파일 캐시가 null입니다', { filePath: file.path });
       return;
     }
     
+    if (!cache.links || cache.links.length === 0) {
+      this.loggingService.debug('파일에 링크가 없습니다', { filePath: file.path });
+      return;
+    }
+    
+    this.loggingService.debug('파일의 링크 정보', { 
+      filePath: file.path, 
+      linkCount: cache.links?.length || 0
+    });
+    
     // 아웃고잉 링크 처리
+    let outgoingCount = 0;
     for (const link of cache.links) {
       const linkedFilePath = this.app.metadataCache.getFirstLinkpathDest(link.link, file.path)?.path;
       
       if (linkedFilePath) {
         result.add(linkedFilePath);
+        outgoingCount++;
+        this.loggingService.debug('아웃고잉 링크 발견', { filePath: file.path, linkedPath: linkedFilePath });
         
         // 재귀적으로 다음 레벨 탐색 (현재 레벨이 maxLevel보다 작을 경우)
         if (currentLevel < maxLevel) {
@@ -446,6 +495,13 @@ export class CardSetService implements ICardSetService {
         }
       }
     }
+    
+    this.loggingService.debug('아웃고잉 링크 수집 완료', { 
+      filePath: file.path, 
+      outgoingCount, 
+      currentLevel, 
+      totalLinks: result.size 
+    });
   }
 
   private async sortCards(cards: ICard[], sortConfig: ISortConfig): Promise<ICard[]> {

@@ -23,8 +23,6 @@ export enum LinkType {
  * 링크 설정
  */
 export interface ILinkConfig {
-  /** 링크 타입 */
-  type: LinkType;
   /** 링크 레벨 (1: 직접 링크, 2: 2단계 링크, ...) */
   level: number;
   /** 백링크 포함 여부 */
@@ -94,7 +92,6 @@ export interface ICardSet {
  * 기본 링크 설정
  */
 export const DEFAULT_LINK_CONFIG: ILinkConfig = {
-  type: LinkType.BACKLINK,
   level: 1,
   includeBacklinks: true,
   includeOutgoingLinks: false,

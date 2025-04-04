@@ -26,8 +26,6 @@ export interface CreateCardSetInput {
   containerWidth: number;
   /** 컨테이너 높이 */
   containerHeight: number;
-  /** 링크 타입 (백링크/아웃고잉) */
-  linkType?: LinkType;
   /** 링크 레벨 (1: 직접 링크, 2: 2단계 링크, ...) */
   linkLevel?: number;
   /** 백링크 포함 여부 */

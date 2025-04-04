@@ -12,6 +12,11 @@ export interface IActiveFileWatcher {
   initialize(): void;
 
   /**
+   * 초기화 여부 확인
+   */
+  isInitialized(): boolean;
+
+  /**
    * 서비스 정리
    */
   cleanup(): void;

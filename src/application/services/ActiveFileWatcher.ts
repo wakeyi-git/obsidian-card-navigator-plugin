@@ -11,8 +11,9 @@ import { Container } from '@/infrastructure/di/Container';
  */
 export class ActiveFileWatcher implements IActiveFileWatcher {
   private static instance: ActiveFileWatcher;
-  private activeFile: TFile | null = null;
-  private subscribers: Set<(file: TFile | null) => void> = new Set();
+  private activeFile: TFile | null;
+  private subscribers: Set<(file: TFile | null) => void>;
+  private isInitializedFlag: boolean;
 
   private constructor(
     private readonly app: App,
@@ -20,7 +21,11 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
     private readonly analyticsService: IAnalyticsService
-  ) {}
+  ) {
+    this.activeFile = null;
+    this.subscribers = new Set();
+    this.isInitializedFlag = false;
+  }
 
   public static getInstance(): ActiveFileWatcher {
     if (!ActiveFileWatcher.instance) {
@@ -44,20 +49,28 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
   public initialize(): void {
     const perfMark = 'ActiveFileWatcher.initialize';
     this.performanceMonitor.startMeasure(perfMark);
+    
     try {
+      // 이미 초기화된 경우 중복 작업 방지
+      if (this.isInitializedFlag) {
+        this.loggingService.debug('활성 파일 감시자가 이미 초기화되어 있습니다.');
+        return;
+      }
+      
       this.loggingService.info('활성 파일 감시자 초기화 시작');
-
-      // 초기 활성 파일 설정
+      
+      // 현재 활성 파일 저장
       this.activeFile = this.app.workspace.getActiveFile();
-
-      // 활성 파일 변경 이벤트 구독
-      this.app.workspace.on('file-open', (file: TFile | null) => {
-        if (file !== this.activeFile) {
-          this.notifyActiveFileChange(file);
-        }
-      });
-
+      
+      // 활성 파일 변경 이벤트 리스너 등록
+      this.app.workspace.on('file-open', this.handleFileOpen.bind(this));
+      
+      // 초기화 완료 표시
+      this.isInitializedFlag = true;
+      
+      // 이벤트 기록
       this.analyticsService.trackEvent('active_file_watcher_initialized');
+      
       this.loggingService.info('활성 파일 감시자 초기화 완료');
     } catch (error) {
       this.loggingService.error('활성 파일 감시자 초기화 실패', { error });
@@ -66,6 +79,13 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
     } finally {
       this.performanceMonitor.endMeasure(perfMark);
     }
+  }
+
+  /**
+   * 초기화 여부 확인
+   */
+  public isInitialized(): boolean {
+    return this.isInitializedFlag;
   }
 
   /**
@@ -171,6 +191,12 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
       throw error;
     } finally {
       this.performanceMonitor.endMeasure(perfMark);
+    }
+  }
+
+  private handleFileOpen(file: TFile | null): void {
+    if (file !== this.activeFile) {
+      this.notifyActiveFileChange(file);
     }
   }
 } 

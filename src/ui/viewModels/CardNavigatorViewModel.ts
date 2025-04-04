@@ -239,6 +239,12 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
     const perfMark = 'CardNavigatorViewModel.initialize';
     this.performanceMonitor.startMeasure(perfMark);
     try {
+      // 이미 초기화된 경우 중복 작업 방지
+      if (this.isInitialized) {
+        this.logger.debug('카드 내비게이터 뷰모델이 이미 초기화되어 있습니다.');
+        return;
+      }
+      
       this.logger.debug('카드 내비게이터 뷰모델 초기화 시작');
       this.analyticsService.trackEvent('CardNavigatorViewModel.initialize.start');
 
@@ -249,7 +255,10 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
 
       // 2. ActiveFileWatcher 초기화
       const activeFileWatcher = Container.getInstance().resolve<IActiveFileWatcher>('IActiveFileWatcher');
-      await activeFileWatcher.initialize();
+      if (!activeFileWatcher.isInitialized()) {
+        await activeFileWatcher.initialize();
+      }
+      
       this.logger.debug('활성 파일 감시자 초기화 완료');
 
       // 3. 활성 파일 정보 가져오기
@@ -299,7 +308,7 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
       activeFileWatcher.subscribeToActiveFileChanges(this.handleFileChanged.bind(this));
       this.logger.debug('활성 파일 변경 이벤트 구독 완료');
 
-      // 6. 상태 업데이트
+      // 6. 상태 업데이트 - 여기서 한 번만 업데이트
       this.updateState(state => ({
         ...state,
         currentCardSet: this.currentCardSet,
@@ -307,6 +316,9 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
         selectedCardIds: this.selectedCardIds,
         activeCardId: this.activeCardId
       }));
+
+      // 초기화 완료 표시
+      this.isInitialized = true;
 
       this.analyticsService.trackEvent('CardNavigatorViewModel.initialize.complete');
       this.logger.info('카드 내비게이터 뷰모델 초기화 완료');
@@ -375,11 +387,7 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
     this.cardDisplayManager.displayCardSet(this.currentCardSet);
     this.logger.debug('카드 디스플레이 매니저에 카드셋 설정 완료');
     
-    // 뷰에 카드셋 업데이트
-    if (this.view) {
-      this.view.updateCardSet(this.currentCardSet);
-      this.logger.debug('뷰에 카드셋 업데이트 완료');
-    }
+    // 초기화 과정에서는 여기서 뷰를 업데이트하지 않고, initialize 메서드에서 한 번만 업데이트
   }
 
   /**
@@ -476,11 +484,7 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
       this.cardDisplayManager.displayCardSet(this.currentCardSet);
       this.logger.debug('카드 디스플레이 매니저에 카드셋 설정 완료');
       
-      // 뷰에 카드셋 업데이트
-      if (this.view) {
-        this.view.updateCardSet(this.currentCardSet);
-        this.logger.debug('뷰에 카드셋 업데이트 완료');
-      }
+      // 초기화 과정에서는 여기서 뷰를 업데이트하지 않고, initialize 메서드에서 한 번만 업데이트
     } catch (error) {
       this.logger.error('다중 태그 카드셋 생성 실패', { error });
       throw error;
@@ -492,10 +496,81 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
    * @param activeFile 활성 파일
    */
   private async initializeLinkCardSet(activeFile: TFile | null): Promise<void> {
-    // 링크 카드셋 구현 필요...
-    this.logger.warn('링크 카드셋 아직 구현되지 않음');
-    if (this.view) {
-      this.view.showError('링크 카드셋은 아직 구현되지 않았습니다.');
+    if (!activeFile) {
+      this.logger.warn('활성 파일이 없어 링크 카드셋을 생성할 수 없음');
+      if (this.view) {
+        this.view.showError('활성 파일이 없어 링크 카드셋을 생성할 수 없습니다.');
+      }
+      return;
+    }
+
+    this.logger.debug('링크 카드셋 초기화 시작', { filePath: activeFile.path });
+    
+    try {
+      // 링크 설정 확인
+      const linkLevel = this.plugin.settings.linkLevel || 1;
+      
+      // 둘 중 하나라도 true인지 확인
+      let includeBacklinks = this.plugin.settings.includeBacklinks !== undefined 
+        ? this.plugin.settings.includeBacklinks : true;
+      let includeOutgoingLinks = this.plugin.settings.includeOutgoingLinks !== undefined 
+        ? this.plugin.settings.includeOutgoingLinks : true;
+      
+      // 둘 다 false인 경우, 기본적으로 둘 다 true로 설정
+      if (!includeBacklinks && !includeOutgoingLinks) {
+        this.logger.debug('백링크와 아웃고잉 링크가 모두 비활성화되어 있어 기본값으로 둘 다 활성화합니다.');
+        includeBacklinks = true;
+        includeOutgoingLinks = true;
+      }
+      
+      this.logger.debug('링크 설정 적용', { 
+        linkLevel, 
+        includeBacklinks, 
+        includeOutgoingLinks 
+      });
+      
+      // 카드셋 생성 입력 구성
+      const input: CreateCardSetInput = {
+        type: CardSetType.LINK,
+        criteria: activeFile.path,
+        containerWidth: this.getContainerDimensions().width,
+        containerHeight: this.getContainerDimensions().height,
+        linkLevel: linkLevel,
+        includeBacklinks: includeBacklinks,
+        includeOutgoingLinks: includeOutgoingLinks
+      };
+      
+      this.logger.debug('링크 카드셋 생성 요청', { input });
+      this.currentCardSet = await this.createCardSetUseCase.execute(input);
+      
+      if (!this.currentCardSet) {
+        throw new Error('링크 카드셋 생성 실패: null 반환됨');
+      }
+      
+      this.logger.debug('링크 카드셋 생성 완료', { 
+        cardSetId: this.currentCardSet.id, 
+        cardCount: this.currentCardSet.cards.length 
+      });
+      
+      // 카드가 없는 경우 안내 메시지 표시
+      if (this.currentCardSet.cards.length === 0) {
+        this.logger.debug('카드가 없어 안내 메시지를 표시합니다.');
+        if (this.view) {
+          this.view.showMessage('현재 문서와 연결된 노트가 없습니다. 다른 노트들과 링크를 생성해보세요.');
+        }
+      }
+      
+      // 카드 디스플레이 매니저에 카드셋 설정
+      this.cardDisplayManager.displayCardSet(this.currentCardSet);
+      this.logger.debug('카드 디스플레이 매니저에 카드셋 설정 완료');
+      
+      // 초기화 과정에서는 여기서 뷰를 업데이트하지 않고, initialize 메서드에서 한 번만 업데이트
+    } catch (error) {
+      this.logger.error('링크 카드셋 초기화 실패', { error });
+      if (this.view) {
+        this.view.showError('링크 카드셋 초기화 중 오류가 발생했습니다.');
+      }
+      throw error;
     }
   }
   
@@ -769,22 +844,30 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
     }
   }
 
-  private async handleCardSetCreated(event: CardSetCreatedEvent): Promise<void> {
+  private handleCardSetCreated(event: CardSetCreatedEvent): Promise<void> {
     try {
       this.performanceMonitor.startMeasure('CardNavigatorViewModel.handleCardSetCreated');
       this.logger.debug('카드셋 생성 이벤트 처리');
       this.analyticsService.trackEvent('CardNavigatorViewModel.handleCardSetCreated', { cardSetId: event.cardSet.id });
 
-      // 레이아웃 업데이트는 CardDisplayManager가 처리
+      // 성능 향상: 불필요한 업데이트 최소화
       this.cardDisplayManager.displayCardSet(event.cardSet);
+      this.currentCardSet = event.cardSet;
       
-      // 뷰 업데이트
-      if (this.view) {
-        (this.view as any).updateCardSet(event.cardSet);
-      }
+      // 뷰 상태 업데이트
+      this.updateState(state => ({
+        ...state,
+        currentCardSet: this.currentCardSet,
+        focusedCardId: this.focusedCardId,
+        selectedCardIds: this.selectedCardIds,
+        activeCardId: this.activeCardId
+      }));
+      
+      return Promise.resolve();
     } catch (error) {
       this.errorHandler.handleError(error, '카드셋 생성 이벤트 처리 실패');
       this.analyticsService.trackEvent('CardNavigatorViewModel.handleCardSetCreated.error', { error: error.message });
+      return Promise.reject(error);
     } finally {
       this.performanceMonitor.endMeasure('CardNavigatorViewModel.handleCardSetCreated');
     }
@@ -793,15 +876,26 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
   private handleCardSetUpdated(cardSet: ICardSet): void {
     this.currentCardSet = cardSet;
     this.eventDispatcher.dispatch(new CardSetUpdatedEvent(cardSet));
-    this.notifyViewUpdate();
+    
+    // 뷰 상태 업데이트
+    this.updateState(state => ({
+      ...state,
+      currentCardSet: this.currentCardSet
+    }));
   }
 
   private handleCardSetDeleted(cardSetId: string): void {
     if (this.currentCardSet?.id === cardSetId) {
       this.currentCardSet = null;
+      
+      // 뷰 상태 업데이트
+      this.updateState(state => ({
+        ...state,
+        currentCardSet: null
+      }));
     }
+    
     this.eventDispatcher.dispatch(new CardSetDeletedEvent(cardSetId));
-    this.notifyViewUpdate();
   }
 
   async createCardSet(type: CardSetType, criteria: string): Promise<void> {
@@ -855,7 +949,7 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
       
       // 링크 타입인 경우 링크 설정 추가
       if (type === CardSetType.LINK) {
-        input.linkType = this.plugin.settings.linkType;
+        // linkType 설정 제거 (백링크/아웃고잉 토글로 대체)
         input.linkLevel = this.plugin.settings.linkLevel;
         input.includeBacklinks = this.plugin.settings.includeBacklinks; 
         input.includeOutgoingLinks = this.plugin.settings.includeOutgoingLinks;
@@ -1429,9 +1523,14 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
           }
         }
       } else if (cardSetType === CardSetType.LINK) {
-        this.logger.warn('링크 카드셋은 아직 구현되지 않았습니다');
-        if (this.view) {
-          this.view.showError('링크 카드셋은 아직 구현되지 않았습니다.');
+        if (!file) {
+          this.logger.warn('활성 파일이 없어 링크 카드셋을 생성할 수 없음');
+          if (this.view) {
+            this.view.showError('활성 파일이 없어 링크 카드셋을 생성할 수 없습니다.');
+          }
+        } else {
+          this.logger.debug('링크 카드셋 업데이트', { filePath: file.path });
+          await this.createCardSet(CardSetType.LINK, file.path);
         }
       }
     } catch (error) {

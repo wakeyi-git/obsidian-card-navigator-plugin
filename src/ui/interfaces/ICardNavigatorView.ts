@@ -55,6 +55,12 @@ export interface ICardNavigatorView {
   showError(message: string): void;
 
   /**
+   * 일반 메시지 표시
+   * @param message 표시할 메시지
+   */
+  showMessage(message: string): void;
+
+  /**
    * 뷰 정리
    */
   cleanup(): void;

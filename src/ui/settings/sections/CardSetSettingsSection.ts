@@ -281,50 +281,10 @@ export class CardSetSettingsSection {
     const linkSettingsEl = containerEl.createDiv({ cls: 'card-navigator-link-settings' });
     linkSettingsEl.createEl('h4', { text: '링크 카드셋 설정' });
 
-    // 링크 타입
-    new Setting(linkSettingsEl)
-      .setName('링크 타입')
-      .setDesc('링크 카드셋에서 사용할 링크 타입을 선택합니다.')
-      .addDropdown(dropdown =>
-        dropdown
-          .addOption(LinkType.BACKLINK, '백링크')
-          .addOption(LinkType.OUTGOING, '아웃고잉')
-          .setValue(this.plugin.settings.linkType)
-          .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              linkType: value as LinkType
-            };
-            await this.plugin.saveSettings();
-            
-            // 설정 변경 시 카드셋 갱신
-            await this.refreshCurrentCardSet();
-          }));
-
-    // 링크 레벨
-    new Setting(linkSettingsEl)
-      .setName('링크 레벨')
-      .setDesc('링크 카드셋에서 표시할 링크의 깊이를 설정합니다 (1: 직접 링크, 2: 2단계 링크, ...)')
-      .addSlider(slider =>
-        slider
-          .setLimits(1, 5, 1)
-          .setValue(this.plugin.settings.linkLevel)
-          .setDynamicTooltip()
-          .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              linkLevel: value
-            };
-            await this.plugin.saveSettings();
-            
-            // 설정 변경 시 카드셋 갱신
-            await this.refreshCurrentCardSet();
-          }));
-
     // 백링크 포함
     new Setting(linkSettingsEl)
       .setName('백링크 포함')
-      .setDesc('링크 카드셋에서 백링크를 포함합니다.')
+      .setDesc('링크 카드셋에서 현재 노트를 참조하는 다른 노트(백링크)를 포함합니다.')
       .addToggle(toggle =>
         toggle
           .setValue(this.plugin.settings.includeBacklinks)
@@ -342,7 +302,7 @@ export class CardSetSettingsSection {
     // 아웃고잉 링크 포함
     new Setting(linkSettingsEl)
       .setName('아웃고잉 링크 포함')
-      .setDesc('링크 카드셋에서 아웃고잉 링크를 포함합니다.')
+      .setDesc('링크 카드셋에서 현재 노트가 참조하는 다른 노트(아웃고잉 링크)를 포함합니다.')
       .addToggle(toggle =>
         toggle
           .setValue(this.plugin.settings.includeOutgoingLinks)
@@ -356,6 +316,26 @@ export class CardSetSettingsSection {
             // 설정 변경 시 카드셋 갱신
             await this.refreshCurrentCardSet();
           }));
+
+    // 링크 레벨
+    new Setting(linkSettingsEl)
+    .setName('링크 레벨')
+    .setDesc('링크 카드셋에서 표시할 링크의 깊이를 설정합니다 (1: 직접 링크, 2: 2단계 링크, ...)')
+    .addSlider(slider =>
+      slider
+        .setLimits(1, 5, 1)
+        .setValue(this.plugin.settings.linkLevel)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          this.plugin.settings = {
+            ...this.plugin.settings,
+            linkLevel: value
+          };
+          await this.plugin.saveSettings();
+          
+          // 설정 변경 시 카드셋 갱신
+          await this.refreshCurrentCardSet();
+        }));
 
     // 초기 상태에서 현재 선택된 카드셋 타입에 따른 설정 영역 표시
     this.updateCardSetVisibility(containerEl, this.plugin.settings.defaultCardSetType);

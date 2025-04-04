@@ -96,10 +96,20 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
         this.cardGrid = container.createDiv('card-navigator-grid');
         this.logger.debug('카드 그리드 생성됨');
         
-        // 로딩 표시 활성화
-        this.loadingIndicator = container.createDiv('card-navigator-loading');
+        // 로딩 인디케이터를 DOM 트리에서 확실히 분리
+        this.loadingIndicator = container.createDiv('card-navigator-loading-overlay');
         this.loadingIndicator.innerHTML = this.loadingTemplate({ message: '카드를 불러오는 중...' });
         this.loadingIndicator.style.display = 'flex';
+        // 로딩 인디케이터가 카드 그리드 위에 표시되도록 스타일 조정
+        this.loadingIndicator.style.position = 'absolute';
+        this.loadingIndicator.style.top = '0';
+        this.loadingIndicator.style.left = '0';
+        this.loadingIndicator.style.width = '100%';
+        this.loadingIndicator.style.height = '100%';
+        this.loadingIndicator.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+        this.loadingIndicator.style.zIndex = '10';
+        this.loadingIndicator.style.justifyContent = 'center';
+        this.loadingIndicator.style.alignItems = 'center';
         this.logger.debug('로딩 인디케이터 표시 시작');
         
         // 에러 메시지 컨테이너 초기화
@@ -405,109 +415,166 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
    */
   private async renderCards(cards: readonly ICard[]): Promise<void> {
     try {
+      // 렌더링 시작 시간 기록
+      const renderStartTime = performance.now();
       this.logger.debug('카드 렌더링 시작', { cardCount: cards.length });
-      
-      // 로딩 숨김
-      if (this.loadingIndicator) {
-        this.loadingIndicator.style.display = 'none';
-      }
       
       const gridContainer = this.containerEl.querySelector('.card-navigator-grid');
       if (!gridContainer) {
         throw new Error('카드 그리드 컨테이너를 찾을 수 없습니다.');
       }
 
-      // 기존 카드 제거
-      gridContainer.empty();
-
+      // 기존 카드 제거 전에 현재 표시된 카드 ID 수집
+      const existingCardElements = gridContainer.querySelectorAll('.card-navigator-card');
+      const existingCardIds = new Set<string>();
+      
+      existingCardElements.forEach(cardEl => {
+        const cardId = cardEl.getAttribute('data-card-id');
+        if (cardId) existingCardIds.add(cardId);
+      });
+      
+      // 새로 표시할 카드 ID 집합
+      const newCardIds = new Set(cards.map(card => card.id));
+      
+      // 삭제할 카드 요소 찾기 (현재는 있지만 새로운 집합에는 없는 카드)
+      const elementsToRemove: HTMLElement[] = [];
+      existingCardElements.forEach(cardEl => {
+        const cardId = cardEl.getAttribute('data-card-id');
+        if (cardId && !newCardIds.has(cardId)) {
+          elementsToRemove.push(cardEl as HTMLElement);
+        }
+      });
+      
+      // 불필요한 카드 요소 제거
+      elementsToRemove.forEach(el => el.remove());
+      
       if (cards.length === 0) {
         this.logger.debug('표시할 카드가 없음');
+        gridContainer.innerHTML = '';
         const emptyDiv = gridContainer.createDiv({ cls: 'card-navigator-empty' });
-        emptyDiv.createEl('p', { text: '표시할 카드가 없습니다. 활성 파일이 있는지 확인하세요.' });
+        emptyDiv.createEl('p', { text: '연결된 카드가 없습니다. 다른 노트와 링크를 생성해보세요.' });
+        
+        // 카드가 없는 경우 로딩 인디케이터 즉시 숨김
+        if (this.loadingIndicator) {
+          this.loadingIndicator.style.display = 'none';
+        }
         return;
       }
 
       // 카드 렌더링
       this.logger.debug('카드 렌더링 진행', { cardCount: cards.length });
+      
+      // 카드 렌더링 시 중복 등록 방지를 위한 Set 생성
+      const renderedCardIds = new Set<string>();
+      
+      // 공통 렌더링 설정 미리 가져오기 (매번 호출하지 않도록)
+      const renderConfig = this.viewModel.getRenderConfig();
+      const cardStyle = this.viewModel.getCardStyle();
+      
+      // 렌더링된 카드 HTML을 저장하는 맵 (중복 렌더링 방지)
+      const renderedCardHtmlMap = new Map<string, string>();
+      
+      // 새 카드들을 미리 생성하여 한 번에 추가하기 위한 DocumentFragment
+      const fragment = document.createDocumentFragment();
+      
+      // 렌더링 작업 병렬화
+      const renderPromises: Promise<void>[] = [];
+      
+      // 진행 상황 추적을 위한 카운터
+      let completedCards = 0;
+      
+      // 존재하는 카드 ID 집합에 없는 새 카드만 렌더링
       for (const card of cards) {
         try {
-          // 카드 요소 생성
-          const cardEl = gridContainer.createDiv({ 
-            cls: 'card-navigator-card',
-            attr: { 'data-card-id': card.id }
-          });
-          
-          try {
-            // 카드 렌더링 시도
-            const renderedCard = await this.renderManager.renderCard(
-              card,
-              this.viewModel.getRenderConfig(),
-              this.viewModel.getCardStyle()
-            );
-            cardEl.innerHTML = renderedCard;
-          } catch (renderError) {
-            // 렌더링 실패 시 기본 템플릿 사용
-            this.logger.error(`카드 렌더링 실패: ${card.id}`, renderError);
-            cardEl.innerHTML = `
-              <div class="card-navigator-card-fallback">
-                <div class="card-navigator-card-header">${card.fileName}</div>
-                <div class="card-navigator-card-body">
-                  <p>카드 렌더링 중 오류가 발생했습니다.</p>
-                </div>
-              </div>
-            `;
+          // 이미 렌더링된 카드인지 확인
+          if (renderedCardIds.has(card.id)) {
+            this.logger.debug(`이미 렌더링된 카드 건너뛰기: ${card.id}`);
+            continue;
           }
-
-          // 카드 표시 관리자에 카드 등록
-          this.cardDisplayManager.registerCard(card.id, cardEl);
+          
+          // 렌더링 카드 목록에 추가
+          renderedCardIds.add(card.id);
+          
+          // 이미 DOM에 존재하는 카드는 건너뜀
+          if (existingCardIds.has(card.id)) {
+            this.logger.debug(`이미 표시된 카드 건너뛰기: ${card.id}`);
+            completedCards++;
+            continue;
+          }
+          
+          // 비동기 렌더링 작업을 병렬화
+          const renderPromise = (async () => {
+            try {
+              // 카드 요소 생성
+              const cardEl = document.createElement('div');
+              cardEl.className = 'card-navigator-card';
+              cardEl.setAttribute('data-card-id', card.id);
+              
+              // 이미 렌더링된 HTML이 있는지 확인
+              let renderedCard: string;
+              if (renderedCardHtmlMap.has(card.id)) {
+                renderedCard = renderedCardHtmlMap.get(card.id) || '';
+                this.logger.debug(`캐시된 HTML 사용: ${card.id}`);
+              } else {
+                // 카드 렌더링 시도
+                renderedCard = await this.renderManager.renderCard(
+                  card,
+                  renderConfig,
+                  cardStyle
+                );
+                // 렌더링 결과 캐싱
+                renderedCardHtmlMap.set(card.id, renderedCard);
+              }
+              
+              cardEl.innerHTML = renderedCard;
+              
+              // 카드 표시 관리자에 카드 등록 (한 번만 등록)
+              this.cardDisplayManager.registerCard(card.id, cardEl);
+              
+              // 카드 요소를 DocumentFragment에 추가
+              fragment.appendChild(cardEl);
+              
+              // 진행 카운터 증가
+              completedCards++;
+            } catch (error) {
+              this.logger.error(`카드 생성 실패: ${card.id}`, error);
+            }
+          })();
+          
+          renderPromises.push(renderPromise);
         } catch (error) {
-          this.logger.error(`카드 생성 실패: ${card.id}`, error);
+          this.logger.error(`카드 처리 실패: ${card.id}`, error);
         }
       }
-      this.logger.debug('카드 렌더링 완료');
+      
+      // 모든 비동기 렌더링 작업이 완료될 때까지 대기
+      await Promise.all(renderPromises);
+      
+      // 모든 카드 요소를 한 번에 그리드에 추가
+      gridContainer.appendChild(fragment);
+      
+      // 카드 렌더링 완료 시간 측정
+      const renderEndTime = performance.now();
+      const renderTime = renderEndTime - renderStartTime;
+      
+      this.logger.debug('카드 렌더링 완료', { 
+        cardCount: cards.length, 
+        completedCards,
+        renderTime: `${renderTime.toFixed(2)}ms` 
+      });
+      
+      // 모든 렌더링이 완료된 후 로딩 인디케이터 숨김
+      if (this.loadingIndicator) {
+        this.loadingIndicator.style.display = 'none';
+      }
     } catch (error) {
       this.logger.error('카드 목록 렌더링 실패', error);
       this.errorHandler.handleError(error, '카드 목록 렌더링 실패');
-    }
-  }
-
-  /**
-   * 로딩 상태 렌더링
-   */
-  private renderLoading(): void {
-    const container = this.containerEl.querySelector('.card-navigator-grid');
-    if (container) {
-      container.innerHTML = this.loadingTemplate({ message: '카드를 불러오는 중...' });
-    }
-  }
-
-  /**
-   * 카드셋 업데이트
-   * @param cardSet 카드셋
-   */
-  public async updateCardSet(cardSet: ICardSet): Promise<void> {
-    try {
-      this.logger.debug('카드셋 업데이트 시작', { 
-        cardSetId: cardSet.id, 
-        cardSetType: cardSet.type,
-        cardCount: cardSet.cards.length,
-        criteria: cardSet.criteria
-      });
       
-      // 로딩 표시 시작
-      this.showLoading(true);
-      
-      // 카드 렌더링
-      await this.renderCards(cardSet.cards);
-      
-      this.logger.debug('카드셋 업데이트 완료');
-    } catch (error) {
-      this.logger.error('카드셋 업데이트 실패', error);
-      this.errorHandler.handleError(error, '카드셋 업데이트 실패');
-      this.showError('카드셋 업데이트 중 오류가 발생했습니다.');
-    } finally {
-      // 로딩 표시 종료
-      this.showLoading(false);
+      // 에러 발생 시에도 로딩 인디케이터 숨김
+      if (this.loadingIndicator) {
+        this.loadingIndicator.style.display = 'none';
+      }
     }
   }
 
@@ -525,8 +592,14 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
       
       if (isLoading) {
         // 로딩 상태 표시
-        this.renderLoading();
+        this.loadingIndicator.innerHTML = this.loadingTemplate({ message: '카드를 불러오는 중...' });
         this.loadingIndicator.style.display = 'flex';
+        
+        // DOM에 로딩 인디케이터가 카드 그리드 안에 포함되지 않도록 부모 컨테이너로 이동
+        const container = this.containerEl.children[1];
+        if (container && this.loadingIndicator.parentElement !== container) {
+          container.appendChild(this.loadingIndicator);
+        }
       } else {
         // 로딩 상태 숨김
         this.loadingIndicator.style.display = 'none';
@@ -561,6 +634,29 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
   }
 
   /**
+   * 일반 메시지 표시
+   * @param message 표시할 메시지
+   */
+  public showMessage(message: string): void {
+    try {
+      this.logger.debug(`메시지 표시: ${message}`);
+      
+      // 로딩 표시 숨김
+      if (this.loadingIndicator) {
+        this.loadingIndicator.style.display = 'none';
+      }
+      
+      // 메시지 표시
+      const container = this.containerEl.querySelector('.card-navigator-grid');
+      if (container) {
+        container.innerHTML = this.emptyTemplate({ message });
+      }
+    } catch (error) {
+      this.logger.error('메시지 표시 중 오류 발생', error);
+    }
+  }
+
+  /**
    * 상태 업데이트
    * @param state 새로운 상태
    */
@@ -572,12 +668,51 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
     }
 
     try {
-      if (state.currentCardSet) {
+      // 카드셋 변경 여부 확인 - 불필요한 업데이트 방지
+      let isCardSetChanged = false;
+      
+      // 현재 표시된 카드셋 ID 가져오기
+      const currentCardSetId = this.cardGrid?.getAttribute('data-card-set-id');
+      const newCardSetId = state.currentCardSet?.id;
+      
+      // 성능 최적화: 동일한 카드셋 ID + 동일한 카드 수인 경우 중복 업데이트 방지
+      const skipUpdate = 
+        currentCardSetId === newCardSetId && 
+        this.cardGrid && 
+        state.currentCardSet && 
+        this.cardGrid.querySelectorAll('.card-navigator-card').length === state.currentCardSet.cards.length;
+        
+      // 카드셋이 변경되었는지 확인
+      if (state.currentCardSet && (!currentCardSetId || currentCardSetId !== newCardSetId || !skipUpdate)) {
+        isCardSetChanged = true;
+        
+        // 카드셋이 변경된 경우에만 업데이트
+        this.logger.debug('카드셋 변경 감지됨, 업데이트 수행', { 
+          previousCardSetId: currentCardSetId,
+          newCardSetId: newCardSetId
+        });
+        
         await this.updateCardSet(state.currentCardSet);
+        
+        // 카드셋 ID 속성 추가
+        if (this.cardGrid && newCardSetId) {
+          this.cardGrid.setAttribute('data-card-set-id', newCardSetId);
+        }
+      } else if (skipUpdate) {
+        this.logger.debug('카드셋 변경 없음, 업데이트 건너뜀', {
+          cardSetId: currentCardSetId,
+          cardCount: state.currentCardSet?.cards.length || 0
+        });
       }
-      this.updateFocusedCard(state.focusedCardId);
-      this.updateSelectedCards(state.selectedCardIds);
-      this.updateActiveCard(state.activeCardId);
+      
+      // 포커스, 선택, 활성화 상태는 카드셋이 변경되지 않았을 때만 별도로 업데이트
+      if (!isCardSetChanged) {
+        this.updateFocusedCard(state.focusedCardId);
+        this.updateSelectedCards(state.selectedCardIds);
+        this.updateActiveCard(state.activeCardId);
+      }
+      
+      // 검색 모드는 항상 업데이트
       this.updateSearchMode(state.isSearchMode, state.searchQuery);
     } catch (error) {
       this.errorHandler.handleError(error, '상태 업데이트 실패');
@@ -663,6 +798,36 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
       this.toolbar.classList.add('search-mode');
     } else {
       this.toolbar.classList.remove('search-mode');
+    }
+  }
+
+  /**
+   * 카드셋 업데이트
+   * @param cardSet 카드셋
+   */
+  public async updateCardSet(cardSet: ICardSet): Promise<void> {
+    try {
+      this.logger.debug('카드셋 업데이트 시작', { 
+        cardSetId: cardSet.id, 
+        cardSetType: cardSet.type,
+        cardCount: cardSet.cards.length,
+        criteria: cardSet.criteria
+      });
+      
+      // 로딩 표시 시작 - 이미 활성화되어 있을 수 있으므로 확인
+      this.showLoading(true);
+      
+      // 카드 렌더링 - 이후 렌더링 메서드에서 로딩 인디케이터를 숨김
+      await this.renderCards(cardSet.cards);
+      
+      this.logger.debug('카드셋 업데이트 완료');
+    } catch (error) {
+      this.logger.error('카드셋 업데이트 실패', error);
+      this.errorHandler.handleError(error, '카드셋 업데이트 실패');
+      this.showError('카드셋 업데이트 중 오류가 발생했습니다.');
+      
+      // 에러 상황에서도 로딩 인디케이터 숨김
+      this.showLoading(false);
     }
   }
 

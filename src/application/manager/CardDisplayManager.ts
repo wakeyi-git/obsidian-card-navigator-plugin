@@ -128,14 +128,31 @@ export class CardDisplayManager implements ICardDisplayManager {
       // 렌더링 설정 초기화
       this.currentRenderConfig = DEFAULT_CARD_RENDER_CONFIG;
 
-      // 기존 카드 상태 초기화
+      // 기존 카드 상태 모두 초기화
+      this.loggingService.debug('카드 상태 초기화', { 
+        existingCardCount: this.cards.size,
+        newCardCount: cardSet.cards.length 
+      });
       this.cards.clear();
       this.cardVisibility.clear();
       this.cardZIndices.clear();
       this.cardStyles.clear();
+      this.selectedCardIds.clear();
+      
+      // 중복 등록 방지를 위한 Set 생성
+      const processedCardIds = new Set<string>();
 
       // 카드셋 내 모든 카드 초기화
       cardSet.cards.forEach(card => {
+        // 중복 카드 건너뛰기
+        if (processedCardIds.has(card.id)) {
+          this.loggingService.debug('중복 카드 건너뛰기', { cardId: card.id });
+          return;
+        }
+        
+        // 처리된 카드 목록에 추가
+        processedCardIds.add(card.id);
+        
         // 카드 객체 등록 (카드셋에서 카드 데이터 그대로 사용)
         this.cards.set(card.id, card);
         
@@ -489,7 +506,7 @@ export class CardDisplayManager implements ICardDisplayManager {
       }
       
       this.analyticsService.trackEvent('card_registered', { cardId });
-      this.loggingService.info('카드 등록 완료', { cardId });
+      this.loggingService.debug('카드 등록 완료', { cardId });
     } catch (error) {
       this.loggingService.error('카드 등록 실패', { error, cardId });
       this.errorHandler.handleError(error as Error, 'CardDisplayManager.registerCard');

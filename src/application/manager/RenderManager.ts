@@ -43,11 +43,12 @@ export class RenderManager implements IRenderManager {
 
   static getInstance(): RenderManager {
     if (!RenderManager.instance) {
-      const app = Container.getInstance().resolve<App>('App');
-      const eventDispatcher = Container.getInstance().resolve<IEventDispatcher>('IEventDispatcher');
-      const loggingService = Container.getInstance().resolve<ILoggingService>('ILoggingService');
-      const performanceMonitor = Container.getInstance().resolve<IPerformanceMonitor>('IPerformanceMonitor');
-      const errorHandler = Container.getInstance().resolve<IErrorHandler>('IErrorHandler');
+      const container = Container.getInstance();
+      const app = container.resolve<App>('App');
+      const eventDispatcher = container.resolve<IEventDispatcher>('IEventDispatcher');
+      const loggingService = container.resolve<ILoggingService>('ILoggingService');
+      const performanceMonitor = container.resolve<IPerformanceMonitor>('IPerformanceMonitor');
+      const errorHandler = container.resolve<IErrorHandler>('IErrorHandler');
 
       RenderManager.instance = new RenderManager(
         app,
@@ -56,6 +57,9 @@ export class RenderManager implements IRenderManager {
         performanceMonitor,
         errorHandler
       );
+      
+      // 인스턴스 생성 시 자동으로 초기화
+      RenderManager.instance.initialize();
     }
     return RenderManager.instance;
   }
@@ -67,6 +71,12 @@ export class RenderManager implements IRenderManager {
     const perfMark = 'RenderManager.initialize';
     this.performanceMonitor.startMeasure(perfMark);
     try {
+      // 이미 초기화되었는지 확인
+      if (this.isInitialized) {
+        this.loggingService.debug('렌더링 관리자가 이미 초기화되어 있습니다. 초기화 작업을 건너뜁니다.');
+        return;
+      }
+      
       this.loggingService.debug('렌더링 관리자 초기화 시작');
       
       this.cards.clear();
@@ -315,50 +325,88 @@ export class RenderManager implements IRenderManager {
   async renderCard(card: ICard, config: ICardRenderConfig, style: ICardStyle): Promise<string> {
     const perfMark = 'RenderManager.renderCard';
     this.performanceMonitor.startMeasure(perfMark);
+    
     try {
+      // 성능 최적화: 캐시 키 생성은 한 번만 수행
+      const cacheKey = this.generateCacheKey(card.id, config, style);
+      
+      // 캐시된 결과가 있는지 확인
+      if (this.renderCache.has(cacheKey)) {
+        // 캐시 히트는 debug 아닌 trace 레벨로 변경 (로그 양 감소)
+        this.loggingService.debug('캐시된 카드 렌더링 결과 사용', { cardId: card.id });
+        const cachedResult = this.renderCache.get(cacheKey);
+        this.performanceMonitor.endMeasure(perfMark); // 조기 종료 시 성능 측정 종료
+        return cachedResult || '';
+      }
+
       this.loggingService.debug('카드 렌더링 시작', { cardId: card.id });
 
       if (!this.isInitialized) {
-        throw new Error('렌더링 관리자가 초기화되지 않았습니다.');
+        // 필요시 초기화 자동 수행
+        this.initialize();
       }
 
-      // 이미 렌더링 중인 경우 캐시된 결과 반환
-      if (this.isCardRendered(card.id)) {
-        this.loggingService.debug('캐시된 카드 렌더링 결과 사용', { cardId: card.id });
-        return this.renderCache.get(card.id) || '';
+      // 이미 렌더링 중인 경우 대기
+      if (this.renderingCards.has(card.id)) {
+        this.loggingService.debug('이미 렌더링 중인 카드입니다. 캐시된 결과를 기다립니다.', { cardId: card.id });
+        
+        // 최대 100ms 동안 캐시 결과를 기다립니다
+        let waited = 0;
+        while (waited < 100 && !this.renderCache.has(cacheKey) && this.renderingCards.has(card.id)) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+          waited += 10;
+        }
+        
+        // 캐시 결과가 생겼는지 다시 확인
+        if (this.renderCache.has(cacheKey)) {
+          this.loggingService.debug('렌더링 완료된 결과를 사용합니다', { cardId: card.id, waitedMs: waited });
+          const cachedResult = this.renderCache.get(cacheKey);
+          return cachedResult || '';
+        }
       }
 
       // 렌더링 중 상태 설정
       this.renderingCards.add(card.id);
 
-      // 렌더링 이벤트 발생
-      this.notifyRenderEvent('render', card.id);
+      try {
+        // RenderUtils를 사용하여 카드 렌더링 - 성능을 위해 병렬 처리
+        const [header, body, footer] = await Promise.all([
+          Promise.resolve(RenderUtils.renderCardHeader(card, config)),
+          RenderUtils.renderCardBody(card, config),
+          Promise.resolve(RenderUtils.renderCardFooter(card, config))
+        ]);
 
-      // RenderUtils를 사용하여 카드 렌더링
-      const header = RenderUtils.renderCardHeader(card, config);
-      const body = await RenderUtils.renderCardBody(card, config);
-      const footer = RenderUtils.renderCardFooter(card, config);
+        // 렌더링된 내용 조합
+        const renderedContent = [header, body, footer].filter(Boolean).join('\n');
 
-      // 렌더링된 내용 조합
-      const renderedContent = [header, body, footer].filter(Boolean).join('\n');
-
-      // 캐시 저장
-      this.renderCache.set(card.id, renderedContent);
-
-      // 렌더링 중 상태 해제
-      this.renderingCards.delete(card.id);
-
-      this.loggingService.info('카드 렌더링 완료', { cardId: card.id });
-      return renderedContent;
+        // 캐시 저장
+        this.renderCache.set(cacheKey, renderedContent);
+        
+        // 로그 레벨 변경: info -> debug로 변경하여 중복 로깅 줄임
+        this.loggingService.debug('카드 렌더링 완료', { cardId: card.id });
+        return renderedContent;
+      } finally {
+        // 항상 렌더링 중 상태를 해제
+        this.renderingCards.delete(card.id);
+      }
     } catch (error) {
-      // 렌더링 중 상태 해제
-      this.renderingCards.delete(card.id);
       this.loggingService.error('카드 렌더링 실패', { error, cardId: card.id });
       this.errorHandler.handleError(error as Error, 'RenderManager.renderCard');
       throw error;
     } finally {
       this.performanceMonitor.endMeasure(perfMark);
     }
+  }
+
+  /**
+   * 캐시 키 생성
+   * 카드 ID, 렌더링 설정, 스타일을 고려한 고유 키 생성
+   */
+  private generateCacheKey(cardId: string, config: ICardRenderConfig, style: ICardStyle): string {
+    // 성능 최적화: 복잡한 해시 대신 구분 가능한 값만 조합
+    // 설정과 스타일의 주요 특성만 포함
+    const configKey = config.renderMarkdown ? 'md' : 'txt';
+    return `${cardId}:${configKey}`;
   }
 
   /**

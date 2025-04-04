@@ -23,12 +23,28 @@ export class RenderUtils {
       throw new Error('MarkdownRenderer가 초기화되지 않았습니다.');
     }
 
-    return await this.markdownRenderer.render(markdown, {
-      showImages: true,
-      highlightCode: true,
-      supportCallouts: true,
-      supportMath: true
-    });
+    try {
+      // 타임아웃 3초로 설정한 프로미스
+      const timeoutPromise = new Promise<string>((resolve) => {
+        setTimeout(() => {
+          resolve(`<div class="markdown-render-timeout">렌더링 시간 초과</div>`);
+        }, 3000);
+      });
+      
+      // 렌더링 프로미스
+      const renderPromise = this.markdownRenderer.render(markdown, {
+        showImages: true,
+        highlightCode: true,
+        supportCallouts: true,
+        supportMath: true
+      });
+      
+      // 둘 중 먼저 완료되는 프로미스 반환
+      return Promise.race([renderPromise, timeoutPromise]);
+    } catch (error) {
+      console.error('마크다운 HTML 변환 실패:', error);
+      return `<div class="error">렌더링 오류: ${error.message}</div>`;
+    }
   }
 
   /**
