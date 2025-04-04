@@ -1,7 +1,7 @@
 import { ICard } from '../../domain/models/Card';
 import { ICardSet } from '../../domain/models/CardSet';
 import { ICardRenderConfig, DEFAULT_CARD_RENDER_CONFIG } from '../../domain/models/CardRenderConfig';
-import { ICardStyle } from '../../domain/models/CardStyle';
+import { ICardStyle, DEFAULT_CARD_STYLE } from '../../domain/models/CardStyle';
 import { ICardDisplayManager } from '../../domain/managers/ICardDisplayManager';
 import { CardSelectedEvent, CardFocusedEvent } from '../../domain/events/CardEvents';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
@@ -66,6 +66,10 @@ export class CardDisplayManager implements ICardDisplayManager {
       this.cardZIndices.clear();
       this.currentCardSet = null;
       this.currentRenderConfig = null;
+      this.cards.clear();
+
+      // 이벤트 구독 등록
+      // 필요한 이벤트 핸들러 등록은 여기에 추가하세요
 
       this.loggingService.info('카드 표시 관리자 초기화 완료');
     } catch (error) {
@@ -116,45 +120,47 @@ export class CardDisplayManager implements ICardDisplayManager {
     const perfMark = 'CardDisplayManager.displayCardSet';
     this.performanceMonitor.startMeasure(perfMark);
     try {
-      this.loggingService.debug('카드셋 표시 시작', { cardCount: cardSet.cards.length });
-      
+      this.loggingService.debug('카드셋 표시 시작', { cardSetId: cardSet.id });
+
+      // 현재 카드셋 업데이트 (카드셋 데이터는 그대로 사용)
       this.currentCardSet = cardSet;
+      
+      // 렌더링 설정 초기화
+      this.currentRenderConfig = DEFAULT_CARD_RENDER_CONFIG;
+
+      // 기존 카드 상태 초기화
+      this.cards.clear();
       this.cardVisibility.clear();
       this.cardZIndices.clear();
+      this.cardStyles.clear();
 
-      // 모든 카드를 표시 상태로 설정
+      // 카드셋 내 모든 카드 초기화
       cardSet.cards.forEach(card => {
+        // 카드 객체 등록 (카드셋에서 카드 데이터 그대로 사용)
+        this.cards.set(card.id, card);
+        
+        // 카드 표시 상태 설정
         this.cardVisibility.set(card.id, true);
-        this.cardZIndices.set(card.id, 0);
+        
+        // 카드 Z-인덱스 설정 (기본값: 1)
+        this.cardZIndices.set(card.id, 1);
+        
+        // 카드 스타일만 DEFAULT_CARD_STYLE 사용
+        this.cardStyles.set(card.id, DEFAULT_CARD_STYLE);
       });
-
-      // 활성 카드가 있는 경우 해당 카드의 Z-인덱스를 높임
-      if (this.activeCardId) {
-        this.cardZIndices.set(this.activeCardId, 1);
-      }
-
-      // 포커스된 카드가 있는 경우 해당 카드의 Z-인덱스를 더 높임
-      if (this.focusedCardId) {
-        this.cardZIndices.set(this.focusedCardId, 2);
-      }
 
       this.analyticsService.trackEvent('card_set_displayed', {
-        cardCount: cardSet.cards.length,
-        hasActiveCard: !!this.activeCardId,
-        hasFocusedCard: !!this.focusedCardId
+        cardSetId: cardSet.id,
+        cardCount: cardSet.cards.length
       });
 
-      this.loggingService.info('카드셋 표시 완료', { cardCount: cardSet.cards.length });
+      this.loggingService.info('카드셋 표시 완료', { 
+        cardSetId: cardSet.id,
+        cardCount: cardSet.cards.length
+      });
     } catch (error) {
       this.loggingService.error('카드셋 표시 실패', { error });
       this.errorHandler.handleError(error as Error, 'CardDisplayManager.displayCardSet');
-      throw new CardServiceError(
-        '카드셋 표시 중 오류가 발생했습니다.',
-        undefined,
-        undefined,
-        'display',
-        error instanceof Error ? error : new Error(String(error))
-      );
     } finally {
       this.performanceMonitor.endMeasure(perfMark);
     }
@@ -448,23 +454,42 @@ export class CardDisplayManager implements ICardDisplayManager {
     try {
       this.loggingService.debug('카드 등록 시작', { cardId });
 
-      // 카드셋이 없는 경우 임시 카드셋 생성
+      // 카드셋이 없는 경우 자세한 경고
       if (!this.currentCardSet) {
-        this.loggingService.warn('카드셋이 로드되지 않아 임시 카드를 생성합니다');
-        this.registerTempCard(cardId);
-      } else {
-        // 기존 로직 유지
-        const card = this.currentCardSet.cards.find(c => c.id === cardId);
-        if (!card) {
-          this.loggingService.warn('카드셋에서 카드를 찾을 수 없어 임시 카드를 생성합니다', { cardId });
-          this.registerTempCard(cardId);
-        } else {
-          this.cards.set(cardId, card);
-        }
-
-        this.analyticsService.trackEvent('card_registered', { cardId });
-        this.loggingService.info('카드 등록 완료', { cardId });
+        this.loggingService.warn('카드셋이 로드되지 않았습니다. 카드 등록을 건너뜁니다.', { 
+          cardId,
+          hasCurrentCardSet: !!this.currentCardSet,
+          cardCount: this.cards.size
+        });
+        return;
+      } 
+      
+      // 카드셋에서 카드 찾기
+      const card = this.currentCardSet.cards.find(c => c.id === cardId);
+      if (!card) {
+        this.loggingService.warn('카드셋에서 카드를 찾을 수 없습니다.', { 
+          cardId,
+          cardSetId: this.currentCardSet.id,
+          cardSetCardCount: this.currentCardSet.cards.length,
+          availableCardIds: this.currentCardSet.cards.map(c => c.id).join(', ')
+        });
+        return;
       }
+      
+      // 카드 등록
+      this.cards.set(cardId, card);
+      
+      // 카드 표시 상태 및 스타일 설정
+      this.cardVisibility.set(cardId, true);
+      this.cardZIndices.set(cardId, 1);
+      
+      // 스타일이 설정되지 않았으면 기본 스타일 적용
+      if (!this.cardStyles.has(cardId)) {
+        this.cardStyles.set(cardId, DEFAULT_CARD_STYLE);
+      }
+      
+      this.analyticsService.trackEvent('card_registered', { cardId });
+      this.loggingService.info('카드 등록 완료', { cardId });
     } catch (error) {
       this.loggingService.error('카드 등록 실패', { error, cardId });
       this.errorHandler.handleError(error as Error, 'CardDisplayManager.registerCard');
@@ -531,6 +556,85 @@ export class CardDisplayManager implements ICardDisplayManager {
   }
 
   private updateCardStyles(): void {
-    // Implementation of updateCardStyles method
+    try {
+      this.loggingService.debug('카드 스타일 업데이트 시작');
+      
+      // 카드 컬렉션이 없는 경우 스킵
+      if (!this.cards) {
+        this.loggingService.debug('카드 컬렉션이 없어 스타일 업데이트를 건너뜁니다.');
+        return;
+      }
+
+      // 문서에서 카드 요소 조회
+      const cardElements = document.querySelectorAll('.card-navigator-card');
+      if (!cardElements || cardElements.length === 0) {
+        this.loggingService.debug('DOM에서 카드 요소를 찾을 수 없습니다.');
+        return;
+      }
+
+      // 카드 요소에 스타일 적용
+      cardElements.forEach((cardEl: HTMLElement) => {
+        const cardId = cardEl.getAttribute('data-card-id');
+        if (!cardId) return;
+
+        // 기본 카드 스타일 설정
+        const cardStyle = this.cardStyles.get('*') || this.cardStyles.get(cardId);
+        if (!cardStyle) return;
+
+        // 일반 카드 스타일 적용
+        cardEl.style.setProperty('--card-bg', cardStyle.card.backgroundColor);
+        cardEl.style.setProperty('--card-font-size', cardStyle.card.fontSize);
+        cardEl.style.setProperty('--card-border-color', cardStyle.card.borderColor);
+        cardEl.style.setProperty('--card-border-width', cardStyle.card.borderWidth);
+        
+        // 헤더 스타일 적용
+        cardEl.style.setProperty('--header-bg', cardStyle.header.backgroundColor);
+        cardEl.style.setProperty('--header-font-size', cardStyle.header.fontSize);
+        cardEl.style.setProperty('--header-border-color', cardStyle.header.borderColor);
+        cardEl.style.setProperty('--header-border-width', cardStyle.header.borderWidth);
+        
+        // 본문 스타일 적용
+        cardEl.style.setProperty('--body-bg', cardStyle.body.backgroundColor);
+        cardEl.style.setProperty('--body-font-size', cardStyle.body.fontSize);
+        cardEl.style.setProperty('--body-border-color', cardStyle.body.borderColor);
+        cardEl.style.setProperty('--body-border-width', cardStyle.body.borderWidth);
+        
+        // 푸터 스타일 적용
+        cardEl.style.setProperty('--footer-bg', cardStyle.footer.backgroundColor);
+        cardEl.style.setProperty('--footer-font-size', cardStyle.footer.fontSize);
+        cardEl.style.setProperty('--footer-border-color', cardStyle.footer.borderColor);
+        cardEl.style.setProperty('--footer-border-width', cardStyle.footer.borderWidth);
+        
+        // 활성 카드 스타일 적용
+        cardEl.style.setProperty('--active-card-bg', cardStyle.activeCard.backgroundColor);
+        cardEl.style.setProperty('--active-card-font-size', cardStyle.activeCard.fontSize);
+        cardEl.style.setProperty('--active-card-border-color', cardStyle.activeCard.borderColor);
+        cardEl.style.setProperty('--active-card-border-width', cardStyle.activeCard.borderWidth);
+        
+        // 포커스 카드 스타일 적용
+        cardEl.style.setProperty('--focused-card-bg', cardStyle.focusedCard.backgroundColor);
+        cardEl.style.setProperty('--focused-card-font-size', cardStyle.focusedCard.fontSize);
+        cardEl.style.setProperty('--focused-card-border-color', cardStyle.focusedCard.borderColor);
+        cardEl.style.setProperty('--focused-card-border-width', cardStyle.focusedCard.borderWidth);
+        
+        // 카드 상태 클래스 적용
+        cardEl.classList.remove('active-card', 'focused-card');
+        
+        // 활성 카드인 경우 클래스 추가
+        if (cardId === this.activeCardId) {
+          cardEl.classList.add('active-card');
+        }
+        
+        // 포커스 카드인 경우 클래스 추가
+        if (cardId === this.focusedCardId) {
+          cardEl.classList.add('focused-card');
+        }
+      });
+      
+      this.loggingService.info('카드 스타일 업데이트 완료');
+    } catch (error) {
+      this.loggingService.error('카드 스타일 업데이트 실패', { error });
+      this.errorHandler.handleError(error as Error, 'CardDisplayManager.updateCardStyles');
+    }
   }
 } 

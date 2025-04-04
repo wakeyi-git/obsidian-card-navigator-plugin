@@ -1,4 +1,4 @@
-import { App, View, Menu, Editor } from 'obsidian';
+import { App, View, Menu, Editor, TFile } from 'obsidian';
 import { Container } from '@/infrastructure/di/Container';
 import { ICardNavigatorViewModel, FocusDirection } from '../interfaces/ICardNavigatorViewModel';
 import { ICardService } from '@/domain/services/ICardService';
@@ -236,19 +236,17 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
       this.logger.debug('카드 내비게이터 뷰모델 초기화 시작');
       this.analyticsService.trackEvent('CardNavigatorViewModel.initialize.start');
 
-      // ActiveFileWatcher 초기화
-      const activeFileWatcher = Container.getInstance().resolve<IActiveFileWatcher>('IActiveFileWatcher');
-      await activeFileWatcher.initialize();
-
-      // 카드 내비게이터 열기
-      try {
-        await this.openCardNavigatorUseCase.execute();
-      } catch (error) {
-        this.logger.error('카드 내비게이터 열기 실패', { error });
-        // 오류가 발생해도 계속 진행
+      // 1. 로딩 상태 표시
+      if (this.view) {
+        this.view.showLoading(true);
       }
 
-      // 현재 카드셋 가져오기
+      // 2. ActiveFileWatcher 초기화
+      const activeFileWatcher = Container.getInstance().resolve<IActiveFileWatcher>('IActiveFileWatcher');
+      await activeFileWatcher.initialize();
+      this.logger.debug('활성 파일 감시자 초기화 완료');
+
+      // 3. 활성 파일 정보 가져오기
       const activeFile = activeFileWatcher.getActiveFile();
       let folderPath = '/';
       
@@ -260,68 +258,91 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
         this.logger.debug('활성 파일이 없음, 루트 폴더 사용');
       }
 
+      // 4. 카드셋 생성
       try {
         this.logger.debug('카드셋 생성 시작', { folderPath });
         this.currentCardSet = await this.cardSetService.getCardSetByFolder(folderPath);
         
-        if (this.currentCardSet) {
-          this.logger.debug('카드셋 생성 완료', { 
-            cardSetId: this.currentCardSet.id, 
-            cardCount: this.currentCardSet.cards.length 
-          });
-          
-          // 카드셋 표시
-          if (this.view) {
-            try {
-              this.logger.debug('뷰에 카드셋 업데이트');
-              this.view.updateCardSet(this.currentCardSet);
-            } catch (viewError) {
-              this.logger.error('뷰 업데이트 실패', { error: viewError });
-              // 오류가 발생해도 계속 진행
-            }
-          } else {
-            this.logger.warn('뷰가 없어 카드셋을 표시할 수 없음');
-          }
-          
-          // 활성 카드 포커스
-          if (activeFile && this.currentCardSet.cards.length > 0) {
-            const activeCard = this.currentCardSet.cards.find(
-              card => card.file && card.file.path === activeFile.path
-            );
-            
-            if (activeCard) {
-              try {
-                this.logger.debug('활성 카드 포커스', { cardId: activeCard.id });
-                await this.focusCard(activeCard.id);
-                this.activeCardId = activeCard.id;
-              } catch (focusError) {
-                this.logger.error('활성 카드 포커스 실패', { error: focusError });
-                // 오류가 발생해도 계속 진행
-              }
-            } else {
-              this.logger.debug('활성 파일에 해당하는 카드를 찾을 수 없음');
-            }
-          }
-        } else {
-          this.logger.warn('카드셋 생성 실패');
+        if (!this.currentCardSet) {
+          throw new Error('카드셋 생성 실패: null 반환됨');
         }
-      } catch (cardSetError) {
-        this.logger.error('카드셋 생성 중 오류 발생', { error: cardSetError });
+        
+        this.logger.debug('카드셋 생성 완료', { 
+          cardSetId: this.currentCardSet.id, 
+          cardCount: this.currentCardSet.cards.length 
+        });
+
+        // 5. 카드 디스플레이 매니저에 카드셋 설정
+        this.cardDisplayManager.displayCardSet(this.currentCardSet);
+        this.logger.debug('카드 디스플레이 매니저에 카드셋 설정 완료');
+        
+        // 6. 뷰에 카드셋 업데이트
         if (this.view) {
-          this.view.showError('카드 로드 중 오류가 발생했습니다.');
+          this.view.updateCardSet(this.currentCardSet);
+          this.logger.debug('뷰에 카드셋 업데이트 완료');
+        } else {
+          this.logger.warn('뷰가 없어 카드셋을 표시할 수 없음');
         }
+        
+        // 7. 활성 카드 포커스
+        if (activeFile && this.currentCardSet.cards.length > 0) {
+          const activeCard = this.currentCardSet.cards.find(
+            card => card.file && card.file.path === activeFile.path
+          );
+          
+          if (activeCard) {
+            this.logger.debug('활성 카드 포커스', { cardId: activeCard.id });
+            await this.focusCard(activeCard.id);
+            this.activeCardId = activeCard.id;
+            this.logger.debug('활성 카드 포커스 완료', { cardId: activeCard.id });
+          } else {
+            this.logger.debug('활성 파일에 해당하는 카드를 찾을 수 없음');
+          }
+        }
+      } catch (error) {
+        this.logger.error('카드셋 초기화 실패', { error });
+        if (this.view) {
+          this.view.showError('카드셋 초기화 중 오류가 발생했습니다.');
+        }
+        throw error;
       }
 
-      this.logger.debug('카드 내비게이터 뷰모델 초기화 완료');
+      // 8. 활성 파일 변경 이벤트 구독
+      activeFileWatcher.subscribeToActiveFileChanges(this.handleFileChanged.bind(this));
+      this.logger.debug('활성 파일 변경 이벤트 구독 완료');
+
+      // 9. 상태 업데이트
+      this.updateState(state => ({
+        ...state,
+        currentCardSet: this.currentCardSet,
+        focusedCardId: this.focusedCardId,
+        selectedCardIds: this.selectedCardIds,
+        activeCardId: this.activeCardId
+      }));
+
       this.analyticsService.trackEvent('CardNavigatorViewModel.initialize.complete');
+      this.logger.info('카드 내비게이터 뷰모델 초기화 완료');
     } catch (error) {
-      this.errorHandler.handleError(error, '카드 내비게이터 뷰모델 초기화 실패');
-      this.analyticsService.trackEvent('CardNavigatorViewModel.initialize.error', { error: error.message });
+      this.logger.error('카드 내비게이터 뷰모델 초기화 실패', { error });
+      this.errorHandler.handleError(error as Error, 'CardNavigatorViewModel.initialize');
+      
+      // 에러 이벤트 기록
+      this.analyticsService.trackEvent('CardNavigatorViewModel.initialize.error', { 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+      
+      // 뷰에 에러 표시
       if (this.view) {
-        this.view.showError('카드 내비게이터 초기화 중 오류가 발생했습니다.');
+        this.view.showError('카드 내비게이터 초기화에 실패했습니다.');
       }
+      
       throw error;
     } finally {
+      // 10. 로딩 상태 종료
+      if (this.view) {
+        this.view.showLoading(false);
+      }
+      
       this.performanceMonitor.endMeasure(perfMark);
     }
   }
@@ -579,6 +600,13 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
   async createCardSet(type: CardSetType, criteria: string): Promise<void> {
     try {
       this.logger.debug('카드셋 생성 시작', { type, criteria });
+      
+      // 로딩 상태 설정
+      if (this.view) {
+        this.view.showLoading(true);
+      }
+      
+      // 1. 카드셋 생성
       const input: CreateCardSetInput = {
         type,
         criteria,
@@ -587,9 +615,26 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
       };
       this.currentCardSet = await this.createCardSetUseCase.execute(input);
       this.logger.debug('카드셋 생성 완료', { cardSetId: this.currentCardSet.id });
+      
+      // 2. 카드 디스플레이 매니저에 카드셋 설정
+      if (this.currentCardSet) {
+        this.cardDisplayManager.displayCardSet(this.currentCardSet);
+        this.logger.debug('카드 디스플레이 매니저에 카드셋 설정 완료');
+        
+        // 3. 뷰에 카드셋 업데이트
+        if (this.view) {
+          this.view.updateCardSet(this.currentCardSet);
+          this.logger.debug('뷰에 카드셋 업데이트 완료');
+        }
+      }
     } catch (error) {
       this.errorHandler.handleError(error, '카드셋 생성');
       throw error;
+    } finally {
+      // 로딩 상태 해제
+      if (this.view) {
+        this.view.showLoading(false);
+      }
     }
   }
 
@@ -757,11 +802,13 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
   public getCardStyle(): ICardStyle {
     try {
       this.performanceMonitor.startMeasure('getCardStyle');
+      // 프리셋에서 카드 스타일 가져오기
       const preset = this.presetService.getCurrentPreset();
-      if (!preset) {
-        return DEFAULT_CARD_STYLE;
+      if (preset) {
+        return preset.config.cardStyle;
       }
-      return preset.config.cardRenderConfig.style || DEFAULT_CARD_STYLE;
+      // 기본 카드 스타일 사용
+      return DEFAULT_CARD_STYLE;
     } catch (error) {
       this.errorHandler.handleError(error, 'Failed to get card style');
       return DEFAULT_CARD_STYLE;
@@ -1060,5 +1107,68 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
       this.errorHandler.handleError(error, '카드 간 링크 생성 실패');
       throw error;
     }
+  }
+
+  private handleFileChanged(file: TFile | null): void {
+    this.logger.debug('활성 파일 변경 감지됨', { filePath: file?.path || 'null' });
+    
+    if (!file) {
+      this.logger.debug('활성 파일이 없음, 처리 중단');
+      return;
+    }
+
+    // 로딩 상태 표시
+    if (this.view) {
+      this.view.showLoading(true);
+    }
+
+    // 폴더 경로 확인
+    const folderPath = file.parent?.path || '/';
+    this.logger.debug('활성 파일의 폴더 경로', { folderPath });
+    
+    // 활성 폴더 기반으로 카드셋 업데이트
+    this.logger.debug('활성 폴더 기반으로 카드셋 업데이트 시작', { folderPath });
+    
+    this.createCardSet(CardSetType.FOLDER, folderPath)
+      .then(cardSet => {
+        this.logger.info('활성 폴더 기반 카드셋 생성 완료', { 
+          folderPath, 
+          cardCount: this.currentCardSet?.cards.length || 0 
+        });
+        
+        // 카드 디스플레이 매니저에 카드셋 설정
+        if (this.currentCardSet) {
+          this.cardDisplayManager.displayCardSet(this.currentCardSet);
+          this.logger.debug('카드 디스플레이 매니저에 카드셋 설정 완료');
+        }
+        
+        // 활성 카드 포커스
+        const activeCard = this.currentCardSet?.cards.find(card => 
+          card.file && card.file.path === file.path
+        );
+        
+        if (activeCard) {
+          this.focusCard(activeCard.id)
+            .then(() => {
+              this.activeCardId = activeCard.id;
+              this.logger.debug('활성 카드 포커스 완료', { cardId: activeCard.id });
+            })
+            .catch(error => {
+              this.logger.error('활성 카드 포커스 실패', { error });
+            });
+        }
+      })
+      .catch(error => {
+        this.logger.error('활성 폴더 기반 카드셋 생성 실패', { error, folderPath });
+        if (this.view) {
+          this.view.showError(`폴더 '${folderPath}'에 대한 카드셋을 생성할 수 없습니다.`);
+        }
+      })
+      .finally(() => {
+        // 로딩 상태 해제
+        if (this.view) {
+          this.view.showLoading(false);
+        }
+      });
   }
 } 

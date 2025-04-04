@@ -1,6 +1,7 @@
 import { ICardSetConfig, DEFAULT_CARD_SET_CONFIG } from './CardSet';
 import { ILayoutConfig, DEFAULT_LAYOUT_CONFIG } from './LayoutConfig';
 import { ICardRenderConfig, DEFAULT_CARD_RENDER_CONFIG } from './CardRenderConfig';
+import { ICardStyle, DEFAULT_CARD_STYLE } from './CardStyle';
 
 /**
  * 프리셋 타입
@@ -59,6 +60,8 @@ export interface IPresetConfig {
   readonly layoutConfig: ILayoutConfig;
   /** 카드 렌더링 설정 */
   readonly cardRenderConfig: ICardRenderConfig;
+  /** 카드 스타일 설정 */
+  readonly cardStyle: ICardStyle;
 }
 
 /**
@@ -113,7 +116,8 @@ export interface IPreset {
 export const DEFAULT_PRESET_CONFIG: IPresetConfig = {
   cardSetConfig: DEFAULT_CARD_SET_CONFIG,
   layoutConfig: DEFAULT_LAYOUT_CONFIG,
-  cardRenderConfig: DEFAULT_CARD_RENDER_CONFIG
+  cardRenderConfig: DEFAULT_CARD_RENDER_CONFIG,
+  cardStyle: DEFAULT_CARD_STYLE
 };
 
 /**

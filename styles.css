@@ -299,6 +299,55 @@
   cursor: move;
   user-select: none;
   transition: all 0.2s ease-in-out;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 일반 카드 스타일 - CardSettingsSection에서 설정한 카드 스타일 적용 */
+.card-navigator-card {
+  background-color: var(--card-bg, #ffffff);
+  font-size: var(--card-font-size, 14px);
+  border: var(--card-border-width, 1px) solid var(--card-border-color, #e0e0e0);
+}
+
+/* 활성 카드 스타일 - CardSettingsSection에서 설정한 활성 카드 스타일 적용 */
+.card-navigator-card.active-card {
+  background-color: var(--active-card-bg, #f5f5f5);
+  font-size: var(--active-card-font-size, 14px);
+  border: var(--active-card-border-width, 2px) solid var(--active-card-border-color, #2196f3);
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+}
+
+/* 포커스된 카드 스타일 - CardSettingsSection에서 설정한 포커스 카드 스타일 적용 */
+.card-navigator-card.focused-card {
+  background-color: var(--focused-card-bg, #e3f2fd);
+  font-size: var(--focused-card-font-size, 14px);
+  border: var(--focused-card-border-width, 2px) solid var(--focused-card-border-color, #1976d2);
+  box-shadow: 0 4px 16px rgba(25, 118, 210, 0.3);
+}
+
+/* 카드 구성 요소 스타일 */
+.card-navigator-card .card-header {
+  padding: 12px;
+  background-color: var(--header-bg, #f8f9fa);
+  font-size: var(--header-font-size, 16px);
+  border-bottom: var(--header-border-width, 1px) solid var(--header-border-color, #e0e0e0);
+}
+
+.card-navigator-card .card-body {
+  padding: 12px;
+  background-color: var(--body-bg, #ffffff);
+  font-size: var(--body-font-size, 14px);
+  border-bottom: var(--body-border-width, 1px) solid var(--body-border-color, #e0e0e0);
+}
+
+.card-navigator-card .card-footer {
+  padding: 12px;
+  background-color: var(--footer-bg, #f8f9fa);
+  font-size: var(--footer-font-size, 12px);
+  border-top: var(--footer-border-width, 1px) solid var(--footer-border-color, #e0e0e0);
 }
 
 /* 드래그 중인 카드 */

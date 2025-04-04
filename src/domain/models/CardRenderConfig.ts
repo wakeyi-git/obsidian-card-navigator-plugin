@@ -47,9 +47,6 @@ export interface ICardRenderConfig {
   readonly supportCallouts: boolean;
   readonly supportMath: boolean;
 
-  // 카드 스타일 설정
-  readonly style: ICardStyle;
-
   /**
    * 렌더링 설정 유효성 검사
    */
@@ -74,7 +71,6 @@ export interface ICardRenderConfig {
     highlightCode: boolean;
     supportCallouts: boolean;
     supportMath: boolean;
-    style: ICardStyle;
   };
 }
 
@@ -121,7 +117,6 @@ export const DEFAULT_CARD_RENDER_CONFIG: ICardRenderConfig = {
   highlightCode: true,
   supportCallouts: true,
   supportMath: true,
-  style: DEFAULT_CARD_STYLE,
   validate: () => true,
   preview: function() {
     return {
@@ -139,8 +134,7 @@ export const DEFAULT_CARD_RENDER_CONFIG: ICardRenderConfig = {
       showImages: this.showImages,
       highlightCode: this.highlightCode,
       supportCallouts: this.supportCallouts,
-      supportMath: this.supportMath,
-      style: this.style
+      supportMath: this.supportMath
     };
   }
 };
