@@ -441,20 +441,71 @@ export class RenderManager implements IRenderManager {
     const card = this.cards.get(cardId);
     const updatedAt = card?.updatedAt?.getTime() || Date.now();
     
-    // 핵심 설정만 캐시키에 포함 (성능 최적화)
+    // 헤더, 바디, 푸터 표시 여부 및 렌더링 방식을 포함
     const configKey = [
-      config.renderMarkdown ? 'md' : 'txt',
-      config.contentLengthLimitEnabled ? `limit:${config.contentLengthLimit}` : 'nolimit'
-    ].join(':');
+      config.type,
+      config.renderMarkdown ? '1' : '0',
+      config.showHeader ? '1' : '0',
+      config.showBody ? '1' : '0',
+      config.showFooter ? '1' : '0',
+      config.contentLengthLimitEnabled ? `limit:${config.contentLengthLimit}` : 'nolimit',
+      config.showImages ? '1' : '0',
+      config.highlightCode ? '1' : '0'
+    ].join('.');
     
-    // 스타일 변경에 따른 캐시키 요소 계산
+    // 섹션별 표시 설정 포함
+    const headerDisplayKey = this.getDisplayConfigKey(config.headerDisplay);
+    const bodyDisplayKey = this.getDisplayConfigKey(config.bodyDisplay);
+    const footerDisplayKey = this.getDisplayConfigKey(config.footerDisplay);
+    
+    // 스타일 변경에 따른 캐시키 요소 계산 - 모든 주요 스타일 속성 포함
     const styleKey = [
-      style.card.borderColor,
-      style.card.backgroundColor,
-      style.body.fontSize
+      // 일반 카드 스타일
+      this.getStyleKey(style.card),
+      // 활성 카드 스타일
+      this.getStyleKey(style.activeCard),
+      // 포커스된 카드 스타일
+      this.getStyleKey(style.focusedCard),
+      // 헤더 스타일
+      this.getStyleKey(style.header),
+      // 본문 스타일
+      this.getStyleKey(style.body),
+      // 푸터 스타일 
+      this.getStyleKey(style.footer)
     ].join(':');
     
-    return `${cardId}:${updatedAt}:${configKey}:${styleKey}`;
+    // 현재 시간을 추가하여 개발 모드에서의 테스트를 쉽게 함
+    // (10초마다 캐시 갱신, 개발 중에는 주석 해제, 배포 시에는 주석 처리)
+    // const devTimestamp = Math.floor(Date.now() / 10000);
+    
+    return `${cardId}:${updatedAt}:${configKey}:${headerDisplayKey}:${bodyDisplayKey}:${footerDisplayKey}:${styleKey}`;
+  }
+  
+  /**
+   * 스타일 속성에서 캐시 키 생성
+   */
+  private getStyleKey(style: any): string {
+    return [
+      style.backgroundColor,
+      style.fontSize,
+      style.borderColor,
+      style.borderWidth
+    ].join('-');
+  }
+  
+  /**
+   * 섹션 표시 설정에서 캐시 키 생성
+   */
+  private getDisplayConfigKey(display: any): string {
+    return [
+      display.showFileName ? '1' : '0',
+      display.showFirstHeader ? '1' : '0',
+      display.showContent ? '1' : '0',
+      display.showTags ? '1' : '0',
+      display.showCreatedDate ? '1' : '0',
+      display.showUpdatedDate ? '1' : '0',
+      display.showProperties?.length > 0 ? '1' : '0'
+    ].join('.');
   }
 
   /**
@@ -471,6 +522,30 @@ export class RenderManager implements IRenderManager {
         throw new Error('렌더링 관리자가 초기화되지 않았습니다.');
       }
 
+      // 이전 설정과 비교하여 변경된 부분 식별
+      const prevConfig = this.currentRenderConfig;
+      
+      // 선택적 캐시 초기화
+      if (prevConfig) {
+        // 전체 레이아웃이나 중요 설정이 변경된 경우만 전체 캐시 초기화
+        if (config.type !== prevConfig.type || 
+            config.renderMarkdown !== prevConfig.renderMarkdown ||
+            config.showHeader !== prevConfig.showHeader ||
+            config.showBody !== prevConfig.showBody ||
+            config.showFooter !== prevConfig.showFooter) {
+          this.loggingService.debug('주요 렌더링 설정 변경으로 전체 캐시 초기화');
+          this.clearRenderCache();
+        } else {
+          // 세부 설정만 변경된 경우 관련 캐시만 선택적으로 제거
+          this.loggingService.debug('세부 렌더링 설정 변경으로 선택적 캐시 초기화');
+          this.selectiveClearCache('config', config, prevConfig);
+        }
+      } else {
+        // 이전 설정이 없는 경우 전체 캐시 초기화
+        this.clearRenderCache();
+      }
+      
+      // 현재 설정 업데이트
       this.currentRenderConfig = config;
       this.notifyRenderEvent('config-update', undefined, config);
 
@@ -503,6 +578,20 @@ export class RenderManager implements IRenderManager {
         throw new Error('렌더링 관리자가 초기화되지 않았습니다.');
       }
 
+      // 이전 스타일과 비교하여 변경된 부분 식별
+      const prevStyle = this.currentCardStyle;
+      
+      // 선택적 캐시 초기화
+      if (prevStyle) {
+        // 변경된 스타일에 따른 선택적 캐시 초기화
+        this.loggingService.debug('스타일 변경으로 선택적 캐시 초기화');
+        this.selectiveClearCache('style', style, prevStyle);
+      } else {
+        // 이전 스타일이 없는 경우 전체 캐시 초기화
+        this.clearRenderCache();
+      }
+      
+      // 현재 스타일 업데이트
       this.currentCardStyle = style;
       this.notifyRenderEvent('style-update', undefined, style);
 
@@ -519,6 +608,173 @@ export class RenderManager implements IRenderManager {
     } finally {
       this.performanceMonitor.endMeasure(perfMark);
     }
+  }
+
+  /**
+   * 선택적 캐시 초기화
+   * @param type 업데이트 유형 ('config' | 'style')
+   * @param newValue 새 값
+   * @param oldValue 이전 값
+   */
+  private selectiveClearCache(type: 'config' | 'style', newValue: any, oldValue: any): void {
+    try {
+      // 캐시 키 추출
+      const cacheKeys = Array.from(this.renderCache.keys());
+      let invalidatedCount = 0;
+      
+      if (type === 'config') {
+        // 특정 섹션의 설정 변경 시 해당 섹션이 포함된 캐시만 초기화
+        const newConfig = newValue as ICardRenderConfig;
+        const oldConfig = oldValue as ICardRenderConfig;
+        
+        // 헤더 설정 변경 확인
+        const headerChanged = this.isDisplayConfigChanged(newConfig.headerDisplay, oldConfig.headerDisplay);
+        
+        // 본문 설정 변경 확인
+        const bodyChanged = this.isDisplayConfigChanged(newConfig.bodyDisplay, oldConfig.bodyDisplay) || 
+                         (newConfig.contentLengthLimitEnabled !== oldConfig.contentLengthLimitEnabled) ||
+                         (newConfig.contentLengthLimit !== oldConfig.contentLengthLimit);
+                         
+        // 푸터 설정 변경 확인
+        const footerChanged = this.isDisplayConfigChanged(newConfig.footerDisplay, oldConfig.footerDisplay);
+        
+        // 미디어 설정 변경 확인 (이미지, 코드 등)
+        const mediaChanged = newConfig.showImages !== oldConfig.showImages ||
+                           newConfig.highlightCode !== oldConfig.highlightCode ||
+                           newConfig.supportCallouts !== oldConfig.supportCallouts ||
+                           newConfig.supportMath !== oldConfig.supportMath;
+        
+        // 변경된 부분에 따른 캐시 초기화
+        cacheKeys.forEach(key => {
+          let shouldInvalidate = false;
+          
+          // 헤더 관련 캐시 초기화
+          if (headerChanged && key.includes(':header:')) {
+            shouldInvalidate = true;
+          }
+          
+          // 본문 관련 캐시 초기화 
+          if (bodyChanged && key.includes(':body:')) {
+            shouldInvalidate = true;
+          }
+          
+          // 푸터 관련 캐시 초기화
+          if (footerChanged && key.includes(':footer:')) {
+            shouldInvalidate = true;
+          }
+          
+          // 미디어 관련 캐시 초기화
+          if (mediaChanged && (key.includes('image') || key.includes('code'))) {
+            shouldInvalidate = true;
+          }
+          
+          if (shouldInvalidate) {
+            this.renderCache.delete(key);
+            invalidatedCount++;
+          }
+        });
+      } else if (type === 'style') {
+        // 스타일 변경 시 관련 스타일이 포함된 캐시만 초기화
+        const newStyle = newValue as ICardStyle;
+        const oldStyle = oldValue as ICardStyle;
+        
+        // 각 스타일 컴포넌트 변경 확인
+        const cardStyleChanged = this.isStyleChanged(newStyle.card, oldStyle.card);
+        const activeCardStyleChanged = this.isStyleChanged(newStyle.activeCard, oldStyle.activeCard);
+        const focusedCardStyleChanged = this.isStyleChanged(newStyle.focusedCard, oldStyle.focusedCard);
+        const headerStyleChanged = this.isStyleChanged(newStyle.header, oldStyle.header);
+        const bodyStyleChanged = this.isStyleChanged(newStyle.body, oldStyle.body);
+        const footerStyleChanged = this.isStyleChanged(newStyle.footer, oldStyle.footer);
+        
+        // 변경된 스타일에 따른 캐시 초기화
+        cacheKeys.forEach(key => {
+          let shouldInvalidate = false;
+          
+          // 일반 카드 스타일 변경
+          if (cardStyleChanged && key.includes(':card:')) {
+            shouldInvalidate = true;
+          }
+          
+          // 활성 카드 스타일 변경
+          if (activeCardStyleChanged && key.includes(':activeCard:')) {
+            shouldInvalidate = true;
+          }
+          
+          // 포커스 카드 스타일 변경
+          if (focusedCardStyleChanged && key.includes(':focusedCard:')) {
+            shouldInvalidate = true;
+          }
+          
+          // 헤더 스타일 변경
+          if (headerStyleChanged && key.includes(':header:')) {
+            shouldInvalidate = true;
+          }
+          
+          // 본문 스타일 변경
+          if (bodyStyleChanged && key.includes(':body:')) {
+            shouldInvalidate = true;
+          }
+          
+          // 푸터 스타일 변경
+          if (footerStyleChanged && key.includes(':footer:')) {
+            shouldInvalidate = true;
+          }
+          
+          if (shouldInvalidate) {
+            this.renderCache.delete(key);
+            invalidatedCount++;
+          }
+        });
+      }
+      
+      this.loggingService.debug(`선택적 캐시 초기화 완료: ${invalidatedCount}개 캐시 항목 초기화`);
+      this.notifyRenderEvent('cache-update');
+    } catch (error) {
+      this.loggingService.error('선택적 캐시 초기화 실패', { error });
+      // 오류 발생 시 안전하게 전체 캐시 초기화
+      this.clearRenderCache();
+    }
+  }
+  
+  /**
+   * 두 스타일 객체 간의 차이 확인
+   */
+  private isStyleChanged(newStyle: any, oldStyle: any): boolean {
+    if (!newStyle || !oldStyle) return true;
+    
+    return newStyle.backgroundColor !== oldStyle.backgroundColor ||
+           newStyle.fontSize !== oldStyle.fontSize ||
+           newStyle.borderColor !== oldStyle.borderColor ||
+           newStyle.borderWidth !== oldStyle.borderWidth;
+  }
+  
+  /**
+   * 두 표시 설정 객체 간의 차이 확인
+   */
+  private isDisplayConfigChanged(newConfig: any, oldConfig: any): boolean {
+    if (!newConfig || !oldConfig) return true;
+    
+    return newConfig.showFileName !== oldConfig.showFileName ||
+           newConfig.showFirstHeader !== oldConfig.showFirstHeader ||
+           newConfig.showContent !== oldConfig.showContent ||
+           newConfig.showTags !== oldConfig.showTags ||
+           newConfig.showCreatedDate !== oldConfig.showCreatedDate ||
+           newConfig.showUpdatedDate !== oldConfig.showUpdatedDate ||
+           this.isArrayDifferent(newConfig.showProperties, oldConfig.showProperties);
+  }
+  
+  /**
+   * 두 배열 간의 차이 확인
+   */
+  private isArrayDifferent(arr1: any[], arr2: any[]): boolean {
+    if (!arr1 || !arr2) return true;
+    if (arr1.length !== arr2.length) return true;
+    
+    for (let i = 0; i < arr1.length; i++) {
+      if (arr1[i] !== arr2[i]) return true;
+    }
+    
+    return false;
   }
 
   /**

@@ -1,6 +1,6 @@
-import { Setting, TextComponent } from 'obsidian';
+import { Setting } from 'obsidian';
 import type CardNavigatorPlugin from '@/main';
-import { CardSetType, LinkType } from '@/domain/models/CardSet';
+import { CardSetType } from '@/domain/models/CardSet';
 import { FolderSuggestModal } from '@/ui/modals/FolderSuggestModal';
 import { TagSuggestModal } from '@/ui/modals/TagSuggestModal';
 import { Container } from '@/infrastructure/di/Container';

@@ -24,6 +24,7 @@ import { IRenderManager } from './domain/managers/IRenderManager';
 import { ICardDisplayManager } from './domain/managers/ICardDisplayManager';
 import { PresetManager } from './application/manager/PresetManager';
 import { PresetService } from './application/services/PresetService';
+import { IPresetService } from './domain/services/IPresetService';
 import { ToolbarService } from './application/services/ToolbarService';
 import { DefaultValues, PluginSettings } from './domain/models/DefaultValues';
 import { CardNavigatorSettingTab } from '@/ui/settings/CardNavigatorSettingTab';
@@ -49,6 +50,11 @@ export default class CardNavigatorPlugin extends Plugin {
       const cardDisplayManager = this.container.resolve<ICardDisplayManager>('ICardDisplayManager');
       cardDisplayManager.initialize();
       console.log('카드 표시 관리자 초기화 완료');
+      
+      // 프리셋 서비스 초기화
+      const presetService = this.container.resolve<PresetService>('IPresetService');
+      presetService.initialize();
+      console.log('프리셋 서비스 초기화 완료');
     } catch (error) {
       console.error('관리자 초기화 실패:', error);
     }
@@ -83,6 +89,17 @@ export default class CardNavigatorPlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
+    
+    // 설정 저장 시 프리셋 서비스에 알림
+    try {
+      const presetService = this.container.resolve<IPresetService>('IPresetService');
+      if (presetService) {
+        presetService.loadDefaultPreset();
+        console.log('설정 저장 후 기본 프리셋 다시 로드됨');
+      }
+    } catch (error) {
+      console.error('설정 저장 후 기본 프리셋 로드 실패:', error);
+    }
   }
 
   private initializeContainer(): void {

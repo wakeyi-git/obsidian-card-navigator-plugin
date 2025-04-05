@@ -52,6 +52,9 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
       { id: 'sort', name: '정렬 설정', section: this.sortSettings }
     ];
 
+    // 현재 활성화된 탭 ID
+    let activeTabId = 'card';
+
     // 탭 버튼 생성
     tabs.forEach((tab, index) => {
       const tabButton = tabContainer.createEl('button', { text: tab.name });
@@ -62,6 +65,25 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
 
       // 탭 클릭 이벤트
       tabButton.addEventListener('click', () => {
+        // 이미 활성 탭이면 무시
+        if (activeTabId === tab.id) {
+          return;
+        }
+        
+        // 이전 탭 정리 (cleanup 메서드가 있는 경우)
+        const activeTab = tabs.find(t => t.id === activeTabId);
+        if (activeTab && 'cleanup' in activeTab.section && typeof activeTab.section.cleanup === 'function') {
+          try {
+            console.log(`이전 탭(${activeTabId}) 정리 실행`);
+            activeTab.section.cleanup();
+          } catch (error) {
+            console.error(`${activeTabId} 탭 정리 중 오류:`, error);
+          }
+        }
+        
+        // 활성 탭 변경
+        activeTabId = tab.id;
+        
         // 활성 탭 변경
         tabContainer.querySelectorAll('.card-navigator-settings-tab').forEach(btn => {
           btn.removeClass('active');
@@ -71,6 +93,8 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
         // 탭 내용 표시
         tabContentContainer.empty();
         tab.section.create(tabContentContainer);
+        
+        console.log(`${tab.id} 탭으로 전환 완료`);
       });
     });
 

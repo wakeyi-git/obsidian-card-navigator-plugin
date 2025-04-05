@@ -47,17 +47,98 @@ export class PresetService implements IPresetService {
    * 초기화
    */
   initialize(): void {
-    // 초기화 로직
+    const perfMark = 'PresetService.initialize';
+    this.performanceMonitor.startMeasure(perfMark);
+    try {
+      this.loggingService.debug('프리셋 서비스 초기화 시작');
+      
+      // 기본 프리셋 로드
+      this.loadDefaultPreset();
+      
+      this.loggingService.info('프리셋 서비스 초기화 완료');
+    } catch (error) {
+      this.loggingService.error('프리셋 서비스 초기화 실패', { error });
+      this.errorHandler.handleError(error as Error, 'PresetService.initialize');
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
+    }
   }
 
   /**
    * 정리
    */
   cleanup(): void {
-    this.presets.clear();
-    this.mappings.clear();
-    this.eventCallbacks = [];
-    this.currentPresetId = null;
+    const perfMark = 'PresetService.cleanup';
+    this.performanceMonitor.startMeasure(perfMark);
+    try {
+      this.loggingService.debug('프리셋 서비스 정리 시작');
+      
+      this.presets.clear();
+      this.mappings.clear();
+      this.eventCallbacks = [];
+      this.currentPresetId = null;
+      
+      this.loggingService.info('프리셋 서비스 정리 완료');
+    } catch (error) {
+      this.loggingService.error('프리셋 서비스 정리 실패', { error });
+      this.errorHandler.handleError(error as Error, 'PresetService.cleanup');
+    } finally {
+      this.performanceMonitor.endMeasure(perfMark);
+    }
+  }
+
+  /**
+   * 기본 프리셋 로드
+   */
+  public loadDefaultPreset(): void {
+    try {
+      this.loggingService.debug('기본 프리셋 로드 시작');
+      
+      // Plugin 인스턴스 가져오기
+      const container = Container.getInstance();
+      const plugin = container.resolve<any>('Plugin');
+      
+      // 기본 프리셋 적용
+      const defaultPresetId = 'default';
+      const defaultPreset: IPreset = {
+        metadata: {
+          id: defaultPresetId,
+          name: '기본 프리셋',
+          type: PresetType.GLOBAL,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          mappings: []
+        },
+        config: {
+          ...DEFAULT_PRESET_CONFIG,
+          // 플러그인 설정의 cardStyle 적용
+          cardStyle: plugin.settings.cardStyle || DEFAULT_PRESET_CONFIG.cardStyle,
+          // 플러그인 설정의 cardRenderConfig 적용
+          cardRenderConfig: plugin.settings.cardRenderConfig || DEFAULT_PRESET_CONFIG.cardRenderConfig
+        },
+        validate: () => true,
+        preview: function() {
+          return {
+            metadata: this.metadata,
+            config: this.config
+          };
+        }
+      };
+      
+      // 기본 프리셋 등록
+      this.presets.set(defaultPresetId, defaultPreset);
+      
+      // 현재 프리셋으로 설정
+      this.currentPresetId = defaultPresetId;
+      
+      this.loggingService.info('기본 프리셋 로드 완료', {
+        hasCardStyle: !!plugin.settings.cardStyle,
+        hasRenderConfig: !!plugin.settings.cardRenderConfig
+      });
+    } catch (error) {
+      this.loggingService.error('기본 프리셋 로드 실패', { error });
+      this.errorHandler.handleError(error as Error, 'PresetService.loadDefaultPreset');
+    }
   }
 
   /**

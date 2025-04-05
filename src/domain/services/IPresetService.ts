@@ -26,6 +26,11 @@ export interface IPresetService {
   getCurrentPreset(): IPreset | null;
 
   /**
+   * 기본 프리셋 로드
+   */
+  loadDefaultPreset(): void;
+
+  /**
    * 프리셋 생성
    * @param name 프리셋 이름
    * @param type 프리셋 타입

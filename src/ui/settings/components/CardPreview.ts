@@ -26,7 +26,7 @@ type DisplayProperties = {
  */
 export class CardPreview {
   private containerEl: HTMLElement;
-  private previewEl: HTMLElement;
+  private previewEl: HTMLElement | null = null;
   private selectedSection: SectionType | null = null;
   private renderConfig: ICardRenderConfig;
   private cardStyle: ICardStyle;
@@ -47,65 +47,115 @@ export class CardPreview {
    * 프리뷰 생성
    */
   private createPreview(): void {
-    // 기존 프리뷰가 있다면 제거
-    if (this.previewEl) {
-      this.previewEl.remove();
-    }
-
-    // 프리뷰 컨테이너
-    this.previewEl = this.containerEl.createDiv('card-preview-wrapper');
-    this.previewEl.style.display = 'flex';
-    this.previewEl.style.justifyContent = 'center';
-    this.previewEl.style.alignItems = 'center';
-    this.previewEl.style.padding = '20px';
-    this.previewEl.style.backgroundColor = 'var(--background-secondary)';
-    this.previewEl.style.borderRadius = '8px';
-    this.previewEl.style.margin = '20px 0';
-    
-    // 카드 프리뷰
-    const cardEl = this.previewEl.createDiv('card-preview');
-    cardEl.style.width = '300px';
-    cardEl.style.maxWidth = '100%';
-    cardEl.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
-    cardEl.style.borderRadius = '8px';
-    cardEl.style.overflow = 'hidden';
-    cardEl.style.backgroundColor = 'var(--background-primary)';
-    cardEl.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      if (target.closest('.card-header')) {
-        this.selectSection('header');
-      } else if (target.closest('.card-body')) {
-        this.selectSection('body');
-      } else if (target.closest('.card-footer')) {
-        this.selectSection('footer');
-      } else {
-        this.selectSection('card');
+    try {
+      console.log('카드 프리뷰 생성 시작', { containerEl: this.containerEl });
+      
+      // 기존 프리뷰가 있다면 제거
+      if (this.previewEl) {
+        this.previewEl.remove();
       }
-    });
 
-    // 헤더
-    if (this.renderConfig.showHeader) {
-      const headerEl = cardEl.createDiv('card-header');
-      this.applyStyle(headerEl, this.cardStyle.header);
-      this.renderSectionContent(headerEl, this.renderConfig.headerDisplay);
+      // 프리뷰 컨테이너 요소가 존재하는지 확인
+      if (!this.containerEl) {
+        console.error('프리뷰 컨테이너 요소가 없습니다');
+        return;
+      }
+
+      // 프리뷰 컨테이너
+      this.previewEl = this.containerEl.createDiv('card-preview-wrapper');
+      
+      // 스타일 명시적 설정 (가시성 확보)
+      this.previewEl.style.display = 'flex';
+      this.previewEl.style.justifyContent = 'center';
+      this.previewEl.style.alignItems = 'center';
+      this.previewEl.style.padding = '20px';
+      this.previewEl.style.backgroundColor = 'var(--background-secondary)';
+      this.previewEl.style.borderRadius = '8px';
+      this.previewEl.style.margin = '20px 0';
+      this.previewEl.style.minHeight = '200px';
+      this.previewEl.style.width = '100%';
+      this.previewEl.style.boxSizing = 'border-box';
+      this.previewEl.style.position = 'relative';
+      
+      // 카드 프리뷰
+      const cardEl = this.previewEl.createDiv('card-preview');
+      cardEl.style.width = '300px';
+      cardEl.style.maxWidth = '100%';
+      cardEl.style.minHeight = '150px';
+      cardEl.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+      cardEl.style.borderRadius = '8px';
+      cardEl.style.overflow = 'hidden';
+      cardEl.style.backgroundColor = 'var(--background-primary)';
+      cardEl.style.position = 'relative';
+      cardEl.style.border = '1px solid var(--background-modifier-border)';
+      
+      cardEl.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('.card-header')) {
+          this.selectSection('header');
+        } else if (target.closest('.card-body')) {
+          this.selectSection('body');
+        } else if (target.closest('.card-footer')) {
+          this.selectSection('footer');
+        } else {
+          this.selectSection('card');
+        }
+      });
+
+      // 헤더
+      if (this.renderConfig.showHeader) {
+        const headerEl = cardEl.createDiv('card-header');
+        this.applyStyle(headerEl, this.cardStyle.header);
+        headerEl.style.padding = '10px';
+        headerEl.style.borderBottom = '1px solid var(--background-modifier-border)';
+        this.renderSectionContent(headerEl, this.renderConfig.headerDisplay);
+      }
+
+      // 본문
+      if (this.renderConfig.showBody) {
+        const bodyEl = cardEl.createDiv('card-body');
+        this.applyStyle(bodyEl, this.cardStyle.body);
+        bodyEl.style.padding = '10px';
+        this.renderSectionContent(bodyEl, this.renderConfig.bodyDisplay);
+      }
+
+      // 푸터
+      if (this.renderConfig.showFooter) {
+        const footerEl = cardEl.createDiv('card-footer');
+        this.applyStyle(footerEl, this.cardStyle.footer);
+        footerEl.style.padding = '10px';
+        footerEl.style.borderTop = '1px solid var(--background-modifier-border)';
+        this.renderSectionContent(footerEl, this.renderConfig.footerDisplay);
+      }
+
+      // 카드 스타일 적용
+      this.applyStyle(cardEl, this.cardStyle.card);
+      
+      // 안내 텍스트 추가
+      const infoText = this.previewEl.createDiv('card-preview-info');
+      infoText.style.position = 'absolute';
+      infoText.style.bottom = '5px';
+      infoText.style.right = '10px';
+      infoText.style.fontSize = '11px';
+      infoText.style.color = 'var(--text-muted)';
+      infoText.textContent = '클릭하여 섹션 선택';
+      
+      console.log('카드 프리뷰 생성 완료', {
+        previewEl: this.previewEl,
+        dimensions: {
+          containerWidth: this.containerEl.offsetWidth,
+          previewWidth: this.previewEl.offsetWidth,
+          cardWidth: cardEl.offsetWidth
+        },
+        config: {
+          showHeader: this.renderConfig.showHeader,
+          showBody: this.renderConfig.showBody,
+          showFooter: this.renderConfig.showFooter
+        }
+      });
+    } catch (error) {
+      console.error('카드 프리뷰 생성 중 오류 발생', error);
     }
-
-    // 본문
-    if (this.renderConfig.showBody) {
-      const bodyEl = cardEl.createDiv('card-body');
-      this.applyStyle(bodyEl, this.cardStyle.body);
-      this.renderSectionContent(bodyEl, this.renderConfig.bodyDisplay);
-    }
-
-    // 푸터
-    if (this.renderConfig.showFooter) {
-      const footerEl = cardEl.createDiv('card-footer');
-      this.applyStyle(footerEl, this.cardStyle.footer);
-      this.renderSectionContent(footerEl, this.renderConfig.footerDisplay);
-    }
-
-    // 카드 스타일 적용
-    this.applyStyle(cardEl, this.cardStyle.card);
   }
 
   /**
@@ -121,6 +171,8 @@ export class CardPreview {
    * 선택 상태 업데이트
    */
   private updateSelection(): void {
+    if (!this.previewEl) return;
+    
     const cardEl = this.previewEl.querySelector('.card-preview');
     if (!cardEl) return;
 
@@ -209,8 +261,10 @@ export class CardPreview {
    */
   updateRenderConfig(config: ICardRenderConfig): void {
     this.renderConfig = config;
-    this.previewEl.empty();
-    this.createPreview();
+    if (this.previewEl) {
+      this.previewEl.empty();
+      this.createPreview();
+    }
   }
 
   /**
@@ -218,8 +272,10 @@ export class CardPreview {
    */
   updateStyle(style: ICardStyle): void {
     this.cardStyle = style;
-    this.previewEl.empty();
-    this.createPreview();
+    if (this.previewEl) {
+      this.previewEl.empty();
+      this.createPreview();
+    }
   }
 
   /**
@@ -227,6 +283,28 @@ export class CardPreview {
    */
   getSelectedSection(): SectionType | null {
     return this.selectedSection;
+  }
+
+  /**
+   * 정리 메서드 - 이벤트 리스너 제거 및 메모리 해제
+   */
+  cleanup(): void {
+    try {
+      console.log('카드 프리뷰 정리 시작');
+      
+      // 이벤트 리스너 제거
+      this.eventListeners.clear();
+      
+      // 요소 정리
+      if (this.previewEl) {
+        this.previewEl.remove();
+        this.previewEl = null;
+      }
+      
+      console.log('카드 프리뷰 정리 완료');
+    } catch (error) {
+      console.error('카드 프리뷰 정리 중 오류 발생:', error);
+    }
   }
 
   /**
