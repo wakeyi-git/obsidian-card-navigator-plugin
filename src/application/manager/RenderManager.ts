@@ -327,15 +327,20 @@ export class RenderManager implements IRenderManager {
     this.performanceMonitor.startMeasure(perfMark);
     
     try {
+      // 입력 유효성 검사
+      if (!card || !card.id) {
+        this.loggingService.error('잘못된 카드 객체', { card });
+        return '<div class="card-error">잘못된 카드</div>';
+      }
+    
       // 성능 최적화: 캐시 키 생성은 한 번만 수행
       const cacheKey = this.generateCacheKey(card.id, config, style);
       
       // 캐시된 결과가 있는지 확인
       if (this.renderCache.has(cacheKey)) {
-        // 캐시 히트는 debug 아닌 trace 레벨로 변경 (로그 양 감소)
         this.loggingService.debug('캐시된 카드 렌더링 결과 사용', { cardId: card.id });
         const cachedResult = this.renderCache.get(cacheKey);
-        this.performanceMonitor.endMeasure(perfMark); // 조기 종료 시 성능 측정 종료
+        this.performanceMonitor.endMeasure(perfMark);
         return cachedResult || '';
       }
 
@@ -361,6 +366,7 @@ export class RenderManager implements IRenderManager {
         if (this.renderCache.has(cacheKey)) {
           this.loggingService.debug('렌더링 완료된 결과를 사용합니다', { cardId: card.id, waitedMs: waited });
           const cachedResult = this.renderCache.get(cacheKey);
+          this.performanceMonitor.endMeasure(perfMark);
           return cachedResult || '';
         }
       }
@@ -369,30 +375,57 @@ export class RenderManager implements IRenderManager {
       this.renderingCards.add(card.id);
 
       try {
-        // RenderUtils를 사용하여 카드 렌더링 - 성능을 위해 병렬 처리
-        const [header, body, footer] = await Promise.all([
-          Promise.resolve(RenderUtils.renderCardHeader(card, config)),
-          RenderUtils.renderCardBody(card, config),
-          Promise.resolve(RenderUtils.renderCardFooter(card, config))
-        ]);
-
-        // 렌더링된 내용 조합
-        const renderedContent = [header, body, footer].filter(Boolean).join('\n');
-
-        // 캐시 저장
-        this.renderCache.set(cacheKey, renderedContent);
+        // 카드가 이미 등록되어 있는지 확인
+        if (!this.cards.has(card.id)) {
+          this.loggingService.debug('카드가 등록되지 않음. 자동 등록', { cardId: card.id });
+          this.cards.set(card.id, card);
+        }
         
-        // 로그 레벨 변경: info -> debug로 변경하여 중복 로깅 줄임
-        this.loggingService.debug('카드 렌더링 완료', { cardId: card.id });
-        return renderedContent;
+        try {
+          // 빈 카드 체크 - 최적화
+          if (!card.content && !card.fileName && !card.firstHeader) {
+            const emptyCardHtml = `<div class="card-empty">빈 카드</div>`;
+            this.renderCache.set(cacheKey, emptyCardHtml);
+            return emptyCardHtml;
+          }
+        
+          // RenderUtils를 사용하여 카드 렌더링 - 성능을 위해 병렬 처리
+          const [header, body, footer] = await Promise.all([
+            Promise.resolve(RenderUtils.renderCardHeader(card, config)),
+            RenderUtils.renderCardBody(card, config),
+            Promise.resolve(RenderUtils.renderCardFooter(card, config))
+          ]);
+
+          // 렌더링된 내용 조합
+          const renderedContent = [header, body, footer].filter(Boolean).join('\n');
+
+          // 캐시 저장
+          this.renderCache.set(cacheKey, renderedContent);
+          
+          // 로그 레벨 변경: info -> debug로 변경하여 중복 로깅 줄임
+          this.loggingService.debug('카드 렌더링 완료', { cardId: card.id });
+          return renderedContent;
+        } catch (renderError) {
+          // 렌더링 실패 시 에러 카드 반환
+          const errorHtml = `<div class="card-error">렌더링 실패: ${renderError.message}</div>`;
+          this.loggingService.error('카드 내용 렌더링 실패', { 
+            error: renderError, 
+            cardId: card.id 
+          });
+          
+          // 에러 상태도 캐싱 (동일한 에러 반복 방지)
+          this.renderCache.set(cacheKey, errorHtml);
+          return errorHtml;
+        }
       } finally {
         // 항상 렌더링 중 상태를 해제
         this.renderingCards.delete(card.id);
       }
     } catch (error) {
-      this.loggingService.error('카드 렌더링 실패', { error, cardId: card.id });
+      this.loggingService.error('카드 렌더링 실패', { error, cardId: card?.id });
       this.errorHandler.handleError(error as Error, 'RenderManager.renderCard');
-      throw error;
+      // 마지막 에러 처리 - 항상 무언가를 반환해야 함
+      return `<div class="card-error">오류 발생: ${error instanceof Error ? error.message : '알 수 없는 오류'}</div>`;
     } finally {
       this.performanceMonitor.endMeasure(perfMark);
     }
@@ -403,10 +436,25 @@ export class RenderManager implements IRenderManager {
    * 카드 ID, 렌더링 설정, 스타일을 고려한 고유 키 생성
    */
   private generateCacheKey(cardId: string, config: ICardRenderConfig, style: ICardStyle): string {
-    // 성능 최적화: 복잡한 해시 대신 구분 가능한 값만 조합
-    // 설정과 스타일의 주요 특성만 포함
-    const configKey = config.renderMarkdown ? 'md' : 'txt';
-    return `${cardId}:${configKey}`;
+    // 카드 ID, 업데이트 시간, 렌더링 설정, 스타일을 고려한 캐시 키 생성
+    // 카드 내용이 변경되면 업데이트 시간이 변경되므로 캐시도 갱신됨
+    const card = this.cards.get(cardId);
+    const updatedAt = card?.updatedAt?.getTime() || Date.now();
+    
+    // 핵심 설정만 캐시키에 포함 (성능 최적화)
+    const configKey = [
+      config.renderMarkdown ? 'md' : 'txt',
+      config.contentLengthLimitEnabled ? `limit:${config.contentLengthLimit}` : 'nolimit'
+    ].join(':');
+    
+    // 스타일 변경에 따른 캐시키 요소 계산
+    const styleKey = [
+      style.card.borderColor,
+      style.card.backgroundColor,
+      style.body.fontSize
+    ].join(':');
+    
+    return `${cardId}:${updatedAt}:${configKey}:${styleKey}`;
   }
 
   /**

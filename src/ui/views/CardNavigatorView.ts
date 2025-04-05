@@ -15,6 +15,7 @@ import loadingTemplate from './CardNavigatorLoading.html';
 import viewTemplate from './CardNavigatorView.html';
 import { ICardNavigatorState } from '../../domain/models/CardNavigatorState';
 import { EventBus } from '../../domain/events/EventBus';
+import { Throttler } from '@/domain/utils/Throttler';
 
 export const VIEW_TYPE_CARD_NAVIGATOR = 'card-navigator-view';
 
@@ -37,6 +38,8 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
   private isInitialized: boolean = false;
   private pendingState: ICardNavigatorState | null = null;
   private initializationPromise: Promise<void> | null = null;
+  private updateStateThrottler: Throttler<[ICardNavigatorState], Promise<void>>;
+  private readonly UPDATE_THROTTLE_DELAY = 150; // 150ms 쓰로틀링
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -59,6 +62,12 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
     
     // Event Bus 초기화
     this.eventBus = EventBus.getInstance();
+    
+    // 상태 업데이트 쓰로틀러 초기화
+    this.updateStateThrottler = new Throttler(
+      (state: ICardNavigatorState) => this.processStateUpdate(state),
+      this.UPDATE_THROTTLE_DELAY
+    );
   }
 
   getViewType(): string {
@@ -567,6 +576,11 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
       if (this.loadingIndicator) {
         this.loadingIndicator.style.display = 'none';
       }
+      
+      // 카드가 성공적으로 렌더링되면 에러 메시지 숨김
+      if (cards.length > 0 && this.errorMessage) {
+        this.errorMessage.style.display = 'none';
+      }
     } catch (error) {
       this.logger.error('카드 목록 렌더링 실패', error);
       this.errorHandler.handleError(error, '카드 목록 렌더링 실패');
@@ -618,15 +632,19 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
         this.loadingIndicator.style.display = 'none';
       }
       
+      // 카드 그리드 비우기 - 에러 메시지 표시 시 카드 목록을 표시하지 않음
+      const gridContainer = this.containerEl.querySelector('.card-navigator-grid');
+      if (gridContainer) {
+        gridContainer.innerHTML = '';
+        
+        // 카드셋 ID 속성 제거 - 이전 카드셋 참조 제거
+        gridContainer.removeAttribute('data-card-set-id');
+      }
+      
       // 에러 메시지 표시
       if (this.errorMessage) {
         this.errorMessage.innerHTML = this.emptyTemplate({ message });
         this.errorMessage.style.display = 'flex';
-      } else {
-        const container = this.containerEl.querySelector('.card-navigator-grid');
-        if (container) {
-          container.innerHTML = this.emptyTemplate({ message });
-        }
       }
     } catch (error) {
       this.logger.error('에러 메시지 표시 중 오류 발생', error);
@@ -668,6 +686,19 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
     }
 
     try {
+      // 쓰로틀링 적용된 상태 업데이트
+      await this.updateStateThrottler.throttle(state);
+    } catch (error) {
+      this.errorHandler.handleError(error, '상태 업데이트 실패');
+    }
+  }
+  
+  /**
+   * 실제 상태 업데이트 처리 (쓰로틀링 적용 후)
+   * @param state 새로운 상태
+   */
+  private async processStateUpdate(state: ICardNavigatorState): Promise<void> {
+    try {
       // 카드셋 변경 여부 확인 - 불필요한 업데이트 방지
       let isCardSetChanged = false;
       
@@ -692,6 +723,11 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
           newCardSetId: newCardSetId
         });
         
+        // 기존 카드 요소 제거 - 중복 카드 방지를 위해 명시적으로 제거
+        if (this.cardGrid) {
+          this.cardGrid.innerHTML = '';
+        }
+        
         await this.updateCardSet(state.currentCardSet);
         
         // 카드셋 ID 속성 추가
@@ -715,7 +751,8 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
       // 검색 모드는 항상 업데이트
       this.updateSearchMode(state.isSearchMode, state.searchQuery);
     } catch (error) {
-      this.errorHandler.handleError(error, '상태 업데이트 실패');
+      this.errorHandler.handleError(error, '상태 업데이트 처리 실패');
+      throw error;
     }
   }
 
@@ -805,29 +842,111 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
    * 카드셋 업데이트
    * @param cardSet 카드셋
    */
-  public async updateCardSet(cardSet: ICardSet): Promise<void> {
+  async updateCardSet(cardSet: ICardSet): Promise<void> {
     try {
       this.logger.debug('카드셋 업데이트 시작', { 
         cardSetId: cardSet.id, 
         cardSetType: cardSet.type,
         cardCount: cardSet.cards.length,
-        criteria: cardSet.criteria
+        criteria: cardSet.criteria 
       });
       
-      // 로딩 표시 시작 - 이미 활성화되어 있을 수 있으므로 확인
+      // 중복 업데이트 방지: 현재 화면에 표시된 카드셋과 동일한지 확인
+      if (this.cardGrid) {
+        const currentCardSetId = this.cardGrid.getAttribute('data-card-set-id');
+        
+        // 동일한 ID의 카드셋이 있는 경우 카드 내용 비교
+        if (currentCardSetId === cardSet.id) {
+          // 현재 표시된 카드 개수와 새 카드셋의 카드 개수 비교
+          const displayedCards = this.cardGrid.querySelectorAll('.card-navigator-card');
+          
+          if (displayedCards.length === cardSet.cards.length) {
+            // 카드 ID 집합을 구성
+            const displayedCardIds = new Set<string>();
+            displayedCards.forEach(cardEl => {
+              const cardId = cardEl.getAttribute('data-card-id');
+              if (cardId) displayedCardIds.add(cardId);
+            });
+            
+            const newCardIds = new Set(cardSet.cards.map(card => card.id));
+            
+            // 두 집합이 정확히 동일한지 확인 (양방향 검사)
+            let isIdentical = true;
+            
+            // 1. 모든 표시된 카드가 새 카드셋에 있는지 확인
+            for (const displayedId of displayedCardIds) {
+              if (!newCardIds.has(displayedId)) {
+                isIdentical = false;
+                break;
+              }
+            }
+            
+            // 2. 모든 새 카드가 이미 표시되어 있는지 확인
+            if (isIdentical) {
+              for (const newId of newCardIds) {
+                if (!displayedCardIds.has(newId)) {
+                  isIdentical = false;
+                  break;
+                }
+              }
+            }
+            
+            if (isIdentical) {
+              this.logger.debug('정확히 동일한 카드셋이 이미 표시됨, 업데이트 건너뜀', {
+                cardSetId: cardSet.id,
+                cardCount: cardSet.cards.length
+              });
+              
+              // 로딩 상태 업데이트
+              this.showLoading(false);
+              
+              // 카드가 정상적으로 로드되었으므로 에러 메시지 숨김
+              if (this.errorMessage) {
+                this.errorMessage.style.display = 'none';
+              }
+              
+              this.logger.debug('카드셋 업데이트 스킵');
+              return;
+            } else {
+              this.logger.debug('카드셋 ID는 같지만 내용이 다름, 업데이트 진행');
+            }
+          }
+        }
+      }
+      
+      // 로딩 상태 설정
       this.showLoading(true);
       
-      // 카드 렌더링 - 이후 렌더링 메서드에서 로딩 인디케이터를 숨김
+      // 카드 그리드 비우기 - 중복 요소 방지
+      if (this.cardGrid) {
+        this.cardGrid.innerHTML = '';
+      }
+      
+      // 카드 렌더링
       await this.renderCards(cardSet.cards);
+      
+      // 로딩 상태 해제
+      this.showLoading(false);
+      
+      // 카드가 정상적으로 로드되었으므로 에러 메시지 숨김
+      if (cardSet.cards.length > 0 && this.errorMessage) {
+        this.logger.debug('카드가 정상적으로 로드되어 에러 메시지 숨김');
+        this.errorMessage.style.display = 'none';
+      }
+      
+      // 카드셋 ID 속성 추가
+      if (this.cardGrid) {
+        this.cardGrid.setAttribute('data-card-set-id', cardSet.id);
+      }
       
       this.logger.debug('카드셋 업데이트 완료');
     } catch (error) {
       this.logger.error('카드셋 업데이트 실패', error);
       this.errorHandler.handleError(error, '카드셋 업데이트 실패');
-      this.showError('카드셋 업데이트 중 오류가 발생했습니다.');
-      
       // 에러 상황에서도 로딩 인디케이터 숨김
       this.showLoading(false);
+      // 에러 메시지 표시
+      this.showError('카드셋 업데이트 중 오류가 발생했습니다.');
     }
   }
 

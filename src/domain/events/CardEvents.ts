@@ -1,6 +1,7 @@
 import { DomainEvent } from './DomainEvent';
 import { DomainEventType } from './DomainEventType';
 import { ICard } from '../models/Card';
+import { BaseEvent } from './BaseEvent';
 
 /**
  * 카드 생성 이벤트
@@ -89,5 +90,81 @@ export class CardActivatedEvent extends DomainEvent<string> {
 export class CardDeactivatedEvent extends DomainEvent<string> {
   constructor(public readonly cardId: string) {
     super(DomainEventType.CARD_DEACTIVATED, cardId);
+  }
+}
+
+/**
+ * 카드 클릭 이벤트
+ */
+export class CardClickedEvent extends BaseEvent {
+  constructor(
+    public readonly cardId: string,
+    public readonly metadata: Record<string, any> = {}
+  ) {
+    super('CardClickedEvent');
+  }
+}
+
+/**
+ * 카드 더블 클릭 이벤트
+ */
+export class CardDoubleClickedEvent extends BaseEvent {
+  constructor(
+    public readonly cardId: string,
+    public readonly metadata: Record<string, any> = {}
+  ) {
+    super('CardDoubleClickedEvent');
+  }
+}
+
+/**
+ * 카드 컨텍스트 메뉴 이벤트
+ */
+export class CardContextMenuEvent extends BaseEvent {
+  constructor(
+    public readonly cardId: string,
+    public readonly event: MouseEvent,
+    public readonly metadata: Record<string, any> = {}
+  ) {
+    super('CardContextMenuEvent');
+  }
+}
+
+/**
+ * 카드 드래그 시작 이벤트
+ */
+export class CardDragStartEvent extends BaseEvent {
+  constructor(
+    public readonly cardId: string,
+    public readonly metadata: Record<string, any> = {}
+  ) {
+    super('CardDragStartEvent');
+  }
+}
+
+/**
+ * 카드 드롭 이벤트 (새로운 형식)
+ */
+export class CardDropEvent extends BaseEvent {
+  constructor(
+    public readonly targetCardId: string,
+    public readonly sourceData: string,
+    public readonly metadata: Record<string, any> = {}
+  ) {
+    super('CardDropEvent');
+  }
+}
+
+/**
+ * 카드 위치 업데이트 이벤트
+ */
+export class LayoutCardPositionUpdatedEvent extends BaseEvent {
+  constructor(
+    public readonly cardId: string,
+    public readonly x: number,
+    public readonly y: number,
+    public readonly metadata: Record<string, any> = {}
+  ) {
+    super('LayoutCardPositionUpdatedEvent');
   }
 } 

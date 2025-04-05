@@ -74,9 +74,21 @@ export class TagSuggestModal extends SuggestModal<string> {
    * 제안 항목 선택 처리
    */
   onChooseSuggestion(tag: string, evt: MouseEvent | KeyboardEvent): void {
-    this.logger.debug('태그 선택됨', { tag });
-    if (this.onChoose) {
-      this.onChoose(tag);
+    try {
+      this.logger.debug('태그 선택됨', { tag });
+      
+      // 모달 닫은 후 이벤트 처리
+      this.close();
+      
+      // 콜백이 있는 경우에만 실행
+      if (this.onChoose) {
+        // 모달 내에서의 중복 호출 방지 (마우스 더블 클릭 등에 의한 중복 호출 방지)
+        setTimeout(() => {
+          this.onChoose(tag);
+        }, 50);
+      }
+    } catch (error) {
+      this.logger.error('태그 선택 처리 중 오류 발생', { error, tag });
     }
   }
 } 

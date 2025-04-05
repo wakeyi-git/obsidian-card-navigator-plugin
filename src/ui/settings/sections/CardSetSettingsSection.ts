@@ -11,6 +11,8 @@ import { CardNavigatorViewModel } from '@/ui/viewModels/CardNavigatorViewModel';
  */
 export class CardSetSettingsSection {
   private viewModel: CardNavigatorViewModel;
+  private refreshTimerId: number | null = null;
+  private readonly DEBOUNCE_TIMEOUT = 300; // 300ms 디바운싱
 
   constructor(private plugin: CardNavigatorPlugin) {
     // 카드 내비게이터 뷰모델 가져오기
@@ -18,18 +20,78 @@ export class CardSetSettingsSection {
   }
 
   /**
-   * 카드셋 설정이 변경되었을 때 현재 활성화된 카드셋 갱신
+   * 카드셋 설정이 변경되었을 때 현재 활성화된 카드셋 갱신 (디바운싱 적용)
    */
   private async refreshCurrentCardSet(): Promise<void> {
     try {
-      // 현재 뷰모델의 카드셋 타입과 기준에 따라 카드셋 다시 생성
-      const currentCardSet = this.viewModel.getCurrentCardSet();
-      if (currentCardSet) {
-        // 현재 카드셋 타입 기준으로 새로운 카드셋 생성
-        await this.viewModel.createCardSet(currentCardSet.type, currentCardSet.criteria);
+      // 기존 타이머가 있으면 취소
+      if (this.refreshTimerId !== null) {
+        window.clearTimeout(this.refreshTimerId);
+        this.refreshTimerId = null;
       }
+      
+      // 디바운싱 적용된 갱신 함수 호출
+      this.refreshTimerId = window.setTimeout(async () => {
+        try {
+          const cardSetType = this.plugin.settings.defaultCardSetType as CardSetType;
+          let criteria = '';
+
+          // 카드셋 타입에 따라 기준 설정
+          if (cardSetType === CardSetType.FOLDER) {
+            const folderSetMode = (this.plugin.settings as any).folderSetMode || 'active';
+            if (folderSetMode === 'fixed') {
+              criteria = (this.plugin.settings as any).fixedFolderPath || '/';
+            } else {
+              // 활성 파일 폴더 모드일 경우 현재 활성화된 카드셋의 기준 재사용
+              const currentCardSet = this.viewModel.getCurrentCardSet();
+              if (currentCardSet && currentCardSet.type === CardSetType.FOLDER) {
+                criteria = currentCardSet.criteria;
+              }
+            }
+          } else if (cardSetType === CardSetType.TAG) {
+            const tagSetMode = (this.plugin.settings as any).tagSetMode || 'active';
+            if (tagSetMode === 'fixed') {
+              criteria = (this.plugin.settings as any).fixedTag || '';
+            } else {
+              // 활성 태그 모드일 경우 현재 활성화된 카드셋의 기준 재사용
+              const currentCardSet = this.viewModel.getCurrentCardSet();
+              if (currentCardSet && currentCardSet.type === CardSetType.TAG) {
+                criteria = currentCardSet.criteria;
+              }
+            }
+          } else if (cardSetType === CardSetType.LINK) {
+            // 링크 타입일 경우 현재 활성화된 카드셋의 기준 재사용
+            const currentCardSet = this.viewModel.getCurrentCardSet();
+            if (currentCardSet && currentCardSet.type === CardSetType.LINK) {
+              criteria = currentCardSet.criteria;
+            }
+          }
+
+          // 기준이 제대로 설정된 경우에만 카드셋 갱신
+          if (criteria) {
+            await this.viewModel.createCardSet(cardSetType, criteria);
+          }
+          
+          // 타이머 초기화
+          this.refreshTimerId = null;
+        } catch (error) {
+          console.error('카드셋 갱신 실패:', error);
+          this.refreshTimerId = null;
+        }
+      }, this.DEBOUNCE_TIMEOUT);
     } catch (error) {
-      console.error('카드셋 갱신 실패:', error);
+      console.error('카드셋 갱신 디바운싱 설정 실패:', error);
+    }
+  }
+
+  /**
+   * 설정 저장하기
+   */
+  private async saveSettings(): Promise<void> {
+    try {
+      await this.plugin.saveSettings();
+    } catch (error) {
+      console.error('설정 저장 실패:', error);
     }
   }
 
@@ -76,16 +138,17 @@ export class CardSetSettingsSection {
           .addOption(CardSetType.LINK, '링크')
           .setValue(this.plugin.settings.defaultCardSetType)
           .onChange(async (value) => {
+            // 설정 업데이트
             this.plugin.settings = {
               ...this.plugin.settings,
               defaultCardSetType: value as CardSetType
             };
-            await this.plugin.saveSettings();
+            await this.saveSettings();
             
             // 카드셋 타입에 따라 관련 설정 영역 표시/숨김
             this.updateCardSetVisibility(containerEl, value as CardSetType);
             
-            // 설정 변경 시 카드셋 갱신
+            // 설정 변경 시 카드셋 즉시 갱신 (디바운싱 적용)
             await this.refreshCurrentCardSet();
           }));
 
@@ -103,11 +166,12 @@ export class CardSetSettingsSection {
           .addOption('fixed', '고정 폴더 (지정한 폴더)')
           .setValue((this.plugin.settings as any).folderSetMode || 'active')
           .onChange(async (value) => {
+            // 설정 업데이트
             this.plugin.settings = {
               ...this.plugin.settings,
               folderSetMode: value
             } as any;
-            await this.plugin.saveSettings();
+            await this.saveSettings();
             
             // 고정 폴더 입력 필드 표시/숨김
             const fixedFolderSetting = folderSettingsEl.querySelector('.card-navigator-fixed-folder-setting');
@@ -115,8 +179,10 @@ export class CardSetSettingsSection {
               (fixedFolderSetting as any).style.display = value === 'fixed' ? 'block' : 'none';
             }
             
-            // 설정 변경 시 카드셋 갱신
-            await this.refreshCurrentCardSet();
+            // 폴더 카드셋이 현재 활성화된 경우에만 즉시 갱신
+            if (this.plugin.settings.defaultCardSetType === CardSetType.FOLDER) {
+              await this.refreshCurrentCardSet();
+            }
           }));
     
     // 고정 폴더 경로 설정
@@ -128,14 +194,16 @@ export class CardSetSettingsSection {
         text.setValue((this.plugin.settings as any).fixedFolderPath || '')
             .setPlaceholder('예: 폴더/하위폴더')
             .onChange(async (value) => {
+              // 설정 업데이트
               this.plugin.settings = {
                 ...this.plugin.settings,
                 fixedFolderPath: value
               } as any;
-              await this.plugin.saveSettings();
+              await this.saveSettings();
               
-              // 설정 변경 시 카드셋 갱신 (폴더 경로가 변경되었을 때만)
-              if ((this.plugin.settings as any).folderSetMode === 'fixed') {
+              // 폴더 카드셋이 현재 활성화되고, 고정 폴더 모드인 경우에만 즉시 갱신
+              if (this.plugin.settings.defaultCardSetType === CardSetType.FOLDER &&
+                  (this.plugin.settings as any).folderSetMode === 'fixed') {
                 await this.refreshCurrentCardSet();
               }
             });
@@ -149,15 +217,26 @@ export class CardSetSettingsSection {
         
         browseButton.addEventListener('click', () => {
           const modal = new FolderSuggestModal(this.plugin.app);
+          
+          // 선택 이벤트 처리
           modal.onChoose = async (folder: string) => {
+            // 텍스트 필드 업데이트
             text.setValue(folder);
-            text.onChanged();
             
-            // 폴더 선택 시 카드셋 갱신
-            if ((this.plugin.settings as any).folderSetMode === 'fixed') {
+            // 설정 업데이트 (내부적으로 text.onChange 이미 호출됨)
+            this.plugin.settings = {
+              ...this.plugin.settings,
+              fixedFolderPath: folder
+            } as any;
+            await this.saveSettings();
+            
+            // 폴더 선택 시 즉시 카드셋 갱신
+            if (this.plugin.settings.defaultCardSetType === CardSetType.FOLDER &&
+                (this.plugin.settings as any).folderSetMode === 'fixed') {
               await this.refreshCurrentCardSet();
             }
           };
+          
           modal.open();
         });
         
@@ -182,14 +261,17 @@ export class CardSetSettingsSection {
         toggle
           .setValue(this.plugin.settings.includeSubfolders)
           .onChange(async (value) => {
+            // 설정 업데이트
             this.plugin.settings = {
               ...this.plugin.settings,
               includeSubfolders: value
             };
-            await this.plugin.saveSettings();
+            await this.saveSettings();
             
-            // 설정 변경 시 카드셋 갱신
-            await this.refreshCurrentCardSet();
+            // 폴더 카드셋이 현재 활성화된 경우에만 즉시 갱신
+            if (this.plugin.settings.defaultCardSetType === CardSetType.FOLDER) {
+              await this.refreshCurrentCardSet();
+            }
           }));
     
     // 태그 카드셋 설정 섹션
@@ -206,11 +288,12 @@ export class CardSetSettingsSection {
           .addOption('fixed', '고정 태그 (지정한 태그)')
           .setValue((this.plugin.settings as any).tagSetMode || 'active')
           .onChange(async (value) => {
+            // 설정 업데이트
             this.plugin.settings = {
               ...this.plugin.settings,
               tagSetMode: value
             } as any;
-            await this.plugin.saveSettings();
+            await this.saveSettings();
             
             // 고정 태그 입력 필드 표시/숨김
             const fixedTagSetting = tagSettingsEl.querySelector('.card-navigator-fixed-tag-setting');
@@ -218,8 +301,10 @@ export class CardSetSettingsSection {
               (fixedTagSetting as any).style.display = value === 'fixed' ? 'block' : 'none';
             }
             
-            // 설정 변경 시 카드셋 갱신
-            await this.refreshCurrentCardSet();
+            // 태그 카드셋이 현재 활성화된 경우에만 즉시 갱신
+            if (this.plugin.settings.defaultCardSetType === CardSetType.TAG) {
+              await this.refreshCurrentCardSet();
+            }
           }));
     
     // 고정 태그 설정
@@ -231,14 +316,16 @@ export class CardSetSettingsSection {
         text.setValue((this.plugin.settings as any).fixedTag || '')
             .setPlaceholder('예: #태그명')
             .onChange(async (value) => {
+              // 설정 업데이트
               this.plugin.settings = {
                 ...this.plugin.settings,
                 fixedTag: value
               } as any;
-              await this.plugin.saveSettings();
+              await this.saveSettings();
               
-              // 설정 변경 시 카드셋 갱신 (태그가 변경되었을 때만)
-              if ((this.plugin.settings as any).tagSetMode === 'fixed') {
+              // 태그 카드셋이 현재 활성화되고, 고정 태그 모드인 경우에만 즉시 갱신
+              if (this.plugin.settings.defaultCardSetType === CardSetType.TAG &&
+                  (this.plugin.settings as any).tagSetMode === 'fixed') {
                 await this.refreshCurrentCardSet();
               }
             });
@@ -252,15 +339,26 @@ export class CardSetSettingsSection {
         
         browseButton.addEventListener('click', () => {
           const modal = new TagSuggestModal(this.plugin.app);
+          
+          // 선택 이벤트 처리
           modal.onChoose = async (tag: string) => {
+            // 텍스트 필드 업데이트
             text.setValue(tag);
-            text.onChanged();
             
-            // 태그 선택 시 카드셋 갱신
-            if ((this.plugin.settings as any).tagSetMode === 'fixed') {
+            // 설정 업데이트 (내부적으로 text.onChange 이미 호출됨)
+            this.plugin.settings = {
+              ...this.plugin.settings,
+              fixedTag: tag
+            } as any;
+            await this.saveSettings();
+            
+            // 태그 선택 시 즉시 카드셋 갱신
+            if (this.plugin.settings.defaultCardSetType === CardSetType.TAG &&
+                (this.plugin.settings as any).tagSetMode === 'fixed') {
               await this.refreshCurrentCardSet();
             }
           };
+          
           modal.open();
         });
         
@@ -289,14 +387,17 @@ export class CardSetSettingsSection {
         toggle
           .setValue(this.plugin.settings.includeBacklinks)
           .onChange(async (value) => {
+            // 설정 업데이트
             this.plugin.settings = {
               ...this.plugin.settings,
               includeBacklinks: value
             };
-            await this.plugin.saveSettings();
+            await this.saveSettings();
             
-            // 설정 변경 시 카드셋 갱신
-            await this.refreshCurrentCardSet();
+            // 링크 카드셋이 현재 활성화된 경우에만 즉시 갱신
+            if (this.plugin.settings.defaultCardSetType === CardSetType.LINK) {
+              await this.refreshCurrentCardSet();
+            }
           }));
 
     // 아웃고잉 링크 포함
@@ -307,14 +408,17 @@ export class CardSetSettingsSection {
         toggle
           .setValue(this.plugin.settings.includeOutgoingLinks)
           .onChange(async (value) => {
+            // 설정 업데이트
             this.plugin.settings = {
               ...this.plugin.settings,
               includeOutgoingLinks: value
             };
-            await this.plugin.saveSettings();
+            await this.saveSettings();
             
-            // 설정 변경 시 카드셋 갱신
-            await this.refreshCurrentCardSet();
+            // 링크 카드셋이 현재 활성화된 경우에만 즉시 갱신
+            if (this.plugin.settings.defaultCardSetType === CardSetType.LINK) {
+              await this.refreshCurrentCardSet();
+            }
           }));
 
     // 링크 레벨
@@ -327,14 +431,17 @@ export class CardSetSettingsSection {
         .setValue(this.plugin.settings.linkLevel)
         .setDynamicTooltip()
         .onChange(async (value) => {
+          // 설정 업데이트
           this.plugin.settings = {
             ...this.plugin.settings,
             linkLevel: value
           };
-          await this.plugin.saveSettings();
+          await this.saveSettings();
           
-          // 설정 변경 시 카드셋 갱신
-          await this.refreshCurrentCardSet();
+          // 링크 카드셋이 현재 활성화된 경우에만 즉시 갱신
+          if (this.plugin.settings.defaultCardSetType === CardSetType.LINK) {
+            await this.refreshCurrentCardSet();
+          }
         }));
 
     // 초기 상태에서 현재 선택된 카드셋 타입에 따른 설정 영역 표시

@@ -101,6 +101,14 @@ export default class CardNavigatorPlugin extends Plugin {
     container.register('IAnalyticsService', () => AnalyticsService.getInstance(), true);
     container.register('IEventDispatcher', () => EventDispatcher.getInstance(), true);
 
+    // 중요 서비스 우선 등록 - 의존성 순서 고려
+    container.register('IActiveFileWatcher', () => {
+      console.debug('ActiveFileWatcher 서비스 팩토리 호출됨');
+      const instance = ActiveFileWatcher.getInstance();
+      console.debug('ActiveFileWatcher 인스턴스 생성 완료');
+      return instance;
+    }, true);
+
     // 애플리케이션 서비스 등록
     container.register('ICardService', () => CardService.getInstance(), true);
     container.register('ICardSetService', () => CardSetService.getInstance(), true);
@@ -111,7 +119,6 @@ export default class CardNavigatorPlugin extends Plugin {
     container.register('ISearchService', () => SearchService.getInstance(), true);
     container.register('ISortService', () => SortService.getInstance(), true);
     container.register('IFocusManager', () => FocusManager.getInstance(), true);
-    container.register('IActiveFileWatcher', () => ActiveFileWatcher.getInstance(), true);
     container.register('IClipboardService', () => ClipboardService.getInstance(), true);
     container.register('IFileService', () => FileService.getInstance(), true);
     container.register('IRenderManager', () => RenderManager.getInstance(), true);

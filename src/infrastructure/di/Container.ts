@@ -152,6 +152,20 @@ export class Container {
   }
 
   /**
+   * 서비스 인스턴스 안전하게 가져오기 (없으면 null 반환)
+   * @param token 서비스 식별자
+   * @returns 서비스 인스턴스 또는 null
+   */
+  public resolveOptional<T>(token: string): T | null {
+    try {
+      return this.resolve<T>(token);
+    } catch (error) {
+      this.logger.warn(`선택적 서비스 해결 실패: ${token}, null 반환`);
+      return null;
+    }
+  }
+
+  /**
    * 모든 서비스 해제
    */
   public clear(): void {

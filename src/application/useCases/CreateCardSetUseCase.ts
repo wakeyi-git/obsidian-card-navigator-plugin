@@ -32,6 +32,8 @@ export interface CreateCardSetInput {
   includeBacklinks?: boolean;
   /** 아웃고잉 링크 포함 여부 */
   includeOutgoingLinks?: boolean;
+  /** 트랜잭션 ID (중복 요청 식별용) */
+  transactionId?: string;
 }
 
 /**
@@ -78,7 +80,8 @@ export class CreateCardSetUseCase implements IUseCase<CreateCardSetInput, ICardS
         criteria: input.criteria,
         includeSubfolders: input.includeSubfolders,
         containerWidth: input.containerWidth,
-        containerHeight: input.containerHeight
+        containerHeight: input.containerHeight,
+        transactionId: input.transactionId || 'none'
       });
 
       // 1. 카드셋 생성

@@ -138,10 +138,26 @@ export class CardSetService implements ICardSetService {
     }
   }
 
+  /**
+   * 폴더에서 카드 로드
+   * @param folderPath 폴더 경로
+   * @param includeSubfolders 하위 폴더 포함 여부
+   */
   private async loadCardsFromFolder(folderPath: string, includeSubfolders: boolean = false): Promise<ICard[]> {
     try {
       this.performanceMonitor.startMeasure('CardSetService.loadCardsFromFolder');
       this.loggingService.debug('폴더에서 카드 로드 시작', { folderPath, includeSubfolders });
+
+      // 카드 서비스에서 폴더 경로 기반 카드 캐시 확인
+      const cacheKey = `folder:${folderPath}:${includeSubfolders}`;
+      const cachedCards = this.getCachedCards(cacheKey);
+      if (cachedCards) {
+        this.loggingService.debug('캐시된 카드 사용', { 
+          cacheKey, 
+          cardCount: cachedCards.length 
+        });
+        return cachedCards;
+      }
 
       const files = this.app.vault.getFiles();
       this.loggingService.debug('볼트에서 파일 가져옴', { totalFiles: files.length });
@@ -183,25 +199,36 @@ export class CardSetService implements ICardSetService {
         return [];
       }
 
+      // 병렬 처리를 위한 프로미스 배열
+      const createCardPromises: Promise<ICard | null>[] = [];
+      
       // 배치 처리
       for (let i = 0; i < targetFiles.length; i += BATCH_SIZE) {
         const batch = targetFiles.slice(i, i + BATCH_SIZE);
         this.loggingService.debug(`배치 처리 중 (${i+1}-${Math.min(i+BATCH_SIZE, targetFiles.length)}/${targetFiles.length})`);
         
-        const batchPromises = batch.map(file => this.cardService.createFromFile(file));
-        const batchResults = await Promise.all(batchPromises);
-        const validCards = batchResults.filter((card): card is ICard => card !== null);
-        
-        this.loggingService.debug('배치 결과', { 
-          batchSize: batch.length, 
-          validCardsCount: validCards.length 
+        // 배치의 모든 파일에 대해 카드 생성 프로미스 추가
+        batch.forEach(file => {
+          createCardPromises.push(this.cardService.createFromFile(file));
         });
-        
-        cards.push(...validCards);
       }
+      
+      // 모든 카드 생성 프로미스 병렬 실행
+      const results = await Promise.all(createCardPromises);
+      
+      // null이 아닌 카드만 필터링
+      const validCards = results.filter((card): card is ICard => card !== null);
+      
+      this.loggingService.debug('카드 생성 결과', { 
+        totalPromises: createCardPromises.length, 
+        validCardsCount: validCards.length 
+      });
+      
+      // 생성된 카드 캐싱
+      this.cacheCards(cacheKey, validCards);
 
-      this.loggingService.info('폴더에서 카드 로드 완료', { folderPath, cardCount: cards.length });
-      return cards;
+      this.loggingService.info('폴더에서 카드 로드 완료', { folderPath, cardCount: validCards.length });
+      return validCards;
     } catch (error) {
       this.loggingService.error('폴더에서 카드 로드 실패', { error, folderPath });
       throw new CardSetError(`폴더에서 카드 로드 중 오류가 발생했습니다: ${error.message}`);
@@ -210,47 +237,100 @@ export class CardSetService implements ICardSetService {
     }
   }
 
+  // 카드 캐싱을 위한 임시 맵
+  private cardCache: Map<string, { cards: ICard[], timestamp: number }> = new Map();
+  private readonly CACHE_TIMEOUT = 30000; // 30초 캐시 유효 시간
+
+  /**
+   * 캐시에서 카드 가져오기
+   * @param cacheKey 캐시 키
+   * @returns 캐시된 카드 또는 null
+   */
+  private getCachedCards(cacheKey: string): ICard[] | null {
+    const cached = this.cardCache.get(cacheKey);
+    if (!cached) return null;
+    
+    // 캐시 유효 시간 체크
+    const now = Date.now();
+    if (now - cached.timestamp > this.CACHE_TIMEOUT) {
+      this.loggingService.debug('캐시 만료됨', { cacheKey });
+      this.cardCache.delete(cacheKey);
+      return null;
+    }
+    
+    return cached.cards;
+  }
+
+  /**
+   * 카드 캐싱
+   * @param cacheKey 캐시 키
+   * @param cards 카드 배열
+   */
+  private cacheCards(cacheKey: string, cards: ICard[]): void {
+    this.cardCache.set(cacheKey, {
+      cards,
+      timestamp: Date.now()
+    });
+    this.loggingService.debug('카드 캐싱 완료', { 
+      cacheKey, 
+      cardCount: cards.length 
+    });
+  }
+
+  /**
+   * 태그에서 카드 로드
+   * @param tag 태그
+   */
   private async loadCardsFromTag(tag: string): Promise<ICard[]> {
     try {
       this.performanceMonitor.startMeasure('CardSetService.loadCardsFromTag');
       this.loggingService.debug('태그에서 카드 로드 시작', { tag });
 
+      // 태그 기반 카드 캐시 확인
+      const cacheKey = `tag:${tag}`;
+      const cachedCards = this.getCachedCards(cacheKey);
+      if (cachedCards) {
+        this.loggingService.debug('캐시된 태그 카드 사용', { 
+          cacheKey, 
+          cardCount: cachedCards.length 
+        });
+        return cachedCards;
+      }
+
       const files = this.app.vault.getFiles();
       const cards: ICard[] = [];
       const tagWithoutHash = tag.startsWith('#') ? tag.substring(1) : tag;
 
+      // 태그가 있는 파일을 먼저 필터링
+      const filesWithTag: TFile[] = [];
+      
+      // 메타데이터 캐시를 통해 태그가 있는 파일 필터링
       for (const file of files) {
+        const cache = this.app.metadataCache.getFileCache(file);
         let hasTag = false;
         
-        // 메타데이터 캐시를 통해 태그 확인
-        const cache = this.app.metadataCache.getFileCache(file);
         if (cache) {
-          // 1. 인라인 태그 확인 (예: #태그)
-          if (cache.tags) {
-            for (const tagObj of cache.tags) {
-              // #tag 형식으로 저장된 태그를 검사
-              if (tagObj.tag === tag || tagObj.tag === '#' + tagWithoutHash) {
-                hasTag = true;
-                break;
-              }
-            }
+          // 1. 인라인 태그 확인
+          if (cache.tags && cache.tags.some(tagObj => 
+            tagObj.tag === tag || tagObj.tag === '#' + tagWithoutHash)) {
+            hasTag = true;
           }
           
           // 2. 프론트매터 태그 확인
           if (!hasTag && cache.frontmatter) {
-            // 2.1 frontmatter.tags 배열 확인
+            // 2.1 배열 형태 태그
             if (cache.frontmatter.tags && Array.isArray(cache.frontmatter.tags)) {
               if (cache.frontmatter.tags.includes(tagWithoutHash)) {
                 hasTag = true;
               }
             }
-            // 2.2 frontmatter.tags 문자열 확인
+            // 2.2 문자열 형태 태그
             else if (cache.frontmatter.tags && typeof cache.frontmatter.tags === 'string') {
               if (cache.frontmatter.tags === tagWithoutHash) {
                 hasTag = true;
               }
             }
-            // 2.3 frontmatter.tag 문자열 확인 (단수형)
+            // 2.3 단수형 태그
             else if (cache.frontmatter.tag && typeof cache.frontmatter.tag === 'string') {
               if (cache.frontmatter.tag === tagWithoutHash) {
                 hasTag = true;
@@ -259,26 +339,40 @@ export class CardSetService implements ICardSetService {
           }
         }
         
-        // 3. 위 검사로 태그를 찾지 못했다면, 파일 내용도 확인 (기존 방식 유지)
-        if (!hasTag) {
-          const content = await this.app.vault.read(file);
-          if (content.includes(tag)) {
-            hasTag = true;
-          }
-        }
-        
-        // 태그가 있으면 카드 생성
+        // 태그가 있는 파일 목록에 추가
         if (hasTag) {
-          const card = await this.cardService.createFromFile(file);
-          if (card) {
-            cards.push(card);
-            this.loggingService.debug('태그가 있는 카드 추가', { filePath: file.path, tag });
-          }
+          filesWithTag.push(file);
         }
       }
+      
+      this.loggingService.debug('태그가 있는 파일 필터링 완료', { 
+        tag, 
+        fileCount: filesWithTag.length 
+      });
+      
+      // 병렬로 카드 생성
+      if (filesWithTag.length > 0) {
+        const createCardPromises = filesWithTag.map(file => 
+          this.cardService.createFromFile(file)
+        );
+        
+        const results = await Promise.all(createCardPromises);
+        const validCards = results.filter((card): card is ICard => card !== null);
+        
+        // 생성된 카드 캐싱
+        this.cacheCards(cacheKey, validCards);
+        
+        this.loggingService.info('태그에서 카드 로드 완료', { 
+          tag, 
+          fileCount: filesWithTag.length,
+          cardCount: validCards.length 
+        });
+        
+        return validCards;
+      }
 
-      this.loggingService.info('태그에서 카드 로드 완료', { tag, cardCount: cards.length });
-      return cards;
+      this.loggingService.info('태그와 일치하는 카드 없음', { tag });
+      return [];
     } catch (error) {
       this.loggingService.error('태그에서 카드 로드 실패', { error, tag });
       throw new CardSetError('태그에서 카드 로드 중 오류가 발생했습니다.');
@@ -287,6 +381,11 @@ export class CardSetService implements ICardSetService {
     }
   }
 
+  /**
+   * 링크에서 카드 로드
+   * @param filePath 파일 경로
+   * @param options 옵션 (링크 레벨, 백링크 포함 여부, 아웃고잉 링크 포함 여부)
+   */
   private async loadCardsFromLink(filePath: string, options: {
     level: number;
     includeBacklinks: boolean;
@@ -295,6 +394,17 @@ export class CardSetService implements ICardSetService {
     try {
       this.performanceMonitor.startMeasure('CardSetService.loadCardsFromLink');
       this.loggingService.debug('링크에서 카드 로드 시작', { filePath, options });
+
+      // 링크 기반 카드 캐시 확인
+      const cacheKey = `link:${filePath}:${options.level}:${options.includeBacklinks}:${options.includeOutgoingLinks}`;
+      const cachedCards = this.getCachedCards(cacheKey);
+      if (cachedCards) {
+        this.loggingService.debug('캐시된 링크 카드 사용', { 
+          cacheKey, 
+          cardCount: cachedCards.length 
+        });
+        return cachedCards;
+      }
 
       const file = this.app.vault.getAbstractFileByPath(filePath);
       if (!file || !(file instanceof TFile)) {
@@ -318,49 +428,64 @@ export class CardSetService implements ICardSetService {
         maxLevel
       });
       
+      // 백링크와 아웃고잉 링크 병렬 수집
+      const collectPromises: Promise<void>[] = [];
+      
       // 백링크 처리
       if (includeBacklinks) {
-        await this.collectBacklinks(file, linkedFilePaths, maxLevel);
-        this.loggingService.debug('백링크 수집 완료', { count: linkedFilePaths.size });
+        collectPromises.push(this.collectBacklinks(file, linkedFilePaths, maxLevel));
       }
       
       // 아웃고잉 링크 처리
       if (includeOutgoingLinks) {
-        await this.collectOutgoingLinks(file, linkedFilePaths, maxLevel);
-        this.loggingService.debug('아웃고잉 링크 수집 완료', { count: linkedFilePaths.size });
+        collectPromises.push(this.collectOutgoingLinks(file, linkedFilePaths, maxLevel));
       }
+      
+      // 모든 링크 수집 작업 완료 대기
+      await Promise.all(collectPromises);
+      
+      this.loggingService.debug('링크 수집 완료', { count: linkedFilePaths.size });
 
       // 활성 파일은 제외 (자기 자신의 링크는 제외)
       linkedFilePaths.delete(file.path);
       
-      // 링크 파일 경로 디버그 출력
+      if (linkedFilePaths.size === 0) {
+        this.loggingService.debug('수집된 링크 파일이 없음');
+        return [];
+      }
+      
+      // 링크된 파일 경로 배열
+      const linkedPaths = Array.from(linkedFilePaths);
       this.loggingService.debug('수집된 링크 파일 경로', { 
-        linkedPaths: Array.from(linkedFilePaths),
-        totalCount: linkedFilePaths.size
+        linkedPathsCount: linkedPaths.length
       });
       
-      // 수집된 파일 경로로부터 카드 생성
-      const cards: ICard[] = [];
-      for (const linkedPath of linkedFilePaths) {
+      // 링크된 파일에서 카드 병렬 생성
+      const createCardPromises: Promise<ICard | null>[] = [];
+      
+      for (const linkedPath of linkedPaths) {
         const linkedFile = this.app.vault.getAbstractFileByPath(linkedPath);
         if (linkedFile && linkedFile instanceof TFile) {
-          const card = await this.cardService.createFromFile(linkedFile);
-          if (card) {
-            cards.push(card);
-            this.loggingService.debug('링크에서 카드 생성 완료', { filePath: linkedFile.path });
-          }
+          createCardPromises.push(this.cardService.createFromFile(linkedFile));
         }
       }
+      
+      // 모든 카드 생성 병렬 완료 대기
+      const results = await Promise.all(createCardPromises);
+      const validCards = results.filter((card): card is ICard => card !== null);
+      
+      // 생성된 카드 캐싱
+      this.cacheCards(cacheKey, validCards);
 
       this.loggingService.info('링크에서 카드 로드 완료', { 
         filePath, 
-        cardCount: cards.length,
+        cardCount: validCards.length,
         linkLevel: maxLevel,
         backlinks: includeBacklinks,
         outgoingLinks: includeOutgoingLinks
       });
       
-      return cards;
+      return validCards;
     } catch (error) {
       this.loggingService.error('링크에서 카드 로드 실패', { error, filePath });
       throw new CardSetError('링크에서 카드 로드 중 오류가 발생했습니다.');

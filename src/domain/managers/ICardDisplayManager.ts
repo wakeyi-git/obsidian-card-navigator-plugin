@@ -22,8 +22,9 @@ export interface ICardDisplayManager {
   /**
    * 카드셋 표시
    * @param cardSet 카드셋
+   * @param transactionId 트랜잭션 ID (선택 사항)
    */
-  displayCardSet(cardSet: ICardSet): void;
+  displayCardSet(cardSet: ICardSet, transactionId?: string): void;
 
   /**
    * 카드 등록
