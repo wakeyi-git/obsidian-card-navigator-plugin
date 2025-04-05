@@ -1,4 +1,4 @@
-import { DomainEvent } from './DomainEvent';
+import { DomainEvent, IDomainEvent } from './DomainEvent';
 import { DomainEventType } from './DomainEventType';
 import { ISearchResult } from '../models/SearchResult';
 

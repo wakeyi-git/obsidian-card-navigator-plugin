@@ -149,3 +149,139 @@ npm run build
 
 ## 라이선스
 MIT License
+
+## 설정 구조 설명 (data.json)
+
+카드 내비게이터 플러그인의 설정은 `data.json` 파일에 저장되며, 다음과 같은 구조로 구성됩니다:
+
+### 카드 표시 설정
+
+- `cardTitleDisplayType`: 카드 제목 표시 방식 (`"filename"` 또는 `"first_header"`)
+- `cardRenderType`: 카드 렌더링 방식 (`"text"` 또는 `"html"`)
+- `renderMarkdown`: 마크다운 렌더링 여부 (불리언)
+
+### 카드셋 설정
+
+- `defaultCardSetType`: 기본 카드셋 타입 (`"folder"`, `"tag"`, 또는 `"link"`)
+- `defaultCardSetCriteria`: 기본 카드셋 기준 (경로 또는 태그)
+- `includeSubfolders`: 하위 폴더 포함 여부 (불리언)
+
+### 링크 설정
+
+- `linkType`: 링크 타입 (`"backlink"` 또는 `"outgoing"`)
+- `linkLevel`: 링크 레벨 (숫자)
+- `includeBacklinks`: 백링크 포함 여부 (불리언)
+- `includeOutgoingLinks`: 아웃고잉 링크 포함 여부 (불리언)
+- `includePatterns`: 포함할 패턴 (문자열 배열)
+- `excludePatterns`: 제외할 패턴 (문자열 배열)
+
+### 레이아웃 설정
+
+- `layoutType`: 레이아웃 타입 (`"masonry"` 또는 `"grid"`)
+- `layoutDirection`: 레이아웃 방향 (`"horizontal"` 또는 `"vertical"`)
+- `cardHeightFixed`: 카드 높이 고정 여부 (불리언) - 그리드와 메이슨리 레이아웃 결정
+- `cardMinWidth`: 카드 최소 너비 (픽셀)
+- `cardMinHeight`: 카드 최소 높이 (픽셀)
+- `cardGap`: 카드 간격 (픽셀)
+- `cardPadding`: 카드 패딩 (픽셀)
+
+### 프리셋 설정
+
+- `defaultPreset`: 기본 프리셋 이름
+- `autoApplyPreset`: 프리셋 자동 적용 여부 (불리언)
+- `presetType`: 프리셋 타입 (`"GLOBAL"`, `"FOLDER"`, `"TAG"` 등)
+- `folderPresetMappings`: 폴더-프리셋 매핑 배열
+- `tagPresetMappings`: 태그-프리셋 매핑 배열
+- `datePresetMappings`: 날짜-프리셋 매핑 배열
+- `propertyPresetMappings`: 속성-프리셋 매핑 배열
+
+### 검색 설정
+
+- `searchScope`: 검색 범위 (`"all"` 또는 `"current"`)
+- `searchFilename`: 파일명 검색 여부 (불리언)
+- `searchContent`: 내용 검색 여부 (불리언)
+- `searchTags`: 태그 검색 여부 (불리언)
+- `caseSensitive`: 대소문자 구분 여부 (불리언)
+- `useRegex`: 정규식 사용 여부 (불리언)
+
+### 정렬 설정
+
+- `sortField`: 정렬 기준 (`"name"`, `"created"`, `"updated"` 등)
+- `sortOrder`: 정렬 순서 (`"asc"` 또는 `"desc"`)
+- `priorityTags`: 우선 순위 태그 배열
+- `priorityFolders`: 우선 순위 폴더 배열
+
+### 스타일 설정
+
+#### 카드 스타일 (`cardStyle`)
+
+카드 종류별 및 구성 요소별 스타일 설정:
+
+- `card`: 일반 카드 스타일
+- `activeCard`: 활성 카드 스타일
+- `focusedCard`: 포커스된 카드 스타일
+- `header`: 헤더 스타일
+- `body`: 본문 스타일
+- `footer`: 푸터 스타일
+
+각 스타일은 다음 속성을 가집니다:
+- `backgroundColor`: 배경색 (CSS 색상)
+- `fontSize`: 글자 크기 (CSS 단위)
+- `borderColor`: 테두리 색상 (CSS 색상)
+- `borderWidth`: 테두리 두께 (CSS 단위)
+
+#### 카드 렌더링 설정 (`cardRenderConfig`)
+
+- `type`: 렌더링 타입 (`"text"` 또는 `"html"`)
+- `showHeader`: 헤더 표시 여부 (불리언)
+- `showBody`: 본문 표시 여부 (불리언)
+- `showFooter`: 푸터 표시 여부 (불리언)
+- `renderMarkdown`: 마크다운 렌더링 여부 (불리언)
+- `contentLengthLimitEnabled`: 내용 길이 제한 여부 (불리언)
+- `contentLengthLimit`: 내용 길이 제한 (숫자)
+- `titleDisplayType`: 제목 표시 방식 (`"filename"` 또는 `"first_header"`)
+
+카드 섹션별 표시 항목 설정:
+- `headerDisplay`: 헤더 표시 항목
+- `bodyDisplay`: 본문 표시 항목
+- `footerDisplay`: 푸터 표시 항목
+
+각 섹션은 다음 표시 옵션을 가집니다:
+- `showFileName`: 파일명 표시 여부 (불리언)
+- `showFirstHeader`: 첫 번째 헤더 표시 여부 (불리언)
+- `showContent`: 내용 표시 여부 (불리언)
+- `showTags`: 태그 표시 여부 (불리언)
+- `showCreatedDate`: 생성일 표시 여부 (불리언)
+- `showUpdatedDate`: 수정일 표시 여부 (불리언)
+- `showProperties`: 표시할 속성 배열
+
+렌더링 기능 설정:
+- `showImages`: 이미지 표시 여부 (불리언)
+- `highlightCode`: 코드 하이라이팅 여부 (불리언)
+- `supportCallouts`: 콜아웃 지원 여부 (불리언)
+- `supportMath`: 수식 지원 여부 (불리언)
+
+## 레이아웃 개념
+
+- **카드 높이 고정 여부**: `cardHeightFixed` 설정에 따라 그리드(true) 또는 메이슨리(false) 레이아웃이 적용됩니다.
+
+1. **메이슨리 레이아웃** (`cardHeightFixed: false`)
+   - 세로 방향으로만 적용되며, 카드의 높이는 컨텐츠 양에 따라 자동으로 결정됩니다.
+   - 뷰포트 너비와 카드 최소 너비를 기준으로 열 수가 결정됩니다.
+   - 모든 열이 뷰포트 안에 들어오도록 카드 너비가 균등하게 분배됩니다.
+   - 세로 방향으로 스크롤하여 카드를 탐색합니다.
+
+2. **그리드 레이아웃** (`cardHeightFixed: true`)
+   - 뷰포트 비율에 따라 가로 또는 세로 방향이 자동으로 결정됩니다.
+   
+   a. **가로 레이아웃** (뷰포트 가로 > 세로)
+      - 뷰포트 높이와 카드 최소 높이를 기준으로 행 수가 결정됩니다.
+      - 모든 행이 뷰포트 안에 들어오도록 카드 높이가 균등하게 분배됩니다.
+      - 카드 너비는 최소 너비로 고정됩니다.
+      - 가로 방향으로 스크롤하여 카드를 탐색합니다.
+   
+   b. **세로 레이아웃** (뷰포트 세로 > 가로)
+      - 뷰포트 너비와 카드 최소 너비를 기준으로 열 수가 결정됩니다.
+      - 모든 열이 뷰포트 안에 들어오도록 카드 너비가 균등하게 분배됩니다.
+      - 카드 높이는 최소 높이로 고정됩니다.
+      - 세로 방향으로 스크롤하여 카드를 탐색합니다.

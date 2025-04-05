@@ -3,8 +3,15 @@ import { v4 as uuidv4 } from 'uuid';
 
 /**
  * 도메인 이벤트 인터페이스
+ * - 모든 도메인 이벤트가 구현해야 하는 인터페이스
+ * @template T 이벤트 데이터 타입
  */
 export interface IDomainEvent<T = any> {
+  /**
+   * 이벤트 이름
+   */
+  readonly eventName: string;
+
   /**
    * 이벤트 발생 시간
    */
@@ -21,29 +28,37 @@ export interface IDomainEvent<T = any> {
   readonly type: DomainEventType;
 
   /**
-   * 이벤트 발생 시간
-   */
-  readonly timestamp: Date;
-
-  /**
    * 이벤트 데이터
    */
   readonly data: T;
+
+  /**
+   * 이벤트 미리보기 정보 반환
+   * @returns 이벤트 미리보기 정보
+   */
+  preview(): Record<string, any>;
 }
 
 /**
  * 도메인 이벤트 기본 클래스
+ * - 모든 도메인 이벤트의 기본 구현체
+ * @template T 이벤트 데이터 타입
  */
-export abstract class DomainEvent<T = any> {
+export abstract class DomainEvent<T = any> implements IDomainEvent<T> {
   /**
-   * 이벤트 생성 시간
+   * 이벤트 발생 시간
    */
-  public readonly timestamp: Date;
+  public readonly occurredOn: Date;
 
   /**
    * 이벤트 ID
    */
-  public readonly id: string;
+  public readonly eventId: string;
+
+  /**
+   * 이벤트 이름
+   */
+  public readonly eventName: string;
 
   /**
    * 이벤트 타입
@@ -56,119 +71,46 @@ export abstract class DomainEvent<T = any> {
   public readonly data: T;
 
   /**
-   * 생성자
+   * 도메인 이벤트 생성자
    * @param type 이벤트 타입
    * @param data 이벤트 데이터
    */
   constructor(type: DomainEventType, data: T) {
-    this.timestamp = new Date();
-    this.id = uuidv4();
+    this.occurredOn = new Date();
+    this.eventId = uuidv4();
     this.type = type;
+    this.eventName = type.toString();
     this.data = data;
   }
 
   /**
-   * 이벤트 데이터를 문자열로 변환
+   * 이벤트 정보를 문자열로 변환
+   * @returns 문자열 형태의 이벤트 정보
    */
   toString(): string {
-    return `[${this.type}] ${JSON.stringify(this.data)}`;
+    return `[${this.eventName}] ${JSON.stringify(this.preview())}`;
   }
 
   /**
-   * 이벤트 데이터를 복사
+   * 이벤트 복제
+   * @returns 복제된 이벤트
    */
   clone(): DomainEvent<T> {
     return Object.assign(Object.create(this), this);
   }
-}
 
-/**
- * 카드셋 이벤트
- */
-export class CardSetCreatedEvent extends DomainEvent<null> {
-  constructor() {
-    super(DomainEventType.CARDSET_CREATED, null);
-  }
-}
-
-export class CardSetUpdatedEvent extends DomainEvent<null> {
-  constructor() {
-    super(DomainEventType.CARDSET_UPDATED, null);
-  }
-}
-
-export class CardSetDeletedEvent extends DomainEvent<null> {
-  constructor() {
-    super(DomainEventType.CARDSET_DELETED, null);
-  }
-}
-
-/**
- * 카드 이벤트
- */
-export class CardCreatedEvent extends DomainEvent<null> {
-  constructor() {
-    super(DomainEventType.CARD_CREATED, null);
-  }
-}
-
-export class CardUpdatedEvent extends DomainEvent<null> {
-  constructor() {
-    super(DomainEventType.CARD_UPDATED, null);
-  }
-}
-
-export class CardDeletedEvent extends DomainEvent<null> {
-  constructor() {
-    super(DomainEventType.CARD_DELETED, null);
-  }
-}
-
-/**
- * 카드 포커스 이벤트
- */
-export class CardFocusedEvent extends DomainEvent<null> {
-  constructor() {
-    super(DomainEventType.CARD_FOCUSED, null);
-  }
-}
-
-export class CardSelectedEvent extends DomainEvent<null> {
-  constructor() {
-    super(DomainEventType.CARD_SELECTED, null);
-  }
-}
-
-export class CardDraggedEvent extends DomainEvent<null> {
-  constructor() {
-    super(DomainEventType.CARD_DRAGGED, null);
-  }
-}
-
-export class CardDroppedEvent extends DomainEvent<null> {
-  constructor() {
-    super(DomainEventType.CARD_DROPPED, null);
-  }
-}
-
-/**
- * 프리셋 이벤트
- */
-export class PresetCreatedEvent extends DomainEvent<null> {
-  constructor() {
-    super(DomainEventType.PRESET_CREATED, null);
-  }
-}
-
-export class PresetUpdatedEvent extends DomainEvent<null> {
-  constructor() {
-    super(DomainEventType.PRESET_UPDATED, null);
-  }
-}
-
-export class PresetDeletedEvent extends DomainEvent<null> {
-  constructor() {
-    super(DomainEventType.PRESET_DELETED, null);
+  /**
+   * 이벤트 미리보기 정보 반환
+   * @returns 이벤트 미리보기 정보
+   */
+  preview(): Record<string, any> {
+    return {
+      eventId: this.eventId,
+      type: this.type,
+      eventName: this.eventName,
+      data: this.data,
+      occurredOn: this.occurredOn
+    };
   }
 }
 
@@ -193,14 +135,39 @@ export interface IEventHandler<T extends DomainEvent> {
  * 이벤트 디스패처 인터페이스
  */
 export interface IEventDispatcher {
-  dispatch<T extends DomainEvent>(event: T): Promise<void>;
-  subscribe<T extends DomainEvent>(
-    eventType: DomainEventType,
-    handler: IEventHandler<T>
-  ): void;
-  unsubscribe<T extends DomainEvent>(
-    eventType: DomainEventType,
-    handler: IEventHandler<T>
-  ): void;
-  clear(): void;
+  /**
+   * 초기화
+   */
+  initialize(): void;
+
+  /**
+   * 초기화 여부 확인
+   * @returns 초기화 여부
+   */
+  isInitialized(): boolean;
+
+  /**
+   * 정리
+   */
+  cleanup(): void;
+
+  /**
+   * 이벤트 구독
+   * @param eventName 이벤트 이름
+   * @param callback 콜백 함수
+   */
+  subscribe<T extends IDomainEvent>(eventName: string, callback: (event: T) => void): void;
+
+  /**
+   * 이벤트 구독 해제
+   * @param eventName 이벤트 이름
+   * @param callback 콜백 함수
+   */
+  unsubscribe<T extends IDomainEvent>(eventName: string, callback: (event: T) => void): void;
+
+  /**
+   * 이벤트 발송
+   * @param event 이벤트 객체
+   */
+  dispatch<T extends IDomainEvent>(event: T): void;
 } 

@@ -1,13 +1,13 @@
 import { Setting } from 'obsidian';
 import type CardNavigatorPlugin from '@/main';
-import { CardRenderType } from '@/domain/models/CardRenderConfig';
 import { CardPreview } from '../components/CardPreview';
 import { IStyleProperties } from '@/domain/models/CardStyle';
 import { ICardRenderConfig, ISectionDisplayConfig } from '@/domain/models/CardRenderConfig';
 import { ICardDisplayManager } from '@/domain/managers/ICardDisplayManager';
 import { IRenderManager } from '@/domain/managers/IRenderManager';
 import { Container } from '@/infrastructure/di/Container';
-import { IPresetService } from '@/domain/services/IPresetService';
+import { ServiceContainer } from '@/application/services/SettingsService';
+import type { ISettingsService } from '@/application/services/SettingsService';
 
 type SectionType = 'card' | 'header' | 'body' | 'footer';
 
@@ -24,11 +24,27 @@ export class CardSettingsSection {
   private displaySettingsTitle: HTMLElement;
   private cardDisplayManager: ICardDisplayManager;
   private renderManager: IRenderManager;
+  private settingsService: ISettingsService;
+  private listeners: (() => void)[] = [];
 
   constructor(private plugin: CardNavigatorPlugin) {
     const container = Container.getInstance();
     this.cardDisplayManager = container.resolve<ICardDisplayManager>('ICardDisplayManager');
     this.renderManager = container.resolve<IRenderManager>('IRenderManager');
+    
+    // 설정 서비스 가져오기
+    this.settingsService = ServiceContainer.getInstance().resolve<ISettingsService>('ISettingsService');
+    
+    // 설정 변경 감지
+    this.listeners.push(
+      this.settingsService.onSettingsChanged(({ newSettings }) => {
+        // 설정이 변경되면 필요한 UI 업데이트 수행 가능
+        if (this.cardPreview) {
+          this.cardPreview.updateRenderConfig(newSettings.cardRenderConfig);
+          this.cardPreview.updateStyle(newSettings.cardStyle);
+        }
+      })
+    );
   }
 
   /**
@@ -62,11 +78,12 @@ export class CardSettingsSection {
       previewContainer.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.1)';
       
       try {
+        const settings = this.settingsService.getSettings();
         // 새로운 카드 프리뷰 생성
         this.cardPreview = new CardPreview(
           previewContainer,
-          this.plugin.settings.cardRenderConfig,
-          this.plugin.settings.cardStyle
+          settings.cardRenderConfig,
+          settings.cardStyle
         );
         
         console.log('카드 프리뷰 생성 성공');
@@ -112,8 +129,8 @@ export class CardSettingsSection {
       // 콘솔에 상태 로깅
       console.log('카드 설정 섹션 생성 완료', {
         cardPreviewCreated: !!this.cardPreview,
-        renderConfig: this.plugin.settings.cardRenderConfig,
-        cardStyle: this.plugin.settings.cardStyle,
+        renderConfig: this.settingsService.getSettings().cardRenderConfig,
+        cardStyle: this.settingsService.getSettings().cardStyle,
         containerSize: {
           width: previewContainer.offsetWidth,
           height: previewContainer.offsetHeight
@@ -136,24 +153,18 @@ export class CardSettingsSection {
    * 렌더링 설정 생성
    */
   private createRenderSettings(): void {
+    const settings = this.settingsService.getSettings();
+    
     // 마크다운 렌더링
     new Setting(this.containerEl)
       .setName('HTML 렌더링')
       .setDesc('마크다운을 HTML로 렌더링합니다. 비활성화하면 일반 텍스트로 표시됩니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(this.plugin.settings.cardRenderConfig.renderMarkdown)
+          .setValue(settings.cardRenderConfig.renderMarkdown)
           .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              cardRenderConfig: {
-                ...this.plugin.settings.cardRenderConfig,
-                type: value ? CardRenderType.HTML : CardRenderType.TEXT,
-                renderMarkdown: value
-              }
-            };
-            await this.plugin.saveSettings();
-            this.cardPreview?.updateRenderConfig(this.plugin.settings.cardRenderConfig);
+            await this.settingsService.updateCardRenderConfig('renderMarkdown', value);
+            this.cardPreview?.updateRenderConfig(this.settingsService.getSettings().cardRenderConfig);
           }));
 
     // 본문 길이 제한
@@ -162,17 +173,10 @@ export class CardSettingsSection {
       .setDesc('본문의 길이를 제한합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(this.plugin.settings.cardRenderConfig.contentLengthLimitEnabled)
+          .setValue(settings.cardRenderConfig.contentLengthLimitEnabled)
           .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              cardRenderConfig: {
-                ...this.plugin.settings.cardRenderConfig,
-                contentLengthLimitEnabled: value
-              }
-            };
-            await this.plugin.saveSettings();
-            this.cardPreview?.updateRenderConfig(this.plugin.settings.cardRenderConfig);
+            await this.settingsService.updateCardRenderConfig('contentLengthLimitEnabled', value);
+            this.cardPreview?.updateRenderConfig(this.settingsService.getSettings().cardRenderConfig);
             this.updateContentLengthLimitSlider();
           }));
 
@@ -181,21 +185,14 @@ export class CardSettingsSection {
       .setName('본문 길이 제한 값')
       .setDesc('표시할 본문의 최대 길이를 설정합니다.')
       .addSlider(slider => {
-        const value = this.plugin.settings.cardRenderConfig.contentLengthLimit;
+        const value = settings.cardRenderConfig.contentLengthLimit;
         slider
           .setValue(value)
           .setLimits(50, 1000, 50)
           .setDynamicTooltip()
           .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              cardRenderConfig: {
-                ...this.plugin.settings.cardRenderConfig,
-                contentLengthLimit: value
-              }
-            };
-            await this.plugin.saveSettings();
-            this.cardPreview?.updateRenderConfig(this.plugin.settings.cardRenderConfig);
+            await this.settingsService.updateCardRenderConfig('contentLengthLimit', value);
+            this.cardPreview?.updateRenderConfig(this.settingsService.getSettings().cardRenderConfig);
           });
       });
 
@@ -214,8 +211,9 @@ export class CardSettingsSection {
    */
   private updateContentLengthLimitSlider(): void {
     if (this.contentLengthLimitSlider) {
+      const settings = this.settingsService.getSettings();
       this.contentLengthLimitSlider.settingEl.style.display = 
-        this.plugin.settings.cardRenderConfig.contentLengthLimitEnabled ? 'flex' : 'none';
+        settings.cardRenderConfig.contentLengthLimitEnabled ? 'flex' : 'none';
     }
   }
 
@@ -371,7 +369,8 @@ export class CardSettingsSection {
    * 스타일 값 가져오기
    */
   private getStyleValue(styleKey: 'card' | 'activeCard' | 'focusedCard' | 'header' | 'body' | 'footer', property: keyof IStyleProperties): string {
-    const style = this.plugin.settings.cardStyle;
+    const settings = this.settingsService.getSettings();
+    const style = settings.cardStyle;
     return style[styleKey][property];
   }
 
@@ -466,7 +465,8 @@ export class CardSettingsSection {
    * 표시 설정 가져오기
    */
   private getDisplayConfig(section: SectionType): ISectionDisplayConfig {
-    const config = this.plugin.settings.cardRenderConfig;
+    const settings = this.settingsService.getSettings();
+    const config = settings.cardRenderConfig;
     const displayKey = `${section}Display` as keyof ICardRenderConfig;
     return config[displayKey] as ISectionDisplayConfig;
   }
@@ -477,30 +477,17 @@ export class CardSettingsSection {
   private async updateStyle(styleKey: 'card' | 'activeCard' | 'focusedCard' | 'header' | 'body' | 'footer', property: keyof IStyleProperties, value: string): Promise<void> {
     try {
       // cardStyle 업데이트
-      this.plugin.settings = {
-        ...this.plugin.settings,
-        cardStyle: {
-          ...this.plugin.settings.cardStyle,
-          [styleKey]: {
-            ...this.plugin.settings.cardStyle[styleKey],
-            [property]: value
-          }
-        }
-      };
+      await this.settingsService.updateCardStyle(styleKey, property, value);
       
       // 카드 프리뷰 즉시 업데이트
-      this.cardPreview?.updateStyle(this.plugin.settings.cardStyle);
+      const settings = this.settingsService.getSettings();
+      this.cardPreview?.updateStyle(settings.cardStyle);
       
       // 렌더링 관리자에 스타일 업데이트 알림 (캐시 초기화)
-      this.renderManager.updateStyle(this.plugin.settings.cardStyle);
+      this.renderManager.updateStyle(settings.cardStyle);
       
       // 카드 표시 관리자에 스타일 업데이트 알림
-      this.cardDisplayManager.updateCardStyle('*', this.plugin.settings.cardStyle);
-      
-      // 설정 저장 (백그라운드에서 진행되도록 await 없이 호출)
-      this.plugin.saveSettings().catch(err => {
-        console.error('설정 저장 중 오류 발생:', err);
-      });
+      this.cardDisplayManager.updateCardStyle('*', settings.cardStyle);
       
       console.log(`스타일 업데이트 완료: ${styleKey}.${property}=${value}`);
     } catch (error) {
@@ -517,37 +504,23 @@ export class CardSettingsSection {
     value: boolean | string[]
   ): Promise<void> {
     try {
-      const displayKey = `${section}Display` as keyof ICardRenderConfig;
-      const config = this.plugin.settings.cardRenderConfig;
-      const sectionConfig = config[displayKey] as ISectionDisplayConfig;
-
-      if (!sectionConfig) return;
-
-      // cardRenderConfig 업데이트
-      this.plugin.settings = {
-        ...this.plugin.settings,
-        cardRenderConfig: {
-          ...config,
-          [displayKey]: {
-            ...sectionConfig,
-            [property]: value
-          }
-        }
-      };
+      // 설정 업데이트
+      await this.settingsService.updateCardSectionDisplay(
+        section as 'header' | 'body' | 'footer',
+        property,
+        value
+      );
+      
+      const settings = this.settingsService.getSettings();
       
       // 카드 프리뷰 즉시 업데이트
-      this.cardPreview?.updateRenderConfig(this.plugin.settings.cardRenderConfig);
+      this.cardPreview?.updateRenderConfig(settings.cardRenderConfig);
       
       // 렌더링 관리자에 설정 업데이트 알림 (캐시 초기화)
-      this.renderManager.updateRenderConfig(this.plugin.settings.cardRenderConfig);
+      this.renderManager.updateRenderConfig(settings.cardRenderConfig);
       
       // 카드 표시 관리자에 설정 업데이트 알림
-      this.cardDisplayManager.updateRenderConfig(this.plugin.settings.cardRenderConfig);
-      
-      // 설정 저장 (백그라운드에서 진행되도록 await 없이 호출)
-      this.plugin.saveSettings().catch(err => {
-        console.error('설정 저장 중 오류 발생:', err);
-      });
+      this.cardDisplayManager.updateRenderConfig(settings.cardRenderConfig);
       
       console.log(`설정 업데이트 완료: ${section}Display.${property}=${JSON.stringify(value)}`);
     } catch (error) {
@@ -621,5 +594,17 @@ export class CardSettingsSection {
     } catch (error) {
       console.error('카드 설정 섹션 정리 중 오류 발생', error);
     }
+  }
+  
+  /**
+   * 컴포넌트 정리
+   */
+  destroy(): void {
+    // 이벤트 리스너 정리
+    this.listeners.forEach(cleanup => cleanup());
+    this.listeners = [];
+    
+    // 기존 정리 메서드 호출
+    this.cleanup();
   }
 } 

@@ -1,5 +1,5 @@
 import { ILayoutConfig } from '@/domain/models/LayoutConfig';
-import { DomainEvent } from './DomainEvent';
+import { DomainEvent, IDomainEvent } from './DomainEvent';
 import { DomainEventType } from './DomainEventType';
 
 /**
@@ -41,8 +41,18 @@ export class LayoutCardHeightChangedEvent extends DomainEvent<ILayoutConfig> {
 /**
  * 카드 위치 업데이트 이벤트
  */
-export class LayoutCardPositionUpdatedEvent extends DomainEvent<ILayoutConfig> {
-  constructor(data: ILayoutConfig) {
+export class LayoutCardPositionUpdatedEvent extends DomainEvent<{
+  cardId: string;
+  x: number;
+  y: number;
+  layoutConfig?: ILayoutConfig;
+}> {
+  constructor(data: {
+    cardId: string;
+    x: number;
+    y: number;
+    layoutConfig?: ILayoutConfig;
+  }) {
     super(DomainEventType.LAYOUT_CARD_POSITION_UPDATED, data);
   }
 }

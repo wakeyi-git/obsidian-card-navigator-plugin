@@ -232,28 +232,38 @@ export class CardPreview {
    * 섹션 내용 렌더링
    */
   private renderSectionContent(el: HTMLElement, display: DisplayProperties): void {
-    const content = [];
+    // 기존 내용 제거
+    el.empty();
     
     if (display.showFileName) {
-      content.push('<div class="preview-filename">example.md</div>');
+      const filenameEl = el.createDiv({ cls: 'preview-filename' });
+      filenameEl.textContent = 'example.md';
     }
+    
     if (display.showFirstHeader) {
-      content.push('<div class="preview-header"># 예시 제목</div>');
+      const headerEl = el.createDiv({ cls: 'preview-header' });
+      headerEl.textContent = '# 예시 제목';
     }
+    
     if (display.showContent) {
-      content.push('<div class="preview-content">예시 내용입니다.</div>');
+      const contentEl = el.createDiv({ cls: 'preview-content' });
+      contentEl.textContent = '예시 내용입니다.';
     }
+    
     if (display.showTags) {
-      content.push('<div class="preview-tags">#태그1 #태그2</div>');
+      const tagsEl = el.createDiv({ cls: 'preview-tags' });
+      tagsEl.textContent = '#태그1 #태그2';
     }
+    
     if (display.showCreatedDate) {
-      content.push('<div class="preview-date">생성일: 2024-01-01</div>');
+      const createdDateEl = el.createDiv({ cls: 'preview-date' });
+      createdDateEl.textContent = '생성일: 2024-01-01';
     }
+    
     if (display.showUpdatedDate) {
-      content.push('<div class="preview-date">수정일: 2024-01-01</div>');
+      const updatedDateEl = el.createDiv({ cls: 'preview-date' });
+      updatedDateEl.textContent = '수정일: 2024-01-01';
     }
-
-    el.innerHTML = content.join('');
   }
 
   /**

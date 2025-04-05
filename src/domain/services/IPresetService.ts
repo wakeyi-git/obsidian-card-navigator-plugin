@@ -1,4 +1,4 @@
-import { IPreset, IPresetMapping, PresetType } from '../models/Preset';
+import { IPreset, IPresetMapping, PresetMappingType } from '../models/Preset';
 import { ICardRenderConfig } from '../models/CardRenderConfig';
 import { ILayoutConfig } from '../models/LayoutConfig';
 import { ISortConfig } from '../models/SortConfig';
@@ -38,7 +38,7 @@ export interface IPresetService {
    */
   createPreset(
     name: string,
-    type: PresetType,
+    type: PresetMappingType,
     config: {
       cardRenderConfig?: ICardRenderConfig;
       layoutConfig?: ILayoutConfig;

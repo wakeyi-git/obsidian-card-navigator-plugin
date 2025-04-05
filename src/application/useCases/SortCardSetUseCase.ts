@@ -55,8 +55,8 @@ export class SortCardSetUseCase implements IUseCase<SortCardSetInput, ICardSet> 
     const startTime = performance.now();
     this.loggingService.info('카드셋 정렬 시작', { 
       cardSetId: input.cardSet.id,
-      sortField: input.sortConfig.field,
-      sortOrder: input.sortConfig.order
+      sortField: input.sortConfig.sortField,
+      sortOrder: input.sortConfig.sortOrder
     });
 
     try {
@@ -71,15 +71,15 @@ export class SortCardSetUseCase implements IUseCase<SortCardSetInput, ICardSet> 
       this.performanceMonitor.endMeasure('sortCardSet');
       this.analyticsService.trackEvent('card_set_sorted', {
         cardSetId: input.cardSet.id,
-        sortField: input.sortConfig.field,
-        sortOrder: input.sortConfig.order,
+        sortField: input.sortConfig.sortField,
+        sortOrder: input.sortConfig.sortOrder,
         duration
       });
 
       this.loggingService.info('카드셋 정렬 완료', { 
         cardSetId: input.cardSet.id,
-        sortField: input.sortConfig.field,
-        sortOrder: input.sortConfig.order
+        sortField: input.sortConfig.sortField,
+        sortOrder: input.sortConfig.sortOrder
       });
 
       return sortedCardSet;

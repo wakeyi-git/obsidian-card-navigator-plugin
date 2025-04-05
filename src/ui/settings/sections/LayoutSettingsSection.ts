@@ -1,12 +1,27 @@
 import { Setting } from 'obsidian';
 import type CardNavigatorPlugin from '@/main';
 import { LayoutType, LayoutDirection } from '@/domain/models/LayoutConfig';
+import { ServiceContainer } from '@/application/services/SettingsService';
+import type { ISettingsService } from '@/application/services/SettingsService';
 
 /**
  * 레이아웃 설정 섹션
  */
 export class LayoutSettingsSection {
-  constructor(private plugin: CardNavigatorPlugin) {}
+  private settingsService: ISettingsService;
+  private listeners: (() => void)[] = [];
+
+  constructor(private plugin: CardNavigatorPlugin) {
+    // 설정 서비스 가져오기
+    this.settingsService = ServiceContainer.getInstance().resolve<ISettingsService>('ISettingsService');
+    
+    // 설정 변경 감지
+    this.listeners.push(
+      this.settingsService.onSettingsChanged(() => {
+        // 설정이 변경되면 필요한 UI 업데이트 수행 가능
+      })
+    );
+  }
 
   /**
    * 레이아웃 설정 섹션 생성
@@ -14,51 +29,28 @@ export class LayoutSettingsSection {
   create(containerEl: HTMLElement): void {
     containerEl.createEl('h3', { text: '레이아웃 설정' });
 
-    new Setting(containerEl)
-      .setName('레이아웃 타입')
-      .setDesc('카드 목록의 레이아웃 타입을 선택합니다.')
-      .addDropdown(dropdown =>
-        dropdown
-          .addOption(LayoutType.GRID, '그리드')
-          .addOption(LayoutType.MASONRY, '메이슨리')
-          .setValue(this.plugin.settings.layoutType)
-          .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              layoutType: value as LayoutType
-            };
-            await this.plugin.saveSettings();
-          }));
-
-    new Setting(containerEl)
-      .setName('레이아웃 방향')
-      .setDesc('그리드 레이아웃에서 카드 배치 방향을 선택합니다.')
-      .addDropdown(dropdown =>
-        dropdown
-          .addOption(LayoutDirection.HORIZONTAL, '가로')
-          .addOption(LayoutDirection.VERTICAL, '세로')
-          .setValue(this.plugin.settings.layoutDirection)
-          .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              layoutDirection: value as LayoutDirection
-            };
-            await this.plugin.saveSettings();
-          }));
+    const settings = this.settingsService.getSettings();
 
     new Setting(containerEl)
       .setName('카드 높이 고정')
-      .setDesc('그리드 레이아웃에서 카드의 높이를 고정합니다.')
+      .setDesc('활성화하면 그리드 레이아웃이 적용되고, 비활성화하면 메이슨리 레이아웃이 적용됩니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(this.plugin.settings.cardHeightFixed)
+          .setValue(settings.layout.cardHeightFixed)
           .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              cardHeightFixed: value
-            };
-            await this.plugin.saveSettings();
+            await this.settingsService.updateNestedSettings('layout.cardHeightFixed', value);
+            
+            // 레이아웃 타입 자동 설정은 유지합니다.
+            await this.settingsService.updateNestedSettings('layout.layoutType', 
+              value ? LayoutType.GRID : LayoutType.MASONRY);
           }));
+
+    // 레이아웃 타입과 방향 정보 표시
+    const infoDiv = containerEl.createDiv('layout-info');
+    infoDiv.createEl('p', { 
+      text: '레이아웃 타입 및 방향은 카드 높이 고정 여부와 뷰포트 크기에 따라 자동으로 설정됩니다.',
+      cls: 'setting-item-description' 
+    });
 
     new Setting(containerEl)
       .setName('카드 최소 너비')
@@ -66,14 +58,10 @@ export class LayoutSettingsSection {
       .addSlider(slider =>
         slider
           .setLimits(200, 800, 10)
-          .setValue(this.plugin.settings.cardMinWidth)
+          .setValue(settings.layout.cardMinWidth)
           .setDynamicTooltip()
           .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              cardMinWidth: value
-            };
-            await this.plugin.saveSettings();
+            await this.settingsService.updateNestedSettings('layout.cardMinWidth', value);
           }));
 
     new Setting(containerEl)
@@ -82,14 +70,10 @@ export class LayoutSettingsSection {
       .addSlider(slider =>
         slider
           .setLimits(200, 800, 10)
-          .setValue(this.plugin.settings.cardMinHeight)
+          .setValue(settings.layout.cardMinHeight)
           .setDynamicTooltip()
           .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              cardMinHeight: value
-            };
-            await this.plugin.saveSettings();
+            await this.settingsService.updateNestedSettings('layout.cardMinHeight', value);
           }));
 
     new Setting(containerEl)
@@ -98,14 +82,10 @@ export class LayoutSettingsSection {
       .addSlider(slider =>
         slider
           .setLimits(0, 32, 2)
-          .setValue(this.plugin.settings.cardGap)
+          .setValue(settings.layout.cardGap)
           .setDynamicTooltip()
           .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              cardGap: value
-            };
-            await this.plugin.saveSettings();
+            await this.settingsService.updateNestedSettings('layout.cardGap', value);
           }));
 
     new Setting(containerEl)
@@ -114,14 +94,19 @@ export class LayoutSettingsSection {
       .addSlider(slider =>
         slider
           .setLimits(0, 32, 2)
-          .setValue(this.plugin.settings.cardPadding)
+          .setValue(settings.layout.cardPadding)
           .setDynamicTooltip()
           .onChange(async (value) => {
-            this.plugin.settings = {
-              ...this.plugin.settings,
-              cardPadding: value
-            };
-            await this.plugin.saveSettings();
+            await this.settingsService.updateNestedSettings('layout.cardPadding', value);
           }));
+  }
+
+  /**
+   * 컴포넌트 정리
+   */
+  destroy(): void {
+    // 이벤트 리스너 정리
+    this.listeners.forEach(cleanup => cleanup());
+    this.listeners = [];
   }
 } 

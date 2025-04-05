@@ -20,12 +20,31 @@ export interface IRenderManager {
   cleanup(): void;
 
   /**
+   * 초기화 여부 확인
+   */
+  isInitialized(): boolean;
+
+  /**
    * 카드 렌더링
    * @param card 카드
    * @param config 렌더링 설정
    * @param style 스타일
    */
   renderCard(card: ICard, config: ICardRenderConfig, style: ICardStyle): Promise<string>;
+
+  /**
+   * 카드 렌더링 요청
+   * @param cardId 카드 ID
+   * @param card 카드
+   * @param renderConfig 렌더링 설정 (선택 사항)
+   * @param cardStyle 카드 스타일 (선택 사항)
+   */
+  requestRender(
+    cardId: string,
+    card: ICard,
+    renderConfig?: ICardRenderConfig,
+    cardStyle?: ICardStyle
+  ): Promise<string>;
 
   /**
    * 렌더링 설정 업데이트

@@ -1,5 +1,5 @@
 import { ICard } from '../../domain/models/Card';
-import { ICardSet, CardSetType, ICardSetConfig } from '../../domain/models/CardSet';
+import { ICardSet, CardSetType, ICardSetConfig, DEFAULT_CARD_SET_CONFIG } from '../../domain/models/CardSet';
 import { ISearchFilter, SearchFilter } from '../../domain/models/SearchFilter';
 import { ISearchService, ISearchResultItem } from '../../domain/services/ISearchService';
 import { ISearchResult } from '../../domain/models/SearchResult';
@@ -130,19 +130,30 @@ export class SearchService implements ISearchService {
     searchResults: ISearchResultItem[],
     searchFilter: ISearchFilter,
     type: CardSetType = CardSetType.FOLDER,
-    config: ICardSetConfig = { searchFilter }
+    config: Partial<ICardSetConfig> = { searchFilter }
   ): ICardSet {
     return {
       id: `search-${Date.now()}`,
       type,
       criteria: searchFilter.query || '',
-      config,
+      config: {
+        ...DEFAULT_CARD_SET_CONFIG,
+        ...config
+      },
       options: {
         includeSubfolders: false,
         sortConfig: undefined
       },
       cards: searchResults.map(r => r.card),
-      validate: () => true
+      validate: () => true,
+      preview: function() {
+        return {
+          id: this.id,
+          type: this.type,
+          criteria: this.criteria,
+          cardCount: this.cards.length
+        };
+      }
     };
   }
 
@@ -159,18 +170,18 @@ export class SearchService implements ISearchService {
       this.loggingService.debug('검색 필터 적용 시작', { 
         cardSetId: cardSet.id,
         query: filter.query,
-        scope: filter.scope
+        searchScope: filter.searchScope
       });
 
       if (!filter.validate()) {
         this.loggingService.warn('유효하지 않은 검색 필터', { 
           query: filter.query,
-          scope: filter.scope
+          searchScope: filter.searchScope
         });
         throw new SearchServiceError(
           '유효하지 않은 검색 필터입니다.',
           filter.query,
-          filter.scope,
+          filter.searchScope,
           'filter'
         );
       }
@@ -189,7 +200,7 @@ export class SearchService implements ISearchService {
       this.analyticsService.trackEvent('filter_applied', {
         cardSetId: cardSet.id,
         query: filter.query,
-        scope: filter.scope,
+        searchScope: filter.searchScope,
         resultCount: searchResults.length
       });
 
@@ -204,12 +215,12 @@ export class SearchService implements ISearchService {
         error,
         cardSetId: cardSet.id,
         query: filter.query,
-        scope: filter.scope
+        searchScope: filter.searchScope
       });
       const filterError = new SearchServiceError(
         '필터 적용 중 오류가 발생했습니다.',
         filter.query,
-        filter.scope,
+        filter.searchScope,
         'filter',
         error instanceof Error ? error : new Error(String(error))
       );
@@ -230,7 +241,7 @@ export class SearchService implements ISearchService {
     try {
       this.loggingService.debug('검색 필터 유효성 검사', { 
         query: filter.query,
-        scope: filter.scope
+        searchScope: filter.searchScope
       });
       return filter.validate();
     } finally {
@@ -246,13 +257,15 @@ export class SearchService implements ISearchService {
     this.performanceMonitor.startMeasure(perfMark);
     try {
       this.loggingService.debug('기본 검색 필터 조회');
-      return new SearchFilter('', 'all', {
-        filename: true,
-        content: true,
-        tags: true,
-        caseSensitive: false,
-        useRegex: false
-      });
+      return new SearchFilter(
+        '', // query
+        'all', // searchScope
+        true, // searchFilename
+        true, // searchContent
+        true, // searchTags
+        false, // caseSensitive
+        false // useRegex
+      );
     } finally {
       this.performanceMonitor.endMeasure(perfMark);
     }
@@ -275,19 +288,19 @@ export class SearchService implements ISearchService {
       if (!filter.validate()) {
         this.loggingService.warn('유효하지 않은 검색 필터', { 
           query: filter.query,
-          scope: filter.scope
+          searchScope: filter.searchScope
         });
         throw new SearchServiceError(
           '유효하지 않은 검색 필터입니다.',
           filter.query,
-          filter.scope,
+          filter.searchScope,
           'highlight'
         );
       }
 
       const searchRegex = new RegExp(
-        filter.options.useRegex ? filter.query : filter.query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-        filter.options.caseSensitive ? 'g' : 'gi'
+        filter.useRegex ? filter.query : filter.query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        filter.caseSensitive ? 'g' : 'gi'
       );
       let highlightedContent = card.content;
 
@@ -319,7 +332,7 @@ export class SearchService implements ISearchService {
       const highlightError = new SearchServiceError(
         '하이라이팅 중 오류가 발생했습니다.',
         filter.query,
-        filter.scope,
+        filter.searchScope,
         'highlight',
         error instanceof Error ? error : new Error(String(error))
       );

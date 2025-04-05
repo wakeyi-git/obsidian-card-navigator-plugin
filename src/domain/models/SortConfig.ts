@@ -19,45 +19,70 @@ export enum SortOrder {
  * 정렬 설정 인터페이스
  * - 정렬 조건을 표현하는 값 객체(Value Object)
  * - 불변(Immutable) 객체로 관리
+ * - 새로운 설정 구조와 일치하도록 수정됨
  */
 export interface ISortConfig {
   /**
    * 정렬 기준
    */
-  field: SortField;
+  readonly sortField: SortField;
 
   /**
    * 정렬 순서
    */
-  order: SortOrder;
+  readonly sortOrder: SortOrder;
 
   /**
    * 우선순위 태그
    */
-  readonly priorityTags?: readonly string[];
+  readonly priorityTags: string[];
 
   /**
    * 우선순위 폴더
    */
-  readonly priorityFolders?: readonly string[];
+  readonly priorityFolders: string[];
 
   /**
    * 정렬 설정 유효성 검사
    */
   validate(): boolean;
+  
+  /**
+   * 정렬 설정 미리보기
+   */
+  preview(): {
+    sortField: SortField;
+    sortOrder: SortOrder;
+    priorityTags: string[];
+    priorityFolders: string[];
+  };
 }
 
 /**
  * 기본 정렬 설정
  */
 export const DEFAULT_SORT_CONFIG: ISortConfig = {
-  field: SortField.FILENAME,
-  order: SortOrder.ASC,
+  sortField: SortField.UPDATED,
+  sortOrder: SortOrder.DESC,
   priorityTags: [], // 우선순위 태그 없음
   priorityFolders: [], // 우선순위 폴더 없음
 
   validate(): boolean {
     return true; // 기본값은 항상 유효
+  },
+  
+  preview(): {
+    sortField: SortField;
+    sortOrder: SortOrder;
+    priorityTags: string[];
+    priorityFolders: string[];
+  } {
+    return {
+      sortField: this.sortField,
+      sortOrder: this.sortOrder,
+      priorityTags: [...this.priorityTags],
+      priorityFolders: [...this.priorityFolders]
+    };
   }
 };
 
@@ -65,32 +90,49 @@ export const DEFAULT_SORT_CONFIG: ISortConfig = {
  * 정렬 설정 클래스
  */
 export class SortConfig implements ISortConfig {
-  readonly priorityTags?: readonly string[];
-  readonly priorityFolders?: readonly string[];
+  readonly priorityTags: string[];
+  readonly priorityFolders: string[];
 
   constructor(
-    public readonly field: SortField,
-    public readonly order: SortOrder,
-    priorityTags?: string[],
-    priorityFolders?: string[]
+    public readonly sortField: SortField,
+    public readonly sortOrder: SortOrder,
+    priorityTags: string[] = [],
+    priorityFolders: string[] = []
   ) {
-    // 배열을 불변 배열로 만들어 할당
-    this.priorityTags = priorityTags ? Object.freeze([...priorityTags]) : undefined;
-    this.priorityFolders = priorityFolders ? Object.freeze([...priorityFolders]) : undefined;
+    // 배열을 복사하여 할당
+    this.priorityTags = [...priorityTags];
+    this.priorityFolders = [...priorityFolders];
   }
 
   /**
    * 정렬 설정 유효성 검사
    */
   validate(): boolean {
-    if (!this.field || !Object.values(SortField).includes(this.field)) {
+    if (!this.sortField || !Object.values(SortField).includes(this.sortField)) {
       return false;
     }
 
-    if (!this.order || !Object.values(SortOrder).includes(this.order)) {
+    if (!this.sortOrder || !Object.values(SortOrder).includes(this.sortOrder)) {
       return false;
     }
 
     return true;
+  }
+  
+  /**
+   * 정렬 설정 미리보기
+   */
+  preview(): {
+    sortField: SortField;
+    sortOrder: SortOrder;
+    priorityTags: string[];
+    priorityFolders: string[];
+  } {
+    return {
+      sortField: this.sortField,
+      sortOrder: this.sortOrder,
+      priorityTags: [...this.priorityTags],
+      priorityFolders: [...this.priorityFolders]
+    };
   }
 } 

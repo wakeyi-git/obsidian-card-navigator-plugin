@@ -1,5 +1,5 @@
 import { IPresetService } from '../../domain/services/IPresetService';
-import { IPreset, IPresetMapping, PresetType } from '../../domain/models/Preset';
+import { IPreset, IPresetMapping, PresetMappingType } from '../../domain/models/Preset';
 import { ICardRenderConfig } from '../../domain/models/CardRenderConfig';
 import { ILayoutConfig } from '../../domain/models/LayoutConfig';
 import { ISortConfig } from '../../domain/models/SortConfig';
@@ -104,7 +104,7 @@ export class PresetService implements IPresetService {
         metadata: {
           id: defaultPresetId,
           name: '기본 프리셋',
-          type: PresetType.GLOBAL,
+          category: '기본',
           createdAt: new Date(),
           updatedAt: new Date(),
           mappings: []
@@ -160,7 +160,7 @@ export class PresetService implements IPresetService {
    */
   async createPreset(
     name: string,
-    type: PresetType,
+    type: PresetMappingType,
     config: {
       cardRenderConfig?: ICardRenderConfig;
       layoutConfig?: ILayoutConfig;
@@ -172,7 +172,7 @@ export class PresetService implements IPresetService {
       metadata: {
         id: presetId,
         name,
-        type,
+        category: type.toString(),
         createdAt: new Date(),
         updatedAt: new Date(),
         mappings: []

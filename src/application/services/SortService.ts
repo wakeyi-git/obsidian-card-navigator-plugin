@@ -51,15 +51,15 @@ export class SortService implements ISortService {
     try {
       this.loggingService.debug('정렬 설정 적용 시작', { 
         cardSetId: cardSet.id,
-        sortField: config.field,
-        sortOrder: config.order
+        sortField: config.sortField,
+        sortOrder: config.sortOrder
       });
 
       if (!this.validateSortConfig(config)) {
         this.loggingService.warn('유효하지 않은 정렬 설정', { 
           cardSetId: cardSet.id,
-          sortField: config.field,
-          sortOrder: config.order
+          sortField: config.sortField,
+          sortOrder: config.sortOrder
         });
         throw new CardSetError(
           '유효하지 않은 정렬 설정입니다.',
@@ -94,17 +94,17 @@ export class SortService implements ISortService {
       sortedCards.sort((a, b) => {
         let comparison = 0;
 
-        switch (config.field) {
+        switch (config.sortField) {
           case SortField.FILENAME:
             comparison = a.fileName.localeCompare(b.fileName);
             break;
 
           case SortField.UPDATED:
-            comparison = this.sortByUpdatedAt(sortedCards, config.order).indexOf(a) - this.sortByUpdatedAt(sortedCards, config.order).indexOf(b);
+            comparison = this.sortByUpdatedAt(sortedCards, config.sortOrder).indexOf(a) - this.sortByUpdatedAt(sortedCards, config.sortOrder).indexOf(b);
             break;
 
           case SortField.CREATED:
-            comparison = this.sortByCreatedAt(sortedCards, config.order).indexOf(a) - this.sortByCreatedAt(sortedCards, config.order).indexOf(b);
+            comparison = this.sortByCreatedAt(sortedCards, config.sortOrder).indexOf(a) - this.sortByCreatedAt(sortedCards, config.sortOrder).indexOf(b);
             break;
         }
 
@@ -124,8 +124,8 @@ export class SortService implements ISortService {
 
       this.analyticsService.trackEvent('sort_applied', {
         cardSetId: cardSet.id,
-        sortField: config.field,
-        sortOrder: config.order,
+        sortField: config.sortField,
+        sortOrder: config.sortOrder,
         priorityTagsCount: config.priorityTags?.length ?? 0,
         priorityFoldersCount: config.priorityFolders?.length ?? 0,
         cardCount: sortedCards.length
@@ -141,8 +141,8 @@ export class SortService implements ISortService {
       this.loggingService.error('정렬 설정 적용 실패', { 
         error,
         cardSetId: cardSet.id,
-        sortField: config.field,
-        sortOrder: config.order
+        sortField: config.sortField,
+        sortOrder: config.sortOrder
       });
       const sortError = new CardSetError(
         '정렬 중 오류가 발생했습니다.',
@@ -167,8 +167,8 @@ export class SortService implements ISortService {
     this.performanceMonitor.startMeasure(perfMark);
     try {
       this.loggingService.debug('정렬 설정 유효성 검사', { 
-        sortField: config.field,
-        sortOrder: config.order
+        sortField: config.sortField,
+        sortOrder: config.sortOrder
       });
       return config.validate();
     } finally {
@@ -345,14 +345,14 @@ export class SortService implements ISortService {
     try {
       this.loggingService.debug('검색 결과 정렬 시작', { 
         resultCount: results.length,
-        sortField: config?.field,
-        sortOrder: config?.order
+        sortField: config?.sortField,
+        sortOrder: config?.sortOrder
       });
 
       if (config && !this.validateSortConfig(config)) {
         this.loggingService.warn('유효하지 않은 정렬 설정', { 
-          sortField: config.field,
-          sortOrder: config.order
+          sortField: config.sortField,
+          sortOrder: config.sortOrder
         });
         throw new CardSetError(
           '유효하지 않은 정렬 설정입니다.',
@@ -365,9 +365,9 @@ export class SortService implements ISortService {
       const sortedResults = [...results];
       if (config) {
         sortedResults.sort((a, b) => {
-          const aValue = this.getSortValue(a.card, config.field);
-          const bValue = this.getSortValue(b.card, config.field);
-          return config.order === SortOrder.ASC ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+          const aValue = this.getSortValue(a.card, config.sortField);
+          const bValue = this.getSortValue(b.card, config.sortField);
+          return config.sortOrder === SortOrder.ASC ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
         });
       } else {
         // 기본적으로 점수 기준 내림차순 정렬
@@ -376,8 +376,8 @@ export class SortService implements ISortService {
 
       this.analyticsService.trackEvent('search_results_sorted', {
         resultCount: results.length,
-        sortField: config?.field,
-        sortOrder: config?.order
+        sortField: config?.sortField,
+        sortOrder: config?.sortOrder
       });
 
       this.loggingService.info('검색 결과 정렬 완료', { 
@@ -400,10 +400,10 @@ export class SortService implements ISortService {
   /**
    * 정렬 값 가져오기
    * @param card 카드
-   * @param field 정렬 필드
+   * @param sortField 정렬 필드
    */
-  private getSortValue(card: ICard, field: SortField): string {
-    switch (field) {
+  private getSortValue(card: ICard, sortField: SortField): string {
+    switch (sortField) {
       case SortField.FILENAME:
         return card.fileName;
       case SortField.UPDATED:
@@ -415,19 +415,19 @@ export class SortService implements ISortService {
     }
   }
 
-  private sortByUpdatedAt(cards: ICard[], order: SortOrder): ICard[] {
+  private sortByUpdatedAt(cards: ICard[], sortOrder: SortOrder): ICard[] {
     return [...cards].sort((a, b) => {
       const dateA = a.updatedAt.getTime();
       const dateB = b.updatedAt.getTime();
-      return order === SortOrder.ASC ? dateA - dateB : dateB - dateA;
+      return sortOrder === SortOrder.ASC ? dateA - dateB : dateB - dateA;
     });
   }
 
-  private sortByCreatedAt(cards: ICard[], order: SortOrder): ICard[] {
+  private sortByCreatedAt(cards: ICard[], sortOrder: SortOrder): ICard[] {
     return [...cards].sort((a, b) => {
       const dateA = a.createdAt.getTime();
       const dateB = b.createdAt.getTime();
-      return order === SortOrder.ASC ? dateA - dateB : dateB - dateA;
+      return sortOrder === SortOrder.ASC ? dateA - dateB : dateB - dateA;
     });
   }
 } 

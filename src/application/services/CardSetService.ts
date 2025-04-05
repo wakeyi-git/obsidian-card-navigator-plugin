@@ -122,6 +122,14 @@ export class CardSetService implements ICardSetService {
         options: options || {},
         validate: function() {
           return this.id !== '' && this.cards.length >= 0;
+        },
+        preview: function() {
+          return {
+            id: this.id,
+            type: this.type,
+            criteria: this.criteria,
+            cardCount: this.cards.length
+          };
         }
       };
 
@@ -635,11 +643,11 @@ export class CardSetService implements ICardSetService {
       this.loggingService.debug('카드 정렬 시작', { sortConfig });
 
       const sortedCards = [...cards].sort((a, b) => {
-        const aValue = this.getSortValue(a, sortConfig.field);
-        const bValue = this.getSortValue(b, sortConfig.field);
+        const aValue = this.getSortValue(a, sortConfig.sortField);
+        const bValue = this.getSortValue(b, sortConfig.sortField);
 
-        if (aValue < bValue) return sortConfig.order === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.order === 'asc' ? 1 : -1;
+        if (aValue < bValue) return sortConfig.sortOrder === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.sortOrder === 'asc' ? 1 : -1;
         return 0;
       });
 

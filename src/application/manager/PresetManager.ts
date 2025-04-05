@@ -1,4 +1,4 @@
-import { IPreset, PresetType } from '../../domain/models/Preset';
+import { IPreset } from '../../domain/models/Preset';
 import { ICardRenderConfig } from '../../domain/models/CardRenderConfig';
 import { ICardStyle } from '../../domain/models/CardStyle';
 import { ISearchFilter } from '../../domain/models/SearchFilter';
@@ -14,6 +14,8 @@ import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Container } from '@/infrastructure/di/Container';
+import { ICardSetConfig } from '@/domain/models/CardSet';
+import { CardSetType } from '@/domain/models/CardSet';
 
 /**
  * 프리셋 관리자 구현체
@@ -126,29 +128,53 @@ export class PresetManager implements IPresetManager {
       // 프리셋 ID 생성
       const presetId = `preset-${Date.now()}`;
 
+      // 카드셋 설정 생성
+      const cardSetConfig: ICardSetConfig = {
+        cardSetGeneral: {
+          cardSetType: CardSetType.FOLDER
+        },
+        folderCardSet: {
+          folderCardSetMode: 'active',
+          fixedFolderPath: '',
+          includeSubfolders: true
+        },
+        tagCardSet: {
+          tagCardSetMode: 'active',
+          fixedTag: ''
+        },
+        linkCardSet: {
+          includeBacklinks: true,
+          includeOutgoingLinks: false,
+          linkLevel: 1
+        },
+        searchFilter: config.searchFilter,
+        sortConfig: config.sortConfig,
+        validate: () => true,
+        preview: function() {
+          return this;
+        }
+      };
+
       // 프리셋 생성
       const preset: IPreset = {
         metadata: {
           id: presetId,
           name,
           description,
-          type: PresetType.GLOBAL,
+          category: '사용자 정의',
           createdAt: new Date(),
           updatedAt: new Date(),
           mappings: []
         },
         config: {
-          cardSetConfig: {
-            searchFilter: config.searchFilter,
-            sortConfig: config.sortConfig
-          },
+          cardSetConfig,
           layoutConfig: {
             ...DEFAULT_LAYOUT_CONFIG,
-            fixedHeight: false,
-            minCardWidth: 300,
-            minCardHeight: 200,
-            gap: 16,
-            padding: 16
+            cardHeightFixed: false,
+            cardMinWidth: 300,
+            cardMinHeight: 200,
+            cardGap: 16,
+            cardPadding: 16
           },
           cardRenderConfig: config.renderConfig,
           cardStyle: config.cardStyle
@@ -173,7 +199,7 @@ export class PresetManager implements IPresetManager {
       this.analyticsService.trackEvent('preset_created', {
         presetId,
         name,
-        type: PresetType.GLOBAL
+        category: preset.metadata.category
       });
 
       this.loggingService.info('프리셋 생성 완료', { presetId });
@@ -234,7 +260,7 @@ export class PresetManager implements IPresetManager {
       this.analyticsService.trackEvent('preset_updated', {
         presetId: preset.metadata.id,
         name: preset.metadata.name,
-        type: preset.metadata.type
+        category: preset.metadata.category
       });
 
       this.loggingService.info('프리셋 수정 완료', { presetId: preset.metadata.id });
@@ -300,7 +326,7 @@ export class PresetManager implements IPresetManager {
       this.analyticsService.trackEvent('preset_deleted', {
         presetId,
         name: preset.metadata.name,
-        type: preset.metadata.type
+        category: preset.metadata.category
       });
 
       this.loggingService.info('프리셋 삭제 완료', { presetId });
@@ -342,7 +368,7 @@ export class PresetManager implements IPresetManager {
       this.analyticsService.trackEvent('preset_applied', {
         presetId,
         name: preset.metadata.name,
-        type: preset.metadata.type
+        category: preset.metadata.category
       });
 
       this.loggingService.info('프리셋 적용 완료', { presetId });
@@ -649,7 +675,7 @@ export class PresetManager implements IPresetManager {
       this.analyticsService.trackEvent('preset_exported', {
         presetId,
         name: preset.metadata.name,
-        type: preset.metadata.type
+        category: preset.metadata.category
       });
 
       this.loggingService.info('프리셋 내보내기 완료', { presetId });
@@ -695,7 +721,7 @@ export class PresetManager implements IPresetManager {
       this.analyticsService.trackEvent('preset_imported', {
         presetId: preset.metadata.id,
         name: preset.metadata.name,
-        type: preset.metadata.type
+        category: preset.metadata.category
       });
 
       this.loggingService.info('프리셋 가져오기 완료', { presetId: preset.metadata.id });

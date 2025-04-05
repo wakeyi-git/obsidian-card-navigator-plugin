@@ -77,7 +77,7 @@ export class ApplyLayoutUseCase implements IUseCase<ApplyLayoutInput, void> {
 
       this.analyticsService.trackEvent('layout_applied', {
         cardSetId: input.cardSet.id,
-        layoutType: input.layout.type,
+        layoutType: input.layout.cardHeightFixed ? 'grid' : 'masonry',
         containerWidth: input.containerWidth,
         containerHeight: input.containerHeight
       });

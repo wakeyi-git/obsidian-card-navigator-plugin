@@ -20,37 +20,76 @@ export enum LinkType {
 }
 
 /**
- * 링크 설정
- */
-export interface ILinkConfig {
-  /** 링크 레벨 (1: 직접 링크, 2: 2단계 링크, ...) */
-  level: number;
-  /** 백링크 포함 여부 */
-  includeBacklinks: boolean;
-  /** 아웃고잉 링크 포함 여부 */
-  includeOutgoingLinks: boolean;
-  /** 포함 패턴 */
-  includePatterns?: string[];
-  /** 제외 패턴 */
-  excludePatterns?: string[];
-}
-
-/**
- * 카드셋 설정
+ * 카드셋 설정 인터페이스
+ * - 새로운 설정 구조와 일치하도록 수정됨
  */
 export interface ICardSetConfig {
-  /** 폴더 경로 */
-  folderPath?: string;
-  /** 하위 폴더 포함 여부 */
-  includeSubfolders?: boolean;
-  /** 태그 목록 */
-  tags?: string[];
-  /** 링크 설정 */
-  linkConfig?: ILinkConfig;
+  /** 카드셋 일반 설정 */
+  readonly cardSetGeneral: {
+    /** 카드셋 타입 */
+    readonly cardSetType: CardSetType;
+  };
+  
+  /** 폴더 카드셋 설정 */
+  readonly folderCardSet: {
+    /** 폴더 카드셋 모드 (활성/고정) */
+    readonly folderCardSetMode: 'active' | 'fixed';
+    /** 고정 폴더 경로 */
+    readonly fixedFolderPath: string;
+    /** 하위 폴더 포함 여부 */
+    readonly includeSubfolders: boolean;
+  };
+  
+  /** 태그 카드셋 설정 */
+  readonly tagCardSet: {
+    /** 태그 카드셋 모드 (활성/고정) */
+    readonly tagCardSetMode: 'active' | 'fixed';
+    /** 고정 태그 */
+    readonly fixedTag: string;
+  };
+  
+  /** 링크 카드셋 설정 */
+  readonly linkCardSet: {
+    /** 백링크 포함 여부 */
+    readonly includeBacklinks: boolean;
+    /** 아웃고잉 링크 포함 여부 */
+    readonly includeOutgoingLinks: boolean;
+    /** 링크 레벨 */
+    readonly linkLevel: number;
+  };
+  
   /** 검색 필터 */
-  searchFilter?: ISearchFilter;
+  readonly searchFilter?: ISearchFilter;
   /** 정렬 설정 */
-  sortConfig?: ISortConfig;
+  readonly sortConfig?: ISortConfig;
+  
+  /**
+   * 카드셋 설정 유효성 검사
+   */
+  validate(): boolean;
+  
+  /**
+   * 카드셋 설정 미리보기
+   */
+  preview(): {
+    cardSetGeneral: {
+      cardSetType: CardSetType;
+    };
+    folderCardSet: {
+      folderCardSetMode: 'active' | 'fixed';
+      fixedFolderPath: string;
+      includeSubfolders: boolean;
+    };
+    tagCardSet: {
+      tagCardSetMode: 'active' | 'fixed';
+      fixedTag: string;
+    };
+    linkCardSet: {
+      includeBacklinks: boolean;
+      includeOutgoingLinks: boolean;
+      linkLevel: number;
+    };
+  };
 }
 
 /**
@@ -58,9 +97,9 @@ export interface ICardSetConfig {
  */
 export interface ICardSetOptions {
   /** 하위 폴더 포함 여부 */
-  includeSubfolders?: boolean;
+  readonly includeSubfolders?: boolean;
   /** 정렬 설정 */
-  sortConfig?: ISortConfig;
+  readonly sortConfig?: ISortConfig;
 }
 
 /**
@@ -86,29 +125,72 @@ export interface ICardSet {
    * 카드 셋 유효성 검사
    */
   validate(): boolean;
+  
+  /**
+   * 카드셋 미리보기
+   */
+  preview(): {
+    id: string;
+    type: CardSetType;
+    criteria: string;
+    cardCount: number;
+  };
 }
-
-/**
- * 기본 링크 설정
- */
-export const DEFAULT_LINK_CONFIG: ILinkConfig = {
-  level: 1,
-  includeBacklinks: true,
-  includeOutgoingLinks: false,
-  includePatterns: [],
-  excludePatterns: []
-};
 
 /**
  * 기본 카드셋 설정
  */
 export const DEFAULT_CARD_SET_CONFIG: ICardSetConfig = {
-  folderPath: '',
-  includeSubfolders: false,
-  tags: [],
-  linkConfig: DEFAULT_LINK_CONFIG,
+  cardSetGeneral: {
+    cardSetType: CardSetType.FOLDER
+  },
+  folderCardSet: {
+    folderCardSetMode: 'active',
+    fixedFolderPath: '',
+    includeSubfolders: true
+  },
+  tagCardSet: {
+    tagCardSetMode: 'active',
+    fixedTag: ''
+  },
+  linkCardSet: {
+    includeBacklinks: true,
+    includeOutgoingLinks: false,
+    linkLevel: 1
+  },
   searchFilter: undefined,
-  sortConfig: undefined
+  sortConfig: undefined,
+  
+  validate(): boolean {
+    return true; // 기본값은 항상 유효
+  },
+  
+  preview(): {
+    cardSetGeneral: {
+      cardSetType: CardSetType;
+    };
+    folderCardSet: {
+      folderCardSetMode: 'active' | 'fixed';
+      fixedFolderPath: string;
+      includeSubfolders: boolean;
+    };
+    tagCardSet: {
+      tagCardSetMode: 'active' | 'fixed';
+      fixedTag: string;
+    };
+    linkCardSet: {
+      includeBacklinks: boolean;
+      includeOutgoingLinks: boolean;
+      linkLevel: number;
+    };
+  } {
+    return {
+      cardSetGeneral: { ...this.cardSetGeneral },
+      folderCardSet: { ...this.folderCardSet },
+      tagCardSet: { ...this.tagCardSet },
+      linkCardSet: { ...this.linkCardSet }
+    };
+  }
 };
 
 /**
@@ -132,5 +214,19 @@ export const DEFAULT_CARD_SET: ICardSet = {
 
   validate(): boolean {
     return this.id !== '' && this.cards.length >= 0;
+  },
+  
+  preview(): {
+    id: string;
+    type: CardSetType;
+    criteria: string;
+    cardCount: number;
+  } {
+    return {
+      id: this.id,
+      type: this.type,
+      criteria: this.criteria,
+      cardCount: this.cards.length
+    };
   }
 }; 

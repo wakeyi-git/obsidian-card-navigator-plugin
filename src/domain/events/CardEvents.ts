@@ -1,7 +1,8 @@
-import { DomainEvent } from './DomainEvent';
+import { DomainEvent, IDomainEvent } from './DomainEvent';
 import { DomainEventType } from './DomainEventType';
 import { ICard } from '../models/Card';
-import { BaseEvent } from './BaseEvent';
+import { SimpleEvent } from './BaseEvent';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * 카드 생성 이벤트
@@ -96,75 +97,96 @@ export class CardDeactivatedEvent extends DomainEvent<string> {
 /**
  * 카드 클릭 이벤트
  */
-export class CardClickedEvent extends BaseEvent {
+export class CardClickedEvent extends SimpleEvent<Record<string, any>> {
   constructor(
     public readonly cardId: string,
     public readonly metadata: Record<string, any> = {}
   ) {
-    super('CardClickedEvent');
+    super('CardClickedEvent', DomainEventType.CARD_SELECTED, {
+      cardId,
+      ...metadata
+    });
   }
 }
 
 /**
  * 카드 더블 클릭 이벤트
  */
-export class CardDoubleClickedEvent extends BaseEvent {
+export class CardDoubleClickedEvent extends SimpleEvent<Record<string, any>> {
   constructor(
     public readonly cardId: string,
     public readonly metadata: Record<string, any> = {}
   ) {
-    super('CardDoubleClickedEvent');
+    super('CardDoubleClickedEvent', DomainEventType.CARD_SELECTED, {
+      cardId,
+      ...metadata
+    });
   }
 }
 
 /**
  * 카드 컨텍스트 메뉴 이벤트
  */
-export class CardContextMenuEvent extends BaseEvent {
+export class CardContextMenuEvent extends SimpleEvent<Record<string, any>> {
   constructor(
     public readonly cardId: string,
     public readonly event: MouseEvent,
     public readonly metadata: Record<string, any> = {}
   ) {
-    super('CardContextMenuEvent');
+    super('CardContextMenuEvent', DomainEventType.CARD_SELECTED, {
+      cardId,
+      eventType: event.type,
+      ...metadata
+    });
   }
 }
 
 /**
  * 카드 드래그 시작 이벤트
  */
-export class CardDragStartEvent extends BaseEvent {
+export class CardDragStartEvent extends SimpleEvent<Record<string, any>> {
   constructor(
     public readonly cardId: string,
     public readonly metadata: Record<string, any> = {}
   ) {
-    super('CardDragStartEvent');
+    super('CardDragStartEvent', DomainEventType.CARD_DRAGGED, {
+      cardId,
+      ...metadata
+    });
   }
 }
 
 /**
  * 카드 드롭 이벤트 (새로운 형식)
  */
-export class CardDropEvent extends BaseEvent {
+export class CardDropEvent extends SimpleEvent<Record<string, any>> {
   constructor(
     public readonly targetCardId: string,
     public readonly sourceData: string,
     public readonly metadata: Record<string, any> = {}
   ) {
-    super('CardDropEvent');
+    super('CardDropEvent', DomainEventType.CARD_DROPPED, {
+      targetCardId,
+      sourceData,
+      ...metadata
+    });
   }
 }
 
 /**
  * 카드 위치 업데이트 이벤트
  */
-export class LayoutCardPositionUpdatedEvent extends BaseEvent {
+export class LayoutCardPositionUpdatedEvent extends SimpleEvent<Record<string, any>> {
   constructor(
     public readonly cardId: string,
     public readonly x: number,
     public readonly y: number,
     public readonly metadata: Record<string, any> = {}
   ) {
-    super('LayoutCardPositionUpdatedEvent');
+    super('LayoutCardPositionUpdatedEvent', DomainEventType.LAYOUT_CARD_POSITION_UPDATED, {
+      cardId,
+      position: { x, y },
+      ...metadata
+    });
   }
 } 

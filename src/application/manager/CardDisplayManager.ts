@@ -12,10 +12,12 @@ import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
 import { CardServiceError } from '../../domain/errors/CardServiceError';
 import { ICardInteractionService } from '../../domain/services/ICardInteractionService';
-import { Menu } from 'obsidian';
+import { Menu, App } from 'obsidian';
+import { IRenderManager } from '../../domain/managers/IRenderManager';
+import { ICardService } from '../../domain/services/ICardService';
 
 /**
- * 카드 표시 관리자 구현체
+ * 카드 표시 관리자 클래스
  */
 export class CardDisplayManager implements ICardDisplayManager {
   private static instance: CardDisplayManager;
@@ -30,6 +32,8 @@ export class CardDisplayManager implements ICardDisplayManager {
   private cards: Map<string, ICard> = new Map();
   private lastTransactionId: string | null = null;
   private static TRANSACTION_TIMEOUT = 1000; // 1초 내 동일 트랜잭션 무시
+  private renderManager: IRenderManager;
+  private app: App;
 
   private constructor(
     private readonly eventDispatcher: IEventDispatcher,
@@ -38,7 +42,25 @@ export class CardDisplayManager implements ICardDisplayManager {
     private readonly performanceMonitor: IPerformanceMonitor,
     private readonly analyticsService: IAnalyticsService,
     private readonly cardInteractionService: ICardInteractionService
-  ) {}
+  ) {
+    // 필요한 서비스 주입
+    const container = Container.getInstance();
+    this.app = container.resolve<App>('App');
+    this.renderManager = container.resolve<IRenderManager>('IRenderManager');
+    
+    // 상태 초기화
+    this.cards = new Map();
+    this.cardVisibility = new Map();
+    this.cardZIndices = new Map();
+    this.cardStyles = new Map();
+    this.selectedCardIds = new Set();
+    
+    // 기본 스타일 설정
+    this.cardStyles.set('*', DEFAULT_CARD_STYLE);
+    
+    // 초기화 완료 로깅
+    this.loggingService.debug('CardDisplayManager 인스턴스 생성됨');
+  }
 
   static getInstance(): CardDisplayManager {
     if (!CardDisplayManager.instance) {
@@ -126,135 +148,255 @@ export class CardDisplayManager implements ICardDisplayManager {
   displayCardSet(cardSet: ICardSet, transactionId?: string): void {
     const perfMark = 'CardDisplayManager.displayCardSet';
     this.performanceMonitor.startMeasure(perfMark);
+    
     try {
+      // 트랜잭션 식별 및 로깅
+      const currentTransactionId = transactionId || `transaction_${Date.now()}`;
       this.loggingService.debug('카드셋 표시 시작', { 
         cardSetId: cardSet.id,
-        transactionId: transactionId || 'none'
+        cardCount: cardSet.cards.length,
+        transactionId: currentTransactionId
       });
-
-      // 트랜잭션 ID가 제공되고 마지막 트랜잭션 ID와 같으면 중복 요청으로 간주하고 무시
-      if (transactionId && this.lastTransactionId === transactionId) {
-        this.loggingService.debug('동일한 트랜잭션 ID로 인한 중복 요청, 무시함', { 
-          transactionId,
-          cardSetId: cardSet.id
-        });
+      
+      // 중복 트랜잭션 체크
+      if (this.lastTransactionId === currentTransactionId) {
+        this.loggingService.debug('중복 트랜잭션 감지, 무시', { transactionId: currentTransactionId });
+        return;
+      }
+      this.lastTransactionId = currentTransactionId;
+      
+      // 카드셋 컨테이너 찾기
+      const container = this.getCardSetContainer(cardSet.id);
+      if (!container) {
+        this.loggingService.error('카드셋 컨테이너를 찾을 수 없음', { cardSetId: cardSet.id });
         return;
       }
       
-      // 동일한 카드셋 ID이고 카드 수가 같다면 중복 표시 방지
-      if (this.currentCardSet && this.currentCardSet.id === cardSet.id && 
-          this.currentCardSet.cards.length === cardSet.cards.length) {
-        // 추가 검증: 카드 ID가 모두 동일한지 확인
-        const existingCardIds = new Set(this.currentCardSet.cards.map(c => c.id));
-        const allCardsIdentical = cardSet.cards.every(card => existingCardIds.has(card.id));
-        
-        if (allCardsIdentical) {
-          this.loggingService.debug('동일한 카드셋이 이미 표시됨, 중복 표시 방지', {
-            cardSetId: cardSet.id,
-            cardCount: cardSet.cards.length
-          });
-          return;
-        }
-      }
-      
-      // 트랜잭션 ID 기록
-      if (transactionId) {
-        this.lastTransactionId = transactionId;
-        
-        // 일정 시간 후 트랜잭션 ID 초기화 (새로운 요청 허용)
-        setTimeout(() => {
-          if (this.lastTransactionId === transactionId) {
-            this.lastTransactionId = null;
-          }
-        }, CardDisplayManager.TRANSACTION_TIMEOUT);
-      }
-
-      // 현재 카드셋 업데이트 전에 DOM에서 기존 카드 요소 제거
-      this.clearExistingCardElements();
-
-      // 현재 카드셋 업데이트 (카드셋 데이터는 그대로 사용)
+      // 현재 카드셋 업데이트
       this.currentCardSet = cardSet;
       
-      // 렌더링 설정 초기화
-      this.currentRenderConfig = DEFAULT_CARD_RENDER_CONFIG;
-
-      // 기존 카드 상태 모두 초기화
-      this.loggingService.debug('카드 상태 초기화', { 
-        existingCardCount: this.cards.size,
-        newCardCount: cardSet.cards.length 
-      });
-      this.cards.clear();
-      this.cardVisibility.clear();
-      this.cardZIndices.clear();
-      this.cardStyles.clear();
-      this.selectedCardIds.clear();
+      // 1. 이전에 중복 생성된 카드 요소 정리
+      this.cleanupDuplicateCardElements(container);
       
-      // 중복 등록 방지를 위한 Set 생성
-      const processedCardIds = new Set<string>();
-
-      // 카드셋 내 모든 카드 초기화
+      // 2. 현재 표시된 카드 ID 추적
+      const displayedCardIds = new Set<string>();
+      const existingCardElements = container.querySelectorAll('.card-navigator-card');
+      existingCardElements.forEach((element: HTMLElement) => {
+        const cardId = element.getAttribute('data-card-id');
+        if (cardId) displayedCardIds.add(cardId);
+      });
+      
+      // 3. 새 카드셋의 카드 ID 세트
+      const newCardIds = new Set(cardSet.cards.map(card => card.id));
+      
+      // 4. 제거할 카드 요소 찾기 (더 이상 카드셋에 없는 카드)
+      const cardsToRemove = Array.from(existingCardElements).filter((element: HTMLElement) => {
+        const cardId = element.getAttribute('data-card-id');
+        return cardId && !newCardIds.has(cardId);
+      });
+      
+      // 5. 추가할 카드 찾기 (카드셋에는 있지만 화면에 표시되지 않은 카드)
+      const cardsToAdd = cardSet.cards.filter(card => !displayedCardIds.has(card.id));
+      
+      // 6. 제거할 카드 요소 제거
+      cardsToRemove.forEach((element: HTMLElement) => {
+        this.loggingService.debug('카드 요소 제거', { 
+          cardId: element.getAttribute('data-card-id'),
+          transactionId: currentTransactionId
+        });
+        element.remove();
+      });
+      
+      // 7. 새 카드 요소 추가
+      const fragment = document.createDocumentFragment();
+      cardsToAdd.forEach(card => {
+        this.loggingService.debug('새 카드 요소 추가', { 
+          cardId: card.id,
+          transactionId: currentTransactionId
+        });
+        const cardElement = this.createCardElement(card);
+        fragment.appendChild(cardElement);
+        
+        // 내부 맵에 카드 추가
+        this.cards.set(card.id, card);
+      });
+      
+      // 모든 카드 요소를 한 번에 추가
+      container.appendChild(fragment);
+      
+      // 8. 모든 카드 요소 상태 업데이트 (활성, 포커스 등)
+      this.updateCardElements(cardSet);
+      
+      // 9. 렌더링 요청: 모든 카드에 대해 비동기 렌더링 요청
+      const renderPromises: Promise<string>[] = [];
+      
       cardSet.cards.forEach(card => {
-        // 중복 카드 건너뛰기
-        if (processedCardIds.has(card.id)) {
-          this.loggingService.debug('중복 카드 건너뛰기', { cardId: card.id });
-          return;
+        const promise = this.renderManager.requestRender(card.id, card)
+          .catch((error: Error) => {
+            this.loggingService.error('카드 렌더링 요청 실패', { 
+              cardId: card.id, 
+              error: error.message,
+              transactionId: currentTransactionId
+            });
+            return `<div class="content">렌더링 실패: ${error.message}</div>`;
+          });
+        renderPromises.push(promise);
+      });
+      
+      // 모든 렌더링 요청이 완료될 때까지 대기하지 않고 진행
+      Promise.all(renderPromises).then(() => {
+        this.loggingService.debug('모든 카드 렌더링 요청 완료', {
+          cardCount: cardSet.cards.length,
+          transactionId: currentTransactionId
+        });
+      });
+      
+      this.performanceMonitor.endMeasure(perfMark);
+    } catch (error) {
+      this.loggingService.error('카드셋 표시 중 오류 발생', { 
+        cardSetId: cardSet.id, 
+        error,
+        transactionId: transactionId || 'none'
+      });
+      this.performanceMonitor.endMeasure(perfMark);
+    }
+  }
+  
+  /**
+   * 카드 요소 생성
+   * @param card 카드
+   * @returns 카드 요소
+   */
+  private createCardElement(card: ICard): HTMLElement {
+    // 카드 요소 생성
+    const cardElement = document.createElement('div');
+    cardElement.className = 'card-navigator-card';
+    cardElement.setAttribute('data-card-id', card.id);
+    cardElement.setAttribute('draggable', 'true');
+    
+    // 기본 카드 구조 생성 (헤더, 바디, 푸터)
+    const headerElement = document.createElement('div');
+    headerElement.className = 'card-header';
+    
+    const bodyElement = document.createElement('div');
+    bodyElement.className = 'card-body';
+    
+    // 카드 본문에 로딩 상태 표시
+    const loadingElement = document.createElement('div');
+    loadingElement.className = 'card-loading';
+    loadingElement.innerHTML = '<span class="loading-spinner"></span><span>카드 로딩 중...</span>';
+    bodyElement.appendChild(loadingElement);
+    
+    const footerElement = document.createElement('div');
+    footerElement.className = 'card-footer';
+    
+    // 구조 조립
+    cardElement.appendChild(headerElement);
+    cardElement.appendChild(bodyElement);
+    cardElement.appendChild(footerElement);
+    
+    // 헤더 콘텐츠 설정
+    if (card.file) {
+      // 파일명 표시
+      const fileNameElement = document.createElement('div');
+      fileNameElement.className = 'file-name';
+      fileNameElement.textContent = card.file.basename;
+      headerElement.appendChild(fileNameElement);
+      
+      // 태그 표시
+      if (card.metadata?.tags && card.metadata.tags.length > 0) {
+        const tagsElement = document.createElement('div');
+        tagsElement.className = 'tags';
+        
+        card.metadata.tags.forEach((tag: string) => {
+          const tagElement = document.createElement('span');
+          tagElement.className = 'tag';
+          tagElement.textContent = tag;
+          tagsElement.appendChild(tagElement);
+        });
+        
+        headerElement.appendChild(tagsElement);
+      }
+    }
+    
+    // 이벤트 리스너 설정
+    this.setupCardEventListeners(cardElement, card);
+    
+    return cardElement;
+  }
+  
+  /**
+   * 중복 카드 요소 정리
+   * @param container 카드셋 컨테이너
+   */
+  private cleanupDuplicateCardElements(container: HTMLElement): void {
+    // 카드 ID별로 요소 그룹화
+    const cardElementsMap = new Map<string, HTMLElement[]>();
+    
+    container.querySelectorAll('.card-navigator-card').forEach((element: HTMLElement) => {
+      const cardId = element.getAttribute('data-card-id');
+      if (!cardId) return;
+      
+      if (!cardElementsMap.has(cardId)) {
+        cardElementsMap.set(cardId, []);
+      }
+      cardElementsMap.get(cardId)?.push(element);
+    });
+    
+    // 중복 요소 제거 (각 카드 ID당 첫 번째 요소만 유지)
+    let removedCount = 0;
+    
+    cardElementsMap.forEach((elements, cardId) => {
+      if (elements.length > 1) {
+        // 첫 번째 요소를 제외한 나머지 제거
+        for (let i = 1; i < elements.length; i++) {
+          elements[i].remove();
+          removedCount++;
         }
         
-        // 처리된 카드 목록에 추가
-        processedCardIds.add(card.id);
-        
-        // 카드 객체 등록 (카드셋에서 카드 데이터 그대로 사용)
-        this.cards.set(card.id, card);
-        
-        // 카드 표시 상태 설정
-        this.cardVisibility.set(card.id, true);
-        
-        // 카드 Z-인덱스 설정 (기본값: 1)
-        this.cardZIndices.set(card.id, 1);
-        
-        // 카드 스타일만 DEFAULT_CARD_STYLE 사용
-        this.cardStyles.set(card.id, DEFAULT_CARD_STYLE);
-      });
-
-      this.analyticsService.trackEvent('card_set_displayed', {
-        cardSetId: cardSet.id,
-        cardCount: cardSet.cards.length
-      });
-
-      this.loggingService.info('카드셋 표시 완료', { 
-        cardSetId: cardSet.id,
-        cardCount: cardSet.cards.length
-      });
-    } catch (error) {
-      this.loggingService.error('카드셋 표시 실패', { error });
-      this.errorHandler.handleError(error as Error, 'CardDisplayManager.displayCardSet');
-    } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+        this.loggingService.debug('중복 카드 요소 제거', { 
+          cardId, 
+          duplicateCount: elements.length - 1,
+          remaining: 1
+        });
+      }
+    });
+    
+    if (removedCount > 0) {
+      this.loggingService.info(`${removedCount}개의 중복 카드 요소 제거됨`);
     }
   }
 
   /**
-   * DOM에서 기존 카드 요소 제거
+   * 카드 상태 업데이트 (활성, 포커스 등)
+   * @param cardSet 카드셋
    */
-  private clearExistingCardElements(): void {
-    try {
-      // 카드 컨테이너 찾기
-      const container = document.querySelector('.card-navigator-grid');
-      if (!container) {
-        this.loggingService.debug('카드 컨테이너를 찾을 수 없음');
-        return;
+  private updateCardElements(cardSet: ICardSet): void {
+    const container = this.getCardSetContainer(cardSet.id);
+    if (!container) return;
+    
+    const activeFileId = this.getActiveFileId();
+    const focusedCardId = this.focusedCardId;
+    
+    // 모든 카드 요소에 대해 상태 업데이트
+    container.querySelectorAll('.card-navigator-card').forEach((element: HTMLElement) => {
+      const cardId = element.getAttribute('data-card-id');
+      if (!cardId) return;
+      
+      // 활성 상태 업데이트
+      if (cardId === activeFileId) {
+        element.classList.add('active');
+      } else {
+        element.classList.remove('active');
       }
       
-      // 기존 카드 요소 제거
-      const existingCards = container.querySelectorAll('.card-navigator-card');
-      if (existingCards.length > 0) {
-        this.loggingService.debug('기존 카드 요소 제거', { count: existingCards.length });
-        existingCards.forEach(element => element.remove());
+      // 포커스 상태 업데이트
+      if (cardId === focusedCardId) {
+        element.classList.add('focused');
+      } else {
+        element.classList.remove('focused');
       }
-    } catch (error) {
-      this.loggingService.error('기존 카드 요소 제거 실패', { error });
-      this.errorHandler.handleError(error, '기존 카드 요소 제거 실패');
-    }
+    });
   }
 
   /**
@@ -369,6 +511,12 @@ export class CardDisplayManager implements ICardDisplayManager {
       }
 
       this.cardStyles.set(cardId, style);
+      
+      // DOM 요소 스타일 업데이트
+      const cardElement = document.querySelector(`.card-navigator-card[data-card-id="${cardId}"]`);
+      if (cardElement) {
+        this.applyCardStyle(cardElement as HTMLElement, style);
+      }
 
       this.analyticsService.trackEvent('card_style_updated', { cardId });
       this.loggingService.info('카드 스타일 업데이트 완료', { cardId });
@@ -384,6 +532,67 @@ export class CardDisplayManager implements ICardDisplayManager {
       );
     } finally {
       this.performanceMonitor.endMeasure(perfMark);
+    }
+  }
+  
+  /**
+   * 카드 요소에 스타일 적용
+   * @param cardElement 카드 요소
+   * @param style 스타일
+   */
+  private applyCardStyle(cardElement: HTMLElement, style: ICardStyle): void {
+    try {
+      // 카드 스타일 적용
+      cardElement.style.setProperty('--card-bg', style.card.backgroundColor);
+      cardElement.style.setProperty('--card-font-size', style.card.fontSize);
+      cardElement.style.setProperty('--card-border-color', style.card.borderColor);
+      cardElement.style.setProperty('--card-border-width', style.card.borderWidth);
+      
+      // 헤더 스타일 적용
+      cardElement.style.setProperty('--header-bg', style.header.backgroundColor);
+      cardElement.style.setProperty('--header-font-size', style.header.fontSize);
+      cardElement.style.setProperty('--header-border-color', style.header.borderColor);
+      cardElement.style.setProperty('--header-border-width', style.header.borderWidth);
+      
+      // 본문 스타일 적용
+      cardElement.style.setProperty('--body-bg', style.body.backgroundColor);
+      cardElement.style.setProperty('--body-font-size', style.body.fontSize);
+      cardElement.style.setProperty('--body-border-color', style.body.borderColor);
+      cardElement.style.setProperty('--body-border-width', style.body.borderWidth);
+      
+      // 푸터 스타일 적용
+      cardElement.style.setProperty('--footer-bg', style.footer.backgroundColor);
+      cardElement.style.setProperty('--footer-font-size', style.footer.fontSize);
+      cardElement.style.setProperty('--footer-border-color', style.footer.borderColor);
+      cardElement.style.setProperty('--footer-border-width', style.footer.borderWidth);
+      
+      // 카드 상태 표시
+      const isActive = this.activeCardId === cardElement.getAttribute('data-card-id');
+      const isFocused = this.focusedCardId === cardElement.getAttribute('data-card-id');
+      const isRegistered = cardElement.getAttribute('data-registered') === 'true';
+      
+      // 클래스 초기화
+      cardElement.classList.remove('active-card', 'focused-card', 'registered-card', 'loading-card');
+      
+      // 상태에 따른 클래스 추가
+      if (isActive) cardElement.classList.add('active-card');
+      if (isFocused) cardElement.classList.add('focused-card');
+      if (isRegistered) cardElement.classList.add('registered-card');
+      
+      // 로딩 상태 확인
+      if (cardElement.querySelector('.card-loading')) {
+        cardElement.classList.add('loading-card');
+      }
+      
+      // 오류 상태 확인
+      if (cardElement.querySelector('.card-error')) {
+        cardElement.classList.add('error-card');
+      }
+    } catch (error) {
+      this.loggingService.error('카드 스타일 적용 실패', { 
+        cardId: cardElement.getAttribute('data-card-id'), 
+        error 
+      });
     }
   }
 
@@ -545,14 +754,50 @@ export class CardDisplayManager implements ICardDisplayManager {
     try {
       this.loggingService.debug('카드 등록 시작', { cardId });
       
-      // 중복 등록 방지 - 동일 ID로 이미 등록된 요소가 있는지 확인
-      const existingCard = document.querySelector(`.card-navigator-card[data-card-id="${cardId}"][data-registered="true"]`);
-      if (existingCard) {
-        this.loggingService.debug('카드가 이미 등록되어 있습니다, 중복 등록 방지', { cardId });
-        return;
+      // 1. 요소 찾기 - 전달된 요소가 없으면 DOM에서 찾음
+      let cardElement = element;
+      if (!cardElement) {
+        cardElement = document.querySelector(`.card-navigator-card[data-card-id="${cardId}"]`) as HTMLElement;
       }
       
-      // 카드셋이 없는 경우 자세한 경고
+      // 2. 이미 메모리에 등록된 카드인지 확인
+      const isMemoryRegistered = this.cards.has(cardId);
+      
+      // 3. DOM에 요소가 있고 이미 등록된 경우 (data-registered="true")
+      if (cardElement) {
+        const isDomRegistered = cardElement.getAttribute('data-registered') === 'true';
+        
+        // 이미 메모리와 DOM 모두에 등록된 경우 - 중복 등록 방지
+        if (isMemoryRegistered && isDomRegistered) {
+          this.loggingService.debug('카드가 이미 등록되어 있습니다, 중복 등록 방지', { cardId });
+          return;
+        }
+        
+        // 메모리에는 등록되어 있지만 DOM에는 등록되지 않은 경우 - DOM만 등록 처리
+        if (isMemoryRegistered && !isDomRegistered) {
+          cardElement.setAttribute('data-registered', 'true');
+          
+          // 카드 객체 가져오기 및 타입 체크
+          const card = this.cards.get(cardId);
+          if (card) {
+            // 카드가 존재하면 이벤트 리스너 설정
+            this.setupCardEventListeners(cardElement, card);
+            
+            // "카드 로딩 중..." 메시지를 제거하기 위해 로딩 중 요소 확인 및 제거
+            const loadingDiv = cardElement.querySelector('.card-loading');
+            if (loadingDiv) {
+              loadingDiv.remove();
+            }
+            
+            this.loggingService.debug('기존 카드에 DOM 요소 연결 완료', { cardId });
+          } else {
+            this.loggingService.warn('카드 객체를 찾을 수 없음', { cardId });
+          }
+          return;
+        }
+      }
+      
+      // 4. 카드셋이 없는 경우 확인
       if (!this.currentCardSet) {
         this.loggingService.warn('카드셋이 로드되지 않았습니다. 카드 등록을 건너뜁니다.', { 
           cardId,
@@ -562,41 +807,37 @@ export class CardDisplayManager implements ICardDisplayManager {
         return;
       }
       
-      // 카드셋에서 카드 찾기
-      const card = this.currentCardSet.cards.find(c => c.id === cardId);
+      // 5. 카드셋에서 카드 찾기
+      let card = this.currentCardSet.cards.find(c => c.id === cardId);
       if (!card) {
         this.loggingService.warn('카드셋에서 카드를 찾을 수 없습니다.', { 
           cardId,
           cardSetId: this.currentCardSet.id,
-          cardSetCardCount: this.currentCardSet.cards.length,
-          availableCardIds: this.currentCardSet.cards.map(c => c.id).join(', ')
+          cardSetCardCount: this.currentCardSet.cards.length
         });
         return;
       }
       
-      // 카드 요소 찾기
-      let cardElement = element;
+      // 6. DOM 요소가 없거나 새로 생성해야 하는 경우
       if (!cardElement) {
-        cardElement = document.querySelector(`.card-navigator-card[data-card-id="${cardId}"]`) as HTMLElement;
-        if (!cardElement) {
-          this.loggingService.warn('등록할 카드 요소를 찾을 수 없음', { cardId });
-          return;
+        this.loggingService.debug('카드 요소를 찾을 수 없어 새로 등록할 수 없음', { cardId });
+        
+        // 나중에 요소가 생성되면 등록할 수 있도록 메모리에만 등록
+        this.cards.set(cardId, card);
+        this.cardVisibility.set(cardId, true);
+        this.cardZIndices.set(cardId, 1);
+        
+        // 스타일이 설정되지 않았으면 기본 스타일 적용
+        if (!this.cardStyles.has(cardId)) {
+          this.cardStyles.set(cardId, DEFAULT_CARD_STYLE);
         }
-      }
-      
-      // 이미 등록된 카드인지 확인
-      if (cardElement.getAttribute('data-registered') === 'true') {
-        this.loggingService.debug('이미 등록된 카드, 중복 등록 방지', { cardId });
+        
         return;
       }
       
-      // 카드 등록 마킹
+      // 7. 요소와 카드 모두 있는 경우 정상 등록
       cardElement.setAttribute('data-registered', 'true');
-      
-      // 카드 등록
       this.cards.set(cardId, card);
-      
-      // 카드 표시 상태 및 스타일 설정
       this.cardVisibility.set(cardId, true);
       this.cardZIndices.set(cardId, 1);
       
@@ -605,8 +846,14 @@ export class CardDisplayManager implements ICardDisplayManager {
         this.cardStyles.set(cardId, DEFAULT_CARD_STYLE);
       }
       
+      // "카드 로딩 중..." 메시지를 제거하기 위해 로딩 중 요소 확인 및 제거
+      const loadingDiv = cardElement.querySelector('.card-loading');
+      if (loadingDiv) {
+        loadingDiv.remove();
+      }
+      
       // 이벤트 처리
-      this.setupCardEvents(cardElement, cardId);
+      this.setupCardEventListeners(cardElement, card);
       
       this.analyticsService.trackEvent('card_registered', { cardId });
       this.loggingService.debug('카드 등록 완료', { cardId });
@@ -619,44 +866,147 @@ export class CardDisplayManager implements ICardDisplayManager {
   }
   
   /**
-   * 카드 요소에 이벤트 설정
+   * 카드 이벤트 리스너 설정
    * @param cardElement 카드 요소
-   * @param cardId 카드 ID
+   * @param card 카드
    */
-  private setupCardEvents(cardElement: HTMLElement, cardId: string): void {
+  private setupCardEventListeners(cardElement: HTMLElement, card: ICard): void {
     try {
-      // 클릭 이벤트
+      // 클릭 이벤트 (카드 선택)
       cardElement.addEventListener('click', (event) => {
-        this.handleCardClick(event, cardId);
+        event.preventDefault();
+        // 포커스 및 선택 처리
+        this.focusCard(card.id);
+        this.selectCard(card.id);
+        
+        // 카드에 해당하는 파일 열기
+        if (card.file) {
+          this.app.workspace.openLinkText(card.file.path, '', false);
+        }
       });
       
-      // 더블 클릭 이벤트
+      // 더블 클릭 이벤트 (카드 편집 모드로 열기)
       cardElement.addEventListener('dblclick', (event) => {
-        this.handleCardDoubleClick(event, cardId);
+        event.preventDefault();
+        // 포커스 및 선택 처리
+        this.focusCard(card.id);
+        this.selectCard(card.id);
+        
+        // 카드에 해당하는 파일을 편집 모드로 열기
+        if (card.file) {
+          this.app.workspace.openLinkText(card.file.path, '', true);
+        }
       });
       
-      // 컨텍스트 메뉴 이벤트
+      // 컨텍스트 메뉴 이벤트 (우클릭 메뉴)
       cardElement.addEventListener('contextmenu', (event) => {
-        this.handleCardContextMenu(event, cardId);
+        event.preventDefault();
+        
+        // 포커스 처리
+        this.focusCard(card.id);
+        
+        // 컨텍스트 메뉴 표시
+        if (card.file) {
+          const menu = new Menu();
+          
+          menu.addItem((item) => {
+            item
+              .setTitle('링크 복사')
+              .setIcon('link')
+              .onClick(() => {
+                // 클립보드에 링크 복사
+                navigator.clipboard.writeText(`[[${card.file.path}]]`);
+              });
+          });
+          
+          menu.addItem((item) => {
+            item
+              .setTitle('내용 복사')
+              .setIcon('copy')
+              .onClick(() => {
+                // 카드 내용 복사
+                const { vault } = this.app;
+                vault.read(card.file).then((content: string) => {
+                  navigator.clipboard.writeText(content);
+                });
+              });
+          });
+          
+          menu.showAtPosition({ x: event.clientX, y: event.clientY });
+        }
       });
       
       // 드래그 이벤트
-      cardElement.setAttribute('draggable', 'true');
       cardElement.addEventListener('dragstart', (event) => {
-        this.handleCardDragStart(event, cardId);
+        // 드래그 데이터 설정
+        if (event.dataTransfer && card.file) {
+          event.dataTransfer.setData('text/plain', `[[${card.file.path}]]`);
+          event.dataTransfer.effectAllowed = 'copy';
+          this.eventDispatcher.dispatch(new CardDraggedEvent(card.id));
+        }
       });
       
-      // 드롭 이벤트
       cardElement.addEventListener('dragover', (event) => {
-        this.handleCardDragOver(event, cardId);
+        event.preventDefault();
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = 'copy';
+        }
       });
       
       cardElement.addEventListener('drop', (event) => {
-        this.handleCardDrop(event, cardId);
+        event.preventDefault();
+        const sourceData = event.dataTransfer?.getData('text/plain');
+        if (!sourceData || !card.file) return;
+        
+        // 드롭 이벤트 발송
+        this.eventDispatcher.dispatch(new CardDroppedEvent(card.id));
+        
+        // 소스가 링크 형식이면 카드 간 링크 생성
+        if (sourceData.startsWith('[[') && sourceData.endsWith(']]')) {
+          // 옵시디언 API를 통해 노트에 링크 추가
+          const { vault } = this.app;
+          
+          vault.read(card.file).then((content: string) => {
+            const updatedContent = content + '\n' + sourceData;
+            vault.modify(card.file, updatedContent);
+          });
+        }
       });
+      
+      cardElement.addEventListener('dragend', () => {
+        // 드래그 상태 초기화
+      });
+      
+      // 카드 요소에 tabindex 속성 추가 (키보드 탐색 지원)
+      cardElement.setAttribute('tabindex', '0');
+      
+      // 포커스 이벤트
+      cardElement.addEventListener('focus', () => {
+        this.focusedCardId = card.id;
+      });
+      
+      cardElement.addEventListener('blur', () => {
+        if (this.focusedCardId === card.id) {
+          this.focusedCardId = null;
+        }
+      });
+      
+      // 키보드 이벤트 (방향키로 카드 이동)
+      cardElement.addEventListener('keydown', (event) => {
+        // 기본 방향키 내비게이션 처리
+        if (event.key === 'Enter') {
+          // Enter 키: 카드 열기
+          if (card.file) {
+            this.app.workspace.openLinkText(card.file.path, '', false);
+          }
+        }
+      });
+      
     } catch (error) {
-      this.loggingService.error('카드 이벤트 설정 실패', { error, cardId });
-      this.errorHandler.handleError(error, '카드 이벤트 설정 실패');
+      this.loggingService.error('카드 이벤트 리스너 설정 실패', { 
+        cardId: card.id, 
+        error 
+      });
     }
   }
 
@@ -800,191 +1150,25 @@ export class CardDisplayManager implements ICardDisplayManager {
   }
 
   /**
-   * 카드 클릭 이벤트 처리
-   * @param event 클릭 이벤트
-   * @param cardId 카드 ID
+   * 카드셋 컨테이너 요소 가져오기
+   * @param cardSetId 카드셋 ID
+   * @returns 컨테이너 요소
    */
-  private handleCardClick(event: MouseEvent, cardId: string): void {
-    try {
-      // 기존 포커스와 선택 이벤트 활용
-      this.focusCard(cardId);
-      this.selectCard(cardId);
-      
-      // 기본 동작 - 카드 활성화
-      const card = this.cards.get(cardId);
-      if (card && card.file) {
-        // 옵시디언 API를 통해 파일 열기
-        const { workspace } = (window as any).app;
-        workspace.openLinkText(card.file.path, '', false);
-      }
-    } catch (error) {
-      this.loggingService.error('카드 클릭 처리 실패', { error, cardId });
-      this.errorHandler.handleError(error, '카드 클릭 처리 실패');
+  private getCardSetContainer(cardSetId: string): HTMLElement | null {
+    const container = document.querySelector(`.card-navigator-grid[data-card-set-id="${cardSetId}"]`);
+    if (!container) {
+      // 기본 카드 그리드 컨테이너 반환
+      return document.querySelector('.card-navigator-grid');
     }
+    return container as HTMLElement;
   }
-  
+
   /**
-   * 카드 더블 클릭 이벤트 처리
-   * @param event 더블 클릭 이벤트
-   * @param cardId 카드 ID
+   * 활성 파일 ID 가져오기
+   * @returns 활성 파일 ID
    */
-  private handleCardDoubleClick(event: MouseEvent, cardId: string): void {
-    try {
-      // 포커스 및 선택 상태로 변경
-      this.focusCard(cardId);
-      this.selectCard(cardId);
-      
-      // 기본 동작 - 카드 편집 모드로 전환
-      const card = this.cards.get(cardId);
-      if (card && card.file) {
-        // 옵시디언 API를 통해 파일 편집 모드로 열기
-        const { workspace } = (window as any).app;
-        workspace.openLinkText(card.file.path, '', true);
-      }
-    } catch (error) {
-      this.loggingService.error('카드 더블 클릭 처리 실패', { error, cardId });
-      this.errorHandler.handleError(error, '카드 더블 클릭 처리 실패');
-    }
-  }
-  
-  /**
-   * 카드 컨텍스트 메뉴 이벤트 처리
-   * @param event 컨텍스트 메뉴 이벤트
-   * @param cardId 카드 ID
-   */
-  private handleCardContextMenu(event: MouseEvent, cardId: string): void {
-    try {
-      event.preventDefault();
-      // 포커스 처리
-      this.focusCard(cardId);
-      
-      // 기본 동작 - 컨텍스트 메뉴 표시
-      const card = this.cards.get(cardId);
-      if (card) {
-        this.showCardContextMenu(card, event);
-      }
-    } catch (error) {
-      this.loggingService.error('카드 컨텍스트 메뉴 처리 실패', { error, cardId });
-      this.errorHandler.handleError(error, '카드 컨텍스트 메뉴 처리 실패');
-    }
-  }
-  
-  /**
-   * 카드 드래그 시작 이벤트 처리
-   * @param event 드래그 시작 이벤트
-   * @param cardId 카드 ID
-   */
-  private handleCardDragStart(event: DragEvent, cardId: string): void {
-    try {
-      const card = this.cards.get(cardId);
-      if (!card || !event.dataTransfer) return;
-      
-      // 기존 드래그 이벤트 사용
-      this.eventDispatcher.dispatch(new CardDraggedEvent(cardId));
-      
-      // 드래그 데이터 설정
-      if (card.file) {
-        event.dataTransfer.setData('text/plain', `[[${card.file.path}]]`);
-        event.dataTransfer.effectAllowed = 'copy';
-      }
-    } catch (error) {
-      this.loggingService.error('카드 드래그 시작 처리 실패', { error, cardId });
-      this.errorHandler.handleError(error, '카드 드래그 시작 처리 실패');
-    }
-  }
-  
-  /**
-   * 카드 드래그 오버 이벤트 처리
-   * @param event 드래그 오버 이벤트
-   * @param cardId 카드 ID
-   */
-  private handleCardDragOver(event: DragEvent, cardId: string): void {
-    try {
-      event.preventDefault();
-      if (event.dataTransfer) {
-        event.dataTransfer.dropEffect = 'copy';
-      }
-    } catch (error) {
-      this.loggingService.error('카드 드래그 오버 처리 실패', { error, cardId });
-      this.errorHandler.handleError(error, '카드 드래그 오버 처리 실패');
-    }
-  }
-  
-  /**
-   * 카드 드롭 이벤트 처리
-   * @param event 드롭 이벤트
-   * @param cardId 카드 ID
-   */
-  private handleCardDrop(event: DragEvent, cardId: string): void {
-    try {
-      event.preventDefault();
-      const sourceData = event.dataTransfer?.getData('text/plain');
-      if (!sourceData) return;
-      
-      const targetCard = this.cards.get(cardId);
-      if (!targetCard || !targetCard.file) return;
-      
-      // 드롭 이벤트 발송
-      this.eventDispatcher.dispatch(new CardDroppedEvent(cardId));
-      
-      // 소스가 링크 형식이면 카드 간 링크 생성
-      if (sourceData.startsWith('[[') && sourceData.endsWith(']]')) {
-        // 옵시디언 API를 통해 노트에 링크 추가
-        const { vault } = (window as any).app;
-        const file = targetCard.file;
-        
-        vault.read(file).then((content: string) => {
-          const updatedContent = content + '\n' + sourceData;
-          vault.modify(file, updatedContent);
-        });
-      }
-    } catch (error) {
-      this.loggingService.error('카드 드롭 처리 실패', { error, cardId });
-      this.errorHandler.handleError(error, '카드 드롭 처리 실패');
-    }
-  }
-  
-  /**
-   * 카드 컨텍스트 메뉴 표시
-   * @param card 카드
-   * @param event 이벤트
-   */
-  private showCardContextMenu(card: ICard, event: MouseEvent): void {
-    try {
-      // Obsidian Menu API 사용
-      const menu = new Menu();
-      
-      menu.addItem((item) => {
-        item
-          .setTitle('링크 복사')
-          .setIcon('link')
-          .onClick(() => {
-            if (card.file) {
-              // 클립보드에 링크 복사
-              navigator.clipboard.writeText(`[[${card.file.path}]]`);
-            }
-          });
-      });
-      
-      menu.addItem((item) => {
-        item
-          .setTitle('내용 복사')
-          .setIcon('copy')
-          .onClick(() => {
-            // 카드 내용 복사
-            if (card.file) {
-              const { vault } = (window as any).app;
-              vault.read(card.file).then((content: string) => {
-                navigator.clipboard.writeText(content);
-              });
-            }
-          });
-      });
-      
-      menu.showAtPosition({ x: event.clientX, y: event.clientY });
-    } catch (error) {
-      this.loggingService.error('카드 컨텍스트 메뉴 표시 실패', { error });
-      this.errorHandler.handleError(error, '카드 컨텍스트 메뉴 표시 실패');
-    }
+  private getActiveFileId(): string | null {
+    const activeFile = this.app.workspace.getActiveFile();
+    return activeFile ? activeFile.path : null;
   }
 } 

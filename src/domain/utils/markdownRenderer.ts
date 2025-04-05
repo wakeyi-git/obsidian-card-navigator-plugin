@@ -74,10 +74,11 @@ export class MarkdownRenderer {
       };
       
       // 렌더링 프로미스 생성
-      const renderPromise = new Promise<string>((resolve, reject) => {
+      const renderPromise = new Promise<string>(async (resolve, reject) => {
         try {
-          // Obsidian 마크다운 렌더링
-          ObsidianMarkdownRenderer.renderMarkdown(
+          // Obsidian 마크다운 렌더링 - deprecated된 메소드 대신 새 메소드 사용
+          await ObsidianMarkdownRenderer.render(
+            this.app,
             processedMarkdown,
             this.tempEl,
             '',
@@ -95,13 +96,16 @@ export class MarkdownRenderer {
             this.processMathExpressions(this.tempEl);
           }
           
-          // 결과 추출
-          const html = this.tempEl.innerHTML;
+          // 결과 추출 - innerHTML을 직접 사용하지 않고 노드 복제 방식으로 전환
+          const content = this.serializeElementContent(this.tempEl);
           
           // 캐시에 결과 저장
-          this.renderCache.set(cacheKey, html);
+          this.renderCache.set(cacheKey, content);
           
-          resolve(html);
+          // 렌더링 결과 추출 후 임시 요소 내용 비우기
+          this.tempEl.empty();
+          
+          resolve(content);
         } catch (error) {
           reject(error);
         }
@@ -110,7 +114,9 @@ export class MarkdownRenderer {
       // 타임아웃 적용 (10초 후 렌더링 실패로 간주)
       const timeoutPromise = new Promise<string>((resolve) => {
         setTimeout(() => {
-          resolve(`<div class="markdown-render-timeout">렌더링 시간 초과: ${markdown.substring(0, 100)}${markdown.length > 100 ? '...' : ''}</div>`);
+          // 안전한 방식으로 타임아웃 메시지 생성
+          const timeoutContent = this.createTimeoutMessage(markdown);
+          resolve(timeoutContent);
         }, 10000);
       });
       
@@ -118,7 +124,8 @@ export class MarkdownRenderer {
       return Promise.race([renderPromise, timeoutPromise]);
     } catch (error) {
       console.error('마크다운 렌더링 실패:', error);
-      return `<div class="markdown-render-error">렌더링 오류: ${error.message}</div>`;
+      // 안전한 방식으로 에러 메시지 생성
+      return this.createErrorMessage(error instanceof Error ? error.message : String(error));
     }
   }
   
@@ -179,5 +186,55 @@ export class MarkdownRenderer {
       this.tempEl.parentNode.removeChild(this.tempEl);
     }
     this.renderCache.clear();
+  }
+  
+  /**
+   * 타임아웃 메시지 생성
+   */
+  private createTimeoutMessage(markdown: string): string {
+    const tempContainer = document.createElement('div');
+    tempContainer.className = 'markdown-render-timeout';
+    
+    const textContent = `렌더링 시간 초과: ${markdown.substring(0, 100)}${markdown.length > 100 ? '...' : ''}`;
+    tempContainer.textContent = textContent;
+    
+    return this.serializeElementContent(tempContainer);
+  }
+  
+  /**
+   * 에러 메시지 생성
+   */
+  private createErrorMessage(errorMessage: string): string {
+    const tempContainer = document.createElement('div');
+    tempContainer.className = 'markdown-render-error';
+    
+    const textContent = `렌더링 오류: ${errorMessage}`;
+    tempContainer.textContent = textContent;
+    
+    return this.serializeElementContent(tempContainer);
+  }
+  
+  /**
+   * 요소 내용을 안전하게 직렬화
+   */
+  private serializeElementContent(element: HTMLElement): string {
+    // 새로운 임시 컨테이너 생성
+    const container = document.createElement('div');
+    
+    // 원본 요소의 모든 자식 노드를 깊게 복제해서 추가
+    Array.from(element.childNodes).forEach(node => {
+      container.appendChild(node.cloneNode(true));
+    });
+    
+    // 내용을 직렬화 (outerHTML 대신 사용)
+    const serializer = new XMLSerializer();
+    let result = '';
+    
+    // 각 자식 요소를 순회하며 직렬화
+    Array.from(container.childNodes).forEach(node => {
+      result += serializer.serializeToString(node);
+    });
+    
+    return result;
   }
 } 
