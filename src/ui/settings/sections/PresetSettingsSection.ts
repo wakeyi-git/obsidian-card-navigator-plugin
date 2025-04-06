@@ -1,9 +1,11 @@
 import { Setting } from 'obsidian';
 import type CardNavigatorPlugin from '@/main';
-import { PresetMappingType } from '@/domain/models/Preset';
-import { ServiceContainer } from '@/application/services/SettingsService';
-import type { ISettingsService } from '@/application/services/SettingsService';
-import type { IFolderPresetMapping, ITagPresetMapping, IDatePresetMapping, IPropertyPresetMapping } from '@/domain/models/PresetConfig';
+import { Container } from '@/infrastructure/di/Container';
+import type { ISettingsService } from '@/domain/services/ISettingsService';
+import { IPreset, IPresetMapping, PresetMappingType } from '@/domain/models/Preset';
+import { DomainEvent } from '@/domain/events/DomainEvent';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 
 /**
  * 프리셋 설정 섹션
@@ -11,10 +13,11 @@ import type { IFolderPresetMapping, ITagPresetMapping, IDatePresetMapping, IProp
 export class PresetSettingsSection {
   private settingsService: ISettingsService;
   private listeners: (() => void)[] = [];
+  private eventDispatcher: IEventDispatcher;
 
-  constructor(private plugin: CardNavigatorPlugin) {
+  constructor(private plugin: CardNavigatorPlugin, eventDispatcher: IEventDispatcher) {
     // 설정 서비스 가져오기
-    this.settingsService = ServiceContainer.getInstance().resolve<ISettingsService>('ISettingsService');
+    this.settingsService = Container.getInstance().resolve<ISettingsService>('ISettingsService');
     
     // 설정 변경 감지
     this.listeners.push(
@@ -22,6 +25,8 @@ export class PresetSettingsSection {
         // 설정이 변경되면 필요한 UI 업데이트 수행 가능
       })
     );
+
+    this.eventDispatcher = eventDispatcher;
   }
 
   /**
@@ -31,6 +36,7 @@ export class PresetSettingsSection {
     containerEl.createEl('h3', { text: '프리셋 설정' });
 
     const settings = this.settingsService.getSettings();
+    const preset = settings.presetConfig as unknown as IPreset;
 
     // 기본 프리셋
     new Setting(containerEl)
@@ -38,9 +44,25 @@ export class PresetSettingsSection {
       .setDesc('카드 내비게이터를 열 때 사용할 기본 프리셋을 선택합니다.')
       .addText(text =>
         text
-          .setValue(settings.preset.presetGeneral?.globalPreset || '')
+          .setValue(preset.mappings.find(m => m.type === PresetMappingType.GLOBAL)?.value || '')
           .onChange(async (value) => {
-            await this.settingsService.updateNestedSettings('preset.presetGeneral.globalPreset', value);
+            const globalMapping = preset.mappings.find(m => m.type === PresetMappingType.GLOBAL);
+            if (globalMapping) {
+              await this.settingsService.updateNestedSettings('presetConfig.mappings', [
+                ...preset.mappings.filter(m => m.type !== PresetMappingType.GLOBAL),
+                { ...globalMapping, value }
+              ]);
+            } else {
+              await this.settingsService.updateNestedSettings('presetConfig.mappings', [
+                ...preset.mappings,
+                {
+                  id: `global-${Date.now()}`,
+                  type: PresetMappingType.GLOBAL,
+                  value,
+                  priority: 0
+                }
+              ]);
+            }
           }));
 
     // 자동 프리셋 적용
@@ -49,9 +71,26 @@ export class PresetSettingsSection {
       .setDesc('파일을 열 때 자동으로 프리셋을 적용합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(settings.preset.presetGeneral?.autoApplyPreset?.applyGlobalPreset || false)
+          .setValue(preset.mappings.some(m => m.type === PresetMappingType.GLOBAL))
           .onChange(async (value) => {
-            await this.settingsService.updateNestedSettings('preset.presetGeneral.autoApplyPreset.applyGlobalPreset', value);
+            if (value) {
+              const globalMapping = preset.mappings.find(m => m.type === PresetMappingType.GLOBAL);
+              if (!globalMapping) {
+                await this.settingsService.updateNestedSettings('presetConfig.mappings', [
+                  ...preset.mappings,
+                  {
+                    id: `global-${Date.now()}`,
+                    type: PresetMappingType.GLOBAL,
+                    value: '',
+                    priority: 0
+                  }
+                ]);
+              }
+            } else {
+              await this.settingsService.updateNestedSettings('presetConfig.mappings', 
+                preset.mappings.filter(m => m.type !== PresetMappingType.GLOBAL)
+              );
+            }
           }));
 
     // 우선 순위 태그
@@ -60,10 +99,10 @@ export class PresetSettingsSection {
       .setDesc('우선 순위가 높은 태그를 쉼표로 구분하여 입력합니다.')
       .addText(text =>
         text
-          .setValue(settings.sort.priorityTags?.join(', ') || '')
+          .setValue(settings.cardSetConfig.filterConfig.priorityTags?.join(', ') || '')
           .onChange(async (value) => {
             const tags = value.split(',').map(tag => tag.trim());
-            await this.settingsService.updateNestedSettings('sort.priorityTags', tags);
+            await this.settingsService.updateNestedSettings('cardSetConfig.filterConfig.priorityTags', tags);
           }));
 
     // 우선 순위 폴더
@@ -72,10 +111,10 @@ export class PresetSettingsSection {
       .setDesc('우선 순위가 높은 폴더를 쉼표로 구분하여 입력합니다.')
       .addText(text =>
         text
-          .setValue(settings.sort.priorityFolders?.join(', ') || '')
+          .setValue(settings.cardSetConfig.filterConfig.priorityFolders?.join(', ') || '')
           .onChange(async (value) => {
             const folders = value.split(',').map(folder => folder.trim());
-            await this.settingsService.updateNestedSettings('sort.priorityFolders', folders);
+            await this.settingsService.updateNestedSettings('cardSetConfig.filterConfig.priorityFolders', folders);
           }));
 
     // 프리셋 매핑 섹션
@@ -86,19 +125,30 @@ export class PresetSettingsSection {
       .setName('폴더 매핑')
       .setDesc('폴더별 프리셋 매핑을 설정합니다. (폴더 경로:프리셋 이름)')
       .addTextArea(text => {
-        const folderMappings = settings.preset.presetGeneral?.folderPresetMappings as IFolderPresetMapping[] || [];
+        const folderMappings = preset.mappings.filter(m => m.type === PresetMappingType.FOLDER);
         text
-          .setValue(folderMappings.map((m: IFolderPresetMapping) => `${m.folderPath || ''}:${m.presetId || ''}`).join('\n'))
+          .setValue(folderMappings.map(m => `${m.value}:${m.options?.includeSubfolders || false}`).join('\n'))
           .onChange(async (value) => {
             const mappings = value
               .split('\n')
               .map(line => {
-                const [folder, preset] = line.split(':').map(s => s.trim());
-                return { folderPath: folder, presetId: preset, priority: 0 };
+                const [path, includeSubfolders] = line.split(':').map(s => s.trim());
+                return {
+                  id: `folder-${Date.now()}`,
+                  type: PresetMappingType.FOLDER,
+                  value: path,
+                  priority: 0,
+                  options: {
+                    includeSubfolders: includeSubfolders === 'true'
+                  }
+                } as IPresetMapping;
               })
-              .filter(m => m.folderPath && m.presetId) as IFolderPresetMapping[];
+              .filter(m => m.value);
             
-            await this.settingsService.updateNestedSettings('preset.presetGeneral.folderPresetMappings', mappings);
+            await this.settingsService.updateNestedSettings('presetConfig.mappings', [
+              ...preset.mappings.filter(m => m.type !== PresetMappingType.FOLDER),
+              ...mappings
+            ]);
           });
         return text;
       });
@@ -108,19 +158,24 @@ export class PresetSettingsSection {
       .setName('태그 매핑')
       .setDesc('태그별 프리셋 매핑을 설정합니다. (태그:프리셋 이름)')
       .addTextArea(text => {
-        const tagMappings = settings.preset.presetGeneral?.tagPresetMappings as ITagPresetMapping[] || [];
+        const tagMappings = preset.mappings.filter(m => m.type === PresetMappingType.TAG);
         text
-          .setValue(tagMappings.map((m: ITagPresetMapping) => `${m.tag || ''}:${m.presetId || ''}`).join('\n'))
+          .setValue(tagMappings.map(m => m.value).join('\n'))
           .onChange(async (value) => {
             const mappings = value
               .split('\n')
-              .map(line => {
-                const [tag, preset] = line.split(':').map(s => s.trim());
-                return { tag, presetId: preset, priority: 0 };
-              })
-              .filter(m => m.tag && m.presetId) as ITagPresetMapping[];
+              .map(tag => ({
+                id: `tag-${Date.now()}`,
+                type: PresetMappingType.TAG,
+                value: tag.trim(),
+                priority: 0
+              } as IPresetMapping))
+              .filter(m => m.value);
             
-            await this.settingsService.updateNestedSettings('preset.presetGeneral.tagPresetMappings', mappings);
+            await this.settingsService.updateNestedSettings('presetConfig.mappings', [
+              ...preset.mappings.filter(m => m.type !== PresetMappingType.TAG),
+              ...mappings
+            ]);
           });
         return text;
       });
@@ -130,20 +185,35 @@ export class PresetSettingsSection {
       .setName('날짜 매핑')
       .setDesc('날짜별 프리셋 매핑을 설정합니다. (시작일-종료일:프리셋 이름)')
       .addTextArea(text => {
-        const dateMappings = settings.preset.presetGeneral?.datePresetMappings as IDatePresetMapping[] || [];
+        const dateMappings = preset.mappings.filter(m => m.type === PresetMappingType.DATE);
         text
-          .setValue(dateMappings.map((m: IDatePresetMapping) => `${m.startDate || ''}-${m.endDate || ''}:${m.presetId || ''}`).join('\n'))
+          .setValue(dateMappings.map(m => 
+            `${m.options?.dateRange?.start.toISOString()}-${m.options?.dateRange?.end.toISOString()}`
+          ).join('\n'))
           .onChange(async (value) => {
             const mappings = value
               .split('\n')
               .map(line => {
-                const [dates, preset] = line.split(':').map(s => s.trim());
-                const [startDate, endDate] = dates.split('-').map(d => d.trim());
-                return { startDate, endDate, presetId: preset, priority: 0 };
+                const [start, end] = line.split('-').map(d => d.trim());
+                return {
+                  id: `date-${Date.now()}`,
+                  type: PresetMappingType.DATE,
+                  value: '',
+                  priority: 0,
+                  options: {
+                    dateRange: {
+                      start: new Date(start),
+                      end: new Date(end)
+                    }
+                  }
+                } as IPresetMapping;
               })
-              .filter(m => m.startDate && m.endDate && m.presetId) as IDatePresetMapping[];
+              .filter(m => m.options?.dateRange?.start && m.options?.dateRange?.end);
             
-            await this.settingsService.updateNestedSettings('preset.presetGeneral.datePresetMappings', mappings);
+            await this.settingsService.updateNestedSettings('presetConfig.mappings', [
+              ...preset.mappings.filter(m => m.type !== PresetMappingType.DATE),
+              ...mappings
+            ]);
           });
         return text;
       });
@@ -153,20 +223,35 @@ export class PresetSettingsSection {
       .setName('속성 매핑')
       .setDesc('속성별 프리셋 매핑을 설정합니다. (속성명=속성값:프리셋 이름)')
       .addTextArea(text => {
-        const propertyMappings = settings.preset.presetGeneral?.propertyPresetMappings as IPropertyPresetMapping[] || [];
+        const propertyMappings = preset.mappings.filter(m => m.type === PresetMappingType.PROPERTY);
         text
-          .setValue(propertyMappings.map((m: IPropertyPresetMapping) => `${m.property || ''}=${m.value || ''}:${m.presetId || ''}`).join('\n'))
+          .setValue(propertyMappings.map(m => 
+            `${m.options?.property?.name}=${m.options?.property?.value}`
+          ).join('\n'))
           .onChange(async (value) => {
             const mappings = value
               .split('\n')
               .map(line => {
-                const [property, preset] = line.split(':').map(s => s.trim());
-                const [name, value] = property.split('=').map(p => p.trim());
-                return { property: name, value, presetId: preset, priority: 0 };
+                const [name, value] = line.split('=').map(p => p.trim());
+                return {
+                  id: `property-${Date.now()}`,
+                  type: PresetMappingType.PROPERTY,
+                  value: '',
+                  priority: 0,
+                  options: {
+                    property: {
+                      name,
+                      value
+                    }
+                  }
+                } as IPresetMapping;
               })
-              .filter(m => m.property && m.value && m.presetId) as IPropertyPresetMapping[];
+              .filter(m => m.options?.property?.name && m.options?.property?.value);
             
-            await this.settingsService.updateNestedSettings('preset.presetGeneral.propertyPresetMappings', mappings);
+            await this.settingsService.updateNestedSettings('presetConfig.mappings', [
+              ...preset.mappings.filter(m => m.type !== PresetMappingType.PROPERTY),
+              ...mappings
+            ]);
           });
         return text;
       });
@@ -179,5 +264,14 @@ export class PresetSettingsSection {
     // 이벤트 리스너 정리
     this.listeners.forEach(cleanup => cleanup());
     this.listeners = [];
+  }
+
+  updatePreset(oldPreset: IPreset | null, newPreset: IPreset | null): void {
+    this.eventDispatcher.dispatch(
+      new DomainEvent(DomainEventType.PRESET_SETTINGS_SECTION_CHANGED, {
+        oldPreset,
+        newPreset
+      })
+    );
   }
 } 

@@ -64,4 +64,16 @@ export interface ICardNavigatorView {
    * 뷰 정리
    */
   cleanup(): void;
+
+  /**
+   * 컨테이너 크기 가져오기
+   * @returns 컨테이너 크기
+   */
+  getContainerDimensions(): { width: number; height: number };
+
+  /**
+   * 카드로 스크롤
+   * @param cardId 카드 ID
+   */
+  scrollToCard(cardId: string): void;
 } 

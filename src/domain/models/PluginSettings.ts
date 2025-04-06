@@ -1,9 +1,56 @@
-import type { PluginSettings } from './DefaultValues';
+import { ICardConfig } from './CardConfig';
+import { ICardSetConfig } from './CardSetConfig';
+import { ILayoutConfig } from './LayoutConfig';
+import { ISortConfig } from './SortConfig';
+import { IFilterConfig } from './FilterConfig';
+import { ISearchConfig } from './SearchConfig';
+import { ICardStyle } from './CardStyle';
+import { IPresetConfig } from './Preset';
 
 /**
- * @deprecated PluginSettings.ts는 더 이상 사용되지 않습니다. DefaultValues.ts에서 가져오세요.
- * 이 파일은 이전 버전과의 호환성을 위해 유지되며, 곧 삭제될 예정입니다.
+ * 플러그인 설정 인터페이스
  */
+export interface IPluginSettings {
+  /** 카드 설정 */
+  readonly cardConfig: ICardConfig;
+  /** 카드셋 설정 */
+  readonly cardSetConfig: ICardSetConfig;
+  /** 레이아웃 설정 */
+  readonly layoutConfig: ILayoutConfig;
+  /** 정렬 설정 */
+  readonly sortConfig: ISortConfig;
+  /** 필터 설정 */
+  readonly filterConfig: IFilterConfig;
+  /** 검색 설정 */
+  readonly searchConfig: ISearchConfig;
+  /** 카드 스타일 설정 */
+  readonly cardStyle: ICardStyle;
+  /** 프리셋 설정 */
+  readonly presetConfig: IPresetConfig;
+  /** 서비스 초기화 여부 */
+  readonly servicesInitialized?: boolean;
+}
 
-// 기존 코드는 모두 삭제하고 DefaultValues에서 정의한 타입으로 리다이렉션
-export type { PluginSettings }; 
+/**
+ * 플러그인 설정 클래스
+ */
+export class PluginSettings implements IPluginSettings {
+  constructor(
+    public readonly cardConfig: ICardConfig,
+    public readonly cardSetConfig: ICardSetConfig,
+    public readonly layoutConfig: ILayoutConfig,
+    public readonly sortConfig: ISortConfig,
+    public readonly filterConfig: IFilterConfig,
+    public readonly searchConfig: ISearchConfig,
+    public readonly cardStyle: ICardStyle,
+    public readonly presetConfig: IPresetConfig,
+    public readonly servicesInitialized: boolean = false
+  ) {}
+
+  /**
+   * 설정 유효성 검사
+   */
+  validate(): boolean {
+    return true;
+  }
+} 

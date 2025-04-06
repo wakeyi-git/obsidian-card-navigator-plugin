@@ -1,8 +1,11 @@
 import { Setting } from 'obsidian';
 import type CardNavigatorPlugin from '@/main';
-import { SortField, SortOrder } from '@/domain/models/SortConfig';
-import { ServiceContainer } from '@/application/services/SettingsService';
-import type { ISettingsService } from '@/application/services/SettingsService';
+import { SortField, SortOrder, SortType, SortDirection, ISortConfig } from '@/domain/models/SortConfig';
+import { Container } from '@/infrastructure/di/Container';
+import type { ISettingsService } from '@/domain/services/ISettingsService';
+import { DomainEvent } from '@/domain/events/DomainEvent';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 
 /**
  * 정렬 설정 섹션
@@ -10,10 +13,12 @@ import type { ISettingsService } from '@/application/services/SettingsService';
 export class SortSettingsSection {
   private settingsService: ISettingsService;
   private listeners: (() => void)[] = [];
+  private eventDispatcher: IEventDispatcher;
 
-  constructor(private plugin: CardNavigatorPlugin) {
+  constructor(private plugin: CardNavigatorPlugin, eventDispatcher: IEventDispatcher) {
     // 설정 서비스 가져오기
-    this.settingsService = ServiceContainer.getInstance().resolve<ISettingsService>('ISettingsService');
+    this.settingsService = Container.getInstance().resolve<ISettingsService>('ISettingsService');
+    this.eventDispatcher = eventDispatcher;
     
     // 설정 변경 감지
     this.listeners.push(
@@ -40,12 +45,13 @@ export class SortSettingsSection {
       .setDesc('카드 목록의 정렬 기준을 선택합니다.')
       .addDropdown(dropdown =>
         dropdown
-          .addOption(SortField.FILENAME, '파일명')
-          .addOption(SortField.UPDATED, '수정일')
-          .addOption(SortField.CREATED, '생성일')
-          .setValue(settings.sort.sortField)
+          .addOption('fileName', '파일명')
+          .addOption('created', '생성일')
+          .addOption('modified', '수정일')
+          .addOption('custom', '사용자 정의')
+          .setValue(settings.sortConfig.field)
           .onChange(async (value) => {
-            await this.settingsService.updateNestedSettings('sort.sortField', value as SortField);
+            await this.settingsService.updateNestedSettings('sortConfig.field', value as SortField);
           }));
 
     // 정렬 순서
@@ -54,43 +60,51 @@ export class SortSettingsSection {
       .setDesc('카드 목록의 정렬 순서를 선택합니다.')
       .addDropdown(dropdown =>
         dropdown
-          .addOption(SortOrder.ASC, '오름차순')
-          .addOption(SortOrder.DESC, '내림차순')
-          .setValue(settings.sort.sortOrder)
+          .addOption('asc', '오름차순')
+          .addOption('desc', '내림차순')
+          .setValue(settings.sortConfig.direction)
           .onChange(async (value) => {
-            await this.settingsService.updateNestedSettings('sort.sortOrder', value as SortOrder);
+            await this.settingsService.updateNestedSettings('sortConfig.direction', value as SortDirection);
           }));
 
-    // 우선순위 설정
-    containerEl.createEl('h4', { text: '우선순위 설정' });
-
-    // 우선순위 태그
+    // 정렬 타입
     new Setting(containerEl)
-      .setName('우선순위 태그')
-      .setDesc('우선순위 태그를 쉼표로 구분하여 입력합니다. 이 태그가 포함된 노트가 상단에 표시됩니다.')
-      .addTextArea(text => {
-        text
-          .setValue(settings.sort.priorityTags.join(', '))
+      .setName('정렬 타입')
+      .setDesc('카드 목록의 정렬 타입을 선택합니다.')
+      .addDropdown(dropdown =>
+        dropdown
+          .addOption('name', '이름')
+          .addOption('date', '날짜')
+          .setValue(settings.sortConfig.type)
           .onChange(async (value) => {
-            const tags = value.split(',').map(tag => tag.trim()).filter(tag => tag);
-            await this.settingsService.updateNestedSettings('sort.priorityTags', tags);
-          });
-        return text;
-      });
+            await this.settingsService.updateNestedSettings('sortConfig.type', value as SortType);
+          }));
 
-    // 우선순위 폴더
+    // 정렬 순서
     new Setting(containerEl)
-      .setName('우선순위 폴더')
-      .setDesc('우선순위 폴더를 쉼표로 구분하여 입력합니다. 이 폴더에 있는 노트가 상단에 표시됩니다.')
-      .addTextArea(text => {
-        text
-          .setValue(settings.sort.priorityFolders.join(', '))
+      .setName('정렬 순서')
+      .setDesc('카드 목록의 정렬 순서를 선택합니다.')
+      .addDropdown(dropdown =>
+        dropdown
+          .addOption('asc', '오름차순')
+          .addOption('desc', '내림차순')
+          .setValue(settings.sortConfig.order)
           .onChange(async (value) => {
-            const folders = value.split(',').map(folder => folder.trim()).filter(folder => folder);
-            await this.settingsService.updateNestedSettings('sort.priorityFolders', folders);
-          });
-        return text;
-      });
+            await this.settingsService.updateNestedSettings('sortConfig.order', value as SortOrder);
+          }));
+
+    // 사용자 정의 정렬 필드
+    if (settings.sortConfig.field === 'custom') {
+      new Setting(containerEl)
+        .setName('사용자 정의 정렬 필드')
+        .setDesc('사용자 정의 정렬 필드를 입력합니다.')
+        .addText(text =>
+          text
+            .setValue(settings.sortConfig.customField || '')
+            .onChange(async (value) => {
+              await this.settingsService.updateNestedSettings('sortConfig.customField', value);
+            }));
+    }
   }
   
   /**
@@ -100,5 +114,14 @@ export class SortSettingsSection {
     // 이벤트 리스너 정리
     this.listeners.forEach(cleanup => cleanup());
     this.listeners = [];
+  }
+
+  updateSortConfig(oldConfig: ISortConfig, newConfig: ISortConfig): void {
+    this.eventDispatcher.dispatch(
+      new DomainEvent(DomainEventType.SORT_SETTINGS_SECTION_CHANGED, {
+        oldConfig,
+        newConfig
+      })
+    );
   }
 } 

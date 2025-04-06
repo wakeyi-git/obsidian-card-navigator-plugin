@@ -22,16 +22,16 @@ interface ServiceRegistration<T> {
  */
 export class Container {
   private static instance: Container;
-  private readonly services: Map<string, ServiceRegistration<any>>;
+  private services: Map<string, () => any> = new Map();
+  private instances: Map<string, any> = new Map();
   private readonly logger: Console;
 
   private constructor() {
-    this.services = new Map();
     this.logger = console;
   }
 
   /**
-   * Container 인스턴스 가져오기
+   * 싱글톤 인스턴스 반환
    */
   public static getInstance(): Container {
     if (!Container.instance) {
@@ -42,152 +42,62 @@ export class Container {
 
   /**
    * 서비스 등록
-   * @param token 서비스 식별자
-   * @param factory 서비스 생성 팩토리
+   * @param key 서비스 이름
+   * @param factory 서비스 팩토리 함수
    * @param singleton 싱글톤 여부
    */
-  public register<T>(
-    token: string,
-    factory: ServiceFactory<T>,
-    singleton: boolean = true
-  ): void {
-    try {
-      if (this.services.has(token)) {
-        throw new ContainerError(
-          '서비스 등록 실패',
-          token,
-          'register',
-          { reason: '이미 등록된 서비스' }
-        );
-      }
-
-      this.services.set(token, { factory, singleton });
-      this.logger.debug(`서비스 등록: ${token}`);
-    } catch (error) {
-      throw new ContainerError(
-        '서비스 등록 실패',
-        token,
-        'register',
-        { reason: error instanceof Error ? error.message : '알 수 없는 오류' }
-      );
-    }
-  }
-
-  /**
-   * 서비스 해제
-   * @param token 서비스 식별자
-   */
-  public unregister(token: string): void {
-    try {
-      if (!this.services.has(token)) {
-        throw new ContainerError(
-          '서비스 해제 실패',
-          token,
-          'unregister',
-          { reason: '등록되지 않은 서비스' }
-        );
-      }
-
-      this.services.delete(token);
-      this.logger.debug(`서비스 해제: ${token}`);
-    } catch (error) {
-      throw new ContainerError(
-        '서비스 해제 실패',
-        token,
-        'unregister',
-        { reason: error instanceof Error ? error.message : '알 수 없는 오류' }
-      );
-    }
-  }
-
-  /**
-   * 서비스 인스턴스 가져오기
-   * @param token 서비스 식별자
-   */
-  public resolve<T>(token: string): T {
-    try {
-      const registration = this.services.get(token);
-      if (!registration) {
-        this.logger.error(`서비스 해결 실패: ${token} (등록되지 않은 서비스)`);
-        throw new ContainerError(
-          '서비스 해결 실패',
-          token,
-          'resolve',
-          { reason: '등록되지 않은 서비스' }
-        );
-      }
-
-      if (registration.singleton) {
-        if (!registration.instance) {
-          this.logger.debug(`싱글톤 서비스 인스턴스 생성: ${token}`);
-          try {
-            registration.instance = registration.factory();
-            this.logger.debug(`싱글톤 서비스 인스턴스 생성 완료: ${token}`);
-          } catch (error) {
-            this.logger.error(`싱글톤 서비스 인스턴스 생성 실패: ${token}`, error);
-            throw error;
-          }
+  public register<T>(key: string, factory: () => T, singleton: boolean = false): void {
+    if (singleton) {
+      this.services.set(key, () => {
+        if (!this.instances.has(key)) {
+          this.instances.set(key, factory());
         }
-        return registration.instance;
-      }
-
-      this.logger.debug(`새로운 서비스 인스턴스 생성: ${token}`);
-      try {
-        const instance = registration.factory();
-        this.logger.debug(`새로운 서비스 인스턴스 생성 완료: ${token}`);
-        return instance;
-      } catch (error) {
-        this.logger.error(`새로운 서비스 인스턴스 생성 실패: ${token}`, error);
-        throw error;
-      }
-    } catch (error) {
-      this.logger.error(`서비스 해결 실패: ${token}`, error);
-      throw new ContainerError(
-        '서비스 해결 실패',
-        token,
-        'resolve',
-        { reason: error instanceof Error ? error.message : '알 수 없는 오류' }
-      );
+        return this.instances.get(key);
+      });
+    } else {
+      this.services.set(key, factory);
     }
   }
 
   /**
-   * 서비스 인스턴스 안전하게 가져오기 (없으면 null 반환)
-   * @param token 서비스 식별자
+   * 서비스 조회
+   * @param key 서비스 이름
+   * @returns 서비스 인스턴스
+   */
+  public resolve<T>(key: string): T {
+    const factory = this.services.get(key);
+    if (!factory) {
+      throw new Error(`서비스를 찾을 수 없음: ${key}`);
+    }
+    return factory() as T;
+  }
+
+  /**
+   * 서비스 조회 (optional)
+   * @param key 서비스 이름
    * @returns 서비스 인스턴스 또는 null
    */
-  public resolveOptional<T>(token: string): T | null {
+  public resolveOptional<T>(key: string): T | null {
     try {
-      return this.resolve<T>(token);
+      return this.resolve<T>(key);
     } catch (error) {
-      this.logger.warn(`선택적 서비스 해결 실패: ${token}, null 반환`);
       return null;
     }
   }
 
   /**
-   * 모든 서비스 해제
+   * 서비스 해제
    */
-  public clear(): void {
-    try {
-      this.services.clear();
-      this.logger.debug('모든 서비스 해제');
-    } catch (error) {
-      throw new ContainerError(
-        '서비스 초기화 실패',
-        'Container',
-        'clear',
-        { reason: error instanceof Error ? error.message : '알 수 없는 오류' }
-      );
-    }
+  public dispose(): void {
+    this.clear();
   }
 
   /**
    * 서비스 등록 여부 확인
-   * @param token 서비스 식별자
+   * @param key 서비스 이름
    */
-  public has(token: string): boolean {
-    return this.services.has(token);
+  public has(key: string): boolean {
+    return this.services.has(key);
   }
 
   /**
@@ -195,5 +105,13 @@ export class Container {
    */
   public getRegisteredServices(): string[] {
     return Array.from(this.services.keys());
+  }
+
+  /**
+   * 서비스 해제
+   */
+  public clear(): void {
+    this.services.clear();
+    this.instances.clear();
   }
 } 

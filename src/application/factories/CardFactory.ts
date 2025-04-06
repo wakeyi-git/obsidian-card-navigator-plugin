@@ -1,7 +1,6 @@
 import { App, TFile } from 'obsidian';
-import { ICard, NoteTitleDisplayType } from '@/domain/models/Card';
-import { ICardFactory, ICardCreateConfig } from '@/domain/factories/ICardFactory';
-import { ICardRenderConfig } from '@/domain/models/CardRenderConfig';
+import { ICard } from '@/domain/models/Card';
+import { ICardFactory } from '@/domain/factories/ICardFactory';
 import { ErrorHandler } from '@/infrastructure/ErrorHandler';
 import { LoggingService } from '@/infrastructure/LoggingService';
 import { PerformanceMonitor } from '@/infrastructure/PerformanceMonitor';
@@ -10,14 +9,15 @@ import { DomainEventDispatcher } from '@/domain/events/DomainEventDispatcher';
 import { CardCreatedEvent } from '@/domain/events/CardEvents';
 import { CardServiceError } from '@/domain/errors/CardServiceError';
 import { FileSystemUtils } from '@/domain/utils/fileSystemUtils';
-import { MarkdownRenderer } from '@/domain/utils/markdownRenderer';
+import { CustomMarkdownRenderer } from '@/domain/utils/markdownRenderer';
 import { Container } from '@/infrastructure/di/Container';
+import { ISettingsService } from '../../domain/services/ISettingsService';
 
 /**
  * 카드 팩토리 구현체
  */
 export class CardFactory implements ICardFactory {
-  private readonly markdownRenderer: MarkdownRenderer;
+  private markdownRenderer: CustomMarkdownRenderer;
   private static instance: CardFactory;
 
   private constructor(
@@ -26,9 +26,10 @@ export class CardFactory implements ICardFactory {
     private readonly loggingService: LoggingService,
     private readonly performanceMonitor: PerformanceMonitor,
     private readonly analyticsService: AnalyticsService,
-    private readonly eventDispatcher: DomainEventDispatcher
+    private readonly eventDispatcher: DomainEventDispatcher,
+    private readonly settingsService: ISettingsService
   ) {
-    this.markdownRenderer = new MarkdownRenderer(app);
+    this.markdownRenderer = CustomMarkdownRenderer.getInstance(app);
   }
 
   static getInstance(): CardFactory {
@@ -39,6 +40,7 @@ export class CardFactory implements ICardFactory {
       const performanceMonitor = Container.getInstance().resolve<PerformanceMonitor>('IPerformanceMonitor');
       const analyticsService = Container.getInstance().resolve<AnalyticsService>('IAnalyticsService');
       const eventDispatcher = Container.getInstance().resolve<DomainEventDispatcher>('IEventDispatcher');
+      const settingsService = Container.getInstance().resolve<ISettingsService>('ISettingsService');
 
       CardFactory.instance = new CardFactory(
         app,
@@ -46,7 +48,8 @@ export class CardFactory implements ICardFactory {
         loggingService,
         performanceMonitor,
         analyticsService,
-        eventDispatcher
+        eventDispatcher,
+        settingsService
       );
     }
     return CardFactory.instance;
@@ -55,74 +58,90 @@ export class CardFactory implements ICardFactory {
   /**
    * 기본 카드 생성
    */
-  create(config: ICardCreateConfig): ICard {
-    const perfMark = 'CardFactory.create';
-    this.performanceMonitor.startMeasure(perfMark);
+  create(
+    filePath: string,
+    fileName: string,
+    firstHeader: string | null,
+    content: string,
+    tags: string[],
+    createdAt: Date,
+    updatedAt: Date,
+    metadata: Record<string, any>
+  ): ICard {
+    const timer = this.performanceMonitor.startTimer('CardFactory.create');
     try {
-      this.loggingService.debug('카드 생성 시작', { fileName: config.fileName });
+      this.loggingService.debug('카드 생성 시작', { fileName });
 
-      const file = this.app.vault.getAbstractFileByPath(config.filePath) as TFile;
+      const file = this.app.vault.getAbstractFileByPath(filePath) as TFile;
       if (!file) {
         throw new CardServiceError(
           '파일을 찾을 수 없습니다.',
-          config.filePath,
+          filePath,
           'create'
         );
       }
 
       const card: ICard = {
-        id: config.filePath,
+        id: filePath,
         file,
-        fileName: config.fileName,
-        firstHeader: config.firstHeader,
-        content: config.content,
-        tags: config.tags,
-        properties: config.metadata,
-        createdAt: config.createdAt,
-        updatedAt: config.updatedAt,
-        metadata: config.metadata,
-        renderConfig: config.renderConfig,
+        filePath,
+        fileName,
+        title: fileName,
+        firstHeader,
+        content,
+        tags,
+        properties: metadata,
+        createdAt,
+        updatedAt,
+        metadata,
+        config: this.settingsService.getCardConfig(),
         validate: () => true,
-        toString: () => `Card(${config.renderConfig.titleDisplayType === NoteTitleDisplayType.FILENAME ? config.fileName : config.firstHeader || config.fileName})`
+        preview: () => ({
+          id: filePath,
+          filePath,
+          fileName,
+          firstHeader,
+          content,
+          tags,
+          properties: metadata,
+          createdAt,
+          updatedAt,
+          metadata
+        }),
+        toString: () => `Card(${fileName})`
       };
 
       this.eventDispatcher.dispatch(new CardCreatedEvent(card));
 
       this.analyticsService.trackEvent('card_created', {
-        fileName: config.fileName,
-        hasFirstHeader: !!config.firstHeader,
-        tagCount: config.tags.length,
-        contentLengthLimit: config.contentLengthLimitEnabled ? config.contentLengthLimit : undefined
+        fileName,
+        hasFirstHeader: !!firstHeader,
+        tagCount: tags.length
       });
 
-      this.loggingService.info('카드 생성 완료', { fileName: config.fileName });
+      this.loggingService.info('카드 생성 완료', { fileName });
 
       return card;
     } catch (error) {
       this.loggingService.error('카드 생성 실패', { 
         error,
-        fileName: config.fileName
+        fileName
       });
       this.errorHandler.handleError(error as Error, 'CardFactory.create');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
    * 파일 기반 카드 생성
    */
-  async createFromFile(
-    filePath: string,
-    renderConfig: ICardRenderConfig
-  ): Promise<ICard> {
-    const perfMark = 'CardFactory.createFromFile';
-    this.performanceMonitor.startMeasure(perfMark);
+  async createFromFile(filePath: string): Promise<ICard> {
+    const timer = this.performanceMonitor.startTimer('CardFactory.createFromFile');
     try {
       this.loggingService.debug('파일 기반 카드 생성 시작', { filePath });
 
-      // 파일 시스템 유틸리티를 사용하여 파일 존재 여부 확인
       const abstractFile = this.app.vault.getAbstractFileByPath(filePath);
       if (!abstractFile) {
         this.loggingService.warn('파일을 찾을 수 없음', { filePath });
@@ -145,42 +164,25 @@ export class CardFactory implements ICardFactory {
         throw new CardServiceError('METADATA_NOT_FOUND', `파일 메타데이터를 가져올 수 없습니다: ${filePath}`);
       }
 
-      let content = await this.app.vault.read(abstractFile);
-      
-      // 마크다운 렌더링 설정이 있는 경우 렌더링 수행
-      if (renderConfig.renderMarkdown) {
-        const renderPerfMark = 'CardFactory.renderMarkdown';
-        this.performanceMonitor.startMeasure(renderPerfMark);
-        try {
-          content = await this.markdownRenderer.render(content, {
-            showImages: true,
-            highlightCode: true,
-            supportCallouts: true,
-            supportMath: true
-          });
-        } finally {
-          this.performanceMonitor.endMeasure(renderPerfMark);
-        }
-      }
+      const content = await this.app.vault.read(abstractFile);
+      const firstHeader = metadata.headings?.[0]?.heading || null;
+      const tags = metadata.tags?.map(tag => tag.tag) || [];
+      const properties = metadata.frontmatter || {};
 
-      const config: ICardCreateConfig = {
-        filePath: abstractFile.path,
-        fileName: abstractFile.name,
-        firstHeader: metadata.headings?.[0]?.heading || null,
+      const card = this.create(
+        filePath,
+        abstractFile.name,
+        firstHeader,
         content,
-        tags: metadata.tags?.map(tag => tag.tag) || [],
-        createdAt: new Date(abstractFile.stat.ctime),
-        updatedAt: new Date(abstractFile.stat.mtime),
-        metadata: metadata.frontmatter || {},
-        renderConfig
-      };
-
-      const card = await this.create(config);
+        tags,
+        new Date(abstractFile.stat.ctime),
+        new Date(abstractFile.stat.mtime),
+        properties
+      );
 
       this.analyticsService.trackEvent('card_created_from_file', {
         filePath,
-        renderMarkdown: renderConfig.renderMarkdown,
-        hasMetadata: Object.keys(metadata.frontmatter || {}).length > 0
+        hasMetadata: Object.keys(properties).length > 0
       });
 
       this.loggingService.info('파일 기반 카드 생성 완료', { cardId: card.id, filePath });
@@ -193,7 +195,7 @@ export class CardFactory implements ICardFactory {
       }
       throw new CardServiceError('CARD_CREATION_FAILED', '카드 생성에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 } 

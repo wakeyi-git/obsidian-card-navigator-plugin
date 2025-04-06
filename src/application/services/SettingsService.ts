@@ -1,321 +1,221 @@
-import type CardNavigatorPlugin from '../../main';
-import { updateSettings, updateNestedSettings } from '../../domain/utils/settingsUtils';
-import type { PluginSettings } from '../../domain/models/DefaultValues';
-import type { ICardStyle } from '../../domain/models/CardStyle';
-import type { ICardRenderConfig } from '../../domain/models/CardRenderConfig';
-import type { IStyleProperties } from '../../domain/models/CardStyle';
-import type { ISectionDisplayConfig } from '../../domain/models/CardRenderConfig';
-import type { CardSetType } from '../../domain/models/CardSet';
+import { App, Plugin } from 'obsidian';
+import { Container } from '../../infrastructure/di/Container';
+import { ISettingsService } from '../../domain/services/ISettingsService';
+import { IPluginSettings, DefaultValues } from '../../domain/models/DefaultValues';
+import { ICardConfig, ICardSectionConfig } from '../../domain/models/CardConfig';
+import { ICardSetConfig, CardSetType } from '../../domain/models/CardSetConfig';
+import { ILayoutConfig } from '../../domain/models/LayoutConfig';
+import { ISortConfig } from '../../domain/models/SortConfig';
+import { IFilterConfig } from '../../domain/models/FilterConfig';
+import { ISearchConfig } from '../../domain/models/SearchConfig';
+import { ICardStyle, IStyleProperties } from '../../domain/models/CardStyle';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IDomainEvent, DomainEvent } from '@/domain/events/DomainEvent';
+import {
+  SettingsChangedEvent,
+  CardConfigChangedEvent,
+  CardSetConfigChangedEvent,
+  LayoutConfigChangedEvent,
+  SortConfigChangedEvent,
+  FilterConfigChangedEvent,
+  SearchConfigChangedEvent,
+  CardStyleChangedEvent,
+  CardSectionDisplayChangedEvent
+} from '../../domain/events/SettingsEvents';
+import { Subscription } from 'rxjs';
+import { IEventHandler } from '@/domain/infrastructure/IEventDispatcher';
 
-/**
- * 이벤트 에미터 클래스
- */
-class EventEmitter {
-  private events: Record<string, Array<(data: any) => void>> = {};
-  private eventIds: Record<string, number> = {};
-
-  /**
-   * 이벤트 리스너 등록
-   * @param event 이벤트 이름
-   * @param callback 콜백 함수
-   * @returns 이벤트 ID (리스너 제거 시 사용)
-   */
-  on(event: string, callback: (data: any) => void): number {
-    if (!this.events[event]) {
-      this.events[event] = [];
-      this.eventIds[event] = 0;
-    }
-    
-    const id = ++this.eventIds[event];
-    this.events[event].push(callback);
-    
-    return id;
-  }
-
-  /**
-   * 이벤트 리스너 제거
-   * @param event 이벤트 이름
-   * @param id 이벤트 ID
-   */
-  off(event: string, id: number): void {
-    if (!this.events[event]) return;
-    
-    const index = this.events[event].findIndex((_, i) => i === id - 1);
-    if (index !== -1) {
-      this.events[event].splice(index, 1);
-    }
-  }
-
-  /**
-   * 이벤트 발생
-   * @param event 이벤트 이름
-   * @param data 이벤트 데이터
-   */
-  emit(event: string, data: any): void {
-    if (!this.events[event]) return;
-    
-    this.events[event].forEach(callback => {
-      try {
-        callback(data);
-      } catch (error) {
-        console.error(`Error in event listener for ${event}:`, error);
-      }
-    });
-  }
-
-  /**
-   * 모든 이벤트 리스너 제거
-   */
-  clear(): void {
-    this.events = {};
-    this.eventIds = {};
-  }
-}
-
-/**
- * 설정 서비스 인터페이스
- */
-export interface ISettingsService {
-  /**
-   * 설정 가져오기
-   */
-  getSettings(): PluginSettings;
-  
-  /**
-   * 설정 업데이트
-   * @param updater 업데이트 함수
-   */
-  updateSettings(updater: (draft: PluginSettings) => void): Promise<void>;
-  
-  /**
-   * 중첩 설정 업데이트
-   * @param path 속성 경로
-   * @param value 새 값
-   */
-  updateNestedSettings(path: string, value: any): Promise<void>;
-  
-  /**
-   * 카드 스타일 속성 업데이트
-   * @param styleKey 스타일 키
-   * @param property 속성
-   * @param value 값
-   */
-  updateCardStyle(styleKey: keyof ICardStyle, property: keyof IStyleProperties, value: string): Promise<void>;
-  
-  /**
-   * 카드 렌더링 설정 업데이트
-   * @param property 속성
-   * @param value 값
-   */
-  updateCardRenderConfig(property: keyof ICardRenderConfig, value: any): Promise<void>;
-  
-  /**
-   * 카드 렌더링 섹션 설정 업데이트
-   * @param section 섹션
-   * @param property 속성
-   * @param value 값
-   */
-  updateCardSectionDisplay(
-    section: 'header' | 'body' | 'footer',
-    property: keyof ISectionDisplayConfig,
-    value: boolean | string[]
-  ): Promise<void>;
-  
-  /**
-   * 카드셋 타입 업데이트
-   * @param type 타입
-   */
-  updateCardSetType(type: CardSetType): Promise<void>;
-  
-  /**
-   * 설정 변경 이벤트 구독
-   * @param callback 콜백 함수
-   * @returns 구독 해제 함수
-   */
-  onSettingsChanged(callback: (data: {oldSettings: PluginSettings, newSettings: PluginSettings}) => void): () => void;
-  
-  /**
-   * 서비스 정리
-   */
-  dispose(): void;
-}
-
-/**
- * 설정 서비스 구현
- */
 export class SettingsService implements ISettingsService {
-  private eventEmitter = new EventEmitter();
-  
-  constructor(private plugin: CardNavigatorPlugin) {}
-  
-  /**
-   * 설정 가져오기
-   */
-  getSettings(): PluginSettings {
-    return this.plugin.settings;
-  }
-  
-  /**
-   * 설정 업데이트
-   * @param updater 업데이트 함수
-   */
-  async updateSettings(updater: (draft: PluginSettings) => void): Promise<void> {
-    try {
-      const oldSettings = { ...this.plugin.settings };
-      this.plugin.settings = updateSettings(this.plugin.settings, updater);
-      await this.plugin.saveSettings();
-      
-      this.notifySettingsChanged(oldSettings, this.plugin.settings);
-    } catch (error) {
-      console.error('설정 업데이트 실패:', error);
-      throw error;
-    }
-  }
-  
-  /**
-   * 중첩 설정 업데이트
-   * @param path 속성 경로
-   * @param value 새 값
-   */
-  async updateNestedSettings(path: string, value: any): Promise<void> {
-    try {
-      const oldSettings = { ...this.plugin.settings };
-      this.plugin.settings = updateNestedSettings(this.plugin.settings, path, value);
-      await this.plugin.saveSettings();
-      
-      this.notifySettingsChanged(oldSettings, this.plugin.settings);
-    } catch (error) {
-      console.error('중첩 설정 업데이트 실패:', error);
-      throw error;
-    }
-  }
-  
-  /**
-   * 카드 스타일 속성 업데이트
-   * @param styleKey 스타일 키
-   * @param property 속성
-   * @param value 값
-   */
-  async updateCardStyle(
-    styleKey: keyof ICardStyle, 
-    property: keyof IStyleProperties, 
-    value: string
-  ): Promise<void> {
-    await this.updateNestedSettings(`cardStyle.${styleKey}.${property}`, value);
-  }
-  
-  /**
-   * 카드 렌더링 설정 업데이트
-   * @param property 속성
-   * @param value 값
-   */
-  async updateCardRenderConfig(property: keyof ICardRenderConfig, value: any): Promise<void> {
-    await this.updateNestedSettings(`cardRenderConfig.${property}`, value);
-  }
-  
-  /**
-   * 카드 렌더링 섹션 설정 업데이트
-   * @param section 섹션
-   * @param property 속성
-   * @param value 값
-   */
-  async updateCardSectionDisplay(
-    section: 'header' | 'body' | 'footer',
-    property: keyof ISectionDisplayConfig,
-    value: boolean | string[]
-  ): Promise<void> {
-    await this.updateNestedSettings(`cardRenderConfig.${section}Display.${property}`, value);
-  }
-  
-  /**
-   * 카드셋 타입 업데이트
-   * @param type 타입
-   */
-  async updateCardSetType(type: CardSetType): Promise<void> {
-    await this.updateNestedSettings('defaultCardSetType', type);
-  }
-  
-  /**
-   * 설정 변경 이벤트 구독
-   * @param callback 콜백 함수
-   * @returns 구독 해제 함수
-   */
-  onSettingsChanged(callback: (data: {oldSettings: PluginSettings, newSettings: PluginSettings}) => void): () => void {
-    const id = this.eventEmitter.on('settings-changed', callback);
-    return () => this.eventEmitter.off('settings-changed', id);
-  }
-  
-  /**
-   * 설정 변경 알림
-   * @param oldSettings 이전 설정
-   * @param newSettings 새 설정
-   */
-  private notifySettingsChanged(oldSettings: PluginSettings, newSettings: PluginSettings): void {
-    this.eventEmitter.emit('settings-changed', { oldSettings, newSettings });
-  }
-  
-  /**
-   * 서비스 정리
-   */
-  dispose(): void {
-    this.eventEmitter.clear();
-  }
-}
+  private static instance: SettingsService | null = null;
+  private plugin: Plugin;
+  private settings: IPluginSettings;
+  private eventDispatcher: IEventDispatcher;
 
-/**
- * 설정 서비스를 위한 간단한 의존성 주입 컨테이너
- */
-export class ServiceContainer {
-  private static instance: ServiceContainer | null = null;
-  private services: Map<string, any> = new Map();
-  
-  /**
-   * 싱글톤 인스턴스 가져오기
-   */
-  static getInstance(): ServiceContainer {
-    if (!ServiceContainer.instance) {
-      ServiceContainer.instance = new ServiceContainer();
+  private constructor(plugin: Plugin, eventDispatcher: IEventDispatcher) {
+    this.plugin = plugin;
+    this.settings = DefaultValues.plugin;
+    this.eventDispatcher = eventDispatcher;
+  }
+
+  public static getInstance(plugin: Plugin): SettingsService {
+    if (!SettingsService.instance) {
+      const eventDispatcher = Container.getInstance().resolve<IEventDispatcher>('IEventDispatcher');
+      SettingsService.instance = new SettingsService(plugin, eventDispatcher);
     }
-    return ServiceContainer.instance;
+    return SettingsService.instance;
   }
-  
-  /**
-   * 싱글톤 인스턴스 리셋
-   */
-  static resetInstance(): void {
-    ServiceContainer.instance = null;
+
+  public initialize(): void {
+    // 초기화 로직 구현
   }
-  
-  /**
-   * 서비스 등록
-   * @param key 서비스 키
-   * @param service 서비스 인스턴스
-   */
-  register<T>(key: string, service: T): void {
-    this.services.set(key, service);
+
+  public cleanup(): void {
+    // 정리 로직 구현
   }
-  
-  /**
-   * 서비스 가져오기
-   * @param key 서비스 키
-   * @returns 서비스 인스턴스
-   */
-  resolve<T>(key: string): T {
-    if (!this.services.has(key)) {
-      throw new Error(`서비스를 찾을 수 없음: ${key}`);
+
+  public async loadSettings(): Promise<IPluginSettings> {
+    const savedSettings = await this.plugin.loadData();
+    if (savedSettings) {
+      this.settings = { ...DefaultValues.plugin, ...savedSettings };
     }
-    return this.services.get(key) as T;
+    return this.settings;
   }
-  
-  /**
-   * 모든 서비스 정리
-   */
-  dispose(): void {
-    for (const [_, service] of this.services.entries()) {
-      if (service && typeof service.dispose === 'function') {
-        service.dispose();
+
+  public async saveSettings(settings: IPluginSettings): Promise<void> {
+    this.settings = settings;
+    await this.plugin.saveData(settings);
+    this.eventDispatcher.dispatch(new SettingsChangedEvent(this.settings, settings));
+  }
+
+  public getSettings(): IPluginSettings {
+    return this.settings;
+  }
+
+  public onSettingsChanged(callback: (data: { oldSettings: IPluginSettings; newSettings: IPluginSettings }) => void): () => void {
+    const wrappedCallback = (event: DomainEvent<'settings:changed'>) => {
+      callback(event.data);
+    };
+    
+    const subscription = this.eventDispatcher.subscribe('settings:changed', wrappedCallback);
+    return () => subscription.unsubscribe();
+  }
+
+  public subscribeToSettingsChange(callback: (newSettings: IPluginSettings) => void): () => void {
+    return this.onSettingsChanged(({ newSettings }) => callback(newSettings));
+  }
+
+  public getCardConfig(): ICardConfig {
+    return this.settings.cardConfig;
+  }
+
+  public async updateCardConfig(config: ICardConfig): Promise<void> {
+    const oldSettings = this.settings;
+    this.settings = { ...this.settings, cardConfig: config };
+    await this.saveSettings(this.settings);
+    this.eventDispatcher.dispatch(new CardConfigChangedEvent(oldSettings.cardConfig, config));
+  }
+
+  public getCardSetConfig(type: CardSetType): ICardSetConfig {
+    return this.settings.cardSetConfig;
+  }
+
+  public async updateCardSetConfig(type: CardSetType, config: ICardSetConfig): Promise<void> {
+    const oldSettings = this.settings;
+    this.settings = { ...this.settings, cardSetConfig: config };
+    await this.saveSettings(this.settings);
+    this.eventDispatcher.dispatch(new CardSetConfigChangedEvent(type, oldSettings.cardSetConfig, config));
+  }
+
+  public getLayoutConfig(): ILayoutConfig {
+    return this.settings.layoutConfig;
+  }
+
+  public async updateLayoutConfig(config: ILayoutConfig): Promise<void> {
+    const oldSettings = this.settings;
+    this.settings = { ...this.settings, layoutConfig: config };
+    await this.saveSettings(this.settings);
+    this.eventDispatcher.dispatch(new LayoutConfigChangedEvent(oldSettings.layoutConfig, config));
+  }
+
+  public getSortConfig(): ISortConfig {
+    return this.settings.sortConfig;
+  }
+
+  public async updateSortConfig(config: ISortConfig): Promise<void> {
+    const oldSettings = this.settings;
+    this.settings = { ...this.settings, sortConfig: config };
+    await this.saveSettings(this.settings);
+    this.eventDispatcher.dispatch(new SortConfigChangedEvent(oldSettings.sortConfig, config));
+  }
+
+  public getFilterConfig(): IFilterConfig {
+    return this.settings.filterConfig;
+  }
+
+  public async updateFilterConfig(config: IFilterConfig): Promise<void> {
+    const oldSettings = this.settings;
+    this.settings = { ...this.settings, filterConfig: config };
+    await this.saveSettings(this.settings);
+    this.eventDispatcher.dispatch(new FilterConfigChangedEvent(oldSettings.filterConfig, config));
+  }
+
+  public getSearchConfig(): ISearchConfig {
+    return this.settings.searchConfig;
+  }
+
+  public async updateSearchConfig(config: ISearchConfig): Promise<void> {
+    const oldSettings = this.settings;
+    this.settings = { ...this.settings, searchConfig: config };
+    await this.saveSettings(this.settings);
+    this.eventDispatcher.dispatch(new SearchConfigChangedEvent(oldSettings.searchConfig, config));
+  }
+
+  public validateSettings(settings: IPluginSettings): boolean {
+    // TODO: 설정 유효성 검사 로직 구현
+    return true;
+  }
+
+  public unsubscribeFromSettingsChange(callback: (settings: IPluginSettings) => void): void {
+    const wrappedCallback = (event: DomainEvent<'settings:changed'>) => {
+      const { newSettings } = event.data;
+      callback(newSettings);
+    };
+    const handler: IEventHandler<DomainEvent<'settings:changed'>> = {
+      handle: wrappedCallback
+    };
+    this.eventDispatcher.unregisterHandler('settings:changed', handler);
+  }
+
+  public async updateNestedSettings(path: string, value: any): Promise<void> {
+    const oldSettings = this.settings;
+    const pathParts = path.split('.');
+    let current: any = this.settings;
+    for (let i = 0; i < pathParts.length - 1; i++) {
+      current = current[pathParts[i]];
+    }
+    current[pathParts[pathParts.length - 1]] = value;
+    await this.saveSettings(this.settings);
+    this.eventDispatcher.dispatch(new SettingsChangedEvent(oldSettings, this.settings));
+  }
+
+  public getCardStyle(): ICardStyle {
+    return this.settings.cardConfig.style;
+  }
+
+  public async updateCardStyle(styleKey: keyof ICardStyle, property: keyof IStyleProperties, value: string): Promise<void> {
+    const oldSettings = this.settings;
+    this.settings = {
+      ...this.settings,
+      cardStyle: {
+        ...this.settings.cardStyle,
+        [styleKey]: {
+          ...this.settings.cardStyle[styleKey],
+          [property]: value
+        }
       }
-    }
-    this.services.clear();
+    };
+    await this.saveSettings(this.settings);
+    this.eventDispatcher.dispatch(new CardStyleChangedEvent(oldSettings.cardStyle, this.settings.cardStyle));
+  }
+
+  public getCardSectionDisplay(section: 'header' | 'body' | 'footer'): ICardSectionConfig {
+    return this.settings.cardConfig[section];
+  }
+
+  public async updateCardSectionDisplay(section: 'header' | 'body' | 'footer', property: keyof ICardSectionConfig, value: boolean): Promise<void> {
+    const oldSettings = this.settings;
+    this.settings = {
+      ...this.settings,
+      cardConfig: {
+        ...this.settings.cardConfig,
+        [section]: {
+          ...this.settings.cardConfig[section],
+          [property]: value
+        }
+      }
+    };
+    await this.saveSettings(this.settings);
+    this.eventDispatcher.dispatch(new CardSectionDisplayChangedEvent(section, property, oldSettings.cardConfig[section][property] ?? false, value));
   }
 }

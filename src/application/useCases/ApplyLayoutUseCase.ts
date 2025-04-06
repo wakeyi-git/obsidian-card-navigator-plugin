@@ -7,6 +7,18 @@ import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
+import { DomainEvent } from '@/domain/events/DomainEvent';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
+
+/**
+ * 카드 위치 정보
+ */
+interface CardPosition {
+  id: string;
+  x: number;
+  y: number;
+}
 
 /**
  * 레이아웃 적용 유스케이스 입력
@@ -33,7 +45,8 @@ export class ApplyLayoutUseCase implements IUseCase<ApplyLayoutInput, void> {
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
   ) {}
 
   static getInstance(): ApplyLayoutUseCase {
@@ -44,7 +57,8 @@ export class ApplyLayoutUseCase implements IUseCase<ApplyLayoutInput, void> {
         container.resolve('IErrorHandler'),
         container.resolve('ILoggingService'),
         container.resolve('IPerformanceMonitor'),
-        container.resolve('IAnalyticsService')
+        container.resolve('IAnalyticsService'),
+        container.resolve('IEventDispatcher')
       );
     }
     return ApplyLayoutUseCase.instance;
@@ -55,8 +69,7 @@ export class ApplyLayoutUseCase implements IUseCase<ApplyLayoutInput, void> {
    * @param input 입력
    */
   async execute(input: ApplyLayoutInput): Promise<void> {
-    const perfMark = 'ApplyLayoutUseCase.execute';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('ApplyLayoutUseCase.execute');
     try {
       this.loggingService.debug('레이아웃 적용 시작', { cardSetId: input.cardSet.id });
 
@@ -71,13 +84,22 @@ export class ApplyLayoutUseCase implements IUseCase<ApplyLayoutInput, void> {
       );
 
       // 레이아웃 결과 적용
-      layoutResult.cardPositions.forEach(position => {
-        this.layoutService.updateCardPosition(position.cardId, position.x, position.y);
+      layoutResult.cardPositions.forEach((position: CardPosition) => {
+        this.layoutService.updateCardPosition(position.id, position.x, position.y);
       });
+
+      // 이벤트 발송
+      const event = new DomainEvent(
+        DomainEventType.LAYOUT_CHANGED,
+        {
+          layoutConfig: input.layout
+        }
+      );
+      this.eventDispatcher.dispatch(event);
 
       this.analyticsService.trackEvent('layout_applied', {
         cardSetId: input.cardSet.id,
-        layoutType: input.layout.cardHeightFixed ? 'grid' : 'masonry',
+        layoutType: input.layout.fixedCardHeight ? 'grid' : 'masonry',
         containerWidth: input.containerWidth,
         containerHeight: input.containerHeight
       });
@@ -88,7 +110,7 @@ export class ApplyLayoutUseCase implements IUseCase<ApplyLayoutInput, void> {
       this.errorHandler.handleError(error as Error, 'ApplyLayoutUseCase.execute');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 } 

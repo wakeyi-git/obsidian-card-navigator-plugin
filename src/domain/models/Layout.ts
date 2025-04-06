@@ -1,5 +1,6 @@
 import { ICard } from './Card';
-import { ILayoutConfig, LayoutType, LayoutDirection } from './LayoutConfig';
+import { ILayoutConfig } from './LayoutConfig';
+import { LayoutType, LayoutDirection } from '../utils/layoutUtils';
 
 /**
  * 레이아웃 인터페이스
@@ -40,9 +41,20 @@ export interface ICardPosition {
  * 레이아웃 결과 인터페이스
  */
 export interface ILayoutResult {
-  readonly cardPositions: readonly ICardPosition[];
+  /** 레이아웃 타입 */
+  readonly type: LayoutType;
+  /** 레이아웃 방향 */
+  readonly direction: LayoutDirection;
+  /** 열 수 */
   readonly columnCount: number;
+  /** 행 수 */
   readonly rowCount: number;
+  /** 카드 너비 */
+  readonly cardWidth: number;
+  /** 카드 높이 */
+  readonly cardHeight: number;
+  /** 카드 위치 */
+  readonly cardPositions: Map<string, { x: number; y: number }>;
 }
 
 /**

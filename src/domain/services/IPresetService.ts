@@ -1,7 +1,9 @@
-import { IPreset, IPresetMapping, PresetMappingType } from '../models/Preset';
-import { ICardRenderConfig } from '../models/CardRenderConfig';
+import { IPreset, IPresetMapping } from '../models/Preset';
+import { ICardConfig } from '../models/CardConfig';
+import { ICardSetConfig } from '../models/CardSetConfig';
 import { ILayoutConfig } from '../models/LayoutConfig';
 import { ISortConfig } from '../models/SortConfig';
+import { ISearchConfig } from '../models/SearchConfig';
 
 /**
  * 프리셋 서비스 인터페이스
@@ -11,56 +13,68 @@ import { ISortConfig } from '../models/SortConfig';
  */
 export interface IPresetService {
   /**
-   * 초기화
+   * 서비스 초기화
    */
-  initialize(): void;
+  initialize(): Promise<void>;
 
   /**
-   * 정리
+   * 서비스 정리
    */
-  cleanup(): void;
+  cleanup(): Promise<void>;
 
   /**
-   * 현재 적용된 프리셋 가져오기
+   * 현재 프리셋 가져오기
    */
-  getCurrentPreset(): IPreset | null;
+  getCurrentPreset(): Promise<IPreset | null>;
 
   /**
    * 기본 프리셋 로드
    */
-  loadDefaultPreset(): void;
+  loadDefaultPreset(): Promise<IPreset>;
 
   /**
    * 프리셋 생성
-   * @param name 프리셋 이름
-   * @param type 프리셋 타입
-   * @param config 설정
    */
   createPreset(
     name: string,
-    type: PresetMappingType,
-    config: {
-      cardRenderConfig?: ICardRenderConfig;
-      layoutConfig?: ILayoutConfig;
-      sortConfig?: ISortConfig;
-    }
+    description: string,
+    category: string,
+    cardConfig: ICardConfig,
+    cardSetConfig: ICardSetConfig,
+    layoutConfig: ILayoutConfig,
+    sortConfig: ISortConfig,
+    searchConfig: ISearchConfig
   ): Promise<IPreset>;
 
   /**
    * 프리셋 업데이트
-   * @param preset 프리셋
    */
-  updatePreset(preset: IPreset): Promise<void>;
+  updatePreset(
+    preset: IPreset,
+    cardConfig: ICardConfig,
+    cardSetConfig: ICardSetConfig,
+    layoutConfig: ILayoutConfig,
+    sortConfig: ISortConfig,
+    searchConfig: ISearchConfig
+  ): Promise<IPreset>;
 
   /**
    * 프리셋 삭제
-   * @param presetId 프리셋 ID
    */
   deletePreset(presetId: string): Promise<void>;
 
   /**
+   * 프리셋 복제
+   */
+  clonePreset(presetId: string, newName: string): Promise<IPreset | null>;
+
+  /**
+   * 프리셋 적용
+   */
+  applyPreset(presetId: string): Promise<void>;
+
+  /**
    * 프리셋 가져오기
-   * @param presetId 프리셋 ID
    */
   getPreset(presetId: string): Promise<IPreset | null>;
 
@@ -70,17 +84,9 @@ export interface IPresetService {
   getAllPresets(): Promise<IPreset[]>;
 
   /**
-   * 프리셋 적용
-   * @param presetId 프리셋 ID
+   * 프리셋 유효성 검사
    */
-  applyPreset(presetId: string): Promise<void>;
-
-  /**
-   * 프리셋 복제
-   * @param presetId 프리셋 ID
-   * @param newName 새 이름
-   */
-  clonePreset(presetId: string, newName: string): Promise<IPreset | null>;
+  validatePreset(preset: IPreset): boolean;
 
   /**
    * 프리셋 내보내기

@@ -1,46 +1,82 @@
-import { Subject, Subscription } from 'rxjs';
-import { DomainEvent } from './DomainEvent';
+import { IDomainEvent, DomainEvent, IEventHandler, IEventDispatcher } from './DomainEvent';
+import { DomainEventType, EventDataType } from './DomainEventType';
 
 /**
- * 이벤트 버스 클래스
+ * 이벤트 버스 구현체
  */
-export class EventBus {
-  private static instance: EventBus;
-  private eventSubject = new Subject<DomainEvent<any>>();
-
-  private constructor() {}
+export class EventBus implements IEventDispatcher {
+  private handlers: Map<string, Set<IEventHandler<DomainEvent<DomainEventType>>>> = new Map();
+  private initialized: boolean = false;
 
   /**
-   * EventBus 싱글톤 인스턴스 반환
+   * 초기화
    */
-  static getInstance(): EventBus {
-    if (!EventBus.instance) {
-      EventBus.instance = new EventBus();
-    }
-    return EventBus.instance;
+  initialize(): void {
+    this.initialized = true;
   }
 
   /**
-   * 이벤트 발행
-   * @param event 발행할 이벤트
+   * 초기화 여부 확인
+   * @returns 초기화 여부
    */
-  dispatch<T>(event: DomainEvent<T>): void {
-    this.eventSubject.next(event);
+  isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  /**
+   * 정리
+   */
+  cleanup(): void {
+    this.handlers.clear();
+    this.initialized = false;
   }
 
   /**
    * 이벤트 구독
-   * @param callback 이벤트 처리 콜백 함수
-   * @returns 구독 객체
+   * @param eventName 이벤트 이름
+   * @param callback 콜백 함수
    */
-  subscribe<T>(callback: (event: DomainEvent<T>) => void): Subscription {
-    return this.eventSubject.subscribe(callback);
+  subscribe<T extends DomainEventType>(eventName: T, callback: (event: DomainEvent<T>) => void): void {
+    if (!this.handlers.has(eventName)) {
+      this.handlers.set(eventName, new Set());
+    }
+
+    const handler: IEventHandler<DomainEvent<DomainEventType>> = {
+      handle: async (event: DomainEvent<DomainEventType>) => {
+        callback(event as unknown as DomainEvent<T>);
+      }
+    };
+
+    this.handlers.get(eventName)?.add(handler);
   }
 
   /**
-   * 이벤트 버스 정리
+   * 이벤트 구독 해제
+   * @param eventName 이벤트 이름
+   * @param callback 콜백 함수
    */
-  cleanup(): void {
-    this.eventSubject.complete();
+  unsubscribe<T extends DomainEventType>(eventName: T, callback: (event: DomainEvent<T>) => void): void {
+    const handlers = this.handlers.get(eventName);
+    if (!handlers) return;
+
+    for (const handler of handlers) {
+      if ((handler.handle as unknown as (event: DomainEvent<T>) => void) === callback) {
+        handlers.delete(handler);
+        break;
+      }
+    }
+  }
+
+  /**
+   * 이벤트 발송
+   * @param event 이벤트 객체
+   */
+  dispatch<T extends DomainEventType>(event: DomainEvent<T>): void {
+    const handlers = this.handlers.get(event.eventName);
+    if (!handlers) return;
+
+    for (const handler of handlers) {
+      handler.handle(event as unknown as DomainEvent<DomainEventType>);
+    }
   }
 } 

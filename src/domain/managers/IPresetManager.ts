@@ -1,8 +1,9 @@
 import { IPreset } from '../models/Preset';
-import { ICardRenderConfig } from '../models/CardRenderConfig';
-import { ICardStyle } from '../models/CardStyle';
-import { ISearchFilter } from '../models/SearchFilter';
+import { ICardConfig } from '../models/CardConfig';
+import { ICardSetConfig } from '../models/CardSetConfig';
+import { ILayoutConfig } from '../models/LayoutConfig';
 import { ISortConfig } from '../models/SortConfig';
+import { ISearchConfig } from '../models/SearchConfig';
 
 /**
  * 프리셋 관리자 인터페이스
@@ -28,10 +29,11 @@ export interface IPresetManager {
    * @param config 프리셋 설정
    */
   createPreset(name: string, description: string, config: {
-    renderConfig: ICardRenderConfig;
-    cardStyle: ICardStyle;
-    searchFilter: ISearchFilter;
+    cardConfig: ICardConfig;
+    cardSetConfig: ICardSetConfig;
+    layoutConfig: ILayoutConfig;
     sortConfig: ISortConfig;
+    searchConfig: ISearchConfig;
   }): Promise<IPreset>;
 
   /**
@@ -54,12 +56,14 @@ export interface IPresetManager {
 
   /**
    * 프리셋 목록 조회
+   * @returns 프리셋 목록
    */
   getPresets(): Promise<IPreset[]>;
 
   /**
    * 프리셋 조회
    * @param presetId 프리셋 ID
+   * @returns 프리셋 또는 null
    */
   getPreset(presetId: string): Promise<IPreset | null>;
 
@@ -95,18 +99,21 @@ export interface IPresetManager {
 
   /**
    * 현재 적용된 프리셋 조회
+   * @returns 현재 프리셋 또는 null
    */
   getCurrentPreset(): Promise<IPreset | null>;
 
   /**
    * 프리셋 내보내기
    * @param presetId 프리셋 ID
+   * @returns 프리셋 JSON 문자열
    */
   exportPreset(presetId: string): Promise<string>;
 
   /**
    * 프리셋 가져오기
    * @param presetJson 프리셋 JSON 문자열
+   * @returns 가져온 프리셋
    */
   importPreset(presetJson: string): Promise<IPreset>;
 } 

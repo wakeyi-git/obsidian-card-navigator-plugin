@@ -7,6 +7,7 @@ import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Container } from '@/infrastructure/di/Container';
 import { ICard } from '../../domain/models/Card';
+import { CardLinkCreatedEvent } from '@/domain/events/CardInteractionEvents';
 
 /**
  * 카드 상호작용 서비스 구현체
@@ -141,8 +142,8 @@ export class CardInteractionService implements ICardInteractionService {
    * @param targetCard 타겟 카드
    */
   async createLink(sourceCard: ICard, targetCard: ICard): Promise<void> {
+    const timer = this.performanceMonitor.startTimer('CardInteractionService.createLink');
     try {
-      this.performanceMonitor.startMeasure('CardInteractionService.createLink');
       this.loggingService.debug('카드 간 링크 생성 시작', { 
         sourceCardId: sourceCard.id, 
         targetCardId: targetCard.id 
@@ -165,10 +166,7 @@ export class CardInteractionService implements ICardInteractionService {
         await this.app.vault.modify(sourceFile, newContent);
       }
 
-      this.analyticsService.trackEvent('card_link_created', {
-        sourceCardId: sourceCard.id,
-        targetCardId: targetCard.id
-      });
+      this.eventDispatcher.dispatch(new CardLinkCreatedEvent(sourceCard));
       
       this.loggingService.info('카드 간 링크 생성 완료', {
         sourceCardId: sourceCard.id,
@@ -183,7 +181,7 @@ export class CardInteractionService implements ICardInteractionService {
       this.errorHandler.handleError(error as Error, 'CardInteractionService.createLink');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure('CardInteractionService.createLink');
+      timer.stop();
     }
   }
 } 

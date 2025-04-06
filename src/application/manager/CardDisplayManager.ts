@@ -1,6 +1,6 @@
 import { ICard } from '../../domain/models/Card';
 import { ICardSet } from '../../domain/models/CardSet';
-import { ICardRenderConfig, DEFAULT_CARD_RENDER_CONFIG } from '../../domain/models/CardRenderConfig';
+import { ICardConfig, DEFAULT_CARD_CONFIG } from '../../domain/models/CardConfig';
 import { ICardStyle, DEFAULT_CARD_STYLE } from '../../domain/models/CardStyle';
 import { ICardDisplayManager } from '../../domain/managers/ICardDisplayManager';
 import { CardSelectedEvent, CardFocusedEvent, CardDraggedEvent, CardDroppedEvent } from '../../domain/events/CardEvents';
@@ -14,7 +14,9 @@ import { CardServiceError } from '../../domain/errors/CardServiceError';
 import { ICardInteractionService } from '../../domain/services/ICardInteractionService';
 import { Menu, App } from 'obsidian';
 import { IRenderManager } from '../../domain/managers/IRenderManager';
-import { ICardService } from '../../domain/services/ICardService';
+import { ILayoutService } from '../../domain/services/ILayoutService';
+import { ICardSelectionService } from '../../domain/services/ICardSelectionService';
+import { IScrollService } from '../../domain/services/IScrollService';
 
 /**
  * 카드 표시 관리자 클래스
@@ -28,25 +30,37 @@ export class CardDisplayManager implements ICardDisplayManager {
   private cardVisibility: Map<string, boolean> = new Map();
   private cardZIndices: Map<string, number> = new Map();
   private currentCardSet: ICardSet | null = null;
-  private currentRenderConfig: ICardRenderConfig | null = null;
+  private currentRenderConfig: ICardConfig | null = null;
   private cards: Map<string, ICard> = new Map();
   private lastTransactionId: string | null = null;
   private static TRANSACTION_TIMEOUT = 1000; // 1초 내 동일 트랜잭션 무시
   private renderManager: IRenderManager;
+  private layoutService: ILayoutService;
+  private selectionService: ICardSelectionService;
+  private interactionService: ICardInteractionService;
+  private eventDispatcher: IEventDispatcher;
   private app: App;
+  private initialized: boolean = false;
+  private cardElements: Map<string, HTMLElement> = new Map();
+  private container: HTMLElement | null = null;
+  private renderConfig: ICardConfig = DEFAULT_CARD_CONFIG;
+  private cardStyle: ICardStyle = DEFAULT_CARD_STYLE;
 
   private constructor(
-    private readonly eventDispatcher: IEventDispatcher,
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
     private readonly analyticsService: IAnalyticsService,
-    private readonly cardInteractionService: ICardInteractionService
+    private readonly scrollService: IScrollService
   ) {
     // 필요한 서비스 주입
     const container = Container.getInstance();
     this.app = container.resolve<App>('App');
     this.renderManager = container.resolve<IRenderManager>('IRenderManager');
+    this.layoutService = container.resolve<ILayoutService>('ILayoutService');
+    this.selectionService = container.resolve<ICardSelectionService>('ICardSelectionService');
+    this.interactionService = container.resolve<ICardInteractionService>('ICardInteractionService');
+    this.eventDispatcher = container.resolve<IEventDispatcher>('IEventDispatcher');
     
     // 상태 초기화
     this.cards = new Map();
@@ -66,23 +80,41 @@ export class CardDisplayManager implements ICardDisplayManager {
     if (!CardDisplayManager.instance) {
       const container = Container.getInstance();
       CardDisplayManager.instance = new CardDisplayManager(
-        container.resolve('IEventDispatcher'),
         container.resolve('IErrorHandler'),
         container.resolve('ILoggingService'),
         container.resolve('IPerformanceMonitor'),
         container.resolve('IAnalyticsService'),
-        container.resolve('ICardInteractionService')
+        container.resolve('IScrollService')
       );
     }
     return CardDisplayManager.instance;
+  }
+
+  setRenderManager(renderManager: IRenderManager): void {
+    this.renderManager = renderManager;
+  }
+
+  setLayoutService(layoutService: ILayoutService): void {
+    this.layoutService = layoutService;
+  }
+
+  setSelectionService(selectionService: ICardSelectionService): void {
+    this.selectionService = selectionService;
+  }
+
+  setInteractionService(interactionService: ICardInteractionService): void {
+    this.interactionService = interactionService;
+  }
+
+  setEventDispatcher(eventDispatcher: IEventDispatcher): void {
+    this.eventDispatcher = eventDispatcher;
   }
 
   /**
    * 초기화
    */
   initialize(): void {
-    const perfMark = 'CardDisplayManager.initialize';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardDisplayManager.initialize');
     try {
       this.loggingService.debug('카드 표시 관리자 초기화 시작');
       
@@ -111,7 +143,7 @@ export class CardDisplayManager implements ICardDisplayManager {
         error instanceof Error ? error : new Error(String(error))
       );
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -119,8 +151,7 @@ export class CardDisplayManager implements ICardDisplayManager {
    * 정리
    */
   cleanup(): void {
-    const perfMark = 'CardDisplayManager.cleanup';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardDisplayManager.cleanup');
     try {
       this.loggingService.debug('카드 표시 관리자 정리 시작');
       this.initialize();
@@ -136,7 +167,7 @@ export class CardDisplayManager implements ICardDisplayManager {
         error instanceof Error ? error : new Error(String(error))
       );
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -146,183 +177,55 @@ export class CardDisplayManager implements ICardDisplayManager {
    * @param transactionId 트랜잭션 ID (선택 사항)
    */
   displayCardSet(cardSet: ICardSet, transactionId?: string): void {
-    const perfMark = 'CardDisplayManager.displayCardSet';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardDisplayManager.displayCardSet');
     
     try {
-      // 트랜잭션 식별 및 로깅
-      const currentTransactionId = transactionId || `transaction_${Date.now()}`;
-      this.loggingService.debug('카드셋 표시 시작', { 
-        cardSetId: cardSet.id,
-        cardCount: cardSet.cards.length,
-        transactionId: currentTransactionId
-      });
+      // 트랜잭션 ID 생성 또는 검증
+      const currentTransactionId = transactionId || `update_${Date.now()}`;
       
-      // 중복 트랜잭션 체크
+      // 동일 트랜잭션 중복 실행 방지
       if (this.lastTransactionId === currentTransactionId) {
-        this.loggingService.debug('중복 트랜잭션 감지, 무시', { transactionId: currentTransactionId });
+        this.loggingService.debug('동일 트랜잭션 무시', { transactionId: currentTransactionId });
         return;
       }
       this.lastTransactionId = currentTransactionId;
       
-      // 카드셋 컨테이너 찾기
-      const container = this.getCardSetContainer(cardSet.id);
-      if (!container) {
-        this.loggingService.error('카드셋 컨테이너를 찾을 수 없음', { cardSetId: cardSet.id });
-        return;
-      }
+      this.loggingService.debug('카드셋 표시 시작', { 
+        cardSetId: cardSet.id, 
+        cardCount: cardSet.cards.length,
+        transactionId: currentTransactionId
+      });
       
       // 현재 카드셋 업데이트
       this.currentCardSet = cardSet;
       
-      // 1. 이전에 중복 생성된 카드 요소 정리
+      // 컨테이너 가져오기
+      const container = this.getCardSetContainer(cardSet.id);
+      if (!container) {
+        this.loggingService.warn('카드셋 컨테이너를 찾을 수 없음', { cardSetId: cardSet.id });
+        return;
+      }
+      
+      // 중복 카드 요소 정리
       this.cleanupDuplicateCardElements(container);
       
-      // 2. 현재 표시된 카드 ID 추적
-      const displayedCardIds = new Set<string>();
-      const existingCardElements = container.querySelectorAll('.card-navigator-card');
-      existingCardElements.forEach((element: HTMLElement) => {
-        const cardId = element.getAttribute('data-card-id');
-        if (cardId) displayedCardIds.add(cardId);
-      });
-      
-      // 3. 새 카드셋의 카드 ID 세트
-      const newCardIds = new Set(cardSet.cards.map(card => card.id));
-      
-      // 4. 제거할 카드 요소 찾기 (더 이상 카드셋에 없는 카드)
-      const cardsToRemove = Array.from(existingCardElements).filter((element: HTMLElement) => {
-        const cardId = element.getAttribute('data-card-id');
-        return cardId && !newCardIds.has(cardId);
-      });
-      
-      // 5. 추가할 카드 찾기 (카드셋에는 있지만 화면에 표시되지 않은 카드)
-      const cardsToAdd = cardSet.cards.filter(card => !displayedCardIds.has(card.id));
-      
-      // 6. 제거할 카드 요소 제거
-      cardsToRemove.forEach((element: HTMLElement) => {
-        this.loggingService.debug('카드 요소 제거', { 
-          cardId: element.getAttribute('data-card-id'),
-          transactionId: currentTransactionId
-        });
-        element.remove();
-      });
-      
-      // 7. 새 카드 요소 추가
-      const fragment = document.createDocumentFragment();
-      cardsToAdd.forEach(card => {
-        this.loggingService.debug('새 카드 요소 추가', { 
-          cardId: card.id,
-          transactionId: currentTransactionId
-        });
-        const cardElement = this.createCardElement(card);
-        fragment.appendChild(cardElement);
-        
-        // 내부 맵에 카드 추가
-        this.cards.set(card.id, card);
-      });
-      
-      // 모든 카드 요소를 한 번에 추가
-      container.appendChild(fragment);
-      
-      // 8. 모든 카드 요소 상태 업데이트 (활성, 포커스 등)
+      // 카드 요소 업데이트
       this.updateCardElements(cardSet);
       
-      // 9. 렌더링 요청: 모든 카드에 대해 비동기 렌더링 요청
-      const renderPromises: Promise<string>[] = [];
+      // 카드 스타일 업데이트
+      this.updateCardStyles();
       
-      cardSet.cards.forEach(card => {
-        const promise = this.renderManager.requestRender(card.id, card)
-          .catch((error: Error) => {
-            this.loggingService.error('카드 렌더링 요청 실패', { 
-              cardId: card.id, 
-              error: error.message,
-              transactionId: currentTransactionId
-            });
-            return `<div class="content">렌더링 실패: ${error.message}</div>`;
-          });
-        renderPromises.push(promise);
-      });
-      
-      // 모든 렌더링 요청이 완료될 때까지 대기하지 않고 진행
-      Promise.all(renderPromises).then(() => {
-        this.loggingService.debug('모든 카드 렌더링 요청 완료', {
-          cardCount: cardSet.cards.length,
-          transactionId: currentTransactionId
-        });
-      });
-      
-      this.performanceMonitor.endMeasure(perfMark);
-    } catch (error) {
-      this.loggingService.error('카드셋 표시 중 오류 발생', { 
+      this.loggingService.debug('카드셋 표시 완료', { 
         cardSetId: cardSet.id, 
-        error,
-        transactionId: transactionId || 'none'
+        cardCount: cardSet.cards.length,
+        transactionId: currentTransactionId
       });
-      this.performanceMonitor.endMeasure(perfMark);
+    } catch (error) {
+      this.loggingService.error('카드셋 표시 중 오류', { error });
+      this.errorHandler.handleError(error, 'CardDisplayManager.displayCardSet');
+    } finally {
+      timer.stop();
     }
-  }
-  
-  /**
-   * 카드 요소 생성
-   * @param card 카드
-   * @returns 카드 요소
-   */
-  private createCardElement(card: ICard): HTMLElement {
-    // 카드 요소 생성
-    const cardElement = document.createElement('div');
-    cardElement.className = 'card-navigator-card';
-    cardElement.setAttribute('data-card-id', card.id);
-    cardElement.setAttribute('draggable', 'true');
-    
-    // 기본 카드 구조 생성 (헤더, 바디, 푸터)
-    const headerElement = document.createElement('div');
-    headerElement.className = 'card-header';
-    
-    const bodyElement = document.createElement('div');
-    bodyElement.className = 'card-body';
-    
-    // 카드 본문에 로딩 상태 표시
-    const loadingElement = document.createElement('div');
-    loadingElement.className = 'card-loading';
-    loadingElement.innerHTML = '<span class="loading-spinner"></span><span>카드 로딩 중...</span>';
-    bodyElement.appendChild(loadingElement);
-    
-    const footerElement = document.createElement('div');
-    footerElement.className = 'card-footer';
-    
-    // 구조 조립
-    cardElement.appendChild(headerElement);
-    cardElement.appendChild(bodyElement);
-    cardElement.appendChild(footerElement);
-    
-    // 헤더 콘텐츠 설정
-    if (card.file) {
-      // 파일명 표시
-      const fileNameElement = document.createElement('div');
-      fileNameElement.className = 'file-name';
-      fileNameElement.textContent = card.file.basename;
-      headerElement.appendChild(fileNameElement);
-      
-      // 태그 표시
-      if (card.metadata?.tags && card.metadata.tags.length > 0) {
-        const tagsElement = document.createElement('div');
-        tagsElement.className = 'tags';
-        
-        card.metadata.tags.forEach((tag: string) => {
-          const tagElement = document.createElement('span');
-          tagElement.className = 'tag';
-          tagElement.textContent = tag;
-          tagsElement.appendChild(tagElement);
-        });
-        
-        headerElement.appendChild(tagsElement);
-      }
-    }
-    
-    // 이벤트 리스너 설정
-    this.setupCardEventListeners(cardElement, card);
-    
-    return cardElement;
   }
   
   /**
@@ -334,7 +237,7 @@ export class CardDisplayManager implements ICardDisplayManager {
     const cardElementsMap = new Map<string, HTMLElement[]>();
     
     container.querySelectorAll('.card-navigator-card').forEach((element: HTMLElement) => {
-      const cardId = element.getAttribute('data-card-id');
+      const cardId = this.getElementAttribute(element, 'data-card-id');
       if (!cardId) return;
       
       if (!cardElementsMap.has(cardId)) {
@@ -380,7 +283,7 @@ export class CardDisplayManager implements ICardDisplayManager {
     
     // 모든 카드 요소에 대해 상태 업데이트
     container.querySelectorAll('.card-navigator-card').forEach((element: HTMLElement) => {
-      const cardId = element.getAttribute('data-card-id');
+      const cardId = this.getElementAttribute(element, 'data-card-id');
       if (!cardId) return;
       
       // 활성 상태 업데이트
@@ -404,8 +307,7 @@ export class CardDisplayManager implements ICardDisplayManager {
    * @param cardId 카드 ID
    */
   selectCard(cardId: string): void {
-    const perfMark = 'CardDisplayManager.selectCard';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardDisplayManager.selectCard');
     try {
       this.loggingService.debug('카드 선택 시작', { cardId });
 
@@ -420,7 +322,10 @@ export class CardDisplayManager implements ICardDisplayManager {
 
       this.selectedCardIds.add(cardId);
       this.cardZIndices.set(cardId, 1);
-      this.eventDispatcher.dispatch(new CardSelectedEvent(cardId));
+      const selectedCard = this.cards.get(cardId);
+      if (selectedCard) {
+        this.eventDispatcher.dispatch(new CardSelectedEvent(selectedCard));
+      }
 
       this.analyticsService.trackEvent('card_selected', { cardId });
       this.loggingService.info('카드 선택 완료', { cardId });
@@ -435,7 +340,7 @@ export class CardDisplayManager implements ICardDisplayManager {
         error instanceof Error ? error : new Error(String(error))
       );
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -444,15 +349,17 @@ export class CardDisplayManager implements ICardDisplayManager {
    * @param cardId 카드 ID
    */
   focusCard(cardId: string): void {
-    const perfMark = 'CardDisplayManager.focusCard';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardDisplayManager.focusCard');
     try {
       this.loggingService.debug('카드 포커스 시작', { cardId });
 
       // 카드셋이 없어도 카드 포커스 가능하도록 수정
       this.focusedCardId = cardId;
       this.cardZIndices.set(cardId, 2);
-      this.eventDispatcher.dispatch(new CardFocusedEvent(cardId));
+      const focusedCard = this.cards.get(cardId);
+      if (focusedCard) {
+        this.eventDispatcher.dispatch(new CardFocusedEvent(focusedCard));
+      }
 
       this.analyticsService.trackEvent('card_focused', { cardId });
       this.loggingService.info('카드 포커스 완료', { cardId });
@@ -461,32 +368,50 @@ export class CardDisplayManager implements ICardDisplayManager {
       // 에러 핸들러에는 전달하지만 예외를 다시 던지지 않음
       this.errorHandler.handleError(error as Error, 'CardDisplayManager.focusCard');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
-   * 카드 스크롤
+   * 카드로 스크롤
    * @param cardId 카드 ID
    */
   scrollToCard(cardId: string): void {
-    const perfMark = 'CardDisplayManager.scrollToCard';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardDisplayManager.scrollToCard');
     try {
-      this.loggingService.debug('카드 스크롤 시작', { cardId });
+      if (!this.initialized) {
+        throw new Error('카드 표시 관리자가 초기화되지 않았습니다.');
+      }
 
-      // 카드셋 검사 제거 - 카드셋이 없어도 스크롤할 수 있도록
-      // 스크롤 이벤트 발생 (실제 스크롤은 UI 레이어에서 처리)
-      this.focusCard(cardId);
+      this.loggingService.debug('카드로 스크롤 시작', { cardId });
 
-      this.analyticsService.trackEvent('card_scrolled', { cardId });
-      this.loggingService.info('카드 스크롤 완료', { cardId });
+      const card = this.cards.get(cardId);
+      if (!card) {
+        this.loggingService.warn('카드를 찾을 수 없음', { cardId });
+        return;
+      }
+
+      // 카드 위치 조회
+      const position = this.layoutService.getCardPosition(card);
+      if (!position) {
+        this.loggingService.warn('카드 위치를 찾을 수 없음', { cardId });
+        return;
+      }
+
+      // ScrollService를 통해 카드 중앙 정렬
+      this.scrollService.centerCard(card);
+
+      this.analyticsService.trackEvent('card_scrolled', {
+        cardId,
+        position
+      });
+
+      this.loggingService.info('카드로 스크롤 완료', { cardId });
     } catch (error) {
-      this.loggingService.error('카드 스크롤 실패', { error, cardId });
+      this.loggingService.error('카드로 스크롤 실패', { error });
       this.errorHandler.handleError(error as Error, 'CardDisplayManager.scrollToCard');
-      // 에러를 던지지 않고 계속 진행
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -496,24 +421,15 @@ export class CardDisplayManager implements ICardDisplayManager {
    * @param style 스타일
    */
   updateCardStyle(cardId: string, style: ICardStyle): void {
-    const perfMark = 'CardDisplayManager.updateCardStyle';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardDisplayManager.updateCardStyle');
     try {
       this.loggingService.debug('카드 스타일 업데이트 시작', { cardId });
 
-      if (!this.currentCardSet) {
-        throw new CardServiceError('카드셋이 로드되지 않았습니다.');
-      }
-
-      const card = this.currentCardSet.cards.find(c => c.id === cardId);
-      if (!card) {
-        throw new CardServiceError('카드를 찾을 수 없습니다.', cardId);
-      }
-
+      // 카드셋이 없어도 스타일 업데이트 가능하도록 수정
       this.cardStyles.set(cardId, style);
       
-      // DOM 요소 스타일 업데이트
-      const cardElement = document.querySelector(`.card-navigator-card[data-card-id="${cardId}"]`);
+      // 카드 요소가 있는 경우 스타일 적용
+      const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
       if (cardElement) {
         this.applyCardStyle(cardElement as HTMLElement, style);
       }
@@ -531,7 +447,7 @@ export class CardDisplayManager implements ICardDisplayManager {
         error instanceof Error ? error : new Error(String(error))
       );
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
   
@@ -542,33 +458,13 @@ export class CardDisplayManager implements ICardDisplayManager {
    */
   private applyCardStyle(cardElement: HTMLElement, style: ICardStyle): void {
     try {
-      // 카드 스타일 적용
-      cardElement.style.setProperty('--card-bg', style.card.backgroundColor);
-      cardElement.style.setProperty('--card-font-size', style.card.fontSize);
-      cardElement.style.setProperty('--card-border-color', style.card.borderColor);
-      cardElement.style.setProperty('--card-border-width', style.card.borderWidth);
-      
-      // 헤더 스타일 적용
-      cardElement.style.setProperty('--header-bg', style.header.backgroundColor);
-      cardElement.style.setProperty('--header-font-size', style.header.fontSize);
-      cardElement.style.setProperty('--header-border-color', style.header.borderColor);
-      cardElement.style.setProperty('--header-border-width', style.header.borderWidth);
-      
-      // 본문 스타일 적용
-      cardElement.style.setProperty('--body-bg', style.body.backgroundColor);
-      cardElement.style.setProperty('--body-font-size', style.body.fontSize);
-      cardElement.style.setProperty('--body-border-color', style.body.borderColor);
-      cardElement.style.setProperty('--body-border-width', style.body.borderWidth);
-      
-      // 푸터 스타일 적용
-      cardElement.style.setProperty('--footer-bg', style.footer.backgroundColor);
-      cardElement.style.setProperty('--footer-font-size', style.footer.fontSize);
-      cardElement.style.setProperty('--footer-border-color', style.footer.borderColor);
-      cardElement.style.setProperty('--footer-border-width', style.footer.borderWidth);
-      
       // 카드 상태 표시
-      const isActive = this.activeCardId === cardElement.getAttribute('data-card-id');
-      const isFocused = this.focusedCardId === cardElement.getAttribute('data-card-id');
+      const cardIdAttr = cardElement.getAttribute('data-card-id');
+      const cardId = cardIdAttr === null ? null : cardIdAttr;
+      if (!cardId) return;
+
+      const isActive = cardId === this.activeCardId;
+      const isFocused = cardId === this.focusedCardId;
       const isRegistered = cardElement.getAttribute('data-registered') === 'true';
       
       // 클래스 초기화
@@ -589,8 +485,10 @@ export class CardDisplayManager implements ICardDisplayManager {
         cardElement.classList.add('error-card');
       }
     } catch (error) {
+      const cardIdAttr = cardElement.getAttribute('data-card-id');
+      const cardId = cardIdAttr === null ? null : cardIdAttr;
       this.loggingService.error('카드 스타일 적용 실패', { 
-        cardId: cardElement.getAttribute('data-card-id'), 
+        cardId: cardId ?? 'unknown', 
         error 
       });
     }
@@ -600,9 +498,8 @@ export class CardDisplayManager implements ICardDisplayManager {
    * 카드 렌더링 설정 업데이트
    * @param config 렌더링 설정
    */
-  updateRenderConfig(config: ICardRenderConfig): void {
-    const perfMark = 'CardDisplayManager.updateRenderConfig';
-    this.performanceMonitor.startMeasure(perfMark);
+  updateRenderConfig(config: ICardConfig): void {
+    const timer = this.performanceMonitor.startTimer('CardDisplayManager.updateRenderConfig');
     try {
       this.loggingService.debug('카드 렌더링 설정 업데이트 시작');
 
@@ -611,12 +508,12 @@ export class CardDisplayManager implements ICardDisplayManager {
       if (this.currentCardSet) {
         // 모든 카드의 렌더링 설정 업데이트
         this.currentCardSet.cards.forEach(card => {
-          this.eventDispatcher.dispatch(new CardSelectedEvent(card.id));
+          this.eventDispatcher.dispatch(new CardSelectedEvent(card));
         });
       }
 
       this.analyticsService.trackEvent('render_config_updated', {
-        renderMarkdown: config.renderMarkdown,
+        renderType: config.renderType,
         cardCount: this.currentCardSet?.cards.length ?? 0
       });
 
@@ -632,7 +529,7 @@ export class CardDisplayManager implements ICardDisplayManager {
         error instanceof Error ? error : new Error(String(error))
       );
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -642,8 +539,7 @@ export class CardDisplayManager implements ICardDisplayManager {
    * @param visible 표시 여부
    */
   updateCardVisibility(cardId: string, visible: boolean): void {
-    const perfMark = 'CardDisplayManager.updateCardVisibility';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardDisplayManager.updateCardVisibility');
     try {
       this.loggingService.debug('카드 표시 상태 업데이트 시작', { cardId, visible });
 
@@ -671,7 +567,7 @@ export class CardDisplayManager implements ICardDisplayManager {
         error instanceof Error ? error : new Error(String(error))
       );
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -681,8 +577,7 @@ export class CardDisplayManager implements ICardDisplayManager {
    * @param zIndex Z-인덱스
    */
   updateCardZIndex(cardId: string, zIndex: number): void {
-    const perfMark = 'CardDisplayManager.updateCardZIndex';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardDisplayManager.updateCardZIndex');
     try {
       this.loggingService.debug('카드 Z-인덱스 업데이트 시작', { cardId, zIndex });
 
@@ -710,21 +605,23 @@ export class CardDisplayManager implements ICardDisplayManager {
         error instanceof Error ? error : new Error(String(error))
       );
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
    * 활성 카드 ID 반환
+   * @returns 활성 카드 ID
    */
-  getActiveCardId(): string | null {
+  getActiveCardId(): string | undefined | null {
     return this.activeCardId;
   }
 
   /**
    * 포커스된 카드 ID 반환
+   * @returns 포커스된 카드 ID
    */
-  getFocusedCardId(): string | null {
+  getFocusedCardId(): string | undefined | null {
     return this.focusedCardId;
   }
 
@@ -749,8 +646,7 @@ export class CardDisplayManager implements ICardDisplayManager {
    * @param element 카드 요소 (선택 사항)
    */
   registerCard(cardId: string, element?: HTMLElement): void {
-    const perfMark = 'CardDisplayManager.registerCard';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardDisplayManager.registerCard');
     try {
       this.loggingService.debug('카드 등록 시작', { cardId });
       
@@ -861,7 +757,7 @@ export class CardDisplayManager implements ICardDisplayManager {
       this.loggingService.error('카드 등록 실패', { error, cardId });
       this.errorHandler.handleError(error as Error, 'CardDisplayManager.registerCard');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
   
@@ -942,7 +838,7 @@ export class CardDisplayManager implements ICardDisplayManager {
         if (event.dataTransfer && card.file) {
           event.dataTransfer.setData('text/plain', `[[${card.file.path}]]`);
           event.dataTransfer.effectAllowed = 'copy';
-          this.eventDispatcher.dispatch(new CardDraggedEvent(card.id));
+          this.eventDispatcher.dispatch(new CardDraggedEvent(card));
         }
       });
       
@@ -959,7 +855,7 @@ export class CardDisplayManager implements ICardDisplayManager {
         if (!sourceData || !card.file) return;
         
         // 드롭 이벤트 발송
-        this.eventDispatcher.dispatch(new CardDroppedEvent(card.id));
+        this.eventDispatcher.dispatch(new CardDroppedEvent(card));
         
         // 소스가 링크 형식이면 카드 간 링크 생성
         if (sourceData.startsWith('[[') && sourceData.endsWith(']]')) {
@@ -1010,135 +906,64 @@ export class CardDisplayManager implements ICardDisplayManager {
     }
   }
 
-  /**
-   * 임시 카드 등록
-   * @param cardId 카드 ID
-   */
-  private registerTempCard(cardId: string): void {
-    try {
-      // 기본 렌더링 설정 사용
-      const renderConfig = this.currentRenderConfig || DEFAULT_CARD_RENDER_CONFIG;
-
-      // 타입 오류 회피를 위해 as any 사용 (임시 해결책)
-      const card = {
-        id: cardId,
-        file: { path: cardId } as any,
-        fileName: cardId.split('/').pop() || '',
-        firstHeader: null,
-        content: '',
-        tags: [],
-        properties: {},
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        metadata: {},
-        renderConfig,
-        validate: () => true,
-        toString: function() {
-          return `Card(${this.fileName})`;
-        }
-      } as any;
-      
-      // 임시 배열에 카드 저장
-      if (!this.cards.has(cardId)) {
-        this.cards.set(cardId, card);
-      }
-
-      // 기본 설정
-      this.cardVisibility.set(cardId, true);
-      this.cardZIndices.set(cardId, 0);
-      
-      this.analyticsService.trackEvent('card_registered', { cardId });
-      this.loggingService.info('임시 카드 등록 완료', { cardId });
-    } catch (error) {
-      this.loggingService.error('임시 카드 등록 실패', { error, cardId });
-      this.errorHandler.handleError(error as Error, 'CardDisplayManager.registerTempCard');
-    }
-  }
-
-  private handleCardFocused(event: CardFocusedEvent): void {
-    this.focusedCardId = event.data;
-    this.updateCardStyles();
-  }
-
-  private handleCardSelected(event: CardSelectedEvent): void {
-    const cardId = event.data;
-    this.selectedCardIds.add(cardId);
-    this.updateCardStyles();
-  }
-
   private updateCardStyles(): void {
     try {
-      this.loggingService.debug('카드 스타일 업데이트 시작');
-      
-      // 카드 컬렉션이 없는 경우 스킵
-      if (!this.cards) {
-        this.loggingService.debug('카드 컬렉션이 없어 스타일 업데이트를 건너뜁니다.');
-        return;
-      }
+      const container = this.getCardSetContainer(this.currentCardSet?.id ?? '');
+      if (!container) return;
 
-      // 문서에서 카드 요소 조회
-      const cardElements = document.querySelectorAll('.card-navigator-card');
-      if (!cardElements || cardElements.length === 0) {
-        this.loggingService.debug('DOM에서 카드 요소를 찾을 수 없습니다.');
-        return;
-      }
-
-      // 카드 요소에 스타일 적용
-      cardElements.forEach((cardEl: HTMLElement) => {
-        const cardId = cardEl.getAttribute('data-card-id');
+      // 모든 카드 요소에 대해 상태 업데이트
+      container.querySelectorAll('.card-navigator-card').forEach((element: HTMLElement) => {
+        const cardIdAttr = element.getAttribute('data-card-id');
+        const cardId = cardIdAttr === null ? null : cardIdAttr;
         if (!cardId) return;
 
-        // 기본 카드 스타일 설정
-        const cardStyle = this.cardStyles.get('*') || this.cardStyles.get(cardId);
+        const cardStyle = this.cardStyles.get(cardId);
         if (!cardStyle) return;
 
-        // 일반 카드 스타일 적용
-        cardEl.style.setProperty('--card-bg', cardStyle.card.backgroundColor);
-        cardEl.style.setProperty('--card-font-size', cardStyle.card.fontSize);
-        cardEl.style.setProperty('--card-border-color', cardStyle.card.borderColor);
-        cardEl.style.setProperty('--card-border-width', cardStyle.card.borderWidth);
+        // 카드 요소에 스타일 적용
+        element.style.setProperty('--card-bg', cardStyle.card.backgroundColor);
+        element.style.setProperty('--card-border-color', cardStyle.card.borderColor);
+        element.style.setProperty('--card-border-width', cardStyle.card.borderWidth);
         
         // 헤더 스타일 적용
-        cardEl.style.setProperty('--header-bg', cardStyle.header.backgroundColor);
-        cardEl.style.setProperty('--header-font-size', cardStyle.header.fontSize);
-        cardEl.style.setProperty('--header-border-color', cardStyle.header.borderColor);
-        cardEl.style.setProperty('--header-border-width', cardStyle.header.borderWidth);
+        element.style.setProperty('--header-bg', cardStyle.header.backgroundColor ?? null);
+        element.style.setProperty('--header-font-size', cardStyle.header.fontSize ?? null);
+        element.style.setProperty('--header-border-color', cardStyle.header.borderColor ?? null);
+        element.style.setProperty('--header-border-width', cardStyle.header.borderWidth ?? null);
         
         // 본문 스타일 적용
-        cardEl.style.setProperty('--body-bg', cardStyle.body.backgroundColor);
-        cardEl.style.setProperty('--body-font-size', cardStyle.body.fontSize);
-        cardEl.style.setProperty('--body-border-color', cardStyle.body.borderColor);
-        cardEl.style.setProperty('--body-border-width', cardStyle.body.borderWidth);
+        element.style.setProperty('--body-bg', cardStyle.body.backgroundColor ?? null);
+        element.style.setProperty('--body-font-size', cardStyle.body.fontSize ?? null);
+        element.style.setProperty('--body-border-color', cardStyle.body.borderColor ?? null);
+        element.style.setProperty('--body-border-width', cardStyle.body.borderWidth ?? null);
         
         // 푸터 스타일 적용
-        cardEl.style.setProperty('--footer-bg', cardStyle.footer.backgroundColor);
-        cardEl.style.setProperty('--footer-font-size', cardStyle.footer.fontSize);
-        cardEl.style.setProperty('--footer-border-color', cardStyle.footer.borderColor);
-        cardEl.style.setProperty('--footer-border-width', cardStyle.footer.borderWidth);
+        element.style.setProperty('--footer-bg', cardStyle.footer.backgroundColor ?? null);
+        element.style.setProperty('--footer-font-size', cardStyle.footer.fontSize ?? null);
+        element.style.setProperty('--footer-border-color', cardStyle.footer.borderColor ?? null);
+        element.style.setProperty('--footer-border-width', cardStyle.footer.borderWidth ?? null);
         
         // 활성 카드 스타일 적용
-        cardEl.style.setProperty('--active-card-bg', cardStyle.activeCard.backgroundColor);
-        cardEl.style.setProperty('--active-card-font-size', cardStyle.activeCard.fontSize);
-        cardEl.style.setProperty('--active-card-border-color', cardStyle.activeCard.borderColor);
-        cardEl.style.setProperty('--active-card-border-width', cardStyle.activeCard.borderWidth);
+        element.style.setProperty('--active-card-bg', cardStyle.activeCard.backgroundColor);
+        element.style.setProperty('--active-card-border-color', cardStyle.activeCard.borderColor);
+        element.style.setProperty('--active-card-border-width', cardStyle.activeCard.borderWidth);
         
         // 포커스 카드 스타일 적용
-        cardEl.style.setProperty('--focused-card-bg', cardStyle.focusedCard.backgroundColor);
-        cardEl.style.setProperty('--focused-card-font-size', cardStyle.focusedCard.fontSize);
-        cardEl.style.setProperty('--focused-card-border-color', cardStyle.focusedCard.borderColor);
-        cardEl.style.setProperty('--focused-card-border-width', cardStyle.focusedCard.borderWidth);
+        element.style.setProperty('--focused-card-bg', cardStyle.focusedCard.backgroundColor);
+        element.style.setProperty('--focused-card-border-color', cardStyle.focusedCard.borderColor);
+        element.style.setProperty('--focused-card-border-width', cardStyle.focusedCard.borderWidth);
         
         // 카드 상태 클래스 적용
-        cardEl.classList.remove('active-card', 'focused-card');
+        element.classList.remove('active-card', 'focused-card');
         
         // 활성 카드인 경우 클래스 추가
         if (cardId === this.activeCardId) {
-          cardEl.classList.add('active-card');
+          element.classList.add('active-card');
         }
         
         // 포커스 카드인 경우 클래스 추가
         if (cardId === this.focusedCardId) {
-          cardEl.classList.add('focused-card');
+          element.classList.add('focused-card');
         }
       });
       
@@ -1170,5 +995,16 @@ export class CardDisplayManager implements ICardDisplayManager {
   private getActiveFileId(): string | null {
     const activeFile = this.app.workspace.getActiveFile();
     return activeFile ? activeFile.path : null;
+  }
+
+  /**
+   * 요소의 속성값을 가져옵니다.
+   * @param element 요소
+   * @param attributeName 속성명
+   * @returns 속성값 (없으면 undefined)
+   */
+  private getElementAttribute(element: HTMLElement, attributeName: string): string | undefined {
+    const value = element.getAttribute(attributeName);
+    return value ?? undefined;
   }
 } 

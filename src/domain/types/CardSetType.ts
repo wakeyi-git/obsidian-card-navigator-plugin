@@ -1,0 +1,1 @@
+export type CardSetType = 'folder' | 'tag' | 'link'; 

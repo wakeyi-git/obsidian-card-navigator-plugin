@@ -1,12 +1,4 @@
-/**
- * 이벤트 에러 타입
- */
-export type EventErrorType =
-  | 'dispatch'
-  | 'subscribe'
-  | 'unsubscribe'
-  | 'handle'
-  | 'validation';
+import { EventErrorType } from './EventErrorType';
 
 /**
  * 이벤트 에러 클래스

@@ -7,6 +7,9 @@ import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
+import { DomainEvent } from '@/domain/events/DomainEvent';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 
 /**
  * 카드셋 정렬 유즈케이스의 입력 데이터
@@ -34,7 +37,8 @@ export class SortCardSetUseCase implements IUseCase<SortCardSetInput, ICardSet> 
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
   ) {}
 
   public static getInstance(): SortCardSetUseCase {
@@ -45,7 +49,8 @@ export class SortCardSetUseCase implements IUseCase<SortCardSetInput, ICardSet> 
         container.resolve<IErrorHandler>('IErrorHandler'),
         container.resolve<ILoggingService>('ILoggingService'),
         container.resolve<IPerformanceMonitor>('IPerformanceMonitor'),
-        container.resolve<IAnalyticsService>('IAnalyticsService')
+        container.resolve<IAnalyticsService>('IAnalyticsService'),
+        container.resolve<IEventDispatcher>('IEventDispatcher')
       );
     }
     return SortCardSetUseCase.instance;
@@ -53,39 +58,49 @@ export class SortCardSetUseCase implements IUseCase<SortCardSetInput, ICardSet> 
 
   async execute(input: SortCardSetInput): Promise<ICardSet> {
     const startTime = performance.now();
+    const timer = this.performanceMonitor.startTimer('sortCardSet');
     this.loggingService.info('카드셋 정렬 시작', { 
       cardSetId: input.cardSet.id,
-      sortField: input.sortConfig.sortField,
-      sortOrder: input.sortConfig.sortOrder
+      sortField: input.sortConfig.field,
+      sortOrder: input.sortConfig.order
     });
 
     try {
       // 1. 카드셋 정렬
-      const sortedCardSet = await this.cardSetService.sortCardSet(
+      const sortedCardSet = await this.cardSetService.sortCards(
         input.cardSet,
         input.sortConfig
       );
 
+      // 2. 이벤트 발송
+      const event = new DomainEvent(
+        DomainEventType.CARDSET_SORTED,
+        {
+          cardSet: sortedCardSet
+        }
+      );
+      this.eventDispatcher.dispatch(event);
+
       const duration = performance.now() - startTime;
-      this.performanceMonitor.startMeasure('sortCardSet');
-      this.performanceMonitor.endMeasure('sortCardSet');
       this.analyticsService.trackEvent('card_set_sorted', {
         cardSetId: input.cardSet.id,
-        sortField: input.sortConfig.sortField,
-        sortOrder: input.sortConfig.sortOrder,
+        sortField: input.sortConfig.field,
+        sortOrder: input.sortConfig.order,
         duration
       });
 
       this.loggingService.info('카드셋 정렬 완료', { 
         cardSetId: input.cardSet.id,
-        sortField: input.sortConfig.sortField,
-        sortOrder: input.sortConfig.sortOrder
+        sortField: input.sortConfig.field,
+        sortOrder: input.sortConfig.order
       });
 
       return sortedCardSet;
     } catch (error) {
       this.errorHandler.handleError(error, '카드셋 정렬 중 오류 발생');
       throw error;
+    } finally {
+      timer.stop();
     }
   }
 } 

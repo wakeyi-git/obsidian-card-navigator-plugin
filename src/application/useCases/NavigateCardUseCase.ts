@@ -7,6 +7,10 @@ import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
+import { IScrollService } from '@/domain/services/IScrollService';
+import { DomainEvent } from '@/domain/events/DomainEvent';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 
 /**
  * 카드 내비게이션 유스케이스 입력
@@ -28,10 +32,12 @@ export class NavigateCardUseCase implements IUseCase<NavigateCardInput, ICard | 
 
   private constructor(
     private readonly focusManager: IFocusManager,
+    private readonly scrollService: IScrollService,
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
   ) {}
 
   static getInstance(): NavigateCardUseCase {
@@ -39,10 +45,12 @@ export class NavigateCardUseCase implements IUseCase<NavigateCardInput, ICard | 
       const container = Container.getInstance();
       NavigateCardUseCase.instance = new NavigateCardUseCase(
         container.resolve('IFocusManager'),
+        container.resolve('IScrollService'),
         container.resolve('IErrorHandler'),
         container.resolve('ILoggingService'),
         container.resolve('IPerformanceMonitor'),
-        container.resolve('IAnalyticsService')
+        container.resolve('IAnalyticsService'),
+        container.resolve('IEventDispatcher')
       );
     }
     return NavigateCardUseCase.instance;
@@ -53,8 +61,7 @@ export class NavigateCardUseCase implements IUseCase<NavigateCardInput, ICard | 
    * @param input 입력
    */
   async execute(input: NavigateCardInput): Promise<ICard | null> {
-    const perfMark = 'NavigateCardUseCase.execute';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('NavigateCardUseCase.execute');
     try {
       this.loggingService.debug('카드 내비게이션 시작', { input });
 
@@ -70,6 +77,20 @@ export class NavigateCardUseCase implements IUseCase<NavigateCardInput, ICard | 
       // 3. 현재 포커스된 카드 반환
       const focusedCard = this.focusManager.getFocusedCard();
 
+      // 4. 포커스된 카드가 있으면 뷰포트 중앙에 위치
+      if (focusedCard) {
+        this.scrollService.centerCard(focusedCard);
+
+        // 5. 이벤트 발송
+        const event = new DomainEvent(
+          DomainEventType.FOCUS_CHANGED,
+          {
+            card: focusedCard
+          }
+        );
+        this.eventDispatcher.dispatch(event);
+      }
+
       this.analyticsService.trackEvent('card_navigated', {
         direction: input.direction,
         activeFile: input.activeFile?.path
@@ -82,7 +103,7 @@ export class NavigateCardUseCase implements IUseCase<NavigateCardInput, ICard | 
       this.errorHandler.handleError(error as Error, 'NavigateCardUseCase.execute');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 } 

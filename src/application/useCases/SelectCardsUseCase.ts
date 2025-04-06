@@ -7,6 +7,9 @@ import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
+import { DomainEvent } from '@/domain/events/DomainEvent';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 
 /**
  * 카드 선택 유즈케이스의 입력 데이터
@@ -50,7 +53,8 @@ export class SelectCardsUseCase implements IUseCase<SelectCardsInput, ICard[]> {
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
   ) {}
 
   public static getInstance(): SelectCardsUseCase {
@@ -62,7 +66,8 @@ export class SelectCardsUseCase implements IUseCase<SelectCardsInput, ICard[]> {
         container.resolve<IErrorHandler>('IErrorHandler'),
         container.resolve<ILoggingService>('ILoggingService'),
         container.resolve<IPerformanceMonitor>('IPerformanceMonitor'),
-        container.resolve<IAnalyticsService>('IAnalyticsService')
+        container.resolve<IAnalyticsService>('IAnalyticsService'),
+        container.resolve<IEventDispatcher>('IEventDispatcher')
       );
     }
     return SelectCardsUseCase.instance;
@@ -70,6 +75,7 @@ export class SelectCardsUseCase implements IUseCase<SelectCardsInput, ICard[]> {
 
   async execute(input: SelectCardsInput): Promise<ICard[]> {
     const startTime = performance.now();
+    const timer = this.performanceMonitor.startTimer('selectCards');
     this.loggingService.info('카드 선택 시작', { type: input.type });
 
     try {
@@ -103,9 +109,16 @@ export class SelectCardsUseCase implements IUseCase<SelectCardsInput, ICard[]> {
         );
       }
 
+      // 3. 이벤트 발송
+      const event = new DomainEvent(
+        DomainEventType.CARD_SELECTED,
+        {
+          card: input.card
+        }
+      );
+      this.eventDispatcher.dispatch(event);
+
       const duration = performance.now() - startTime;
-      this.performanceMonitor.startMeasure('selectCards');
-      this.performanceMonitor.endMeasure('selectCards');
       this.analyticsService.trackEvent('cards_selected', {
         type: input.type,
         count: selectedCards.length,
@@ -120,6 +133,8 @@ export class SelectCardsUseCase implements IUseCase<SelectCardsInput, ICard[]> {
     } catch (error) {
       this.errorHandler.handleError(error, '카드 선택 중 오류 발생');
       throw error;
+    } finally {
+      timer.stop();
     }
   }
 

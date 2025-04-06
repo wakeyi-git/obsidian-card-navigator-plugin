@@ -7,7 +7,7 @@ import { TFile } from 'obsidian';
  */
 export interface IActiveFileWatcher {
   /**
-   * 서비스 초기화
+   * 초기화
    */
   initialize(): void;
 
@@ -17,7 +17,7 @@ export interface IActiveFileWatcher {
   isInitialized(): boolean;
 
   /**
-   * 서비스 정리
+   * 정리
    */
   cleanup(): void;
 
@@ -27,20 +27,17 @@ export interface IActiveFileWatcher {
   getActiveFile(): TFile | null;
 
   /**
-   * 활성 파일 변경 이벤트 구독
-   * @param callback 콜백 함수
-   */
-  subscribeToActiveFileChanges(callback: (file: TFile | null) => void): void;
-
-  /**
-   * 활성 파일 변경 이벤트 구독 해제
-   * @param callback 콜백 함수
-   */
-  unsubscribeFromActiveFileChanges(callback: (file: TFile | null) => void): void;
-
-  /**
    * 활성 파일 변경 이벤트 발생
-   * @param file 활성 파일
    */
-  notifyActiveFileChange(file: TFile | null): void;
+  notifyFileChange(file: TFile | null): void;
+
+  /**
+   * 감시 시작
+   */
+  start(): void;
+
+  /**
+   * 감시 중지
+   */
+  stop(): void;
 } 

@@ -6,8 +6,11 @@ import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
-import { DEFAULT_SEARCH_FILTER } from '@/domain/models/SearchFilter';
+import { DEFAULT_SEARCH_CONFIG } from '@/domain/models/SearchConfig';
 import { DEFAULT_SORT_CONFIG } from '@/domain/models/SortConfig';
+import { DomainEvent } from '@/domain/events/DomainEvent';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 
 /**
  * 프리셋 관리 유즈케이스의 입력 데이터
@@ -40,7 +43,8 @@ export class ManagePresetUseCase implements IUseCase<ManagePresetInput, IPreset 
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
   ) {}
 
   public static getInstance(): ManagePresetUseCase {
@@ -51,7 +55,8 @@ export class ManagePresetUseCase implements IUseCase<ManagePresetInput, IPreset 
         container.resolve<IErrorHandler>('IErrorHandler'),
         container.resolve<ILoggingService>('ILoggingService'),
         container.resolve<IPerformanceMonitor>('IPerformanceMonitor'),
-        container.resolve<IAnalyticsService>('IAnalyticsService')
+        container.resolve<IAnalyticsService>('IAnalyticsService'),
+        container.resolve<IEventDispatcher>('IEventDispatcher')
       );
     }
     return ManagePresetUseCase.instance;
@@ -59,6 +64,7 @@ export class ManagePresetUseCase implements IUseCase<ManagePresetInput, IPreset 
 
   async execute(input: ManagePresetInput): Promise<IPreset | void> {
     const startTime = performance.now();
+    const timer = this.performanceMonitor.startTimer('managePreset');
     this.loggingService.info('프리셋 관리 시작', { type: input.type });
 
     try {
@@ -71,24 +77,56 @@ export class ManagePresetUseCase implements IUseCase<ManagePresetInput, IPreset 
               input.preset.metadata.name,
               input.preset.metadata.description || '',
               {
-                renderConfig: input.preset.config.cardRenderConfig,
-                cardStyle: input.preset.config.cardStyle,
-                searchFilter: input.preset.config.cardSetConfig.searchFilter || DEFAULT_SEARCH_FILTER,
-                sortConfig: input.preset.config.cardSetConfig.sortConfig || DEFAULT_SORT_CONFIG
+                cardConfig: input.preset.config.cardConfig,
+                cardSetConfig: input.preset.config.cardSetConfig,
+                searchConfig: input.preset.config.searchConfig || DEFAULT_SEARCH_CONFIG,
+                sortConfig: input.preset.config.sortConfig || DEFAULT_SORT_CONFIG,
+                layoutConfig: input.preset.config.layoutConfig
               }
             );
+
+            // 이벤트 발송
+            if (result !== undefined) {
+              const event = new DomainEvent(
+                DomainEventType.PRESET_CREATED,
+                {
+                  preset: result
+                }
+              );
+              this.eventDispatcher.dispatch(event);
+            }
           }
           break;
 
         case 'update':
           if (input.preset) {
             result = await this.presetManager.updatePreset(input.preset);
+
+            // 이벤트 발송
+            if (result !== undefined) {
+              const event = new DomainEvent(
+                DomainEventType.PRESET_UPDATED,
+                {
+                  preset: result
+                }
+              );
+              this.eventDispatcher.dispatch(event);
+            }
           }
           break;
 
         case 'delete':
           if (input.preset) {
             await this.presetManager.deletePreset(input.preset.metadata.id);
+
+            // 이벤트 발송
+            const event = new DomainEvent(
+              DomainEventType.PRESET_DELETED,
+              {
+                preset: input.preset
+              }
+            );
+            this.eventDispatcher.dispatch(event);
           }
           break;
 
@@ -100,12 +138,24 @@ export class ManagePresetUseCase implements IUseCase<ManagePresetInput, IPreset 
                 `${clonedPreset.metadata.name} (복사본)`,
                 clonedPreset.metadata.description || '',
                 {
-                  renderConfig: clonedPreset.config.cardRenderConfig,
-                  cardStyle: clonedPreset.config.cardStyle,
-                  searchFilter: clonedPreset.config.cardSetConfig.searchFilter || DEFAULT_SEARCH_FILTER,
-                  sortConfig: clonedPreset.config.cardSetConfig.sortConfig || DEFAULT_SORT_CONFIG
+                  cardConfig: clonedPreset.config.cardConfig,
+                  cardSetConfig: clonedPreset.config.cardSetConfig,
+                  searchConfig: clonedPreset.config.searchConfig || DEFAULT_SEARCH_CONFIG,
+                  sortConfig: clonedPreset.config.sortConfig || DEFAULT_SORT_CONFIG,
+                  layoutConfig: clonedPreset.config.layoutConfig
                 }
               );
+
+              // 이벤트 발송
+              if (result !== undefined) {
+                const event = new DomainEvent(
+                  DomainEventType.PRESET_CREATED,
+                  {
+                    preset: result
+                  }
+                );
+                this.eventDispatcher.dispatch(event);
+              }
             }
           }
           break;
@@ -114,13 +164,22 @@ export class ManagePresetUseCase implements IUseCase<ManagePresetInput, IPreset 
           if (input.preset) {
             const presetJson = await this.presetManager.exportPreset(input.preset.metadata.id);
             result = await this.presetManager.importPreset(presetJson);
+
+            // 이벤트 발송
+            if (result !== undefined) {
+              const event = new DomainEvent(
+                DomainEventType.PRESET_CREATED,
+                {
+                  preset: result
+                }
+              );
+              this.eventDispatcher.dispatch(event);
+            }
           }
           break;
       }
 
       const duration = performance.now() - startTime;
-      this.performanceMonitor.startMeasure('managePreset');
-      this.performanceMonitor.endMeasure('managePreset');
       this.analyticsService.trackEvent('preset_managed', {
         type: input.type,
         duration
@@ -131,6 +190,8 @@ export class ManagePresetUseCase implements IUseCase<ManagePresetInput, IPreset 
     } catch (error) {
       this.errorHandler.handleError(error, '프리셋 관리 중 오류 발생');
       throw error;
+    } finally {
+      timer.stop();
     }
   }
 } 

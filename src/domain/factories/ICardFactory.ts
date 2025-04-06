@@ -1,42 +1,36 @@
 import { ICard } from '../models/Card';
-import { ICardRenderConfig } from '../models/CardRenderConfig';
-import { NoteTitleDisplayType } from '../models/Card';
 
 /**
- * 카드 생성 설정
- */
-export interface ICardCreateConfig {
-  filePath: string;
-  fileName: string;
-  firstHeader: string | null;
-  content: string;
-  tags: string[];
-  createdAt: Date;
-  updatedAt: Date;
-  metadata: Record<string, any>;
-  renderConfig: ICardRenderConfig;
-  titleDisplayType?: NoteTitleDisplayType;
-  contentLengthLimitEnabled?: boolean;
-  contentLengthLimit?: number;
-}
-
-/**
- * 카드 팩토리 인터페이스
+ * 카드 생성 담당
+ * - 카드 객체 생성
+ * - 파일 기반 카드 생성
  */
 export interface ICardFactory {
   /**
    * 기본 카드 생성
-   * @param config 카드 생성 설정
+   * @param filePath 파일 경로
+   * @param fileName 파일명
+   * @param firstHeader 첫 번째 헤더
+   * @param content 내용
+   * @param tags 태그 목록
+   * @param createdAt 생성일
+   * @param updatedAt 수정일
+   * @param metadata 메타데이터
    */
-  create(config: ICardCreateConfig): ICard;
+  create(
+    filePath: string,
+    fileName: string,
+    firstHeader: string | null,
+    content: string,
+    tags: string[],
+    createdAt: Date,
+    updatedAt: Date,
+    metadata: Record<string, any>
+  ): ICard;
 
   /**
    * 파일 기반 카드 생성
    * @param filePath 파일 경로
-   * @param renderConfig 렌더링 설정
    */
-  createFromFile(
-    filePath: string,
-    renderConfig: ICardRenderConfig
-  ): Promise<ICard>;
+  createFromFile(filePath: string): Promise<ICard>;
 } 

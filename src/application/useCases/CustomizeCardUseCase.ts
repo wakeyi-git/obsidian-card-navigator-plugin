@@ -1,13 +1,16 @@
 import { IUseCase } from './IUseCase';
 import { IRenderManager } from '../../domain/managers/IRenderManager';
 import { ICard } from '../../domain/models/Card';
-import { ICardRenderConfig } from '../../domain/models/CardRenderConfig';
+import { ICardConfig } from '../../domain/models/CardConfig';
 import { ICardStyle } from '../../domain/models/CardStyle';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
+import { DomainEvent } from '@/domain/events/DomainEvent';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 
 /**
  * 카드 커스터마이즈 유스케이스 입력
@@ -16,7 +19,7 @@ export interface CustomizeCardInput {
   /** 카드 */
   card: ICard;
   /** 렌더링 설정 */
-  renderConfig: ICardRenderConfig;
+  renderConfig: ICardConfig;
   /** 스타일 */
   style: ICardStyle;
 }
@@ -32,7 +35,8 @@ export class CustomizeCardUseCase implements IUseCase<CustomizeCardInput, void> 
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
   ) {}
 
   static getInstance(): CustomizeCardUseCase {
@@ -43,7 +47,8 @@ export class CustomizeCardUseCase implements IUseCase<CustomizeCardInput, void> 
         container.resolve('IErrorHandler'),
         container.resolve('ILoggingService'),
         container.resolve('IPerformanceMonitor'),
-        container.resolve('IAnalyticsService')
+        container.resolve('IAnalyticsService'),
+        container.resolve('IEventDispatcher')
       );
     }
     return CustomizeCardUseCase.instance;
@@ -54,19 +59,22 @@ export class CustomizeCardUseCase implements IUseCase<CustomizeCardInput, void> 
    * @param input 입력
    */
   async execute(input: CustomizeCardInput): Promise<void> {
-    const perfMark = 'CustomizeCardUseCase.execute';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CustomizeCardUseCase.execute');
     try {
       this.loggingService.debug('카드 커스터마이즈 시작', { cardId: input.card.id });
 
-      // 1. 렌더링 설정 업데이트
-      this.renderManager.updateRenderConfig(input.renderConfig);
+      // 1. 카드 렌더링 요청
+      await this.renderManager.requestRender(input.card.id, input.card);
 
-      // 2. 스타일 업데이트
-      this.renderManager.updateStyle(input.style);
-
-      // 3. 카드 렌더링
-      await this.renderManager.renderCard(input.card, input.renderConfig, input.style);
+      // 2. 이벤트 발송
+      const event = new DomainEvent(
+        DomainEventType.CARD_CONFIG_CHANGED,
+        {
+          oldConfig: input.card.config,
+          newConfig: input.renderConfig
+        }
+      );
+      this.eventDispatcher.dispatch(event);
 
       this.analyticsService.trackEvent('card_customized', {
         cardId: input.card.id,
@@ -80,7 +88,7 @@ export class CustomizeCardUseCase implements IUseCase<CustomizeCardInput, void> 
       this.errorHandler.handleError(error as Error, 'CustomizeCardUseCase.execute');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 } 

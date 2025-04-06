@@ -1,14 +1,19 @@
 import { IUseCase } from './IUseCase';
 import { IToolbarService } from '../../domain/services/IToolbarService';
-import { ICardRenderConfig } from '../../domain/models/CardRenderConfig';
-import { ILayoutConfig } from '../../domain/models/LayoutConfig';
 import { ISortConfig } from '../../domain/models/SortConfig';
-import { ILayout } from '../../domain/models/Layout';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
+import { DomainEvent } from '@/domain/events/DomainEvent';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
+import { CardSetType } from '@/domain/models/CardSetConfig';
+import { ISearchConfig } from '@/domain/models/SearchConfig';
+import { ICardConfig } from '@/domain/models/CardConfig';
+import { ICardStyle } from '@/domain/models/CardStyle';
+import { ILayoutConfig } from '@/domain/models/LayoutConfig';
 
 /**
  * 툴바 처리 유스케이스 입력
@@ -31,7 +36,8 @@ export class HandleToolbarUseCase implements IUseCase<HandleToolbarInput, void> 
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
   ) {}
 
   static getInstance(): HandleToolbarUseCase {
@@ -42,7 +48,8 @@ export class HandleToolbarUseCase implements IUseCase<HandleToolbarInput, void> 
         container.resolve('IErrorHandler'),
         container.resolve('ILoggingService'),
         container.resolve('IPerformanceMonitor'),
-        container.resolve('IAnalyticsService')
+        container.resolve('IAnalyticsService'),
+        container.resolve('IEventDispatcher')
       );
     }
     return HandleToolbarUseCase.instance;
@@ -53,23 +60,79 @@ export class HandleToolbarUseCase implements IUseCase<HandleToolbarInput, void> 
    * @param input 입력
    */
   async execute(input: HandleToolbarInput): Promise<void> {
-    const perfMark = 'HandleToolbarUseCase.execute';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('HandleToolbarUseCase.execute');
     try {
       this.loggingService.debug('툴바 액션 처리 시작', { action: input.action, value: input.value });
 
       switch (input.action) {
         case 'changeCardSetType':
           this.toolbarService.changeCardSetType(input.value);
+          const cardSetTypeEvent = new DomainEvent(
+            DomainEventType.TOOLBAR_CARD_SET_TYPE_CHANGED,
+            {
+              oldType: this.toolbarService.getCurrentCardSetType(),
+              newType: input.value as CardSetType
+            }
+          );
+          this.eventDispatcher.dispatch(cardSetTypeEvent);
           break;
+
         case 'search':
-          this.toolbarService.search(input.value);
+          this.toolbarService.updateSearchConfig(input.value);
+          const searchConfigEvent = new DomainEvent(
+            DomainEventType.TOOLBAR_SEARCH_CONFIG_CHANGED,
+            {
+              oldConfig: this.toolbarService.getCurrentSearchConfig(),
+              newConfig: input.value as ISearchConfig
+            }
+          );
+          this.eventDispatcher.dispatch(searchConfigEvent);
           break;
+
         case 'applySort':
-          this.toolbarService.applySort(input.value as ISortConfig);
+          this.toolbarService.updateSortConfig(input.value as ISortConfig);
+          const sortConfigEvent = new DomainEvent(
+            DomainEventType.TOOLBAR_SORT_CONFIG_CHANGED,
+            {
+              oldConfig: this.toolbarService.getCurrentSortConfig(),
+              newConfig: input.value as ISortConfig
+            }
+          );
+          this.eventDispatcher.dispatch(sortConfigEvent);
           break;
+
         case 'toggleSetting':
-          this.toolbarService.toggleSetting(input.value.type, input.value.value);
+          if (input.value.type === 'cardConfig') {
+            this.toolbarService.updateCardRenderConfig(input.value.value);
+            const cardConfigEvent = new DomainEvent(
+              DomainEventType.TOOLBAR_CARD_CONFIG_CHANGED,
+              {
+                oldConfig: this.toolbarService.getCurrentCardRenderConfig(),
+                newConfig: input.value.value as ICardConfig
+              }
+            );
+            this.eventDispatcher.dispatch(cardConfigEvent);
+          } else if (input.value.type === 'cardStyle') {
+            this.toolbarService.updateCardStyle(input.value.value);
+            const cardStyleEvent = new DomainEvent(
+              DomainEventType.TOOLBAR_CARD_STYLE_CHANGED,
+              {
+                oldStyle: this.toolbarService.getCurrentCardStyle(),
+                newStyle: input.value.value as ICardStyle
+              }
+            );
+            this.eventDispatcher.dispatch(cardStyleEvent);
+          } else if (input.value.type === 'layoutConfig') {
+            this.toolbarService.updateLayoutConfig(input.value.value);
+            const layoutConfigEvent = new DomainEvent(
+              DomainEventType.TOOLBAR_LAYOUT_CONFIG_CHANGED,
+              {
+                oldConfig: this.toolbarService.getCurrentLayoutConfig(),
+                newConfig: input.value.value as ILayoutConfig
+              }
+            );
+            this.eventDispatcher.dispatch(layoutConfigEvent);
+          }
           break;
       }
 
@@ -84,7 +147,7 @@ export class HandleToolbarUseCase implements IUseCase<HandleToolbarInput, void> 
       this.errorHandler.handleError(error as Error, 'HandleToolbarUseCase.execute');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 } 

@@ -4,13 +4,18 @@ import { ILayoutService } from '../../domain/services/ILayoutService';
 import { IFocusManager } from '../../domain/managers/IFocusManager';
 import { IActiveFileWatcher } from '../../domain/services/IActiveFileWatcher';
 import { TFile } from 'obsidian';
-import { CardSetType } from '../../domain/models/CardSet';
+import { CardSetType, IFolderCardSetConfig } from '../../domain/models/CardSetConfig';
 import { DEFAULT_SORT_CONFIG } from '../../domain/models/SortConfig';
+import { DEFAULT_FILTER_CONFIG } from '../../domain/models/FilterConfig';
+import { DEFAULT_SEARCH_CONFIG } from '../../domain/models/SearchConfig';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
+import { DomainEvent } from '@/domain/events/DomainEvent';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 
 /**
  * 카드 내비게이터를 여는 유즈케이스
@@ -26,7 +31,8 @@ export class OpenCardNavigatorUseCase implements IUseCase<void, void> {
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
   ) {}
 
   public static getInstance(): OpenCardNavigatorUseCase {
@@ -40,7 +46,8 @@ export class OpenCardNavigatorUseCase implements IUseCase<void, void> {
         container.resolve<IErrorHandler>('IErrorHandler'),
         container.resolve<ILoggingService>('ILoggingService'),
         container.resolve<IPerformanceMonitor>('IPerformanceMonitor'),
-        container.resolve<IAnalyticsService>('IAnalyticsService')
+        container.resolve<IAnalyticsService>('IAnalyticsService'),
+        container.resolve<IEventDispatcher>('IEventDispatcher')
       );
     }
     return OpenCardNavigatorUseCase.instance;
@@ -48,6 +55,7 @@ export class OpenCardNavigatorUseCase implements IUseCase<void, void> {
 
   async execute(): Promise<void> {
     const startTime = performance.now();
+    const timer = this.performanceMonitor.startTimer('openCardNavigator');
     this.loggingService.info('카드 내비게이터 열기 시작');
 
     try {
@@ -59,12 +67,18 @@ export class OpenCardNavigatorUseCase implements IUseCase<void, void> {
         // 활성 파일이 없을 때는 루트 폴더의 카드셋을 생성
         const rootFolder = { path: '/' };
         this.loggingService.debug('루트 폴더 카드셋 생성 시작');
+        const folderConfig: IFolderCardSetConfig = {
+          path: rootFolder.path,
+          includeSubfolders: true
+        };
         const cardSet = await this.cardSetService.createCardSet(
           CardSetType.FOLDER,
-          rootFolder.path,
           {
-            includeSubfolders: true,
-            sortConfig: DEFAULT_SORT_CONFIG
+            type: CardSetType.FOLDER,
+            folder: folderConfig,
+            filterConfig: DEFAULT_FILTER_CONFIG,
+            sortConfig: DEFAULT_SORT_CONFIG,
+            searchConfig: DEFAULT_SEARCH_CONFIG
           }
         );
         this.loggingService.debug('루트 폴더 카드셋 생성 완료', { 
@@ -74,7 +88,7 @@ export class OpenCardNavigatorUseCase implements IUseCase<void, void> {
 
         // 카드셋 정렬
         this.loggingService.debug('카드셋 정렬 시작');
-        await this.cardSetService.sortCardSet(cardSet, DEFAULT_SORT_CONFIG);
+        await this.cardSetService.sortCards(cardSet, DEFAULT_SORT_CONFIG);
         this.loggingService.debug('카드셋 정렬 완료');
 
         // 레이아웃 계산
@@ -89,12 +103,17 @@ export class OpenCardNavigatorUseCase implements IUseCase<void, void> {
         this.loggingService.debug('레이아웃 계산 완료', {
           containerWidth,
           containerHeight,
-          layoutPositions: layout.cardPositions.length
+          layoutPositions: layout.cardPositions.size
         });
 
+        // 이벤트 발송
+        const event = new DomainEvent(
+          DomainEventType.VIEW_ACTIVATED,
+          { view: 'card-navigator' }
+        );
+        this.eventDispatcher.dispatch(event);
+
         const duration = performance.now() - startTime;
-        this.performanceMonitor.startMeasure('openCardNavigator');
-        this.performanceMonitor.endMeasure('openCardNavigator');
         this.analyticsService.trackEvent('card_navigator_opened', {
           duration,
           cardCount: cardSet.cards.length,
@@ -113,12 +132,19 @@ export class OpenCardNavigatorUseCase implements IUseCase<void, void> {
 
       // 3. 카드셋 생성
       this.loggingService.debug('카드셋 생성 시작');
+      const folderConfig: IFolderCardSetConfig = {
+        path: activeFolder.path,
+        includeSubfolders: false
+      };
+
       const cardSet = await this.cardSetService.createCardSet(
         CardSetType.FOLDER,
-        activeFolder.path,
         {
-          includeSubfolders: false,
-          sortConfig: DEFAULT_SORT_CONFIG
+          type: CardSetType.FOLDER,
+          folder: folderConfig,
+          filterConfig: DEFAULT_FILTER_CONFIG,
+          sortConfig: DEFAULT_SORT_CONFIG,
+          searchConfig: DEFAULT_SEARCH_CONFIG
         }
       );
       this.loggingService.debug('카드셋 생성 완료', { 
@@ -128,7 +154,7 @@ export class OpenCardNavigatorUseCase implements IUseCase<void, void> {
 
       // 4. 카드셋 정렬
       this.loggingService.debug('카드셋 정렬 시작');
-      await this.cardSetService.sortCardSet(cardSet, DEFAULT_SORT_CONFIG);
+      await this.cardSetService.sortCards(cardSet, DEFAULT_SORT_CONFIG);
       this.loggingService.debug('카드셋 정렬 완료');
 
       // 5. 레이아웃 계산
@@ -143,22 +169,27 @@ export class OpenCardNavigatorUseCase implements IUseCase<void, void> {
       this.loggingService.debug('레이아웃 계산 완료', {
         containerWidth,
         containerHeight,
-        layoutPositions: layout.cardPositions.length
+        layoutPositions: layout.cardPositions.size
       });
 
       // 6. 활성 카드 포커싱
       this.loggingService.debug('활성 카드 포커싱 시작');
       const activeCard = cardSet.cards.find(card => card.file.path === activeFile.path);
       if (activeCard) {
-        this.focusManager.focusByCard(activeCard);
+        this.focusManager.focusCard(activeCard);
         this.loggingService.debug('활성 카드 포커싱 완료', { cardId: activeCard.id });
       } else {
         this.loggingService.warn('활성 카드를 찾을 수 없음');
       }
 
+      // 이벤트 발송
+      const event = new DomainEvent(
+        DomainEventType.VIEW_ACTIVATED,
+        { view: 'card-navigator' }
+      );
+      this.eventDispatcher.dispatch(event);
+
       const duration = performance.now() - startTime;
-      this.performanceMonitor.startMeasure('openCardNavigator');
-      this.performanceMonitor.endMeasure('openCardNavigator');
       this.analyticsService.trackEvent('card_navigator_opened', {
         duration,
         cardCount: cardSet.cards.length,
@@ -170,6 +201,8 @@ export class OpenCardNavigatorUseCase implements IUseCase<void, void> {
       this.loggingService.error('카드 내비게이터 열기 실패', { error });
       this.errorHandler.handleError(error, '카드 내비게이터 열기 중 오류 발생');
       throw error;
+    } finally {
+      timer.stop();
     }
   }
 

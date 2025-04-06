@@ -1,118 +1,102 @@
-import { ILayoutService } from '@/domain/services/ILayoutService';
+import { ILayoutService, ILayoutResult } from '@/domain/services/ILayoutService';
 import { ICardSet } from '@/domain/models/CardSet';
-import { ILayoutResult, ICardPosition } from '@/domain/models/Layout';
 import { 
   ILayoutConfig, 
   DEFAULT_LAYOUT_CONFIG,
-  LayoutType,
-  LayoutDirection,
 } from '@/domain/models/LayoutConfig';
+import { LayoutType, LayoutDirection, LayoutUtils } from '@/domain/utils/layoutUtils';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
-import { LayoutConfigUpdatedEvent, LayoutCardPositionUpdatedEvent } from '@/domain/events/LayoutEvents';
+import { LayoutConfigUpdatedEvent, LayoutCardPositionUpdatedEvent, ViewportDimensionsUpdatedEvent } from '@/domain/events/LayoutEvents';
 import { LayoutServiceError } from '@/domain/errors/LayoutServiceError';
-import { LayoutUtils } from '@/domain/utils/layoutUtils';
 import { Container } from '@/infrastructure/di/Container';
-import { App } from 'obsidian';
+import { ICard } from '../../domain/models/Card';
+import { IScrollService } from '../../domain/services/IScrollService';
+import { 
+  LayoutModeChangedEvent,
+  LayoutCardWidthChangedEvent,
+  LayoutCardHeightChangedEvent,
+  LayoutChangedEvent,
+  LayoutResizedEvent
+} from '../../domain/events/LayoutEvents';
 
 /**
  * 레이아웃 서비스 구현체
  */
 export class LayoutService implements ILayoutService {
   private static instance: LayoutService | null = null;
+  private initialized: boolean = false;
   private layoutConfig: ILayoutConfig = DEFAULT_LAYOUT_CONFIG;
-  private cardPositions: Map<string, { x: number; y: number }> = new Map();
+  private lastLayoutCalculation: {
+    containerWidth: number;
+    containerHeight: number;
+    result: ILayoutResult;
+  } | null = null;
+  private lastCardPositions: Map<string, {x: number, y: number}> = new Map();
   private viewportWidth: number = 0;
   private viewportHeight: number = 0;
-  private _isInitialized: boolean = false;
+  private resizeObserver: ResizeObserver | null = null;
+  private containerElement: HTMLElement | null = null;
+  private errorHandler: IErrorHandler;
+  private loggingService: ILoggingService;
+  private performanceMonitor: IPerformanceMonitor;
+  private analyticsService: IAnalyticsService;
+  private eventDispatcher: IEventDispatcher;
+  private scrollService: IScrollService;
 
-  private constructor(
-    private readonly errorHandler: IErrorHandler,
-    private readonly loggingService: ILoggingService,
-    private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService,
-    private readonly eventDispatcher: IEventDispatcher
-  ) {}
+  constructor(
+    errorHandler: IErrorHandler,
+    loggingService: ILoggingService,
+    performanceMonitor: IPerformanceMonitor,
+    analyticsService: IAnalyticsService,
+    eventDispatcher: IEventDispatcher,
+    scrollService: IScrollService
+  ) {
+    this.errorHandler = errorHandler;
+    this.loggingService = loggingService;
+    this.performanceMonitor = performanceMonitor;
+    this.analyticsService = analyticsService;
+    this.eventDispatcher = eventDispatcher;
+    this.scrollService = scrollService;
+  }
 
   /**
    * 레이아웃 서비스 인스턴스 가져오기
    */
-  public static getInstance(): LayoutService {
+  static getInstance(): LayoutService {
     if (!LayoutService.instance) {
-      try {
-        console.debug('LayoutService.getInstance 호출됨');
-        console.debug('LayoutService 인스턴스 생성 시작');
-        
-        // Container 인스턴스 획득
-        const container = Container.getInstance();
-        console.debug('Container 인스턴스 획득 성공');
-        
-        // 의존성 해결
-        const errorHandler = container.resolve<IErrorHandler>('IErrorHandler');
-        console.debug('IErrorHandler 해결 성공');
-        
-        const loggingService = container.resolve<ILoggingService>('ILoggingService');
-        console.debug('ILoggingService 해결 성공');
-        
-        const performanceMonitor = container.resolve<IPerformanceMonitor>('IPerformanceMonitor');
-        console.debug('IPerformanceMonitor 해결 성공');
-        
-        const analyticsService = container.resolve<IAnalyticsService>('IAnalyticsService');
-        console.debug('IAnalyticsService 해결 성공');
-        
-        const eventDispatcher = container.resolve<IEventDispatcher>('IEventDispatcher');
-        console.debug('IEventDispatcher 해결 성공');
-        
-        // 인스턴스 생성
-        LayoutService.instance = new LayoutService(
-          errorHandler,
-          loggingService,
-          performanceMonitor,
-          analyticsService,
-          eventDispatcher
-        );
-        
-        console.debug('LayoutService 인스턴스 생성 완료');
-        
-        // 인스턴스 생성 후 자동으로 초기화
-        if (!LayoutService.instance._isInitialized) {
-          LayoutService.instance.initialize();
-        }
-      } catch (error) {
-        console.error('LayoutService 인스턴스 생성 실패:', error);
-        throw error;
-      }
-    } else {
-      // 기존 인스턴스가 있지만 초기화되지 않은 경우 초기화
-      if (!LayoutService.instance._isInitialized) {
-        LayoutService.instance.initialize();
-      }
+      const container = Container.getInstance();
+      const errorHandler = container.resolve<IErrorHandler>('IErrorHandler');
+      const loggingService = container.resolve<ILoggingService>('ILoggingService');
+      const performanceMonitor = container.resolve<IPerformanceMonitor>('IPerformanceMonitor');
+      const analyticsService = container.resolve<IAnalyticsService>('IAnalyticsService');
+      const eventDispatcher = container.resolve<IEventDispatcher>('IEventDispatcher');
+      const scrollService = container.resolve<IScrollService>('IScrollService');
+      
+      LayoutService.instance = new LayoutService(
+        errorHandler,
+        loggingService,
+        performanceMonitor,
+        analyticsService,
+        eventDispatcher,
+        scrollService
+      );
     }
-    
     return LayoutService.instance;
-  }
-  
-  /**
-   * 싱글톤 인스턴스 리셋 (테스트용)
-   */
-  public static resetInstance(): void {
-    LayoutService.instance = null;
   }
 
   /**
    * 초기화
    */
   initialize(): void {
-    const perfMark = 'LayoutService.initialize';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('LayoutService.initialize');
     
     try {
-      // 이미 초기화 되었는지 확인
-      if (this._isInitialized) {
-        this.loggingService.debug('레이아웃 서비스가 이미 초기화되어 있습니다. 초기화 작업을 건너뜁니다.');
+      if (this.initialized) {
+        this.loggingService.debug('레이아웃 서비스가 이미 초기화되어 있습니다.');
         return;
       }
       
@@ -120,50 +104,160 @@ export class LayoutService implements ILayoutService {
       
       // 레이아웃 설정 초기화
       this.layoutConfig = { ...DEFAULT_LAYOUT_CONFIG };
-      this.cardPositions = new Map();
+      this.lastCardPositions = new Map();
       this.viewportWidth = 0;
       this.viewportHeight = 0;
       
-      // 초기화 완료 설정
-      this._isInitialized = true;
+      // ResizeObserver 초기화
+      this.initializeResizeObserver();
       
+      this.initialized = true;
       this.loggingService.info('레이아웃 서비스 초기화 완료');
     } catch (error) {
       this.loggingService.error('레이아웃 서비스 초기화 실패', { error });
       this.errorHandler.handleError(error as Error, 'LayoutService.initialize');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
+   * ResizeObserver 초기화
+   */
+  private initializeResizeObserver(): void {
+    try {
+      this.resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          this.updateViewportDimensions(width, height);
+        }
+      });
+      
+      this.loggingService.debug('ResizeObserver 초기화 완료');
+    } catch (error) {
+      this.loggingService.error('ResizeObserver 초기화 실패', { error });
+      this.errorHandler.handleError(error as Error, 'LayoutService.initializeResizeObserver');
+    }
+  }
+
+  /**
+   * 컨테이너 요소 설정
+   */
+  setContainerElement(element: HTMLElement): void {
+    const timer = this.performanceMonitor.startTimer('LayoutService.setContainerElement');
+    
+    try {
+      this.loggingService.debug('컨테이너 요소 설정 시작');
+      
+      // 이전 컨테이너 관찰 중지
+      if (this.containerElement && this.resizeObserver) {
+        this.resizeObserver.unobserve(this.containerElement);
+      }
+      
+      // 새 컨테이너 설정
+      this.containerElement = element;
+      
+      // 새 컨테이너 관찰 시작
+      if (this.resizeObserver) {
+        this.resizeObserver.observe(element);
+        this.updateViewportDimensions(element.clientWidth, element.clientHeight);
+      }
+      
+      this.loggingService.info('컨테이너 요소 설정 완료');
+    } catch (error) {
+      this.loggingService.error('컨테이너 요소 설정 실패', { error });
+      this.errorHandler.handleError(error as Error, 'LayoutService.setContainerElement');
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 뷰포트 크기 업데이트
+   */
+  updateViewportDimensions(width: number, height: number): void {
+    const timer = this.performanceMonitor.startTimer('LayoutService.updateViewportDimensions');
+    
+    try {
+      // 크기가 변경된 경우에만 업데이트
+      if (this.viewportWidth !== width || this.viewportHeight !== height) {
+        this.loggingService.debug('뷰포트 크기 업데이트 시작', { width, height });
+        
+        this.viewportWidth = width;
+        this.viewportHeight = height;
+        
+        // 이벤트 발송
+        this.eventDispatcher.dispatch(new ViewportDimensionsUpdatedEvent(
+          width,
+          height,
+          this.layoutConfig
+        ));
+        
+        this.analyticsService.trackEvent('viewport_dimensions_updated', {
+          width,
+          height
+        });
+        
+        this.loggingService.info('뷰포트 크기 업데이트 완료');
+      }
+    } catch (error) {
+      this.loggingService.error('뷰포트 크기 업데이트 실패', { error });
+      this.errorHandler.handleError(error as Error, 'LayoutService.updateViewportDimensions');
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 현재 뷰포트 크기 조회
+   */
+  getViewportDimensions(): { width: number; height: number } {
+    return {
+      width: this.viewportWidth,
+      height: this.viewportHeight
+    };
+  }
+
+  /**
    * 초기화 여부 확인
-   * @returns 초기화 완료 여부
    */
   isInitialized(): boolean {
-    return this._isInitialized;
+    return this.initialized;
   }
 
   /**
    * 정리
    */
   cleanup(): void {
-    const perfMark = 'LayoutService.cleanup';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('LayoutService.cleanup');
+    
     try {
       this.loggingService.debug('레이아웃 서비스 정리 시작');
+      
+      // ResizeObserver 정리
+      if (this.resizeObserver) {
+        if (this.containerElement) {
+          this.resizeObserver.unobserve(this.containerElement);
+        }
+        this.resizeObserver.disconnect();
+        this.resizeObserver = null;
+      }
+      
       this.layoutConfig = { ...DEFAULT_LAYOUT_CONFIG };
-      this.cardPositions.clear();
+      this.lastCardPositions.clear();
       this.viewportWidth = 0;
       this.viewportHeight = 0;
-      this._isInitialized = false;
+      this.containerElement = null;
+      this.initialized = false;
+      this.lastLayoutCalculation = null;
+      
       this.loggingService.info('레이아웃 서비스 정리 완료');
     } catch (error) {
       this.loggingService.error('레이아웃 서비스 정리 실패', { error });
       this.errorHandler.handleError(error as Error, 'LayoutService.cleanup');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -171,32 +265,31 @@ export class LayoutService implements ILayoutService {
    * 레이아웃 설정 조회
    */
   getLayoutConfig(): ILayoutConfig {
-    const perfMark = 'LayoutService.getLayoutConfig';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('LayoutService.getLayoutConfig');
     try {
       this.loggingService.debug('레이아웃 설정 조회');
       return { ...this.layoutConfig };
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
-   * 레이아웃 설정 업데이트
+   * 레이아웃 설정을 업데이트합니다.
+   * @param config - 새로운 레이아웃 설정
    */
   updateLayoutConfig(config: ILayoutConfig): void {
-    const perfMark = 'LayoutService.updateLayoutConfig';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('LayoutService.updateLayoutConfig');
     try {
       this.loggingService.debug('레이아웃 설정 업데이트 시작', { config });
       this.layoutConfig = { ...config };
       this.eventDispatcher.dispatch(new LayoutConfigUpdatedEvent(this.layoutConfig));
 
       this.analyticsService.trackEvent('layout_config_updated', {
-        fixedHeight: config.cardHeightFixed,
-        minCardWidth: config.cardMinWidth,
-        minCardHeight: config.cardMinHeight,
-        padding: config.cardPadding,
+        fixedHeight: config.fixedCardHeight,
+        minCardWidth: config.cardThresholdWidth,
+        minCardHeight: config.cardThresholdHeight,
+        padding: config.padding,
         gap: config.cardGap
       });
 
@@ -206,7 +299,7 @@ export class LayoutService implements ILayoutService {
       this.errorHandler.handleError(error as Error, 'LayoutService.updateLayoutConfig');
       throw new LayoutServiceError('LAYOUT_CONFIG_UPDATE_FAILED', '레이아웃 설정 업데이트에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -222,8 +315,14 @@ export class LayoutService implements ILayoutService {
     containerWidth: number,
     containerHeight: number
   ): ILayoutResult {
-    const perfMark = 'LayoutService.calculateLayout';
-    this.performanceMonitor.startMeasure(perfMark);
+    // 이전 계산 결과와 동일한 조건이면 캐시된 결과 반환
+    if (this.lastLayoutCalculation &&
+        this.lastLayoutCalculation.containerWidth === containerWidth &&
+        this.lastLayoutCalculation.containerHeight === containerHeight) {
+      return this.lastLayoutCalculation.result;
+    }
+
+    const timer = this.performanceMonitor.startTimer('LayoutService.calculateLayout');
     
     try {
       this.loggingService.debug('레이아웃 계산 시작', { 
@@ -233,8 +332,8 @@ export class LayoutService implements ILayoutService {
       });
 
       // 레이아웃 타입과 방향 결정
-      const layoutType = this.determineLayoutType(containerWidth, containerHeight, this.layoutConfig);
-      const direction = this.determineLayoutDirection(containerWidth, containerHeight, this.layoutConfig);
+      const layoutType = LayoutUtils.determineLayoutType(containerWidth, containerHeight, this.layoutConfig);
+      const direction = LayoutUtils.determineLayoutDirection(containerWidth, containerHeight, this.layoutConfig);
       
       // 카드 위치 초기화
       const initialPositions = cardSet.cards.map(card => ({
@@ -243,8 +342,8 @@ export class LayoutService implements ILayoutService {
         rowIndex: 0,
         x: 0,
         y: 0,
-        width: this.layoutConfig.cardMinWidth,
-        height: this.layoutConfig.cardMinHeight
+        width: this.layoutConfig.cardThresholdWidth,
+        height: this.layoutConfig.cardThresholdHeight
       }));
 
       // LayoutUtils를 사용하여 레이아웃 계산
@@ -253,8 +352,8 @@ export class LayoutService implements ILayoutService {
         this.layoutConfig,
         containerWidth,
         containerHeight,
-        layoutType as LayoutType,
-        direction as LayoutDirection
+        layoutType,
+        direction
       );
 
       // 열 수와 행 수 계산
@@ -276,83 +375,59 @@ export class LayoutService implements ILayoutService {
 
       this.loggingService.info('레이아웃 계산 완료', { cardCount: cardSet.cards.length, columnCount, rowCount });
 
-      return {
-        cardPositions,
-        columnCount,
-        rowCount
+      // 결과 캐싱
+      this.lastLayoutCalculation = {
+        containerWidth,
+        containerHeight,
+        result: {
+          type: layoutType,
+          direction,
+          columnCount,
+          rowCount,
+          cardWidth: this.layoutConfig.cardThresholdWidth,
+          cardHeight: this.layoutConfig.cardThresholdHeight,
+          cardPositions: new Map(cardPositions.map(pos => [pos.cardId, { x: pos.x, y: pos.y }]))
+        }
       };
+
+      return this.lastLayoutCalculation.result;
     } catch (error) {
       this.loggingService.error('레이아웃 계산 실패', { error });
       this.errorHandler.handleError(error as Error, 'LayoutService.calculateLayout');
       // 오류 발생 시 빈 레이아웃 반환
       return {
-        cardPositions: [],
+        type: LayoutType.MASONRY,
+        direction: LayoutDirection.VERTICAL,
         columnCount: 1,
-        rowCount: 1
+        rowCount: 1,
+        cardWidth: this.layoutConfig.cardThresholdWidth,
+        cardHeight: this.layoutConfig.cardThresholdHeight,
+        cardPositions: new Map()
       };
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
-   * 뷰포트 크기 업데이트
-   */
-  updateViewportDimensions(width: number, height: number): void {
-    const perfMark = 'LayoutService.updateViewportDimensions';
-    this.performanceMonitor.startMeasure(perfMark);
-    try {
-      this.loggingService.debug('뷰포트 크기 업데이트 시작', { width, height });
-      this.viewportWidth = width;
-      this.viewportHeight = height;
-      this.loggingService.info('뷰포트 크기 업데이트 완료');
-    } finally {
-      this.performanceMonitor.endMeasure(perfMark);
-    }
-  }
-
-  /**
-   * 카드 위치 업데이트
+   * 카드 위치를 업데이트합니다.
+   * @param cardId - 카드 ID
+   * @param x - X 좌표
+   * @param y - Y 좌표
    */
   updateCardPosition(cardId: string, x: number, y: number): void {
-    const perfMark = 'LayoutService.updateCardPosition';
-    this.performanceMonitor.startMeasure(perfMark);
-    try {
-      this.loggingService.debug('카드 위치 업데이트 시작', { cardId, x, y });
-      this.cardPositions.set(cardId, { x, y });
-      this.eventDispatcher.dispatch(new LayoutCardPositionUpdatedEvent({
-        cardId,
-        x,
-        y,
-        layoutConfig: this.layoutConfig
-      }));
-
-      this.analyticsService.trackEvent('card_position_updated', {
-        cardId,
-        x,
-        y
-      });
-
-      this.loggingService.info('카드 위치 업데이트 완료', { cardId, x, y });
-    } catch (error) {
-      this.loggingService.error('카드 위치 업데이트 실패', { error, cardId, x, y });
-      this.errorHandler.handleError(error as Error, 'LayoutService.updateCardPosition');
-      throw new LayoutServiceError('CARD_POSITION_UPDATE_FAILED', '카드 위치 업데이트에 실패했습니다.');
-    } finally {
-      this.performanceMonitor.endMeasure(perfMark);
-    }
+    this.eventDispatcher.dispatch(new LayoutCardPositionUpdatedEvent(cardId, x, y, this.layoutConfig));
   }
 
   /**
    * 카드 위치 초기화
    */
   resetCardPositions(): void {
-    const perfMark = 'LayoutService.resetCardPositions';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('LayoutService.resetCardPositions');
     try {
       this.loggingService.debug('카드 위치 초기화 시작');
-      const previousCount = this.cardPositions.size;
-      this.cardPositions.clear();
+      const previousCount = this.lastCardPositions.size;
+      this.lastCardPositions.clear();
 
       this.analyticsService.trackEvent('card_positions_reset', {
         previousCount
@@ -360,7 +435,7 @@ export class LayoutService implements ILayoutService {
 
       this.loggingService.info('카드 위치 초기화 완료', { previousCount });
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -368,79 +443,12 @@ export class LayoutService implements ILayoutService {
    * 기본 레이아웃 설정 반환
    */
   getDefaultLayoutConfig(): ILayoutConfig {
-    const perfMark = 'LayoutService.getDefaultLayoutConfig';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('LayoutService.getDefaultLayoutConfig');
     try {
       this.loggingService.debug('기본 레이아웃 설정 조회');
       return { ...DEFAULT_LAYOUT_CONFIG };
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
-    }
-  }
-
-  /**
-   * 레이아웃 타입 결정
-   * @param containerWidth 컨테이너 너비
-   * @param containerHeight 컨테이너 높이
-   * @param config 레이아웃 설정
-   * @returns 레이아웃 타입
-   */
-  determineLayoutType(
-    containerWidth: number,
-    containerHeight: number,
-    config: ILayoutConfig
-  ): string {
-    const perfMark = 'LayoutService.determineLayoutType';
-    this.performanceMonitor.startMeasure(perfMark);
-    
-    try {
-      const layoutType = config.cardHeightFixed ? 'grid' : 'masonry';
-      
-      this.loggingService.debug('레이아웃 타입 결정', { 
-        layoutType,
-        containerWidth,
-        containerHeight,
-        cardHeightFixed: config.cardHeightFixed
-      });
-      
-      return layoutType;
-    } finally {
-      this.performanceMonitor.endMeasure(perfMark);
-    }
-  }
-
-  /**
-   * 레이아웃 방향 결정
-   * @param containerWidth 컨테이너 너비
-   * @param containerHeight 컨테이너 높이
-   * @param config 레이아웃 설정
-   * @returns 레이아웃 방향
-   */
-  determineLayoutDirection(
-    containerWidth: number,
-    containerHeight: number,
-    config: ILayoutConfig
-  ): string {
-    const perfMark = 'LayoutService.determineLayoutDirection';
-    this.performanceMonitor.startMeasure(perfMark);
-    
-    try {
-      const aspectRatio = containerWidth / containerHeight;
-      // 가로/세로 비율에 따라 방향 결정
-      // 가로가 세로보다 길면 가로 방향, 아니면 세로 방향
-      const direction = aspectRatio > 1 ? 'horizontal' : 'vertical';
-      
-      this.loggingService.debug('레이아웃 방향 결정', { 
-        direction,
-        containerWidth,
-        containerHeight,
-        aspectRatio,
-        cardHeightFixed: config.cardHeightFixed
-      });
-      
-      return direction;
-    } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -448,12 +456,11 @@ export class LayoutService implements ILayoutService {
    * 열 수 계산
    */
   calculateColumnCount(containerWidth: number, config: ILayoutConfig): number {
-    const perfMark = 'LayoutService.calculateColumnCount';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('LayoutService.calculateColumnCount');
     try {
-      const availableWidth = containerWidth - (2 * config.cardPadding);
+      const availableWidth = containerWidth - (2 * config.padding);
       const columnCount = Math.floor(
-        (availableWidth + config.cardGap) / (config.cardMinWidth + config.cardGap)
+        (availableWidth + config.cardGap) / (config.cardThresholdWidth + config.cardGap)
       );
       const result = Math.max(1, columnCount);
       this.loggingService.debug('열 수 계산', { 
@@ -463,7 +470,7 @@ export class LayoutService implements ILayoutService {
       });
       return result;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -471,12 +478,11 @@ export class LayoutService implements ILayoutService {
    * 행 수 계산
    */
   calculateRowCount(containerHeight: number, config: ILayoutConfig): number {
-    const perfMark = 'LayoutService.calculateRowCount';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('LayoutService.calculateRowCount');
     try {
-      const availableHeight = containerHeight - (2 * config.cardPadding);
+      const availableHeight = containerHeight - (2 * config.padding);
       const rowCount = Math.floor(
-        (availableHeight + config.cardGap) / (config.cardMinHeight + config.cardGap)
+        (availableHeight + config.cardGap) / (config.cardThresholdHeight + config.cardGap)
       );
       const result = Math.max(1, rowCount);
       this.loggingService.debug('행 수 계산', { 
@@ -486,7 +492,222 @@ export class LayoutService implements ILayoutService {
       });
       return result;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
+  }
+
+  /**
+   * 카드 위치 조회
+   * @param card 카드
+   * @returns 카드 위치 또는 null
+   */
+  getCardPosition(card: ICard): { x: number; y: number } | null {
+    const timer = this.performanceMonitor.startTimer('LayoutService.getCardPosition');
+    try {
+      if (!this.initialized) {
+        throw new Error('레이아웃 서비스가 초기화되지 않았습니다.');
+      }
+
+      this.loggingService.debug('카드 위치 조회 시작', { cardId: card.id });
+      
+      const position = this.lastCardPositions.get(card.id);
+      if (!position) {
+        this.loggingService.warn('카드 위치를 찾을 수 없음', { cardId: card.id });
+        return null;
+      }
+
+      this.analyticsService.trackEvent('card_position_retrieved', {
+        cardId: card.id,
+        x: position.x,
+        y: position.y
+      });
+
+      this.loggingService.info('카드 위치 조회 완료', { 
+        cardId: card.id,
+        position 
+      });
+
+      return position;
+    } catch (error) {
+      this.loggingService.error('카드 위치 조회 실패', { error });
+      this.errorHandler.handleError(error as Error, 'LayoutService.getCardPosition');
+      return null;
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 카드 스타일 업데이트
+   * @param card 카드
+   * @param style 스타일 타입
+   */
+  updateCardStyle(card: ICard, style: 'normal' | 'active' | 'focused'): void {
+    const timer = this.performanceMonitor.startTimer('LayoutService.updateCardStyle');
+    try {
+      if (!this.initialized) {
+        throw new Error('레이아웃 서비스가 초기화되지 않았습니다.');
+      }
+
+      this.loggingService.debug('카드 스타일 업데이트 시작', { 
+        cardId: card.id,
+        style 
+      });
+
+      // TODO: 실제로 카드 스타일을 업데이트하는 로직 구현
+      // 예: CSS 클래스 추가/제거 또는 인라인 스타일 적용
+
+      this.analyticsService.trackEvent('update_card_style', {
+        cardId: card.id,
+        style
+      });
+
+      this.loggingService.info('카드 스타일 업데이트 완료', { 
+        cardId: card.id,
+        style 
+      });
+    } catch (error) {
+      this.loggingService.error('카드 스타일 업데이트 실패', { error });
+      this.errorHandler.handleError(error as Error, 'LayoutService.updateCardStyle');
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 다음 카드 조회
+   * @param currentCard 현재 카드
+   * @param direction 방향
+   * @returns 다음 카드 또는 null
+   */
+  getNextCard(currentCard: ICard, direction: LayoutDirection): ICard | null {
+    const timer = this.performanceMonitor.startTimer('LayoutService.getNextCard');
+    try {
+      if (!this.initialized) {
+        throw new Error('레이아웃 서비스가 초기화되지 않았습니다.');
+      }
+
+      this.loggingService.debug('다음 카드 조회 시작', { 
+        currentCardId: currentCard.id,
+        direction 
+      });
+
+      const currentPosition = this.lastCardPositions.get(currentCard.id);
+      if (!currentPosition) {
+        this.loggingService.warn('현재 카드의 위치를 찾을 수 없음', { cardId: currentCard.id });
+        return null;
+      }
+
+      // 방향에 따라 다음 카드 찾기
+      let nextCard: ICard | undefined;
+
+      // TODO: 실제로 다음 카드를 찾는 로직 구현
+      // 예: 현재 카드의 위치를 기준으로 지정된 방향의 다음 카드 찾기
+
+      this.analyticsService.trackEvent('next_card_retrieved', {
+        currentCardId: currentCard.id,
+        direction
+      });
+
+      this.loggingService.info('다음 카드 조회 완료', { 
+        currentCardId: currentCard.id,
+        direction 
+      });
+
+      return nextCard || null;
+    } catch (error) {
+      this.loggingService.error('다음 카드 조회 실패', { error });
+      this.errorHandler.handleError(error as Error, 'LayoutService.getNextCard');
+      return null;
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 이전 카드 조회
+   * @param currentCard 현재 카드
+   * @param direction 레이아웃 방향
+   * @returns 이전 카드 또는 null
+   */
+  getPreviousCard(currentCard: ICard, direction: LayoutDirection): ICard | null {
+    const timer = this.performanceMonitor.startTimer('LayoutService.getPreviousCard');
+    try {
+      if (!this.initialized) {
+        throw new Error('레이아웃 서비스가 초기화되지 않았습니다.');
+      }
+
+      this.loggingService.debug('이전 카드 조회 시작', { 
+        currentCardId: currentCard.id,
+        direction 
+      });
+
+      // TODO: 실제로 이전 카드를 찾는 로직 구현
+      // 예: 현재 카드의 위치를 기준으로 지정된 방향의 이전 카드 찾기
+
+      this.analyticsService.trackEvent('previous_card_retrieved', {
+        currentCardId: currentCard.id,
+        direction
+      });
+
+      this.loggingService.info('이전 카드 조회 완료', { 
+        currentCardId: currentCard.id,
+        direction 
+      });
+
+      return null; // TODO: 이전 카드 반환
+    } catch (error) {
+      this.loggingService.error('이전 카드 조회 실패', { error });
+      this.errorHandler.handleError(error as Error, 'LayoutService.getPreviousCard');
+      return null;
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 레이아웃 모드를 변경합니다.
+   * @param fixedCardHeight - 카드 높이 고정 여부
+   */
+  changeLayoutMode(fixedCardHeight: boolean): void {
+    this.layoutConfig.fixedCardHeight = fixedCardHeight;
+    this.eventDispatcher.dispatch(new LayoutModeChangedEvent(this.layoutConfig));
+  }
+
+  /**
+   * 카드 너비를 변경합니다.
+   * @param width - 새로운 카드 너비
+   */
+  changeCardWidth(width: number): void {
+    this.layoutConfig.cardThresholdWidth = width;
+    this.eventDispatcher.dispatch(new LayoutCardWidthChangedEvent(this.layoutConfig));
+  }
+
+  /**
+   * 카드 높이를 변경합니다.
+   * @param height - 새로운 카드 높이
+   */
+  changeCardHeight(height: number): void {
+    this.layoutConfig.cardThresholdHeight = height;
+    this.eventDispatcher.dispatch(new LayoutCardHeightChangedEvent(this.layoutConfig));
+  }
+
+  /**
+   * 레이아웃을 변경합니다.
+   */
+  changeLayout(): void {
+    this.eventDispatcher.dispatch(new LayoutChangedEvent(this.layoutConfig));
+  }
+
+  /**
+   * 레이아웃 크기를 변경합니다.
+   * @param width - 새로운 너비
+   * @param height - 새로운 높이
+   */
+  resizeLayout(width: number, height: number): void {
+    this.viewportWidth = width;
+    this.viewportHeight = height;
+    this.eventDispatcher.dispatch(new LayoutResizedEvent(this.layoutConfig));
+    this.eventDispatcher.dispatch(new ViewportDimensionsUpdatedEvent(width, height, this.layoutConfig));
   }
 } 

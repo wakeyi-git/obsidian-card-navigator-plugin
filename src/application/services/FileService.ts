@@ -6,6 +6,8 @@ import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
+import { IEventDispatcher } from '../../domain/events/DomainEvent';
+import { FileOpenedEvent, FilesOpenedEvent, FileOpenedForEditingEvent, LinkInsertedToEditorEvent, LinkInsertedToFileEvent } from '../../domain/events/FileEvents';
 
 /**
  * 파일 서비스 구현체
@@ -18,7 +20,8 @@ export class FileService implements IFileService {
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
   ) {}
 
   static getInstance(): FileService {
@@ -29,7 +32,8 @@ export class FileService implements IFileService {
         container.resolve('IErrorHandler'),
         container.resolve('ILoggingService'),
         container.resolve('IPerformanceMonitor'),
-        container.resolve('IAnalyticsService')
+        container.resolve('IAnalyticsService'),
+        container.resolve('IEventDispatcher')
       );
     }
     return FileService.instance;
@@ -39,8 +43,7 @@ export class FileService implements IFileService {
    * 서비스 초기화
    */
   initialize(): void {
-    const perfMark = 'FileService.initialize';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('FileService.initialize');
     try {
       this.loggingService.debug('파일 서비스 초기화 시작');
       // 초기화 작업 없음
@@ -49,7 +52,7 @@ export class FileService implements IFileService {
       this.loggingService.error('파일 서비스 초기화 실패', { error });
       this.errorHandler.handleError(error as Error, 'FileService.initialize');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -57,8 +60,7 @@ export class FileService implements IFileService {
    * 서비스 정리
    */
   cleanup(): void {
-    const perfMark = 'FileService.cleanup';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('FileService.cleanup');
     try {
       this.loggingService.debug('파일 서비스 정리 시작');
       // 정리 작업 없음
@@ -67,21 +69,20 @@ export class FileService implements IFileService {
       this.loggingService.error('파일 서비스 정리 실패', { error });
       this.errorHandler.handleError(error as Error, 'FileService.cleanup');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
-   * 파일 열기
-   * @param file 파일
+   * 파일을 엽니다.
+   * @param file - 열 파일
    */
   async openFile(file: TFile): Promise<void> {
-    const perfMark = 'FileService.openFile';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('FileService.openFile');
     try {
       this.loggingService.debug('파일 열기 시작', { filePath: file.path });
-      const leaf = this.app.workspace.getLeaf(true);
-      await leaf.openFile(file);
+      await this.app.workspace.getLeaf().openFile(file);
+      await this.eventDispatcher.dispatch(new FileOpenedEvent(file));
       this.analyticsService.trackEvent('file_opened', { filePath: file.path });
       this.loggingService.info('파일 열기 완료', { filePath: file.path });
     } catch (error) {
@@ -89,21 +90,22 @@ export class FileService implements IFileService {
       this.errorHandler.handleError(error as Error, 'FileService.openFile');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
-   * 여러 파일 열기
-   * @param files 파일 목록
+   * 여러 파일을 엽니다.
+   * @param files - 열 파일 목록
    */
   async openFiles(files: TFile[]): Promise<void> {
-    const perfMark = 'FileService.openFiles';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('FileService.openFiles');
     try {
       this.loggingService.debug('여러 파일 열기 시작', { fileCount: files.length });
-      const leaf = this.app.workspace.getLeaf(true);
-      await Promise.all(files.map(file => leaf.openFile(file)));
+      for (const file of files) {
+        await this.app.workspace.getLeaf().openFile(file);
+      }
+      await this.eventDispatcher.dispatch(new FilesOpenedEvent(files));
       this.analyticsService.trackEvent('files_opened', { fileCount: files.length });
       this.loggingService.info('여러 파일 열기 완료', { fileCount: files.length });
     } catch (error) {
@@ -111,21 +113,20 @@ export class FileService implements IFileService {
       this.errorHandler.handleError(error as Error, 'FileService.openFiles');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
-   * 파일 편집을 위해 열기
-   * @param file 파일
+   * 파일을 편집 모드로 엽니다.
+   * @param file - 편집할 파일
    */
   async openFileForEditing(file: TFile): Promise<void> {
-    const perfMark = 'FileService.openFileForEditing';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('FileService.openFileForEditing');
     try {
       this.loggingService.debug('파일 편집을 위해 열기 시작', { filePath: file.path });
-      const leaf = this.app.workspace.getLeaf(true);
-      await leaf.openFile(file, { active: true });
+      await this.app.workspace.getLeaf().openFile(file, { active: true });
+      await this.eventDispatcher.dispatch(new FileOpenedForEditingEvent(file));
       this.analyticsService.trackEvent('file_opened_for_editing', { filePath: file.path });
       this.loggingService.info('파일 편집을 위해 열기 완료', { filePath: file.path });
     } catch (error) {
@@ -133,17 +134,16 @@ export class FileService implements IFileService {
       this.errorHandler.handleError(error as Error, 'FileService.openFileForEditing');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
-   * 편집창에 링크 삽입
-   * @param file 파일
+   * 에디터에 링크를 삽입합니다.
+   * @param file - 링크할 파일
    */
   async insertLinkToEditor(file: TFile): Promise<void> {
-    const perfMark = 'FileService.insertLinkToEditor';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('FileService.insertLinkToEditor');
     try {
       this.loggingService.debug('편집창에 링크 삽입 시작', { filePath: file.path });
       const editor = this.app.workspace.activeEditor?.editor;
@@ -153,6 +153,7 @@ export class FileService implements IFileService {
 
       const link = `[[${file.basename}]]`;
       editor.replaceSelection(link);
+      await this.eventDispatcher.dispatch(new LinkInsertedToEditorEvent(file));
       this.analyticsService.trackEvent('link_inserted_to_editor', { filePath: file.path });
       this.loggingService.info('편집창에 링크 삽입 완료', { filePath: file.path });
     } catch (error) {
@@ -160,30 +161,26 @@ export class FileService implements IFileService {
       this.errorHandler.handleError(error as Error, 'FileService.insertLinkToEditor');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
-   * 파일에 링크 삽입
-   * @param sourceFile 소스 파일
-   * @param targetFile 대상 파일
+   * 파일에 링크를 삽입합니다.
+   * @param sourceFile - 링크를 삽입할 파일
+   * @param targetFile - 링크할 파일
    */
   async insertLinkToFile(sourceFile: TFile, targetFile: TFile): Promise<void> {
-    const perfMark = 'FileService.insertLinkToFile';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('FileService.insertLinkToFile');
     try {
       this.loggingService.debug('파일에 링크 삽입 시작', { 
         sourcePath: sourceFile.path,
         targetPath: targetFile.path 
       });
-      const editor = this.app.workspace.activeEditor?.editor;
-      if (!editor) {
-        throw new Error('활성 편집기가 없습니다.');
-      }
-
-      const link = `[[${sourceFile.basename}]]`;
-      editor.replaceSelection(link);
+      const content = await this.app.vault.read(sourceFile);
+      const link = `[[${targetFile.basename}]]`;
+      await this.app.vault.modify(sourceFile, content + '\n' + link);
+      await this.eventDispatcher.dispatch(new LinkInsertedToFileEvent(sourceFile, targetFile));
       this.analyticsService.trackEvent('link_inserted_to_file', { 
         sourcePath: sourceFile.path,
         targetPath: targetFile.path 
@@ -201,7 +198,7 @@ export class FileService implements IFileService {
       this.errorHandler.handleError(error as Error, 'FileService.insertLinkToFile');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 } 

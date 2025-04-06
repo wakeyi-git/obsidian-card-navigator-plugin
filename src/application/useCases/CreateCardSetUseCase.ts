@@ -2,13 +2,19 @@ import { IUseCase } from './IUseCase';
 import { ICardSetService } from '../../domain/services/ICardSetService';
 import { ILayoutService } from '../../domain/services/ILayoutService';
 import { ICardSet } from '../../domain/models/CardSet';
-import { CardSetType, LinkType } from '../../domain/models/CardSet';
+import { CardSetType } from '../../domain/models/CardSetConfig';
 import { ISortConfig } from '../../domain/models/SortConfig';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
+import { FilterType } from '../../domain/models/FilterConfig';
+import { SortType, SortOrder } from '../../domain/models/SortConfig';
+import { SearchScope } from '../../domain/models/SearchResult';
+import { DomainEvent } from '@/domain/events/DomainEvent';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 
 /**
  * 카드셋 생성 유스케이스 입력
@@ -34,6 +40,8 @@ export interface CreateCardSetInput {
   includeOutgoingLinks?: boolean;
   /** 트랜잭션 ID (중복 요청 식별용) */
   transactionId?: string;
+  /** 현재 파일 경로 */
+  currentFilePath?: string;
 }
 
 /**
@@ -48,7 +56,8 @@ export class CreateCardSetUseCase implements IUseCase<CreateCardSetInput, ICardS
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
   ) {}
 
   static getInstance(): CreateCardSetUseCase {
@@ -60,7 +69,8 @@ export class CreateCardSetUseCase implements IUseCase<CreateCardSetInput, ICardS
         container.resolve('IErrorHandler'),
         container.resolve('ILoggingService'),
         container.resolve('IPerformanceMonitor'),
-        container.resolve('IAnalyticsService')
+        container.resolve('IAnalyticsService'),
+        container.resolve('IEventDispatcher')
       );
     }
     return CreateCardSetUseCase.instance;
@@ -71,8 +81,7 @@ export class CreateCardSetUseCase implements IUseCase<CreateCardSetInput, ICardS
    * @param input 입력
    */
   async execute(input: CreateCardSetInput): Promise<ICardSet> {
-    const perfMark = 'CreateCardSetUseCase.execute';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CreateCardSetUseCase.execute');
     
     try {
       this.loggingService.debug('카드셋 생성 시작', { 
@@ -81,17 +90,51 @@ export class CreateCardSetUseCase implements IUseCase<CreateCardSetInput, ICardS
         includeSubfolders: input.includeSubfolders,
         containerWidth: input.containerWidth,
         containerHeight: input.containerHeight,
-        transactionId: input.transactionId || 'none'
+        transactionId: input.transactionId || 'none',
+        currentFilePath: input.currentFilePath || ''
       });
 
       // 1. 카드셋 생성
       this.loggingService.debug('카드셋 서비스 호출 시작');
       const cardSet = await this.cardSetService.createCardSet(
         input.type,
-        input.criteria,
         {
-          includeSubfolders: input.includeSubfolders,
-          sortConfig: input.sortConfig
+          type: input.type,
+          folder: {
+            path: input.criteria,
+            includeSubfolders: input.includeSubfolders ?? false
+          },
+          filterConfig: {
+            type: FilterType.FOLDER,
+            criteria: input.criteria,
+            includeSubfolders: input.includeSubfolders ?? false,
+            includeSubtags: false,
+            linkDepth: 1,
+            priorityTags: [],
+            priorityFolders: [],
+            tags: [],
+            folders: []
+          },
+          sortConfig: {
+            type: SortType.NAME,
+            order: SortOrder.ASC,
+            field: 'fileName',
+            direction: 'asc'
+          },
+          searchConfig: {
+            scope: SearchScope.ALL,
+            caseSensitive: false,
+            useRegex: false,
+            fields: {
+              filename: true,
+              content: true,
+              tags: true,
+              frontmatter: true
+            },
+            realtimeSearch: true,
+            resultLimit: 100,
+            currentFilePath: input.currentFilePath || ''
+          }
         }
       );
       this.loggingService.debug('카드셋 서비스 호출 완료', {
@@ -102,7 +145,7 @@ export class CreateCardSetUseCase implements IUseCase<CreateCardSetInput, ICardS
       // 2. 정렬 적용
       if (input.sortConfig) {
         this.loggingService.debug('카드셋 정렬 시작');
-        await this.cardSetService.sortCardSet(cardSet, input.sortConfig);
+        await this.cardSetService.sortCards(cardSet, input.sortConfig);
         this.loggingService.debug('카드셋 정렬 완료');
       }
 
@@ -114,15 +157,24 @@ export class CreateCardSetUseCase implements IUseCase<CreateCardSetInput, ICardS
         input.containerHeight
       );
       this.loggingService.debug('레이아웃 계산 완료', {
-        layoutPositions: layoutResult.cardPositions.length
+        layoutPositions: layoutResult.cardPositions.size
       });
 
       // 레이아웃 결과 적용
       this.loggingService.debug('레이아웃 결과 적용 시작');
-      layoutResult.cardPositions.forEach(position => {
-        this.layoutService.updateCardPosition(position.cardId, position.x, position.y);
+      layoutResult.cardPositions.forEach((position, cardId) => {
+        this.layoutService.updateCardPosition(cardId, position.x, position.y);
       });
       this.loggingService.debug('레이아웃 결과 적용 완료');
+
+      // 4. 이벤트 발송
+      const event = new DomainEvent(
+        DomainEventType.CARDSET_CREATED,
+        {
+          cardSet
+        }
+      );
+      this.eventDispatcher.dispatch(event);
 
       this.analyticsService.trackEvent('card_set_created', {
         type: input.type,
@@ -147,7 +199,7 @@ export class CreateCardSetUseCase implements IUseCase<CreateCardSetInput, ICardS
       this.errorHandler.handleError(error as Error, 'CreateCardSetUseCase.execute');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 } 

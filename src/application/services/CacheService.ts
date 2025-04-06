@@ -3,8 +3,16 @@ import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { CacheServiceError } from '@/domain/errors/CacheServiceError';
 import { Container } from '@/infrastructure/di/Container';
+import { 
+  CacheInitializedEvent, 
+  CacheCleanedEvent, 
+  CacheDataStoredEvent, 
+  CacheDataDeletedEvent, 
+  CacheDataClearedEvent 
+} from '@/domain/events/CacheEvents';
 
 /**
  * 캐시 서비스 구현체
@@ -21,6 +29,7 @@ export class CacheService implements ICacheService {
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
     private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher,
     maxSize: number = 1000,
     ttl: number = 3600000 // 기본 1시간
   ) {
@@ -36,7 +45,8 @@ export class CacheService implements ICacheService {
         container.resolve('IErrorHandler'),
         container.resolve('ILoggingService'),
         container.resolve('IPerformanceMonitor'),
-        container.resolve('IAnalyticsService')
+        container.resolve('IAnalyticsService'),
+        container.resolve('IEventDispatcher')
       );
     }
     return CacheService.instance;
@@ -46,18 +56,18 @@ export class CacheService implements ICacheService {
    * 캐시 초기화
    */
   initialize(): void {
-    const perfMark = 'CacheService.initialize';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CacheService.initialize');
     try {
       this.loggingService.debug('캐시 서비스 초기화 시작');
       this.cache.clear();
+      this.eventDispatcher.dispatch(new CacheInitializedEvent());
       this.loggingService.info('캐시 서비스 초기화 완료');
     } catch (error) {
       this.loggingService.error('캐시 서비스 초기화 실패', { error });
       this.errorHandler.handleError(error as Error, 'CacheService.initialize');
       throw new CacheServiceError('INITIALIZATION_FAILED', '캐시 초기화에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -65,8 +75,7 @@ export class CacheService implements ICacheService {
    * 캐시 정리
    */
   cleanup(): void {
-    const perfMark = 'CacheService.cleanup';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CacheService.cleanup');
     try {
       this.loggingService.debug('캐시 서비스 정리 시작');
       const now = Date.now();
@@ -78,10 +87,7 @@ export class CacheService implements ICacheService {
         }
       }
 
-      this.analyticsService.trackEvent('cache_cleanup', {
-        expiredCount,
-        remainingCount: this.cache.size
-      });
+      this.eventDispatcher.dispatch(new CacheCleanedEvent());
 
       this.loggingService.info('캐시 서비스 정리 완료', { expiredCount });
     } catch (error) {
@@ -89,7 +95,7 @@ export class CacheService implements ICacheService {
       this.errorHandler.handleError(error as Error, 'CacheService.cleanup');
       throw new CacheServiceError('CLEANUP_FAILED', '캐시 정리에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -97,8 +103,7 @@ export class CacheService implements ICacheService {
    * 캐시 데이터 가져오기
    */
   get<T>(key: string): T | null {
-    const perfMark = 'CacheService.get';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CacheService.get');
     try {
       this.loggingService.debug('캐시 데이터 조회 시작', { key });
       const item = this.cache.get(key);
@@ -120,7 +125,7 @@ export class CacheService implements ICacheService {
       this.errorHandler.handleError(error as Error, 'CacheService.get');
       throw new CacheServiceError('GET_FAILED', '캐시 데이터 조회에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -128,8 +133,7 @@ export class CacheService implements ICacheService {
    * 캐시 데이터 저장
    */
   set<T>(key: string, value: T): void {
-    const perfMark = 'CacheService.set';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CacheService.set');
     try {
       this.loggingService.debug('캐시 데이터 저장 시작', { key });
 
@@ -150,10 +154,7 @@ export class CacheService implements ICacheService {
         expiry: Date.now() + this.ttl
       });
 
-      this.analyticsService.trackEvent('cache_set', {
-        key,
-        cacheSize: this.cache.size
-      });
+      this.eventDispatcher.dispatch(new CacheDataStoredEvent(key, this.cache.size));
 
       this.loggingService.info('캐시 데이터 저장 완료', { key });
     } catch (error) {
@@ -161,7 +162,7 @@ export class CacheService implements ICacheService {
       this.errorHandler.handleError(error as Error, 'CacheService.set');
       throw new CacheServiceError('SET_FAILED', '캐시 데이터 저장에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -169,16 +170,12 @@ export class CacheService implements ICacheService {
    * 캐시 데이터 삭제
    */
   delete(key: string): void {
-    const perfMark = 'CacheService.delete';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CacheService.delete');
     try {
       this.loggingService.debug('캐시 데이터 삭제 시작', { key });
       this.cache.delete(key);
 
-      this.analyticsService.trackEvent('cache_delete', {
-        key,
-        cacheSize: this.cache.size
-      });
+      this.eventDispatcher.dispatch(new CacheDataDeletedEvent(key));
 
       this.loggingService.info('캐시 데이터 삭제 완료', { key });
     } catch (error) {
@@ -186,7 +183,7 @@ export class CacheService implements ICacheService {
       this.errorHandler.handleError(error as Error, 'CacheService.delete');
       throw new CacheServiceError('DELETE_FAILED', '캐시 데이터 삭제에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -194,17 +191,13 @@ export class CacheService implements ICacheService {
    * 캐시 데이터 초기화
    */
   clear(): void {
-    const perfMark = 'CacheService.clear';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CacheService.clear');
     try {
       this.loggingService.debug('캐시 데이터 초기화 시작');
       const previousSize = this.cache.size;
       this.cache.clear();
 
-      this.analyticsService.trackEvent('cache_clear', {
-        previousSize,
-        currentSize: this.cache.size
-      });
+      this.eventDispatcher.dispatch(new CacheDataClearedEvent());
 
       this.loggingService.info('캐시 데이터 초기화 완료', { previousSize });
     } catch (error) {
@@ -212,7 +205,7 @@ export class CacheService implements ICacheService {
       this.errorHandler.handleError(error as Error, 'CacheService.clear');
       throw new CacheServiceError('CLEAR_FAILED', '캐시 초기화에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -220,8 +213,7 @@ export class CacheService implements ICacheService {
    * 캐시 데이터 존재 여부 확인
    */
   has(key: string): boolean {
-    const perfMark = 'CacheService.has';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CacheService.has');
     try {
       this.loggingService.debug('캐시 데이터 존재 여부 확인 시작', { key });
       const item = this.cache.get(key);
@@ -243,7 +235,7 @@ export class CacheService implements ICacheService {
       this.errorHandler.handleError(error as Error, 'CacheService.has');
       throw new CacheServiceError('HAS_FAILED', '캐시 데이터 확인에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 } 

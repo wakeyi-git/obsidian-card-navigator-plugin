@@ -1,43 +1,39 @@
 import { App, TFile } from 'obsidian';
-import { ICard, NoteTitleDisplayType } from '@/domain/models/Card';
+import { ICard } from '@/domain/models/Card';
 import { ICardService } from '@/domain/services/ICardService';
 import { ICardFactory } from '@/domain/factories/ICardFactory';
-import { ICardRenderConfig, DEFAULT_CARD_RENDER_CONFIG } from '@/domain/models/CardRenderConfig';
+import { ICardConfig } from '@/domain/models/CardConfig';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
-import { CardCreatedEvent, CardUpdatedEvent, CardDeletedEvent, CardSelectedEvent, CardDeselectedEvent } from '@/domain/events/CardEvents';
+import { CardCreatedEvent, CardUpdatedEvent, CardDeletedEvent, CardSelectedEvent, CardDeselectedEvent, CardRenderingEvent } from '@/domain/events/CardEvents';
 import { CardServiceError } from '@/domain/errors/CardServiceError';
 import { ICardStyle, DEFAULT_CARD_STYLE } from '@/domain/models/CardStyle';
 import { Container } from '@/infrastructure/di/Container';
-import { RenderManager } from '@/application/manager/RenderManager';
 
 /**
  * 카드 서비스 구현체
  */
 export class CardService implements ICardService {
   private static instance: CardService;
-  private readonly renderManager: RenderManager;
   private selectedCards: Set<string> = new Set();
+  private cardFactory: ICardFactory | null = null;
+  private initialized: boolean = false;
 
   private constructor(
     private readonly app: App,
-    private readonly cardFactory: ICardFactory,
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
     private readonly analyticsService: IAnalyticsService,
     private readonly eventDispatcher: IEventDispatcher
-  ) {
-    this.renderManager = RenderManager.getInstance();
-  }
+  ) {}
 
   static getInstance(): CardService {
     if (!CardService.instance) {
       const app = Container.getInstance().resolve<App>('App');
-      const cardFactory = Container.getInstance().resolve<ICardFactory>('ICardFactory');
       const errorHandler = Container.getInstance().resolve<IErrorHandler>('IErrorHandler');
       const loggingService = Container.getInstance().resolve<ILoggingService>('ILoggingService');
       const performanceMonitor = Container.getInstance().resolve<IPerformanceMonitor>('IPerformanceMonitor');
@@ -46,7 +42,6 @@ export class CardService implements ICardService {
 
       CardService.instance = new CardService(
         app,
-        cardFactory,
         errorHandler,
         loggingService,
         performanceMonitor,
@@ -58,11 +53,61 @@ export class CardService implements ICardService {
   }
 
   /**
+   * 초기화
+   */
+  initialize(): void {
+    const timer = this.performanceMonitor.startTimer('CardService.initialize');
+    try {
+      if (this.initialized) {
+        this.loggingService.warn('카드 서비스가 이미 초기화되어 있습니다.');
+        return;
+      }
+
+      this.loggingService.debug('카드 서비스 초기화 시작');
+      this.selectedCards.clear();
+      this.initialized = true;
+      this.loggingService.info('카드 서비스 초기화 완료');
+    } catch (error) {
+      this.loggingService.error('카드 서비스 초기화 실패', { error });
+      this.errorHandler.handleError(error as Error, 'CardService.initialize');
+      throw new CardServiceError('INITIALIZATION_FAILED', '카드 서비스 초기화에 실패했습니다.');
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 정리
+   */
+  cleanup(): void {
+    const timer = this.performanceMonitor.startTimer('CardService.cleanup');
+    try {
+      this.loggingService.debug('카드 서비스 정리 시작');
+      this.selectedCards.clear();
+      this.cardFactory = null;
+      this.initialized = false;
+      this.loggingService.info('카드 서비스 정리 완료');
+    } catch (error) {
+      this.loggingService.error('카드 서비스 정리 실패', { error });
+      this.errorHandler.handleError(error as Error, 'CardService.cleanup');
+      throw new CardServiceError('CLEANUP_FAILED', '카드 서비스 정리에 실패했습니다.');
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 카드 팩토리를 설정합니다.
+   */
+  setCardFactory(cardFactory: ICardFactory): void {
+    this.cardFactory = cardFactory;
+  }
+
+  /**
    * ID로 카드 조회
    */
   async getCardById(id: string): Promise<ICard | null> {
-    const perfMark = 'CardService.getCardById';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('getCardById');
     try {
       this.loggingService.debug('ID로 카드 조회 시작', { id });
       const file = this.app.vault.getAbstractFileByPath(id);
@@ -78,7 +123,7 @@ export class CardService implements ICardService {
       this.errorHandler.handleError(error as Error, 'CardService.getCardById');
       throw new CardServiceError('CARD_FETCH_FAILED', '카드 조회에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -86,8 +131,7 @@ export class CardService implements ICardService {
    * 파일 경로로 카드 조회
    */
   async getCardByPath(filePath: string): Promise<ICard | null> {
-    const perfMark = 'CardService.getCardByPath';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardService.getCardByPath');
     try {
       this.loggingService.debug('파일 경로로 카드 조회 시작', { filePath });
       const file = this.app.vault.getAbstractFileByPath(filePath);
@@ -103,7 +147,7 @@ export class CardService implements ICardService {
       this.errorHandler.handleError(error as Error, 'CardService.getCardByPath');
       throw new CardServiceError('CARD_FETCH_FAILED', '카드 조회에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -111,8 +155,7 @@ export class CardService implements ICardService {
    * 파일로부터 카드 조회
    */
   async getCardByFile(file: TFile): Promise<ICard | null> {
-    const perfMark = 'CardService.getCardByFile';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardService.getCardByFile');
     try {
       this.loggingService.debug('파일로부터 카드 조회 시작', { filePath: file.path });
       const content = await this.app.vault.read(file);
@@ -122,7 +165,7 @@ export class CardService implements ICardService {
       const properties = metadata?.frontmatter || {};
 
       const card = this.createCard({
-        filePath: file.path,
+        id: file.path,
         fileName: file.name,
         firstHeader,
         content,
@@ -130,7 +173,7 @@ export class CardService implements ICardService {
         createdAt: new Date(file.stat.ctime),
         updatedAt: new Date(file.stat.mtime),
         metadata: properties,
-        renderConfig: DEFAULT_CARD_RENDER_CONFIG
+        renderConfig: this.getDefaultRenderConfig()
       });
 
       this.loggingService.info('파일로부터 카드 조회 완료', { filePath: file.path });
@@ -140,7 +183,7 @@ export class CardService implements ICardService {
       this.errorHandler.handleError(error as Error, 'CardService.getCardByFile');
       throw new CardServiceError('CARD_FETCH_FAILED', '카드 조회에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -148,8 +191,7 @@ export class CardService implements ICardService {
    * 파일로부터 카드 생성
    */
   async createFromFile(file: TFile): Promise<ICard | null> {
-    const perfMark = 'CardService.createFromFile';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardService.createFromFile');
     try {
       this.loggingService.debug('파일로부터 카드 생성 시작', { filePath: file.path });
       const card = await this.getCardByFile(file);
@@ -173,7 +215,58 @@ export class CardService implements ICardService {
       this.errorHandler.handleError(error as Error, 'CardService.createFromFile');
       return null;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
+    }
+  }
+
+  /**
+   * 파일로부터 카드 생성
+   */
+  async createCardFromFile(file: TFile, config: ICardConfig): Promise<ICard> {
+    if (!this.cardFactory) {
+      throw new CardServiceError('CARD_FACTORY_NOT_SET', '카드 팩토리가 설정되지 않았습니다.');
+    }
+
+    const timer = this.performanceMonitor.startTimer('CardService.createCardFromFile');
+    try {
+      this.loggingService.debug('파일로부터 카드 생성 시작', { filePath: file.path });
+      const content = await this.app.vault.read(file);
+      const metadata = this.app.metadataCache.getFileCache(file);
+      const firstHeader = metadata?.headings?.[0]?.heading ?? null;
+      const tags = metadata?.tags?.map(tag => tag.tag) || [];
+      const properties = metadata?.frontmatter || {};
+
+      const card = this.cardFactory.create(
+        file.path,
+        file.name,
+        firstHeader,
+        content,
+        tags,
+        new Date(file.stat.ctime),
+        new Date(file.stat.mtime),
+        properties
+      );
+
+      if (!card) {
+        throw new CardServiceError('CARD_CREATION_FAILED', '카드 생성에 실패했습니다.');
+      }
+
+      this.analyticsService.trackEvent('card_created_from_file', {
+        filePath: file.path,
+        fileName: file.name,
+        hasFirstHeader: !!firstHeader,
+        tagCount: tags.length,
+        propertyCount: Object.keys(properties).length
+      });
+
+      this.loggingService.info('파일로부터 카드 생성 완료', { filePath: file.path });
+      return card;
+    } catch (error) {
+      this.loggingService.error('파일로부터 카드 생성 실패', { error, filePath: file.path });
+      this.errorHandler.handleError(error as Error, 'CardService.createCardFromFile');
+      throw new CardServiceError('CARD_CREATION_FAILED', '카드 생성에 실패했습니다.');
+    } finally {
+      timer.stop();
     }
   }
 
@@ -181,7 +274,7 @@ export class CardService implements ICardService {
    * 기본 카드 생성
    */
   createCard(config: {
-    filePath: string;
+    id: string;
     fileName: string;
     firstHeader: string | null;
     content: string;
@@ -189,107 +282,117 @@ export class CardService implements ICardService {
     createdAt: Date;
     updatedAt: Date;
     metadata: Record<string, any>;
-    renderConfig?: ICardRenderConfig;
-    titleDisplayType?: NoteTitleDisplayType;
+    renderConfig?: ICardConfig;
   }): ICard {
-    const perfMark = 'CardService.createCard';
-    this.performanceMonitor.startMeasure(perfMark);
+    if (!this.cardFactory) {
+      throw new CardServiceError('CARD_FACTORY_NOT_SET', '카드 팩토리가 설정되지 않았습니다.');
+    }
+
+    const timer = this.performanceMonitor.startTimer('CardService.createCard');
     try {
-      this.loggingService.debug('기본 카드 생성 시작', { filePath: config.filePath });
-      const card = this.cardFactory.create({
-        ...config,
-        renderConfig: config.renderConfig || DEFAULT_CARD_RENDER_CONFIG
-      });
+      this.loggingService.debug('기본 카드 생성 시작', { id: config.id });
+      const card = this.cardFactory.create(
+        config.id,
+        config.fileName,
+        config.firstHeader,
+        config.content,
+        config.tags,
+        config.createdAt,
+        config.updatedAt,
+        config.metadata
+      );
+
+      if (!card) {
+        throw new CardServiceError('CARD_CREATION_FAILED', '카드 생성에 실패했습니다.');
+      }
 
       // 카드 생성 이벤트 발송
       this.eventDispatcher.dispatch(new CardCreatedEvent(card));
 
       this.analyticsService.trackEvent('card_created', {
-        filePath: config.filePath,
+        id: config.id,
         fileName: config.fileName,
         hasFirstHeader: !!config.firstHeader,
         tagCount: config.tags.length,
         propertyCount: Object.keys(config.metadata).length
       });
 
-      this.loggingService.info('기본 카드 생성 완료', { filePath: config.filePath });
+      this.loggingService.info('기본 카드 생성 완료', { id: config.id });
       return card;
     } catch (error) {
-      this.loggingService.error('기본 카드 생성 실패', { error, filePath: config.filePath });
+      this.loggingService.error('기본 카드 생성 실패', { error, id: config.id });
       this.errorHandler.handleError(error as Error, 'CardService.createCard');
       throw new CardServiceError('CARD_CREATION_FAILED', '카드 생성에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
    * 카드 업데이트
    */
-  async updateCard(card: ICard): Promise<void> {
-    const perfMark = 'CardService.updateCard';
-    this.performanceMonitor.startMeasure(perfMark);
+  async updateCard(card: ICard): Promise<ICard> {
+    const timer = this.performanceMonitor.startTimer('CardService.updateCard');
     try {
       this.loggingService.debug('카드 업데이트 시작', { cardId: card.id });
-      const file = this.app.vault.getAbstractFileByPath(card.id);
-      if (!file || !(file instanceof TFile)) {
-        throw new Error('파일을 찾을 수 없습니다.');
-      }
-
-      await this.app.vault.modify(file, card.content);
-
+      
       // 카드 업데이트 이벤트 발송
       this.eventDispatcher.dispatch(new CardUpdatedEvent(card));
 
       this.analyticsService.trackEvent('card_updated', {
         cardId: card.id,
-        filePath: card.id,
+        fileName: card.fileName,
         hasFirstHeader: !!card.firstHeader,
         tagCount: card.tags.length,
-        propertyCount: Object.keys(card.metadata).length
+        propertyCount: Object.keys(card.properties).length
       });
 
       this.loggingService.info('카드 업데이트 완료', { cardId: card.id });
+      return card;
     } catch (error) {
       this.loggingService.error('카드 업데이트 실패', { error, cardId: card.id });
       this.errorHandler.handleError(error as Error, 'CardService.updateCard');
-      throw new CardServiceError('CARD_UPDATE_FAILED', '카드 업데이트에 실패했습니다.');
+      throw new CardServiceError(
+        '카드 업데이트 중 오류가 발생했습니다.',
+        card.id,
+        undefined,
+        'update',
+        error instanceof Error ? error : new Error(String(error))
+      );
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
    * 카드 삭제
    */
-  async deleteCard(cardId: string): Promise<void> {
-    const perfMark = 'CardService.deleteCard';
-    this.performanceMonitor.startMeasure(perfMark);
+  async deleteCard(card: ICard): Promise<void> {
+    const timer = this.performanceMonitor.startTimer('CardService.deleteCard');
     try {
-      this.loggingService.debug('카드 삭제 시작', { cardId });
-
-      const file = this.app.vault.getAbstractFileByPath(cardId);
-      if (!file || !(file instanceof TFile)) {
-        throw new Error('파일을 찾을 수 없습니다.');
-      }
-
-      await this.app.vault.delete(file);
-
+      this.loggingService.debug('카드 삭제 시작', { cardId: card.id });
+      
       // 카드 삭제 이벤트 발송
-      this.eventDispatcher.dispatch(new CardDeletedEvent(cardId));
+      this.eventDispatcher.dispatch(new CardDeletedEvent(card));
 
       this.analyticsService.trackEvent('card_deleted', {
-        cardId,
-        filePath: cardId
+        cardId: card.id,
+        fileName: card.fileName
       });
 
-      this.loggingService.info('카드 삭제 완료', { cardId });
+      this.loggingService.info('카드 삭제 완료', { cardId: card.id });
     } catch (error) {
-      this.loggingService.error('카드 삭제 실패', { error, cardId });
+      this.loggingService.error('카드 삭제 실패', { error, cardId: card.id });
       this.errorHandler.handleError(error as Error, 'CardService.deleteCard');
-      throw new CardServiceError('CARD_DELETION_FAILED', '카드 삭제에 실패했습니다.');
+      throw new CardServiceError(
+        '카드 삭제 중 오류가 발생했습니다.',
+        card.id,
+        undefined,
+        'delete',
+        error instanceof Error ? error : new Error(String(error))
+      );
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -297,8 +400,7 @@ export class CardService implements ICardService {
    * 모든 카드 조회
    */
   async getCards(): Promise<ICard[]> {
-    const perfMark = 'CardService.getCards';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('CardService.getCards');
     try {
       this.loggingService.debug('모든 카드 조회 시작');
       const files = this.app.vault.getMarkdownFiles();
@@ -316,52 +418,94 @@ export class CardService implements ICardService {
         totalFiles: files.length,
         validCards: result.length
       });
+
       return result;
     } catch (error) {
       this.loggingService.error('모든 카드 조회 실패', { error });
       this.errorHandler.handleError(error as Error, 'CardService.getCards');
       throw new CardServiceError('CARD_FETCH_FAILED', '카드 목록 조회에 실패했습니다.');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
    * 카드 렌더링
    */
-  async renderCard(card: ICard, config: ICardRenderConfig): Promise<string> {
-    const perfMark = 'CardService.renderCard';
-    this.performanceMonitor.startMeasure(perfMark);
+  async renderCard(card: ICard, config: ICardConfig): Promise<string> {
+    const timer = this.performanceMonitor.startTimer('CardService.renderCard');
     try {
       this.loggingService.debug('카드 렌더링 시작', { cardId: card.id });
-      const style = DEFAULT_CARD_STYLE;
-      const renderedContent = await this.renderManager.renderCard(card, config, style);
+      
+      // 카드 렌더링 이벤트 발송
+      this.eventDispatcher.dispatch(new CardRenderingEvent(card));
 
-      this.analyticsService.trackEvent('card_rendered', {
+      this.analyticsService.trackEvent('card_rendering_started', {
         cardId: card.id,
-        renderMarkdown: config.renderMarkdown,
-        showImages: config.showImages,
-        highlightCode: config.highlightCode,
-        supportCallouts: config.supportCallouts,
-        supportMath: config.supportMath
+        fileName: card.fileName,
+        renderType: config.renderType,
+        showImages: config.body.content || false,
+        highlightCode: config.body.content || false,
+        supportCallouts: config.body.content || false,
+        supportMath: config.body.content || false
       });
 
       this.loggingService.info('카드 렌더링 완료', { cardId: card.id });
-      return renderedContent;
+      return '';
     } catch (error) {
       this.loggingService.error('카드 렌더링 실패', { error, cardId: card.id });
       this.errorHandler.handleError(error as Error, 'CardService.renderCard');
-      throw new CardServiceError('CARD_RENDER_FAILED', '카드 렌더링에 실패했습니다.');
+      throw new CardServiceError(
+        '카드 렌더링 중 오류가 발생했습니다.',
+        card.id,
+        undefined,
+        'render',
+        error instanceof Error ? error : new Error(String(error))
+      );
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
    * 기본 렌더링 설정 가져오기
    */
-  getDefaultRenderConfig(): ICardRenderConfig {
-    return DEFAULT_CARD_RENDER_CONFIG;
+  getDefaultRenderConfig(): ICardConfig {
+    return {
+      header: {
+        display: true,
+        fileName: true,
+        firstHeader: true,
+        content: false,
+        tags: true,
+        date: true,
+        properties: true
+      },
+      body: {
+        display: true,
+        fileName: false,
+        firstHeader: false,
+        content: true,
+        tags: false,
+        date: false,
+        properties: false
+      },
+      footer: {
+        display: true,
+        fileName: false,
+        firstHeader: false,
+        content: false,
+        tags: true,
+        date: true,
+        properties: true
+      },
+      renderType: 'html',
+      showImages: true,
+      highlightCode: true,
+      supportCallouts: true,
+      supportMath: true,
+      style: DEFAULT_CARD_STYLE
+    };
   }
 
   /**
@@ -377,7 +521,10 @@ export class CardService implements ICardService {
   async selectCard(cardId: string): Promise<void> {
     try {
       this.selectedCards.add(cardId);
-      await this.eventDispatcher.dispatch(new CardSelectedEvent(cardId));
+      const card = await this.getCardById(cardId);
+      if (card) {
+        await this.eventDispatcher.dispatch(new CardSelectedEvent(card));
+      }
       this.loggingService.debug(`[CardService] Card selected: ${cardId}`);
     } catch (error) {
       this.errorHandler.handleError(error, 'CardService.selectCard');
@@ -391,7 +538,10 @@ export class CardService implements ICardService {
   async deselectCard(cardId: string): Promise<void> {
     try {
       this.selectedCards.delete(cardId);
-      await this.eventDispatcher.dispatch(new CardDeselectedEvent(cardId));
+      const card = await this.getCardById(cardId);
+      if (card) {
+        await this.eventDispatcher.dispatch(new CardDeselectedEvent(card));
+      }
       this.loggingService.debug(`[CardService] Card deselected: ${cardId}`);
     } catch (error) {
       this.errorHandler.handleError(error, 'CardService.deselectCard');
@@ -408,6 +558,25 @@ export class CardService implements ICardService {
     } catch (error) {
       this.errorHandler.handleError(error, 'CardService.getSelectedCards');
       throw error;
+    }
+  }
+
+  /**
+   * 카드 유효성 검사
+   */
+  validateCard(card: ICard): boolean {
+    try {
+      if (!card.id) return false;
+      if (!card.fileName) return false;
+      if (!card.content) return false;
+      if (!Array.isArray(card.tags)) return false;
+      if (!card.createdAt || !(card.createdAt instanceof Date)) return false;
+      if (!card.updatedAt || !(card.updatedAt instanceof Date)) return false;
+      if (!card.metadata || typeof card.metadata !== 'object') return false;
+      return true;
+    } catch (error) {
+      this.loggingService.error('카드 유효성 검사 실패', { error, cardId: card.id });
+      return false;
     }
   }
 } 

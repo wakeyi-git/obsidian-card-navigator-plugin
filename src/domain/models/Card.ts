@@ -1,80 +1,45 @@
-import { ICardRenderConfig, DEFAULT_CARD_RENDER_CONFIG } from './CardRenderConfig';
 import { TFile } from 'obsidian';
-
-/**
- * 노트 타이틀 표시 방식
- */
-export enum NoteTitleDisplayType {
-  /**
-   * 파일명을 타이틀로 사용
-   */
-  FILENAME = 'filename',
-  
-  /**
-   * 첫 번째 헤더를 타이틀로 사용
-   */
-  FIRST_HEADER = 'first_header'
-}
+import { ICardConfig } from './CardConfig';
 
 /**
  * 카드 인터페이스
- * - 옵시디언 노트의 내용을 표현하는 불변 객체
  */
 export interface ICard {
-  /**
-   * 카드 ID (파일 경로)
-   */
-  id: string;
+  /** 카드 ID (파일 경로) */
+  readonly id: string;
 
-  /**
-   * 카드 파일
-   */
-  file: TFile;
+  /** 카드 파일 */
+  readonly file: TFile;
 
-  /**
-   * 파일명
-   */
-  fileName: string;
+  /** 파일 경로 */
+  readonly filePath: string;
 
-  /**
-   * 첫 번째 헤더
-   */
-  firstHeader: string | null;
+  /** 파일명 */
+  readonly fileName: string;
 
-  /**
-   * 카드 내용
-   */
-  content: string;
+  /** 첫 번째 헤더 */
+  readonly firstHeader: string | null;
 
-  /**
-   * 태그 목록
-   */
-  tags: string[];
+  /** 카드 내용 */
+  readonly content: string;
 
-  /**
-   * 프론트매터 속성
-   */
-  properties: Record<string, any>;
+  /** 태그 목록 */
+  readonly tags: readonly string[];
 
-  /**
-   * 생성일
-   */
-  createdAt: Date;
+  /** 프론트매터 속성 */
+  readonly properties: Readonly<Record<string, any>>;
 
-  /**
-   * 수정일
-   */
-  updatedAt: Date;
+  /** 생성일 */
+  readonly createdAt: Date;
 
-  /**
-   * 메타데이터
-   */
+  /** 수정일 */
+  readonly updatedAt: Date;
+
+  /** 메타데이터 */
   readonly metadata: Readonly<Record<string, any>>;
 
-  /**
-   * 렌더링 설정
-   */
-  readonly renderConfig: ICardRenderConfig;
+  /** 카드 설정 */
+  readonly config: ICardConfig;
 
   /**
    * 카드 유효성 검사
@@ -82,17 +47,54 @@ export interface ICard {
   validate(): boolean;
 
   /**
+   * 카드 미리보기
+   */
+  preview(): ICardPreview;
+
+  /**
    * 카드 문자열 표현
    */
   toString(): string;
+
+  /**
+   * 제목
+   */
+  title: string;
 }
 
 /**
- * 카드 기본값
+ * 카드 미리보기 인터페이스
+ */
+export interface ICardPreview {
+  /** 카드 ID */
+  readonly id: string;
+  /** 파일 경로 */
+  readonly filePath: string;
+  /** 파일명 */
+  readonly fileName: string;
+  /** 첫 번째 헤더 */
+  readonly firstHeader: string | null;
+  /** 내용 */
+  readonly content: string;
+  /** 태그 목록 */
+  readonly tags: readonly string[];
+  /** 프론트매터 속성 */
+  readonly properties: Readonly<Record<string, any>>;
+  /** 생성일 */
+  readonly createdAt: Date;
+  /** 수정일 */
+  readonly updatedAt: Date;
+  /** 메타데이터 */
+  readonly metadata: Readonly<Record<string, any>>;
+}
+
+/**
+ * 기본 카드
  */
 export const DEFAULT_CARD: ICard = {
   id: '',
   file: null as unknown as TFile,
+  filePath: '',
   fileName: '',
   firstHeader: null,
   content: '',
@@ -101,20 +103,52 @@ export const DEFAULT_CARD: ICard = {
   createdAt: new Date(),
   updatedAt: new Date(),
   metadata: {},
-  renderConfig: DEFAULT_CARD_RENDER_CONFIG,
-  validate: () => true,
-  toString: function() {
-    return `Card(${this.renderConfig.titleDisplayType === NoteTitleDisplayType.FILENAME ? this.fileName : this.firstHeader || this.fileName})`;
-  }
+  config: null as unknown as ICardConfig,
+
+  validate(): boolean {
+    return this.id !== '' && this.file !== null;
+  },
+
+  preview(): ICardPreview {
+    return {
+      id: this.id,
+      filePath: this.filePath,
+      fileName: this.fileName,
+      firstHeader: this.firstHeader,
+      content: this.content,
+      tags: this.tags,
+      properties: this.properties,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+      metadata: this.metadata
+    };
+  },
+
+  toString(): string {
+    return `Card(${this.fileName})`;
+  },
+
+  title: '',
 };
 
+/**
+ * 카드 생성 설정 인터페이스
+ */
 export interface ICardCreateConfig {
+  /** 파일명 */
   readonly fileName: string;
+  /** 첫 번째 헤더 */
   readonly firstHeader: string | null;
+  /** 내용 */
   readonly content: string;
-  readonly tags: string[];
+  /** 태그 목록 */
+  readonly tags: readonly string[];
+  /** 생성일 */
   readonly createdDate: Date;
+  /** 수정일 */
   readonly updatedDate: Date;
-  readonly properties: Record<string, any>;
-  readonly renderConfig: ICardRenderConfig;
+  /** 프론트매터 속성 */
+  readonly properties: Readonly<Record<string, any>>;
+  /** 카드 설정 */
+  readonly config: ICardConfig;
 }

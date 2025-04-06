@@ -5,6 +5,10 @@ import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
+import { DomainEvent } from '@/domain/events/DomainEvent';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
+import { IPreset } from '@/domain/models/Preset';
 
 /**
  * 프리셋 매핑 유스케이스 입력
@@ -31,7 +35,8 @@ export class MapPresetUseCase implements IUseCase<MapPresetInput, void> {
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
   ) {}
 
   static getInstance(): MapPresetUseCase {
@@ -42,7 +47,8 @@ export class MapPresetUseCase implements IUseCase<MapPresetInput, void> {
         container.resolve('IErrorHandler'),
         container.resolve('ILoggingService'),
         container.resolve('IPerformanceMonitor'),
-        container.resolve('IAnalyticsService')
+        container.resolve('IAnalyticsService'),
+        container.resolve('IEventDispatcher')
       );
     }
     return MapPresetUseCase.instance;
@@ -53,19 +59,32 @@ export class MapPresetUseCase implements IUseCase<MapPresetInput, void> {
    * @param input 입력
    */
   async execute(input: MapPresetInput): Promise<void> {
-    const perfMark = 'MapPresetUseCase.execute';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('MapPresetUseCase.execute');
     try {
       this.loggingService.debug('프리셋 매핑 시작', { input });
 
+      let preset: IPreset | null = null;
       switch (input.type) {
         case 'folder':
           await this.presetManager.mapPresetToFolder(input.value, input.presetId);
+          preset = await this.presetManager.getPreset(input.presetId);
           break;
         case 'tag':
           await this.presetManager.mapPresetToTag(input.value, input.presetId);
+          preset = await this.presetManager.getPreset(input.presetId);
           break;
       }
+
+      if (!preset) {
+        throw new Error(`프리셋을 찾을 수 없습니다: ${input.presetId}`);
+      }
+
+      // 이벤트 발송
+      const event = new DomainEvent(
+        DomainEventType.PRESET_APPLIED,
+        { preset }
+      );
+      this.eventDispatcher.dispatch(event);
 
       this.analyticsService.trackEvent('preset_mapped', {
         type: input.type,
@@ -79,7 +98,7 @@ export class MapPresetUseCase implements IUseCase<MapPresetInput, void> {
       this.errorHandler.handleError(error as Error, 'MapPresetUseCase.execute');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 } 

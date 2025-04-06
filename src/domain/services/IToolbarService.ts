@@ -1,7 +1,9 @@
-import { CardSetType } from '../models/CardSet';
-import { ISortConfig } from '../models/SortConfig';
-import { ICardRenderConfig } from '../models/CardRenderConfig';
+import { CardSetType } from '../models/CardSetConfig';
+import { ICardConfig } from '../models/CardConfig';
+import { ICardStyle } from '../models/CardStyle';
 import { ILayoutConfig } from '../models/LayoutConfig';
+import { ISearchConfig } from '../models/SearchConfig';
+import { ISortConfig } from '../models/SortConfig';
 
 /**
  * 툴바 액션 타입
@@ -27,6 +29,12 @@ export interface IToolbarService {
   initialize(): void;
 
   /**
+   * 초기화 여부 확인
+   * @returns 초기화 여부
+   */
+  isInitialized(): boolean;
+
+  /**
    * 서비스 정리
    */
   cleanup(): void;
@@ -38,46 +46,68 @@ export interface IToolbarService {
   changeCardSetType(type: CardSetType): void;
 
   /**
-   * 검색 실행
-   * @param query 검색어
-   */
-  search(query: string): void;
-
-  /**
-   * 정렬 설정 적용
-   * @param config 정렬 설정
-   */
-  applySort(config: ISortConfig): void;
-
-  /**
-   * 설정 토글
-   * @param type 설정 타입
-   * @param value 설정 값
-   */
-  toggleSetting(type: string, value: any): void;
-
-  /**
-   * 현재 카드셋 타입 조회
+   * 현재 카드셋 타입 가져오기
+   * @returns 현재 카드셋 타입
    */
   getCurrentCardSetType(): CardSetType;
 
   /**
-   * 현재 검색어 조회
+   * 검색 설정 업데이트
+   * @param config 검색 설정
    */
-  getCurrentSearchQuery(): string;
+  updateSearchConfig(config: ISearchConfig): void;
 
   /**
-   * 현재 정렬 설정 조회
+   * 현재 검색 설정 가져오기
+   * @returns 현재 검색 설정
+   */
+  getCurrentSearchConfig(): ISearchConfig;
+
+  /**
+   * 정렬 설정 업데이트
+   * @param config 정렬 설정
+   */
+  updateSortConfig(config: ISortConfig): void;
+
+  /**
+   * 현재 정렬 설정 가져오기
+   * @returns 현재 정렬 설정
    */
   getCurrentSortConfig(): ISortConfig;
 
   /**
-   * 현재 카드 렌더링 설정 조회
+   * 카드 렌더링 설정 업데이트
+   * @param config 카드 렌더링 설정
    */
-  getCurrentCardRenderConfig(): ICardRenderConfig;
+  updateCardRenderConfig(config: ICardConfig): void;
 
   /**
-   * 현재 레이아웃 설정 조회
+   * 현재 카드 렌더링 설정 가져오기
+   * @returns 현재 카드 렌더링 설정
+   */
+  getCurrentCardRenderConfig(): ICardConfig;
+
+  /**
+   * 카드 스타일 업데이트
+   * @param style 카드 스타일
+   */
+  updateCardStyle(style: ICardStyle): void;
+
+  /**
+   * 현재 카드 스타일 가져오기
+   * @returns 현재 카드 스타일
+   */
+  getCurrentCardStyle(): ICardStyle;
+
+  /**
+   * 레이아웃 설정 업데이트
+   * @param config 레이아웃 설정
+   */
+  updateLayoutConfig(config: ILayoutConfig): void;
+
+  /**
+   * 현재 레이아웃 설정 가져오기
+   * @returns 현재 레이아웃 설정
    */
   getCurrentLayoutConfig(): ILayoutConfig;
 

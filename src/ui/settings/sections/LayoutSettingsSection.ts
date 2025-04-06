@@ -1,8 +1,12 @@
 import { Setting } from 'obsidian';
 import type CardNavigatorPlugin from '@/main';
-import { LayoutType, LayoutDirection } from '@/domain/models/LayoutConfig';
-import { ServiceContainer } from '@/application/services/SettingsService';
-import type { ISettingsService } from '@/application/services/SettingsService';
+import { LayoutType } from '@/domain/utils/layoutUtils';
+import { Container } from '@/infrastructure/di/Container';
+import type { ISettingsService } from '@/domain/services/ISettingsService';
+import { DomainEvent } from '@/domain/events/DomainEvent';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
+import { ILayoutConfig } from '@/domain/models/LayoutConfig';
 
 /**
  * 레이아웃 설정 섹션
@@ -10,10 +14,12 @@ import type { ISettingsService } from '@/application/services/SettingsService';
 export class LayoutSettingsSection {
   private settingsService: ISettingsService;
   private listeners: (() => void)[] = [];
+  private eventDispatcher: IEventDispatcher;
 
-  constructor(private plugin: CardNavigatorPlugin) {
+  constructor(private plugin: CardNavigatorPlugin, eventDispatcher: IEventDispatcher) {
     // 설정 서비스 가져오기
-    this.settingsService = ServiceContainer.getInstance().resolve<ISettingsService>('ISettingsService');
+    this.settingsService = Container.getInstance().resolve<ISettingsService>('ISettingsService');
+    this.eventDispatcher = eventDispatcher;
     
     // 설정 변경 감지
     this.listeners.push(
@@ -36,12 +42,12 @@ export class LayoutSettingsSection {
       .setDesc('활성화하면 그리드 레이아웃이 적용되고, 비활성화하면 메이슨리 레이아웃이 적용됩니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(settings.layout.cardHeightFixed)
+          .setValue(settings.layoutConfig.fixedCardHeight)
           .onChange(async (value) => {
-            await this.settingsService.updateNestedSettings('layout.cardHeightFixed', value);
+            await this.settingsService.updateNestedSettings('layoutConfig.fixedCardHeight', value);
             
             // 레이아웃 타입 자동 설정은 유지합니다.
-            await this.settingsService.updateNestedSettings('layout.layoutType', 
+            await this.settingsService.updateNestedSettings('layoutConfig.layoutType', 
               value ? LayoutType.GRID : LayoutType.MASONRY);
           }));
 
@@ -58,10 +64,10 @@ export class LayoutSettingsSection {
       .addSlider(slider =>
         slider
           .setLimits(200, 800, 10)
-          .setValue(settings.layout.cardMinWidth)
+          .setValue(settings.layoutConfig.cardThresholdWidth)
           .setDynamicTooltip()
           .onChange(async (value) => {
-            await this.settingsService.updateNestedSettings('layout.cardMinWidth', value);
+            await this.settingsService.updateNestedSettings('layoutConfig.cardThresholdWidth', value);
           }));
 
     new Setting(containerEl)
@@ -70,10 +76,10 @@ export class LayoutSettingsSection {
       .addSlider(slider =>
         slider
           .setLimits(200, 800, 10)
-          .setValue(settings.layout.cardMinHeight)
+          .setValue(settings.layoutConfig.cardThresholdHeight)
           .setDynamicTooltip()
           .onChange(async (value) => {
-            await this.settingsService.updateNestedSettings('layout.cardMinHeight', value);
+            await this.settingsService.updateNestedSettings('layoutConfig.cardThresholdHeight', value);
           }));
 
     new Setting(containerEl)
@@ -82,10 +88,10 @@ export class LayoutSettingsSection {
       .addSlider(slider =>
         slider
           .setLimits(0, 32, 2)
-          .setValue(settings.layout.cardGap)
+          .setValue(settings.layoutConfig.cardGap)
           .setDynamicTooltip()
           .onChange(async (value) => {
-            await this.settingsService.updateNestedSettings('layout.cardGap', value);
+            await this.settingsService.updateNestedSettings('layoutConfig.cardGap', value);
           }));
 
     new Setting(containerEl)
@@ -94,10 +100,10 @@ export class LayoutSettingsSection {
       .addSlider(slider =>
         slider
           .setLimits(0, 32, 2)
-          .setValue(settings.layout.cardPadding)
+          .setValue(settings.layoutConfig.padding)
           .setDynamicTooltip()
           .onChange(async (value) => {
-            await this.settingsService.updateNestedSettings('layout.cardPadding', value);
+            await this.settingsService.updateNestedSettings('layoutConfig.padding', value);
           }));
   }
 
@@ -108,5 +114,14 @@ export class LayoutSettingsSection {
     // 이벤트 리스너 정리
     this.listeners.forEach(cleanup => cleanup());
     this.listeners = [];
+  }
+
+  updateLayoutConfig(oldConfig: ILayoutConfig, newConfig: ILayoutConfig): void {
+    this.eventDispatcher.dispatch(
+      new DomainEvent(DomainEventType.LAYOUT_SETTINGS_SECTION_CHANGED, {
+        oldConfig,
+        newConfig
+      })
+    );
   }
 } 

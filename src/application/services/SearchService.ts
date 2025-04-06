@@ -1,10 +1,17 @@
 import { ICard } from '../../domain/models/Card';
-import { ICardSet, CardSetType, ICardSetConfig, DEFAULT_CARD_SET_CONFIG } from '../../domain/models/CardSet';
-import { ISearchFilter, SearchFilter } from '../../domain/models/SearchFilter';
-import { ISearchService, ISearchResultItem } from '../../domain/services/ISearchService';
-import { ISearchResult } from '../../domain/models/SearchResult';
+import { ISearchService } from '../../domain/services/ISearchService';
+import { ISearchResult, SearchScope } from '../../domain/models/SearchResult';
+import { ISearchConfig } from '../../domain/models/SearchConfig';
 import { SearchServiceError } from '../../domain/errors/SearchServiceError';
-import { SearchStartedEvent, SearchCompletedEvent, SearchFailedEvent } from '../../domain/events/SearchEvents';
+import { 
+  SearchStartedEvent, 
+  SearchCompletedEvent, 
+  SearchFailedEvent,
+  SearchResultsFilteredEvent,
+  SearchResultsSortedEvent,
+  SearchIndexUpdatedEvent,
+  SearchIndexRemovedEvent
+} from '../../domain/events/SearchEvents';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Debouncer } from '../../domain/utils/Debouncer';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
@@ -12,41 +19,42 @@ import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { ISortService } from '@/domain/services/ISortService';
-import { Container } from '@/infrastructure/di/Container';
+import { TFile } from 'obsidian';
+import { Container } from '../../infrastructure/di/Container';
 
 /**
- * 검색 서비스 구현체
+ * 검색 서비스 클래스
  */
 export class SearchService implements ISearchService {
   private static instance: SearchService;
-
-  private searchIndex: Map<string, ICard> = new Map();
-  private searchDebouncer: Debouncer<[ISearchFilter], Promise<ISearchResultItem[]>>;
+  private readonly searchIndex: Map<string, ICard>;
+  private readonly searchDebouncer: Debouncer<[string, ISearchConfig], Promise<ISearchResult>>;
 
   private constructor(
+    private readonly eventDispatcher: IEventDispatcher,
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
     private readonly analyticsService: IAnalyticsService,
-    private readonly sortService: ISortService,
-    private readonly eventDispatcher: IEventDispatcher
+    private readonly sortService: ISortService
   ) {
-    this.searchDebouncer = new Debouncer(
-      (filter: ISearchFilter) => this.search(filter),
+    this.searchIndex = new Map<string, ICard>();
+    this.searchDebouncer = new Debouncer<[string, ISearchConfig], Promise<ISearchResult>>(
+      async (query: string, config: ISearchConfig) => this.executeSearch(query, config),
       300
     );
   }
 
-  static getInstance(): SearchService {
+  public static getInstance(): SearchService {
     if (!SearchService.instance) {
       const container = Container.getInstance();
       SearchService.instance = new SearchService(
-        container.resolve('IErrorHandler'),
-        container.resolve('ILoggingService'),
-        container.resolve('IPerformanceMonitor'),
-        container.resolve('IAnalyticsService'),
-        container.resolve('ISortService'),
-        container.resolve('IEventDispatcher')
+        container.resolve<IEventDispatcher>('IEventDispatcher'),
+        container.resolve<IErrorHandler>('IErrorHandler'),
+        container.resolve<ILoggingService>('ILoggingService'),
+        container.resolve<IPerformanceMonitor>('IPerformanceMonitor'),
+        container.resolve<IAnalyticsService>('IAnalyticsService'),
+        container.resolve<ISortService>('ISortService')
       );
     }
     return SearchService.instance;
@@ -55,291 +63,268 @@ export class SearchService implements ISearchService {
   /**
    * 초기화
    */
-  initialize(): void {
-    const perfMark = 'SearchService.initialize';
-    this.performanceMonitor.startMeasure(perfMark);
+  public initialize(): void {
+    const timer = this.performanceMonitor.startTimer('SearchService.initialize');
     try {
       this.loggingService.debug('검색 서비스 초기화 시작');
       this.searchIndex.clear();
       this.loggingService.info('검색 서비스 초기화 완료');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
    * 정리
    */
-  cleanup(): void {
-    const perfMark = 'SearchService.cleanup';
-    this.performanceMonitor.startMeasure(perfMark);
+  public cleanup(): void {
+    const timer = this.performanceMonitor.startTimer('SearchService.cleanup');
     try {
       this.loggingService.debug('검색 서비스 정리 시작');
       this.searchIndex.clear();
       this.searchDebouncer.cancel();
       this.loggingService.info('검색 서비스 정리 완료');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
    * 검색 실행
-   * @param filter 검색 필터
+   * @param query 검색어
+   * @param config 검색 설정
    * @returns 검색 결과
    */
-  public async search(filter: ISearchFilter): Promise<ISearchResultItem[]> {
+  public async search(query: string, config: ISearchConfig): Promise<ISearchResult> {
     try {
-      this.eventDispatcher.dispatch(new SearchStartedEvent(filter.query));
-
-      const startTime = new Date();
-      const results = await this.searchDebouncer.execute(filter);
-      const sortedResults = await this.sortService.sort(results, filter.sortConfig);
-      const endTime = new Date();
-      const duration = endTime.getTime() - startTime.getTime();
-
-      const cardSet = this.convertSearchResultsToCardSet(sortedResults, filter, CardSetType.FOLDER, { searchFilter: filter });
-      
-      const searchResult: ISearchResult = {
-        query: filter.query,
-        results: cardSet,
-        startTime,
-        endTime,
-        duration,
-        resultCount: sortedResults.length
-      };
-
-      this.eventDispatcher.dispatch(new SearchCompletedEvent(searchResult));
-
-      return sortedResults;
+      this.eventDispatcher.dispatch(new SearchStartedEvent(query, config));
+      const result = await this.searchDebouncer.execute(query, config);
+      this.eventDispatcher.dispatch(new SearchCompletedEvent(result));
+      return result;
     } catch (error) {
-      this.eventDispatcher.dispatch(new SearchFailedEvent(error));
-      throw new SearchServiceError('검색 중 오류가 발생했습니다.', error);
+      this.eventDispatcher.dispatch(new SearchFailedEvent(error as Error, query, config));
+      throw new SearchServiceError(
+        '검색 중 오류가 발생했습니다.',
+        query,
+        config.scope,
+        'search',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
   /**
-   * 검색 결과를 카드셋으로 변환
-   * @param searchResults 검색 결과
-   * @param searchFilter 검색 필터
-   * @param type 카드셋 타입
-   * @param config 카드셋 설정
-   * @returns 카드셋
+   * 실시간 검색
+   * @param query 검색어
+   * @param config 검색 설정
+   * @returns 검색 결과
    */
-  private convertSearchResultsToCardSet(
-    searchResults: ISearchResultItem[],
-    searchFilter: ISearchFilter,
-    type: CardSetType = CardSetType.FOLDER,
-    config: Partial<ICardSetConfig> = { searchFilter }
-  ): ICardSet {
-    return {
-      id: `search-${Date.now()}`,
-      type,
-      criteria: searchFilter.query || '',
-      config: {
-        ...DEFAULT_CARD_SET_CONFIG,
-        ...config
-      },
-      options: {
-        includeSubfolders: false,
-        sortConfig: undefined
-      },
-      cards: searchResults.map(r => r.card),
-      validate: () => true,
-      preview: function() {
-        return {
-          id: this.id,
-          type: this.type,
-          criteria: this.criteria,
-          cardCount: this.cards.length
-        };
-      }
-    };
+  public async searchRealtime(query: string, config: ISearchConfig): Promise<ISearchResult> {
+    try {
+      const results = await this.search(query, {
+        ...config,
+        realtimeSearch: true
+      });
+      return results;
+    } catch (error) {
+      throw new SearchServiceError(
+        '실시간 검색 중 오류가 발생했습니다.',
+        query,
+        config.scope,
+        'search',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
   }
 
   /**
-   * 검색 필터 적용
-   * @param cardSet 카드셋
-   * @param filter 검색 필터
-   * @returns 필터링된 카드셋
+   * 파일 검색
+   * @param file 검색할 파일
+   * @param query 검색어
+   * @param config 검색 설정
+   * @returns 검색 결과
    */
-  async applyFilter(cardSet: ICardSet, filter: ISearchFilter): Promise<ICardSet> {
-    const perfMark = 'SearchService.applyFilter';
-    this.performanceMonitor.startMeasure(perfMark);
+  public async searchInFile(file: TFile, query: string, config: ISearchConfig): Promise<ISearchResult> {
     try {
-      this.loggingService.debug('검색 필터 적용 시작', { 
-        cardSetId: cardSet.id,
-        query: filter.query,
-        searchScope: filter.searchScope
+      const results = await this.search(query, {
+        ...config,
+        scope: SearchScope.CURRENT
       });
-
-      if (!filter.validate()) {
-        this.loggingService.warn('유효하지 않은 검색 필터', { 
-          query: filter.query,
-          searchScope: filter.searchScope
-        });
-        throw new SearchServiceError(
-          '유효하지 않은 검색 필터입니다.',
-          filter.query,
-          filter.searchScope,
-          'filter'
-        );
-      }
-
-      const searchResults = await this.search(filter);
-      const filteredCardSet = this.convertSearchResultsToCardSet(
-        searchResults, 
-        filter, 
-        cardSet.type, 
-        {
-          ...cardSet.config,
-          searchFilter: filter
-        }
-      );
-
-      this.analyticsService.trackEvent('filter_applied', {
-        cardSetId: cardSet.id,
-        query: filter.query,
-        searchScope: filter.searchScope,
-        resultCount: searchResults.length
-      });
-
-      this.loggingService.info('검색 필터 적용 완료', { 
-        cardSetId: cardSet.id,
-        resultCount: searchResults.length
-      });
-
-      return filteredCardSet;
+      return results;
     } catch (error) {
-      this.loggingService.error('검색 필터 적용 실패', { 
-        error,
-        cardSetId: cardSet.id,
-        query: filter.query,
-        searchScope: filter.searchScope
+      throw new SearchServiceError(
+        '파일 검색 중 오류가 발생했습니다.',
+        query,
+        SearchScope.CURRENT,
+        'search',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+  }
+
+  /**
+   * 검색 결과 필터링
+   * @param result 검색 결과
+   * @param config 검색 설정
+   * @returns 필터링된 검색 결과
+   */
+  public async filterResults(result: ISearchResult, config: ISearchConfig): Promise<ISearchResult> {
+    try {
+      const filteredCardIds = result.cardIds.filter(id => {
+        const card = this.searchIndex.get(id);
+        if (!card) return false;
+
+        if (config.fields.filename && card.fileName.includes(result.criteria.query)) {
+          return true;
+        }
+
+        if (config.fields.content && card.content.includes(result.criteria.query)) {
+          return true;
+        }
+
+        if (config.fields.tags && card.tags.some(tag => tag.includes(result.criteria.query))) {
+          return true;
+        }
+
+        if (config.fields.frontmatter && Object.values(card.properties).some(value => 
+          value && value.toString().includes(result.criteria.query)
+        )) {
+          return true;
+        }
+
+        return false;
       });
-      const filterError = new SearchServiceError(
-        '필터 적용 중 오류가 발생했습니다.',
-        filter.query,
-        filter.searchScope,
+
+      const filteredResult = {
+        ...result,
+        cardIds: filteredCardIds
+      };
+
+      this.eventDispatcher.dispatch(new SearchResultsFilteredEvent(filteredResult, config));
+      return filteredResult;
+    } catch (error) {
+      throw new SearchServiceError(
+        '검색 결과 필터링 중 오류가 발생했습니다.',
+        result.criteria.query,
+        result.criteria.scope,
         'filter',
         error instanceof Error ? error : new Error(String(error))
       );
-      this.errorHandler.handleError(error as Error, 'SearchService.applyFilter');
-      throw filterError;
-    } finally {
-      this.performanceMonitor.endMeasure(perfMark);
     }
   }
 
   /**
-   * 검색 필터 유효성 검사
-   * @param filter 검색 필터
+   * 검색 결과 정렬
+   * @param result 검색 결과
+   * @param config 검색 설정
+   * @returns 정렬된 검색 결과
    */
-  validateFilter(filter: ISearchFilter): boolean {
-    const perfMark = 'SearchService.validateFilter';
-    this.performanceMonitor.startMeasure(perfMark);
+  public async sortResults(result: ISearchResult, config: ISearchConfig): Promise<ISearchResult> {
     try {
-      this.loggingService.debug('검색 필터 유효성 검사', { 
-        query: filter.query,
-        searchScope: filter.searchScope
+      const sortedCardIds = [...result.cardIds].sort((a, b) => {
+        const cardA = this.searchIndex.get(a);
+        const cardB = this.searchIndex.get(b);
+        if (!cardA || !cardB) return 0;
+
+        if (config.fields.filename) {
+          return cardA.fileName.localeCompare(cardB.fileName);
+        }
+
+        return 0;
       });
-      return filter.validate();
-    } finally {
-      this.performanceMonitor.endMeasure(perfMark);
-    }
-  }
 
-  /**
-   * 기본 검색 필터 반환
-   */
-  getDefaultFilter(): ISearchFilter {
-    const perfMark = 'SearchService.getDefaultFilter';
-    this.performanceMonitor.startMeasure(perfMark);
-    try {
-      this.loggingService.debug('기본 검색 필터 조회');
-      return new SearchFilter(
-        '', // query
-        'all', // searchScope
-        true, // searchFilename
-        true, // searchContent
-        true, // searchTags
-        false, // caseSensitive
-        false // useRegex
+      const sortedResult = {
+        ...result,
+        cardIds: sortedCardIds
+      };
+
+      this.eventDispatcher.dispatch(new SearchResultsSortedEvent(sortedResult, config));
+      return sortedResult;
+    } catch (error) {
+      throw new SearchServiceError(
+        '검색 결과 정렬 중 오류가 발생했습니다.',
+        result.criteria.query,
+        result.criteria.scope,
+        'filter',
+        error instanceof Error ? error : new Error(String(error))
       );
-    } finally {
-      this.performanceMonitor.endMeasure(perfMark);
     }
   }
 
   /**
-   * 검색 결과 하이라이팅
-   * @param card 카드
-   * @param filter 검색 필터
+   * 검색 결과 유효성 검사
+   * @param result 검색 결과
+   * @returns 유효성 여부
    */
-  async highlightSearchResults(card: ICard, filter: ISearchFilter): Promise<string> {
-    const perfMark = 'SearchService.highlightSearchResults';
-    this.performanceMonitor.startMeasure(perfMark);
+  public validateResults(result: ISearchResult): boolean {
     try {
-      this.loggingService.debug('검색 결과 하이라이팅 시작', { 
-        cardId: card.id,
-        query: filter.query
-      });
-
-      if (!filter.validate()) {
-        this.loggingService.warn('유효하지 않은 검색 필터', { 
-          query: filter.query,
-          searchScope: filter.searchScope
-        });
-        throw new SearchServiceError(
-          '유효하지 않은 검색 필터입니다.',
-          filter.query,
-          filter.searchScope,
-          'highlight'
-        );
+      if (!result || !result.cardIds || !Array.isArray(result.cardIds)) {
+        return false;
       }
 
-      const searchRegex = new RegExp(
-        filter.useRegex ? filter.query : filter.query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-        filter.caseSensitive ? 'g' : 'gi'
-      );
-      let highlightedContent = card.content;
+      for (const cardId of result.cardIds) {
+        if (!this.searchIndex.has(cardId)) {
+          return false;
+        }
+      }
 
-      if (highlightedContent) {
-        highlightedContent = highlightedContent.replace(
-          searchRegex,
+      return true;
+    } catch (error) {
+      this.errorHandler.handleError(error, 'SearchService.validateResults');
+      return false;
+    }
+  }
+
+  /**
+   * 검색 결과 하이라이트
+   * @param card 카드
+   * @param query 검색어
+   * @param config 검색 설정
+   * @returns 하이라이트된 텍스트
+   */
+  public async highlightSearchResults(card: ICard, query: string, config: ISearchConfig): Promise<string> {
+    try {
+      let highlightedText = card.content;
+
+      if (config.fields.filename && card.fileName.includes(query)) {
+        highlightedText = highlightedText.replace(
+          new RegExp(query, config.caseSensitive ? 'g' : 'gi'),
           match => `<mark>${match}</mark>`
         );
       }
 
-      this.analyticsService.trackEvent('search_results_highlighted', {
-        cardId: card.id,
-        query: filter.query,
-        contentLengthLimit: card.renderConfig.contentLengthLimitEnabled ? card.renderConfig.contentLengthLimit : undefined
-      });
+      if (config.fields.content && card.content.includes(query)) {
+        highlightedText = highlightedText.replace(
+          new RegExp(query, config.caseSensitive ? 'g' : 'gi'),
+          match => `<mark>${match}</mark>`
+        );
+      }
 
-      this.loggingService.info('검색 결과 하이라이팅 완료', { 
-        cardId: card.id,
-        contentLengthLimit: card.renderConfig.contentLengthLimitEnabled ? card.renderConfig.contentLengthLimit : undefined
-      });
+      if (config.fields.tags && card.tags.some(tag => tag.includes(query))) {
+        highlightedText = highlightedText.replace(
+          new RegExp(query, config.caseSensitive ? 'g' : 'gi'),
+          match => `<mark>${match}</mark>`
+        );
+      }
 
-      return highlightedContent;
+      if (config.fields.frontmatter && Object.values(card.properties).some(value => 
+        value && value.toString().includes(query)
+      )) {
+        highlightedText = highlightedText.replace(
+          new RegExp(query, config.caseSensitive ? 'g' : 'gi'),
+          match => `<mark>${match}</mark>`
+        );
+      }
+
+      return highlightedText;
     } catch (error) {
-      this.loggingService.error('검색 결과 하이라이팅 실패', { 
-        error,
-        cardId: card.id,
-        query: filter.query
-      });
-      const highlightError = new SearchServiceError(
-        '하이라이팅 중 오류가 발생했습니다.',
-        filter.query,
-        filter.searchScope,
+      throw new SearchServiceError(
+        '검색 결과 하이라이트 중 오류가 발생했습니다.',
+        query,
+        config.scope,
         'highlight',
         error instanceof Error ? error : new Error(String(error))
       );
-      this.errorHandler.handleError(error as Error, 'SearchService.highlightSearchResults');
-      throw highlightError;
-    } finally {
-      this.performanceMonitor.endMeasure(perfMark);
     }
   }
 
@@ -347,44 +332,102 @@ export class SearchService implements ISearchService {
    * 검색 인덱스 업데이트
    * @param card 카드
    */
-  async updateSearchIndex(card: ICard): Promise<void> {
-    const perfMark = 'SearchService.updateSearchIndex';
-    this.performanceMonitor.startMeasure(perfMark);
+  public async updateSearchIndex(card: ICard): Promise<void> {
     try {
-      this.loggingService.debug('검색 인덱스 업데이트 시작', { cardId: card.id });
       this.searchIndex.set(card.id, card);
-
-      this.analyticsService.trackEvent('search_index_updated', {
-        cardId: card.id,
-        hasFirstHeader: !!card.firstHeader,
-        tagCount: card.tags.length,
-        contentLengthLimit: card.renderConfig.contentLengthLimitEnabled ? card.renderConfig.contentLengthLimit : undefined
-      });
-
-      this.loggingService.info('검색 인덱스 업데이트 완료', { cardId: card.id });
-    } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      this.eventDispatcher.dispatch(new SearchIndexUpdatedEvent(card));
+    } catch (error) {
+      throw new SearchServiceError(
+        '검색 인덱스 업데이트 중 오류가 발생했습니다.',
+        '',
+        SearchScope.ALL,
+        'search',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 
   /**
-   * 검색 인덱스 삭제
+   * 검색 인덱스에서 제거
    * @param cardId 카드 ID
    */
-  async removeFromSearchIndex(cardId: string): Promise<void> {
-    const perfMark = 'SearchService.removeFromSearchIndex';
-    this.performanceMonitor.startMeasure(perfMark);
+  public async removeFromSearchIndex(cardId: string): Promise<void> {
     try {
-      this.loggingService.debug('검색 인덱스 삭제 시작', { cardId });
       this.searchIndex.delete(cardId);
+      this.eventDispatcher.dispatch(new SearchIndexRemovedEvent(cardId));
+    } catch (error) {
+      throw new SearchServiceError(
+        '검색 인덱스에서 제거 중 오류가 발생했습니다.',
+        '',
+        SearchScope.ALL,
+        'search',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    }
+  }
 
-      this.analyticsService.trackEvent('search_index_removed', {
-        cardId
-      });
+  /**
+   * 검색 실행
+   * @param query 검색어
+   * @param config 검색 설정
+   * @returns 검색 결과
+   */
+  private async executeSearch(query: string, config: ISearchConfig): Promise<ISearchResult> {
+    try {
+      const startTime = Date.now();
+      const cardIds: string[] = [];
 
-      this.loggingService.info('검색 인덱스 삭제 완료', { cardId });
-    } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      for (const [id, card] of this.searchIndex.entries()) {
+        if (config.fields.filename && card.fileName.includes(query)) {
+          cardIds.push(id);
+          continue;
+        }
+
+        if (config.fields.content && card.content.includes(query)) {
+          cardIds.push(id);
+          continue;
+        }
+
+        if (config.fields.tags && card.tags.some(tag => tag.includes(query))) {
+          cardIds.push(id);
+          continue;
+        }
+
+        if (config.fields.frontmatter && Object.values(card.properties).some(value => 
+          value && value.toString().includes(query)
+        )) {
+          cardIds.push(id);
+          continue;
+        }
+      }
+
+      const result: ISearchResult = {
+        criteria: {
+          query,
+          scope: config.scope,
+          caseSensitive: config.caseSensitive,
+          useRegex: config.useRegex,
+          fuzzy: false,
+          searchFilename: config.fields.filename,
+          searchContent: config.fields.content,
+          searchTags: config.fields.tags,
+          searchProperties: config.fields.frontmatter
+        },
+        cardIds,
+        searchTime: Date.now() - startTime,
+        totalCount: cardIds.length,
+        filteredCount: cardIds.length
+      };
+
+      return result;
+    } catch (error) {
+      throw new SearchServiceError(
+        '검색 실행 중 오류가 발생했습니다.',
+        query,
+        config.scope,
+        'search',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 } 

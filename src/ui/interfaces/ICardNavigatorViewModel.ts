@@ -1,7 +1,9 @@
 import { ICardNavigatorView } from './ICardNavigatorView';
-import { ICardRenderConfig } from '@/domain/models/CardRenderConfig';
+import { IRenderConfig } from '@/domain/models/CardConfig';
 import { ICardStyle } from '@/domain/models/CardStyle';
 import { ICardSet } from '@/domain/models/CardSet';
+import { BehaviorSubject } from 'rxjs';
+import { ICardNavigatorState } from '@/domain/models/CardNavigatorState';
 
 /**
  * 포커스 이동 방향
@@ -12,6 +14,11 @@ export type FocusDirection = 'up' | 'down' | 'left' | 'right';
  * 카드 내비게이터 뷰모델 인터페이스
  */
 export interface ICardNavigatorViewModel {
+  /**
+   * 상태 관리
+   */
+  readonly state: BehaviorSubject<ICardNavigatorState>;
+
   /**
    * 뷰 설정
    * @param view 뷰 인스턴스
@@ -115,13 +122,6 @@ export interface ICardNavigatorViewModel {
   handleCardDrop(cardId: string, event: DragEvent): void;
 
   /**
-   * 카드셋 생성
-   * @param type 카드셋 타입
-   * @param criteria 기준
-   */
-  createCardSet(type: string, criteria: string): Promise<void>;
-
-  /**
    * 카드 스크롤
    * @param cardId 카드 ID
    */
@@ -135,7 +135,7 @@ export interface ICardNavigatorViewModel {
   /**
    * 렌더링 설정 가져오기
    */
-  getRenderConfig(): ICardRenderConfig;
+  getRenderConfig(): IRenderConfig;
 
   /**
    * 카드 스타일 가져오기

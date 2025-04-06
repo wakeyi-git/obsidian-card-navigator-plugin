@@ -1,6 +1,7 @@
 import { ICard } from '../models/Card';
-import { ICardSet } from '../models/CardSet';
-import { ISearchFilter } from '../models/SearchFilter';
+import { ISearchConfig } from '../models/SearchConfig';
+import { ISearchResult } from '../models/SearchResult';
+import { TFile } from 'obsidian';
 
 /**
  * 검색 결과 항목
@@ -37,35 +38,59 @@ export interface ISearchService {
 
   /**
    * 검색 실행
-   * @param filter 검색 필터
-   * @returns 검색 결과 목록
+   * @param query 검색어
+   * @param config 검색 설정
+   * @returns 검색 결과
    */
-  search(filter: ISearchFilter): Promise<ISearchResultItem[]>;
+  search(query: string, config: ISearchConfig): Promise<ISearchResult>;
 
   /**
-   * 검색 필터 적용
-   * @param cardSet 카드셋
-   * @param filter 검색 필터
+   * 실시간 검색
+   * @param query 검색어
+   * @param config 검색 설정
+   * @returns 검색 결과
    */
-  applyFilter(cardSet: ICardSet, filter: ISearchFilter): Promise<ICardSet>;
+  searchRealtime(query: string, config: ISearchConfig): Promise<ISearchResult>;
 
   /**
-   * 검색 필터 유효성 검사
-   * @param filter 검색 필터
+   * 파일 검색
+   * @param file 검색할 파일
+   * @param query 검색어
+   * @param config 검색 설정
+   * @returns 검색 결과
    */
-  validateFilter(filter: ISearchFilter): boolean;
+  searchInFile(file: TFile, query: string, config: ISearchConfig): Promise<ISearchResult>;
 
   /**
-   * 기본 검색 필터 반환
+   * 검색 결과 필터링
+   * @param result 검색 결과
+   * @param config 검색 설정
+   * @returns 필터링된 검색 결과
    */
-  getDefaultFilter(): ISearchFilter;
+  filterResults(result: ISearchResult, config: ISearchConfig): Promise<ISearchResult>;
+
+  /**
+   * 검색 결과 정렬
+   * @param result 검색 결과
+   * @param config 검색 설정
+   * @returns 정렬된 검색 결과
+   */
+  sortResults(result: ISearchResult, config: ISearchConfig): Promise<ISearchResult>;
+
+  /**
+   * 검색 결과 유효성 검사
+   * @param result 검색 결과
+   * @returns 유효성 여부
+   */
+  validateResults(result: ISearchResult): boolean;
 
   /**
    * 검색 결과 하이라이팅
    * @param card 카드
-   * @param filter 검색 필터
+   * @param query 검색어
+   * @param config 검색 설정
    */
-  highlightSearchResults(card: ICard, filter: ISearchFilter): Promise<string>;
+  highlightSearchResults(card: ICard, query: string, config: ISearchConfig): Promise<string>;
 
   /**
    * 검색 인덱스 업데이트

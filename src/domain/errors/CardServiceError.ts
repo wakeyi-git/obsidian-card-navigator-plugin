@@ -6,7 +6,7 @@ export class CardServiceError extends Error {
     message: string,
     public readonly cardId?: string,
     public readonly fileName?: string,
-    public readonly operation?: 'create' | 'update' | 'delete' | 'load' | 'render' | 'initialize' | 'cleanup' | 'display' | 'select' | 'focus' | 'scroll' | 'updateStyle' | 'updateRenderConfig' | 'updateVisibility' | 'updateZIndex' | 'updateCache' | 'removeCache' | 'clearCache' | 'updateConfig' | 'subscribe' | 'unsubscribe',
+    public readonly operation?: 'create' | 'update' | 'delete' | 'load' | 'render' | 'initialize' | 'cleanup' | 'display' | 'select' | 'focus' | 'scroll' | 'updateStyle' | 'updateRenderConfig' | 'updateVisibility' | 'updateZIndex' | 'updateCache' | 'removeCache' | 'clearCache' | 'updateConfig' | 'subscribe' | 'unsubscribe' | 'requestRender',
     public readonly cause?: Error
   ) {
     super(message);

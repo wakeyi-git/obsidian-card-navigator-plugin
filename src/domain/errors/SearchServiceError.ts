@@ -1,3 +1,5 @@
+import { SearchScope } from '../models/SearchResult';
+
 /**
  * 검색 서비스 에러 클래스
  */
@@ -5,7 +7,7 @@ export class SearchServiceError extends Error {
   constructor(
     message: string,
     public readonly query?: string,
-    public readonly scope?: 'all' | 'current',
+    public readonly scope?: SearchScope,
     public readonly operation?: 'search' | 'filter' | 'highlight',
     public readonly cause?: Error
   ) {

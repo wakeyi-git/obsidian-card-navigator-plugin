@@ -6,6 +6,8 @@ import { LayoutSettingsSection } from './sections/LayoutSettingsSection';
 import { SearchSettingsSection } from './sections/SearchSettingsSection';
 import { SortSettingsSection } from './sections/SortSettingsSection';
 import { PresetSettingsSection } from './sections/PresetSettingsSection';
+import { Container } from '@/infrastructure/di/Container';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 /**
  * 카드 내비게이터 설정 탭
  */
@@ -16,17 +18,24 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
   private searchSettings: SearchSettingsSection;
   private sortSettings: SortSettingsSection;
   private presetSettings: PresetSettingsSection;
+  private eventDispatcher: IEventDispatcher;
+
   constructor(
     app: App,
     private plugin: CardNavigatorPlugin
   ) {
     super(app, plugin);
-    this.cardSettings = new CardSettingsSection(plugin);
-    this.cardSetSettings = new CardSetSettingsSection(plugin);
-    this.layoutSettings = new LayoutSettingsSection(plugin);
-    this.searchSettings = new SearchSettingsSection(plugin);
-    this.sortSettings = new SortSettingsSection(plugin);
-    this.presetSettings = new PresetSettingsSection(plugin);
+    
+    // 이벤트 디스패처 가져오기
+    this.eventDispatcher = Container.getInstance().resolve<IEventDispatcher>('IEventDispatcher');
+    
+    // 각 설정 섹션 초기화
+    this.cardSettings = new CardSettingsSection(plugin, this.eventDispatcher);
+    this.cardSetSettings = new CardSetSettingsSection(plugin, this.eventDispatcher);
+    this.layoutSettings = new LayoutSettingsSection(plugin, this.eventDispatcher);
+    this.searchSettings = new SearchSettingsSection(plugin, this.eventDispatcher);
+    this.sortSettings = new SortSettingsSection(plugin, this.eventDispatcher);
+    this.presetSettings = new PresetSettingsSection(plugin, this.eventDispatcher);
   }
 
   /**
@@ -68,12 +77,12 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
           return;
         }
         
-        // 이전 탭 정리 (cleanup 메서드가 있는 경우)
+        // 이전 탭 정리
         const activeTab = tabs.find(t => t.id === activeTabId);
-        if (activeTab && 'cleanup' in activeTab.section && typeof activeTab.section.cleanup === 'function') {
+        if (activeTab && 'destroy' in activeTab.section) {
           try {
             console.log(`이전 탭(${activeTabId}) 정리 실행`);
-            activeTab.section.cleanup();
+            activeTab.section.destroy();
           } catch (error) {
             console.error(`${activeTabId} 탭 정리 중 오류:`, error);
           }
@@ -98,5 +107,18 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
 
     // 첫 번째 탭 내용 표시
     tabs[0].section.create(tabContentContainer);
+  }
+
+  /**
+   * 설정 탭 정리
+   */
+  hide(): void {
+    // 모든 섹션 정리
+    if (this.cardSettings) this.cardSettings.destroy();
+    if (this.cardSetSettings) this.cardSetSettings.destroy();
+    if (this.layoutSettings) this.layoutSettings.destroy();
+    if (this.searchSettings) this.searchSettings.destroy();
+    if (this.sortSettings) this.sortSettings.destroy();
+    if (this.presetSettings) this.presetSettings.destroy();
   }
 } 

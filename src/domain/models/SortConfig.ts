@@ -1,14 +1,23 @@
 /**
- * 정렬 기준
+ * 정렬 필드 타입
  */
-export enum SortField {
-  FILENAME = 'filename',
-  UPDATED = 'updated',
-  CREATED = 'created'
+export type SortField = 'fileName' | 'created' | 'modified' | 'custom';
+
+/**
+ * 정렬 방향 타입
+ */
+export type SortDirection = 'asc' | 'desc';
+
+/**
+ * 정렬 타입 열거형
+ */
+export enum SortType {
+  NAME = 'name',
+  DATE = 'date'
 }
 
 /**
- * 정렬 순서
+ * 정렬 순서 열거형
  */
 export enum SortOrder {
   ASC = 'asc',
@@ -17,122 +26,71 @@ export enum SortOrder {
 
 /**
  * 정렬 설정 인터페이스
- * - 정렬 조건을 표현하는 값 객체(Value Object)
- * - 불변(Immutable) 객체로 관리
- * - 새로운 설정 구조와 일치하도록 수정됨
  */
 export interface ISortConfig {
-  /**
-   * 정렬 기준
-   */
-  readonly sortField: SortField;
-
-  /**
-   * 정렬 순서
-   */
-  readonly sortOrder: SortOrder;
-
-  /**
-   * 우선순위 태그
-   */
-  readonly priorityTags: string[];
-
-  /**
-   * 우선순위 폴더
-   */
-  readonly priorityFolders: string[];
-
-  /**
-   * 정렬 설정 유효성 검사
-   */
-  validate(): boolean;
-  
-  /**
-   * 정렬 설정 미리보기
-   */
-  preview(): {
-    sortField: SortField;
-    sortOrder: SortOrder;
-    priorityTags: string[];
-    priorityFolders: string[];
-  };
+  /** 정렬 타입 */
+  readonly type: SortType;
+  /** 정렬 순서 */
+  readonly order: SortOrder;
+  /** 정렬 필드 */
+  readonly field: SortField;
+  /** 정렬 방향 */
+  readonly direction: SortDirection;
+  /** 사용자 정의 정렬 필드 */
+  readonly customField?: string;
 }
 
 /**
  * 기본 정렬 설정
  */
 export const DEFAULT_SORT_CONFIG: ISortConfig = {
-  sortField: SortField.UPDATED,
-  sortOrder: SortOrder.DESC,
-  priorityTags: [], // 우선순위 태그 없음
-  priorityFolders: [], // 우선순위 폴더 없음
-
-  validate(): boolean {
-    return true; // 기본값은 항상 유효
-  },
-  
-  preview(): {
-    sortField: SortField;
-    sortOrder: SortOrder;
-    priorityTags: string[];
-    priorityFolders: string[];
-  } {
-    return {
-      sortField: this.sortField,
-      sortOrder: this.sortOrder,
-      priorityTags: [...this.priorityTags],
-      priorityFolders: [...this.priorityFolders]
-    };
-  }
+  type: SortType.NAME,
+  order: SortOrder.ASC,
+  field: 'fileName',
+  direction: 'asc'
 };
 
 /**
  * 정렬 설정 클래스
  */
 export class SortConfig implements ISortConfig {
-  readonly priorityTags: string[];
-  readonly priorityFolders: string[];
-
   constructor(
-    public readonly sortField: SortField,
-    public readonly sortOrder: SortOrder,
-    priorityTags: string[] = [],
-    priorityFolders: string[] = []
-  ) {
-    // 배열을 복사하여 할당
-    this.priorityTags = [...priorityTags];
-    this.priorityFolders = [...priorityFolders];
-  }
+    public readonly type: SortType,
+    public readonly order: SortOrder,
+    public readonly field: SortField,
+    public readonly direction: SortDirection,
+    public readonly customField?: string
+  ) {}
 
   /**
    * 정렬 설정 유효성 검사
    */
   validate(): boolean {
-    if (!this.sortField || !Object.values(SortField).includes(this.sortField)) {
+    if (!this.field || !['fileName', 'created', 'modified', 'custom'].includes(this.field)) {
       return false;
     }
 
-    if (!this.sortOrder || !Object.values(SortOrder).includes(this.sortOrder)) {
+    if (!this.direction || !['asc', 'desc'].includes(this.direction)) {
+      return false;
+    }
+
+    if (this.field === 'custom' && !this.customField) {
       return false;
     }
 
     return true;
   }
-  
+
   /**
    * 정렬 설정 미리보기
    */
-  preview(): {
-    sortField: SortField;
-    sortOrder: SortOrder;
-    priorityTags: string[];
-    priorityFolders: string[];
-  } {
+  preview(): ISortConfig {
     return {
-      sortField: this.sortField,
-      sortOrder: this.sortOrder,
-      priorityTags: [...this.priorityTags],
-      priorityFolders: [...this.priorityFolders]
+      type: this.type,
+      order: this.order,
+      field: this.field,
+      direction: this.direction,
+      customField: this.customField
     };
   }
 } 

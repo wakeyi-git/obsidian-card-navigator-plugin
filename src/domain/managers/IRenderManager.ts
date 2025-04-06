@@ -1,105 +1,101 @@
 import { ICard } from '../models/Card';
-import { ICardRenderConfig } from '../models/CardRenderConfig';
+import { ICardRenderer } from '../renderders/ICardRenderer';
 import { ICardStyle } from '../models/CardStyle';
+import { ICardConfig } from '../models/CardConfig';
 
 /**
- * 렌더링 관리자 인터페이스
- * - 카드 렌더링 관리
+ * 렌더링 관리 담당
+ * - 렌더링 요청 처리
  * - 렌더링 캐시 관리
  * - 렌더링 이벤트 처리
  */
 export interface IRenderManager {
   /**
-   * 초기화
+   * 렌더링 매니저를 초기화합니다.
    */
   initialize(): void;
 
   /**
-   * 정리
+   * 렌더링 매니저를 정리합니다.
    */
   cleanup(): void;
 
   /**
-   * 초기화 여부 확인
+   * 렌더링 매니저가 초기화되었는지 확인합니다.
+   * @returns 초기화 여부
    */
   isInitialized(): boolean;
-
+  
   /**
-   * 카드 렌더링
-   * @param card 카드
-   * @param config 렌더링 설정
-   * @param style 스타일
+   * 렌더러를 설정합니다.
+   * @param renderer 렌더러
    */
-  renderCard(card: ICard, config: ICardRenderConfig, style: ICardStyle): Promise<string>;
+  setRenderer(renderer: ICardRenderer): void;
 
   /**
-   * 카드 렌더링 요청
+   * 카드 렌더링을 요청합니다.
    * @param cardId 카드 ID
    * @param card 카드
-   * @param renderConfig 렌더링 설정 (선택 사항)
-   * @param cardStyle 카드 스타일 (선택 사항)
+   * @returns 렌더링된 HTML 문자열
    */
-  requestRender(
-    cardId: string,
-    card: ICard,
-    renderConfig?: ICardRenderConfig,
-    cardStyle?: ICardStyle
-  ): Promise<string>;
-
+  requestRender(cardId: string, card: ICard): Promise<string>;
+  
   /**
-   * 렌더링 설정 업데이트
-   * @param config 렌더링 설정
-   */
-  updateRenderConfig(config: ICardRenderConfig): void;
-
-  /**
-   * 스타일 업데이트
-   * @param style 스타일
-   */
-  updateStyle(style: ICardStyle): void;
-
-  /**
-   * 렌더링 캐시 초기화
+   * 렌더링 캐시를 초기화합니다.
    */
   clearRenderCache(): void;
 
   /**
-   * 카드 렌더링 캐시 업데이트
+   * 카드의 렌더링 캐시를 업데이트합니다.
    * @param cardId 카드 ID
    */
   updateCardRenderCache(cardId: string): Promise<void>;
 
   /**
-   * 카드 렌더링 캐시 삭제
+   * 카드의 렌더링 캐시를 제거합니다.
    * @param cardId 카드 ID
    */
   removeCardRenderCache(cardId: string): void;
-
+  
   /**
-   * 렌더링 이벤트 구독
-   * @param callback 콜백 함수
+   * 렌더링 이벤트를 구독합니다.
+   * @param callback 이벤트 콜백
    */
   subscribeToRenderEvents(callback: (event: {
-    type: 'render' | 'cache-update' | 'config-update' | 'style-update';
+    type: 'render' | 'cache-update';
     cardId?: string;
     data?: any;
   }) => void): void;
-
+  
   /**
-   * 렌더링 이벤트 구독 해제
-   * @param callback 콜백 함수
+   * 렌더링 이벤트 구독을 해제합니다.
+   * @param callback 이벤트 콜백
    */
   unsubscribeFromRenderEvents(callback: (event: any) => void): void;
-
+  
   /**
-   * 렌더링 상태 확인
+   * 카드가 렌더링되었는지 확인합니다.
    * @param cardId 카드 ID
+   * @returns 렌더링 여부
    */
   isCardRendered(cardId: string): boolean;
 
   /**
-   * 렌더링 진행 상태 확인
+   * 카드가 렌더링 중인지 확인합니다.
    * @param cardId 카드 ID
+   * @returns 렌더링 중 여부
    */
   isCardRendering(cardId: string): boolean;
+
+  /**
+   * 스타일 업데이트
+   * @param style 카드 스타일
+   */
+  updateStyle(style: ICardStyle): void;
+
+  /**
+   * 렌더링 설정 업데이트
+   * @param config 카드 설정
+   */
+  updateRenderConfig(config: ICardConfig): void;
 } 

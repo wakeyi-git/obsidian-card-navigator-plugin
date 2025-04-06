@@ -1,15 +1,19 @@
 import { IPresetService } from '../../domain/services/IPresetService';
-import { IPreset, IPresetMapping, PresetMappingType } from '../../domain/models/Preset';
-import { ICardRenderConfig } from '../../domain/models/CardRenderConfig';
+import { IPreset, IPresetMapping, IPresetMetadata, Preset } from '../../domain/models/Preset';
+import { ICardConfig } from '../../domain/models/CardConfig';
+import { ICardSetConfig } from '../../domain/models/CardSetConfig';
 import { ILayoutConfig } from '../../domain/models/LayoutConfig';
 import { ISortConfig } from '../../domain/models/SortConfig';
-import { DEFAULT_PRESET_CONFIG } from '../../domain/models/Preset';
+import { ISearchConfig } from '../../domain/models/SearchConfig';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Container } from '@/infrastructure/di/Container';
+import { DefaultValues } from '@/domain/models/DefaultValues';
+import { PresetServiceError } from '@/domain/errors/PresetServiceError';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * 프리셋 서비스 구현체
@@ -20,25 +24,26 @@ export class PresetService implements IPresetService {
   private mappings: Map<string, IPresetMapping> = new Map();
   private eventCallbacks: ((event: any) => void)[] = [];
   private currentPresetId: string | null = null;
+  private currentPreset: IPreset | null = null;
+  private initialized: boolean = false;
+  private errorHandler: IErrorHandler;
+  private loggingService: ILoggingService;
+  private performanceMonitor: IPerformanceMonitor;
+  private analyticsService: IAnalyticsService;
+  private eventDispatcher: IEventDispatcher;
 
-  private constructor(
-    private readonly errorHandler: IErrorHandler,
-    private readonly loggingService: ILoggingService,
-    private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService,
-    private readonly eventDispatcher: IEventDispatcher
-  ) {}
+  private constructor() {
+    const container = Container.getInstance();
+    this.errorHandler = container.resolve<IErrorHandler>('IErrorHandler');
+    this.loggingService = container.resolve<ILoggingService>('ILoggingService');
+    this.performanceMonitor = container.resolve<IPerformanceMonitor>('IPerformanceMonitor');
+    this.analyticsService = container.resolve<IAnalyticsService>('IAnalyticsService');
+    this.eventDispatcher = container.resolve<IEventDispatcher>('IEventDispatcher');
+  }
 
-  static getInstance(): PresetService {
+  public static getInstance(): PresetService {
     if (!PresetService.instance) {
-      const container = Container.getInstance();
-      PresetService.instance = new PresetService(
-        container.resolve('IErrorHandler'),
-        container.resolve('ILoggingService'),
-        container.resolve('IPerformanceMonitor'),
-        container.resolve('IAnalyticsService'),
-        container.resolve('IEventDispatcher')
-      );
+      PresetService.instance = new PresetService();
     }
     return PresetService.instance;
   }
@@ -46,261 +51,357 @@ export class PresetService implements IPresetService {
   /**
    * 초기화
    */
-  initialize(): void {
-    const perfMark = 'PresetService.initialize';
-    this.performanceMonitor.startMeasure(perfMark);
+  public async initialize(): Promise<void> {
+    const timer = this.performanceMonitor.startTimer('PresetService.initialize');
     try {
+      if (this.initialized) {
+        this.loggingService.warn('프리셋 서비스가 이미 초기화되어 있습니다.');
+        return;
+      }
+
       this.loggingService.debug('프리셋 서비스 초기화 시작');
-      
-      // 기본 프리셋 로드
-      this.loadDefaultPreset();
-      
+      await this.loadDefaultPreset();
+      this.initialized = true;
       this.loggingService.info('프리셋 서비스 초기화 완료');
     } catch (error) {
       this.loggingService.error('프리셋 서비스 초기화 실패', { error });
       this.errorHandler.handleError(error as Error, 'PresetService.initialize');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
    * 정리
    */
-  cleanup(): void {
-    const perfMark = 'PresetService.cleanup';
-    this.performanceMonitor.startMeasure(perfMark);
+  public async cleanup(): Promise<void> {
+    const timer = this.performanceMonitor.startTimer('PresetService.cleanup');
     try {
       this.loggingService.debug('프리셋 서비스 정리 시작');
-      
       this.presets.clear();
       this.mappings.clear();
       this.eventCallbacks = [];
       this.currentPresetId = null;
-      
+      this.currentPreset = null;
+      this.initialized = false;
       this.loggingService.info('프리셋 서비스 정리 완료');
     } catch (error) {
       this.loggingService.error('프리셋 서비스 정리 실패', { error });
       this.errorHandler.handleError(error as Error, 'PresetService.cleanup');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
    * 기본 프리셋 로드
    */
-  public loadDefaultPreset(): void {
+  public async loadDefaultPreset(): Promise<IPreset> {
     try {
       this.loggingService.debug('기본 프리셋 로드 시작');
-      
-      // Plugin 인스턴스 가져오기
-      const container = Container.getInstance();
-      const plugin = container.resolve<any>('Plugin');
-      
-      // 기본 프리셋 적용
-      const defaultPresetId = 'default';
-      const defaultPreset: IPreset = {
-        metadata: {
-          id: defaultPresetId,
-          name: '기본 프리셋',
-          category: '기본',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          mappings: []
-        },
-        config: {
-          ...DEFAULT_PRESET_CONFIG,
-          // 플러그인 설정의 cardStyle 적용
-          cardStyle: plugin.settings.cardStyle || DEFAULT_PRESET_CONFIG.cardStyle,
-          // 플러그인 설정의 cardRenderConfig 적용
-          cardRenderConfig: plugin.settings.cardRenderConfig || DEFAULT_PRESET_CONFIG.cardRenderConfig
-        },
-        validate: () => true,
-        preview: function() {
-          return {
-            metadata: this.metadata,
-            config: this.config
-          };
-        }
-      };
-      
-      // 기본 프리셋 등록
-      this.presets.set(defaultPresetId, defaultPreset);
-      
-      // 현재 프리셋으로 설정
-      this.currentPresetId = defaultPresetId;
-      
-      this.loggingService.info('기본 프리셋 로드 완료', {
-        hasCardStyle: !!plugin.settings.cardStyle,
-        hasRenderConfig: !!plugin.settings.cardRenderConfig
-      });
+      const defaultPreset = new Preset(
+        DefaultValues.preset.metadata,
+        DefaultValues.preset.config,
+        DefaultValues.preset.mappings
+      );
+      this.presets.set(defaultPreset.metadata.id, defaultPreset);
+      this.currentPresetId = defaultPreset.metadata.id;
+      this.currentPreset = defaultPreset;
+      this.loggingService.info('기본 프리셋 로드 완료');
+      return defaultPreset;
     } catch (error) {
       this.loggingService.error('기본 프리셋 로드 실패', { error });
       this.errorHandler.handleError(error as Error, 'PresetService.loadDefaultPreset');
+      throw error;
     }
   }
 
   /**
    * 현재 적용된 프리셋 가져오기
-   * @returns 현재 프리셋 또는 null
    */
-  getCurrentPreset(): IPreset | null {
-    if (!this.currentPresetId) {
-      return null;
-    }
-    return this.presets.get(this.currentPresetId) || null;
+  public async getCurrentPreset(): Promise<IPreset | null> {
+    return this.currentPreset;
   }
 
   /**
    * 프리셋 생성
-   * @param name 프리셋 이름
-   * @param type 프리셋 타입
-   * @param config 프리셋 설정
    */
-  async createPreset(
+  public async createPreset(
     name: string,
-    type: PresetMappingType,
-    config: {
-      cardRenderConfig?: ICardRenderConfig;
-      layoutConfig?: ILayoutConfig;
-      sortConfig?: ISortConfig;
-    }
+    description: string,
+    category: string,
+    cardConfig: ICardConfig,
+    cardSetConfig: ICardSetConfig,
+    layoutConfig: ILayoutConfig,
+    sortConfig: ISortConfig,
+    searchConfig: ISearchConfig
   ): Promise<IPreset> {
-    const presetId = crypto.randomUUID();
-    const preset: IPreset = {
-      metadata: {
-        id: presetId,
-        name,
-        category: type.toString(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        mappings: []
-      },
-      config: {
-        cardSetConfig: DEFAULT_PRESET_CONFIG.cardSetConfig,
-        layoutConfig: config.layoutConfig || DEFAULT_PRESET_CONFIG.layoutConfig,
-        cardRenderConfig: config.cardRenderConfig || DEFAULT_PRESET_CONFIG.cardRenderConfig,
-        cardStyle: DEFAULT_PRESET_CONFIG.cardStyle
-      },
-      validate: function() {
-        return this.metadata.id !== '' && this.metadata.name !== '';
-      },
-      preview: function() {
-        return {
-          metadata: this.metadata,
-          config: this.config
-        };
-      }
-    };
+    const timer = this.performanceMonitor.startTimer('PresetService.createPreset');
+    try {
+      this.loggingService.debug('프리셋 생성 시작');
 
-    this.presets.set(presetId, preset);
-    this.notifyEvent('create', presetId, preset);
-    return preset;
+      const preset = new Preset(
+        {
+          id: uuidv4(),
+          name,
+          description,
+          category,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        {
+          cardConfig,
+          cardSetConfig,
+          layoutConfig,
+          sortConfig,
+          searchConfig
+        }
+      );
+
+      this.presets.set(preset.metadata.id, preset);
+      this.notifyEvent('create', preset.metadata.id, preset);
+
+      this.loggingService.info('프리셋 생성 완료', { presetId: preset.metadata.id });
+      return preset;
+    } catch (error) {
+      this.loggingService.error('프리셋 생성 실패', { error });
+      this.errorHandler.handleError(error as Error, 'PresetService.createPreset');
+      throw new PresetServiceError(
+        '프리셋 생성 중 오류가 발생했습니다.',
+        undefined,
+        undefined,
+        'create',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 프리셋 유효성 검사
+   * @param preset 검사할 프리셋
+   * @returns 유효성 여부
+   */
+  public validatePreset(preset: IPreset): boolean {
+    try {
+      if (!preset.metadata || !preset.config) {
+        return false;
+      }
+
+      if (!preset.metadata.id || !preset.metadata.name) {
+        return false;
+      }
+
+      if (!preset.config.cardSetConfig || !preset.config.layoutConfig || 
+          !preset.config.cardConfig || !preset.config.cardSetConfig.filterConfig ||
+          !preset.config.searchConfig || !preset.config.sortConfig) {
+        return false;
+      }
+
+      return preset.validate();
+    } catch (error) {
+      this.loggingService.error('프리셋 유효성 검사 실패', { error, presetId: preset.metadata.id });
+      return false;
+    }
   }
 
   /**
    * 프리셋 업데이트
-   * @param preset 프리셋
    */
-  async updatePreset(preset: IPreset): Promise<void> {
-    this.presets.set(preset.metadata.id, preset);
-    this.notifyEvent('update', preset.metadata.id, preset);
+  public async updatePreset(
+    preset: IPreset,
+    cardConfig: ICardConfig,
+    cardSetConfig: ICardSetConfig,
+    layoutConfig: ILayoutConfig,
+    sortConfig: ISortConfig,
+    searchConfig: ISearchConfig
+  ): Promise<IPreset> {
+    const timer = this.performanceMonitor.startTimer('PresetService.updatePreset');
+    try {
+      this.loggingService.debug('프리셋 업데이트 시작');
+
+      const updatedPreset = preset.update({
+        cardConfig,
+        cardSetConfig,
+        layoutConfig,
+        sortConfig,
+        searchConfig
+      });
+
+      this.presets.set(updatedPreset.metadata.id, updatedPreset);
+      this.notifyEvent('update', updatedPreset.metadata.id, updatedPreset);
+
+      this.loggingService.info('프리셋 업데이트 완료', { presetId: preset.metadata.id });
+      return updatedPreset;
+    } catch (error) {
+      this.loggingService.error('프리셋 업데이트 실패', { error });
+      this.errorHandler.handleError(error as Error, 'PresetService.updatePreset');
+      throw new PresetServiceError(
+        '프리셋 업데이트 중 오류가 발생했습니다.',
+        undefined,
+        undefined,
+        'update',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    } finally {
+      timer.stop();
+    }
   }
 
   /**
    * 프리셋 삭제
-   * @param presetId 프리셋 ID
    */
-  async deletePreset(presetId: string): Promise<void> {
-    this.presets.delete(presetId);
-    this.notifyEvent('delete', presetId);
-  }
+  public async deletePreset(presetId: string): Promise<void> {
+    const timer = this.performanceMonitor.startTimer('PresetService.deletePreset');
+    try {
+      this.loggingService.debug('프리셋 삭제 시작', { presetId });
 
-  /**
-   * 프리셋 가져오기
-   * @param presetId 프리셋 ID
-   */
-  async getPreset(presetId: string): Promise<IPreset | null> {
-    return this.presets.get(presetId) || null;
-  }
+      const preset = this.presets.get(presetId);
+      if (!preset) {
+        throw new Error(`프리셋을 찾을 수 없습니다: ${presetId}`);
+      }
 
-  /**
-   * 모든 프리셋 가져오기
-   */
-  async getAllPresets(): Promise<IPreset[]> {
-    return Array.from(this.presets.values());
+      this.presets.delete(presetId);
+      this.notifyEvent('delete', presetId);
+
+      if (this.currentPresetId === presetId) {
+        this.currentPresetId = null;
+        this.currentPreset = null;
+      }
+
+      this.loggingService.info('프리셋 삭제 완료', { presetId });
+    } catch (error) {
+      this.loggingService.error('프리셋 삭제 실패', { error, presetId });
+      this.errorHandler.handleError(error as Error, 'PresetService.deletePreset');
+      throw error;
+    } finally {
+      timer.stop();
+    }
   }
 
   /**
    * 프리셋 적용
-   * @param presetId 프리셋 ID
    */
-  async applyPreset(presetId: string): Promise<void> {
-    const preset = await this.getPreset(presetId);
-    if (preset) {
+  public async applyPreset(presetId: string): Promise<void> {
+    const timer = this.performanceMonitor.startTimer('PresetService.applyPreset');
+    try {
+      this.loggingService.debug('프리셋 적용 시작', { presetId });
+
+      const preset = this.presets.get(presetId);
+      if (!preset) {
+        throw new Error(`프리셋을 찾을 수 없습니다: ${presetId}`);
+      }
+
+      this.currentPreset = preset;
       this.currentPresetId = presetId;
       this.notifyEvent('apply', presetId, preset);
+
+      this.loggingService.info('프리셋 적용 완료', { presetId });
+    } catch (error) {
+      this.loggingService.error('프리셋 적용 실패', { error, presetId });
+      this.errorHandler.handleError(error as Error, 'PresetService.applyPreset');
+      throw error;
+    } finally {
+      timer.stop();
     }
   }
 
   /**
    * 프리셋 복제
-   * @param presetId 프리셋 ID
-   * @param newName 새 이름
    */
-  async clonePreset(presetId: string, newName: string): Promise<IPreset | null> {
-    const preset = await this.getPreset(presetId);
-    if (preset) {
-      const newPresetId = crypto.randomUUID();
-      const clonedPreset: IPreset = {
-        metadata: {
-          ...preset.metadata,
-          id: newPresetId,
-          name: newName,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-        config: preset.config,
-        validate: preset.validate,
-        preview: preset.preview
+  public async clonePreset(presetId: string, newName: string): Promise<IPreset | null> {
+    const timer = this.performanceMonitor.startTimer('PresetService.clonePreset');
+    try {
+      this.loggingService.debug('프리셋 복제 시작', { presetId, newName });
+      const preset = this.presets.get(presetId);
+      if (!preset) {
+        throw new PresetServiceError('프리셋을 찾을 수 없습니다.', presetId);
+      }
+
+      const metadata: IPresetMetadata = {
+        id: uuidv4(),
+        name: newName,
+        description: preset.metadata.description,
+        category: preset.metadata.category,
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
-      this.presets.set(newPresetId, clonedPreset);
-      this.notifyEvent('clone', newPresetId, clonedPreset);
+      const clonedPreset = new Preset(metadata, preset.config, preset.mappings);
+      this.presets.set(clonedPreset.metadata.id, clonedPreset);
+      this.notifyEvent('clone', clonedPreset.metadata.id, clonedPreset);
+
+      this.loggingService.info('프리셋 복제 완료', { 
+        originalPresetId: presetId, 
+        clonedPresetId: clonedPreset.metadata.id 
+      });
       return clonedPreset;
+    } catch (error) {
+      this.loggingService.error('프리셋 복제 실패', { error });
+      this.errorHandler.handleError(error as Error, 'PresetService.clonePreset');
+      throw error;
+    } finally {
+      timer.stop();
     }
-    return null;
   }
 
   /**
    * 프리셋 내보내기
    * @param presetId 프리셋 ID
    */
-  async exportPreset(presetId: string): Promise<string> {
-    const preset = await this.getPreset(presetId);
-    if (preset) {
-      return JSON.stringify(preset);
+  public async exportPreset(presetId: string): Promise<string> {
+    const timer = this.performanceMonitor.startTimer('PresetService.exportPreset');
+    try {
+      this.loggingService.debug('프리셋 내보내기 시작', { presetId });
+      const preset = this.presets.get(presetId);
+      if (!preset) {
+        throw new PresetServiceError('프리셋을 찾을 수 없습니다.', presetId);
+      }
+
+      const presetJson = JSON.stringify(preset);
+      this.loggingService.info('프리셋 내보내기 완료', { presetId });
+      return presetJson;
+    } catch (error) {
+      this.loggingService.error('프리셋 내보내기 실패', { error });
+      this.errorHandler.handleError(error as Error, 'PresetService.exportPreset');
+      throw error;
+    } finally {
+      timer.stop();
     }
-    return '';
   }
 
   /**
    * 프리셋 가져오기
    * @param presetJson 프리셋 JSON
    */
-  async importPreset(presetJson: string): Promise<IPreset | null> {
+  public async importPreset(presetJson: string): Promise<IPreset | null> {
+    const timer = this.performanceMonitor.startTimer('PresetService.importPreset');
     try {
-      const preset = JSON.parse(presetJson) as IPreset;
-      if (preset.validate()) {
-        this.presets.set(preset.metadata.id, preset);
-        this.notifyEvent('import', preset.metadata.id, preset);
-        return preset;
+      this.loggingService.debug('프리셋 가져오기 시작');
+      const presetData = JSON.parse(presetJson);
+      const preset = new Preset(
+        presetData.metadata,
+        presetData.config,
+        presetData.mappings
+      );
+
+      if (!this.validatePreset(preset)) {
+        throw new PresetServiceError('프리셋 데이터가 유효하지 않습니다.');
       }
+
+      this.presets.set(preset.metadata.id, preset);
+      this.notifyEvent('import', preset.metadata.id, preset);
+
+      this.loggingService.info('프리셋 가져오기 완료', { presetId: preset.metadata.id });
+      return preset;
     } catch (error) {
-      console.error('프리셋 가져오기 실패:', error);
+      this.loggingService.error('프리셋 가져오기 실패', { error });
+      this.errorHandler.handleError(error as Error, 'PresetService.importPreset');
+      throw error;
+    } finally {
+      timer.stop();
     }
-    return null;
   }
 
   /**
@@ -308,32 +409,36 @@ export class PresetService implements IPresetService {
    * @param presetId 프리셋 ID
    * @param mapping 매핑
    */
-  async createPresetMapping(
+  public async createPresetMapping(
     presetId: string,
     mapping: Omit<IPresetMapping, 'id'>
   ): Promise<IPresetMapping | null> {
-    const preset = await this.getPreset(presetId);
-    if (preset) {
-      const mappingId = crypto.randomUUID();
+    const timer = this.performanceMonitor.startTimer('PresetService.createPresetMapping');
+    try {
+      this.loggingService.debug('프리셋 매핑 생성 시작', { presetId });
+      const preset = this.presets.get(presetId);
+      if (!preset) {
+        throw new PresetServiceError('프리셋을 찾을 수 없습니다.', presetId);
+      }
+
+      const mappingId = uuidv4();
       const newMapping: IPresetMapping = {
         ...mapping,
         id: mappingId
       };
 
-      const updatedPreset: IPreset = {
-        ...preset,
-        metadata: {
-          ...preset.metadata,
-          mappings: [...preset.metadata.mappings, newMapping]
-        }
-      };
-
-      this.presets.set(presetId, updatedPreset);
       this.mappings.set(mappingId, newMapping);
-      this.notifyEvent('mappingCreate', mappingId, newMapping);
+      this.notifyEvent('createMapping', mappingId, newMapping);
+
+      this.loggingService.info('프리셋 매핑 생성 완료', { mappingId });
       return newMapping;
+    } catch (error) {
+      this.loggingService.error('프리셋 매핑 생성 실패', { error });
+      this.errorHandler.handleError(error as Error, 'PresetService.createPresetMapping');
+      throw error;
+    } finally {
+      timer.stop();
     }
-    return null;
   }
 
   /**
@@ -341,15 +446,29 @@ export class PresetService implements IPresetService {
    * @param mappingId 매핑 ID
    * @param mapping 매핑
    */
-  async updatePresetMapping(
+  public async updatePresetMapping(
     mappingId: string,
     mapping: Partial<IPresetMapping>
   ): Promise<void> {
-    const existingMapping = this.mappings.get(mappingId);
-    if (existingMapping) {
+    const timer = this.performanceMonitor.startTimer('PresetService.updatePresetMapping');
+    try {
+      this.loggingService.debug('프리셋 매핑 업데이트 시작', { mappingId });
+      const existingMapping = this.mappings.get(mappingId);
+      if (!existingMapping) {
+        throw new PresetServiceError('매핑을 찾을 수 없습니다.', undefined, mappingId);
+      }
+
       const updatedMapping = { ...existingMapping, ...mapping };
       this.mappings.set(mappingId, updatedMapping);
-      this.notifyEvent('mappingUpdate', mappingId, updatedMapping);
+      this.notifyEvent('updateMapping', mappingId, updatedMapping);
+
+      this.loggingService.info('프리셋 매핑 업데이트 완료', { mappingId });
+    } catch (error) {
+      this.loggingService.error('프리셋 매핑 업데이트 실패', { error });
+      this.errorHandler.handleError(error as Error, 'PresetService.updatePresetMapping');
+      throw error;
+    } finally {
+      timer.stop();
     }
   }
 
@@ -357,31 +476,62 @@ export class PresetService implements IPresetService {
    * 프리셋 매핑 삭제
    * @param mappingId 매핑 ID
    */
-  async deletePresetMapping(mappingId: string): Promise<void> {
-    this.mappings.delete(mappingId);
-    this.notifyEvent('mappingDelete', mappingId);
+  public async deletePresetMapping(mappingId: string): Promise<void> {
+    const timer = this.performanceMonitor.startTimer('PresetService.deletePresetMapping');
+    try {
+      this.loggingService.debug('프리셋 매핑 삭제 시작', { mappingId });
+      if (!this.mappings.has(mappingId)) {
+        throw new PresetServiceError('매핑을 찾을 수 없습니다.', undefined, mappingId);
+      }
+
+      this.mappings.delete(mappingId);
+      this.notifyEvent('deleteMapping', mappingId);
+
+      this.loggingService.info('프리셋 매핑 삭제 완료', { mappingId });
+    } catch (error) {
+      this.loggingService.error('프리셋 매핑 삭제 실패', { error });
+      this.errorHandler.handleError(error as Error, 'PresetService.deletePresetMapping');
+      throw error;
+    } finally {
+      timer.stop();
+    }
   }
 
   /**
    * 매핑 우선순위 업데이트
    * @param mappingIds 매핑 ID 목록
    */
-  async updateMappingPriority(mappingIds: string[]): Promise<void> {
-    mappingIds.forEach((id, index) => {
-      const mapping = this.mappings.get(id);
-      if (mapping) {
-        const updatedMapping = { ...mapping, priority: index };
-        this.mappings.set(id, updatedMapping);
-        this.notifyEvent('mappingPriorityUpdate', id, updatedMapping);
+  public async updateMappingPriority(mappingIds: string[]): Promise<void> {
+    const timer = this.performanceMonitor.startTimer('PresetService.updateMappingPriority');
+    try {
+      this.loggingService.debug('매핑 우선순위 업데이트 시작', { mappingIds });
+      const updatedMappings = new Map<string, IPresetMapping>();
+      
+      for (const mappingId of mappingIds) {
+        const mapping = this.mappings.get(mappingId);
+        if (mapping) {
+          updatedMappings.set(mappingId, mapping);
+        }
       }
-    });
+
+      this.mappings = updatedMappings;
+      this.notifyEvent('updateMappingPriority', '', mappingIds);
+
+      this.loggingService.info('매핑 우선순위 업데이트 완료', { mappingIds });
+    } catch (error) {
+      this.loggingService.error('매핑 우선순위 업데이트 실패', { error });
+      this.errorHandler.handleError(error as Error, 'PresetService.updateMappingPriority');
+      throw error;
+    } finally {
+      timer.stop();
+    }
   }
 
   /**
    * 프리셋 이벤트 구독
    * @param callback 콜백 함수
    */
-  subscribeToPresetEvents(callback: (event: any) => void): void {
+  public subscribeToPresetEvents(callback: (event: any) => void): void {
     this.eventCallbacks.push(callback);
   }
 
@@ -389,7 +539,7 @@ export class PresetService implements IPresetService {
    * 프리셋 이벤트 구독 해제
    * @param callback 콜백 함수
    */
-  unsubscribeFromPresetEvents(callback: (event: any) => void): void {
+  public unsubscribeFromPresetEvents(callback: (event: any) => void): void {
     this.eventCallbacks = this.eventCallbacks.filter(cb => cb !== callback);
   }
 
@@ -402,5 +552,20 @@ export class PresetService implements IPresetService {
   private notifyEvent(type: string, presetId: string, data?: any): void {
     const event = { type, presetId, data };
     this.eventCallbacks.forEach(callback => callback(event));
+  }
+
+  /**
+   * 프리셋 가져오기
+   * @param presetId 프리셋 ID
+   */
+  public async getPreset(presetId: string): Promise<IPreset | null> {
+    return this.presets.get(presetId) || null;
+  }
+
+  /**
+   * 모든 프리셋 가져오기
+   */
+  public async getAllPresets(): Promise<IPreset[]> {
+    return Array.from(this.presets.values());
   }
 } 

@@ -1,4 +1,4 @@
-import { App, MarkdownRenderer as ObsidianMarkdownRenderer, Component } from 'obsidian';
+import { App, MarkdownRenderer } from 'obsidian';
 
 /**
  * 마크다운 렌더링 옵션
@@ -13,13 +13,13 @@ export interface MarkdownRenderOptions {
 /**
  * 마크다운 렌더러 클래스
  */
-export class MarkdownRenderer {
-  private static instance: MarkdownRenderer;
+export class CustomMarkdownRenderer {
+  private static instance: CustomMarkdownRenderer;
   private tempEl: HTMLElement;
   private renderCache: Map<string, string> = new Map();
-  private component: Component;
+  private initialized: boolean = false;
 
-  constructor(private app: App) {
+  private constructor(private app: App) {
     // 임시 렌더링 컨테이너 생성
     this.tempEl = document.createElement('div');
     this.tempEl.className = 'markdown-renderer-temp';
@@ -27,9 +27,32 @@ export class MarkdownRenderer {
     this.tempEl.style.left = '-9999px';
     this.tempEl.style.top = '-9999px';
     document.body.appendChild(this.tempEl);
-    
-    // Obsidian 렌더링에 필요한 컴포넌트 인스턴스 생성
-    this.component = new Component();
+  }
+
+  static getInstance(app: App): CustomMarkdownRenderer {
+    if (!CustomMarkdownRenderer.instance) {
+      CustomMarkdownRenderer.instance = new CustomMarkdownRenderer(app);
+    }
+    return CustomMarkdownRenderer.instance;
+  }
+
+  /**
+   * 초기화
+   */
+  initialize(): void {
+    if (this.initialized) return;
+    this.initialized = true;
+  }
+
+  /**
+   * 리소스 정리
+   */
+  cleanup(): void {
+    if (this.tempEl && this.tempEl.parentNode) {
+      this.tempEl.parentNode.removeChild(this.tempEl);
+    }
+    this.renderCache.clear();
+    this.initialized = false;
   }
   
   /**
@@ -39,12 +62,12 @@ export class MarkdownRenderer {
    */
   async render(
     markdown: string, 
-    options: { 
-      showImages?: boolean; 
-      highlightCode?: boolean; 
-      supportCallouts?: boolean; 
-      supportMath?: boolean;
-    } = {}
+    options: MarkdownRenderOptions = {
+      showImages: true,
+      highlightCode: true,
+      supportCallouts: true,
+      supportMath: true
+    }
   ): Promise<string> {
     try {
       // 빈 마크다운 처리
@@ -70,72 +93,46 @@ export class MarkdownRenderer {
       
       // 코드 하이라이팅 옵션 설정
       const renderOptions = {
-        highlighting: options.highlightCode !== false
+        highlighting: options.highlightCode
       };
       
       // 렌더링 프로미스 생성
-      const renderPromise = new Promise<string>(async (resolve, reject) => {
-        try {
-          // Obsidian 마크다운 렌더링 - deprecated된 메소드 대신 새 메소드 사용
-          await ObsidianMarkdownRenderer.render(
-            this.app,
-            processedMarkdown,
-            this.tempEl,
-            '',
-            this.component,
-          );
-          
-          // 렌더링 후처리
-          // Callout 지원 옵션에 따라 처리
-          if (options.supportCallouts !== false) {
-            this.processCallouts(this.tempEl);
-          }
-          
-          // MathJax 수식 지원 옵션에 따라 처리
-          if (options.supportMath !== false) {
-            this.processMathExpressions(this.tempEl);
-          }
-          
-          // 결과 추출 - innerHTML을 직접 사용하지 않고 노드 복제 방식으로 전환
-          const content = this.serializeElementContent(this.tempEl);
-          
-          // 캐시에 결과 저장
-          this.renderCache.set(cacheKey, content);
-          
-          // 렌더링 결과 추출 후 임시 요소 내용 비우기
-          this.tempEl.empty();
-          
-          resolve(content);
-        } catch (error) {
-          reject(error);
-        }
-      });
+      await MarkdownRenderer.render(
+        this.app,
+        processedMarkdown,
+        this.tempEl,
+        '',
+        {} as any
+      );
       
-      // 타임아웃 적용 (10초 후 렌더링 실패로 간주)
-      const timeoutPromise = new Promise<string>((resolve) => {
-        setTimeout(() => {
-          // 안전한 방식으로 타임아웃 메시지 생성
-          const timeoutContent = this.createTimeoutMessage(markdown);
-          resolve(timeoutContent);
-        }, 10000);
-      });
+      // 렌더링 후처리
+      // Callout 지원 옵션에 따라 처리
+      if (options.supportCallouts) {
+        this.processCallouts(this.tempEl);
+      }
       
-      // 레이스 - 먼저 완료되는 프로미스 반환
-      return Promise.race([renderPromise, timeoutPromise]);
+      // MathJax 수식 지원 옵션에 따라 처리
+      if (options.supportMath) {
+        this.processMathExpressions(this.tempEl);
+      }
+      
+      // 렌더링 결과 캐시
+      const renderedContent = this.serializeElementContent(this.tempEl);
+      this.renderCache.set(cacheKey, renderedContent);
+      
+      return renderedContent;
     } catch (error) {
-      console.error('마크다운 렌더링 실패:', error);
-      // 안전한 방식으로 에러 메시지 생성
-      return this.createErrorMessage(error instanceof Error ? error.message : String(error));
+      console.error('마크다운 렌더링 중 오류 발생:', error);
+      return this.createErrorMessage('마크다운 렌더링 중 오류가 발생했습니다.');
     }
   }
   
   /**
    * 캐시 키 생성
    */
-  private generateCacheKey(markdown: string, options: any): string {
+  private generateCacheKey(markdown: string, options: MarkdownRenderOptions): string {
     // 옵션을 문자열로 변환하여 캐시 키 생성
-    const optionsKey = JSON.stringify(options);
-    return `${markdown.substring(0, 100)}:${optionsKey}`;
+    return `${markdown.substring(0, 100)}:${JSON.stringify(options)}`;
   }
   
   /**
@@ -175,30 +172,6 @@ export class MarkdownRenderer {
    */
   clearCache(): void {
     this.renderCache.clear();
-  }
-  
-  /**
-   * 렌더러 정리
-   */
-  dispose(): void {
-    // 임시 요소 제거
-    if (this.tempEl && this.tempEl.parentNode) {
-      this.tempEl.parentNode.removeChild(this.tempEl);
-    }
-    this.renderCache.clear();
-  }
-  
-  /**
-   * 타임아웃 메시지 생성
-   */
-  private createTimeoutMessage(markdown: string): string {
-    const tempContainer = document.createElement('div');
-    tempContainer.className = 'markdown-render-timeout';
-    
-    const textContent = `렌더링 시간 초과: ${markdown.substring(0, 100)}${markdown.length > 100 ? '...' : ''}`;
-    tempContainer.textContent = textContent;
-    
-    return this.serializeElementContent(tempContainer);
   }
   
   /**

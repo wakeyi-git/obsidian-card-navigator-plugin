@@ -2,9 +2,6 @@ import { TFile } from 'obsidian';
 
 /**
  * 클립보드 서비스 인터페이스
- * - 파일 링크 복사
- * - 파일 내용 복사
- * - 여러 파일의 링크/내용 복사
  */
 export interface IClipboardService {
   /**

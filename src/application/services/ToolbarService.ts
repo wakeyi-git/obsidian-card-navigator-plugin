@@ -1,17 +1,30 @@
 import { IToolbarService } from '../../domain/services/IToolbarService';
-import { CardSetType } from '../../domain/models/CardSet';
+import { CardSetType } from '../../domain/models/CardSetConfig';
+import { ISearchConfig } from '../../domain/models/SearchConfig';
 import { ISortConfig } from '../../domain/models/SortConfig';
-import { ICardRenderConfig } from '../../domain/models/CardRenderConfig';
+import { ICardConfig } from '../../domain/models/CardConfig';
+import { ICardStyle } from '../../domain/models/CardStyle';
 import { ILayoutConfig } from '../../domain/models/LayoutConfig';
 import { DEFAULT_SORT_CONFIG } from '../../domain/models/SortConfig';
-import { DEFAULT_CARD_RENDER_CONFIG } from '../../domain/models/CardRenderConfig';
+import { DEFAULT_CARD_CONFIG } from '../../domain/models/CardConfig';
+import { DEFAULT_CARD_STYLE } from '../../domain/models/CardStyle';
 import { DEFAULT_LAYOUT_CONFIG } from '../../domain/models/LayoutConfig';
+import { DEFAULT_SEARCH_CONFIG } from '../../domain/models/SearchConfig';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Container } from '@/infrastructure/di/Container';
+import {
+  ToolbarActionEvent,
+  CardSetTypeChangedEvent,
+  SearchConfigChangedEvent,
+  SortConfigChangedEvent,
+  CardConfigChangedEvent,
+  CardStyleChangedEvent,
+  LayoutConfigChangedEvent
+} from '../../domain/events/ToolbarEvents';
 
 /**
  * 툴바 서비스 구현체
@@ -19,10 +32,12 @@ import { Container } from '@/infrastructure/di/Container';
 export class ToolbarService implements IToolbarService {
   private static instance: ToolbarService;
   private currentCardSetType: CardSetType = CardSetType.FOLDER;
-  private currentSearchQuery: string = '';
+  private currentSearchConfig: ISearchConfig = DEFAULT_SEARCH_CONFIG;
   private currentSortConfig: ISortConfig = DEFAULT_SORT_CONFIG;
-  private currentCardRenderConfig: ICardRenderConfig = DEFAULT_CARD_RENDER_CONFIG;
+  private currentCardConfig: ICardConfig = DEFAULT_CARD_CONFIG;
+  private currentCardStyle: ICardStyle = DEFAULT_CARD_STYLE;
   private currentLayoutConfig: ILayoutConfig = DEFAULT_LAYOUT_CONFIG;
+  private initialized: boolean = false;
 
   private constructor(
     private readonly errorHandler: IErrorHandler,
@@ -50,14 +65,21 @@ export class ToolbarService implements IToolbarService {
    * 서비스 초기화
    */
   initialize(): void {
-    // 초기 설정 로드
+    this.initialized = true;
+  }
+
+  /**
+   * 초기화 여부 확인
+   */
+  isInitialized(): boolean {
+    return this.initialized;
   }
 
   /**
    * 서비스 정리
    */
   cleanup(): void {
-    // 리소스 정리
+    this.initialized = false;
   }
 
   /**
@@ -65,75 +87,104 @@ export class ToolbarService implements IToolbarService {
    * @param type 카드셋 타입
    */
   changeCardSetType(type: CardSetType): void {
+    const oldType = this.currentCardSetType;
     this.currentCardSetType = type;
+    this.eventDispatcher.dispatch(new CardSetTypeChangedEvent(oldType, type));
     this.updateUI();
   }
 
   /**
-   * 검색 실행
-   * @param query 검색어
-   */
-  search(query: string): void {
-    this.currentSearchQuery = query;
-    this.updateUI();
-  }
-
-  /**
-   * 정렬 설정 적용
-   * @param sortConfig 정렬 설정
-   */
-  applySort(sortConfig: ISortConfig): void {
-    this.currentSortConfig = sortConfig;
-    this.updateUI();
-  }
-
-  /**
-   * 설정 토글
-   * @param setting 설정 이름
-   * @param value 설정 값
-   */
-  toggleSetting(setting: string, value: any): void {
-    switch (setting) {
-      case 'cardRender':
-        this.currentCardRenderConfig = value;
-        break;
-      case 'layout':
-        this.currentLayoutConfig = value;
-        break;
-    }
-    this.updateUI();
-  }
-
-  /**
-   * 현재 카드셋 타입 조회
+   * 현재 카드셋 타입 가져오기
    */
   getCurrentCardSetType(): CardSetType {
     return this.currentCardSetType;
   }
 
   /**
-   * 현재 검색어 조회
+   * 검색 설정 업데이트
+   * @param config 검색 설정
    */
-  getCurrentSearchQuery(): string {
-    return this.currentSearchQuery;
+  updateSearchConfig(config: ISearchConfig): void {
+    const oldConfig = this.currentSearchConfig;
+    this.currentSearchConfig = config;
+    this.eventDispatcher.dispatch(new SearchConfigChangedEvent(oldConfig, config));
+    this.updateUI();
   }
 
   /**
-   * 현재 정렬 설정 조회
+   * 현재 검색 설정 가져오기
+   */
+  getCurrentSearchConfig(): ISearchConfig {
+    return this.currentSearchConfig;
+  }
+
+  /**
+   * 정렬 설정 업데이트
+   * @param config 정렬 설정
+   */
+  updateSortConfig(config: ISortConfig): void {
+    const oldConfig = this.currentSortConfig;
+    this.currentSortConfig = config;
+    this.eventDispatcher.dispatch(new SortConfigChangedEvent(oldConfig, config));
+    this.updateUI();
+  }
+
+  /**
+   * 현재 정렬 설정 가져오기
    */
   getCurrentSortConfig(): ISortConfig {
     return this.currentSortConfig;
   }
 
   /**
-   * 현재 카드 렌더링 설정 조회
+   * 카드 렌더링 설정 업데이트
+   * @param config 카드 렌더링 설정
    */
-  getCurrentCardRenderConfig(): ICardRenderConfig {
-    return this.currentCardRenderConfig;
+  updateCardRenderConfig(config: ICardConfig): void {
+    const oldConfig = this.currentCardConfig;
+    this.currentCardConfig = config;
+    this.eventDispatcher.dispatch(new CardConfigChangedEvent(oldConfig, config));
+    this.updateUI();
   }
 
   /**
-   * 현재 레이아웃 설정 조회
+   * 현재 카드 렌더링 설정 가져오기
+   */
+  getCurrentCardRenderConfig(): ICardConfig {
+    return this.currentCardConfig;
+  }
+
+  /**
+   * 카드 스타일 업데이트
+   * @param style 카드 스타일
+   */
+  updateCardStyle(style: ICardStyle): void {
+    const oldStyle = this.currentCardStyle;
+    this.currentCardStyle = style;
+    this.eventDispatcher.dispatch(new CardStyleChangedEvent(oldStyle, style));
+    this.updateUI();
+  }
+
+  /**
+   * 현재 카드 스타일 가져오기
+   */
+  getCurrentCardStyle(): ICardStyle {
+    return this.currentCardStyle;
+  }
+
+  /**
+   * 레이아웃 설정 업데이트
+   * @param config 레이아웃 설정
+   */
+  updateLayoutConfig(config: ILayoutConfig): void {
+    const oldConfig = this.currentLayoutConfig;
+    this.currentLayoutConfig = config;
+    this.eventDispatcher.dispatch(new LayoutConfigChangedEvent(oldConfig, config));
+    this.updateUI();
+  }
+
+  /**
+   * 현재 레이아웃 설정 가져오기
    */
   getCurrentLayoutConfig(): ILayoutConfig {
     return this.currentLayoutConfig;
@@ -142,7 +193,15 @@ export class ToolbarService implements IToolbarService {
   /**
    * UI 업데이트
    */
-  updateUI(): void {
-    // UI 업데이트 로직
+  public updateUI(): void {
+    const event = new ToolbarActionEvent(
+      this.currentCardSetType,
+      this.currentSearchConfig,
+      this.currentSortConfig,
+      this.currentCardConfig,
+      this.currentCardStyle,
+      this.currentLayoutConfig
+    );
+    this.eventDispatcher.dispatch(event);
   }
 } 

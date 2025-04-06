@@ -1,4 +1,5 @@
-import type { PluginSettings } from '../../domain/models/DefaultValues';
+import { IPluginSettings } from '../models/DefaultValues';
+import { DefaultValues } from '../models/DefaultValues';
 
 /**
  * 객체의 깊은 복사본 생성
@@ -71,9 +72,9 @@ export function updateNestedSettings<T>(
  * @returns 업데이트된 설정
  */
 export function updateSettings(
-  settings: PluginSettings,
-  updater: (draft: PluginSettings) => void
-): PluginSettings {
+  settings: IPluginSettings,
+  updater: (draft: IPluginSettings) => void
+): IPluginSettings {
   // 설정 복사본 생성
   const draft = deepCopy(settings);
   
@@ -82,4 +83,99 @@ export function updateSettings(
   
   // 업데이트된 설정 반환
   return draft;
+}
+
+/**
+ * 설정 유틸리티 클래스
+ */
+export class SettingsUtils {
+  /**
+   * 기본 설정 생성
+   * @returns 기본 설정
+   */
+  static createDefaultSettings(): IPluginSettings {
+    return {
+      card: DefaultValues.cardConfig,
+      style: DefaultValues.cardStyle,
+      cardSet: DefaultValues.cardSetConfig,
+      search: DefaultValues.searchConfig,
+      sort: DefaultValues.sortConfig,
+      layout: DefaultValues.layoutConfig,
+      preset: DefaultValues.preset.config
+    };
+  }
+
+  /**
+   * 설정 유효성 검사
+   * @param settings 설정
+   * @returns 유효성 검사 결과
+   */
+  static validateSettings(settings: IPluginSettings): boolean {
+    // TODO: 설정 유효성 검사 로직 구현
+    return true;
+  }
+
+  /**
+   * 설정 병합
+   * @param base 기본 설정
+   * @param override 덮어쓸 설정
+   * @returns 병합된 설정
+   */
+  static mergeSettings(base: IPluginSettings, override: Partial<IPluginSettings>): IPluginSettings {
+    return {
+      ...base,
+      ...override,
+      card: {
+        ...base.card,
+        ...override.card,
+        header: {
+          ...base.card.header,
+          ...override.card?.header
+        },
+        body: {
+          ...base.card.body,
+          ...override.card?.body
+        },
+        footer: {
+          ...base.card.footer,
+          ...override.card?.footer
+        }
+      },
+      cardSet: {
+        ...base.cardSet,
+        ...override.cardSet,
+        folder: override.cardSet?.folder ?? base.cardSet.folder,
+        tag: override.cardSet?.tag ?? base.cardSet.tag,
+        link: override.cardSet?.link ?? base.cardSet.link,
+        filterConfig: {
+          ...base.cardSet.filterConfig,
+          ...override.cardSet?.filterConfig
+        },
+        sortConfig: {
+          ...base.cardSet.sortConfig,
+          ...override.cardSet?.sortConfig
+        },
+        searchConfig: {
+          ...base.cardSet.searchConfig,
+          ...override.cardSet?.searchConfig
+        }
+      },
+      search: {
+        ...base.search,
+        ...override.search
+      },
+      sort: {
+        ...base.sort,
+        ...override.sort
+      },
+      layout: {
+        ...base.layout,
+        ...override.layout
+      },
+      preset: {
+        ...base.preset,
+        ...override.preset
+      }
+    };
+  }
 }

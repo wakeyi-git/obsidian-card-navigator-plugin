@@ -1,66 +1,182 @@
-import { DomainEvent, IDomainEvent } from './DomainEvent';
+import { DomainEvent } from './DomainEvent';
 import { DomainEventType } from './DomainEventType';
 import { ICardSet } from '../models/CardSet';
+import { ILayoutConfig } from '../models/LayoutConfig';
+import { CardSetType } from '../models/CardSetConfig';
 
 /**
  * 카드셋 생성 이벤트
  */
-export class CardSetCreatedEvent extends DomainEvent<ICardSet> {
-  constructor(public readonly cardSet: ICardSet) {
-    super(DomainEventType.CARD_SET_CREATED, cardSet);
+export class CardSetCreatedEvent extends DomainEvent<typeof DomainEventType.CARDSET_CREATED> {
+  constructor(cardSet: ICardSet) {
+    super(DomainEventType.CARDSET_CREATED, { cardSet });
+  }
+
+  toString(): string {
+    try {
+      // 순환 참조 방지를 위해 기본 정보만 포함
+      const safeCardSet = {
+        id: this.data.cardSet.id,
+        type: this.data.cardSet.config.type,
+        criteria: this.data.cardSet.config.folder?.path || this.data.cardSet.config.tag?.tags[0] || this.data.cardSet.config.link?.level?.toString() || '',
+        cardCount: this.data.cardSet.cards?.length || 0
+      };
+      
+      return `CardSetCreatedEvent: ${JSON.stringify(safeCardSet)}`;
+    } catch (error) {
+      // 직렬화 오류 시 기본 문자열 반환
+      return `CardSetCreatedEvent: ${this.data.cardSet.id} (${this.data.cardSet.cards?.length || 0} cards)`;
+    }
   }
 }
 
 /**
  * 카드셋 업데이트 이벤트
  */
-export class CardSetUpdatedEvent extends DomainEvent<ICardSet> {
-  constructor(public readonly cardSet: ICardSet) {
-    super(DomainEventType.CARD_SET_UPDATED, cardSet);
+export class CardSetUpdatedEvent extends DomainEvent<typeof DomainEventType.CARDSET_UPDATED> {
+  constructor(cardSet: ICardSet) {
+    super(DomainEventType.CARDSET_UPDATED, { cardSet });
+  }
+
+  toString(): string {
+    try {
+      // 순환 참조 방지를 위해 기본 정보만 포함
+      const safeCardSet = {
+        id: this.data.cardSet.id,
+        type: this.data.cardSet.config.type,
+        criteria: this.data.cardSet.config.folder?.path || this.data.cardSet.config.tag?.tags[0] || this.data.cardSet.config.link?.level?.toString() || '',
+        cardCount: this.data.cardSet.cards?.length || 0
+      };
+      
+      return `CardSetUpdatedEvent: ${JSON.stringify(safeCardSet)}`;
+    } catch (error) {
+      // 직렬화 오류 시 기본 문자열 반환
+      return `CardSetUpdatedEvent: ${this.data.cardSet.id} (${this.data.cardSet.cards?.length || 0} cards)`;
+    }
   }
 }
 
 /**
  * 카드셋 삭제 이벤트
  */
-export class CardSetDeletedEvent extends DomainEvent<string> {
-  constructor(public readonly cardSetId: string) {
-    super(DomainEventType.CARD_SET_DELETED, cardSetId);
+export class CardSetDeletedEvent extends DomainEvent<typeof DomainEventType.CARDSET_DELETED> {
+  constructor(cardSet: ICardSet) {
+    super(DomainEventType.CARDSET_DELETED, { cardSet });
+  }
+
+  toString(): string {
+    try {
+      // 순환 참조 방지를 위해 기본 정보만 포함
+      const safeCardSet = {
+        id: this.data.cardSet.id,
+        type: this.data.cardSet.config.type,
+        criteria: this.data.cardSet.config.folder?.path || this.data.cardSet.config.tag?.tags[0] || this.data.cardSet.config.link?.level?.toString() || '',
+        cardCount: this.data.cardSet.cards?.length || 0
+      };
+      
+      return `CardSetDeletedEvent: ${JSON.stringify(safeCardSet)}`;
+    } catch (error) {
+      // 직렬화 오류 시 기본 문자열 반환
+      return `CardSetDeletedEvent: ${this.data.cardSet.id} (${this.data.cardSet.cards?.length || 0} cards)`;
+    }
   }
 }
 
 /**
  * 카드셋 필터링 이벤트
  */
-export class CardSetFilteredEvent extends DomainEvent<ICardSet> {
-  constructor(public readonly cardSet: ICardSet) {
-    super(DomainEventType.CARD_SET_FILTERED, cardSet);
+export class CardSetFilteredEvent extends DomainEvent<typeof DomainEventType.CARDSET_FILTERED> {
+  constructor(cardSet: ICardSet) {
+    super(DomainEventType.CARDSET_FILTERED, { cardSet });
+  }
+
+  toString(): string {
+    try {
+      // 순환 참조 방지를 위해 기본 정보만 포함
+      const safeCardSet = {
+        id: this.data.cardSet.id,
+        type: this.data.cardSet.config.type,
+        criteria: this.data.cardSet.config.folder?.path || this.data.cardSet.config.tag?.tags[0] || this.data.cardSet.config.link?.level?.toString() || '',
+        cardCount: this.data.cardSet.cards?.length || 0
+      };
+      
+      return `CardSetFilteredEvent: ${JSON.stringify(safeCardSet)}`;
+    } catch (error) {
+      // 직렬화 오류 시 기본 문자열 반환
+      return `CardSetFilteredEvent: ${this.data.cardSet.id} (${this.data.cardSet.cards?.length || 0} cards)`;
+    }
   }
 }
 
 /**
  * 카드셋 정렬 이벤트
  */
-export class CardSetSortedEvent extends DomainEvent<ICardSet> {
-  constructor(public readonly cardSet: ICardSet) {
-    super(DomainEventType.CARD_SET_SORTED, cardSet);
+export class CardSetSortedEvent extends DomainEvent<typeof DomainEventType.CARDSET_SORTED> {
+  constructor(cardSet: ICardSet) {
+    super(DomainEventType.CARDSET_SORTED, { cardSet });
+  }
+
+  toString(): string {
+    try {
+      // 순환 참조 방지를 위해 기본 정보만 포함
+      const safeCardSet = {
+        id: this.data.cardSet.id,
+        type: this.data.cardSet.config.type,
+        criteria: this.data.cardSet.config.folder?.path || this.data.cardSet.config.tag?.tags[0] || this.data.cardSet.config.link?.level?.toString() || '',
+        cardCount: this.data.cardSet.cards?.length || 0
+      };
+      
+      return `CardSetSortedEvent: ${JSON.stringify(safeCardSet)}`;
+    } catch (error) {
+      // 직렬화 오류 시 기본 문자열 반환
+      return `CardSetSortedEvent: ${this.data.cardSet.id} (${this.data.cardSet.cards?.length || 0} cards)`;
+    }
   }
 }
 
 /**
  * 카드셋 레이아웃 변경 이벤트
  */
-export class CardSetLayoutChangedEvent extends DomainEvent<ICardSet> {
-  constructor(public readonly cardSet: ICardSet) {
-    super(DomainEventType.CARD_SET_LAYOUT_CHANGED, cardSet);
+export class CardSetLayoutChangedEvent extends DomainEvent<typeof DomainEventType.TOOLBAR_CARD_SET_TYPE_CHANGED> {
+  constructor(oldType: CardSetType, newType: CardSetType) {
+    super(DomainEventType.TOOLBAR_CARD_SET_TYPE_CHANGED, { oldType, newType });
+  }
+
+  toString(): string {
+    try {
+      // 순환 참조 방지를 위해 기본 정보만 포함
+      const safeCardSet = {
+        oldType: this.data.oldType,
+        newType: this.data.newType
+      };
+      
+      return `CardSetLayoutChangedEvent: ${JSON.stringify(safeCardSet)}`;
+    } catch (error) {
+      // 직렬화 오류 시 기본 문자열 반환
+      return `CardSetLayoutChangedEvent: ${this.data.oldType} -> ${this.data.newType}`;
+    }
   }
 }
 
 /**
  * 카드셋 크기 변경 이벤트
  */
-export class CardSetResizedEvent extends DomainEvent<ICardSet> {
-  constructor(public readonly cardSet: ICardSet) {
-    super(DomainEventType.CARD_SET_RESIZED, cardSet);
+export class CardSetResizedEvent extends DomainEvent<typeof DomainEventType.LAYOUT_RESIZED> {
+  constructor(layoutConfig: ILayoutConfig) {
+    super(DomainEventType.LAYOUT_RESIZED, { layoutConfig });
+  }
+
+  toString(): string {
+    try {
+      // 순환 참조 방지를 위해 기본 정보만 포함
+      const safeCardSet = {
+        layoutConfig: this.data.layoutConfig
+      };
+      
+      return `CardSetResizedEvent: ${JSON.stringify(safeCardSet)}`;
+    } catch (error) {
+      // 직렬화 오류 시 기본 문자열 반환
+      return `CardSetResizedEvent: layout config updated`;
+    }
   }
 } 

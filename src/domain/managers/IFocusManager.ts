@@ -12,54 +12,46 @@ export enum FocusDirection {
 }
 
 /**
- * 포커스 매니저 인터페이스
+ * 포커스 관리자 인터페이스
  */
 export interface IFocusManager {
   /**
-   * 서비스 초기화
+   * 초기화
    */
-  initialize(): void;
+  initialize(): Promise<void>;
 
   /**
-   * 서비스 정리
+   * 정리
    */
-  cleanup(): void;
+  cleanup(): Promise<void>;
+
+  /**
+   * 초기화 여부 확인
+   * @returns 초기화 여부
+   */
+  isInitialized(): boolean;
 
   /**
    * 파일로 포커스 설정
    * @param file 파일
    */
-  focusByFile(file: TFile): void;
+  focusByFile(file: TFile): Promise<void>;
 
   /**
    * 카드로 포커스 설정
    * @param card 카드
    */
-  focusByCard(card: ICard): void;
+  focusCard(card: ICard): Promise<void>;
 
   /**
    * 방향으로 포커스 이동
    * @param direction 방향
    */
-  moveFocus(direction: FocusDirection): void;
+  moveFocus(direction: FocusDirection): Promise<void>;
 
   /**
-   * 현재 포커스된 카드 조회
+   * 포커스된 카드 반환
+   * @returns 포커스된 카드
    */
   getFocusedCard(): ICard | null;
-
-  /**
-   * 현재 포커스된 파일 조회
-   */
-  getFocusedFile(): TFile | null;
-
-  /**
-   * 포커스된 카드를 뷰포트 중앙에 위치
-   */
-  centerFocusedCard(): void;
-
-  /**
-   * 포커스 UI 업데이트
-   */
-  updateFocusUI(): void;
 } 

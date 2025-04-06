@@ -5,6 +5,8 @@ import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
+import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
+import { ActiveFileChangedEvent, ActiveFileWatchStartedEvent, ActiveFileWatchStoppedEvent } from '@/domain/events/ActiveFileEvents';
 
 /**
  * 활성 파일 감시자 구현체
@@ -12,22 +14,22 @@ import { Container } from '@/infrastructure/di/Container';
 export class ActiveFileWatcher implements IActiveFileWatcher {
   private static instance: ActiveFileWatcher;
   private activeFile: TFile | null;
-  private subscribers: Set<(file: TFile | null) => void>;
   private isInitializedFlag: boolean;
   private lastFileChangeTime: number = 0;
   private pendingFileChange: TFile | null = null;
   private fileChangeTimeoutId: number | null = null;
   private readonly FILE_CHANGE_DEBOUNCE_TIME = 500; // 500ms로 증가 (원래 300ms)
+  private isWatching: boolean = false;
 
   private constructor(
     private readonly app: App,
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventDispatcher: IEventDispatcher
   ) {
     this.activeFile = null;
-    this.subscribers = new Set();
     this.isInitializedFlag = false;
   }
 
@@ -39,7 +41,8 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
         container.resolve('IErrorHandler'),
         container.resolve('ILoggingService'),
         container.resolve('IPerformanceMonitor'),
-        container.resolve('IAnalyticsService')
+        container.resolve('IAnalyticsService'),
+        container.resolve('IEventDispatcher')
       );
       // 인스턴스 생성 시 자동으로 초기화
       ActiveFileWatcher.instance.initialize();
@@ -51,9 +54,7 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
    * 서비스 초기화
    */
   public initialize(): void {
-    const perfMark = 'ActiveFileWatcher.initialize';
-    this.performanceMonitor.startMeasure(perfMark);
-    
+    const timer = this.performanceMonitor.startTimer('ActiveFileWatcher.initialize');
     try {
       // 이미 초기화된 경우 중복 작업 방지
       if (this.isInitializedFlag) {
@@ -81,7 +82,7 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
       this.errorHandler.handleError(error as Error, 'ActiveFileWatcher.initialize');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -96,21 +97,17 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
    * 서비스 정리
    */
   public cleanup(): void {
-    const perfMark = 'ActiveFileWatcher.cleanup';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('ActiveFileWatcher.cleanup');
     try {
       this.loggingService.info('활성 파일 감시자 정리 시작');
 
-      // 구독자 목록 초기화
-      this.subscribers.clear();
-      this.activeFile = null;
-      
       // 대기 중인 타이머 취소
       if (this.fileChangeTimeoutId !== null) {
         window.clearTimeout(this.fileChangeTimeoutId);
         this.fileChangeTimeoutId = null;
       }
       this.pendingFileChange = null;
+      this.activeFile = null;
 
       this.analyticsService.trackEvent('active_file_watcher_cleaned_up');
       this.loggingService.info('활성 파일 감시자 정리 완료');
@@ -119,7 +116,7 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
       this.errorHandler.handleError(error as Error, 'ActiveFileWatcher.cleanup');
       throw error;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
@@ -127,49 +124,18 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
    * 현재 활성 파일 조회
    */
   public getActiveFile(): TFile | null {
-    const perfMark = 'ActiveFileWatcher.getActiveFile';
-    this.performanceMonitor.startMeasure(perfMark);
+    const timer = this.performanceMonitor.startTimer('ActiveFileWatcher.getActiveFile');
     try {
       return this.activeFile;
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
-    }
-  }
-
-  /**
-   * 활성 파일 변경 이벤트 구독
-   */
-  public subscribeToActiveFileChanges(callback: (file: TFile | null) => void): void {
-    const perfMark = 'ActiveFileWatcher.subscribeToActiveFileChanges';
-    this.performanceMonitor.startMeasure(perfMark);
-    try {
-      this.loggingService.debug('활성 파일 변경 이벤트 구독 시작');
-      this.subscribers.add(callback);
-      this.loggingService.info('활성 파일 변경 이벤트 구독 완료');
-    } finally {
-      this.performanceMonitor.endMeasure(perfMark);
-    }
-  }
-
-  /**
-   * 활성 파일 변경 이벤트 구독 해제
-   */
-  public unsubscribeFromActiveFileChanges(callback: (file: TFile | null) => void): void {
-    const perfMark = 'ActiveFileWatcher.unsubscribeFromActiveFileChanges';
-    this.performanceMonitor.startMeasure(perfMark);
-    try {
-      this.loggingService.debug('활성 파일 변경 이벤트 구독 해제 시작');
-      this.subscribers.delete(callback);
-      this.loggingService.info('활성 파일 변경 이벤트 구독 해제 완료');
-    } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
   /**
    * 활성 파일 변경 이벤트 발생 (디바운싱 적용)
    */
-  public notifyActiveFileChange(file: TFile | null): void {
+  public notifyFileChange(file: TFile | null): void {
     try {
       // 중복 이벤트 필터링 - 정확히 같은 파일이면 무시 (null도 동일하게 처리)
       if ((file === null && this.activeFile === null) ||
@@ -230,7 +196,7 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
       });
     } catch (error) {
       this.loggingService.error('활성 파일 변경 이벤트 처리 실패', { error });
-      this.errorHandler.handleError(error as Error, 'ActiveFileWatcher.notifyActiveFileChange');
+      this.errorHandler.handleError(error as Error, 'ActiveFileWatcher.notifyFileChange');
       throw error;
     }
   }
@@ -239,13 +205,11 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
    * 실제 파일 변경 처리 (디바운싱 후 호출되는 내부 메서드)
    */
   private processFileChange(file: TFile | null): void {
-    const perfMark = 'ActiveFileWatcher.processFileChange';
-    this.performanceMonitor.startMeasure(perfMark);
-    
+    const timer = this.performanceMonitor.startTimer('ActiveFileWatcher.processFileChange');
     try {
       this.loggingService.debug('활성 파일 변경 이벤트 발생', { 
-        filePath: file?.path || null,
-        previousFilePath: this.activeFile?.path || null
+        filePath: file?.path || 'null',
+        previousPath: this.activeFile?.path || 'null'
       });
 
       // 마지막 처리로부터의 시간 체크 (디바운싱을 이미 적용했지만 추가 확인)
@@ -264,14 +228,8 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
       // 활성 파일 업데이트
       this.activeFile = file;
 
-      // 구독자들에게 이벤트 알림
-      this.subscribers.forEach(callback => {
-        try {
-          callback(file);
-        } catch (error) {
-          this.loggingService.error('구독자 콜백 실행 실패', { error });
-        }
-      });
+      // 도메인 이벤트 발행
+      this.eventDispatcher.dispatch(new ActiveFileChangedEvent(file));
 
       this.analyticsService.trackEvent('active_file_changed', {
         filePath: file?.path || null,
@@ -283,13 +241,46 @@ export class ActiveFileWatcher implements IActiveFileWatcher {
       this.loggingService.error('활성 파일 변경 처리 실패', { error });
       this.errorHandler.handleError(error as Error, 'ActiveFileWatcher.processFileChange');
     } finally {
-      this.performanceMonitor.endMeasure(perfMark);
+      timer.stop();
     }
   }
 
-  private handleFileOpen(file: TFile | null): void {
-    // 메서드 자체에 추가 로직 없이 notifyActiveFileChange를 호출하여
-    // 모든 디바운싱 및 중복 체크 논리를 notifyActiveFileChange에서 처리
-    this.notifyActiveFileChange(file);
+  private handleFileOpen = (file: TFile | null): void => {
+    try {
+      this.notifyFileChange(file);
+      this.loggingService.info(`활성 파일 변경: ${file?.path || 'null'}`);
+    } catch (error) {
+      this.errorHandler.handleError(error as Error, '활성 파일 변경 처리 실패');
+    }
+  };
+
+  public start(): void {
+    if (this.isWatching) {
+      return;
+    }
+
+    try {
+      this.app.workspace.on('file-open', this.handleFileOpen);
+      this.isWatching = true;
+      this.eventDispatcher.dispatch(new ActiveFileWatchStartedEvent(this.activeFile));
+      this.loggingService.info('ActiveFileWatcher 시작');
+    } catch (error) {
+      this.errorHandler.handleError(error as Error, 'ActiveFileWatcher 시작 실패');
+    }
+  }
+
+  public stop(): void {
+    if (!this.isWatching) {
+      return;
+    }
+
+    try {
+      this.app.workspace.off('file-open', this.handleFileOpen);
+      this.isWatching = false;
+      this.eventDispatcher.dispatch(new ActiveFileWatchStoppedEvent(this.activeFile));
+      this.loggingService.info('ActiveFileWatcher 중지');
+    } catch (error) {
+      this.errorHandler.handleError(error as Error, 'ActiveFileWatcher 중지 실패');
+    }
   }
 } 
