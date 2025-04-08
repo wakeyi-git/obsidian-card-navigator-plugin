@@ -77,17 +77,6 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
           return;
         }
         
-        // 이전 탭 정리
-        const activeTab = tabs.find(t => t.id === activeTabId);
-        if (activeTab && 'destroy' in activeTab.section) {
-          try {
-            console.log(`이전 탭(${activeTabId}) 정리 실행`);
-            activeTab.section.destroy();
-          } catch (error) {
-            console.error(`${activeTabId} 탭 정리 중 오류:`, error);
-          }
-        }
-        
         // 활성 탭 변경
         activeTabId = tab.id;
         
@@ -113,12 +102,8 @@ export class CardNavigatorSettingTab extends PluginSettingTab {
    * 설정 탭 정리
    */
   hide(): void {
-    // 모든 섹션 정리
-    if (this.cardSettings) this.cardSettings.destroy();
-    if (this.cardSetSettings) this.cardSetSettings.destroy();
-    if (this.layoutSettings) this.layoutSettings.destroy();
-    if (this.searchSettings) this.searchSettings.destroy();
-    if (this.sortSettings) this.sortSettings.destroy();
-    if (this.presetSettings) this.presetSettings.destroy();
+    // 탭 컨테이너 정리
+    const { containerEl } = this;
+    containerEl.empty();
   }
 } 

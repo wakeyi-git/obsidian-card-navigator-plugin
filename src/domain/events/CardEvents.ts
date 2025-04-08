@@ -1,7 +1,7 @@
 import { DomainEvent } from './DomainEvent';
 import { ICard } from '../models/Card';
 import { DomainEventType } from './DomainEventType';
-import { ILayoutConfig } from '../models/LayoutConfig';
+import { ILayoutConfig } from '../models/Layout';
 
 /**
  * 메타데이터 타입
@@ -39,6 +39,24 @@ export class CardUpdatedEvent extends DomainEvent<typeof DomainEventType.CARD_UP
 export class CardDeletedEvent extends DomainEvent<typeof DomainEventType.CARD_DELETED> {
   constructor(card: ICard) {
     super(DomainEventType.CARD_DELETED, { card });
+  }
+}
+
+/**
+ * 카드 등록 이벤트
+ */
+export class CardRegisteredEvent extends DomainEvent<typeof DomainEventType.CARD_REGISTERED> {
+  constructor(card: ICard) {
+    super(DomainEventType.CARD_REGISTERED, { card });
+  }
+}
+
+/**
+ * 카드 등록 해제 이벤트
+ */
+export class CardUnregisteredEvent extends DomainEvent<typeof DomainEventType.CARD_UNREGISTERED> {
+  constructor(card: ICard) {
+    super(DomainEventType.CARD_UNREGISTERED, { card });
   }
 }
 
@@ -174,5 +192,17 @@ export class CardPositionUpdatedEvent extends DomainEvent<typeof DomainEventType
 export class CardRenderingEvent extends DomainEvent<typeof DomainEventType.CARD_RENDERING> {
   constructor(card: ICard) {
     super(DomainEventType.CARD_RENDERING, { card });
+  }
+}
+
+/**
+ * 카드 스타일 업데이트 이벤트
+ */
+export class CardStyleUpdatedEvent extends DomainEvent<DomainEventType> {
+  constructor(
+    public readonly cardId: string,
+    public readonly style: 'normal' | 'active' | 'focused'
+  ) {
+    super(DomainEventType.CARD_STYLE_UPDATED, { cardId, style });
   }
 } 

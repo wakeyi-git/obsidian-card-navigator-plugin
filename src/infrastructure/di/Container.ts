@@ -60,6 +60,16 @@ export class Container {
   }
 
   /**
+   * 서비스 인스턴스 직접 등록
+   * @param key 서비스 이름
+   * @param instance 서비스 인스턴스
+   */
+  public registerInstance<T>(key: string, instance: T): void {
+    this.services.set(key, () => instance);
+    this.instances.set(key, instance);
+  }
+
+  /**
    * 서비스 조회
    * @param key 서비스 이름
    * @returns 서비스 인스턴스

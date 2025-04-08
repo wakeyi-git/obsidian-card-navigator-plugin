@@ -15,18 +15,11 @@ export interface MarkdownRenderOptions {
  */
 export class CustomMarkdownRenderer {
   private static instance: CustomMarkdownRenderer;
-  private tempEl: HTMLElement;
   private renderCache: Map<string, string> = new Map();
   private initialized: boolean = false;
 
   private constructor(private app: App) {
-    // 임시 렌더링 컨테이너 생성
-    this.tempEl = document.createElement('div');
-    this.tempEl.className = 'markdown-renderer-temp';
-    this.tempEl.style.position = 'absolute';
-    this.tempEl.style.left = '-9999px';
-    this.tempEl.style.top = '-9999px';
-    document.body.appendChild(this.tempEl);
+    // 임시 렌더링 컨테이너 제거
   }
 
   static getInstance(app: App): CustomMarkdownRenderer {
@@ -48,9 +41,6 @@ export class CustomMarkdownRenderer {
    * 리소스 정리
    */
   cleanup(): void {
-    if (this.tempEl && this.tempEl.parentNode) {
-      this.tempEl.parentNode.removeChild(this.tempEl);
-    }
     this.renderCache.clear();
     this.initialized = false;
   }
@@ -81,8 +71,8 @@ export class CustomMarkdownRenderer {
         return this.renderCache.get(cacheKey) || '';
       }
       
-      // 렌더링 컨테이너 정리
-      this.tempEl.empty();
+      // 임시 컨테이너 생성
+      const tempEl = document.createElement('div');
       
       // 이미지 처리 옵션 적용
       let processedMarkdown = markdown;
@@ -100,7 +90,7 @@ export class CustomMarkdownRenderer {
       await MarkdownRenderer.render(
         this.app,
         processedMarkdown,
-        this.tempEl,
+        tempEl,
         '',
         {} as any
       );
@@ -108,16 +98,16 @@ export class CustomMarkdownRenderer {
       // 렌더링 후처리
       // Callout 지원 옵션에 따라 처리
       if (options.supportCallouts) {
-        this.processCallouts(this.tempEl);
+        this.processCallouts(tempEl);
       }
       
       // MathJax 수식 지원 옵션에 따라 처리
       if (options.supportMath) {
-        this.processMathExpressions(this.tempEl);
+        this.processMathExpressions(tempEl);
       }
       
       // 렌더링 결과 캐시
-      const renderedContent = this.serializeElementContent(this.tempEl);
+      const renderedContent = this.serializeElementContent(tempEl);
       this.renderCache.set(cacheKey, renderedContent);
       
       return renderedContent;

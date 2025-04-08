@@ -1,21 +1,4 @@
-import { ICardPosition } from '../models/Layout';
-import { ILayoutConfig } from '../models/LayoutConfig';
-
-/**
- * 레이아웃 타입
- */
-export enum LayoutType {
-  GRID = 'grid',
-  MASONRY = 'masonry'
-}
-
-/**
- * 레이아웃 방향
- */
-export enum LayoutDirection {
-  HORIZONTAL = 'horizontal',
-  VERTICAL = 'vertical'
-}
+import { ICardPosition, ILayoutConfig, LayoutType, LayoutDirection } from '../models/Layout';
 
 /**
  * 레이아웃 결과 인터페이스

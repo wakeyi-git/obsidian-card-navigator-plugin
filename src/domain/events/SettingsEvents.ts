@@ -1,92 +1,80 @@
 import { DomainEvent } from './DomainEvent';
 import { DomainEventType } from './DomainEventType';
-import { IPluginSettings } from '../models/DefaultValues';
-import { ICardConfig } from '../models/CardConfig';
-import { ICardSetConfig } from '../models/CardSetConfig';
-import { ILayoutConfig } from '../models/LayoutConfig';
-import { ISortConfig } from '../models/SortConfig';
-import { IFilterConfig } from '../models/FilterConfig';
-import { ISearchConfig } from '../models/SearchConfig';
-import { ICardStyle, IStyleProperties } from '../models/CardStyle';
-import { ICardSectionConfig } from '../models/CardConfig';
+import { IPluginSettings } from '../models/PluginSettings';
+import { ICardStyle, ICardSection } from '../models/Card';
+import { ICardSetConfig } from '../models/CardSet';
+import { ILayoutConfig } from '../models/Layout';
+import { ISortConfig } from '../models/Sort';
+import { ISearchConfig } from '../models/Search';
 
 /**
  * 설정 변경 이벤트
  */
-export class SettingsChangedEvent extends DomainEvent<'settings:changed'> {
+export class SettingsChangedEvent extends DomainEvent<typeof DomainEventType.SETTINGS_CHANGED> {
   constructor(oldSettings: IPluginSettings, newSettings: IPluginSettings) {
-    super('settings:changed', { oldSettings, newSettings });
+    super(DomainEventType.SETTINGS_CHANGED, { oldSettings, newSettings });
   }
 }
 
 /**
  * 카드 설정 변경 이벤트
  */
-export class CardConfigChangedEvent extends DomainEvent<'card:config:changed'> {
-  constructor(oldConfig: ICardConfig, newConfig: ICardConfig) {
-    super('card:config:changed', { oldConfig, newConfig });
+export class CardConfigChangedEvent extends DomainEvent<typeof DomainEventType.CARD_CONFIG_CHANGED> {
+  constructor(oldConfig: ICardStyle, newConfig: ICardStyle) {
+    super(DomainEventType.CARD_CONFIG_CHANGED, { oldConfig, newConfig });
   }
 }
 
 /**
  * 카드셋 설정 변경 이벤트
  */
-export class CardSetConfigChangedEvent extends DomainEvent<'card:set:config:changed'> {
+export class CardSetConfigChangedEvent extends DomainEvent<typeof DomainEventType.CARD_SET_CONFIG_CHANGED> {
   constructor(type: string, oldConfig: ICardSetConfig, newConfig: ICardSetConfig) {
-    super('card:set:config:changed', { type, oldConfig, newConfig });
+    super(DomainEventType.CARD_SET_CONFIG_CHANGED, { type, oldConfig, newConfig });
   }
 }
 
 /**
  * 레이아웃 설정 변경 이벤트
  */
-export class LayoutConfigChangedEvent extends DomainEvent<'layout:config:changed'> {
+export class LayoutConfigChangedEvent extends DomainEvent<typeof DomainEventType.LAYOUT_CONFIG_CHANGED> {
   constructor(oldConfig: ILayoutConfig, newConfig: ILayoutConfig) {
-    super('layout:config:changed', { oldConfig, newConfig });
+    super(DomainEventType.LAYOUT_CONFIG_CHANGED, { oldConfig, newConfig });
   }
 }
 
 /**
  * 정렬 설정 변경 이벤트
  */
-export class SortConfigChangedEvent extends DomainEvent<'sort:config:changed'> {
+export class SortConfigChangedEvent extends DomainEvent<typeof DomainEventType.SORT_CONFIG_CHANGED> {
   constructor(oldConfig: ISortConfig, newConfig: ISortConfig) {
-    super('sort:config:changed', { oldConfig, newConfig });
-  }
-}
-
-/**
- * 필터 설정 변경 이벤트
- */
-export class FilterConfigChangedEvent extends DomainEvent<'filter:config:changed'> {
-  constructor(oldConfig: IFilterConfig, newConfig: IFilterConfig) {
-    super('filter:config:changed', { oldConfig, newConfig });
+    super(DomainEventType.SORT_CONFIG_CHANGED, { oldConfig, newConfig });
   }
 }
 
 /**
  * 검색 설정 변경 이벤트
  */
-export class SearchConfigChangedEvent extends DomainEvent<'search:config:changed'> {
+export class SearchConfigChangedEvent extends DomainEvent<typeof DomainEventType.SEARCH_CONFIG_CHANGED> {
   constructor(oldConfig: ISearchConfig, newConfig: ISearchConfig) {
-    super('search:config:changed', { oldConfig, newConfig });
+    super(DomainEventType.SEARCH_CONFIG_CHANGED, { oldConfig, newConfig });
   }
 }
 
 /**
  * 카드 스타일 변경 이벤트
  */
-export class CardStyleChangedEvent extends DomainEvent<'card:style:changed'> {
+export class CardStyleChangedEvent extends DomainEvent<typeof DomainEventType.CARD_STYLE_CHANGED> {
   constructor(oldStyle: ICardStyle, newStyle: ICardStyle) {
-    super('card:style:changed', { oldStyle, newStyle });
+    super(DomainEventType.CARD_STYLE_CHANGED, { oldStyle, newStyle });
   }
 }
 
 /**
  * 카드 섹션 표시 변경 이벤트
  */
-export class CardSectionDisplayChangedEvent extends DomainEvent<'card:section:display:changed'> {
-  constructor(section: 'header' | 'body' | 'footer', property: keyof ICardSectionConfig, oldValue: boolean, newValue: boolean) {
-    super('card:section:display:changed', { section, property, oldValue, newValue });
+export class CardSectionDisplayChangedEvent extends DomainEvent<typeof DomainEventType.CARD_SECTION_DISPLAY_CHANGED> {
+  constructor(section: 'header' | 'body' | 'footer', property: keyof ICardSection, oldValue: boolean, newValue: boolean) {
+    super(DomainEventType.CARD_SECTION_DISPLAY_CHANGED, { section, property, oldValue, newValue });
   }
 } 

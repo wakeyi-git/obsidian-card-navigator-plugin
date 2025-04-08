@@ -1,8 +1,8 @@
 import { DomainEvent } from './DomainEvent';
 import { DomainEventType } from './DomainEventType';
-import { ISearchResult } from '../models/SearchResult';
-import { ISearchConfig } from '../models/SearchConfig';
+import { ISearchConfig, ISearchCriteria, ISearchResult } from '../models/Search';
 import { ICard } from '../models/Card';
+import { ICardSet } from '../models/CardSet';
 
 /**
  * 검색 시작 이벤트
@@ -35,8 +35,8 @@ export class SearchFailedEvent extends DomainEvent<typeof DomainEventType.SEARCH
  * 검색 결과 필터링 이벤트
  */
 export class SearchResultsFilteredEvent extends DomainEvent<typeof DomainEventType.SEARCH_RESULTS_FILTERED> {
-  constructor(result: ISearchResult, config: ISearchConfig) {
-    super(DomainEventType.SEARCH_RESULTS_FILTERED, { result, config });
+  constructor(result: ISearchResult, criteria: ISearchCriteria) {
+    super(DomainEventType.SEARCH_RESULTS_FILTERED, { result, criteria });
   }
 }
 
@@ -44,8 +44,8 @@ export class SearchResultsFilteredEvent extends DomainEvent<typeof DomainEventTy
  * 검색 결과 정렬 이벤트
  */
 export class SearchResultsSortedEvent extends DomainEvent<typeof DomainEventType.SEARCH_RESULTS_SORTED> {
-  constructor(result: ISearchResult, config: ISearchConfig) {
-    super(DomainEventType.SEARCH_RESULTS_SORTED, { result, config });
+  constructor(result: ISearchResult, criteria: ISearchCriteria) {
+    super(DomainEventType.SEARCH_RESULTS_SORTED, { result, criteria });
   }
 }
 

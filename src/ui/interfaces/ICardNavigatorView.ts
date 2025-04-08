@@ -1,5 +1,5 @@
-import { ICardNavigatorState } from '../../domain/models/CardNavigatorState';
-import { ICardSet } from '../../domain/models/CardSet';
+import { ICardNavigatorState } from '@/domain/models/CardNavigatorState';
+import { ICardSet } from '@/domain/models/CardSet';
 
 /**
  * 카드 내비게이터 뷰 인터페이스
@@ -76,4 +76,11 @@ export interface ICardNavigatorView {
    * @param cardId 카드 ID
    */
   scrollToCard(cardId: string): void;
+
+  /**
+   * 드래그 타겟 업데이트
+   * @param cardId 카드 ID
+   * @param isTarget 드래그 타겟 여부
+   */
+  updateDragTarget(cardId: string, isTarget: boolean): void;
 } 

@@ -1,11 +1,184 @@
 import { ICard } from './Card';
-import { ICardSetConfig, CardSetType, IFolderCardSetConfig, ITagCardSetConfig, ILinkCardSetConfig } from './CardSetConfig';
-import { DEFAULT_FILTER_CONFIG } from './FilterConfig';
-import { DEFAULT_SORT_CONFIG } from './SortConfig';
-import { DEFAULT_SEARCH_CONFIG } from './SearchConfig';
+
+/**
+ * 카드셋 타입 열거형
+ * 
+ * @example
+ * ```typescript
+ * const type = CardSetType.FOLDER; // 폴더 카드셋
+ * ```
+ */
+export enum CardSetType {
+  /** 폴더 카드셋 */
+  FOLDER = 'folder',
+  /** 태그 카드셋 */
+  TAG = 'tag',
+  /** 링크 카드셋 */
+  LINK = 'link'
+}
+
+/**
+ * 링크 타입 열거형
+ */
+export enum LinkType {
+  /** 백링크 */
+  BACKLINK = 'backlink',
+  /** 아웃고잉링크 */
+  OUTGOING = 'outgoing'
+}
+
+/**
+ * 카드셋 기준 인터페이스
+ * 
+ * @example
+ * ```typescript
+ * // 폴더 카드셋
+ * const criteria: ICardSetCriteria = {
+ *   type: CardSetType.FOLDER,
+ *   folderPath: '/프로젝트'
+ * };
+ * 
+ * // 태그 카드셋
+ * const criteria: ICardSetCriteria = {
+ *   type: CardSetType.TAG,
+ *   tag: '#프로젝트'
+ * };
+ * 
+ * // 링크 카드셋
+ * const criteria: ICardSetCriteria = {
+ *   type: CardSetType.LINK,
+ *   filePath: '/notes/note1.md',
+ *   linkType: 'backlink' // 'backlink' | 'outgoing'
+ * };
+ * ```
+ */
+export interface ICardSetCriteria {
+  /** 카드셋 타입 */
+  type: CardSetType;
+  /** 폴더 모드 (active: 활성 폴더, specified: 지정 폴더) */
+  folderMode?: 'active' | 'specified';
+  /** 폴더 경로 */
+  folderPath?: string;
+  /** 태그 모드 (active: 활성 태그, specified: 지정 태그) */
+  tagMode?: 'active' | 'specified';
+  /** 태그 */
+  tag?: string;
+  /** 파일 경로 */
+  filePath?: string;
+  /** 링크 타입 */
+  linkType?: LinkType;
+}
+
+/**
+ * 날짜 범위 인터페이스
+ * 
+ * @example
+ * ```typescript
+ * const range: IDateRange = {
+ *   start: new Date('2024-01-01'),
+ *   end: new Date('2024-12-31')
+ * };
+ * ```
+ */
+export interface IDateRange {
+  /** 시작일 */
+  readonly start: Date;
+  /** 종료일 */
+  readonly end: Date;
+}
+
+/**
+ * 카드셋 필터 설정 인터페이스
+ * 
+ * @example
+ * ```typescript
+ * const filter: ICardSetFilter = {
+ *   includeSubfolders: true,
+ *   includeSubtags: true,
+ *   linkDepth: 1,
+ *   createdDateRange: {
+ *     start: new Date('2024-01-01'),
+ *     end: new Date('2024-12-31')
+ *   },
+ *   modifiedDateRange: {
+ *     start: new Date('2024-01-01'),
+ *     end: new Date('2024-12-31')
+ *   }
+ * };
+ * ```
+ */
+export interface ICardSetFilter {
+  /** 하위 폴더 포함 여부 (폴더 카드셋) */
+  readonly includeSubfolders?: boolean;
+  /** 하위 태그 포함 여부 (태그 카드셋) */
+  readonly includeSubtags?: boolean;
+  /** 태그 대소문자 구분 여부 (태그 카드셋) */
+  readonly tagCaseSensitive?: boolean;
+  /** 링크 깊이 (링크 카드셋) */
+  readonly linkDepth?: number;
+  /** 생성일 범위 */
+  readonly createdDateRange?: IDateRange;
+  /** 수정일 범위 */
+  readonly modifiedDateRange?: IDateRange;
+}
+
+/**
+ * 카드셋 설정 인터페이스
+ * 
+ * @example
+ * ```typescript
+ * const config: ICardSetConfig = {
+ *   criteria: {
+ *     type: CardSetType.FOLDER,
+ *     folderPath: '/프로젝트'
+ *   },
+ *   filter: {
+ *     includeSubfolders: true,
+ *     includeSubtags: false,
+ *     linkDepth: 1,
+ *     priorityTags: ['중요'],
+ *     priorityFolders: ['/프로젝트'],
+ *     createdDateRange: {
+ *       start: new Date('2024-01-01'),
+ *       end: new Date('2024-12-31')
+ *     }
+ *   },
+ *   sortConfig: DEFAULT_SORT_CONFIG,
+ *   searchConfig: DEFAULT_SEARCH_CONFIG
+ * };
+ * ```
+ */
+export interface ICardSetConfig {
+  /** 카드셋 기준 */
+  readonly criteria: ICardSetCriteria;
+  /** 카드셋 필터 */
+  readonly filter: ICardSetFilter;
+}
 
 /**
  * 카드셋 인터페이스
+ * 
+ * @example
+ * ```typescript
+ * const cardSet: ICardSet = {
+ *   id: 'card-set-1',
+ *   config: {
+ *     criteria: {
+ *       type: CardSetType.FOLDER,
+ *       folderPath: '/프로젝트'
+ *     },
+ *     filter: {
+ *       includeSubfolders: true,
+ *       includeSubtags: false,
+ *       linkDepth: 1
+ *     },
+ *     sortConfig: DEFAULT_SORT_CONFIG,
+ *     searchConfig: DEFAULT_SEARCH_CONFIG
+ *   },
+ *   cards: [],
+ *   cardCount: 0
+ * };
+ * ```
  */
 export interface ICardSet {
   /** 카드셋 ID */
@@ -13,135 +186,49 @@ export interface ICardSet {
   /** 카드셋 설정 */
   readonly config: ICardSetConfig;
   /** 카드 목록 */
-  readonly cards: ICard[];
-  /** 생성일 */
-  readonly createdAt: Date;
-  /** 수정일 */
-  readonly updatedAt: Date;
+  readonly cards: readonly ICard[];
+  /** 카드 수 */
+  readonly cardCount: number;
+  /** 활성 여부 */
+  readonly isActive: boolean;
+  /** 마지막 업데이트 시간 */
+  readonly lastUpdated: Date;
 }
 
 /**
- * 카드셋 클래스
+ * 기본 카드셋 필터
  */
-export class CardSet implements ICardSet {
-  constructor(
-    public readonly id: string,
-    public readonly config: ICardSetConfig,
-    public readonly cards: ICard[] = [],
-    public readonly createdAt: Date = new Date(),
-    public readonly updatedAt: Date = new Date()
-  ) {}
+export const DEFAULT_CARD_SET_FILTER: ICardSetFilter = {
+  includeSubfolders: false,
+  includeSubtags: false,
+  tagCaseSensitive: false,
+  linkDepth: 1
+};
 
-  /**
-   * 폴더 카드셋 생성
-   * @param id 카드셋 ID
-   * @param config 폴더 카드셋 설정
-   * @returns 폴더 카드셋
-   */
-  static createFolderCardSet(id: string, config: IFolderCardSetConfig): CardSet {
-    return new CardSet(id, {
-      type: CardSetType.FOLDER,
-      folder: config,
-      filterConfig: DEFAULT_FILTER_CONFIG,
-      sortConfig: DEFAULT_SORT_CONFIG,
-      searchConfig: DEFAULT_SEARCH_CONFIG
-    });
-  }
+/**
+ * 기본 카드셋 기준
+ */
+export const DEFAULT_CARD_SET_CRITERIA: ICardSetCriteria = {
+  type: CardSetType.FOLDER,
+  folderPath: '/'
+};
 
-  /**
-   * 태그 카드셋 생성
-   * @param id 카드셋 ID
-   * @param config 태그 카드셋 설정
-   * @returns 태그 카드셋
-   */
-  static createTagCardSet(id: string, config: ITagCardSetConfig): CardSet {
-    return new CardSet(id, {
-      type: CardSetType.TAG,
-      tag: config,
-      filterConfig: DEFAULT_FILTER_CONFIG,
-      sortConfig: DEFAULT_SORT_CONFIG,
-      searchConfig: DEFAULT_SEARCH_CONFIG
-    });
-  }
+/**
+ * 기본 카드셋 설정
+ */
+export const DEFAULT_CARD_SET_CONFIG: ICardSetConfig = {
+  criteria: DEFAULT_CARD_SET_CRITERIA,
+  filter: DEFAULT_CARD_SET_FILTER
+};
 
-  /**
-   * 링크 카드셋 생성
-   * @param id 카드셋 ID
-   * @param config 링크 카드셋 설정
-   * @returns 링크 카드셋
-   */
-  static createLinkCardSet(id: string, config: ILinkCardSetConfig): CardSet {
-    return new CardSet(id, {
-      type: CardSetType.LINK,
-      link: config,
-      filterConfig: DEFAULT_FILTER_CONFIG,
-      sortConfig: DEFAULT_SORT_CONFIG,
-      searchConfig: DEFAULT_SEARCH_CONFIG
-    });
-  }
-
-  /**
-   * 카드셋 유효성 검사
-   * @returns 유효성 여부
-   */
-  validate(): boolean {
-    if (!this.id || !this.config) {
-      return false;
-    }
-
-    switch (this.config.type) {
-      case CardSetType.FOLDER:
-        return this.validateFolderConfig();
-      case CardSetType.TAG:
-        return this.validateTagConfig();
-      case CardSetType.LINK:
-        return this.validateLinkConfig();
-      default:
-        return false;
-    }
-  }
-
-  /**
-   * 폴더 카드셋 설정 유효성 검사
-   * @returns 유효성 여부
-   */
-  private validateFolderConfig(): boolean {
-    const folderConfig = this.config.folder;
-    if (!folderConfig) return false;
-    return !!folderConfig.path;
-  }
-
-  /**
-   * 태그 카드셋 설정 유효성 검사
-   * @returns 유효성 여부
-   */
-  private validateTagConfig(): boolean {
-    const tagConfig = this.config.tag;
-    if (!tagConfig) return false;
-    return tagConfig.tags.length > 0;
-  }
-
-  /**
-   * 링크 카드셋 설정 유효성 검사
-   * @returns 유효성 여부
-   */
-  private validateLinkConfig(): boolean {
-    const linkConfig = this.config.link;
-    if (!linkConfig) return false;
-    return linkConfig.level > 0;
-  }
-
-  /**
-   * 카드셋 미리보기
-   * @returns 카드셋 미리보기
-   */
-  preview(): ICardSet {
-    return {
-      id: this.id,
-      config: this.config,
-      cards: this.cards,
-      createdAt: this.createdAt,
-      updatedAt: this.updatedAt
-    };
-  }
-} 
+/**
+ * 기본 카드셋
+ */
+export const DEFAULT_CARD_SET: ICardSet = {
+  id: 'default-card-set',
+  config: DEFAULT_CARD_SET_CONFIG,
+  cards: [],
+  cardCount: 0,
+  isActive: true,
+  lastUpdated: new Date()
+};

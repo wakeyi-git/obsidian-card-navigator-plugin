@@ -1,11 +1,10 @@
 import { DomainEvent } from './DomainEvent';
 import { DomainEventType } from './DomainEventType';
-import { CardSetType } from '../models/CardSetConfig';
-import { ISearchConfig } from '../models/SearchConfig';
-import { ISortConfig } from '../models/SortConfig';
-import { ICardConfig } from '../models/CardConfig';
-import { ICardStyle } from '../models/CardStyle';
-import { ILayoutConfig } from '../models/LayoutConfig';
+import { CardSetType } from '../models/CardSet';
+import { ISearchConfig } from '../models/Search';
+import { ISortConfig } from '../models/Sort';
+import { ICardStyle, ICardSection } from '../models/Card';
+import { ILayoutConfig } from '../models/Layout';
 
 /**
  * 툴바 액션 이벤트
@@ -15,7 +14,7 @@ export class ToolbarActionEvent extends DomainEvent<typeof DomainEventType.TOOLB
     cardSetType: CardSetType,
     searchConfig: ISearchConfig,
     sortConfig: ISortConfig,
-    cardConfig: ICardConfig,
+    cardSection: ICardSection,
     cardStyle: ICardStyle,
     layoutConfig: ILayoutConfig
   ) {
@@ -23,7 +22,7 @@ export class ToolbarActionEvent extends DomainEvent<typeof DomainEventType.TOOLB
       cardSetType,
       searchConfig,
       sortConfig,
-      cardConfig,
+      cardSection,
       cardStyle,
       layoutConfig
     });
@@ -58,11 +57,11 @@ export class SortConfigChangedEvent extends DomainEvent<typeof DomainEventType.T
 }
 
 /**
- * 카드 설정 변경 이벤트
+ * 카드 섹션 변경 이벤트
  */
-export class CardConfigChangedEvent extends DomainEvent<typeof DomainEventType.TOOLBAR_CARD_CONFIG_CHANGED> {
-  constructor(oldConfig: ICardConfig, newConfig: ICardConfig) {
-    super(DomainEventType.TOOLBAR_CARD_CONFIG_CHANGED, { oldConfig, newConfig });
+export class CardSectionChangedEvent extends DomainEvent<typeof DomainEventType.TOOLBAR_CARD_SECTION_CHANGED> {
+  constructor(oldSection: ICardSection, newSection: ICardSection) {
+    super(DomainEventType.TOOLBAR_CARD_SECTION_CHANGED, { oldSection, newSection });
   }
 }
 

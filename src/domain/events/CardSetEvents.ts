@@ -1,8 +1,10 @@
 import { DomainEvent } from './DomainEvent';
 import { DomainEventType } from './DomainEventType';
 import { ICardSet } from '../models/CardSet';
-import { ILayoutConfig } from '../models/LayoutConfig';
-import { CardSetType } from '../models/CardSetConfig';
+import { ILayoutConfig } from '../models/Layout';
+import { CardSetType } from '../models/CardSet';
+import { ISearchCriteria } from '../models/Search';
+import { ISortConfig } from '../models/Sort';
 
 /**
  * 카드셋 생성 이벤트
@@ -17,8 +19,10 @@ export class CardSetCreatedEvent extends DomainEvent<typeof DomainEventType.CARD
       // 순환 참조 방지를 위해 기본 정보만 포함
       const safeCardSet = {
         id: this.data.cardSet.id,
-        type: this.data.cardSet.config.type,
-        criteria: this.data.cardSet.config.folder?.path || this.data.cardSet.config.tag?.tags[0] || this.data.cardSet.config.link?.level?.toString() || '',
+        type: this.data.cardSet.config.criteria.type,
+        criteria: this.data.cardSet.config.criteria.folderPath || 
+                 this.data.cardSet.config.criteria.tag || 
+                 this.data.cardSet.config.criteria.filePath || '',
         cardCount: this.data.cardSet.cards?.length || 0
       };
       
@@ -43,8 +47,10 @@ export class CardSetUpdatedEvent extends DomainEvent<typeof DomainEventType.CARD
       // 순환 참조 방지를 위해 기본 정보만 포함
       const safeCardSet = {
         id: this.data.cardSet.id,
-        type: this.data.cardSet.config.type,
-        criteria: this.data.cardSet.config.folder?.path || this.data.cardSet.config.tag?.tags[0] || this.data.cardSet.config.link?.level?.toString() || '',
+        type: this.data.cardSet.config.criteria.type,
+        criteria: this.data.cardSet.config.criteria.folderPath || 
+                 this.data.cardSet.config.criteria.tag || 
+                 this.data.cardSet.config.criteria.filePath || '',
         cardCount: this.data.cardSet.cards?.length || 0
       };
       
@@ -69,8 +75,10 @@ export class CardSetDeletedEvent extends DomainEvent<typeof DomainEventType.CARD
       // 순환 참조 방지를 위해 기본 정보만 포함
       const safeCardSet = {
         id: this.data.cardSet.id,
-        type: this.data.cardSet.config.type,
-        criteria: this.data.cardSet.config.folder?.path || this.data.cardSet.config.tag?.tags[0] || this.data.cardSet.config.link?.level?.toString() || '',
+        type: this.data.cardSet.config.criteria.type,
+        criteria: this.data.cardSet.config.criteria.folderPath || 
+                 this.data.cardSet.config.criteria.tag || 
+                 this.data.cardSet.config.criteria.filePath || '',
         cardCount: this.data.cardSet.cards?.length || 0
       };
       
@@ -95,8 +103,10 @@ export class CardSetFilteredEvent extends DomainEvent<typeof DomainEventType.CAR
       // 순환 참조 방지를 위해 기본 정보만 포함
       const safeCardSet = {
         id: this.data.cardSet.id,
-        type: this.data.cardSet.config.type,
-        criteria: this.data.cardSet.config.folder?.path || this.data.cardSet.config.tag?.tags[0] || this.data.cardSet.config.link?.level?.toString() || '',
+        type: this.data.cardSet.config.criteria.type,
+        criteria: this.data.cardSet.config.criteria.folderPath || 
+                 this.data.cardSet.config.criteria.tag || 
+                 this.data.cardSet.config.criteria.filePath || '',
         cardCount: this.data.cardSet.cards?.length || 0
       };
       
@@ -121,8 +131,10 @@ export class CardSetSortedEvent extends DomainEvent<typeof DomainEventType.CARDS
       // 순환 참조 방지를 위해 기본 정보만 포함
       const safeCardSet = {
         id: this.data.cardSet.id,
-        type: this.data.cardSet.config.type,
-        criteria: this.data.cardSet.config.folder?.path || this.data.cardSet.config.tag?.tags[0] || this.data.cardSet.config.link?.level?.toString() || '',
+        type: this.data.cardSet.config.criteria.type,
+        criteria: this.data.cardSet.config.criteria.folderPath || 
+                 this.data.cardSet.config.criteria.tag || 
+                 this.data.cardSet.config.criteria.filePath || '',
         cardCount: this.data.cardSet.cards?.length || 0
       };
       
@@ -179,4 +191,15 @@ export class CardSetResizedEvent extends DomainEvent<typeof DomainEventType.LAYO
       return `CardSetResizedEvent: layout config updated`;
     }
   }
+}
+
+/**
+ * 카드셋 검색 결과 정렬 이벤트
+ */
+export class CardSetSearchResultSortedEvent {
+  constructor(
+    public readonly cardSet: ICardSet,
+    public readonly searchCriteria: ISearchCriteria,
+    public readonly sortConfig: ISortConfig
+  ) {}
 } 

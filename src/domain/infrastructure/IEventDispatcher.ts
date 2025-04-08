@@ -1,4 +1,4 @@
-import { DomainEvent, IDomainEvent } from '../events/DomainEvent';
+import { DomainEvent } from '../events/DomainEvent';
 import { DomainEventType } from '../events/DomainEventType';
 import { Subscription } from 'rxjs';
 

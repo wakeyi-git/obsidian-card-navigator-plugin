@@ -1,143 +1,151 @@
-import { ICardSet } from '../models/CardSet';
-import { IRenderManager } from './IRenderManager';
-import { ILayoutService } from '../services/ILayoutService';
-import { ICardSelectionService } from '../services/ICardSelectionService';
-import { ICardInteractionService } from '../services/ICardInteractionService';
-import { IEventDispatcher } from '../infrastructure/IEventDispatcher';
-import { ICard } from '../models/Card';
-import { ICardStyle } from '../models/CardStyle';
-import { ICardConfig } from '../models/CardConfig';
+import { ICard, ICardStyle } from '../models/Card';
+import { ILayoutConfig } from '../models/Layout';
 
 /**
- * UI 표시 관리 담당
- * - 카드 표시 관련 UI 이벤트 처리
- * - 카드 선택, 포커스, 스크롤 관리
- * - 카드 표시 상태 관리
+ * 카드 표시 상태를 나타내는 인터페이스
+ */
+export interface ICardDisplayState {
+  /** 카드 요소 */
+  readonly element: HTMLElement | null;
+  /** 표시 여부 */
+  readonly isVisible: boolean;
+  /** Z-인덱스 */
+  readonly zIndex: number;
+  /** 활성 상태 */
+  readonly isActive: boolean;
+  /** 포커스 상태 */
+  readonly isFocused: boolean;
+  /** 선택 상태 */
+  readonly isSelected: boolean;
+}
+
+/**
+ * 상호작용 스타일을 나타내는 인터페이스
+ */
+export interface IInteractionStyle {
+  /** 호버 효과 */
+  readonly hoverEffect: string;
+  /** 활성 효과 */
+  readonly activeEffect: string;
+  /** 포커스 효과 */
+  readonly focusEffect: string;
+  /** 선택 효과 */
+  readonly selectedEffect: string;
+  /** 전환 지속 시간 */
+  readonly transitionDuration: string;
+}
+
+/**
+ * 카드 표시 관리 담당
+ * - 카드 DOM 요소 관리
+ * - 카드 이벤트 리스너 관리
  * - 카드 스타일 관리
- * - 카드 이벤트 처리
+ * - 카드 상태 관리
  */
 export interface ICardDisplayManager {
   /**
-   * 디스플레이 매니저를 초기화합니다.
+   * 표시 매니저를 초기화합니다.
    */
   initialize(): void;
 
   /**
-   * 디스플레이 매니저를 정리합니다.
+   * 표시 매니저를 정리합니다.
    */
   cleanup(): void;
-  
-  /**
-   * 렌더링 매니저를 설정합니다.
-   * @param renderManager 렌더링 매니저
-   */
-  setRenderManager(renderManager: IRenderManager): void;
 
   /**
-   * 레이아웃 서비스를 설정합니다.
-   * @param layoutService 레이아웃 서비스
+   * 표시 매니저가 초기화되었는지 확인합니다.
+   * @returns 초기화 여부
    */
-  setLayoutService(layoutService: ILayoutService): void;
+  isInitialized(): boolean;
 
   /**
-   * 카드 선택 서비스를 설정합니다.
-   * @param selectionService 카드 선택 서비스
-   */
-  setSelectionService(selectionService: ICardSelectionService): void;
-
-  /**
-   * 카드 상호작용 서비스를 설정합니다.
-   * @param interactionService 카드 상호작용 서비스
-   */
-  setInteractionService(interactionService: ICardInteractionService): void;
-
-  /**
-   * 이벤트 디스패처를 설정합니다.
-   * @param eventDispatcher 이벤트 디스패처
-   */
-  setEventDispatcher(eventDispatcher: IEventDispatcher): void;
-  
-  /**
-   * 카드 셋을 표시합니다.
-   * @param cardSet 카드 셋
-   * @param transactionId 트랜잭션 ID
-   */
-  displayCardSet(cardSet: ICardSet, transactionId?: string): void;
-
-  /**
-   * 카드를 등록합니다.
+   * 카드 DOM 요소를 등록합니다.
    * @param cardId 카드 ID
-   * @param element 카드 요소
+   * @param element 카드 DOM 요소
    */
-  registerCard(cardId: string, element: HTMLElement): void;
+  registerCardElement(cardId: string, element: HTMLElement): void;
 
   /**
-   * 카드를 선택합니다.
+   * 카드 DOM 요소를 등록 해제합니다.
    * @param cardId 카드 ID
    */
-  selectCard(cardId: string): void;
+  unregisterCardElement(cardId: string): void;
 
   /**
-   * 카드에 포커스를 설정합니다.
+   * 카드 DOM 요소를 가져옵니다.
    * @param cardId 카드 ID
+   * @returns 카드 DOM 요소
    */
-  focusCard(cardId: string): void;
+  getCardElement(cardId: string): HTMLElement | null;
 
   /**
-   * 카드로 스크롤합니다.
+   * 카드 이벤트 리스너를 추가합니다.
    * @param cardId 카드 ID
+   * @param type 이벤트 타입
+   * @param listener 이벤트 리스너
    */
-  scrollToCard(cardId: string): void;
+  addCardEventListener(cardId: string, type: string, listener: EventListener): void;
 
   /**
-   * 카드의 가시성을 업데이트합니다.
+   * 카드 이벤트 리스너를 제거합니다.
    * @param cardId 카드 ID
-   * @param visible 가시성
+   * @param type 이벤트 타입
+   * @param listener 이벤트 리스너
    */
-  updateCardVisibility(cardId: string, visible: boolean): void;
+  removeCardEventListener(cardId: string, type: string, listener: EventListener): void;
 
   /**
-   * 카드의 Z-인덱스를 업데이트합니다.
-   * @param cardId 카드 ID
-   * @param zIndex Z-인덱스
-   */
-  updateCardZIndex(cardId: string, zIndex: number): void;
-  
-  /**
-   * 활성 카드 ID를 반환합니다.
-   * @returns 활성 카드 ID
-   */
-  getActiveCardId(): string | undefined | null;
-
-  /**
-   * 포커스된 카드 ID를 반환합니다.
-   * @returns 포커스된 카드 ID
-   */
-  getFocusedCardId(): string | undefined | null;
-
-  /**
-   * 선택된 카드 ID 목록을 반환합니다.
-   * @returns 선택된 카드 ID 목록
-   */
-  getSelectedCardIds(): string[];
-
-  /**
-   * 카드의 가시성을 확인합니다.
-   * @param cardId 카드 ID
-   * @returns 가시성 여부
-   */
-  isCardVisible(cardId: string): boolean;
-
-  /**
-   * 카드 스타일 업데이트
+   * 카드 스타일을 적용합니다.
    * @param cardId 카드 ID
    * @param style 카드 스타일
    */
-  updateCardStyle(cardId: string, style: ICardStyle): void;
+  applyCardStyle(cardId: string, style: ICardStyle): void;
 
   /**
-   * 렌더링 설정 업데이트
-   * @param config 카드 설정
+   * 카드 상호작용 스타일을 적용합니다.
+   * @param cardId 카드 ID
+   * @param style 상호작용 스타일
    */
-  updateRenderConfig(config: ICardConfig): void;
+  applyInteractionStyle(cardId: string, style: IInteractionStyle): void;
+
+  /**
+   * 카드 레이아웃 스타일을 적용합니다.
+   * @param cardId 카드 ID
+   * @param layout 레이아웃 설정
+   */
+  applyLayoutStyle(cardId: string, layout: ILayoutConfig): void;
+
+  /**
+   * 컨테이너의 크기를 가져옵니다.
+   * @returns 컨테이너의 너비와 높이
+   */
+  getContainerDimensions(): { width: number; height: number };
+
+  /**
+   * 카드 스타일을 가져옵니다.
+   * @returns 카드 스타일
+   */
+  getCardStyle(): ICardStyle;
+
+  /**
+   * 카드의 표시 상태를 가져옵니다.
+   * @param cardId 카드 ID
+   * @returns 표시 상태
+   */
+  getCardState(cardId: string): ICardDisplayState | null;
+
+  /**
+   * 카드의 표시 상태를 업데이트합니다.
+   * @param cardId 카드 ID
+   * @param state 업데이트할 상태
+   */
+  updateCardState(cardId: string, state: Partial<ICardDisplayState>): void;
+
+  /**
+   * 카드 스타일을 업데이트합니다.
+   * @param card 카드
+   * @param style 스타일
+   */
+  updateCardStyle(card: ICard, style: 'normal' | 'active' | 'focused'): void;
 } 

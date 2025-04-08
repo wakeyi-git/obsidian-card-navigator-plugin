@@ -1,7 +1,6 @@
 import { DomainEvent } from './DomainEvent';
 import { DomainEventType } from './DomainEventType';
-import { ILayoutConfig } from '../models/LayoutConfig';
-import { ICard } from '../models/Card';
+import { ILayoutConfig } from '../models/Layout';
 
 /**
  * 레이아웃 설정 업데이트 이벤트
@@ -72,5 +71,17 @@ export class LayoutCardPositionUpdatedEvent extends DomainEvent<typeof DomainEve
 export class ViewportDimensionsUpdatedEvent extends DomainEvent<typeof DomainEventType.VIEWPORT_DIMENSIONS_UPDATED> {
   constructor(width: number, height: number, layoutConfig: ILayoutConfig) {
     super(DomainEventType.VIEWPORT_DIMENSIONS_UPDATED, { width, height, layoutConfig });
+  }
+}
+
+/**
+ * 레이아웃 카드 스타일 업데이트 이벤트
+ */
+export class LayoutCardStyleUpdatedEvent extends DomainEvent<DomainEventType> {
+  constructor(
+    public readonly cardId: string,
+    public readonly style: 'normal' | 'active' | 'focused'
+  ) {
+    super(DomainEventType.CARD_STYLE_UPDATED, { cardId, style });
   }
 } 

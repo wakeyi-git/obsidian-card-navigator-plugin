@@ -1,9 +1,11 @@
 import { ICardNavigatorView } from './ICardNavigatorView';
-import { IRenderConfig } from '@/domain/models/CardConfig';
-import { ICardStyle } from '@/domain/models/CardStyle';
-import { ICardSet } from '@/domain/models/CardSet';
+import { ICardStyle, IRenderConfig } from '@/domain/models/Card';
+import { ICardSet, CardSetType } from '@/domain/models/CardSet';
 import { BehaviorSubject } from 'rxjs';
 import { ICardNavigatorState } from '@/domain/models/CardNavigatorState';
+import { ICard } from '@/domain/models/Card';
+import { ISearchConfig } from '@/domain/models/Search';
+import { ISortConfig } from '@/domain/models/Sort';
 
 /**
  * 포커스 이동 방향
@@ -55,13 +57,13 @@ export interface ICardNavigatorViewModel {
    * 카드 선택
    * @param cardId 카드 ID
    */
-  selectCard(cardId: string): Promise<void>;
+  selectCard(cardId: string): void;
 
   /**
    * 카드 선택 해제
    * @param cardId 카드 ID
    */
-  deselectCard(cardId: string): Promise<void>;
+  deselectCard(cardId: string): void;
 
   /**
    * 카드 범위 선택
@@ -101,36 +103,65 @@ export interface ICardNavigatorViewModel {
   showCardContextMenu(cardId: string, event: MouseEvent): void;
 
   /**
+   * 카드 클릭 처리
+   * @param cardId 카드 ID
+   */
+  handleCardClick(cardId: string): Promise<void>;
+
+  /**
+   * 카드 더블 클릭 처리
+   * @param cardId 카드 ID
+   */
+  handleCardDoubleClick(cardId: string): Promise<void>;
+
+  /**
    * 카드 드래그 시작
    * @param cardId 카드 ID
    * @param event 드래그 이벤트
    */
-  startCardDrag(cardId: string, event: DragEvent): void;
+  handleCardDragStart(cardId: string, event: DragEvent): void;
 
   /**
-   * 카드 드래그 오버 처리
+   * 카드 드래그 종료
    * @param cardId 카드 ID
    * @param event 드래그 이벤트
    */
-  handleCardDragOver(cardId: string, event: DragEvent): void;
+  handleCardDragEnd(cardId: string, event: DragEvent): void;
 
   /**
-   * 카드 드롭 처리
+   * 카드 드롭
    * @param cardId 카드 ID
-   * @param event 드래그 이벤트
+   * @param event 드롭 이벤트
    */
   handleCardDrop(cardId: string, event: DragEvent): void;
 
   /**
-   * 카드 스크롤
+   * 카드 드래그 오버
    * @param cardId 카드 ID
+   * @param event 드래그 오버 이벤트
    */
-  scrollToCard(cardId: string): Promise<void>;
+  handleCardDragOver(cardId: string, event: DragEvent): void;
 
   /**
-   * 컨테이너 크기 가져오기
+   * 카드 드래그 엔터
+   * @param cardId 카드 ID
+   * @param event 드래그 엔터 이벤트
    */
-  getContainerDimensions(): { width: number; height: number };
+  handleCardDragEnter(cardId: string, event: DragEvent): void;
+
+  /**
+   * 카드 드래그 리브
+   * @param cardId 카드 ID
+   * @param event 드래그 리브 이벤트
+   */
+  handleCardDragLeave(cardId: string, event: DragEvent): void;
+
+  /**
+   * 카드 간 링크 생성
+   * @param sourceCardId 소스 카드 ID
+   * @param targetCardId 타겟 카드 ID
+   */
+  createLinkBetweenCards(sourceCardId: string, targetCardId: string): Promise<void>;
 
   /**
    * 렌더링 설정 가져오기
@@ -144,14 +175,49 @@ export interface ICardNavigatorViewModel {
 
   /**
    * 현재 카드셋 가져오기
-   * @returns 현재 카드셋 또는 null
    */
   getCurrentCardSet(): ICardSet | null;
 
   /**
-   * 두 카드 간의 링크를 생성합니다.
-   * @param sourceCardId 소스 카드 ID
-   * @param targetCardId 타겟 카드 ID
+   * 카드셋 업데이트
+   * @param cardSet 카드셋
    */
-  createLinkBetweenCards(sourceCardId: string, targetCardId: string): Promise<void>;
+  updateCardSet(cardSet: ICardSet): void;
+
+  /**
+   * 상태 업데이트
+   * @param state 상태
+   */
+  updateState(state: ICardNavigatorState): void;
+
+  /**
+   * 카드셋 변경
+   * @param cardSetType 카드셋 타입
+   */
+  changeCardSet(cardSetType: CardSetType): Promise<void>;
+
+  /**
+   * 카드 검색
+   * @param query 검색어
+   * @param config 검색 설정
+   */
+  search(query: string, config?: ISearchConfig): Promise<void>;
+
+  /**
+   * 카드 정렬
+   * @param config 정렬 설정
+   */
+  sort(config: ISortConfig): Promise<void>;
+
+  /**
+   * 설정 열기
+   */
+  openSettings(): void;
+
+  /**
+   * 카드 드래그 시작
+   * @param cardId 카드 ID
+   * @param event 드래그 이벤트
+   */
+  startCardDrag(cardId: string, event: DragEvent): void;
 } 

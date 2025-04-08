@@ -1,4 +1,4 @@
-import { App, Notice } from 'obsidian';
+import { Notice } from 'obsidian';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { Container } from '@/infrastructure/di/Container';
@@ -18,11 +18,9 @@ import { CardSetError } from '@/domain/errors/CardSetError';
 export class ErrorHandler implements IErrorHandler {
   private static instance: ErrorHandler;
   private readonly logger: ILoggingService;
-  private readonly app: App;
 
   private constructor() {
     const container = Container.getInstance();
-    this.app = container.resolve('App');
     this.logger = container.resolve('ILoggingService');
   }
 

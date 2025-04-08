@@ -1,6 +1,4 @@
-import { App } from 'obsidian';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
-import { Container } from '@/infrastructure/di/Container';
 
 /**
  * 로그 레벨
@@ -24,11 +22,8 @@ export class LoggingService implements ILoggingService {
     endTime?: number;
     duration?: number;
   }> = new Map();
-  private readonly obsidianApp: App;
 
   private constructor() {
-    const container = Container.getInstance();
-    this.obsidianApp = container.resolve('App');
     // 개발 모드에서는 항상 DEBUG 레벨 설정
     this.setLogLevel(LogLevel.DEBUG);
   }
@@ -62,7 +57,7 @@ export class LoggingService implements ILoggingService {
    * 경고 로그 출력
    */
   public warn(message: string, ...args: any[]): void {
-    if (this._logLevel !== LogLevel.ERROR) {
+    if (this._logLevel === LogLevel.WARN || this._logLevel === LogLevel.INFO || this._logLevel === LogLevel.DEBUG) {
       console.warn(`[WARN] ${message}`, ...args);
     }
   }

@@ -1,17 +1,13 @@
 import { ICard } from '../models/Card';
 import { IPreset } from '../models/Preset';
 import { TFile } from 'obsidian';
-import { ILayoutConfig } from '../models/LayoutConfig';
-import { ICardSet } from '../models/CardSet';
-import { ISearchConfig } from '../models/SearchConfig';
+import { ILayoutConfig } from '../models/Layout';
+import { ICardSet, CardSetType, ICardSetConfig } from '../models/CardSet';
+import { ISearchConfig, ISearchCriteria, ISearchResult } from '../models/Search';
 import { IPluginSettings } from '../models/PluginSettings';
-import { ICardConfig, ICardSectionConfig } from '../models/CardConfig';
-import { ICardSetConfig } from '../models/CardSetConfig';
-import { IFilterConfig } from '../models/FilterConfig';
-import { ISortConfig } from '../models/SortConfig';
-import { ICardStyle } from '../models/CardStyle';
-import { CardSetType } from '../../domain/models/CardSetConfig';
-import { ISearchCriteria } from '../models/SearchResult';
+import { ICardStyle, ICardSection } from '../models/Card';
+import { ISortConfig } from '../models/Sort';
+import { ICardSetFilter } from '../models/CardSet';
 
 /**
  * 도메인 이벤트 타입
@@ -28,11 +24,15 @@ export const DomainEventType = {
   CARD_CREATED: 'card:created',
   CARD_UPDATED: 'card:updated',
   CARD_DELETED: 'card:deleted',
+  CARD_REGISTERED: 'card:registered',
+  CARD_UNREGISTERED: 'card:unregistered',
   CARD_SELECTED: 'card:selected',
   CARD_DESELECTED: 'card:deselected',
   SELECTION_CLEARED: 'selection:cleared',
   CARD_FOCUSED: 'card:focused',
   FOCUS_CHANGED: 'focus:changed',
+  FOCUS_BLURRED: 'focus:blurred',
+  FOCUS_STATE_UPDATED: 'focus:state:updated',
   CARD_DRAGGED: 'card:dragged',
   CARD_DROPPED: 'card:dropped',
   CARD_ACTIVATED: 'card:activated',
@@ -80,6 +80,7 @@ export const DomainEventType = {
   // 정렬 이벤트
   SORT_STARTED: 'sort:started',
   SORT_COMPLETED: 'sort:completed',
+  SORT_FAILED: 'sort:failed',
   SORT_CLEARED: 'sort:cleared',
   CARD_SET_SORT_STARTED: 'card:set:sort:started',
   CARD_SET_SORT_COMPLETED: 'card:set:sort:completed',
@@ -102,6 +103,7 @@ export const DomainEventType = {
   TOOLBAR_CARD_CONFIG_CHANGED: 'toolbar:cardConfig:changed',
   TOOLBAR_CARD_STYLE_CHANGED: 'toolbar:cardStyle:changed',
   TOOLBAR_LAYOUT_CONFIG_CHANGED: 'toolbar:layoutConfig:changed',
+  TOOLBAR_CARD_SECTION_CHANGED: 'toolbar:cardSection:changed',
 
   // 뷰 이벤트
   VIEW_CHANGED: 'view:changed',
@@ -183,11 +185,15 @@ export type EventDataType = {
   'card:created': { card: ICard };
   'card:updated': { card: ICard };
   'card:deleted': { card: ICard };
+  'card:registered': { card: ICard };
+  'card:unregistered': { card: ICard };
   'card:selected': { card: ICard };
   'card:deselected': { card: ICard };
   'selection:cleared': { cards: ICard[] };
   'card:focused': { card: ICard };
   'focus:changed': { card: ICard };
+  'focus:blurred': { card: ICard };
+  'focus:state:updated': { card: ICard; previousCard?: ICard };
   'card:dragged': { card: ICard };
   'card:dropped': { card: ICard };
   'card:activated': { card: ICard };
@@ -226,20 +232,43 @@ export type EventDataType = {
   'render:style:updated': { renderStyle: Record<string, unknown> };
   'render:cache:cleared': { cacheKey: string };
   'search:started': { query: string; config: ISearchConfig };
-  'search:completed': { result: { criteria: ISearchCriteria; cardIds: string[]; searchTime: number; totalCount: number; filteredCount: number } };
-  'search:failed': { error: Error; query: string; config: ISearchConfig };
-  'search:results:filtered': { result: { criteria: ISearchCriteria; cardIds: string[]; searchTime: number; totalCount: number; filteredCount: number }; config: ISearchConfig };
-  'search:results:sorted': { result: { criteria: ISearchCriteria; cardIds: string[]; searchTime: number; totalCount: number; filteredCount: number }; config: ISearchConfig };
+  'search:completed': {
+    result: ISearchResult;
+  };
+  'search:failed': {
+    error: Error;
+    query: string;
+    config: ISearchConfig;
+  };
+  'search:results:filtered': {
+    result: ISearchResult;
+    criteria: ISearchCriteria;
+  };
+  'search:results:sorted': {
+    result: ISearchResult;
+    criteria: ISearchCriteria;
+  };
   'search:index:updated': { card: ICard };
   'search:index:removed': { cardId: string };
-  'sort:started': { sortBy: string };
-  'sort:completed': { sortedCards: ICard[] };
+  'sort:started': {
+    cards: readonly ICard[];
+    config: ISortConfig;
+  };
+  'sort:completed': {
+    cards: readonly ICard[];
+    config: ISortConfig;
+  };
+  'sort:failed': {
+    cards: readonly ICard[];
+    config: ISortConfig;
+    error: Error;
+  };
   'sort:cleared': { };
   'toolbar:action': {
     cardSetType: CardSetType;
     searchConfig: ISearchConfig;
     sortConfig: ISortConfig;
-    cardConfig: ICardConfig;
+    cardSection: ICardSection;
     cardStyle: ICardStyle;
     layoutConfig: ILayoutConfig;
   };
@@ -267,8 +296,16 @@ export type EventDataType = {
   'scroll:position:updated': { position: number };
   'scroll:behavior:changed': { behavior: string };
   'scroll:smooth:changed': { smooth: boolean };
-  'settings:changed': { oldSettings: IPluginSettings; newSettings: IPluginSettings };
-  'card:section:display:changed': { section: 'header' | 'body' | 'footer'; property: keyof ICardSectionConfig; oldValue: boolean; newValue: boolean };
+  'settings:changed': {
+    readonly oldSettings: IPluginSettings;
+    readonly newSettings: IPluginSettings;
+  };
+  'card:section:display:changed': {
+    readonly section: 'header' | 'body' | 'footer';
+    readonly property: keyof ICardSection;
+    readonly oldValue: boolean;
+    readonly newValue: boolean;
+  };
   'toolbar:cardSetType:changed': {
     oldType: CardSetType;
     newType: CardSetType;
@@ -281,9 +318,9 @@ export type EventDataType = {
     oldConfig: ISortConfig;
     newConfig: ISortConfig;
   };
-  'toolbar:cardConfig:changed': {
-    oldConfig: ICardConfig;
-    newConfig: ICardConfig;
+  'toolbar:cardSection:changed': {
+    oldSection: ICardSection;
+    newSection: ICardSection;
   };
   'toolbar:cardStyle:changed': {
     oldStyle: ICardStyle;
@@ -293,19 +330,47 @@ export type EventDataType = {
     oldConfig: ILayoutConfig;
     newConfig: ILayoutConfig;
   };
-  'card:config:changed': { oldConfig: ICardConfig; newConfig: ICardConfig };
-  'card:set:config:changed': { type: string; oldConfig: ICardSetConfig; newConfig: ICardSetConfig };
-  'layout:config:changed': { oldConfig: ILayoutConfig; newConfig: ILayoutConfig };
-  'sort:config:changed': { oldConfig: ISortConfig; newConfig: ISortConfig };
-  'filter:config:changed': { oldConfig: IFilterConfig; newConfig: IFilterConfig };
-  'search:config:changed': { oldConfig: ISearchConfig; newConfig: ISearchConfig };
-  'card:style:changed': { oldStyle: ICardStyle; newStyle: ICardStyle };
+  'card:set:config:changed': {
+    readonly type: string;
+    readonly oldConfig: ICardSetConfig;
+    readonly newConfig: ICardSetConfig;
+  };
+  'layout:config:changed': {
+    readonly oldConfig: ILayoutConfig;
+    readonly newConfig: ILayoutConfig;
+  };
+  'sort:config:changed': {
+    readonly oldConfig: ISortConfig;
+    readonly newConfig: ISortConfig;
+  };
+  'filter:config:changed': { oldConfig: ICardSetFilter; newConfig: ICardSetFilter };
+  'search:config:changed': {
+    readonly oldConfig: ISearchConfig;
+    readonly newConfig: ISearchConfig;
+  };
+  'card:style:changed': {
+    readonly oldStyle: ICardStyle;
+    readonly newStyle: ICardStyle;
+  };
   'card:set:sort:started': { cardSet: ICardSet; config: ISortConfig };
   'card:set:sort:completed': { cardSet: ICardSet; config: ISortConfig };
   'card:set:sort:failed': { cardSet: ICardSet; config: ISortConfig; error: Error };
-  'search:result:sort:started': { result: { criteria: ISearchCriteria; cardIds: string[]; searchTime: number; totalCount: number; filteredCount: number }; config: ISortConfig };
-  'search:result:sort:completed': { result: { criteria: ISearchCriteria; cardIds: string[]; searchTime: number; totalCount: number; filteredCount: number }; config: ISortConfig };
-  'search:result:sort:failed': { result: { criteria: ISearchCriteria; cardIds: string[]; searchTime: number; totalCount: number; filteredCount: number }; config: ISortConfig; error: Error };
+  'search:result:sort:started': { 
+    cardSet: ICardSet;
+    criteria: ISearchCriteria;
+    config: ISortConfig;
+  };
+  'search:result:sort:completed': { 
+    cardSet: ICardSet;
+    criteria: ISearchCriteria;
+    config: ISortConfig;
+  };
+  'search:result:sort:failed': { 
+    cardSet: ICardSet;
+    criteria: ISearchCriteria;
+    config: ISortConfig;
+    error: Error;
+  };
   'priority:tags:sort:started': { cardSet: ICardSet; priorityTags: string[] };
   'priority:tags:sort:completed': { cardSet: ICardSet; priorityTags: string[] };
   'priority:tags:sort:failed': { cardSet: ICardSet; priorityTags: string[]; error: Error };
@@ -313,16 +378,13 @@ export type EventDataType = {
   'priority:folders:sort:completed': { cardSet: ICardSet; priorityFolders: string[] };
   'priority:folders:sort:failed': { cardSet: ICardSet; priorityFolders: string[]; error: Error };
   'card:preview:created': { 
-    cardConfig: ICardConfig;
     cardStyle: ICardStyle;
   };
   'card:section:selected': { section: string };
-  'card:render:config:updated': { config: ICardConfig };
+  'card:render:config:updated': { config: ICardSection };
   'card:style:updated': { style: ICardStyle };
   'card:preview:cleaned': { };
   'card:settings:section:changed': { 
-    oldConfig: ICardConfig;
-    newConfig: ICardConfig;
     oldStyle: ICardStyle;
     newStyle: ICardStyle;
   };
@@ -345,6 +407,13 @@ export type EventDataType = {
   'card:set:settings:section:changed': { 
     oldConfig: ICardSetConfig;
     newConfig: ICardSetConfig;
+  };
+  /** 카드 설정 변경 이벤트 데이터 */
+  'card:config:changed': {
+    /** 이전 설정 */
+    readonly oldConfig: ICardStyle;
+    /** 새로운 설정 */
+    readonly newConfig: ICardStyle;
   };
 };
 

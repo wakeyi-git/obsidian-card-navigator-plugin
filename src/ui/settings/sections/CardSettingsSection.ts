@@ -1,21 +1,20 @@
 import { Setting } from 'obsidian';
 import type CardNavigatorPlugin from '@/main';
 import { CardPreview } from '../components/CardPreview';
-import { IStyleProperties } from '@/domain/models/CardStyle';
-import { IRenderConfig, ICardSectionConfig, RenderType } from '@/domain/models/CardConfig';
+import { 
+  ICardCreateConfig,
+  ICardStateStyle,
+  RenderType,
+  IRenderConfig,
+  TitleSource
+} from '@/domain/models/Card';
 import { ICardDisplayManager } from '@/domain/managers/ICardDisplayManager';
-import { IRenderManager } from '@/domain/managers/IRenderManager';
 import { Container } from '@/infrastructure/di/Container';
-import type { ISettingsService } from '@/domain/services/ISettingsService';
-import { DomainEvent } from '@/domain/events/DomainEvent';
-import { DomainEventType } from '@/domain/events/DomainEventType';
+import type { ISettingsService } from '@/domain/services/application/ISettingsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
-import { IPluginSettings } from '@/domain/models/DefaultValues';
-import { ICardStyle } from '@/domain/models/CardStyle';
-import { IDomainEvent } from '@/domain/events/DomainEvent';
+import { IPluginSettings } from '@/domain/models/PluginSettings';
 
 type SectionType = 'header' | 'body' | 'footer';
-type StyleSectionType = 'card' | 'activeCard' | 'focusedCard' | SectionType;
 
 /**
  * 카드 설정 섹션
@@ -29,30 +28,14 @@ export class CardSettingsSection {
   private styleSettingsTitle: HTMLElement;
   private displaySettingsTitle: HTMLElement;
   private cardDisplayManager: ICardDisplayManager;
-  private renderManager: IRenderManager;
   private settingsService: ISettingsService;
-  private listeners: (() => void)[] = [];
   private eventDispatcher: IEventDispatcher;
 
   constructor(private plugin: CardNavigatorPlugin, eventDispatcher: IEventDispatcher) {
     const container = Container.getInstance();
     this.cardDisplayManager = container.resolve<ICardDisplayManager>('ICardDisplayManager');
-    this.renderManager = container.resolve<IRenderManager>('IRenderManager');
-    
-    // 설정 서비스 가져오기
     this.settingsService = container.resolve<ISettingsService>('ISettingsService');
     this.eventDispatcher = eventDispatcher;
-    
-    // 설정 변경 감지
-    this.listeners.push(
-      this.settingsService.onSettingsChanged(({ oldSettings, newSettings }) => {
-        // 설정이 변경되면 필요한 UI 업데이트 수행 가능
-        if (this.cardPreview) {
-          this.cardPreview.updateRenderConfig(newSettings.cardConfig);
-          this.cardPreview.updateStyle(newSettings.cardStyle);
-        }
-      })
-    );
   }
 
   /**
@@ -73,7 +56,7 @@ export class CardSettingsSection {
       // 렌더링 설정
       this.createRenderSettings();
 
-      // 카드 프리뷰 컨테이너 강조
+      // 카드 프리뷰 생성
       this.createPreview();
 
       // 스타일 설정
@@ -84,9 +67,6 @@ export class CardSettingsSection {
       this.displaySettingsTitle = containerEl.createEl('h4', { text: '표시 항목 설정' });
       this.displaySettingsEl = containerEl.createDiv('display-settings');
 
-      // 초기 선택 설정
-      this.cardPreview?.selectSection('card');
-      
       // 초기 화면에서 카드 영역이 선택되어 있을 때는 표시 항목 설정 타이틀 숨김
       this.displaySettingsTitle.style.display = 'none';
 
@@ -94,20 +74,14 @@ export class CardSettingsSection {
       this.createStyleSettings();
       this.createDisplaySettings();
 
-      // 콘솔에 상태 로깅
       console.log('카드 설정 섹션 생성 완료', {
         cardPreviewCreated: !!this.cardPreview,
         renderConfig: this.getRenderConfig(),
-        cardStyle: this.settingsService.getSettings().cardStyle,
-        containerSize: {
-          width: this.containerEl.offsetWidth,
-          height: this.containerEl.offsetHeight
-        }
+        settings: this.settingsService.getSettings()
       });
     } catch (error) {
       console.error('카드 설정 섹션 생성 중 오류 발생:', error);
       
-      // 기본 에러 메시지 표시
       if (containerEl) {
         const errorEl = containerEl.createDiv('error-message');
         errorEl.style.color = 'var(--text-error)';
@@ -122,7 +96,7 @@ export class CardSettingsSection {
    */
   private createRenderSettings(): void {
     const settings = this.settingsService.getSettings();
-    const card = settings.cardConfig;
+    const renderConfig = settings.card.renderConfig;
     
     // 마크다운 렌더링
     new Setting(this.containerEl)
@@ -130,10 +104,22 @@ export class CardSettingsSection {
       .setDesc('마크다운을 HTML로 렌더링합니다. 비활성화하면 일반 텍스트로 표시됩니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(card.renderType === 'html')
+          .setValue(renderConfig.type === RenderType.MARKDOWN)
           .onChange(async (value) => {
-            await this.settingsService.updateNestedSettings('cardConfig.renderType', value ? 'html' : 'text');
-            this.cardPreview?.updateRenderConfig(settings.cardConfig);
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                renderConfig: {
+                  ...renderConfig,
+                  type: value ? RenderType.MARKDOWN : RenderType.TEXT
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
           }));
 
     // 본문 길이 제한
@@ -142,10 +128,22 @@ export class CardSettingsSection {
       .setDesc('본문의 길이를 제한합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(card.body.content !== undefined)
+          .setValue(renderConfig.contentLengthLimitEnabled)
           .onChange(async (value) => {
-            await this.settingsService.updateNestedSettings('cardConfig.body.content', value);
-            this.cardPreview?.updateRenderConfig(settings.cardConfig);
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                renderConfig: {
+                  ...renderConfig,
+                  contentLengthLimitEnabled: value
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
             this.updateContentLengthLimitSlider();
           }));
 
@@ -154,14 +152,25 @@ export class CardSettingsSection {
       .setName('본문 길이 제한 값')
       .setDesc('표시할 본문의 최대 길이를 설정합니다.')
       .addSlider(slider => {
-        const value = 500; // 기본값
         slider
-          .setValue(value)
+          .setValue(renderConfig.contentLengthLimit)
           .setLimits(50, 1000, 50)
           .setDynamicTooltip()
           .onChange(async (value) => {
-            // TODO: 본문 길이 제한 값 설정 구현
-            this.cardPreview?.updateRenderConfig(settings.cardConfig);
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                renderConfig: {
+                  ...renderConfig,
+                  contentLengthLimit: value
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
           });
       });
 
@@ -182,7 +191,7 @@ export class CardSettingsSection {
     if (this.contentLengthLimitSlider) {
       const settings = this.settingsService.getSettings();
       this.contentLengthLimitSlider.settingEl.style.display = 
-        settings.cardConfig.body.content !== undefined ? 'flex' : 'none';
+        settings.card.renderConfig.contentLengthLimitEnabled ? 'flex' : 'none';
     }
   }
 
@@ -191,16 +200,19 @@ export class CardSettingsSection {
    */
   private getRenderConfig(): IRenderConfig {
     const settings = this.settingsService.getSettings();
-    const card = settings.cardConfig;
-    
+    return settings.card.renderConfig;
+  }
+
+  /**
+   * 카드 생성 설정 생성
+   */
+  private createCardConfig(settings: IPluginSettings): ICardCreateConfig {
     return {
-      type: RenderType.HTML,
-      showImages: true,
-      highlightCode: true,
-      supportCallouts: true,
-      supportMath: true,
-      contentLengthLimitEnabled: card.body.content !== undefined,
-      contentLengthLimit: 500 // 기본값
+      titleSource: settings.card.displayOptions.showFileName ? TitleSource.FILE_NAME : TitleSource.FIRST_HEADER,
+      stateStyle: settings.card.stateStyle,
+      header: settings.card.sections.header,
+      body: settings.card.sections.body,
+      footer: settings.card.sections.footer
     };
   }
 
@@ -208,17 +220,8 @@ export class CardSettingsSection {
    * 스타일 설정 생성
    */
   private createStyleSettings(): void {
-    const section = this.cardPreview?.getSelectedSection();
-    if (!section) return;
-
-    // 카드 영역 선택 시 상태별 스타일 설정
-    if (section === 'card') {
-      this.createCardStateStyleSettings();
-      return;
-    }
-
-    // 섹션별 스타일 설정
-    this.createSectionStyleSettings(section as SectionType);
+    // 카드 상태별 스타일 설정
+    this.createCardStateStyleSettings();
   }
 
   /**
@@ -227,164 +230,153 @@ export class CardSettingsSection {
   private createCardStateStyleSettings(): void {
     // 일반 카드 스타일
     this.styleSettingsEl.createEl('h5', { text: '일반 카드 스타일' });
-    this.createCardStyleSettings('card', '일반 카드');
+    this.createCardStyleSettings('normal', '일반 카드');
 
     // 활성 카드 스타일
     this.styleSettingsEl.createEl('h5', { text: '활성 카드 스타일' });
-    this.createCardStyleSettings('activeCard', '활성 카드');
+    this.createCardStyleSettings('active', '활성 카드');
 
     // 포커스된 카드 스타일
     this.styleSettingsEl.createEl('h5', { text: '포커스된 카드 스타일' });
-    this.createCardStyleSettings('focusedCard', '포커스된 카드');
+    this.createCardStyleSettings('focused', '포커스된 카드');
   }
 
   /**
    * 카드 스타일 설정 생성
    */
-  private createCardStyleSettings(styleKey: 'card' | 'activeCard' | 'focusedCard' | 'header' | 'body' | 'footer', label: string): void {
-    // 배경색 설정
-    new Setting(this.styleSettingsEl)
-      .setName('배경색')
-      .setDesc('배경색을 설정합니다.')
-      .addColorPicker(color =>
-        color
-          .setValue(this.getStyleValue(styleKey, 'backgroundColor'))
-          .onChange(async (value) => {
-            await this.updateStyle(styleKey, 'backgroundColor', value);
-          }));
-
-    // 폰트 크기 설정
-    new Setting(this.styleSettingsEl)
-      .setName('폰트 크기')
-      .setDesc('폰트 크기를 설정합니다.')
-      .addSlider(slider => {
-        const value = parseInt(this.getStyleValue(styleKey, 'fontSize'));
-        slider
-          .setValue(value)
-          .setLimits(8, 24, 1)
-          .setDynamicTooltip()
-          .onChange(async (value) => {
-            await this.updateStyle(styleKey, 'fontSize', `${value}px`);
-          });
-      });
-
-    // 테두리 색상 설정
-    new Setting(this.styleSettingsEl)
-      .setName('테두리 색상')
-      .setDesc('테두리 색상을 설정합니다.')
-      .addColorPicker(color =>
-        color
-          .setValue(this.getStyleValue(styleKey, 'borderColor'))
-          .onChange(async (value) => {
-            await this.updateStyle(styleKey, 'borderColor', value);
-          }));
-
-    // 테두리 두께 설정
-    new Setting(this.styleSettingsEl)
-      .setName('테두리 두께')
-      .setDesc('테두리 두께를 설정합니다.')
-      .addSlider(slider => {
-        const value = parseInt(this.getStyleValue(styleKey, 'borderWidth'));
-        slider
-          .setValue(value)
-          .setLimits(0, 4, 1)
-          .setDynamicTooltip()
-          .onChange(async (value) => {
-            await this.updateStyle(styleKey, 'borderWidth', `${value}px`);
-          });
-      });
-  }
-
-  /**
-   * 섹션 스타일 설정 생성
-   */
-  private createSectionStyleSettings(section: SectionType): void {
-    // 배경색 설정
-    new Setting(this.styleSettingsEl)
-      .setName('배경색')
-      .setDesc('배경색을 설정합니다.')
-      .addColorPicker(color =>
-        color
-          .setValue(this.getStyleValue(section, 'backgroundColor'))
-          .onChange(async (value) => {
-            await this.updateStyle(section, 'backgroundColor', value);
-          }));
-
-    // 폰트 크기 설정
-    new Setting(this.styleSettingsEl)
-      .setName('폰트 크기')
-      .setDesc('폰트 크기를 설정합니다.')
-      .addSlider(slider => {
-        const value = parseInt(this.getStyleValue(section, 'fontSize'));
-        slider
-          .setValue(value)
-          .setLimits(8, 24, 1)
-          .setDynamicTooltip()
-          .onChange(async (value) => {
-            await this.updateStyle(section, 'fontSize', `${value}px`);
-          });
-      });
-
-    // 테두리 색상 설정
-    new Setting(this.styleSettingsEl)
-      .setName('테두리 색상')
-      .setDesc('테두리 색상을 설정합니다.')
-      .addColorPicker(color =>
-        color
-          .setValue(this.getStyleValue(section, 'borderColor'))
-          .onChange(async (value) => {
-            await this.updateStyle(section, 'borderColor', value);
-          }));
-
-    // 테두리 두께 설정
-    new Setting(this.styleSettingsEl)
-      .setName('테두리 두께')
-      .setDesc('테두리 두께를 설정합니다.')
-      .addSlider(slider => {
-        const value = parseInt(this.getStyleValue(section, 'borderWidth'));
-        slider
-          .setValue(value)
-          .setLimits(0, 4, 1)
-          .setDynamicTooltip()
-          .onChange(async (value) => {
-            await this.updateStyle(section, 'borderWidth', `${value}px`);
-          });
-      });
-  }
-
-  /**
-   * 스타일 값 가져오기
-   */
-  private getStyleValue(styleKey: StyleSectionType, property: keyof IStyleProperties): string {
+  private createCardStyleSettings(styleKey: keyof ICardStateStyle, label: string): void {
     const settings = this.settingsService.getSettings();
-    const style = settings.cardStyle;
-    
-    switch (styleKey) {
-      case 'card':
-        return style.card[property] || '';
-      case 'activeCard':
-        return style.activeCard[property] || '';
-      case 'focusedCard':
-        return style.focusedCard[property] || '';
-      case 'header':
-        return style.header[property] || '';
-      case 'body':
-        return style.body[property] || '';
-      case 'footer':
-        return style.footer[property] || '';
-      default:
-        return '';
-    }
+    const style = settings.card.stateStyle[styleKey];
+
+    // 배경색 설정
+    new Setting(this.styleSettingsEl)
+      .setName('배경색')
+      .setDesc('배경색을 설정합니다.')
+      .addColorPicker(color =>
+        color
+          .setValue(style.backgroundColor)
+          .onChange(async (value) => {
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                stateStyle: {
+                  ...settings.card.stateStyle,
+                  [styleKey]: {
+                    ...style,
+                    backgroundColor: value
+                  }
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
+          }));
+
+    // 폰트 크기 설정
+    new Setting(this.styleSettingsEl)
+      .setName('폰트 크기')
+      .setDesc('폰트 크기를 설정합니다.')
+      .addSlider(slider => {
+        const value = parseInt(style.fontSize);
+        slider
+          .setValue(value)
+          .setLimits(8, 24, 1)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                stateStyle: {
+                  ...settings.card.stateStyle,
+                  [styleKey]: {
+                    ...style,
+                    fontSize: `${value}px`
+                  }
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
+          });
+      });
+
+    // 테두리 색상 설정
+    new Setting(this.styleSettingsEl)
+      .setName('테두리 색상')
+      .setDesc('테두리 색상을 설정합니다.')
+      .addColorPicker(color =>
+        color
+          .setValue(style.border.color)
+          .onChange(async (value) => {
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                stateStyle: {
+                  ...settings.card.stateStyle,
+                  [styleKey]: {
+                    ...style,
+                    border: {
+                      ...style.border,
+                      color: value
+                    }
+                  }
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
+          }));
+
+    // 테두리 두께 설정
+    new Setting(this.styleSettingsEl)
+      .setName('테두리 두께')
+      .setDesc('테두리 두께를 설정합니다.')
+      .addSlider(slider => {
+        const value = parseInt(style.border.width);
+        slider
+          .setValue(value)
+          .setLimits(0, 4, 1)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                stateStyle: {
+                  ...settings.card.stateStyle,
+                  [styleKey]: {
+                    ...style,
+                    border: {
+                      ...style.border,
+                      width: `${value}px`
+                    }
+                  }
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
+          });
+      });
   }
 
   /**
    * 표시 항목 설정 생성
    */
   private createDisplaySettings(): void {
-    const section = this.cardPreview?.getSelectedSection();
-    if (!section || section === 'card') return;
-
-    const displayConfig = this.getDisplayConfig(section as SectionType);
+    const settings = this.settingsService.getSettings();
+    const displayOptions = settings.card.displayOptions;
 
     // 파일명 표시
     new Setting(this.displaySettingsEl)
@@ -392,9 +384,22 @@ export class CardSettingsSection {
       .setDesc('파일명을 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayConfig.fileName)
+          .setValue(displayOptions.showFileName)
           .onChange(async (value) => {
-            await this.updateDisplayConfig(section as SectionType, 'fileName', value);
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                displayOptions: {
+                  ...displayOptions,
+                  showFileName: value
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
           }));
 
     // 첫 번째 헤더 표시
@@ -403,9 +408,22 @@ export class CardSettingsSection {
       .setDesc('첫 번째 헤더를 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayConfig.firstHeader)
+          .setValue(displayOptions.showFirstHeader)
           .onChange(async (value) => {
-            await this.updateDisplayConfig(section as SectionType, 'firstHeader', value);
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                displayOptions: {
+                  ...displayOptions,
+                  showFirstHeader: value
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
           }));
 
     // 본문 표시
@@ -414,9 +432,22 @@ export class CardSettingsSection {
       .setDesc('본문을 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayConfig.content !== undefined)
+          .setValue(displayOptions.showContent)
           .onChange(async (value) => {
-            await this.updateDisplayConfig(section as SectionType, 'content', value);
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                displayOptions: {
+                  ...displayOptions,
+                  showContent: value
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
           }));
 
     // 태그 표시
@@ -425,9 +456,22 @@ export class CardSettingsSection {
       .setDesc('태그를 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayConfig.tags)
+          .setValue(displayOptions.showTags)
           .onChange(async (value) => {
-            await this.updateDisplayConfig(section as SectionType, 'tags', value);
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                displayOptions: {
+                  ...displayOptions,
+                  showTags: value
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
           }));
 
     // 생성일 표시
@@ -436,9 +480,22 @@ export class CardSettingsSection {
       .setDesc('생성일을 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayConfig.date)
+          .setValue(displayOptions.showCreatedAt)
           .onChange(async (value) => {
-            await this.updateDisplayConfig(section as SectionType, 'date', value);
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                displayOptions: {
+                  ...displayOptions,
+                  showCreatedAt: value
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
           }));
 
     // 수정일 표시
@@ -447,9 +504,22 @@ export class CardSettingsSection {
       .setDesc('수정일을 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayConfig.date)
+          .setValue(displayOptions.showUpdatedAt)
           .onChange(async (value) => {
-            await this.updateDisplayConfig(section as SectionType, 'date', value);
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                displayOptions: {
+                  ...displayOptions,
+                  showUpdatedAt: value
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
           }));
 
     // 속성값 표시
@@ -458,170 +528,28 @@ export class CardSettingsSection {
       .setDesc('속성값을 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayConfig.properties)
+          .setValue(displayOptions.showProperties)
           .onChange(async (value) => {
-            await this.updateDisplayConfig(section as SectionType, 'properties', value);
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                displayOptions: {
+                  ...displayOptions,
+                  showProperties: value
+                }
+              }
+            });
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
           }));
   }
 
   /**
-   * 표시 설정 가져오기
+   * 카드 프리뷰 생성
    */
-  private getDisplayConfig(section: SectionType): ICardSectionConfig {
-    const settings = this.settingsService.getSettings();
-    const card = settings.cardConfig;
-    
-    switch (section) {
-      case 'header':
-        return card.header;
-      case 'body':
-        return card.body;
-      case 'footer':
-        return card.footer;
-      default:
-        return {} as ICardSectionConfig;
-    }
-  }
-
-  /**
-   * 스타일 업데이트
-   */
-  private async updateStyle(styleKey: StyleSectionType, property: keyof IStyleProperties, value: string): Promise<void> {
-    const settings = this.settingsService.getSettings();
-    const style = settings.cardStyle;
-    
-    switch (styleKey) {
-      case 'card':
-        await this.settingsService.updateCardStyle('card', property, value);
-        break;
-      case 'activeCard':
-        await this.settingsService.updateCardStyle('activeCard', property, value);
-        break;
-      case 'focusedCard':
-        await this.settingsService.updateCardStyle('focusedCard', property, value);
-        break;
-      case 'header':
-        await this.settingsService.updateCardStyle('header', property, value);
-        break;
-      case 'body':
-        await this.settingsService.updateCardStyle('body', property, value);
-        break;
-      case 'footer':
-        await this.settingsService.updateCardStyle('footer', property, value);
-        break;
-    }
-    
-    if (this.cardPreview) {
-      this.cardPreview.updateStyle(style);
-    }
-  }
-
-  /**
-   * 표시 설정 업데이트
-   */
-  private async updateDisplayConfig(
-    section: SectionType,
-    property: keyof ICardSectionConfig,
-    value: boolean
-  ): Promise<void> {
-    const settings = this.settingsService.getSettings();
-    const card = settings.cardConfig;
-    
-    await this.settingsService.updateCardSectionDisplay(section, property, value);
-    
-    if (this.cardPreview) {
-      this.cardPreview.updateRenderConfig(card);
-    }
-  }
-
-  /**
-   * 스타일 설정 업데이트
-   */
-  private updateStyleSettings(section: StyleSectionType): void {
-    const settings = this.settingsService.getSettings();
-    const style = settings.cardStyle;
-    
-    // 스타일 설정 영역 초기화
-    this.styleSettingsEl.empty();
-    
-    // 선택된 섹션에 따른 스타일 설정 생성
-    if (section === 'card' || section === 'activeCard' || section === 'focusedCard') {
-      this.createCardStateStyleSettings();
-    } else {
-      this.createSectionStyleSettings(section as SectionType);
-    }
-  }
-
-  /**
-   * 표시 설정 업데이트
-   */
-  private updateDisplaySettings(section: SectionType): void {
-    const settings = this.settingsService.getSettings();
-    const card = settings.cardConfig;
-    
-    // 표시 설정 영역 초기화
-    this.displaySettingsEl.empty();
-    
-    // 선택된 섹션에 따른 표시 설정 생성
-    this.createDisplaySettings();
-  }
-
-  /**
-   * 섹션 이름 가져오기
-   */
-  private getSectionName(section: StyleSectionType): string {
-    switch (section) {
-      case 'card':
-        return '카드';
-      case 'header':
-        return '헤더';
-      case 'body':
-        return '본문';
-      case 'footer':
-        return '푸터';
-      default:
-        return '';
-    }
-  }
-
-  /**
-   * 설정 섹션 정리
-   */
-  cleanup(): void {
-    try {
-      console.log('카드 설정 섹션 정리 시작');
-      
-      // 카드 프리뷰 정리
-      if (this.cardPreview) {
-        // 이벤트 리스너 제거는 CardPreview 클래스에 구현 필요
-        // 여기서는 참조만 제거
-        this.cardPreview = null;
-      }
-      
-      // 설정 요소 정리
-      if (this.containerEl) {
-        this.styleSettingsEl?.empty();
-        this.displaySettingsEl?.empty();
-      }
-      
-      console.log('카드 설정 섹션 정리 완료');
-    } catch (error) {
-      console.error('카드 설정 섹션 정리 중 오류 발생', error);
-    }
-  }
-  
-  /**
-   * 컴포넌트 정리
-   */
-  destroy(): void {
-    // 이벤트 리스너 정리
-    this.listeners.forEach(cleanup => cleanup());
-    this.listeners = [];
-    
-    // 기존 정리 메서드 호출
-    this.cleanup();
-  }
-
   private createPreview(): void {
     const previewContainer = this.containerEl.createDiv('card-preview-container');
     previewContainer.style.margin = '20px 0';
@@ -636,38 +564,72 @@ export class CardSettingsSection {
 
     try {
       const settings = this.settingsService.getSettings();
-      // 새로운 카드 프리뷰 생성
-      this.cardPreview = new CardPreview(
-        previewContainer,
-        settings.cardConfig,
-        settings.cardStyle
-      );
+      const cardConfig = this.createCardConfig(settings);
       
-      // 이벤트 핸들러 등록
-      const handler = {
-        handle: (event: IDomainEvent<typeof DomainEventType.CARD_SECTION_SELECTED>) => {
-          const { section } = event.data;
-          this.updateStyleSettings(section as StyleSectionType);
-          this.updateDisplaySettings(section as SectionType);
-        }
-      };
-      this.eventDispatcher.registerHandler(DomainEventType.CARD_SECTION_SELECTED, handler);
-      this.listeners.push(() => {
-        this.eventDispatcher.unregisterHandler(DomainEventType.CARD_SECTION_SELECTED, handler);
-      });
+      // 새로운 카드 프리뷰 생성
+      this.cardPreview = new CardPreview(previewContainer, cardConfig);
+      
+      // 섹션 클릭 이벤트 핸들러 등록
+      previewContainer.addEventListener('section-click', ((event: CustomEvent) => {
+        const { section } = event.detail;
+        this.updateStyleSettings(section);
+        this.updateDisplaySettings();
+      }) as EventListener);
       
       console.log('카드 프리뷰 생성 성공');
     } catch (error) {
       console.error('카드 프리뷰 생성 실패:', error);
-      // 오류 발생 시 안내 텍스트 표시
+      
       const errorEl = previewContainer.createDiv('card-preview-error');
       errorEl.style.color = 'var(--text-error)';
       errorEl.style.padding = '20px';
       errorEl.style.textAlign = 'center';
       errorEl.textContent = '카드 프리뷰를 생성할 수 없습니다. 설정을 확인해 주세요.';
+    }
+  }
+
+  /**
+   * 스타일 설정 업데이트
+   */
+  private updateStyleSettings(section: SectionType): void {
+    // 스타일 설정 영역 초기화
+    this.styleSettingsEl.empty();
+    
+    // 선택된 섹션에 따른 스타일 설정 생성
+    this.createStyleSettings();
+  }
+
+  /**
+   * 표시 설정 업데이트
+   */
+  private updateDisplaySettings(): void {
+    // 표시 설정 영역 초기화
+    this.displaySettingsEl.empty();
+    
+    // 표시 설정 생성
+    this.createDisplaySettings();
+  }
+
+  /**
+   * 설정 섹션 정리
+   */
+  cleanup(): void {
+    try {
+      console.log('카드 설정 섹션 정리 시작');
       
-      // 이후 코드 실행 중단
-      return;
+      if (this.cardPreview) {
+        this.cardPreview.cleanup();
+        this.cardPreview = null;
+      }
+      
+      if (this.containerEl) {
+        this.styleSettingsEl?.empty();
+        this.displaySettingsEl?.empty();
+      }
+      
+      console.log('카드 설정 섹션 정리 완료');
+    } catch (error) {
+      console.error('카드 설정 섹션 정리 중 오류 발생', error);
     }
   }
 } 

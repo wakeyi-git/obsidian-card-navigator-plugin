@@ -1,7 +1,6 @@
 import { DomainEvent } from './DomainEvent';
 import { DomainEventType } from './DomainEventType';
 import { ICard } from '../models/Card';
-import { TFile } from 'obsidian';
 
 /**
  * 카드 선택 이벤트

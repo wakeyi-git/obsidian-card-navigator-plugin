@@ -1,5 +1,4 @@
-import { IPluginSettings } from '../models/DefaultValues';
-import { DefaultValues } from '../models/DefaultValues';
+import { IPluginSettings, DEFAULT_PLUGIN_SETTINGS } from '../models/PluginSettings';
 
 /**
  * 객체의 깊은 복사본 생성
@@ -94,15 +93,7 @@ export class SettingsUtils {
    * @returns 기본 설정
    */
   static createDefaultSettings(): IPluginSettings {
-    return {
-      card: DefaultValues.cardConfig,
-      style: DefaultValues.cardStyle,
-      cardSet: DefaultValues.cardSetConfig,
-      search: DefaultValues.searchConfig,
-      sort: DefaultValues.sortConfig,
-      layout: DefaultValues.layoutConfig,
-      preset: DefaultValues.preset.config
-    };
+    return deepCopy(DEFAULT_PLUGIN_SETTINGS);
   }
 
   /**
@@ -111,8 +102,15 @@ export class SettingsUtils {
    * @returns 유효성 검사 결과
    */
   static validateSettings(settings: IPluginSettings): boolean {
-    // TODO: 설정 유효성 검사 로직 구현
-    return true;
+    return !!(
+      settings &&
+      settings.card &&
+      settings.cardSet &&
+      settings.layout &&
+      settings.sort &&
+      settings.search &&
+      settings.preset
+    );
   }
 
   /**
@@ -125,57 +123,12 @@ export class SettingsUtils {
     return {
       ...base,
       ...override,
-      card: {
-        ...base.card,
-        ...override.card,
-        header: {
-          ...base.card.header,
-          ...override.card?.header
-        },
-        body: {
-          ...base.card.body,
-          ...override.card?.body
-        },
-        footer: {
-          ...base.card.footer,
-          ...override.card?.footer
-        }
-      },
-      cardSet: {
-        ...base.cardSet,
-        ...override.cardSet,
-        folder: override.cardSet?.folder ?? base.cardSet.folder,
-        tag: override.cardSet?.tag ?? base.cardSet.tag,
-        link: override.cardSet?.link ?? base.cardSet.link,
-        filterConfig: {
-          ...base.cardSet.filterConfig,
-          ...override.cardSet?.filterConfig
-        },
-        sortConfig: {
-          ...base.cardSet.sortConfig,
-          ...override.cardSet?.sortConfig
-        },
-        searchConfig: {
-          ...base.cardSet.searchConfig,
-          ...override.cardSet?.searchConfig
-        }
-      },
-      search: {
-        ...base.search,
-        ...override.search
-      },
-      sort: {
-        ...base.sort,
-        ...override.sort
-      },
-      layout: {
-        ...base.layout,
-        ...override.layout
-      },
-      preset: {
-        ...base.preset,
-        ...override.preset
-      }
     };
+  }
+
+  public static updateSettings(settings: IPluginSettings, updater: (draft: IPluginSettings) => void): IPluginSettings {
+    const draft = { ...settings };
+    updater(draft);
+    return draft;
   }
 }

@@ -1,15 +1,55 @@
 import { IPreset } from '../models/Preset';
-import { ICardConfig } from '../models/CardConfig';
-import { ICardSetConfig } from '../models/CardSetConfig';
-import { ILayoutConfig } from '../models/LayoutConfig';
-import { ISortConfig } from '../models/SortConfig';
-import { ISearchConfig } from '../models/SearchConfig';
+
+/**
+ * 프리셋 이벤트 타입
+ */
+export type PresetEventType = 
+  | 'preset_created'
+  | 'preset_updated'
+  | 'preset_deleted'
+  | 'preset_applied'
+  | 'preset_mapping_added'
+  | 'preset_mapping_removed'
+  | 'preset_mapping_priority_updated';
+
+/**
+ * 프리셋 이벤트
+ */
+export interface IPresetEvent {
+  type: PresetEventType;
+  presetId: string;
+  mappingId?: string;
+  timestamp: Date;
+}
+
+/**
+ * 프리셋 상태
+ */
+export interface IPresetState {
+  preset: IPreset;
+  isActive: boolean;
+  lastAppliedAt?: Date;
+}
+
+/**
+ * 프리셋 매핑 상태
+ */
+export interface IPresetMappingState {
+  mappingId: string;
+  presetId: string;
+  targetType: 'folder' | 'tag' | 'created_date' | 'modified_date' | 'property';
+  targetValue: string;
+  priority: number;
+  includeSubfolders?: boolean;
+  useRegex?: boolean;
+  startDate?: Date;
+  endDate?: Date;
+}
 
 /**
  * 프리셋 관리자 인터페이스
- * - 프리셋 생성, 수정, 삭제, 적용
- * - 프리셋 매핑 관리
- * - 프리셋 우선순위 관리
+ * 
+ * 프리셋 상태와 매핑을 관리하는 매니저
  */
 export interface IPresetManager {
   /**
@@ -23,97 +63,86 @@ export interface IPresetManager {
   cleanup(): void;
 
   /**
-   * 프리셋 생성
-   * @param name 프리셋 이름
-   * @param description 프리셋 설명
-   * @param config 프리셋 설정
+   * 초기화 여부 확인
+   * @returns 초기화 여부
    */
-  createPreset(name: string, description: string, config: {
-    cardConfig: ICardConfig;
-    cardSetConfig: ICardSetConfig;
-    layoutConfig: ILayoutConfig;
-    sortConfig: ISortConfig;
-    searchConfig: ISearchConfig;
-  }): Promise<IPreset>;
+  isInitialized(): boolean;
 
   /**
-   * 프리셋 수정
-   * @param preset 프리셋
+   * 프리셋 상태 등록
+   * @param presetId 프리셋 ID
+   * @param state 프리셋 상태
    */
-  updatePreset(preset: IPreset): Promise<void>;
+  registerPresetState(presetId: string, state: IPresetState): void;
 
   /**
-   * 프리셋 삭제
+   * 프리셋 상태 등록 해제
    * @param presetId 프리셋 ID
    */
-  deletePreset(presetId: string): Promise<void>;
+  unregisterPresetState(presetId: string): void;
 
   /**
-   * 프리셋 적용
+   * 프리셋 상태 조회
    * @param presetId 프리셋 ID
+   * @returns 프리셋 상태
    */
-  applyPreset(presetId: string): Promise<void>;
+  getPresetState(presetId: string): IPresetState | null;
 
   /**
-   * 프리셋 목록 조회
-   * @returns 프리셋 목록
+   * 모든 프리셋 상태 조회
+   * @returns 프리셋 상태 Map
    */
-  getPresets(): Promise<IPreset[]>;
+  getPresetStates(): Map<string, IPresetState>;
 
   /**
-   * 프리셋 조회
+   * 프리셋 상태 업데이트
    * @param presetId 프리셋 ID
-   * @returns 프리셋 또는 null
+   * @param state 업데이트할 프리셋 상태
    */
-  getPreset(presetId: string): Promise<IPreset | null>;
+  updatePresetState(presetId: string, state: Partial<IPresetState>): void;
 
   /**
-   * 폴더에 프리셋 매핑
-   * @param folderPath 폴더 경로
-   * @param presetId 프리셋 ID
+   * 프리셋 매핑 상태 등록
+   * @param mappingId 매핑 ID
+   * @param state 매핑 상태
    */
-  mapPresetToFolder(folderPath: string, presetId: string): Promise<void>;
+  registerPresetMappingState(mappingId: string, state: IPresetMappingState): void;
 
   /**
-   * 태그에 프리셋 매핑
-   * @param tag 태그
-   * @param presetId 프리셋 ID
+   * 프리셋 매핑 상태 등록 해제
+   * @param mappingId 매핑 ID
    */
-  mapPresetToTag(tag: string, presetId: string): Promise<void>;
+  unregisterPresetMappingState(mappingId: string): void;
 
   /**
-   * 프리셋 매핑 제거
-   * @param folderPathOrTag 폴더 경로 또는 태그
+   * 프리셋 매핑 상태 조회
+   * @param mappingId 매핑 ID
+   * @returns 매핑 상태
    */
-  removePresetMapping(folderPathOrTag: string): Promise<void>;
+  getPresetMappingState(mappingId: string): IPresetMappingState | null;
 
   /**
-   * 프리셋 매핑 우선순위 업데이트
-   * @param mappings 매핑 목록
+   * 모든 프리셋 매핑 상태 조회
+   * @returns 매핑 상태 Map
    */
-  updatePresetMappingPriority(mappings: Array<{
-    folderPathOrTag: string;
-    presetId: string;
-    priority: number;
-  }>): Promise<void>;
+  getPresetMappingStates(): Map<string, IPresetMappingState>;
 
   /**
-   * 현재 적용된 프리셋 조회
-   * @returns 현재 프리셋 또는 null
+   * 프리셋 매핑 상태 업데이트
+   * @param mappingId 매핑 ID
+   * @param state 업데이트할 매핑 상태
    */
-  getCurrentPreset(): Promise<IPreset | null>;
+  updatePresetMappingState(mappingId: string, state: Partial<IPresetMappingState>): void;
 
   /**
-   * 프리셋 내보내기
-   * @param presetId 프리셋 ID
-   * @returns 프리셋 JSON 문자열
+   * 프리셋 이벤트 구독
+   * @param callback 이벤트 콜백
    */
-  exportPreset(presetId: string): Promise<string>;
+  subscribeToPresetEvents(callback: (event: IPresetEvent) => void): void;
 
   /**
-   * 프리셋 가져오기
-   * @param presetJson 프리셋 JSON 문자열
-   * @returns 가져온 프리셋
+   * 프리셋 이벤트 구독 해제
+   * @param callback 이벤트 콜백
    */
-  importPreset(presetJson: string): Promise<IPreset>;
+  unsubscribeFromPresetEvents(callback: (event: IPresetEvent) => void): void;
 } 

@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import { ICard } from '@/domain/models/Card';
+import { ICard, ICardCreateConfig, TitleSource, DEFAULT_CARD_CREATE_CONFIG } from '@/domain/models/Card';
 import { ICardFactory } from '@/domain/factories/ICardFactory';
 import { ErrorHandler } from '@/infrastructure/ErrorHandler';
 import { LoggingService } from '@/infrastructure/LoggingService';
@@ -11,7 +11,7 @@ import { CardServiceError } from '@/domain/errors/CardServiceError';
 import { FileSystemUtils } from '@/domain/utils/fileSystemUtils';
 import { CustomMarkdownRenderer } from '@/domain/utils/markdownRenderer';
 import { Container } from '@/infrastructure/di/Container';
-import { ISettingsService } from '../../domain/services/ISettingsService';
+import { ISettingsService } from '@/domain/services/application/ISettingsService';
 
 /**
  * 카드 팩토리 구현체
@@ -59,54 +59,48 @@ export class CardFactory implements ICardFactory {
    * 기본 카드 생성
    */
   create(
+    id: string,
+    file: TFile | null,
     filePath: string,
+    title: string,
     fileName: string,
     firstHeader: string | null,
     content: string,
     tags: string[],
+    properties: Record<string, unknown>,
     createdAt: Date,
     updatedAt: Date,
-    metadata: Record<string, any>
+    config: ICardCreateConfig
   ): ICard {
     const timer = this.performanceMonitor.startTimer('CardFactory.create');
     try {
       this.loggingService.debug('카드 생성 시작', { fileName });
 
-      const file = this.app.vault.getAbstractFileByPath(filePath) as TFile;
-      if (!file) {
-        throw new CardServiceError(
-          '파일을 찾을 수 없습니다.',
-          filePath,
-          'create'
-        );
-      }
-
       const card: ICard = {
-        id: filePath,
+        id,
         file,
         filePath,
         fileName,
-        title: fileName,
+        title,
         firstHeader,
         content,
         tags,
-        properties: metadata,
+        properties,
         createdAt,
         updatedAt,
-        metadata,
-        config: this.settingsService.getCardConfig(),
         validate: () => true,
         preview: () => ({
-          id: filePath,
+          id,
+          file,
           filePath,
           fileName,
+          title,
           firstHeader,
           content,
           tags,
-          properties: metadata,
+          properties,
           createdAt,
-          updatedAt,
-          metadata
+          updatedAt
         }),
         toString: () => `Card(${fileName})`
       };
@@ -137,65 +131,240 @@ export class CardFactory implements ICardFactory {
   /**
    * 파일 기반 카드 생성
    */
-  async createFromFile(filePath: string): Promise<ICard> {
+  async createFromFile(filePath: string, config: ICardCreateConfig): Promise<ICard> {
     const timer = this.performanceMonitor.startTimer('CardFactory.createFromFile');
     try {
       this.loggingService.debug('파일 기반 카드 생성 시작', { filePath });
 
-      const abstractFile = this.app.vault.getAbstractFileByPath(filePath);
-      if (!abstractFile) {
-        this.loggingService.warn('파일을 찾을 수 없음', { filePath });
-        throw new CardServiceError('FILE_NOT_FOUND', `파일을 찾을 수 없습니다: ${filePath}`);
+      const file = this.app.vault.getAbstractFileByPath(filePath);
+      if (!file || !(file instanceof TFile)) {
+        throw new CardServiceError(
+          '파일을 찾을 수 없습니다.',
+          undefined,
+          filePath,
+          'create'
+        );
       }
 
-      if (!(abstractFile instanceof TFile)) {
-        this.loggingService.warn('유효하지 않은 파일 타입', { filePath });
-        throw new CardServiceError('INVALID_FILE_TYPE', `파일이 아닙니다: ${filePath}`);
-      }
-
-      if (!FileSystemUtils.isMarkdownFile(abstractFile)) {
-        this.loggingService.warn('마크다운 파일이 아님', { filePath });
-        throw new CardServiceError('INVALID_FILE_TYPE', `마크다운 파일이 아닙니다: ${filePath}`);
-      }
-
-      const metadata = this.app.metadataCache.getFileCache(abstractFile);
-      if (!metadata) {
-        this.loggingService.warn('메타데이터를 찾을 수 없음', { filePath });
-        throw new CardServiceError('METADATA_NOT_FOUND', `파일 메타데이터를 가져올 수 없습니다: ${filePath}`);
-      }
-
-      const content = await this.app.vault.read(abstractFile);
-      const firstHeader = metadata.headings?.[0]?.heading || null;
-      const tags = metadata.tags?.map(tag => tag.tag) || [];
-      const properties = metadata.frontmatter || {};
+      const fileContent = await this.app.vault.read(file);
+      const firstHeader = FileSystemUtils.extractFirstHeader(fileContent);
+      const tags = FileSystemUtils.extractTags(fileContent);
+      const properties = FileSystemUtils.extractProperties(fileContent);
+      const id = this.generateCardId(filePath);
+      const title = this.generateCardTitle(file.basename, firstHeader, config);
 
       const card = this.create(
+        id,
+        file,
         filePath,
-        abstractFile.name,
+        title,
+        file.basename,
         firstHeader,
-        content,
+        fileContent,
         tags,
-        new Date(abstractFile.stat.ctime),
-        new Date(abstractFile.stat.mtime),
-        properties
+        properties,
+        file.stat.ctime ? new Date(file.stat.ctime) : new Date(),
+        file.stat.mtime ? new Date(file.stat.mtime) : new Date(),
+        config
       );
 
       this.analyticsService.trackEvent('card_created_from_file', {
         filePath,
-        hasMetadata: Object.keys(properties).length > 0
+        hasFirstHeader: !!firstHeader,
+        tagCount: tags.length
       });
 
-      this.loggingService.info('파일 기반 카드 생성 완료', { cardId: card.id, filePath });
       return card;
     } catch (error) {
       this.loggingService.error('파일 기반 카드 생성 실패', { error, filePath });
       this.errorHandler.handleError(error as Error, 'CardFactory.createFromFile');
-      if (error instanceof CardServiceError) {
-        throw error;
-      }
-      throw new CardServiceError('CARD_CREATION_FAILED', '카드 생성에 실패했습니다.');
+      throw new CardServiceError(
+        '파일 기반 카드 생성에 실패했습니다.',
+        undefined,
+        filePath,
+        'create',
+        error instanceof Error ? error : new Error(String(error))
+      );
     } finally {
       timer.stop();
     }
+  }
+
+  /**
+   * 카드 생성
+   */
+  async createCard(file: TFile): Promise<ICard> {
+    const timer = this.performanceMonitor.startTimer('CardFactory.createCard');
+    try {
+      this.loggingService.debug('카드 생성 시작', { fileName: file.name });
+
+      const content = await this.app.vault.read(file);
+      const metadata = this.app.metadataCache.getFileCache(file);
+      const firstHeader = metadata?.headings?.[0]?.heading ?? null;
+      const tags = metadata?.tags?.map(tag => tag.tag) || [];
+      const properties = metadata?.frontmatter || {};
+      const id = this.generateCardId(file.path);
+      const title = this.generateCardTitle(file.basename, firstHeader, DEFAULT_CARD_CREATE_CONFIG);
+
+      const card = this.create(
+        id,
+        file,
+        file.path,
+        title,
+        file.basename,
+        firstHeader,
+        content,
+        tags,
+        properties,
+        new Date(file.stat.ctime),
+        new Date(file.stat.mtime),
+        DEFAULT_CARD_CREATE_CONFIG
+      );
+
+      this.loggingService.info('카드 생성 완료', { fileName: file.name });
+      return card;
+    } catch (error) {
+      this.loggingService.error('카드 생성 실패', { error, fileName: file.name });
+      this.errorHandler.handleError(error as Error, 'CardFactory.createCard');
+      throw new CardServiceError(
+        '카드 생성에 실패했습니다.',
+        undefined,
+        file.name,
+        'create',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 여러 카드 생성
+   */
+  async createCards(files: TFile[]): Promise<ICard[]> {
+    const timer = this.performanceMonitor.startTimer('CardFactory.createCards');
+    try {
+      this.loggingService.debug('여러 카드 생성 시작', { fileCount: files.length });
+
+      const cards = await Promise.all(files.map(file => this.createCard(file)));
+
+      this.loggingService.info('여러 카드 생성 완료', { fileCount: files.length });
+      return cards;
+    } catch (error) {
+      this.loggingService.error('여러 카드 생성 실패', { error, fileCount: files.length });
+      this.errorHandler.handleError(error as Error, 'CardFactory.createCards');
+      throw new CardServiceError(
+        '여러 카드 생성에 실패했습니다.',
+        undefined,
+        undefined,
+        'create',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 카드 업데이트
+   */
+  async updateCard(card: ICard, file: TFile): Promise<ICard> {
+    const timer = this.performanceMonitor.startTimer('CardFactory.updateCard');
+    try {
+      this.loggingService.debug('카드 업데이트 시작', { cardId: card.id, fileName: file.name });
+
+      const content = await this.app.vault.read(file);
+      const metadata = this.app.metadataCache.getFileCache(file);
+      const firstHeader = metadata?.headings?.[0]?.heading ?? null;
+      const tags = metadata?.tags?.map(tag => tag.tag) || [];
+      const properties = metadata?.frontmatter || {};
+
+      const updatedCard = this.create(
+        card.id,
+        file,
+        file.path,
+        file.name.replace(/\.[^/.]+$/, ''),
+        file.name,
+        firstHeader,
+        content,
+        tags,
+        properties,
+        card.createdAt,
+        new Date(file.stat.mtime),
+        DEFAULT_CARD_CREATE_CONFIG
+      );
+
+      this.loggingService.info('카드 업데이트 완료', { cardId: card.id, fileName: file.name });
+      return updatedCard;
+    } catch (error) {
+      this.loggingService.error('카드 업데이트 실패', { error, cardId: card.id, fileName: file.name });
+      this.errorHandler.handleError(error as Error, 'CardFactory.updateCard');
+      throw new CardServiceError(
+        '카드 업데이트에 실패했습니다.',
+        card.id,
+        file.name,
+        'update',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 여러 카드 업데이트
+   */
+  async updateCards(cards: ICard[], files: TFile[]): Promise<ICard[]> {
+    const timer = this.performanceMonitor.startTimer('CardFactory.updateCards');
+    try {
+      this.loggingService.debug('여러 카드 업데이트 시작', { cardCount: cards.length, fileCount: files.length });
+
+      if (cards.length !== files.length) {
+        throw new CardServiceError(
+          '카드와 파일의 개수가 일치하지 않습니다.',
+          undefined,
+          undefined,
+          'update'
+        );
+      }
+
+      const updatedCards = await Promise.all(cards.map((card, index) => this.updateCard(card, files[index])));
+
+      this.loggingService.info('여러 카드 업데이트 완료', { cardCount: cards.length, fileCount: files.length });
+      return updatedCards;
+    } catch (error) {
+      this.loggingService.error('여러 카드 업데이트 실패', { error, cardCount: cards.length, fileCount: files.length });
+      this.errorHandler.handleError(error as Error, 'CardFactory.updateCards');
+      throw new CardServiceError(
+        '여러 카드 업데이트에 실패했습니다.',
+        undefined,
+        undefined,
+        'update',
+        error instanceof Error ? error : new Error(String(error))
+      );
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 카드 ID 생성
+   */
+  generateCardId(filePath: string): string {
+    return `card_${filePath.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  }
+
+  /**
+   * 카드 제목 생성
+   */
+  generateCardTitle(
+    fileName: string,
+    firstHeader: string | null,
+    config: ICardCreateConfig
+  ): string {
+    if (config.titleSource === TitleSource.FIRST_HEADER && firstHeader) {
+      return firstHeader;
+    }
+    return fileName.replace(/\.[^/.]+$/, ''); // 확장자 제거
   }
 } 

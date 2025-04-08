@@ -1,287 +1,369 @@
-import { IFocusManager, FocusDirection } from '@/domain/managers/IFocusManager';
 import { ICard } from '@/domain/models/Card';
-import { ICardService } from '@/domain/services/ICardService';
-import { ILayoutService } from '@/domain/services/ILayoutService';
-import { IScrollService } from '@/domain/services/IScrollService';
-import { LayoutDirection } from '@/domain/utils/layoutUtils';
+import { IFocusManager, IFocusState } from '@/domain/managers/IFocusManager';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
-import { FocusChangedEvent } from '@/domain/events/FocusEvents';
 import { Container } from '@/infrastructure/di/Container';
-import { TFile } from 'obsidian';
+import { FocusChangedEvent, FocusBlurredEvent, FocusStateUpdatedEvent } from '@/domain/events/FocusEvents';
 
 /**
- * 포커스 관리자 클래스
+ * 포커스 관리자 구현체
  */
 export class FocusManager implements IFocusManager {
   private static instance: FocusManager | null = null;
-  private container: Container;
-  private focusedCard: ICard | null = null;
-  private initialized: boolean = false;
-  private cardService: ICardService;
-  private layoutService: ILayoutService | null = null;
-  private scrollService: IScrollService;
+  private focusStates: Map<string, IFocusState> = new Map();
+  private isInitialized = false;
+  private errorHandler: IErrorHandler;
+  private logger: ILoggingService;
+  private performanceMonitor: IPerformanceMonitor;
+  private analyticsService: IAnalyticsService;
+  private eventDispatcher: IEventDispatcher;
+  private focusEventCallbacks: ((event: FocusChangedEvent | FocusBlurredEvent | FocusStateUpdatedEvent) => void)[] = [];
+  private scrollContainer: HTMLElement | null = null;
 
   private constructor(
-    private readonly errorHandler: IErrorHandler,
-    private readonly loggingService: ILoggingService,
-    private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService,
-    private readonly eventDispatcher: IEventDispatcher
+    errorHandler: IErrorHandler,
+    logger: ILoggingService,
+    performanceMonitor: IPerformanceMonitor,
+    analyticsService: IAnalyticsService,
+    eventDispatcher: IEventDispatcher
   ) {
-    this.container = Container.getInstance();
-    this.cardService = this.container.resolve<ICardService>('ICardService');
-    this.scrollService = this.container.resolve<IScrollService>('IScrollService');
+    this.errorHandler = errorHandler;
+    this.logger = logger;
+    this.performanceMonitor = performanceMonitor;
+    this.analyticsService = analyticsService;
+    this.eventDispatcher = eventDispatcher;
   }
 
-  /**
-   * 싱글톤 인스턴스 반환
-   */
-  static getInstance(): FocusManager {
+  public static getInstance(): FocusManager {
     if (!FocusManager.instance) {
       const container = Container.getInstance();
       FocusManager.instance = new FocusManager(
-        container.resolve('IErrorHandler'),
-        container.resolve('ILoggingService'),
-        container.resolve('IPerformanceMonitor'),
-        container.resolve('IAnalyticsService'),
-        container.resolve('IEventDispatcher')
+        container.resolve<IErrorHandler>('IErrorHandler'),
+        container.resolve<ILoggingService>('ILoggingService'),
+        container.resolve<IPerformanceMonitor>('IPerformanceMonitor'),
+        container.resolve<IAnalyticsService>('IAnalyticsService'),
+        container.resolve<IEventDispatcher>('IEventDispatcher')
       );
     }
     return FocusManager.instance;
   }
 
-  /**
-   * 초기화
-   */
-  async initialize(): Promise<void> {
-    const timer = this.performanceMonitor.startTimer('FocusManager.initialize');
+  public initialize(): void {
+    if (this.isInitialized) {
+      return;
+    }
+
     try {
-      if (this.initialized) {
-        this.loggingService.warn('이미 초기화됨');
-        return;
-      }
-
-      this.loggingService.debug('포커스 관리자 초기화 시작');
-
-      // 서비스 초기화
-      this.cardService = Container.getInstance().resolve<ICardService>('ICardService');
-      this.layoutService = Container.getInstance().resolve<ILayoutService>('ILayoutService');
-      this.scrollService = Container.getInstance().resolve<IScrollService>('IScrollService');
-
-      if (!this.cardService || !this.layoutService || !this.scrollService) {
-        throw new Error('서비스 초기화 실패');
-      }
-
-      await this.cardService.initialize();
-      await this.layoutService.initialize();
-      await this.scrollService.initialize();
-
-      this.initialized = true;
-
-      this.analyticsService.trackEvent('focus_manager_initialized');
-
-      this.loggingService.info('포커스 관리자 초기화 완료');
+      this.logger.debug('FocusManager 초기화 시작');
+      this.isInitialized = true;
+      this.logger.debug('FocusManager 초기화 완료');
     } catch (error) {
-      this.loggingService.error('포커스 관리자 초기화 실패', { error });
-      this.errorHandler.handleError(error as Error, 'FocusManager.initialize');
+      this.errorHandler.handleError(error, 'FocusManager 초기화 중 오류 발생');
+      throw error;
+    }
+  }
+
+  public cleanup(): void {
+    if (!this.isInitialized) {
+      return;
+    }
+
+    try {
+      this.logger.debug('FocusManager 정리 시작');
+      this.focusStates.clear();
+      this.focusEventCallbacks = [];
+      this.isInitialized = false;
+      this.logger.debug('FocusManager 정리 완료');
+    } catch (error) {
+      this.errorHandler.handleError(error, 'FocusManager 정리 중 오류 발생');
+      throw error;
+    }
+  }
+
+  public registerFocusState(cardId: string, isFocused: boolean): void {
+    if (!this.isInitialized) {
+      throw new Error('FocusManager가 초기화되지 않았습니다.');
+    }
+
+    const timer = this.performanceMonitor.startTimer('registerFocusState');
+    try {
+      this.logger.debug(`포커스 상태 등록 시작: ${cardId}`);
+
+      const previousState = this.focusStates.get(cardId);
+      const state: IFocusState = {
+        cardId,
+        isFocused,
+        timestamp: new Date()
+      };
+
+      this.focusStates.set(cardId, state);
+      this.eventDispatcher.dispatch(new FocusStateUpdatedEvent(
+        { id: cardId } as ICard,
+        previousState ? { id: previousState.cardId } as ICard : undefined
+      ));
+
+      this.analyticsService.trackEvent('focus_state_registered', { cardId });
+      this.logger.debug(`포커스 상태 등록 완료: ${cardId}`);
+    } catch (error) {
+      this.errorHandler.handleError(error, `포커스 상태 등록 중 오류 발생: ${cardId}`);
+      throw error;
     } finally {
       timer.stop();
     }
   }
 
-  /**
-   * 정리
-   */
-  async cleanup(): Promise<void> {
-    const timer = this.performanceMonitor.startTimer('FocusManager.cleanup');
+  public unregisterFocusState(cardId: string): void {
+    if (!this.isInitialized) {
+      throw new Error('FocusManager가 초기화되지 않았습니다.');
+    }
+
+    const timer = this.performanceMonitor.startTimer('unregisterFocusState');
     try {
-      if (!this.initialized) {
-        this.loggingService.warn('초기화되지 않음');
-        return;
-      }
+      this.logger.debug(`포커스 상태 해제 시작: ${cardId}`);
 
-      this.loggingService.debug('포커스 관리자 정리 시작');
+      this.focusStates.delete(cardId);
+      this.eventDispatcher.dispatch(new FocusBlurredEvent({ id: cardId } as ICard));
 
-      // 서비스 정리
-      if (this.cardService) {
-        await this.cardService.cleanup();
-      }
-      if (this.layoutService) {
-        await this.layoutService.cleanup();
-      }
-      if (this.scrollService) {
-        await this.scrollService.cleanup();
-      }
-
-      this.initialized = false;
-      this.focusedCard = null;
-      this.cardService = undefined as unknown as ICardService;
-      this.layoutService = undefined as unknown as ILayoutService;
-      this.scrollService = undefined as unknown as IScrollService;
-
-      this.analyticsService.trackEvent('focus_manager_cleaned_up');
-
-      this.loggingService.info('포커스 관리자 정리 완료');
+      this.analyticsService.trackEvent('focus_state_unregistered', { cardId });
+      this.logger.debug(`포커스 상태 해제 완료: ${cardId}`);
     } catch (error) {
-      this.loggingService.error('포커스 관리자 정리 실패', { error });
-      this.errorHandler.handleError(error as Error, 'FocusManager.cleanup');
+      this.errorHandler.handleError(error, `포커스 상태 해제 중 오류 발생: ${cardId}`);
+      throw error;
     } finally {
       timer.stop();
     }
   }
 
-  /**
-   * 초기화 여부 확인
-   * @returns 초기화 여부
-   */
-  isInitialized(): boolean {
-    return this.initialized;
+  public updateFocusState(cardId: string, isFocused: boolean): void {
+    if (!this.isInitialized) {
+      throw new Error('FocusManager가 초기화되지 않았습니다.');
+    }
+
+    const timer = this.performanceMonitor.startTimer('updateFocusState');
+    try {
+      this.logger.debug(`포커스 상태 업데이트 시작: ${cardId}`);
+
+      const previousState = this.focusStates.get(cardId);
+      const state: IFocusState = {
+        cardId,
+        isFocused,
+        timestamp: new Date()
+      };
+
+      this.focusStates.set(cardId, state);
+      this.eventDispatcher.dispatch(new FocusChangedEvent({ id: cardId } as ICard));
+
+      this.analyticsService.trackEvent('focus_state_updated', { cardId });
+      this.logger.debug(`포커스 상태 업데이트 완료: ${cardId}`);
+    } catch (error) {
+      this.errorHandler.handleError(error, `포커스 상태 업데이트 중 오류 발생: ${cardId}`);
+      throw error;
+    } finally {
+      timer.stop();
+    }
   }
 
-  /**
-   * 파일로 포커스 설정
-   * @param file 파일
-   */
-  async focusByFile(file: TFile): Promise<void> {
-    const timer = this.performanceMonitor.startTimer('FocusManager.focusByFile');
+  public getFocusState(cardId: string): IFocusState | undefined {
+    return this.focusStates.get(cardId);
+  }
+
+  public getAllFocusStates(): IFocusState[] {
+    return Array.from(this.focusStates.values());
+  }
+
+  public subscribeToFocusEvents(callback: (event: FocusChangedEvent | FocusBlurredEvent | FocusStateUpdatedEvent) => void): void {
+    this.focusEventCallbacks.push(callback);
+  }
+
+  public unsubscribeFromFocusEvents(callback: (event: FocusChangedEvent | FocusBlurredEvent | FocusStateUpdatedEvent) => void): void {
+    this.focusEventCallbacks = this.focusEventCallbacks.filter(cb => cb !== callback);
+  }
+
+  public scrollToCard(card: ICard): void {
+    const timer = this.performanceMonitor.startTimer('FocusManager.scrollToCard');
     try {
-      if (!this.initialized || !this.cardService) {
-        throw new Error('포커스 관리자가 초기화되지 않았습니다.');
-      }
-
-      this.loggingService.debug('파일로 포커스 설정 시작', { filePath: file.path });
-
-      const card = await this.cardService.getCardByFile(file);
-      if (!card) {
-        this.loggingService.warn('파일에 해당하는 카드를 찾을 수 없음', { filePath: file.path });
+      if (!this.scrollContainer) {
+        this.logger.warn('스크롤 컨테이너가 설정되지 않았습니다.');
         return;
       }
 
-      await this.focusCard(card);
+      const cardElement = document.querySelector(`[data-card-id="${card.id}"]`);
+      if (!cardElement) {
+        this.logger.warn('카드 요소를 찾을 수 없음', { cardId: card.id });
+        return;
+      }
 
-      this.analyticsService.trackEvent('focus_by_file', {
-        filePath: file.path,
+      // 카드 요소의 위치 계산
+      const containerRect = this.scrollContainer.getBoundingClientRect();
+      const cardRect = cardElement.getBoundingClientRect();
+
+      // 스크롤 위치 계산
+      const scrollLeft = this.scrollContainer.scrollLeft + 
+        (cardRect.left - containerRect.left);
+      
+      const scrollTop = this.scrollContainer.scrollTop + 
+        (cardRect.top - containerRect.top);
+
+      // 스크롤 실행
+      this.scrollContainer.scrollTo({
+        left: scrollLeft,
+        top: scrollTop,
+        behavior: 'smooth'
+      });
+
+      this.analyticsService.trackEvent('card_scrolled', {
         cardId: card.id
       });
 
-      this.loggingService.info('파일로 포커스 설정 완료', { filePath: file.path });
+      this.logger.info('카드로 스크롤 완료', { cardId: card.id });
     } catch (error) {
-      this.loggingService.error('파일로 포커스 설정 실패', { error });
-      this.errorHandler.handleError(error as Error, 'FocusManager.focusByFile');
+      this.logger.error('카드로 스크롤 실패', { error });
+      this.errorHandler.handleError(error as Error, 'FocusManager.scrollToCard');
     } finally {
       timer.stop();
     }
   }
 
-  /**
-   * 카드로 포커스 설정
-   * @param card 카드
-   */
-  async focusCard(card: ICard): Promise<void> {
-    const timer = this.performanceMonitor.startTimer('FocusManager.focusCard');
+  public setScrollContainer(container: HTMLElement): void {
+    this.scrollContainer = container;
+    this.logger.debug('스크롤 컨테이너 설정', { 
+      containerId: container.id,
+      className: container.className
+    });
+  }
+
+  public focusCard(card: ICard): void {
+    if (!this.isInitialized) {
+      throw new Error('FocusManager가 초기화되지 않았습니다.');
+    }
+
+    const timer = this.performanceMonitor.startTimer('focusCard');
     try {
-      if (!this.initialized || !this.layoutService || !this.scrollService) {
-        throw new Error('포커스 관리자가 초기화되지 않았습니다.');
-      }
-
-      this.loggingService.debug('카드로 포커스 설정 시작', { cardId: card.id });
-
-      // 이전 포커스된 카드 스타일 업데이트
-      if (this.focusedCard) {
-        this.layoutService.updateCardStyle(this.focusedCard, 'normal');
-      }
-
-      // 새 카드 포커스 설정
-      this.focusedCard = card;
-      this.layoutService.updateCardStyle(card, 'focused');
-
-      // 카드 위치 조회
-      const position = this.layoutService.getCardPosition(card);
-      if (!position) {
-        this.loggingService.warn('카드 위치를 찾을 수 없음', { cardId: card.id });
-        return;
-      }
-
-      // ScrollService를 통해 카드 중앙 정렬
-      this.scrollService.centerCard(card);
-
-      // 이벤트 발송
-      this.eventDispatcher.dispatch(new FocusChangedEvent(card));
-
-      this.analyticsService.trackEvent('focus_card', {
-        cardId: card.id,
-        position
-      });
-
-      this.loggingService.info('카드로 포커스 설정 완료', { cardId: card.id });
+      this.logger.debug(`카드 포커스 설정 시작: ${card.id}`);
+      this.updateFocusState(card.id, true);
+      this.scrollToCard(card);
+      this.logger.debug(`카드 포커스 설정 완료: ${card.id}`);
     } catch (error) {
-      this.loggingService.error('카드로 포커스 설정 실패', { error });
-      this.errorHandler.handleError(error as Error, 'FocusManager.focusCard');
+      this.errorHandler.handleError(error, `카드 포커스 설정 중 오류 발생: ${card.id}`);
+      throw error;
     } finally {
       timer.stop();
     }
   }
 
-  /**
-   * 방향으로 포커스 이동
-   * @param direction 방향
-   */
-  async moveFocus(direction: FocusDirection): Promise<void> {
-    const timer = this.performanceMonitor.startTimer('FocusManager.moveFocus');
+  public unfocusCard(card: ICard): void {
+    if (!this.isInitialized) {
+      throw new Error('FocusManager가 초기화되지 않았습니다.');
+    }
+
+    const timer = this.performanceMonitor.startTimer('unfocusCard');
     try {
-      if (!this.initialized || !this.focusedCard || !this.layoutService) {
-        throw new Error('포커스 관리자가 초기화되지 않았습니다.');
-      }
-
-      this.loggingService.debug('포커스 이동 시작', { direction });
-
-      const layoutDirection = this.convertFocusDirectionToLayoutDirection(direction);
-      const nextCard = this.layoutService.getNextCard(this.focusedCard, layoutDirection);
-      if (nextCard) {
-        await this.focusCard(nextCard);
-      }
-
-      this.analyticsService.trackEvent('move_focus', {
-        direction,
-        hasNextCard: !!nextCard
-      });
-
-      this.loggingService.info('포커스 이동 완료', { direction });
+      this.logger.debug(`카드 포커스 해제 시작: ${card.id}`);
+      this.updateFocusState(card.id, false);
+      this.logger.debug(`카드 포커스 해제 완료: ${card.id}`);
     } catch (error) {
-      this.loggingService.error('포커스 이동 실패', { error });
-      this.errorHandler.handleError(error as Error, 'FocusManager.moveFocus');
+      this.errorHandler.handleError(error, `카드 포커스 해제 중 오류 발생: ${card.id}`);
+      throw error;
     } finally {
       timer.stop();
     }
   }
 
-  /**
-   * 포커스된 카드 반환
-   * @returns 포커스된 카드
-   */
-  getFocusedCard(): ICard | null {
-    return this.focusedCard;
+  public getFocusedCard(): ICard | null {
+    const focusStates = this.getAllFocusStates();
+    const focusedState = focusStates.find(state => state.isFocused);
+    return focusedState ? { id: focusedState.cardId } as ICard : null;
   }
 
-  /**
-   * 포커스 방향을 레이아웃 방향으로 변환
-   * @param direction 포커스 방향
-   * @returns 레이아웃 방향
-   */
-  private convertFocusDirectionToLayoutDirection(direction: FocusDirection): LayoutDirection {
-    switch (direction) {
-      case FocusDirection.UP:
-      case FocusDirection.DOWN:
-        return LayoutDirection.VERTICAL;
-      case FocusDirection.LEFT:
-      case FocusDirection.RIGHT:
-        return LayoutDirection.HORIZONTAL;
-      default:
-        throw new Error(`지원하지 않는 방향: ${direction}`);
+  public isCardFocused(card: ICard): boolean {
+    const state = this.getFocusState(card.id);
+    return state?.isFocused ?? false;
+  }
+
+  public focusNextCard(): void {
+    const focusStates = this.getAllFocusStates();
+    const currentIndex = focusStates.findIndex(state => state.isFocused);
+    if (currentIndex === -1 || currentIndex === focusStates.length - 1) {
+      return;
+    }
+    const nextCard = { id: focusStates[currentIndex + 1].cardId } as ICard;
+    this.focusCard(nextCard);
+  }
+
+  public focusPreviousCard(): void {
+    const focusStates = this.getAllFocusStates();
+    const currentIndex = focusStates.findIndex(state => state.isFocused);
+    if (currentIndex <= 0) {
+      return;
+    }
+    const previousCard = { id: focusStates[currentIndex - 1].cardId } as ICard;
+    this.focusCard(previousCard);
+  }
+
+  public focusFirstCard(): void {
+    const focusStates = this.getAllFocusStates();
+    if (focusStates.length === 0) {
+      return;
+    }
+    const firstCard = { id: focusStates[0].cardId } as ICard;
+    this.focusCard(firstCard);
+  }
+
+  public focusLastCard(): void {
+    const focusStates = this.getAllFocusStates();
+    if (focusStates.length === 0) {
+      return;
+    }
+    const lastCard = { id: focusStates[focusStates.length - 1].cardId } as ICard;
+    this.focusCard(lastCard);
+  }
+
+  public focusCardById(cardId: string): void {
+    const card = { id: cardId } as ICard;
+    this.focusCard(card);
+  }
+
+  public focusCardByIndex(index: number): void {
+    const focusStates = this.getAllFocusStates();
+    if (index < 0 || index >= focusStates.length) {
+      return;
+    }
+    const card = { id: focusStates[index].cardId } as ICard;
+    this.focusCard(card);
+  }
+
+  public scrollToFocusedCard(): void {
+    const focusedCard = this.getFocusedCard();
+    if (focusedCard) {
+      this.scrollToCard(focusedCard);
     }
   }
-} 
+
+  public centerFocusedCard(): void {
+    const focusedCard = this.getFocusedCard();
+    if (focusedCard && this.scrollContainer) {
+      const cardElement = document.querySelector(`[data-card-id="${focusedCard.id}"]`);
+      if (cardElement) {
+        const containerRect = this.scrollContainer.getBoundingClientRect();
+        const cardRect = cardElement.getBoundingClientRect();
+        
+        const scrollLeft = this.scrollContainer.scrollLeft + 
+          (cardRect.left - containerRect.left) - 
+          (containerRect.width - cardRect.width) / 2;
+        
+        const scrollTop = this.scrollContainer.scrollTop + 
+          (cardRect.top - containerRect.top) - 
+          (containerRect.height - cardRect.height) / 2;
+
+        this.scrollContainer.scrollTo({
+          left: scrollLeft,
+          top: scrollTop,
+          behavior: 'smooth'
+        });
+      }
+    }
+  }
+}

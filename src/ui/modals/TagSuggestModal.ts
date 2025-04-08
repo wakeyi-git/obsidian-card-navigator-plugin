@@ -1,4 +1,4 @@
-import { App, getAllTags, SuggestModal } from 'obsidian';
+import { App, SuggestModal } from 'obsidian';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { Container } from '@/infrastructure/di/Container';
 
@@ -6,13 +6,13 @@ import { Container } from '@/infrastructure/di/Container';
  * 태그 선택 서제스트 모달
  */
 export class TagSuggestModal extends SuggestModal<string> {
-  private logger: ILoggingService;
+  private readonly loggingService: ILoggingService;
   public onChoose: (tag: string) => void;
   private tags: string[] = [];
 
   constructor(app: App) {
     super(app);
-    this.logger = Container.getInstance().resolve<ILoggingService>('ILoggingService');
+    this.loggingService = Container.getInstance().resolve<ILoggingService>('ILoggingService');
     this.setPlaceholder('태그를 입력하거나 선택하세요');
     this.loadTags();
   }
@@ -22,14 +22,14 @@ export class TagSuggestModal extends SuggestModal<string> {
    */
   private loadTags(): void {
     try {
-      this.logger.debug('태그 목록 로드 시작');
+      this.loggingService.debug('태그 목록 로드 시작');
       
       const tagSet = new Set<string>();
       
       // 마크다운 파일 순회
       this.app.vault.getMarkdownFiles().forEach(file => {
         const cache = this.app.metadataCache.getFileCache(file);
-        if (cache && cache.tags) {
+        if (cache?.tags) {
           // 캐시에서 태그 추출
           cache.tags.forEach(tag => {
             tagSet.add(tag.tag);
@@ -48,9 +48,9 @@ export class TagSuggestModal extends SuggestModal<string> {
       });
       
       this.tags = Array.from(tagSet).sort();
-      this.logger.debug('태그 목록 로드 완료', { tagCount: this.tags.length });
+      this.loggingService.debug('태그 목록 로드 완료', { tagCount: this.tags.length });
     } catch (error) {
-      this.logger.error('태그 목록 로드 실패', { error });
+      this.loggingService.error('태그 목록 로드 실패', { error });
     }
   }
 
@@ -75,7 +75,7 @@ export class TagSuggestModal extends SuggestModal<string> {
    */
   onChooseSuggestion(tag: string, evt: MouseEvent | KeyboardEvent): void {
     try {
-      this.logger.debug('태그 선택됨', { tag });
+      this.loggingService.debug('태그 선택됨', { tag });
       
       // 모달 닫은 후 이벤트 처리
       this.close();
@@ -88,7 +88,7 @@ export class TagSuggestModal extends SuggestModal<string> {
         }, 50);
       }
     } catch (error) {
-      this.logger.error('태그 선택 처리 중 오류 발생', { error, tag });
+      this.loggingService.error('태그 선택 처리 중 오류 발생', { error, tag });
     }
   }
 } 

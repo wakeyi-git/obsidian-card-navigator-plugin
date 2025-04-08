@@ -2,7 +2,7 @@ import { DomainEventType, EventDataType } from './DomainEventType';
 import { ICard } from '../models/Card';
 import { IPreset } from '../models/Preset';
 import { TFile } from 'obsidian';
-import { ILayoutConfig } from '../models/LayoutConfig';
+import { ILayoutConfig } from '../models/Layout';
 import { ICardSet } from '../models/CardSet';
 
 /**

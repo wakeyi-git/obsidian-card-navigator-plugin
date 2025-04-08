@@ -1,5 +1,3 @@
-import { ILoggingService } from './ILoggingService';
-
 /**
  * 성능 모니터링 서비스 인터페이스
  */

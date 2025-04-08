@@ -124,4 +124,48 @@ export class FileSystemUtils {
     const parts = this.splitPath(path);
     return parts[parts.length - 1] || '';
   }
+
+  /**
+   * 마크다운 파일에서 첫 번째 헤더 추출
+   */
+  static extractFirstHeader(content: string): string | null {
+    const headerMatch = content.match(/^#\s+(.+)$/m);
+    return headerMatch ? headerMatch[1].trim() : null;
+  }
+
+  /**
+   * 마크다운 파일에서 태그 추출
+   */
+  static extractTags(content: string): string[] {
+    const tagMatches = content.match(/#[^\s#]+/g);
+    return tagMatches ? tagMatches.map(tag => tag.slice(1)) : [];
+  }
+
+  /**
+   * 마크다운 파일에서 프론트매터 속성 추출
+   */
+  static extractProperties(content: string): Record<string, unknown> {
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!frontmatterMatch) {
+      return {};
+    }
+
+    const properties: Record<string, unknown> = {};
+    const frontmatter = frontmatterMatch[1];
+    const lines = frontmatter.split('\n');
+
+    for (const line of lines) {
+      const [key, ...valueParts] = line.split(':');
+      if (key && valueParts.length > 0) {
+        const value = valueParts.join(':').trim();
+        try {
+          properties[key.trim()] = JSON.parse(value);
+        } catch {
+          properties[key.trim()] = value;
+        }
+      }
+    }
+
+    return properties;
+  }
 } 
