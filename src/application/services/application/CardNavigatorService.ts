@@ -4,7 +4,7 @@ import { ICard } from '@/domain/models/Card';
 import { ICardSet } from '@/domain/models/CardSet';
 import { ISearchConfig } from '@/domain/models/Search';
 import { ISortConfig } from '@/domain/models/Sort';
-import { IPluginSettings } from '@/domain/models/PluginSettings';
+import { IPluginSettings, DEFAULT_PLUGIN_SETTINGS } from '@/domain/models/PluginSettings';
 import { Container } from '@/infrastructure/di/Container';
 import { App } from 'obsidian';
 import { DEFAULT_CARD_CREATE_CONFIG } from '@/domain/models/Card';
@@ -28,6 +28,8 @@ import { IFocusManager } from '@/domain/managers/IFocusManager';
 import { CardSetService } from '@/application/services/domain/CardSetService';
 import { PresetMappingType } from '@/domain/models/Preset';
 import { DEFAULT_CARD_STYLE } from '@/domain/models/Card';
+import { CardSetType } from '@/domain/models/CardSet';
+import { DEFAULT_PRESET_CONTENT_CONFIG } from '@/domain/models/Preset';
 
 // 상수 정의
 const DEFAULT_RENDER_STATE = {
@@ -307,16 +309,44 @@ export class CardNavigatorService implements ICardNavigatorService {
         const timer = this.performanceMonitor.startTimer('CardNavigatorService.loadPreset');
         try {
             this.logger.debug('프리셋 로드 시작', { name });
-            const preset = await this.presetService.getPreset(name);
-            if (!preset) {
-                throw new Error('프리셋을 찾을 수 없습니다.');
-            }
-            const settings = await this.presetService.getPreset(preset.metadata.id);
-            if (!settings) {
-                throw new Error('프리셋 설정을 찾을 수 없습니다.');
-            }
+            
+            // 기본 프리셋 로드
+            const defaultPreset = await this.presetService.loadDefaultPreset();
+            
+            // 기본 설정을 기반으로 새로운 설정 생성
+            const settings: IPluginSettings = {
+                ...DEFAULT_PLUGIN_SETTINGS,
+                card: {
+                    ...DEFAULT_PLUGIN_SETTINGS.card,
+                    stateStyle: defaultPreset.config.cardStateStyle,
+                    displayOptions: defaultPreset.config.cardDisplayOptions,
+                    sections: defaultPreset.config.cardSections,
+                    renderConfig: defaultPreset.config.cardRenderConfig
+                },
+                cardSet: {
+                    ...DEFAULT_PLUGIN_SETTINGS.cardSet,
+                    config: defaultPreset.config.cardSetConfig
+                },
+                search: {
+                    ...DEFAULT_PLUGIN_SETTINGS.search,
+                    config: defaultPreset.config.searchConfig
+                },
+                sort: {
+                    ...DEFAULT_PLUGIN_SETTINGS.sort,
+                    config: defaultPreset.config.sortConfig
+                },
+                layout: {
+                    ...DEFAULT_PLUGIN_SETTINGS.layout,
+                    config: defaultPreset.config.layoutConfig
+                },
+                preset: {
+                    ...DEFAULT_PLUGIN_SETTINGS.preset,
+                    config: defaultPreset.config
+                }
+            };
+
             this.logger.info('프리셋 로드 완료', { name });
-            return settings as unknown as IPluginSettings;
+            return settings;
         } catch (error) {
             this.logger.error('프리셋 로드 실패', { error });
             this.errorHandler.handleError(error as Error, 'CardNavigatorService.loadPreset');
