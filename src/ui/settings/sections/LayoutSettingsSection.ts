@@ -1,6 +1,6 @@
 import { Setting } from 'obsidian';
 import type CardNavigatorPlugin from '@/main';
-import { LayoutType, ILayoutConfig } from '@/domain/models/Layout';
+import { LayoutType } from '@/domain/models/Layout';
 import { Container } from '@/infrastructure/di/Container';
 import type { ISettingsService } from '@/domain/services/application/ISettingsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';

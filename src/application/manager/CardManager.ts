@@ -1,7 +1,5 @@
 import { ICardManager, ICardState } from '@/domain/managers/ICardManager';
 import { ICard } from '@/domain/models/Card';
-import { ICardSet } from '@/domain/models/CardSet';
-import { ICardStyle, IRenderConfig } from '@/domain/models/Card';
 import { TFile } from 'obsidian';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';

@@ -13,10 +13,10 @@ import {
   SortCompletedEvent,
   SortFailedEvent
 } from '@/domain/events/SortEvents';
-import { CardService } from '@/application/services/domain/CardService';
-import { CardSetService } from '@/application/services/domain/CardSetService';
-import { CardManager } from '@/application/manager/CardManager';
-import { CardFactory } from '@/application/factories/CardFactory';
+import { ICardService } from '@/domain/services/domain/ICardService';
+import { ICardSetService } from '@/domain/services/domain/ICardSetService';
+import { ICardManager } from '@/domain/managers/ICardManager';
+import { ICardFactory } from '@/domain/factories/ICardFactory';
 
 /**
  * 정렬 서비스 구현체
@@ -25,10 +25,10 @@ export class SortService implements ISortService {
   private static instance: SortService;
 
   private constructor(
-    private readonly cardService: CardService,
-    private readonly cardSetService: CardSetService,
-    private readonly cardManager: CardManager,
-    private readonly cardFactory: CardFactory,
+    private readonly cardService: ICardService,
+    private readonly cardSetService: ICardSetService,
+    private readonly cardManager: ICardManager,
+    private readonly cardFactory: ICardFactory,
     private readonly errorHandler: IErrorHandler,
     private readonly logger: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
@@ -40,10 +40,10 @@ export class SortService implements ISortService {
     if (!SortService.instance) {
       const container = Container.getInstance();
       SortService.instance = new SortService(
-        container.resolve('CardService'),
-        container.resolve('CardSetService'),
-        container.resolve('CardManager'),
-        container.resolve('CardFactory'),
+        container.resolve('ICardService'),
+        container.resolve('ICardSetService'),
+        container.resolve('ICardManager'),
+        container.resolve('ICardFactory'),
         container.resolve('IErrorHandler'),
         container.resolve('ILoggingService'),
         container.resolve('IPerformanceMonitor'),

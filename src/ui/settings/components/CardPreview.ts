@@ -1,11 +1,8 @@
 import { 
   ICardStyle, 
-  ICardCreateConfig, 
-  ICardStateStyle,
+  ICardCreateConfig,
   ICardDisplayOptions,
-  DEFAULT_CARD_CREATE_CONFIG,
-  DEFAULT_CARD_STATE_STYLE,
-  TitleSource
+  DEFAULT_CARD_CREATE_CONFIG
 } from '../../../domain/models/Card';
 
 type SectionType = 'header' | 'body' | 'footer';

@@ -5,7 +5,6 @@ import {
   IPresetMetadata, 
   Preset, 
   DEFAULT_PRESET_CONTENT_CONFIG,
-  PresetMappingType
 } from '@/domain/models/Preset';
 import { ICardSection, DEFAULT_RENDER_CONFIG } from '@/domain/models/Card';
 import { ICardSetConfig, CardSetType } from '@/domain/models/CardSet';

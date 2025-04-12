@@ -3,10 +3,10 @@ import { PresetManager } from '@/application/manager/PresetManager';
 import { ICard } from '@/domain/models/Card';
 import { ICardSet } from '@/domain/models/CardSet';
 import { ISearchConfig } from '@/domain/models/Search';
-import { ISortConfig, SortField } from '@/domain/models/Sort';
+import { ISortConfig } from '@/domain/models/Sort';
 import { IPluginSettings } from '@/domain/models/PluginSettings';
 import { Container } from '@/infrastructure/di/Container';
-import { TFile, App } from 'obsidian';
+import { App } from 'obsidian';
 import { DEFAULT_CARD_CREATE_CONFIG } from '@/domain/models/Card';
 import { ICardNavigatorService } from '@/domain/services/application/ICardNavigatorService';
 import { IRenderConfig, RenderType, RenderStatus } from '@/domain/models/Card';
@@ -20,7 +20,6 @@ import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { PresetService } from '@/application/services/application/PresetService';
 import { ToolbarService } from '@/application/services/application/ToolbarService';
 import { ICardService } from '@/domain/services/domain/ICardService';
-import { ICardSelectionService } from '@/domain/services/domain/ICardSelectionService';
 import { ICardManager } from '@/domain/managers/ICardManager';
 import { ICardFocusService } from '@/domain/services/application/ICardFocusService';
 import { ICardDisplayManager } from '@/domain/managers/ICardDisplayManager';
@@ -28,25 +27,9 @@ import { ICardFactory } from '@/domain/factories/ICardFactory';
 import { IFocusManager } from '@/domain/managers/IFocusManager';
 import { CardSetService } from '@/application/services/domain/CardSetService';
 import { PresetMappingType } from '@/domain/models/Preset';
+import { DEFAULT_CARD_STYLE } from '@/domain/models/Card';
 
 // 상수 정의
-const DEFAULT_CARD_STYLE: ICardStyle = {
-    classes: ['card'],
-    backgroundColor: '#ffffff',
-    fontSize: '14px',
-    color: '#333333',
-    border: {
-        width: '1px',
-        color: '#e0e0e0',
-        style: 'solid',
-        radius: '8px'
-    },
-    padding: '16px',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-    lineHeight: '1.5',
-    fontFamily: 'system-ui, -apple-system, sans-serif'
-};
-
 const DEFAULT_RENDER_STATE = {
     status: RenderStatus.PENDING,
     startTime: 0,
@@ -454,21 +437,6 @@ export class CardNavigatorService implements ICardNavigatorService {
     }
 
     public getCardStyle(): ICardStyle {
-        return {
-            classes: ['card'],
-            backgroundColor: '#ffffff',
-            fontSize: '14px',
-            color: '#333333',
-            border: {
-                width: '1px',
-                color: '#e0e0e0',
-                style: 'solid',
-                radius: '8px'
-            },
-            padding: '16px',
-            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-            lineHeight: '1.5',
-            fontFamily: 'system-ui, -apple-system, sans-serif'
-        };
+        return DEFAULT_CARD_STYLE;
     }
 } 

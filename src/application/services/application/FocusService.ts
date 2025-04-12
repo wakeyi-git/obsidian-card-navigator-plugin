@@ -6,13 +6,13 @@ import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
-import { CardService } from '@/application/services/domain/CardService';
-import { CardSelectionService } from '@/application/services/domain/CardSelectionService';
-import { FocusManager } from '@/application/manager/FocusManager';
-import { CardManager } from '@/application/manager/CardManager';
-import { CardFactory } from '@/application/factories/CardFactory';
+import { ICardService } from '@/domain/services/domain/ICardService';
+import { ICardSelectionService } from '@/domain/services/domain/ICardSelectionService';
+import { IFocusManager } from '@/domain/managers/IFocusManager';
+import { ICardManager } from '@/domain/managers/ICardManager';
+import { ICardFactory } from '@/domain/factories/ICardFactory';
 import { FocusChangedEvent, FocusBlurredEvent, FocusStateUpdatedEvent } from '@/domain/events/FocusEvents';
-import { LayoutService } from '@/application/services/application/LayoutService';
+import { ILayoutService } from '@/domain/services/application/ILayoutService';
 import { LayoutDirection } from '@/domain/models/Layout';
 
 /**
@@ -27,31 +27,31 @@ export class FocusService implements IFocusService {
   }) => void> = [];
 
   constructor(
-    private readonly cardService: CardService,
-    private readonly cardSelectionService: CardSelectionService,
-    private readonly focusManager: FocusManager,
-    private readonly cardManager: CardManager,
-    private readonly cardFactory: CardFactory,
+    private readonly cardService: ICardService,
+    private readonly cardSelectionService: ICardSelectionService,
+    private readonly focusManager: IFocusManager,
+    private readonly cardManager: ICardManager,
+    private readonly cardFactory: ICardFactory,
     private readonly errorHandler: IErrorHandler,
     private readonly logger: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
     private readonly analyticsService: IAnalyticsService,
-    private readonly layoutService: LayoutService
+    private readonly layoutService: ILayoutService
   ) {}
 
   static getInstance(): FocusService {
     const container = Container.getInstance();
     return new FocusService(
-      container.resolve<CardService>('CardService'),
-      container.resolve<CardSelectionService>('CardSelectionService'),
-      container.resolve<FocusManager>('FocusManager'),
-      container.resolve<CardManager>('CardManager'),
-      container.resolve<CardFactory>('CardFactory'),
-      container.resolve<IErrorHandler>('IErrorHandler'),
-      container.resolve<ILoggingService>('ILoggingService'),
-      container.resolve<IPerformanceMonitor>('IPerformanceMonitor'),
-      container.resolve<IAnalyticsService>('IAnalyticsService'),
-      container.resolve<LayoutService>('LayoutService')
+      container.resolve('ICardService'),
+      container.resolve('ICardSelectionService'),
+      container.resolve('IFocusManager'),
+      container.resolve('ICardManager'),
+      container.resolve('ICardFactory'),
+      container.resolve('IErrorHandler'),
+      container.resolve('ILoggingService'),
+      container.resolve('IPerformanceMonitor'),
+      container.resolve('IAnalyticsService'),
+      container.resolve('ILayoutService')
     );
   }
 

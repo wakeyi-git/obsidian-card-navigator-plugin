@@ -10,7 +10,7 @@ import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { Container } from '@/infrastructure/di/Container';
 import { CardSetType } from '@/domain/models/CardSet';
-import { ISortConfig, SortField, SortOrder, SortType } from '@/domain/models/Sort';
+import { ISortConfig, SortOrder, SortType } from '@/domain/models/Sort';
 import { LayoutType } from '@/domain/models/Layout';
 import { CardDisplayManager } from '@/application/manager/CardDisplayManager';
 import { CardRenderManager } from '@/application/manager/CardRenderManager';

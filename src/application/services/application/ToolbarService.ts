@@ -61,12 +61,12 @@ export class ToolbarService implements IToolbarService {
     if (!ToolbarService.instance) {
       const container = Container.getInstance();
       ToolbarService.instance = new ToolbarService(
-        container.resolve('CardService'),
-        container.resolve('CardSetService'),
-        container.resolve('PresetService'),
-        container.resolve('CardManager'),
-        container.resolve('PresetManager'),
-        container.resolve('CardFactory'),
+        container.resolve('ICardService'),
+        container.resolve('ICardSetService'),
+        container.resolve('IPresetService'),
+        container.resolve('ICardManager'),
+        container.resolve('IPresetManager'),
+        container.resolve('ICardFactory'),
         container.resolve('IErrorHandler'),
         container.resolve('ILoggingService'),
         container.resolve('IPerformanceMonitor'),

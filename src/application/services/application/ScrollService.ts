@@ -65,23 +65,17 @@ export class ScrollService implements IScrollService {
   static getInstance(): ScrollService {
     if (!ScrollService.instance) {
       const container = Container.getInstance();
-      const errorHandler = container.resolve<IErrorHandler>('IErrorHandler');
-      const loggingService = container.resolve<ILoggingService>('ILoggingService');
-      const performanceMonitor = container.resolve<IPerformanceMonitor>('IPerformanceMonitor');
-      const analyticsService = container.resolve<IAnalyticsService>('IAnalyticsService');
-      const eventDispatcher = container.resolve<IEventDispatcher>('IEventDispatcher');
-      
       ScrollService.instance = new ScrollService(
-        container.resolve<ICardService>('ICardService'),
-        container.resolve<ICardSelectionService>('ICardSelectionService'),
-        container.resolve<ICardManager>('ICardManager'),
-        container.resolve<ICardDisplayManager>('ICardDisplayManager'),
-        container.resolve<ICardFactory>('ICardFactory'),
-        errorHandler,
-        loggingService,
-        performanceMonitor,
-        analyticsService,
-        eventDispatcher
+        container.resolve('ICardService'),
+        container.resolve('ICardSelectionService'),
+        container.resolve('ICardManager'),
+        container.resolve('ICardDisplayManager'),
+        container.resolve('ICardFactory'),
+        container.resolve('IErrorHandler'),
+        container.resolve('ILoggingService'),
+        container.resolve('IPerformanceMonitor'),
+        container.resolve('IAnalyticsService'),
+        container.resolve('IEventDispatcher')
       );
     }
     return ScrollService.instance;

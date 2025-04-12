@@ -20,12 +20,12 @@ import {
   LayoutResizedEvent,
   LayoutCardStyleUpdatedEvent
 } from '@/domain/events/LayoutEvents';
-import { CardService } from '@/application/services/domain/CardService';
-import { CardSetService } from '@/application/services/domain/CardSetService';
-import { CardManager } from '@/application/manager/CardManager';
-import { CardDisplayManager } from '@/application/manager/CardDisplayManager';
-import { CardRenderManager } from '@/application/manager/CardRenderManager';
-import { CardFactory } from '@/application/factories/CardFactory';
+import { ICardService } from '@/domain/services/domain/ICardService';
+import { ICardSetService } from '@/domain/services/domain/ICardSetService';
+import { ICardManager } from '@/domain/managers/ICardManager';
+import { ICardDisplayManager } from '@/domain/managers/ICardDisplayManager';
+import { ICardRenderManager } from '@/domain/managers/ICardRenderManager';
+import { ICardFactory } from '@/domain/factories/ICardFactory';
 
 /**
  * 레이아웃 서비스 구현체
@@ -48,12 +48,12 @@ export class LayoutService implements ILayoutService {
   private scrollService: IScrollService;
 
   constructor(
-    private readonly cardService: CardService,
-    private readonly cardSetService: CardSetService,
-    private readonly cardManager: CardManager,
-    private readonly cardDisplayManager: CardDisplayManager,
-    private readonly cardRenderManager: CardRenderManager,
-    private readonly cardFactory: CardFactory,
+    private readonly cardService: ICardService,
+    private readonly cardSetService: ICardSetService,
+    private readonly cardManager: ICardManager,
+    private readonly cardDisplayManager: ICardDisplayManager,
+    private readonly cardRenderManager: ICardRenderManager,
+    private readonly cardFactory: ICardFactory,
     private readonly errorHandler: IErrorHandler,
     private readonly logger: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
@@ -71,33 +71,19 @@ export class LayoutService implements ILayoutService {
   static getInstance(): LayoutService {
     if (!LayoutService.instance) {
       const container = Container.getInstance();
-      const errorHandler = container.resolve<IErrorHandler>('IErrorHandler');
-      const loggingService = container.resolve<ILoggingService>('ILoggingService');
-      const performanceMonitor = container.resolve<IPerformanceMonitor>('IPerformanceMonitor');
-      const analyticsService = container.resolve<IAnalyticsService>('IAnalyticsService');
-      const eventDispatcher = container.resolve<IEventDispatcher>('IEventDispatcher');
-      const scrollService = container.resolve<IScrollService>('IScrollService');
-      
-      const cardService = container.resolve<CardService>('CardService');
-      const cardSetService = container.resolve<CardSetService>('CardSetService');
-      const cardManager = container.resolve<CardManager>('CardManager');
-      const cardDisplayManager = container.resolve<CardDisplayManager>('CardDisplayManager');
-      const cardRenderManager = container.resolve<CardRenderManager>('CardRenderManager');
-      const cardFactory = container.resolve<CardFactory>('CardFactory');
-      
       LayoutService.instance = new LayoutService(
-        cardService,
-        cardSetService,
-        cardManager,
-        cardDisplayManager,
-        cardRenderManager,
-        cardFactory,
-        errorHandler,
-        loggingService,
-        performanceMonitor,
-        analyticsService,
-        eventDispatcher,
-        scrollService
+        container.resolve('ICardService'),
+        container.resolve('ICardSetService'),
+        container.resolve('ICardManager'),
+        container.resolve('ICardDisplayManager'),
+        container.resolve('ICardRenderManager'),
+        container.resolve('ICardFactory'),
+        container.resolve('IScrollService'),
+        container.resolve('IErrorHandler'),
+        container.resolve('ILoggingService'),
+        container.resolve('IPerformanceMonitor'),
+        container.resolve('IAnalyticsService'),
+        container.resolve('IEventDispatcher')
       );
     }
     return LayoutService.instance;

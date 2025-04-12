@@ -3,7 +3,6 @@ import type CardNavigatorPlugin from '@/main';
 import { Container } from '@/infrastructure/di/Container';
 import type { ISettingsService } from '@/domain/services/application/ISettingsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
-import { ISearchConfig } from '@/domain/models/Search';
 
 /**
  * 검색 설정 섹션

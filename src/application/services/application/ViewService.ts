@@ -5,10 +5,10 @@ import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Container } from '@/infrastructure/di/Container';
-import { CardService } from '@/application/services/domain/CardService';
-import { CardSetService } from '@/application/services/domain/CardSetService';
-import { CardManager } from '@/application/manager/CardManager';
-import { CardFactory } from '@/application/factories/CardFactory';
+import { ICardService } from '@/domain/services/domain/ICardService';
+import { ICardSetService } from '@/domain/services/domain/ICardSetService';
+import { ICardManager } from '@/domain/managers/ICardManager';
+import { ICardFactory } from '@/domain/factories/ICardFactory';
 import { ViewActivatedEvent, ViewDeactivatedEvent } from '@/domain/events/ViewEvents';
 
 /**
@@ -21,10 +21,10 @@ export class ViewService implements IViewService {
   private views: Map<string, boolean> = new Map();
 
   constructor(
-    private readonly cardService: CardService,
-    private readonly cardSetService: CardSetService,
-    private readonly cardManager: CardManager,
-    private readonly cardFactory: CardFactory,
+    private readonly cardService: ICardService,
+    private readonly cardSetService: ICardSetService,
+    private readonly cardManager: ICardManager,
+    private readonly cardFactory: ICardFactory,
     private readonly errorHandler: IErrorHandler,
     private readonly logger: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
@@ -36,10 +36,10 @@ export class ViewService implements IViewService {
     if (!ViewService.instance) {
       const container = Container.getInstance();
       ViewService.instance = new ViewService(
-        container.resolve<CardService>('CardService'),
-        container.resolve<CardSetService>('CardSetService'),
-        container.resolve<CardManager>('CardManager'),
-        container.resolve<CardFactory>('CardFactory'),
+        container.resolve<ICardService>('ICardService'),
+        container.resolve<ICardSetService>('ICardSetService'),
+        container.resolve<ICardManager>('ICardManager'),
+        container.resolve<ICardFactory>('ICardFactory'),
         container.resolve<IErrorHandler>('IErrorHandler'),
         container.resolve<ILoggingService>('ILoggingService'),
         container.resolve<IPerformanceMonitor>('IPerformanceMonitor'),
