@@ -3,13 +3,13 @@ import { PresetManager } from '@/application/manager/PresetManager';
 import { ICard } from '@/domain/models/Card';
 import { ICardSet } from '@/domain/models/CardSet';
 import { ISearchConfig } from '@/domain/models/Search';
-import { ISortConfig } from '@/domain/models/Sort';
+import { ISortConfig, SortField } from '@/domain/models/Sort';
 import { IPluginSettings } from '@/domain/models/PluginSettings';
 import { Container } from '@/infrastructure/di/Container';
-import { TFile } from 'obsidian';
+import { TFile, App } from 'obsidian';
 import { DEFAULT_CARD_CREATE_CONFIG } from '@/domain/models/Card';
 import { ICardNavigatorService } from '@/domain/services/application/ICardNavigatorService';
-import { IRenderConfig } from '@/domain/models/Card';
+import { IRenderConfig, RenderType, RenderStatus } from '@/domain/models/Card';
 import { ICardStyle } from '@/domain/models/Card';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
@@ -26,275 +26,449 @@ import { ICardFocusService } from '@/domain/services/application/ICardFocusServi
 import { ICardDisplayManager } from '@/domain/managers/ICardDisplayManager';
 import { ICardFactory } from '@/domain/factories/ICardFactory';
 import { IFocusManager } from '@/domain/managers/IFocusManager';
+import { CardSetService } from '@/application/services/domain/CardSetService';
+import { PresetMappingType } from '@/domain/models/Preset';
+
+// 상수 정의
+const DEFAULT_CARD_STYLE: ICardStyle = {
+    classes: ['card'],
+    backgroundColor: '#ffffff',
+    fontSize: '14px',
+    color: '#333333',
+    border: {
+        width: '1px',
+        color: '#e0e0e0',
+        style: 'solid',
+        radius: '8px'
+    },
+    padding: '16px',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+    lineHeight: '1.5',
+    fontFamily: 'system-ui, -apple-system, sans-serif'
+};
+
+const DEFAULT_RENDER_STATE = {
+    status: RenderStatus.PENDING,
+    startTime: 0,
+    endTime: 0,
+    error: null,
+    timestamp: Date.now()
+};
 
 export class CardNavigatorService implements ICardNavigatorService {
     private static instance: CardNavigatorService | null = null;
-    private isInitialized = false;
-    private errorHandler: IErrorHandler;
-    private logger: ILoggingService;
-    private performanceMonitor: IPerformanceMonitor;
-    private analyticsService: IAnalyticsService;
-    private eventDispatcher: IEventDispatcher;
-    private cardService: ICardService;
-    private cardSelectionService: ICardSelectionService;
-    private cardManager: ICardManager;
-    private cardDisplayManager: ICardDisplayManager;
-    private cardFactory: ICardFactory;
-    private focusManager: IFocusManager;
-    private scrollService: IScrollService;
-    private cardFocusService: ICardFocusService;
-    private presetManager: PresetManager;
-    private presetService: PresetService;
-    private toolbarService: ToolbarService;
-    private cardRenderManager: CardRenderManager;
+    private readonly app: App;
+    private readonly errorHandler: IErrorHandler;
+    private readonly logger: ILoggingService;
+    private readonly performanceMonitor: IPerformanceMonitor;
+    private readonly analyticsService: IAnalyticsService;
+    private readonly eventDispatcher: IEventDispatcher;
+    private readonly cardService: ICardService;
+    private readonly cardManager: ICardManager;
+    private readonly cardFactory: ICardFactory;
+    private readonly cardDisplayManager: ICardDisplayManager;
+    private readonly focusManager: IFocusManager;
+    private readonly scrollService: IScrollService;
+    private readonly cardFocusService: ICardFocusService;
+    private readonly presetManager: PresetManager;
+    private readonly presetService: PresetService;
+    private readonly toolbarService: ToolbarService;
+    private readonly cardRenderManager: CardRenderManager;
+    private readonly cardSetService: CardSetService;
 
     private constructor(
+        app: App,
         errorHandler: IErrorHandler,
         logger: ILoggingService,
         performanceMonitor: IPerformanceMonitor,
         analyticsService: IAnalyticsService,
         eventDispatcher: IEventDispatcher,
         cardService: ICardService,
-        cardSelectionService: ICardSelectionService,
         cardManager: ICardManager,
-        cardDisplayManager: ICardDisplayManager,
         cardFactory: ICardFactory,
+        cardDisplayManager: ICardDisplayManager,
         focusManager: IFocusManager,
         scrollService: IScrollService,
-        cardFocusService: ICardFocusService
+        cardFocusService: ICardFocusService,
+        presetManager: PresetManager,
+        presetService: PresetService,
+        toolbarService: ToolbarService,
+        cardRenderManager: CardRenderManager,
+        cardSetService: CardSetService
     ) {
+        this.app = app;
         this.errorHandler = errorHandler;
         this.logger = logger;
         this.performanceMonitor = performanceMonitor;
         this.analyticsService = analyticsService;
         this.eventDispatcher = eventDispatcher;
         this.cardService = cardService;
-        this.cardSelectionService = cardSelectionService;
         this.cardManager = cardManager;
-        this.cardDisplayManager = cardDisplayManager;
         this.cardFactory = cardFactory;
+        this.cardDisplayManager = cardDisplayManager;
         this.focusManager = focusManager;
         this.scrollService = scrollService;
         this.cardFocusService = cardFocusService;
+        this.presetManager = presetManager;
+        this.presetService = presetService;
+        this.toolbarService = toolbarService;
+        this.cardRenderManager = cardRenderManager;
+        this.cardSetService = cardSetService;
     }
 
     public static getInstance(): CardNavigatorService {
         if (!CardNavigatorService.instance) {
             const container = Container.getInstance();
             CardNavigatorService.instance = new CardNavigatorService(
-                container.resolve<IErrorHandler>('IErrorHandler'),
-                container.resolve<ILoggingService>('ILoggingService'),
-                container.resolve<IPerformanceMonitor>('IPerformanceMonitor'),
-                container.resolve<IAnalyticsService>('IAnalyticsService'),
-                container.resolve<IEventDispatcher>('IEventDispatcher'),
-                container.resolve<ICardService>('ICardService'),
-                container.resolve<ICardSelectionService>('ICardSelectionService'),
-                container.resolve<ICardManager>('ICardManager'),
-                container.resolve<ICardDisplayManager>('ICardDisplayManager'),
-                container.resolve<ICardFactory>('ICardFactory'),
-                container.resolve<IFocusManager>('IFocusManager'),
-                container.resolve<IScrollService>('IScrollService'),
-                container.resolve<ICardFocusService>('ICardFocusService')
+                container.resolve('App'),
+                container.resolve('IErrorHandler'),
+                container.resolve('ILoggingService'),
+                container.resolve('IPerformanceMonitor'),
+                container.resolve('IAnalyticsService'),
+                container.resolve('IEventDispatcher'),
+                container.resolve('ICardService'),
+                container.resolve('ICardManager'),
+                container.resolve('ICardFactory'),
+                container.resolve('ICardDisplayManager'),
+                container.resolve('IFocusManager'),
+                container.resolve('IScrollService'),
+                container.resolve('ICardFocusService'),
+                container.resolve('IPresetManager'),
+                container.resolve('IPresetService'),
+                container.resolve('IToolbarService'),
+                container.resolve('ICardRenderManager'),
+                container.resolve('ICardSetService')
             );
         }
         return CardNavigatorService.instance;
     }
 
-    /**
-     * 카드셋에 해당하는 카드들을 가져옵니다.
-     * @param cardSet 카드셋
-     * @returns 카드 배열
-     */
-    async getCards(cardSet: ICardSet): Promise<ICard[]> {
-        const files = await this.getFilesByCardSet(cardSet);
-        return this.createCards(files);
-    }
-
-    /**
-     * 검색 결과에 해당하는 카드들을 가져옵니다.
-     * @param query 검색어
-     * @param config 검색 설정
-     * @returns 카드 배열
-     */
-    async searchCards(query: string, config: ISearchConfig): Promise<ICard[]> {
-        const files = await this.searchFiles(query, config);
-        return this.createCards(files);
-    }
-
-    /**
-     * 카드들을 정렬합니다.
-     * @param cards 카드 배열
-     * @param config 정렬 설정
-     * @returns 정렬된 카드 배열
-     */
-    sortCards(cards: ICard[], config: ISortConfig): ICard[] {
-        return this.sortCardsByConfig(cards, config);
-    }
-
-    /**
-     * 카드를 렌더링합니다.
-     * @param card 카드
-     * @returns 렌더링된 HTML 요소
-     */
-    renderCard(card: ICard): HTMLElement {
-        return this.renderCardElement(card);
-    }
-
-    /**
-     * 카드 표시 옵션을 적용합니다.
-     * @param card 카드
-     * @param settings 플러그인 설정
-     */
-    applyDisplayOptions(card: ICard, settings: IPluginSettings): void {
-        this.applyCardDisplayOptions(card, settings);
-    }
-
-    /**
-     * 카드에 포커스를 설정합니다.
-     * @param card 카드
-     */
-    focusCard(card: ICard): void {
-        this.setCardFocus(card);
-    }
-
-    /**
-     * 프리셋을 저장합니다.
-     * @param name 프리셋 이름
-     * @param settings 플러그인 설정
-     */
-    async savePreset(name: string, settings: IPluginSettings): Promise<void> {
-        await this.savePresetSettings(name, settings);
-    }
-
-    /**
-     * 프리셋을 불러옵니다.
-     * @param name 프리셋 이름
-     * @returns 플러그인 설정
-     */
-    async loadPreset(name: string): Promise<IPluginSettings> {
-        return await this.loadPresetSettings(name);
-    }
-
-    /**
-     * 폴더에 프리셋을 매핑합니다.
-     * @param folderPath 폴더 경로
-     * @param presetName 프리셋 이름
-     */
-    async mapPresetToFolder(folderPath: string, presetName: string): Promise<void> {
-        await this.mapFolderPreset(folderPath, presetName);
-    }
-
-    /**
-     * 태그에 프리셋을 매핑합니다.
-     * @param tag 태그
-     * @param presetName 프리셋 이름
-     */
-    async mapPresetToTag(tag: string, presetName: string): Promise<void> {
-        await this.mapTagPreset(tag, presetName);
-    }
-
-    /**
-     * 카드 간 링크를 생성합니다.
-     * @param sourceCard 소스 카드
-     * @param targetCard 타겟 카드
-     */
-    createLinkBetweenCards(sourceCard: ICard, targetCard: ICard): void {
-        this.cardManager.createLinkBetweenCards(sourceCard, targetCard);
-    }
-
-    /**
-     * 카드로 스크롤합니다.
-     * @param card 카드
-     */
-    scrollToCard(card: ICard): void {
-        this.focusManager.scrollToCard(card);
-    }
-
-    /**
-     * 컨테이너의 크기를 가져옵니다.
-     * @returns 컨테이너의 너비와 높이
-     */
-    getContainerDimensions(): { width: number; height: number } {
-        return this.cardDisplayManager.getContainerDimensions();
-    }
-
-    /**
-     * 렌더링 설정을 가져옵니다.
-     * @returns 렌더링 설정
-     */
-    getRenderConfig(): IRenderConfig {
-        return this.cardRenderManager.getRenderConfig();
-    }
-
-    /**
-     * 카드 스타일을 가져옵니다.
-     * @returns 카드 스타일
-     */
-    getCardStyle(): ICardStyle {
-        return this.cardDisplayManager.getCardStyle();
-    }
-
-    /**
-     * ID로 카드를 가져옵니다.
-     * @param cardId 카드 ID
-     * @returns 카드 또는 null
-     */
-    async getCardById(cardId: string): Promise<ICard | null> {
-        const card = await this.cardManager.getCardById(cardId);
-        return card ?? null;
-    }
-
-    private async getFilesByCardSet(cardSet: ICardSet): Promise<TFile[]> {
-        // TODO: 카드셋에 해당하는 파일 목록 가져오기 구현
-        return [];
-    }
-
-    private async searchFiles(query: string, config: ISearchConfig): Promise<TFile[]> {
-        // TODO: 검색 결과 파일 목록 가져오기 구현
-        return [];
-    }
-
-    private async createCards(files: TFile[]): Promise<ICard[]> {
-        const cards: ICard[] = [];
-        for (const file of files) {
-            const card = await this.cardFactory.createFromFile(file.path, DEFAULT_CARD_CREATE_CONFIG);
-            cards.push(card);
+    public async getCards(cardSet: ICardSet): Promise<ICard[]> {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorService.getCards');
+        try {
+            this.logger.debug('카드 목록 조회 시작', { cardSetId: cardSet.id });
+            const cards = await this.cardSetService.filterCards(cardSet, () => true);
+            this.logger.info('카드 목록 조회 완료', { cardSetId: cardSet.id, cardCount: cards.cards.length });
+            return [...cards.cards];
+        } catch (error) {
+            this.logger.error('카드 목록 조회 실패', { error });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorService.getCards');
+            return [];
+        } finally {
+            timer.stop();
         }
-        return cards;
     }
 
-    private sortCardsByConfig(cards: ICard[], config: ISortConfig): ICard[] {
-        // TODO: 정렬 로직 구현
-        return cards;
+    public async getCardById(cardId: string): Promise<ICard | null> {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorService.getCardById');
+        try {
+            this.logger.debug('카드 조회 시작', { cardId });
+            const card = this.cardSetService.getCardById(cardId);
+            this.logger.info('카드 조회 완료', { cardId, found: !!card });
+            return card;
+        } catch (error) {
+            this.logger.error('카드 조회 실패', { error });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorService.getCardById');
+            return null;
+        } finally {
+            timer.stop();
+        }
     }
 
-    private renderCardElement(card: ICard): HTMLElement {
-        // TODO: 카드 렌더링 로직 구현
-        return document.createElement('div');
+    public async searchCards(query: string, config: ISearchConfig): Promise<ICard[]> {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorService.searchCards');
+        try {
+            this.logger.debug('카드 검색 시작', { query, config });
+            const activeCardSet = await this.cardSetService.getActiveCardSet();
+            if (!activeCardSet) {
+                this.logger.warn('활성 카드셋이 없습니다.');
+                return [];
+            }
+            
+            const searchResult = await this.cardSetService.filterCards(activeCardSet, (card) => {
+                // 검색 로직 구현
+                const searchText = `${card.title} ${card.content}`.toLowerCase();
+                return searchText.includes(query.toLowerCase());
+            });
+            
+            this.logger.info('카드 검색 완료', { 
+                query, 
+                resultCount: searchResult.cards.length 
+            });
+            
+            return [...searchResult.cards];
+        } catch (error) {
+            this.logger.error('카드 검색 실패', { error });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorService.searchCards');
+            return [];
+        } finally {
+            timer.stop();
+        }
     }
 
-    private applyCardDisplayOptions(card: ICard, settings: IPluginSettings): void {
-        // TODO: 카드 표시 옵션 적용 로직 구현
+    public sortCards(cards: ICard[], config: ISortConfig): ICard[] {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorService.sortCards');
+        try {
+            this.logger.debug('카드 정렬 시작', { config });
+            
+            const sortedCards = [...cards].sort((a, b) => {
+                let comparison = 0;
+                switch (config.field) {
+                    case 'fileName':
+                        comparison = a.fileName.localeCompare(b.fileName);
+                        break;
+                    case 'created':
+                        comparison = a.createdAt.getTime() - b.createdAt.getTime();
+                        break;
+                    case 'modified':
+                        comparison = a.updatedAt.getTime() - b.updatedAt.getTime();
+                        break;
+                    default:
+                        comparison = 0;
+                }
+                return config.order === 'asc' ? comparison : -comparison;
+            });
+
+            this.logger.info('카드 정렬 완료');
+            return sortedCards;
+        } catch (error) {
+            this.logger.error('카드 정렬 실패', { error });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorService.sortCards');
+            return cards;
+        } finally {
+            timer.stop();
+        }
     }
 
-    private setCardFocus(card: ICard): void {
-        this.cardManager.setFocusedCard(card.id);
+    public renderCard(card: ICard): HTMLElement {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorService.renderCard');
+        try {
+            this.logger.debug('카드 렌더링 시작', { cardId: card.id });
+            
+            const cardElement = this.cardRenderManager.renderCard(card);
+            
+            this.logger.info('카드 렌더링 완료', { cardId: card.id });
+            return cardElement;
+        } catch (error) {
+            this.logger.error('카드 렌더링 실패', { error });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorService.renderCard');
+            
+            // 에러 발생 시 빈 div 반환
+            const errorElement = document.createElement('div');
+            errorElement.classList.add('card-error');
+            errorElement.textContent = '카드를 렌더링할 수 없습니다.';
+            return errorElement;
+        } finally {
+            timer.stop();
+        }
     }
 
-    private async savePresetSettings(name: string, settings: IPluginSettings): Promise<void> {
-        // TODO: 프리셋 저장 로직 구현
+    public applyDisplayOptions(card: ICard, settings: IPluginSettings): void {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorService.applyDisplayOptions');
+        try {
+            this.logger.debug('카드 표시 옵션 적용 시작', { cardId: card.id });
+            
+            this.cardDisplayManager.updateCardStyle(card, settings.card.style as unknown as 'normal' | 'active' | 'focused');
+            
+            this.logger.info('카드 표시 옵션 적용 완료', { cardId: card.id });
+        } catch (error) {
+            this.logger.error('카드 표시 옵션 적용 실패', { error });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorService.applyDisplayOptions');
+        } finally {
+            timer.stop();
+        }
     }
 
-    private async loadPresetSettings(name: string): Promise<IPluginSettings> {
-        // TODO: 프리셋 불러오기 로직 구현
-        return {} as IPluginSettings;
+    public focusCard(card: ICard): void {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorService.focusCard');
+        try {
+            this.logger.debug('카드 포커스 설정 시작', { cardId: card.id });
+            
+            this.cardFocusService.focusCard(card);
+            
+            this.logger.info('카드 포커스 설정 완료', { cardId: card.id });
+        } catch (error) {
+            this.logger.error('카드 포커스 설정 실패', { error });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorService.focusCard');
+        } finally {
+            timer.stop();
+        }
     }
 
-    private async mapFolderPreset(folderPath: string, presetName: string): Promise<void> {
-        // TODO: 폴더 프리셋 매핑 로직 구현
+    public async savePreset(name: string, settings: IPluginSettings): Promise<void> {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorService.savePreset');
+        try {
+            this.logger.debug('프리셋 저장 시작', { name });
+            
+            await this.presetService.createPreset(
+                name,
+                '',
+                'custom',
+                settings.card.sections.header,
+                settings.cardSet.config,
+                settings.layout.config,
+                settings.sort.config,
+                settings.search.config
+            );
+            
+            this.logger.info('프리셋 저장 완료', { name });
+        } catch (error) {
+            this.logger.error('프리셋 저장 실패', { error });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorService.savePreset');
+        } finally {
+            timer.stop();
+        }
     }
 
-    private async mapTagPreset(tag: string, presetName: string): Promise<void> {
-        // TODO: 태그 프리셋 매핑 로직 구현
+    public async loadPreset(name: string): Promise<IPluginSettings> {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorService.loadPreset');
+        try {
+            this.logger.debug('프리셋 로드 시작', { name });
+            const preset = await this.presetService.getPreset(name);
+            if (!preset) {
+                throw new Error('프리셋을 찾을 수 없습니다.');
+            }
+            const settings = await this.presetService.getPreset(preset.metadata.id);
+            if (!settings) {
+                throw new Error('프리셋 설정을 찾을 수 없습니다.');
+            }
+            this.logger.info('프리셋 로드 완료', { name });
+            return settings as unknown as IPluginSettings;
+        } catch (error) {
+            this.logger.error('프리셋 로드 실패', { error });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorService.loadPreset');
+            throw error;
+        } finally {
+            timer.stop();
+        }
+    }
+
+    public async mapPresetToFolder(presetId: string, folderPath: string): Promise<void> {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorService.mapPresetToFolder');
+        try {
+            this.logger.debug('폴더 프리셋 매핑 시작', { presetId, folderPath });
+            await this.presetService.createPresetMapping(presetId, {
+                presetId,
+                type: PresetMappingType.FOLDER,
+                target: folderPath,
+                priority: 0,
+                enabled: true,
+                options: {
+                    includeSubfolders: false
+                }
+            });
+            this.logger.info('폴더 프리셋 매핑 완료', { presetId, folderPath });
+        } catch (error) {
+            this.logger.error('폴더 프리셋 매핑 실패', { error });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorService.mapPresetToFolder');
+            throw error;
+        } finally {
+            timer.stop();
+        }
+    }
+
+    public async mapPresetToTag(presetId: string, tag: string): Promise<void> {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorService.mapPresetToTag');
+        try {
+            this.logger.debug('태그 프리셋 매핑 시작', { presetId, tag });
+            await this.presetService.createPresetMapping(presetId, {
+                presetId,
+                type: PresetMappingType.TAG,
+                target: tag,
+                priority: 0,
+                enabled: true,
+                options: {
+                    includeSubtags: false
+                }
+            });
+            this.logger.info('태그 프리셋 매핑 완료', { presetId, tag });
+        } catch (error) {
+            this.logger.error('태그 프리셋 매핑 실패', { error });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorService.mapPresetToTag');
+            throw error;
+        } finally {
+            timer.stop();
+        }
+    }
+
+    public async createLinkBetweenCards(card1: ICard, card2: ICard): Promise<void> {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorService.createLinkBetweenCards');
+        try {
+            this.logger.debug('카드 간 링크 생성 시작', { card1Id: card1.id, card2Id: card2.id });
+            if (!card1.file || !card2.file) {
+                throw new Error('카드 파일이 없습니다.');
+            }
+            await this.cardService.createCardFromFile(card1.file, {
+                type: 'body',
+                displayOptions: DEFAULT_CARD_CREATE_CONFIG.body.displayOptions,
+                style: DEFAULT_CARD_CREATE_CONFIG.body.style
+            });
+            await this.cardService.createCardFromFile(card2.file, {
+                type: 'body',
+                displayOptions: DEFAULT_CARD_CREATE_CONFIG.body.displayOptions,
+                style: DEFAULT_CARD_CREATE_CONFIG.body.style
+            });
+            this.logger.info('카드 간 링크 생성 완료', { card1Id: card1.id, card2Id: card2.id });
+        } catch (error) {
+            this.logger.error('카드 간 링크 생성 실패', { error });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorService.createLinkBetweenCards');
+            throw error;
+        } finally {
+            timer.stop();
+        }
+    }
+
+    public scrollToCard(card: ICard): void {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorService.scrollToCard');
+        try {
+            this.logger.debug('카드로 스크롤 시작', { cardId: card.id });
+            this.scrollService.scrollToCard(card);
+            this.logger.info('카드로 스크롤 완료', { cardId: card.id });
+        } catch (error) {
+            this.logger.error('카드로 스크롤 실패', { error });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorService.scrollToCard');
+        } finally {
+            timer.stop();
+        }
+    }
+
+    public getContainerDimensions(): { width: number; height: number } {
+        const container = document.querySelector('.card-navigator-container');
+        if (!container) {
+            return { width: 0, height: 0 };
+        }
+        return {
+            width: container.clientWidth,
+            height: container.clientHeight
+        };
+    }
+
+    public getRenderConfig(): IRenderConfig {
+        return {
+            type: RenderType.MARKDOWN,
+            contentLengthLimitEnabled: false,
+            contentLengthLimit: 200,
+            style: DEFAULT_CARD_STYLE,
+            state: DEFAULT_RENDER_STATE
+        };
+    }
+
+    public getCardStyle(): ICardStyle {
+        return {
+            classes: ['card'],
+            backgroundColor: '#ffffff',
+            fontSize: '14px',
+            color: '#333333',
+            border: {
+                width: '1px',
+                color: '#e0e0e0',
+                style: 'solid',
+                radius: '8px'
+            },
+            padding: '16px',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+            lineHeight: '1.5',
+            fontFamily: 'system-ui, -apple-system, sans-serif'
+        };
     }
 } 

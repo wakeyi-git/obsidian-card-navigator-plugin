@@ -200,39 +200,42 @@ export class CardRenderManager implements ICardRenderManager {
   getRenderConfig(): IRenderConfig {
     const timer = this.performanceMonitor.startTimer('getRenderConfig');
     try {
-      this.logger.debug('Getting render config');
+      this.logger.debug('렌더링 설정 가져오기 시작');
       
-      // TODO: 렌더링 설정 로직 구현
-      return {
+      const config: IRenderConfig = {
         type: RenderType.MARKDOWN,
-        contentLengthLimitEnabled: false,
-        contentLengthLimit: 0,
+        contentLengthLimitEnabled: true,
+        contentLengthLimit: 1000, // 기본값 1000자
         style: {
-          classes: [],
-          backgroundColor: '',
-          fontSize: '',
-          color: '',
+          classes: ['card'],
+          backgroundColor: 'var(--background-primary)',
+          fontSize: 'var(--font-size-normal)',
+          color: 'var(--text-normal)',
           border: {
-            width: '',
-            color: '',
-            style: '',
-            radius: ''
+            width: '1px',
+            color: 'var(--background-modifier-border)',
+            style: 'solid',
+            radius: '8px'
           },
-          padding: '',
-          boxShadow: '',
-          lineHeight: '',
-          fontFamily: ''
+          padding: 'var(--size-4-2)',
+          boxShadow: 'var(--shadow-s)',
+          lineHeight: 'var(--line-height-normal)',
+          fontFamily: 'var(--font-family)'
         },
         state: {
           status: RenderStatus.PENDING,
-          startTime: 0,
+          startTime: Date.now(),
           endTime: 0,
           error: null,
           timestamp: Date.now()
         }
       };
+      
+      this.logger.debug('렌더링 설정 가져오기 완료', { config });
+      return config;
     } catch (error) {
-      this.errorHandler.handleError(error, 'Failed to get render config');
+      this.logger.error('렌더링 설정 가져오기 실패', { error });
+      this.errorHandler.handleError(error as Error, 'CardRenderManager.getRenderConfig');
       return {
         type: RenderType.MARKDOWN,
         contentLengthLimitEnabled: false,

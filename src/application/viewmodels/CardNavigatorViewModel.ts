@@ -17,6 +17,7 @@ import { ICardSetService } from '@/domain/services/domain/ICardSetService';
 import { ISearchConfig, DEFAULT_SEARCH_CONFIG } from '@/domain/models/Search';
 import { ISortConfig } from '@/domain/models/Sort';
 import { IActiveFileWatcher } from '@/domain/services/application/IActiveFileWatcher';
+import { Menu } from 'obsidian';
 
 /**
  * 카드 내비게이터 뷰모델 구현체
@@ -481,7 +482,38 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
         try {
             this.loggingService.debug('카드 컨텍스트 메뉴 표시', { cardId });
 
-            // TODO: 카드 컨텍스트 메뉴 표시 로직 구현
+            // 컨텍스트 메뉴 생성
+            const menu = new Menu();
+            
+            // 링크 복사 메뉴 항목
+            menu.addItem((item) => {
+                item.setTitle('링크 복사');
+                item.setIcon('link');
+                item.onClick(async () => {
+                    const card = await this.service.getCardById(cardId);
+                    if (card) {
+                        const link = `[[${card.fileName}]]`;
+                        await navigator.clipboard.writeText(link);
+                        this.showMessage('링크가 복사되었습니다.');
+                    }
+                });
+            });
+
+            // 내용 복사 메뉴 항목
+            menu.addItem((item) => {
+                item.setTitle('내용 복사');
+                item.setIcon('copy');
+                item.onClick(async () => {
+                    const card = await this.service.getCardById(cardId);
+                    if (card) {
+                        await navigator.clipboard.writeText(card.content);
+                        this.showMessage('내용이 복사되었습니다.');
+                    }
+                });
+            });
+
+            // 메뉴 표시
+            menu.showAtMouseEvent(event);
 
             this.analyticsService.trackEvent('card_context_menu_shown', { cardId });
         } catch (error) {
@@ -498,7 +530,17 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
         try {
             this.loggingService.debug('카드 드래그 시작', { cardId });
 
-            // TODO: 카드 드래그 시작 로직 구현
+            if (event.dataTransfer) {
+                // 드래그 데이터 설정
+                event.dataTransfer.setData('text/plain', cardId);
+                event.dataTransfer.effectAllowed = 'move';
+                
+                // 드래그 이미지 설정
+                const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+                if (cardElement) {
+                    event.dataTransfer.setDragImage(cardElement, 0, 0);
+                }
+            }
 
             this.analyticsService.trackEvent('card_drag_started', { cardId });
         } catch (error) {
@@ -511,26 +553,52 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
     }
 
     handleCardDragOver(cardId: string, event: DragEvent): void {
-        event.preventDefault();
-        event.dataTransfer!.dropEffect = 'move';
+        const timer = this.performanceMonitor.startTimer('CardNavigatorViewModel.handleCardDragOver');
+        try {
+            this.loggingService.debug('카드 드래그 오버', { cardId });
+
+            event.preventDefault();
+            if (event.dataTransfer) {
+                event.dataTransfer.dropEffect = 'move';
+            }
+
+            // 드래그 오버 시 시각적 피드백 제공
+            const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+            if (cardElement) {
+                cardElement.classList.add('drag-over');
+            }
+
+            this.analyticsService.trackEvent('card_drag_over', { cardId });
+        } catch (error) {
+            this.loggingService.error('카드 드래그 오버 실패', { error, cardId });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorViewModel.handleCardDragOver');
+            throw error;
+        } finally {
+            timer.stop();
+        }
     }
 
     handleCardDrop(cardId: string, event: DragEvent): void {
         const timer = this.performanceMonitor.startTimer('CardNavigatorViewModel.handleCardDrop');
         try {
             this.loggingService.debug('카드 드롭', { cardId });
+
             event.preventDefault();
+            
+            // 드래그 오버 시 추가된 클래스 제거
+            const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+            if (cardElement) {
+                cardElement.classList.remove('drag-over');
+            }
+
             if (event.dataTransfer) {
                 const sourceCardId = event.dataTransfer.getData('text/plain');
                 if (sourceCardId && sourceCardId !== cardId) {
+                    // 카드 간 링크 생성
                     this.createLinkBetweenCards(sourceCardId, cardId);
                 }
             }
-            this.service.getCardById(cardId).then(card => {
-                if (card) {
-                    this.eventDispatcher.dispatch(new DomainEvent(DomainEventType.CARD_DROP, { card }));
-                }
-            });
+
             this.analyticsService.trackEvent('card_dropped', { cardId });
         } catch (error) {
             this.loggingService.error('카드 드롭 실패', { error, cardId });
@@ -714,11 +782,17 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
         const timer = this.performanceMonitor.startTimer('CardNavigatorViewModel.handleCardClick');
         try {
             this.loggingService.debug('카드 클릭 처리', { cardId });
+
+            // 카드 활성화
             await this.activateCard(cardId);
+
+            // 카드 객체 가져오기
             const card = await this.service.getCardById(cardId);
             if (card) {
+                // 카드 클릭 이벤트 발송
                 this.eventDispatcher.dispatch(new DomainEvent(DomainEventType.CARD_CLICKED, { card }));
             }
+
             this.analyticsService.trackEvent('card_clicked', { cardId });
         } catch (error) {
             this.loggingService.error('카드 클릭 처리 실패', { error, cardId });
@@ -733,10 +807,14 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
         const timer = this.performanceMonitor.startTimer('CardNavigatorViewModel.handleCardDoubleClick');
         try {
             this.loggingService.debug('카드 더블 클릭 처리', { cardId });
+
+            // 카드 객체 가져오기
             const card = await this.service.getCardById(cardId);
             if (card) {
+                // 카드 인라인 편집 시작 이벤트 발송
                 this.eventDispatcher.dispatch(new DomainEvent(DomainEventType.CARD_INLINE_EDIT_STARTED, { card }));
             }
+
             this.analyticsService.trackEvent('card_double_clicked', { cardId });
         } catch (error) {
             this.loggingService.error('카드 더블 클릭 처리 실패', { error, cardId });
@@ -774,6 +852,13 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
         const timer = this.performanceMonitor.startTimer('CardNavigatorViewModel.handleCardDragEnd');
         try {
             this.loggingService.debug('카드 드래그 종료', { cardId });
+
+            // 드래그 오버 시 추가된 클래스 제거
+            const cardElements = document.querySelectorAll('.drag-over');
+            cardElements.forEach(element => {
+                element.classList.remove('drag-over');
+            });
+
             this.analyticsService.trackEvent('card_drag_ended', { cardId });
         } catch (error) {
             this.loggingService.error('카드 드래그 종료 실패', { error, cardId });
@@ -788,11 +873,15 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
         const timer = this.performanceMonitor.startTimer('CardNavigatorViewModel.handleCardDragEnter');
         try {
             this.loggingService.debug('카드 드래그 엔터', { cardId });
+
             event.preventDefault();
+            
             // 드래그 엔터 시 시각적 피드백 제공
-            if (this.view) {
-                this.view.updateDragTarget?.(cardId, true);
+            const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+            if (cardElement) {
+                cardElement.classList.add('drag-over');
             }
+
             this.analyticsService.trackEvent('card_drag_entered', { cardId });
         } catch (error) {
             this.loggingService.error('카드 드래그 엔터 실패', { error, cardId });
@@ -807,11 +896,15 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
         const timer = this.performanceMonitor.startTimer('CardNavigatorViewModel.handleCardDragLeave');
         try {
             this.loggingService.debug('카드 드래그 리브', { cardId });
+
             event.preventDefault();
+            
             // 드래그 리브 시 시각적 피드백 제거
-            if (this.view) {
-                this.view.updateDragTarget?.(cardId, false);
+            const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+            if (cardElement) {
+                cardElement.classList.remove('drag-over');
             }
+
             this.analyticsService.trackEvent('card_drag_left', { cardId });
         } catch (error) {
             this.loggingService.error('카드 드래그 리브 실패', { error, cardId });
@@ -826,11 +919,18 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
         const timer = this.performanceMonitor.startTimer('CardNavigatorViewModel.createLinkBetweenCards');
         try {
             this.loggingService.debug('카드 간 링크 생성', { sourceCardId, targetCardId });
+
+            // 소스 카드와 타겟 카드 객체 가져오기
             const sourceCard = await this.service.getCardById(sourceCardId);
             const targetCard = await this.service.getCardById(targetCardId);
+
             if (sourceCard && targetCard) {
+                // 카드 간 링크 생성
                 await this.service.createLinkBetweenCards(sourceCard, targetCard);
+
+                // 카드 링크 생성 이벤트 발송
                 this.eventDispatcher.dispatch(new DomainEvent(DomainEventType.CARD_LINK_CREATED, { card: sourceCard }));
+
                 this.analyticsService.trackEvent('link_created_between_cards', {
                     sourceCardId,
                     targetCardId

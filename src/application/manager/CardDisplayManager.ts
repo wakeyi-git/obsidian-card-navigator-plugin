@@ -229,21 +229,25 @@ export class CardDisplayManager implements ICardDisplayManager {
   getContainerDimensions(): { width: number; height: number } {
     const timer = this.performanceMonitor.startTimer('getContainerDimensions');
     try {
-      this.loggingService.debug('Getting container dimensions');
+      this.loggingService.debug('컨테이너 크기 계산 시작');
       
-      // TODO: 컨테이너 크기 계산 로직 구현
       const container = document.querySelector('.card-navigator-container');
       if (!container) {
+        this.loggingService.warn('컨테이너를 찾을 수 없습니다.');
         return { width: 0, height: 0 };
       }
       
       const rect = container.getBoundingClientRect();
-      return {
+      const dimensions = {
         width: rect.width,
         height: rect.height
       };
+      
+      this.loggingService.debug('컨테이너 크기 계산 완료', { dimensions });
+      return dimensions;
     } catch (error) {
-      this.errorHandler.handleError(error, 'Failed to get container dimensions');
+      this.loggingService.error('컨테이너 크기 계산 실패', { error });
+      this.errorHandler.handleError(error as Error, 'CardDisplayManager.getContainerDimensions');
       return { width: 0, height: 0 };
     } finally {
       timer.stop();
@@ -257,10 +261,9 @@ export class CardDisplayManager implements ICardDisplayManager {
   getCardStyle(): ICardStyle {
     const timer = this.performanceMonitor.startTimer('getCardStyle');
     try {
-      this.loggingService.debug('Getting card style');
+      this.loggingService.debug('카드 스타일 가져오기 시작');
       
-      // TODO: 카드 스타일 로직 구현
-      return {
+      const style: ICardStyle = {
         classes: ['card'],
         backgroundColor: 'var(--background-primary)',
         fontSize: 'var(--font-size-normal)',
@@ -276,8 +279,12 @@ export class CardDisplayManager implements ICardDisplayManager {
         lineHeight: 'var(--line-height-normal)',
         fontFamily: 'var(--font-family)'
       };
+      
+      this.loggingService.debug('카드 스타일 가져오기 완료', { style });
+      return style;
     } catch (error) {
-      this.errorHandler.handleError(error, 'Failed to get card style');
+      this.loggingService.error('카드 스타일 가져오기 실패', { error });
+      this.errorHandler.handleError(error as Error, 'CardDisplayManager.getCardStyle');
       return {
         classes: [],
         backgroundColor: '',

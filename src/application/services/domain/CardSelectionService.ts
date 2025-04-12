@@ -6,8 +6,7 @@ import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
-import { TFile } from 'obsidian';
-import { App } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import { CardSelectedEvent, CardDeselectedEvent, SelectionClearedEvent } from '@/domain/events/CardEvents';
 import { ICardManager } from '@/domain/managers/ICardManager';
 
@@ -121,7 +120,34 @@ export class CardSelectionService implements ICardSelectionService {
         return;
       }
       
-      // TODO: 범위 선택 로직 구현
+      // 모든 카드 목록 가져오기
+      const allCards = this.cardManager.getAllCards();
+      const cardIds = allCards.map(card => card.id);
+      
+      // 마지막으로 선택된 카드와 현재 선택한 카드의 인덱스 찾기
+      const lastIndex = cardIds.indexOf(this.lastSelectedCard);
+      const currentIndex = cardIds.indexOf(file.path);
+      
+      if (lastIndex === -1 || currentIndex === -1) {
+        this.logger.warn('카드 인덱스를 찾을 수 없습니다.', { lastIndex, currentIndex });
+        return;
+      }
+      
+      // 범위 내의 모든 카드 선택
+      const start = Math.min(lastIndex, currentIndex);
+      const end = Math.max(lastIndex, currentIndex);
+      
+      for (let i = start; i <= end; i++) {
+        const cardId = cardIds[i];
+        const card = allCards.find(c => c.id === cardId);
+        if (card && card.file) {
+          this.selectedCards.add(cardId);
+          this.selectedFiles.add(card.file);
+          this.eventDispatcher.dispatch(new CardSelectedEvent(card));
+        }
+      }
+      
+      this.lastSelectedCard = file.path;
       
       this.logger.info('카드 범위 선택 완료', { filePath: file.path });
     } catch (error) {
@@ -175,7 +201,22 @@ export class CardSelectionService implements ICardSelectionService {
     try {
       this.logger.debug('모든 카드 선택 시작');
       
-      // TODO: 모든 카드 선택 로직 구현
+      // 모든 카드 목록 가져오기
+      const allCards = this.cardManager.getAllCards();
+      
+      // 기존 선택 해제
+      this.clearSelection();
+      
+      // 모든 카드 선택
+      for (const card of allCards) {
+        if (card.file) {
+          this.selectedCards.add(card.id);
+          this.selectedFiles.add(card.file);
+          this.eventDispatcher.dispatch(new CardSelectedEvent(card));
+        }
+      }
+      
+      this.lastSelectedCard = allCards[0]?.id || null;
       
       this.logger.info('모든 카드 선택 완료');
     } catch (error) {
@@ -280,7 +321,26 @@ export class CardSelectionService implements ICardSelectionService {
     try {
       this.logger.debug('선택 UI 업데이트 시작');
       
-      // TODO: 선택 UI 업데이트 로직 구현
+      // 모든 카드 요소 가져오기
+      const cardElements = document.querySelectorAll('.card-navigator-card');
+      
+      // 각 카드 요소의 선택 상태 업데이트
+      cardElements.forEach((element) => {
+        const cardId = element.getAttribute('data-card-id');
+        if (cardId) {
+          if (this.selectedCards.has(cardId)) {
+            element.classList.add('selected');
+          } else {
+            element.classList.remove('selected');
+          }
+        }
+      });
+      
+      // 선택된 카드 수 표시 업데이트
+      const selectionCountElement = document.querySelector('.card-navigator-selection-count');
+      if (selectionCountElement) {
+        selectionCountElement.textContent = `${this.getSelectedCount()}개 선택됨`;
+      }
       
       this.logger.info('선택 UI 업데이트 완료');
     } catch (error) {

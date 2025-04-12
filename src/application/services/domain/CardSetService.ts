@@ -1,4 +1,4 @@
-import { App, TFile } from 'obsidian';
+import { App, TFile, TFolder } from 'obsidian';
 import { ICardSetService } from '@/domain/services/domain/ICardSetService';
 import { ICard } from '@/domain/models/Card';
 import { ICardSet, ICardSetConfig, CardSetType, LinkType } from '@/domain/models/CardSet';
@@ -13,6 +13,7 @@ import { ICardService } from '@/domain/services/domain/ICardService';
 import { CardSetCreatedEvent, CardSetUpdatedEvent, CardSetDeletedEvent } from '@/domain/events/CardSetEvents';
 import { DEFAULT_CARD_SECTION } from '@/domain/models/Card';
 import { CardSetServiceError } from '@/domain/errors/CardSetServiceError';
+import { ISearchConfig } from '@/domain/models/Search';
 
 /**
  * 카드셋 서비스 구현체
@@ -700,6 +701,230 @@ export class CardSetService implements ICardSetService {
       this.loggingService.error('활성 카드셋 조회 실패', { error });
       this.errorHandler.handleError(error as Error, 'CardSetService.getActiveCardSet');
       throw new CardSetError('활성 카드셋 조회에 실패했습니다.');
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 카드셋에 해당하는 파일들을 가져옵니다.
+   * @param cardSet 카드셋
+   * @returns 파일 배열
+   */
+  async getFilesByCardSet(cardSet: ICardSet): Promise<TFile[]> {
+    const timer = this.performanceMonitor.startTimer('CardSetService.getFilesByCardSet');
+    try {
+      this.loggingService.debug('카드셋 파일 조회 시작', { cardSetId: cardSet.id });
+
+      const files: TFile[] = [];
+      const { criteria, filter } = cardSet.config;
+
+      switch (criteria.type) {
+        case CardSetType.FOLDER: {
+          const folderPath = criteria.folderPath || '';
+          const includeSubfolders = filter.includeSubfolders || false;
+          files.push(...this.getFolderFiles(folderPath, includeSubfolders));
+          break;
+        }
+        case CardSetType.TAG: {
+          const tag = criteria.tag || '';
+          const includeSubtags = filter.includeSubtags || false;
+          files.push(...this.getTaggedFiles([tag]));
+          break;
+        }
+        case CardSetType.LINK: {
+          const filePath = criteria.filePath || '';
+          const linkType = criteria.linkType;
+          const linkDepth = filter.linkDepth || 1;
+          const file = this.app.vault.getAbstractFileByPath(filePath);
+          if (file instanceof TFile) {
+            files.push(...this.getLinkedFiles(file, linkDepth));
+          }
+          break;
+        }
+        default:
+          throw new CardSetError('지원하지 않는 카드셋 타입입니다.');
+      }
+
+      this.loggingService.info('카드셋 파일 조회 완료', { 
+        cardSetId: cardSet.id,
+        fileCount: files.length
+      });
+
+      return files;
+    } catch (error) {
+      this.loggingService.error('카드셋 파일 조회 실패', { error });
+      this.errorHandler.handleError(error as Error, 'CardSetService.getFilesByCardSet');
+      throw new CardSetError('카드셋 파일을 조회할 수 없습니다.');
+    } finally {
+      timer.stop();
+    }
+  }
+
+  /**
+   * 파일을 검색합니다.
+   * @param files 검색할 파일 목록
+   * @param config 검색 설정
+   * @returns 검색된 파일 목록
+   */
+  private async searchFiles(files: TFile[], config: ISearchConfig): Promise<TFile[]> {
+    const searchResults: TFile[] = [];
+    const timer = this.performanceMonitor.startTimer('searchFiles');
+
+    try {
+      for (const file of files) {
+        const content = await this.app.vault.cachedRead(file);
+        const fileContent = config.criteria.caseSensitive ? content : content.toLowerCase();
+        const searchQuery = config.criteria.caseSensitive ? config.criteria.query : config.criteria.query.toLowerCase();
+
+        const cache = this.app.metadataCache.getFileCache(file);
+        const fileName = config.criteria.caseSensitive ? file.basename : file.basename.toLowerCase();
+        const frontmatter = cache?.frontmatter ? 
+          (config.criteria.caseSensitive ? JSON.stringify(cache.frontmatter) : JSON.stringify(cache.frontmatter).toLowerCase()) 
+          : '';
+        const tags = cache?.tags?.map(t => 
+          config.criteria.caseSensitive ? t.tag : t.tag.toLowerCase()
+        ).join(' ') || '';
+
+        let matches = false;
+
+        if (config.criteria.useRegex) {
+          try {
+            const regex = new RegExp(searchQuery, config.criteria.caseSensitive ? 'g' : 'gi');
+            matches = regex.test(fileContent) || 
+                     regex.test(fileName) || 
+                     regex.test(frontmatter) || 
+                     regex.test(tags);
+          } catch (error) {
+            this.loggingService.error('정규식 검색 중 오류 발생:', error);
+            continue;
+          }
+        } else if (config.criteria.wholeWord) {
+          const searchWords = searchQuery.split(/\s+/);
+          const contentWords = fileContent.split(/\s+/);
+          const fileNameWords = fileName.split(/\s+/);
+          const frontmatterWords = frontmatter.split(/\s+/);
+          const tagWords = tags.split(/\s+/);
+
+          matches = searchWords.every((word: string) => 
+            contentWords.includes(word) || 
+            fileNameWords.includes(word) || 
+            frontmatterWords.includes(word) || 
+            tagWords.includes(word)
+          );
+        } else {
+          matches = fileContent.includes(searchQuery) ||
+                   fileName.includes(searchQuery) ||
+                   frontmatter.includes(searchQuery) ||
+                   tags.includes(searchQuery);
+        }
+
+        if (matches) {
+          searchResults.push(file);
+        }
+      }
+    } catch (error) {
+      this.loggingService.error('파일 검색 중 오류 발생:', error);
+    } finally {
+      timer.stop();
+    }
+
+    return searchResults;
+  }
+
+  /**
+   * 폴더에서 파일을 가져옵니다.
+   * @param folderPath 폴더 경로
+   * @param includeSubfolders 하위 폴더 포함 여부
+   * @returns 파일 목록
+   */
+  private getFolderFiles(folderPath: string, includeSubfolders: boolean): TFile[] {
+    const folder = this.app.vault.getAbstractFileByPath(folderPath);
+    if (!(folder instanceof TFolder)) {
+      throw new CardSetServiceError(`폴더를 찾을 수 없습니다: ${folderPath}`);
+    }
+
+    const files: TFile[] = [];
+    const collectFiles = (folder: TFolder) => {
+      for (const child of folder.children) {
+        if (child instanceof TFile) {
+          files.push(child);
+        } else if (includeSubfolders && child instanceof TFolder) {
+          collectFiles(child);
+        }
+      }
+    };
+
+    collectFiles(folder);
+    return files;
+  }
+
+  /**
+   * 태그가 있는 파일을 가져옵니다.
+   * @param tags 태그 목록
+   * @returns 파일 목록
+   */
+  private getTaggedFiles(tags: string[]): TFile[] {
+    const files: TFile[] = [];
+    const lowerTags = tags.map(tag => tag.toLowerCase());
+
+    this.app.vault.getFiles().forEach(file => {
+      const cache = this.app.metadataCache.getFileCache(file);
+      if (cache?.tags) {
+        const fileTags = cache.tags.map(t => t.tag.toLowerCase());
+        if (lowerTags.some(tag => fileTags.includes(tag))) {
+          files.push(file);
+        }
+      }
+    });
+
+    return files;
+  }
+
+  /**
+   * 링크된 파일을 가져옵니다.
+   * @param file 파일
+   * @param level 링크 레벨
+   * @returns 파일 목록
+   */
+  private getLinkedFiles(file: TFile, level: number): TFile[] {
+    if (level <= 0) return [];
+
+    const timer = this.performanceMonitor.startTimer('getLinkedFiles');
+    try {
+      const files = new Set<TFile>();
+      const cache = this.app.metadataCache.getFileCache(file);
+
+      // 백링크 처리
+      const backlinks = (this.app.metadataCache as any).getBacklinks(file);
+      if (backlinks) {
+        for (const [path, _] of Object.entries(backlinks)) {
+          const linkedFile = this.app.vault.getAbstractFileByPath(path);
+          if (linkedFile instanceof TFile) {
+            files.add(linkedFile);
+            if (level > 1) {
+              const nextLevelFiles = this.getLinkedFiles(linkedFile, level - 1);
+              nextLevelFiles.forEach(f => files.add(f));
+            }
+          }
+        }
+      }
+
+      // 아웃고잉 링크 처리
+      if (cache?.links) {
+        for (const link of cache.links) {
+          const linkedFile = this.app.metadataCache.getFirstLinkpathDest(link.link, file.path);
+          if (linkedFile instanceof TFile) {
+            files.add(linkedFile);
+            if (level > 1) {
+              const nextLevelFiles = this.getLinkedFiles(linkedFile, level - 1);
+              nextLevelFiles.forEach(f => files.add(f));
+            }
+          }
+        }
+      }
+
+      return Array.from(files);
     } finally {
       timer.stop();
     }

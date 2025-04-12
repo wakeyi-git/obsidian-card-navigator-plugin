@@ -32,7 +32,7 @@ export class PresetSettingsSection {
       .setDesc('카드 내비게이터를 열 때 사용할 기본 프리셋을 선택합니다.')
       .addText(text =>
         text
-          .setValue(settings.preset.mappings.find(m => m.type === PresetMappingType.GLOBAL)?.value || '')
+          .setValue(settings.preset.mappings.find(m => m.type === PresetMappingType.GLOBAL)?.target || '')
           .onChange(async (value) => {
             const globalMapping = settings.preset.mappings.find(m => m.type === PresetMappingType.GLOBAL);
             if (globalMapping) {
@@ -42,7 +42,7 @@ export class PresetSettingsSection {
                   ...settings.preset,
                   mappings: [
                     ...settings.preset.mappings.filter(m => m.type !== PresetMappingType.GLOBAL),
-                    { ...globalMapping, value }
+                    { ...globalMapping, target: value }
                   ]
                 }
               });
@@ -55,8 +55,9 @@ export class PresetSettingsSection {
                     ...settings.preset.mappings,
                     {
                       id: `global-${Date.now()}`,
+                      presetId: '',
                       type: PresetMappingType.GLOBAL,
-                      value,
+                      target: value,
                       priority: 0,
                       enabled: true
                     }
@@ -85,8 +86,9 @@ export class PresetSettingsSection {
                       ...settings.preset.mappings,
                       {
                         id: `global-${Date.now()}`,
+                        presetId: '',
                         type: PresetMappingType.GLOBAL,
-                        value: '',
+                        target: '',
                         priority: 0,
                         enabled: true
                       }
@@ -115,7 +117,7 @@ export class PresetSettingsSection {
       .addTextArea(text => {
         const folderMappings = settings.preset.mappings.filter(m => m.type === PresetMappingType.FOLDER);
         text
-          .setValue(folderMappings.map(m => `${m.value}:${m.options?.includeSubfolders || false}`).join('\n'))
+          .setValue(folderMappings.map(m => `${m.target}:${m.options?.includeSubfolders || false}`).join('\n'))
           .onChange(async (value) => {
             const mappings = value
               .split('\n')
@@ -123,8 +125,9 @@ export class PresetSettingsSection {
                 const [path, includeSubfolders] = line.split(':').map(s => s.trim());
                 return {
                   id: `folder-${Date.now()}`,
+                  presetId: '',
                   type: PresetMappingType.FOLDER,
-                  value: path,
+                  target: path,
                   priority: 0,
                   enabled: true,
                   options: {
@@ -132,7 +135,7 @@ export class PresetSettingsSection {
                   }
                 };
               })
-              .filter(m => m.value);
+              .filter(m => m.target);
             
             await this.settingsService.saveSettings({
               ...settings,
@@ -155,18 +158,19 @@ export class PresetSettingsSection {
       .addTextArea(text => {
         const tagMappings = settings.preset.mappings.filter(m => m.type === PresetMappingType.TAG);
         text
-          .setValue(tagMappings.map(m => m.value).join('\n'))
+          .setValue(tagMappings.map(m => m.target).join('\n'))
           .onChange(async (value) => {
             const mappings = value
               .split('\n')
               .map(tag => ({
                 id: `tag-${Date.now()}`,
+                presetId: '',
                 type: PresetMappingType.TAG,
-                value: tag.trim(),
+                target: tag.trim(),
                 priority: 0,
                 enabled: true
               }))
-              .filter(m => m.value);
+              .filter(m => m.target);
             
             await this.settingsService.saveSettings({
               ...settings,
@@ -199,8 +203,9 @@ export class PresetSettingsSection {
                 const [start, end] = line.split('-').map(d => d.trim());
                 return {
                   id: `date-${Date.now()}`,
+                  presetId: '',
                   type: PresetMappingType.CREATED_DATE,
-                  value: '',
+                  target: '',
                   priority: 0,
                   enabled: true,
                   options: {
@@ -244,8 +249,9 @@ export class PresetSettingsSection {
                 const [start, end] = line.split('-').map(d => d.trim());
                 return {
                   id: `date-${Date.now()}`,
+                  presetId: '',
                   type: PresetMappingType.MODIFIED_DATE,
-                  value: '',
+                  target: '',
                   priority: 0,
                   enabled: true,
                   options: {
@@ -289,8 +295,9 @@ export class PresetSettingsSection {
                 const [name, value] = line.split('=').map(p => p.trim());
                 return {
                   id: `property-${Date.now()}`,
+                  presetId: '',
                   type: PresetMappingType.PROPERTY,
-                  value: '',
+                  target: '',
                   priority: 0,
                   enabled: true,
                   options: {
@@ -317,4 +324,4 @@ export class PresetSettingsSection {
         return text;
       });
   }
-} 
+}

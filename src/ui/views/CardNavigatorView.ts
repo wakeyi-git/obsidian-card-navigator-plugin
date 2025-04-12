@@ -14,6 +14,7 @@ import { ISortConfig, SortField, SortOrder, SortType } from '@/domain/models/Sor
 import { LayoutType } from '@/domain/models/Layout';
 import { CardDisplayManager } from '@/application/manager/CardDisplayManager';
 import { CardRenderManager } from '@/application/manager/CardRenderManager';
+import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 
 export const VIEW_TYPE_CARD_NAVIGATOR = 'card-navigator-view';
 
@@ -28,6 +29,7 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
     private performanceMonitor: IPerformanceMonitor;
     private cardDisplayManager: CardDisplayManager;
     private cardRenderManager: CardRenderManager;
+    private analyticsService: IAnalyticsService;
 
     constructor(
         leaf: WorkspaceLeaf,
@@ -44,6 +46,7 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
         this.performanceMonitor = container.resolve<IPerformanceMonitor>('IPerformanceMonitor');
         this.cardDisplayManager = CardDisplayManager.getInstance();
         this.cardRenderManager = CardRenderManager.getInstance();
+        this.analyticsService = container.resolve<IAnalyticsService>('IAnalyticsService');
     }
 
     getViewType(): string {
@@ -62,19 +65,8 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
         this.contentEl.empty();
         this.contentEl.addClass('card-navigator-view');
 
-        // 툴바 생성
-        this.createToolbar();
-
-        // 카드 컨테이너 생성
-        this.createCardContainer();
-
-        // 렌더링 매니저 초기화
-        this.cardRenderManager.initialize();
-
-        // 상태 구독
-        this.viewModel.state.subscribe((state: ICardNavigatorState) => {
-            this.updateState(state);
-        });
+        // 뷰 초기화
+        this.initializeView();
 
         // 초기 상태 로드
         await this.viewModel.initialize();
@@ -241,11 +233,61 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
     }
 
     public showError(message: string): void {
-        // TODO: 에러 메시지 표시 구현
+        const timer = this.performanceMonitor.startTimer('CardNavigatorView.showError');
+        try {
+            this.loggingService.debug('에러 메시지 표시', { message });
+
+            // 기존 에러 메시지 제거
+            const existingError = this.contentEl.querySelector('.card-navigator-error');
+            if (existingError) {
+                existingError.remove();
+            }
+
+            // 에러 메시지 요소 생성
+            const errorEl = this.contentEl.createDiv('card-navigator-error');
+            errorEl.createEl('p', { text: message });
+
+            // 5초 후 자동으로 사라지도록 설정
+            setTimeout(() => {
+                errorEl.remove();
+            }, 5000);
+
+            this.analyticsService.trackEvent('error_shown', { message });
+        } catch (error) {
+            this.loggingService.error('에러 메시지 표시 실패', { error, message });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorView.showError');
+        } finally {
+            timer.stop();
+        }
     }
 
     public showMessage(message: string): void {
-        // TODO: 메시지 표시 구현
+        const timer = this.performanceMonitor.startTimer('CardNavigatorView.showMessage');
+        try {
+            this.loggingService.debug('메시지 표시', { message });
+
+            // 기존 메시지 제거
+            const existingMessage = this.contentEl.querySelector('.card-navigator-message');
+            if (existingMessage) {
+                existingMessage.remove();
+            }
+
+            // 메시지 요소 생성
+            const messageEl = this.contentEl.createDiv('card-navigator-message');
+            messageEl.createEl('p', { text: message });
+
+            // 3초 후 자동으로 사라지도록 설정
+            setTimeout(() => {
+                messageEl.remove();
+            }, 3000);
+
+            this.analyticsService.trackEvent('message_shown', { message });
+        } catch (error) {
+            this.loggingService.error('메시지 표시 실패', { error, message });
+            this.errorHandler.handleError(error as Error, 'CardNavigatorView.showMessage');
+        } finally {
+            timer.stop();
+        }
     }
 
     public getContainerDimensions(): { width: number; height: number } {
@@ -281,7 +323,26 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
         const timer = this.performanceMonitor.startTimer('CardNavigatorView.initializeView');
         try {
             this.loggingService.debug('카드 내비게이터 뷰 초기화');
-            // TODO: 뷰 초기화 로직 구현
+
+            // 뷰 컨테이너 초기화
+            this.contentEl.empty();
+            this.contentEl.addClass('card-navigator-view');
+
+            // 툴바 생성
+            this.createToolbar();
+
+            // 카드 컨테이너 생성
+            this.createCardContainer();
+
+            // 렌더링 매니저 초기화
+            this.cardRenderManager.initialize();
+
+            // 상태 구독
+            this.viewModel.state.subscribe((state: ICardNavigatorState) => {
+                this.updateState(state);
+            });
+
+            this.analyticsService.trackEvent('view_initialized');
         } catch (error) {
             this.loggingService.error('카드 내비게이터 뷰 초기화 실패', { error });
             this.errorHandler.handleError(error as Error, 'CardNavigatorView.initializeView');

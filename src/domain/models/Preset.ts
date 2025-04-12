@@ -12,6 +12,8 @@ import { ICardSetConfig, DEFAULT_CARD_SET_CONFIG } from './CardSet';
 import { ISearchConfig, DEFAULT_SEARCH_CONFIG } from './Search';
 import { ISortConfig, DEFAULT_SORT_CONFIG } from './Sort';
 import { ILayoutConfig, DEFAULT_LAYOUT_CONFIG } from './Layout';
+import { App } from 'obsidian';
+import CardNavigatorPlugin from '@/main';
 
 /**
  * 프리셋 매핑 유형
@@ -37,6 +39,8 @@ export enum PresetMappingType {
 export interface IPresetMappingOptions {
   /** 하위 폴더 포함 여부 (폴더 매핑) */
   readonly includeSubfolders?: boolean;
+  /** 하위 태그 포함 여부 (태그 매핑) */
+  readonly includeSubtags?: boolean;
   /** 날짜 범위 (생성일/수정일 매핑) */
   readonly dateRange?: {
     /** 시작일 */
@@ -61,10 +65,12 @@ export interface IPresetMappingOptions {
 export interface IPresetMapping {
   /** 매핑 ID */
   readonly id: string;
+  /** 프리셋 ID */
+  readonly presetId: string;
   /** 매핑 유형 */
   readonly type: PresetMappingType;
-  /** 매핑 값 */
-  readonly value: string;
+  /** 매핑 대상 값 */
+  readonly target: string;
   /** 매핑 우선순위 */
   readonly priority: number;
   /** 추가 설정 */
@@ -74,9 +80,37 @@ export interface IPresetMapping {
 }
 
 /**
- * 프리셋 설정 인터페이스
+ * 프리셋 기능 설정 인터페이스
  */
-export interface IPresetConfig {
+export interface IPresetFeatureConfig {
+  /** 프리셋 매핑 우선순위 */
+  readonly mappingPriority: readonly PresetMappingType[];
+  /** 프리셋 자동 적용 여부 */
+  readonly autoApply: boolean;
+  /** 매핑 목록 */
+  readonly mappings: readonly IPresetMapping[];
+}
+
+/**
+ * 기본 프리셋 기능 설정
+ */
+export const DEFAULT_PRESET_FEATURE_CONFIG: IPresetFeatureConfig = {
+  mappingPriority: [
+    PresetMappingType.FOLDER,
+    PresetMappingType.TAG,
+    PresetMappingType.CREATED_DATE,
+    PresetMappingType.MODIFIED_DATE,
+    PresetMappingType.PROPERTY,
+    PresetMappingType.GLOBAL
+  ],
+  autoApply: true,
+  mappings: []
+};
+
+/**
+ * 프리셋 컨텐츠 설정 인터페이스
+ */
+export interface IPresetContentConfig {
   /** 카드 상태별 스타일 */
   readonly cardStateStyle: ICardStateStyle;
   /** 카드 표시 옵션 */
@@ -103,6 +137,24 @@ export interface IPresetConfig {
 }
 
 /**
+ * 기본 프리셋 컨텐츠 설정
+ */
+export const DEFAULT_PRESET_CONTENT_CONFIG: IPresetContentConfig = {
+  cardStateStyle: DEFAULT_CARD_STATE_STYLE,
+  cardDisplayOptions: DEFAULT_CARD_DISPLAY_OPTIONS,
+  cardSections: {
+    header: DEFAULT_CARD_SECTION,
+    body: DEFAULT_CARD_SECTION,
+    footer: DEFAULT_CARD_SECTION
+  },
+  cardRenderConfig: DEFAULT_RENDER_CONFIG,
+  cardSetConfig: DEFAULT_CARD_SET_CONFIG,
+  searchConfig: DEFAULT_SEARCH_CONFIG,
+  sortConfig: DEFAULT_SORT_CONFIG,
+  layoutConfig: DEFAULT_LAYOUT_CONFIG
+};
+
+/**
  * 프리셋 메타데이터 인터페이스
  */
 export interface IPresetMetadata {
@@ -127,14 +179,9 @@ export interface IPreset {
   /** 메타데이터 */
   readonly metadata: IPresetMetadata;
   /** 설정 */
-  readonly config: IPresetConfig;
-  /** 매핑 목록 */
-  readonly mappings: readonly IPresetMapping[];
-
-  /**
-   * 프리셋 유효성 검사
-   */
-  validate(): boolean;
+  readonly config: IPresetContentConfig;
+  /** 매핑 ID 목록 */
+  readonly mappingIds: readonly string[];
 }
 
 /**
@@ -143,8 +190,8 @@ export interface IPreset {
 export class Preset implements IPreset {
   constructor(
     public readonly metadata: IPresetMetadata,
-    public readonly config: IPresetConfig,
-    public readonly mappings: readonly IPresetMapping[] = []
+    public readonly config: IPresetContentConfig,
+    public readonly mappingIds: readonly string[] = []
   ) {}
 
   /**
@@ -167,47 +214,106 @@ export class Preset implements IPreset {
       !!this.config.cardSetConfig &&
       !!this.config.layoutConfig &&
       !!this.config.searchConfig &&
-      !!this.config.sortConfig &&
-      this.mappings.every(mapping => this.validateMapping(mapping))
+      !!this.config.sortConfig
     );
-  }
-
-  /**
-   * 매핑 유효성 검사
-   */
-  private validateMapping(mapping: IPresetMapping): boolean {
-    if (!mapping.id || !mapping.type || !mapping.value || mapping.priority < 0) {
-      return false;
-    }
-
-    switch (mapping.type) {
-      case PresetMappingType.FOLDER:
-        return !!mapping.options?.includeSubfolders;
-      case PresetMappingType.CREATED_DATE:
-      case PresetMappingType.MODIFIED_DATE:
-        return !!mapping.options?.dateRange?.start && !!mapping.options?.dateRange?.end;
-      case PresetMappingType.PROPERTY:
-        return !!mapping.options?.property?.name && !!mapping.options?.property?.value;
-      default:
-        return true;
-    }
   }
 }
 
 /**
- * 기본 프리셋 설정
+ * 매핑 저장소 인터페이스
  */
-export const DEFAULT_PRESET_CONFIG: IPresetConfig = {
-  cardStateStyle: DEFAULT_CARD_STATE_STYLE,
-  cardDisplayOptions: DEFAULT_CARD_DISPLAY_OPTIONS,
-  cardSections: {
-    header: DEFAULT_CARD_SECTION,
-    body: DEFAULT_CARD_SECTION,
-    footer: DEFAULT_CARD_SECTION
-  },
-  cardRenderConfig: DEFAULT_RENDER_CONFIG,
-  cardSetConfig: DEFAULT_CARD_SET_CONFIG,
-  searchConfig: DEFAULT_SEARCH_CONFIG,
-  sortConfig: DEFAULT_SORT_CONFIG,
-  layoutConfig: DEFAULT_LAYOUT_CONFIG
-};
+export interface IPresetMappingStore {
+  /** 매핑 목록 */
+  readonly mappings: readonly IPresetMapping[];
+  /** 매핑 추가 */
+  addMapping(mapping: IPresetMapping): void;
+  /** 매핑 제거 */
+  removeMapping(mappingId: string): void;
+  /** 매핑 업데이트 */
+  updateMapping(mapping: IPresetMapping): void;
+  /** 매핑 활성화/비활성화 */
+  toggleMapping(mappingId: string): void;
+  /** 매핑 우선순위 변경 */
+  changeMappingPriority(mappingId: string, newPriority: number): void;
+  /** 매핑 저장 */
+  save(): Promise<void>;
+  /** 매핑 불러오기 */
+  load(): Promise<void>;
+}
+
+/**
+ * 매핑 저장소 클래스
+ */
+export class PresetMappingStore implements IPresetMappingStore {
+  private _mappings: IPresetMapping[] = [];
+
+  constructor(
+    private readonly app: App,
+    private readonly plugin: CardNavigatorPlugin
+  ) {}
+
+  get mappings(): readonly IPresetMapping[] {
+    return this._mappings;
+  }
+
+  addMapping(mapping: IPresetMapping): void {
+    this._mappings.push(mapping);
+  }
+
+  removeMapping(mappingId: string): void {
+    this._mappings = this._mappings.filter(m => m.id !== mappingId);
+  }
+
+  updateMapping(mapping: IPresetMapping): void {
+    const index = this._mappings.findIndex(m => m.id === mapping.id);
+    if (index !== -1) {
+      this._mappings[index] = mapping;
+    }
+  }
+
+  toggleMapping(mappingId: string): void {
+    this._mappings = this._mappings.map(mapping => {
+      if (mapping.id === mappingId) {
+        return {
+          ...mapping,
+          enabled: !mapping.enabled
+        };
+      }
+      return mapping;
+    });
+  }
+
+  changeMappingPriority(mappingId: string, newPriority: number): void {
+    this._mappings = this._mappings.map(mapping => {
+      if (mapping.id === mappingId) {
+        return {
+          ...mapping,
+          priority: newPriority
+        };
+      }
+      return mapping;
+    });
+  }
+
+  async save(): Promise<void> {
+    const data = {
+      mappings: this._mappings
+    };
+    await this.app.vault.adapter.write(
+      `${this.plugin.manifest.dir}/mappings.json`,
+      JSON.stringify(data, null, 2)
+    );
+  }
+
+  async load(): Promise<void> {
+    try {
+      const data = await this.app.vault.adapter.read(
+        `${this.plugin.manifest.dir}/mappings.json`
+      );
+      const parsed = JSON.parse(data);
+      this._mappings = parsed.mappings;
+    } catch (error) {
+      this._mappings = [];
+    }
+  }
+}

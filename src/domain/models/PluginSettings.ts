@@ -14,7 +14,7 @@ import { CardSetType, ICardSetConfig, DEFAULT_CARD_SET_CONFIG } from './CardSet'
 import { ILayoutConfig, DEFAULT_LAYOUT_CONFIG } from './Layout';
 import { ISearchConfig, DEFAULT_SEARCH_CONFIG } from './Search';
 import { ISortConfig, DEFAULT_SORT_CONFIG } from './Sort';
-import { IPresetConfig, DEFAULT_PRESET_CONFIG, IPresetMapping } from './Preset';
+import { IPresetContentConfig, DEFAULT_PRESET_CONTENT_CONFIG, IPresetFeatureConfig, DEFAULT_PRESET_FEATURE_CONFIG, IPresetMapping } from './Preset';
 
 /**
  * 카드 도메인 설정 인터페이스
@@ -117,7 +117,7 @@ export const DEFAULT_SORT_DOMAIN_SETTINGS: ISortDomainSettings = {
  */
 export interface IPresetDomainSettings {
   /** 프리셋 설정 */
-  readonly config: IPresetConfig;
+  readonly config: IPresetContentConfig;
   /** 프리셋 매핑 목록 */
   readonly mappings: readonly IPresetMapping[];
 }
@@ -126,7 +126,7 @@ export interface IPresetDomainSettings {
  * 기본 프리셋 도메인 설정
  */
 export const DEFAULT_PRESET_DOMAIN_SETTINGS: IPresetDomainSettings = {
-  config: DEFAULT_PRESET_CONFIG,
+  config: DEFAULT_PRESET_CONTENT_CONFIG,
   mappings: []
 };
 

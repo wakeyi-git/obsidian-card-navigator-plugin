@@ -10,6 +10,7 @@ import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { CardRegisteredEvent, CardUnregisteredEvent } from '@/domain/events/CardEvents';
+import { App } from 'obsidian';
 
 /**
  * 카드 관리자 구현체
@@ -24,6 +25,7 @@ export class CardManager implements ICardManager {
   private initialized: boolean = false;
 
   private constructor(
+    private readonly app: App,
     private readonly errorHandler: IErrorHandler,
     private readonly logger: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
@@ -35,6 +37,7 @@ export class CardManager implements ICardManager {
     if (!CardManager.instance) {
       const container = Container.getInstance();
       CardManager.instance = new CardManager(
+        container.resolve<App>('App'),
         container.resolve<IErrorHandler>('IErrorHandler'),
         container.resolve<ILoggingService>('ILoggingService'),
         container.resolve<IPerformanceMonitor>('IPerformanceMonitor'),
@@ -207,7 +210,39 @@ export class CardManager implements ICardManager {
     try {
       this.logger.debug('카드 캐시 갱신 시작');
       
-      // 캐시 갱신 로직 구현
+      // 등록된 모든 카드의 상태를 갱신
+      this.cards.forEach(card => {
+        const file = card.file;
+        if (file) {
+          // 파일 내용 갱신
+          this.app.vault.read(file).then((content: string) => {
+            // 새로운 카드 객체 생성
+            const updatedCard: ICard = {
+              ...card,
+              filePath: file.path,
+              title: file.basename,
+              fileName: file.name,
+              firstHeader: (() => {
+                const firstHeaderMatch = content.match(/^#\s+(.+)$/m);
+                return firstHeaderMatch ? firstHeaderMatch[1] : card.firstHeader;
+              })(),
+              content: content,
+              tags: (() => {
+                const tagMatches = content.match(/#[^\s#]+/g);
+                return tagMatches ? [...new Set(tagMatches)] : card.tags;
+              })(),
+              properties: card.properties,
+              createdAt: new Date(file.stat.ctime),
+              updatedAt: new Date(file.stat.mtime)
+            };
+            
+            // 카드 업데이트
+            this.cards.set(card.id, updatedCard);
+          }).catch((error: Error) => {
+            this.logger.error('파일 내용 읽기 실패', { error, filePath: file.path });
+          });
+        }
+      });
       
       this.logger.info('카드 캐시 갱신 완료');
     } catch (error) {
@@ -238,43 +273,34 @@ export class CardManager implements ICardManager {
     try {
       this.logger.debug('카드 간 링크 생성 시작', { sourceCardId: sourceCard.id, targetCardId: targetCard.id });
       
-      // TODO: 카드 간 링크 생성 로직 구현
+      if (!sourceCard.file || !targetCard.file) {
+        throw new Error('소스 또는 타겟 카드의 파일이 없습니다.');
+      }
       
-      this.logger.info('카드 간 링크 생성 완료', { sourceCardId: sourceCard.id, targetCardId: targetCard.id });
-      this.analyticsService.trackEvent('card:link:created', {
-        sourceCardId: sourceCard.id,
-        targetCardId: targetCard.id
+      // 소스 카드 파일 읽기
+      this.app.vault.read(sourceCard.file).then((content: string) => {
+        // 링크 형식 생성
+        const linkText = `[[${targetCard.file!.basename}]]`;
+        
+        // 파일 내용에 링크 추가
+        const newContent = content + '\n' + linkText;
+        
+        // 파일 내용 업데이트
+        this.app.vault.modify(sourceCard.file!, newContent).then(() => {
+          this.logger.info('카드 간 링크 생성 완료', { sourceCardId: sourceCard.id, targetCardId: targetCard.id });
+          this.analyticsService.trackEvent('card:link:created', {
+            sourceCardId: sourceCard.id,
+            targetCardId: targetCard.id
+          });
+        }).catch((error: Error) => {
+          this.logger.error('파일 내용 업데이트 실패', { error, filePath: sourceCard.file!.path });
+        });
+      }).catch((error: Error) => {
+        this.logger.error('파일 내용 읽기 실패', { error, filePath: sourceCard.file!.path });
       });
     } catch (error) {
       this.logger.error('카드 간 링크 생성 실패', { error, sourceCardId: sourceCard.id, targetCardId: targetCard.id });
       this.errorHandler.handleError(error as Error, 'CardManager.createLinkBetweenCards');
-    } finally {
-      timer.stop();
-    }
-  }
-
-  private async _handleCardSetChange(cardSet: ICardSet): Promise<void> {
-    const timer = this.performanceMonitor.startTimer('handleCardSetChange');
-    try {
-      // ... existing code ...
-    } finally {
-      timer.stop();
-    }
-  }
-
-  private async _handleCardStyleChange(style: ICardStyle): Promise<void> {
-    const timer = this.performanceMonitor.startTimer('handleCardStyleChange');
-    try {
-      // ... existing code ...
-    } finally {
-      timer.stop();
-    }
-  }
-
-  private async _handleRenderConfigChange(config: IRenderConfig): Promise<void> {
-    const timer = this.performanceMonitor.startTimer('handleRenderConfigChange');
-    try {
-      // ... existing code ...
     } finally {
       timer.stop();
     }
