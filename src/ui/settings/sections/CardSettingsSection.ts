@@ -16,6 +16,8 @@ import { Container } from '@/infrastructure/di/Container';
 import type { ISettingsService } from '@/domain/services/application/ISettingsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { IPluginSettings } from '@/domain/models/PluginSettings';
+import { SettingsUtils } from '@/domain/utils/settingsUtils';
+import { CardSectionDisplayChangedEvent } from '@/domain/events/SettingsEvents';
 
 type SectionType = 'card' | 'header' | 'body' | 'footer';
 
@@ -222,10 +224,36 @@ export class CardSettingsSection {
   } {
     const cardSettings = settings.card || DEFAULT_CARD_DOMAIN_SETTINGS;
     return {
-      cardStateStyle: cardSettings.stateStyle,
-      cardSections: cardSettings.sections,
-      cardRenderConfig: cardSettings.renderConfig
+      cardStateStyle: { ...cardSettings.stateStyle },
+      cardSections: {
+        header: { ...cardSettings.sections.header },
+        body: { ...cardSettings.sections.body },
+        footer: { ...cardSettings.sections.footer }
+      },
+      cardRenderConfig: { ...cardSettings.renderConfig }
     };
+  }
+
+  /**
+   * 설정 업데이트
+   */
+  private async updateSetting(
+    path: string,
+    value: boolean,
+    oldValue: boolean,
+    section: 'header' | 'body' | 'footer',
+    settingName: keyof ICardDisplayOptions
+  ): Promise<void> {
+    const settings = this.settingsService.getSettings();
+    const newSettings = SettingsUtils.updateNestedSettings(settings, path, value);
+    await this.settingsService.saveSettings(newSettings);
+    
+    this.eventDispatcher.dispatch(new CardSectionDisplayChangedEvent(section, settingName, oldValue, value));
+    
+    if (this.cardPreview) {
+      const cardConfig = this.createCardConfig(newSettings);
+      this.cardPreview.updateConfig(cardConfig);
+    }
   }
 
   /**
@@ -892,36 +920,23 @@ export class CardSettingsSection {
     const settings = this.settingsService.getSettings();
     const cardSettings = settings.card || DEFAULT_CARD_DOMAIN_SETTINGS;
     const sectionSettings = cardSettings.sections[section];
-    const displayOptions = sectionSettings.displayOptions;
+    const currentDisplayOptions = sectionSettings.displayOptions;
 
-    // 파일명 표시 설정
+    // 제목 표시 설정
     new Setting(this.displaySettingsEl)
       .setName('제목')
       .setDesc('제목을 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayOptions.showTitle)
+          .setValue(currentDisplayOptions.showTitle)
           .onChange(async value => {
-            await this.settingsService.saveSettings({
-              ...settings,
-              card: {
-                ...cardSettings,
-                sections: {
-                  ...cardSettings.sections,
-                  [section]: {
-                    ...sectionSettings,
-                    displayOptions: {
-                      ...displayOptions,
-                      showTitle: value
-                    }
-                  }
-                }
-              }
-            });
-            if (this.cardPreview) {
-              const cardConfig = this.createCardConfig(settings);
-              this.cardPreview.updateConfig(cardConfig);
-            }
+            await this.updateSetting(
+              `card.sections.${section}.displayOptions.showTitle`,
+              value,
+              currentDisplayOptions.showTitle,
+              section,
+              'showTitle'
+            );
           }));
 
     // 파일명 표시 설정
@@ -930,28 +945,15 @@ export class CardSettingsSection {
       .setDesc('파일명을 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayOptions.showFileName)
+          .setValue(currentDisplayOptions.showFileName)
           .onChange(async value => {
-            await this.settingsService.saveSettings({
-              ...settings,
-              card: {
-                ...cardSettings,
-                sections: {
-                  ...cardSettings.sections,
-                  [section]: {
-                    ...sectionSettings,
-                    displayOptions: {
-                      ...displayOptions,
-                      showFileName: value
-                    }
-                  }
-                }
-              }
-            });
-            if (this.cardPreview) {
-              const cardConfig = this.createCardConfig(settings);
-              this.cardPreview.updateConfig(cardConfig);
-            }
+            await this.updateSetting(
+              `card.sections.${section}.displayOptions.showFileName`,
+              value,
+              currentDisplayOptions.showFileName,
+              section,
+              'showFileName'
+            );
           }));
 
     // 퍼스트헤더 표시 설정
@@ -960,28 +962,15 @@ export class CardSettingsSection {
       .setDesc('퍼스트헤더를 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayOptions.showFirstHeader)
+          .setValue(currentDisplayOptions.showFirstHeader)
           .onChange(async value => {
-            await this.settingsService.saveSettings({
-              ...settings,
-              card: {
-                ...cardSettings,
-                sections: {
-                  ...cardSettings.sections,
-                  [section]: {
-                    ...sectionSettings,
-                    displayOptions: {
-                      ...displayOptions,
-                      showFirstHeader: value
-                    }
-                  }
-                }
-              }
-            });
-            if (this.cardPreview) {
-              const cardConfig = this.createCardConfig(settings);
-              this.cardPreview.updateConfig(cardConfig);
-            }
+            await this.updateSetting(
+              `card.sections.${section}.displayOptions.showFirstHeader`,
+              value,
+              currentDisplayOptions.showFirstHeader,
+              section,
+              'showFirstHeader'
+            );
           }));
 
     // 본문 표시 설정
@@ -990,28 +979,15 @@ export class CardSettingsSection {
       .setDesc('본문을 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayOptions.showContent)
+          .setValue(currentDisplayOptions.showContent)
           .onChange(async value => {
-            await this.settingsService.saveSettings({
-              ...settings,
-              card: {
-                ...cardSettings,
-                sections: {
-                  ...cardSettings.sections,
-                  [section]: {
-                    ...sectionSettings,
-                    displayOptions: {
-                      ...displayOptions,
-                      showContent: value
-                    }
-                  }
-                }
-              }
-            });
-            if (this.cardPreview) {
-              const cardConfig = this.createCardConfig(settings);
-              this.cardPreview.updateConfig(cardConfig);
-            }
+            await this.updateSetting(
+              `card.sections.${section}.displayOptions.showContent`,
+              value,
+              currentDisplayOptions.showContent,
+              section,
+              'showContent'
+            );
           }));
 
     // 태그 표시 설정
@@ -1020,28 +996,15 @@ export class CardSettingsSection {
       .setDesc('태그를 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayOptions.showTags)
+          .setValue(currentDisplayOptions.showTags)
           .onChange(async value => {
-            await this.settingsService.saveSettings({
-              ...settings,
-              card: {
-                ...cardSettings,
-                sections: {
-                  ...cardSettings.sections,
-                  [section]: {
-                    ...sectionSettings,
-                    displayOptions: {
-                      ...displayOptions,
-                      showTags: value
-                    }
-                  }
-                }
-              }
-            });
-            if (this.cardPreview) {
-              const cardConfig = this.createCardConfig(settings);
-              this.cardPreview.updateConfig(cardConfig);
-            }
+            await this.updateSetting(
+              `card.sections.${section}.displayOptions.showTags`,
+              value,
+              currentDisplayOptions.showTags,
+              section,
+              'showTags'
+            );
           }));
 
     // 생성일 표시 설정
@@ -1050,28 +1013,15 @@ export class CardSettingsSection {
       .setDesc('생성일을 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayOptions.showCreatedAt)
+          .setValue(currentDisplayOptions.showCreatedAt)
           .onChange(async value => {
-            await this.settingsService.saveSettings({
-              ...settings,
-              card: {
-                ...cardSettings,
-                sections: {
-                  ...cardSettings.sections,
-                  [section]: {
-                    ...sectionSettings,
-                    displayOptions: {
-                      ...displayOptions,
-                      showCreatedAt: value
-                    }
-                  }
-                }
-              }
-            });
-            if (this.cardPreview) {
-              const cardConfig = this.createCardConfig(settings);
-              this.cardPreview.updateConfig(cardConfig);
-            }
+            await this.updateSetting(
+              `card.sections.${section}.displayOptions.showCreatedAt`,
+              value,
+              currentDisplayOptions.showCreatedAt,
+              section,
+              'showCreatedAt'
+            );
           }));
 
     // 수정일 표시 설정
@@ -1080,28 +1030,15 @@ export class CardSettingsSection {
       .setDesc('수정일을 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayOptions.showUpdatedAt)
+          .setValue(currentDisplayOptions.showUpdatedAt)
           .onChange(async value => {
-            await this.settingsService.saveSettings({
-              ...settings,
-              card: {
-                ...cardSettings,
-                sections: {
-                  ...cardSettings.sections,
-                  [section]: {
-                    ...sectionSettings,
-                    displayOptions: {
-                      ...displayOptions,
-                      showUpdatedAt: value
-                    }
-                  }
-                }
-              }
-            });
-            if (this.cardPreview) {
-              const cardConfig = this.createCardConfig(settings);
-              this.cardPreview.updateConfig(cardConfig);
-            }
+            await this.updateSetting(
+              `card.sections.${section}.displayOptions.showUpdatedAt`,
+              value,
+              currentDisplayOptions.showUpdatedAt,
+              section,
+              'showUpdatedAt'
+            );
           }));
 
     // 속성값 표시 설정
@@ -1110,28 +1047,15 @@ export class CardSettingsSection {
       .setDesc('속성값을 표시합니다.')
       .addToggle(toggle =>
         toggle
-          .setValue(displayOptions.showProperties)
+          .setValue(currentDisplayOptions.showProperties)
           .onChange(async value => {
-            await this.settingsService.saveSettings({
-              ...settings,
-              card: {
-                ...cardSettings,
-                sections: {
-                  ...cardSettings.sections,
-                  [section]: {
-                    ...sectionSettings,
-                    displayOptions: {
-                      ...displayOptions,
-                      showProperties: value
-                    }
-                  }
-                }
-              }
-            });
-            if (this.cardPreview) {
-              const cardConfig = this.createCardConfig(settings);
-              this.cardPreview.updateConfig(cardConfig);
-            }
+            await this.updateSetting(
+              `card.sections.${section}.displayOptions.showProperties`,
+              value,
+              currentDisplayOptions.showProperties,
+              section,
+              'showProperties'
+            );
           }));
   }
 

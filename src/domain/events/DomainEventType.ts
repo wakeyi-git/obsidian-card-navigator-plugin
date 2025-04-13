@@ -5,9 +5,10 @@ import { ILayoutConfig } from '../models/Layout';
 import { ICardSet, CardSetType, ICardSetConfig } from '../models/CardSet';
 import { ISearchConfig, ISearchCriteria, ISearchResult } from '../models/Search';
 import { IPluginSettings } from '../models/PluginSettings';
-import { ICardStyle, ICardSection } from '../models/Card';
+import { ICardStyle, ICardStateStyle, ICardSection } from '../models/Card';
 import { ISortConfig } from '../models/Sort';
 import { ICardSetFilter } from '../models/CardSet';
+import { ICardDisplayOptions } from '../models/Card';
 
 /**
  * 도메인 이벤트 타입
@@ -302,7 +303,7 @@ export type EventDataType = {
   };
   'card:section:display:changed': {
     readonly section: 'header' | 'body' | 'footer';
-    readonly property: keyof ICardSection;
+    readonly property: keyof ICardDisplayOptions;
     readonly oldValue: boolean;
     readonly newValue: boolean;
   };
@@ -411,9 +412,9 @@ export type EventDataType = {
   /** 카드 설정 변경 이벤트 데이터 */
   'card:config:changed': {
     /** 이전 설정 */
-    readonly oldConfig: ICardStyle;
+    readonly oldConfig: ICardStateStyle;
     /** 새로운 설정 */
-    readonly newConfig: ICardStyle;
+    readonly newConfig: ICardStateStyle;
   };
 };
 

@@ -1,11 +1,12 @@
 import { DomainEvent } from './DomainEvent';
 import { DomainEventType } from './DomainEventType';
 import { IPluginSettings } from '../models/PluginSettings';
-import { ICardStyle, ICardSection } from '../models/Card';
+import { ICardStyle, ICardSection, ICardStateStyle } from '../models/Card';
 import { ICardSetConfig } from '../models/CardSet';
 import { ILayoutConfig } from '../models/Layout';
 import { ISortConfig } from '../models/Sort';
 import { ISearchConfig } from '../models/Search';
+import { ICardDisplayOptions } from '../models/Card';
 
 /**
  * 설정 변경 이벤트
@@ -20,7 +21,7 @@ export class SettingsChangedEvent extends DomainEvent<typeof DomainEventType.SET
  * 카드 설정 변경 이벤트
  */
 export class CardConfigChangedEvent extends DomainEvent<typeof DomainEventType.CARD_CONFIG_CHANGED> {
-  constructor(oldConfig: ICardStyle, newConfig: ICardStyle) {
+  constructor(oldConfig: ICardStateStyle, newConfig: ICardStateStyle) {
     super(DomainEventType.CARD_CONFIG_CHANGED, { oldConfig, newConfig });
   }
 }
@@ -74,7 +75,12 @@ export class CardStyleChangedEvent extends DomainEvent<typeof DomainEventType.CA
  * 카드 섹션 표시 변경 이벤트
  */
 export class CardSectionDisplayChangedEvent extends DomainEvent<typeof DomainEventType.CARD_SECTION_DISPLAY_CHANGED> {
-  constructor(section: 'header' | 'body' | 'footer', property: keyof ICardSection, oldValue: boolean, newValue: boolean) {
+  constructor(
+    public readonly section: 'header' | 'body' | 'footer',
+    public readonly property: keyof ICardSection['displayOptions'],
+    public readonly oldValue: boolean,
+    public readonly newValue: boolean
+  ) {
     super(DomainEventType.CARD_SECTION_DISPLAY_CHANGED, { section, property, oldValue, newValue });
   }
 } 

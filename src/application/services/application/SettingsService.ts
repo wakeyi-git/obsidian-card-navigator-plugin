@@ -1,8 +1,8 @@
 import { Plugin } from 'obsidian';
 import { Container } from '@/infrastructure/di/Container';
 import { ISettingsService } from '@/domain/services/application/ISettingsService';
-import { ICardDomainSettings, IPluginSettings, DEFAULT_PLUGIN_SETTINGS } from '@/domain/models/PluginSettings';
-import { ICardStyle, ICardSection } from '@/domain/models/Card';
+import { IPluginSettings, DEFAULT_PLUGIN_SETTINGS } from '@/domain/models/PluginSettings';
+import { ICardStyle, ICardSection, ICardDomainSettings, ICardStateStyle } from '@/domain/models/Card';
 import { CardSetType } from '@/domain/models/CardSet';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { DomainEvent } from '@/domain/events/DomainEvent';
@@ -13,6 +13,7 @@ import {
   LayoutConfigChangedEvent,
   SortConfigChangedEvent,
   SearchConfigChangedEvent,
+  CardSectionDisplayChangedEvent,
 } from '@/domain/events/SettingsEvents';
 import { IEventHandler } from '@/domain/infrastructure/IEventDispatcher';
 import { SettingsUtils } from '@/domain/utils/settingsUtils';
@@ -86,7 +87,7 @@ export class SettingsService implements ISettingsService {
       draft.card = { ...oldSettings.card, ...settings };
     });
     await this.saveSettings(newSettings);
-    this.eventDispatcher.dispatch(new CardConfigChangedEvent(oldSettings.card.style, newSettings.card.style));
+    this.eventDispatcher.dispatch(new SettingsChangedEvent(oldSettings, newSettings));
   }
 
   public getCardSetDomainSettings(type: CardSetType) {
@@ -176,28 +177,31 @@ export class SettingsService implements ISettingsService {
     this.eventDispatcher.dispatch(new SettingsChangedEvent(oldSettings, newSettings));
   }
 
-  public getCardStyle(): ICardStyle {
-    return this.settings.card.style;
+  public getCardStyle(): ICardStateStyle {
+    return this.settings.card.stateStyle;
   }
 
-  public async updateCardStyle(styleKey: keyof ICardStyle, property: keyof ICardStyle, value: string): Promise<void> {
+  public async updateCardStyle(state: 'normal' | 'active' | 'focused', property: keyof ICardStyle, value: string): Promise<void> {
     const oldSettings = { ...this.settings };
     const newSettings = SettingsUtils.updateSettings(oldSettings, (draft) => {
-      const oldStyleValue = oldSettings.card.style[styleKey];
+      const oldStyleValue = oldSettings.card.stateStyle[state][property];
       const newStyleValue = typeof oldStyleValue === 'object' 
         ? { ...oldStyleValue, [property]: value }
         : value;
       
       draft.card = {
         ...oldSettings.card,
-        style: {
-          ...oldSettings.card.style,
-          [styleKey]: newStyleValue
+        stateStyle: {
+          ...oldSettings.card.stateStyle,
+          [state]: {
+            ...oldSettings.card.stateStyle[state],
+            [property]: newStyleValue
+          }
         }
       };
     });
     await this.saveSettings(newSettings);
-    this.eventDispatcher.dispatch(new CardConfigChangedEvent(oldSettings.card.style, newSettings.card.style));
+    this.eventDispatcher.dispatch(new CardConfigChangedEvent(oldSettings.card.stateStyle, newSettings.card.stateStyle));
   }
 
   public getCardSectionDisplay(section: 'header' | 'body' | 'footer'): ICardSection {
@@ -206,7 +210,7 @@ export class SettingsService implements ISettingsService {
 
   public async updateCardSectionDisplay(
     section: 'header' | 'body' | 'footer',
-    property: keyof ICardSection,
+    property: keyof ICardSection['displayOptions'],
     value: boolean
   ): Promise<void> {
     const oldSettings = { ...this.settings };
@@ -217,12 +221,24 @@ export class SettingsService implements ISettingsService {
           ...oldSettings.card.sections,
           [section]: {
             ...oldSettings.card.sections[section],
-            [property]: value
+            displayOptions: {
+              ...oldSettings.card.sections[section].displayOptions,
+              [property]: value
+            }
           }
         }
       };
     });
     await this.saveSettings(newSettings);
-    this.eventDispatcher.dispatch(new CardConfigChangedEvent(oldSettings.card.style, newSettings.card.style));
+    const oldValue = oldSettings.card.sections[section].displayOptions[property];
+    const newValue = newSettings.card.sections[section].displayOptions[property];
+    if (typeof oldValue === 'boolean' && typeof newValue === 'boolean') {
+      this.eventDispatcher.dispatch(new CardSectionDisplayChangedEvent(
+        section,
+        property,
+        oldValue,
+        newValue
+      ));
+    }
   }
 }

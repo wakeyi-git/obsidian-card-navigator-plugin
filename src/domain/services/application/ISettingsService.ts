@@ -1,5 +1,5 @@
-import { IPluginSettings, ICardDomainSettings, ICardSetDomainSettings, ILayoutDomainSettings, ISearchDomainSettings, ISortDomainSettings, IPresetDomainSettings } from '../../models/PluginSettings';
-import { ICardSection, ICardStyle } from '../../models/Card';
+import { IPluginSettings, ICardSetDomainSettings, ILayoutDomainSettings, ISearchDomainSettings, ISortDomainSettings, IPresetDomainSettings } from '../../models/PluginSettings';
+import { ICardSection, ICardStyle, ICardStateStyle } from '../../models/Card';
 import { CardSetType } from '../../models/CardSet';
 
 /**
@@ -40,18 +40,6 @@ export interface ISettingsService {
    * @returns 구독 해제 함수
    */
   onSettingsChanged(callback: (data: {oldSettings: IPluginSettings, newSettings: IPluginSettings}) => void): () => void;
-
-  /**
-   * 카드 도메인 설정 가져오기
-   * @returns 카드 도메인 설정
-   */
-  getCardDomainSettings(): ICardDomainSettings;
-
-  /**
-   * 카드 도메인 설정 업데이트
-   * @param settings 카드 도메인 설정
-   */
-  updateCardDomainSettings(settings: ICardDomainSettings): Promise<void>;
 
   /**
    * 카드셋 도메인 설정 가져오기
@@ -143,21 +131,21 @@ export interface ISettingsService {
 
   /**
    * 카드 스타일 업데이트
-   * @param styleKey 스타일 키
-   * @param property 속성
+   * @param state 카드 상태 (normal, active, focused)
+   * @param property 스타일 속성
    * @param value 값
    */
-  updateCardStyle(styleKey: keyof ICardStyle, property: keyof ICardStyle, value: string): Promise<void>;
+  updateCardStyle(state: 'normal' | 'active' | 'focused', property: keyof ICardStyle, value: string): Promise<void>;
 
   /**
    * 카드 섹션 표시 설정 업데이트
-   * @param section 섹션
-   * @param property 속성
+   * @param section 섹션 타입
+   * @param property 표시 옵션 속성
    * @param value 값
    */
   updateCardSectionDisplay(
     section: 'header' | 'body' | 'footer',
-    property: keyof ICardSection,
+    property: keyof ICardSection['displayOptions'],
     value: boolean
   ): Promise<void>;
 }

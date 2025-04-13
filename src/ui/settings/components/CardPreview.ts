@@ -133,6 +133,9 @@ export class CardPreview {
    * @param displayOptions - 카드 표시 옵션
    */
   private renderSectionContent(el: HTMLElement, displayOptions: ICardDisplayOptions) {
+    if (displayOptions.showTitle) {
+      el.createDiv({ text: 'Title', cls: 'title' });
+    }
     if (displayOptions.showFileName) {
       el.createDiv({ text: 'File Name', cls: 'file-name' });
     }
