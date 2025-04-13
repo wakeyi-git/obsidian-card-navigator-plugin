@@ -131,4 +131,15 @@ export class SettingsUtils {
     updater(draft);
     return draft;
   }
+
+  public static updateNestedSettings<T>(settings: T, path: string, value: any): T {
+    const draft = JSON.parse(JSON.stringify(settings));
+    const pathParts = path.split('.');
+    let current: any = draft;
+    for (let i = 0; i < pathParts.length - 1; i++) {
+      current = current[pathParts[i]];
+    }
+    current[pathParts[pathParts.length - 1]] = value;
+    return draft;
+  }
 }

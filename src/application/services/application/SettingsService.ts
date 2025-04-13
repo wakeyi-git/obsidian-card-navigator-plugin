@@ -15,6 +15,7 @@ import {
   SearchConfigChangedEvent,
 } from '@/domain/events/SettingsEvents';
 import { IEventHandler } from '@/domain/infrastructure/IEventDispatcher';
+import { SettingsUtils } from '@/domain/utils/settingsUtils';
 
 export class SettingsService implements ISettingsService {
   private static instance: SettingsService | null = null;
@@ -47,7 +48,7 @@ export class SettingsService implements ISettingsService {
   public async loadSettings(): Promise<IPluginSettings> {
     const savedSettings = await this.plugin.loadData();
     if (savedSettings) {
-      this.settings = this.mergeSettings(DEFAULT_PLUGIN_SETTINGS, savedSettings);
+      this.settings = SettingsUtils.mergeSettings(DEFAULT_PLUGIN_SETTINGS, savedSettings);
     }
     return this.settings;
   }
@@ -81,8 +82,9 @@ export class SettingsService implements ISettingsService {
 
   public async updateCardDomainSettings(settings: Partial<ICardDomainSettings>): Promise<void> {
     const oldSettings = { ...this.settings };
-    const newSettings = { ...oldSettings };
-    newSettings.card = { ...oldSettings.card, ...settings };
+    const newSettings = SettingsUtils.updateSettings(oldSettings, (draft) => {
+      draft.card = { ...oldSettings.card, ...settings };
+    });
     await this.saveSettings(newSettings);
     this.eventDispatcher.dispatch(new CardConfigChangedEvent(oldSettings.card.style, newSettings.card.style));
   }
@@ -93,8 +95,9 @@ export class SettingsService implements ISettingsService {
 
   public async updateCardSetDomainSettings(type: CardSetType, settings: Partial<IPluginSettings['cardSet']>): Promise<void> {
     const oldSettings = { ...this.settings };
-    const newSettings = { ...oldSettings };
-    newSettings.cardSet = { ...oldSettings.cardSet, ...settings };
+    const newSettings = SettingsUtils.updateSettings(oldSettings, (draft) => {
+      draft.cardSet = { ...oldSettings.cardSet, ...settings };
+    });
     await this.saveSettings(newSettings);
     this.eventDispatcher.dispatch(new CardSetConfigChangedEvent(type, oldSettings.cardSet.config, newSettings.cardSet.config));
   }
@@ -105,8 +108,9 @@ export class SettingsService implements ISettingsService {
 
   public async updateLayoutDomainSettings(settings: Partial<IPluginSettings['layout']>): Promise<void> {
     const oldSettings = { ...this.settings };
-    const newSettings = { ...oldSettings };
-    newSettings.layout = { ...oldSettings.layout, ...settings };
+    const newSettings = SettingsUtils.updateSettings(oldSettings, (draft) => {
+      draft.layout = { ...oldSettings.layout, ...settings };
+    });
     await this.saveSettings(newSettings);
     this.eventDispatcher.dispatch(new LayoutConfigChangedEvent(oldSettings.layout.config, newSettings.layout.config));
   }
@@ -117,8 +121,9 @@ export class SettingsService implements ISettingsService {
 
   public async updateSortDomainSettings(settings: Partial<IPluginSettings['sort']>): Promise<void> {
     const oldSettings = { ...this.settings };
-    const newSettings = { ...oldSettings };
-    newSettings.sort = { ...oldSettings.sort, ...settings };
+    const newSettings = SettingsUtils.updateSettings(oldSettings, (draft) => {
+      draft.sort = { ...oldSettings.sort, ...settings };
+    });
     await this.saveSettings(newSettings);
     this.eventDispatcher.dispatch(new SortConfigChangedEvent(oldSettings.sort.config, newSettings.sort.config));
   }
@@ -129,8 +134,9 @@ export class SettingsService implements ISettingsService {
 
   public async updateSearchDomainSettings(settings: Partial<IPluginSettings['search']>): Promise<void> {
     const oldSettings = { ...this.settings };
-    const newSettings = { ...oldSettings };
-    newSettings.search = { ...oldSettings.search, ...settings };
+    const newSettings = SettingsUtils.updateSettings(oldSettings, (draft) => {
+      draft.search = { ...oldSettings.search, ...settings };
+    });
     await this.saveSettings(newSettings);
     this.eventDispatcher.dispatch(new SearchConfigChangedEvent(oldSettings.search.config, newSettings.search.config));
   }
@@ -141,14 +147,15 @@ export class SettingsService implements ISettingsService {
 
   public async updatePresetDomainSettings(settings: Partial<IPluginSettings['preset']>): Promise<void> {
     const oldSettings = { ...this.settings };
-    const newSettings = { ...oldSettings };
-    newSettings.preset = { ...oldSettings.preset, ...settings };
+    const newSettings = SettingsUtils.updateSettings(oldSettings, (draft) => {
+      draft.preset = { ...oldSettings.preset, ...settings };
+    });
     await this.saveSettings(newSettings);
     this.eventDispatcher.dispatch(new SettingsChangedEvent(oldSettings, newSettings));
   }
 
   public validateSettings(settings: IPluginSettings): boolean {
-    return this.validateSettingsInternal(settings);
+    return SettingsUtils.validateSettings(settings);
   }
 
   public unsubscribeFromSettingsChange(callback: (settings: IPluginSettings) => void): void {
@@ -164,7 +171,7 @@ export class SettingsService implements ISettingsService {
 
   public async updateNestedSettings(path: string, value: any): Promise<void> {
     const oldSettings = this.settings;
-    const newSettings = this.updateNestedSettingsInternal(this.settings, path, value);
+    const newSettings = SettingsUtils.updateNestedSettings(this.settings, path, value);
     await this.saveSettings(newSettings);
     this.eventDispatcher.dispatch(new SettingsChangedEvent(oldSettings, newSettings));
   }
@@ -175,19 +182,20 @@ export class SettingsService implements ISettingsService {
 
   public async updateCardStyle(styleKey: keyof ICardStyle, property: keyof ICardStyle, value: string): Promise<void> {
     const oldSettings = { ...this.settings };
-    const newSettings = { ...oldSettings };
-    const oldStyleValue = oldSettings.card.style[styleKey];
-    const newStyleValue = typeof oldStyleValue === 'object' 
-      ? { ...oldStyleValue, [property]: value }
-      : value;
-    
-    newSettings.card = {
-      ...oldSettings.card,
-      style: {
-        ...oldSettings.card.style,
-        [styleKey]: newStyleValue
-      }
-    };
+    const newSettings = SettingsUtils.updateSettings(oldSettings, (draft) => {
+      const oldStyleValue = oldSettings.card.style[styleKey];
+      const newStyleValue = typeof oldStyleValue === 'object' 
+        ? { ...oldStyleValue, [property]: value }
+        : value;
+      
+      draft.card = {
+        ...oldSettings.card,
+        style: {
+          ...oldSettings.card.style,
+          [styleKey]: newStyleValue
+        }
+      };
+    });
     await this.saveSettings(newSettings);
     this.eventDispatcher.dispatch(new CardConfigChangedEvent(oldSettings.card.style, newSettings.card.style));
   }
@@ -202,103 +210,19 @@ export class SettingsService implements ISettingsService {
     value: boolean
   ): Promise<void> {
     const oldSettings = { ...this.settings };
-    const newSettings = { ...oldSettings };
-    newSettings.card = {
-      ...oldSettings.card,
-      sections: {
-        ...oldSettings.card.sections,
-        [section]: {
-          ...oldSettings.card.sections[section],
-          [property]: value
-        }
-      }
-    };
-    await this.saveSettings(newSettings);
-    this.eventDispatcher.dispatch(new CardConfigChangedEvent(oldSettings.card.style, newSettings.card.style));
-  }
-
-  private mergeSettings(base: IPluginSettings, override: Partial<IPluginSettings>): IPluginSettings {
-    return {
-      ...base,
-      ...override,
-      card: {
-        ...base.card,
-        ...override.card,
-        style: {
-          ...base.card.style,
-          ...override.card?.style
-        },
+    const newSettings = SettingsUtils.updateSettings(oldSettings, (draft) => {
+      draft.card = {
+        ...oldSettings.card,
         sections: {
-          header: {
-            ...base.card.sections.header,
-            ...override.card?.sections?.header
-          },
-          body: {
-            ...base.card.sections.body,
-            ...override.card?.sections?.body
-          },
-          footer: {
-            ...base.card.sections.footer,
-            ...override.card?.sections?.footer
+          ...oldSettings.card.sections,
+          [section]: {
+            ...oldSettings.card.sections[section],
+            [property]: value
           }
         }
-      },
-      cardSet: {
-        ...base.cardSet,
-        ...override.cardSet,
-        config: {
-          ...base.cardSet.config,
-          ...override.cardSet?.config
-        }
-      },
-      layout: {
-        ...base.layout,
-        ...override.layout,
-        config: {
-          ...base.layout.config,
-          ...override.layout?.config
-        }
-      },
-      search: {
-        ...base.search,
-        ...override.search,
-        config: {
-          ...base.search.config,
-          ...override.search?.config
-        }
-      },
-      sort: {
-        ...base.sort,
-        ...override.sort,
-        config: {
-          ...base.sort.config,
-          ...override.sort?.config
-        }
-      },
-      preset: {
-        ...base.preset,
-        ...override.preset,
-        config: {
-          ...base.preset.config,
-          ...override.preset?.config
-        }
-      }
-    };
-  }
-
-  private updateNestedSettingsInternal<T>(settings: T, path: string, value: any): T {
-    const draft = JSON.parse(JSON.stringify(settings));
-    const pathParts = path.split('.');
-    let current: any = draft;
-    for (let i = 0; i < pathParts.length - 1; i++) {
-      current = current[pathParts[i]];
-    }
-    current[pathParts[pathParts.length - 1]] = value;
-    return draft;
-  }
-
-  private validateSettingsInternal(settings: IPluginSettings): boolean {
-    return !!settings.card && !!settings.cardSet && !!settings.layout && 
-           !!settings.search && !!settings.sort && !!settings.preset;
+      };
+    });
+    await this.saveSettings(newSettings);
+    this.eventDispatcher.dispatch(new CardConfigChangedEvent(oldSettings.card.style, newSettings.card.style));
   }
 }

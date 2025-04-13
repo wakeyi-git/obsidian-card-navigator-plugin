@@ -10,6 +10,7 @@ import { DomainEventType } from './domain/events/DomainEventType';
 import { DomainEvent } from './domain/events/DomainEvent';
 import { Container } from '@/infrastructure/di/Container';
 import { registerServices } from '@/infrastructure/di/register';
+import { PresetManager } from '@/application/manager/PresetManager';
 
 export default class CardNavigatorPlugin extends Plugin {
     settings: PluginSettings;
@@ -23,6 +24,9 @@ export default class CardNavigatorPlugin extends Plugin {
         container.registerInstance('App', this.app);
         container.registerInstance('Plugin', this);
         registerServices(container);
+
+        // PresetManager 등록
+        container.register('PresetManager', () => PresetManager.getInstance(), true);
 
         await this.loadSettings();
 

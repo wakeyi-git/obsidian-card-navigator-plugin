@@ -9,6 +9,28 @@ import { Container } from '@/infrastructure/di/Container';
 import { ICard } from '@/domain/models/Card';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { CardStyleUpdatedEvent } from '@/domain/events/CardEvents';
+import { IPreset } from '@/domain/models/Preset';
+import { PresetManager } from '@/application/manager/PresetManager';
+
+/**
+ * 기본 카드 스타일
+ */
+const DEFAULT_CARD_STYLE: ICardStyle = {
+  classes: ['card'],
+  backgroundColor: 'var(--background-primary)',
+  fontSize: 'var(--font-size-normal)',
+  color: 'var(--text-normal)',
+  border: {
+    width: '1px',
+    color: 'var(--background-modifier-border)',
+    style: 'solid',
+    radius: '8px'
+  },
+  padding: 'var(--size-4-2)',
+  boxShadow: 'var(--shadow-s)',
+  lineHeight: 'var(--line-height-normal)',
+  fontFamily: 'var(--font-family)'
+};
 
 /**
  * 카드 표시 관리자 클래스
@@ -19,7 +41,8 @@ import { CardStyleUpdatedEvent } from '@/domain/events/CardEvents';
  */
 export class CardDisplayManager implements ICardDisplayManager {
   private static instance: CardDisplayManager;
-  private cardElements: Map<string, HTMLElement> = new Map();
+  private readonly cardElements: Map<string, HTMLElement> = new Map();
+  private readonly presetManager: PresetManager;
   private eventListeners: Map<string, Map<string, EventListener[]>> = new Map();
   private cardStates: Map<string, ICardDisplayState> = new Map();
   private initialized: boolean = false;
@@ -372,5 +395,65 @@ export class CardDisplayManager implements ICardDisplayManager {
     } finally {
       timer.stop();
     }
+  }
+
+  /**
+   * 카드에 프리셋 스타일을 적용합니다.
+   * @param cardId 카드 ID
+   * @param presets 적용할 프리셋 배열
+   */
+  applyPresetStyles(cardId: string, presets: IPreset[]): void {
+    const element = this.cardElements.get(cardId);
+    if (!element) return;
+
+    // 프리셋 스타일 병합
+    const mergedStyle = this.mergePresetStyles(presets);
+    
+    // 동적으로 스타일 적용
+    Object.assign(element.style, this.convertCardStyleToCSS(mergedStyle));
+  }
+
+  /**
+   * 프리셋 스타일을 병합합니다.
+   * @param presets 프리셋 배열
+   * @returns 병합된 카드 스타일
+   */
+  private mergePresetStyles(presets: IPreset[]): ICardStyle {
+    return presets.reduce((merged, preset) => {
+      const presetStyle = preset.config.cardStateStyle.normal;
+      return {
+        ...merged,
+        backgroundColor: presetStyle.backgroundColor || merged.backgroundColor,
+        fontSize: presetStyle.fontSize || merged.fontSize,
+        color: presetStyle.color || merged.color,
+        border: {
+          ...merged.border,
+          ...presetStyle.border
+        },
+        padding: presetStyle.padding || merged.padding,
+        boxShadow: presetStyle.boxShadow || merged.boxShadow,
+        lineHeight: presetStyle.lineHeight || merged.lineHeight,
+        fontFamily: presetStyle.fontFamily || merged.fontFamily
+      };
+    }, DEFAULT_CARD_STYLE);
+  }
+
+  /**
+   * 카드 스타일을 CSS 스타일로 변환합니다.
+   * @param style 카드 스타일
+   * @returns CSS 스타일
+   */
+  private convertCardStyleToCSS(style: ICardStyle): Partial<CSSStyleDeclaration> {
+    return {
+      backgroundColor: style.backgroundColor,
+      fontSize: style.fontSize,
+      color: style.color,
+      border: `${style.border.width} ${style.border.style} ${style.border.color}`,
+      borderRadius: style.border.radius,
+      padding: style.padding,
+      boxShadow: style.boxShadow,
+      lineHeight: style.lineHeight,
+      fontFamily: style.fontFamily
+    };
   }
 } 

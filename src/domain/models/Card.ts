@@ -334,17 +334,6 @@ export interface ICardCreateConfig {
 }
 
 /**
- * 기본 렌더링 상태
- */
-export const DEFAULT_RENDER_STATE: IRenderState = {
-  status: RenderStatus.PENDING,
-  startTime: 0,
-  endTime: 0,
-  error: null,
-  timestamp: Date.now()
-};
-
-/**
  * 기본 카드 스타일
  */
 export const DEFAULT_CARD_STYLE: ICardStyle = {
@@ -362,6 +351,17 @@ export const DEFAULT_CARD_STYLE: ICardStyle = {
   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
   lineHeight: '1.5',
   fontFamily: 'system-ui, -apple-system, sans-serif'
+};
+
+/**
+ * 기본 렌더링 상태
+ */
+export const DEFAULT_RENDER_STATE: IRenderState = {
+  status: RenderStatus.PENDING,
+  startTime: 0,
+  endTime: 0,
+  error: null,
+  timestamp: Date.now()
 };
 
 /**
@@ -388,6 +388,40 @@ export const DEFAULT_CARD_DISPLAY_OPTIONS: ICardDisplayOptions = {
   showUpdatedAt: true,
   showProperties: true,
   renderConfig: DEFAULT_RENDER_CONFIG
+};
+
+/**
+ * 기본 카드 섹션
+ */
+export const DEFAULT_CARD_SECTION: ICardSection = {
+  type: 'header',
+  displayOptions: DEFAULT_CARD_DISPLAY_OPTIONS,
+  style: DEFAULT_CARD_STYLE
+};
+
+/**
+ * 기본 카드 상태별 스타일
+ */
+export const DEFAULT_CARD_STATE_STYLE: ICardStateStyle = {
+  normal: DEFAULT_CARD_STYLE,
+  active: {
+    ...DEFAULT_CARD_STYLE,
+    classes: [...DEFAULT_CARD_STYLE.classes, 'card-active'],
+    border: {
+      ...DEFAULT_CARD_STYLE.border,
+      color: '#2196f3',
+      width: '2px'
+    }
+  },
+  focused: {
+    ...DEFAULT_CARD_STYLE,
+    classes: [...DEFAULT_CARD_STYLE.classes, 'card-focused'],
+    border: {
+      ...DEFAULT_CARD_STYLE.border,
+      color: '#ff9800',
+      width: '2px'
+    }
+  }
 };
 
 /**
@@ -429,31 +463,6 @@ export const DEFAULT_CARD_FOOTER_STYLE: ICardStyle = {
     ...DEFAULT_CARD_STYLE.border,
     width: '1px 0 0 0',
     style: 'solid'
-  }
-};
-
-/**
- * 기본 카드 상태별 스타일
- */
-export const DEFAULT_CARD_STATE_STYLE: ICardStateStyle = {
-  normal: DEFAULT_CARD_STYLE,
-  active: {
-    ...DEFAULT_CARD_STYLE,
-    classes: [...DEFAULT_CARD_STYLE.classes, 'card-active'],
-    border: {
-      ...DEFAULT_CARD_STYLE.border,
-      color: '#2196f3',
-      width: '2px'
-    }
-  },
-  focused: {
-    ...DEFAULT_CARD_STYLE,
-    classes: [...DEFAULT_CARD_STYLE.classes, 'card-focused'],
-    border: {
-      ...DEFAULT_CARD_STYLE.border,
-      color: '#ff9800',
-      width: '2px'
-    }
   }
 };
 
@@ -508,13 +517,4 @@ export const DEFAULT_CARD_CREATE_CONFIG: ICardCreateConfig = {
     },
     style: DEFAULT_CARD_FOOTER_STYLE
   }
-};
-
-/**
- * 기본 카드 섹션
- */
-export const DEFAULT_CARD_SECTION: ICardSection = {
-  type: 'header',
-  displayOptions: DEFAULT_CARD_DISPLAY_OPTIONS,
-  style: DEFAULT_CARD_STYLE
 };
