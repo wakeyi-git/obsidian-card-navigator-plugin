@@ -5,7 +5,6 @@ import {
   IRenderConfig,
   DEFAULT_CARD_STATE_STYLE,
   DEFAULT_CARD_DISPLAY_OPTIONS,
-  DEFAULT_CARD_SECTION,
   DEFAULT_RENDER_CONFIG
 } from './Card';
 import { ICardSetConfig, DEFAULT_CARD_SET_CONFIG } from './CardSet';
@@ -111,10 +110,6 @@ export const DEFAULT_PRESET_FEATURE_CONFIG: IPresetFeatureConfig = {
  * 프리셋 컨텐츠 설정 인터페이스
  */
 export interface IPresetContentConfig {
-  /** 카드 상태별 스타일 */
-  readonly cardStateStyle: ICardStateStyle;
-  /** 카드 표시 옵션 */
-  readonly cardDisplayOptions: ICardDisplayOptions;
   /** 카드 섹션 설정 */
   readonly cardSections: {
     /** 헤더 섹션 */
@@ -140,12 +135,49 @@ export interface IPresetContentConfig {
  * 기본 프리셋 컨텐츠 설정
  */
 export const DEFAULT_PRESET_CONTENT_CONFIG: IPresetContentConfig = {
-  cardStateStyle: DEFAULT_CARD_STATE_STYLE,
-  cardDisplayOptions: DEFAULT_CARD_DISPLAY_OPTIONS,
   cardSections: {
-    header: DEFAULT_CARD_SECTION,
-    body: DEFAULT_CARD_SECTION,
-    footer: DEFAULT_CARD_SECTION
+    header: {
+      type: 'header',
+      displayOptions: {
+        ...DEFAULT_CARD_DISPLAY_OPTIONS,
+        showTitle: true,
+        showFileName: false,
+        showFirstHeader: false,
+        showContent: false,
+        showTags: false,
+        showCreatedAt: false,
+        showUpdatedAt: false,
+        showProperties: false
+      }
+    },
+    body: {
+      type: 'body',
+      displayOptions: {
+        ...DEFAULT_CARD_DISPLAY_OPTIONS,
+        showTitle: false,
+        showFileName: false,
+        showFirstHeader: false,
+        showContent: true,
+        showTags: true,
+        showCreatedAt: false,
+        showUpdatedAt: false,
+        showProperties: false
+      }
+    },
+    footer: {
+      type: 'footer',
+      displayOptions: {
+        ...DEFAULT_CARD_DISPLAY_OPTIONS,
+        showTitle: false,
+        showFileName: false,
+        showFirstHeader: false,
+        showContent: false,
+        showTags: true,
+        showCreatedAt: true,
+        showUpdatedAt: true,
+        showProperties: true
+      }
+    }
   },
   cardRenderConfig: DEFAULT_RENDER_CONFIG,
   cardSetConfig: DEFAULT_CARD_SET_CONFIG,
@@ -205,8 +237,6 @@ export class Preset implements IPreset {
       !!this.metadata.createdAt &&
       !!this.metadata.updatedAt &&
       !!this.metadata.category &&
-      !!this.config.cardStateStyle &&
-      !!this.config.cardDisplayOptions &&
       !!this.config.cardSections.header &&
       !!this.config.cardSections.body &&
       !!this.config.cardSections.footer &&

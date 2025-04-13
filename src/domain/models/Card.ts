@@ -114,26 +114,6 @@ export interface IRenderState {
 
 /**
  * 카드 스타일 인터페이스
- * 
- * @example
- * ```typescript
- * const style: ICardStyle = {
- *   classes: ['card'],
- *   backgroundColor: '#ffffff',
- *   fontSize: '14px',
- *   color: '#333333',
- *   border: {
- *     width: '1px',
- *     color: '#e0e0e0',
- *     style: 'solid',
- *     radius: '8px'
- *   },
- *   padding: '16px',
- *   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
- *   lineHeight: '1.5',
- *   fontFamily: 'system-ui, -apple-system, sans-serif'
- * };
- * ```
  */
 export interface ICardStyle {
   /** CSS 클래스 목록 */
@@ -167,54 +147,30 @@ export interface ICardStyle {
 
 /**
  * 카드 표시 옵션 인터페이스
- * 
- * @example
- * ```typescript
- * const options: ICardDisplayOptions = {
- *   showTitle: true,
- *   showFileName: false,
- *   showFirstHeader: false,
- *   showContent: true,
- *   showTags: true,
- *   showCreatedAt: true,
- *   showUpdatedAt: true,
- *   showProperties: true,
- *   renderConfig: DEFAULT_RENDER_CONFIG
- * };
- * ```
  */
 export interface ICardDisplayOptions {
-  /** 노트 제목 표시 여부 */
-  readonly showTitle: boolean;
+  /** 제목 표시 여부 */
+  showTitle: boolean;
   /** 파일명 표시 여부 */
-  readonly showFileName: boolean;
+  showFileName: boolean;
   /** 첫 번째 헤더 표시 여부 */
-  readonly showFirstHeader: boolean;
+  showFirstHeader: boolean;
   /** 내용 표시 여부 */
-  readonly showContent: boolean;
+  showContent: boolean;
   /** 태그 표시 여부 */
-  readonly showTags: boolean;
+  showTags: boolean;
   /** 생성일 표시 여부 */
-  readonly showCreatedAt: boolean;
+  showCreatedAt: boolean;
   /** 수정일 표시 여부 */
-  readonly showUpdatedAt: boolean;
+  showUpdatedAt: boolean;
   /** 속성 표시 여부 */
-  readonly showProperties: boolean;
+  showProperties: boolean;
   /** 렌더링 설정 */
-  readonly renderConfig: IRenderConfig;
+  renderConfig: IRenderConfig;
 }
 
 /**
  * 카드 섹션 인터페이스
- * 
- * @example
- * ```typescript
- * const section: ICardSection = {
- *   type: 'header',
- *   displayOptions: DEFAULT_CARD_DISPLAY_OPTIONS,
- *   style: DEFAULT_CARD_HEADER_STYLE
- * };
- * ```
  */
 export interface ICardSection {
   /** 섹션 타입 */
@@ -222,26 +178,11 @@ export interface ICardSection {
   /** 섹션 표시 옵션 */
   readonly displayOptions: ICardDisplayOptions;
   /** 섹션 스타일 */
-  readonly style: ICardStyle;
+  readonly style?: ICardStyle;
 }
 
 /**
  * 카드 상태별 스타일 인터페이스
- * 
- * @example
- * ```typescript
- * const stateStyle: ICardStateStyle = {
- *   normal: DEFAULT_CARD_STYLE,
- *   active: {
- *     ...DEFAULT_CARD_STYLE,
- *     border: { ...DEFAULT_CARD_STYLE.border, color: '#2196f3' }
- *   },
- *   focused: {
- *     ...DEFAULT_CARD_STYLE,
- *     border: { ...DEFAULT_CARD_STYLE.border, color: '#ff9800' }
- *   }
- * };
- * ```
  */
 export interface ICardStateStyle {
   /** 일반 카드 스타일 */
@@ -269,17 +210,6 @@ export enum TitleSource {
 
 /**
  * 렌더링 설정 인터페이스
- * 
- * @example
- * ```typescript
- * const config: IRenderConfig = {
- *   type: RenderType.MARKDOWN,
- *   contentLengthLimitEnabled: false,
- *   contentLengthLimit: 200,
- *   style: DEFAULT_CARD_STYLE,
- *   state: DEFAULT_RENDER_STATE
- * };
- * ```
  */
 export interface IRenderConfig {
   /** 렌더링 타입 */
@@ -289,48 +219,43 @@ export interface IRenderConfig {
   /** 내용 길이 제한 */
   readonly contentLengthLimit: number;
   /** 렌더링 스타일 */
-  readonly style: ICardStyle;
+  readonly style?: ICardStyle;
   /** 렌더링 상태 */
   readonly state: IRenderState;
 }
 
 /**
  * 카드 생성 설정 인터페이스
- * 
- * @example
- * ```typescript
- * const config: ICardCreateConfig = {
- *   titleSource: TitleSource.FILE_NAME,
- *   stateStyle: DEFAULT_CARD_STATE_STYLE,
- *   header: {
- *     type: 'header',
- *     displayOptions: { ...DEFAULT_CARD_DISPLAY_OPTIONS, showTitle: true },
- *     style: DEFAULT_CARD_HEADER_STYLE
- *   },
- *   body: {
- *     type: 'body',
- *     displayOptions: { ...DEFAULT_CARD_DISPLAY_OPTIONS, showContent: true },
- *     style: DEFAULT_CARD_BODY_STYLE
- *   },
- *   footer: {
- *     type: 'footer',
- *     displayOptions: { ...DEFAULT_CARD_DISPLAY_OPTIONS, showTags: true },
- *     style: DEFAULT_CARD_FOOTER_STYLE
- *   }
- * };
- * ```
  */
 export interface ICardCreateConfig {
-  /** 제목 소스 */
-  readonly titleSource: TitleSource;
+  /** 카드 상태별 스타일 */
+  stateStyle: ICardStateStyle;
+  /** 카드 표시 옵션 */
+  displayOptions: ICardDisplayOptions;
+  /** 헤더 섹션 */
+  header: ICardSection;
+  /** 본문 섹션 */
+  body: ICardSection;
+  /** 푸터 섹션 */
+  footer: ICardSection;
+  /** 렌더링 설정 */
+  renderConfig: IRenderConfig;
+}
+
+/**
+ * 카드 도메인 설정 인터페이스
+ */
+export interface ICardDomainSettings {
+  /** 카드 섹션 설정 */
+  readonly sections: {
+    header: ICardSection;
+    body: ICardSection;
+    footer: ICardSection;
+  };
+  /** 카드 렌더링 설정 */
+  readonly renderConfig: IRenderConfig;
   /** 카드 상태별 스타일 */
   readonly stateStyle: ICardStateStyle;
-  /** 헤더 섹션 */
-  readonly header: ICardSection;
-  /** 바디 섹션 */
-  readonly body: ICardSection;
-  /** 푸터 섹션 */
-  readonly footer: ICardSection;
 }
 
 /**
@@ -371,7 +296,6 @@ export const DEFAULT_RENDER_CONFIG: IRenderConfig = {
   type: RenderType.MARKDOWN,
   contentLengthLimitEnabled: false,
   contentLengthLimit: 200,
-  style: DEFAULT_CARD_STYLE,
   state: DEFAULT_RENDER_STATE
 };
 
@@ -388,15 +312,6 @@ export const DEFAULT_CARD_DISPLAY_OPTIONS: ICardDisplayOptions = {
   showUpdatedAt: true,
   showProperties: true,
   renderConfig: DEFAULT_RENDER_CONFIG
-};
-
-/**
- * 기본 카드 섹션
- */
-export const DEFAULT_CARD_SECTION: ICardSection = {
-  type: 'header',
-  displayOptions: DEFAULT_CARD_DISPLAY_OPTIONS,
-  style: DEFAULT_CARD_STYLE
 };
 
 /**
@@ -425,96 +340,91 @@ export const DEFAULT_CARD_STATE_STYLE: ICardStateStyle = {
 };
 
 /**
- * 기본 카드 헤더 스타일
+ * 기본 카드 도메인 설정
  */
-export const DEFAULT_CARD_HEADER_STYLE: ICardStyle = {
-  ...DEFAULT_CARD_STYLE,
-  classes: [...DEFAULT_CARD_STYLE.classes, 'card-header'],
-  backgroundColor: '#f5f5f5',
-  fontSize: '1.1em',
-  padding: '12px 16px',
-  border: {
-    ...DEFAULT_CARD_STYLE.border,
-    width: '0 0 1px 0',
-    style: 'solid'
+export const DEFAULT_CARD_DOMAIN_SETTINGS: ICardDomainSettings = {
+  sections: {
+    header: {
+      type: 'header',
+      displayOptions: {
+        ...DEFAULT_CARD_DISPLAY_OPTIONS,
+        showTitle: true,
+        showFileName: false,
+        showFirstHeader: false,
+        showContent: false,
+        showTags: false,
+        showCreatedAt: false,
+        showUpdatedAt: false,
+        showProperties: false
+      }
+    },
+    body: {
+      type: 'body',
+      displayOptions: {
+        ...DEFAULT_CARD_DISPLAY_OPTIONS,
+        showTitle: false,
+        showFileName: false,
+        showFirstHeader: false,
+        showContent: true,
+        showTags: true,
+        showCreatedAt: false,
+        showUpdatedAt: false,
+        showProperties: false
+      }
+    },
+    footer: {
+      type: 'footer',
+      displayOptions: {
+        ...DEFAULT_CARD_DISPLAY_OPTIONS,
+        showTitle: false,
+        showFileName: false,
+        showFirstHeader: false,
+        showContent: false,
+        showTags: true,
+        showCreatedAt: true,
+        showUpdatedAt: true,
+        showProperties: true
+      }
+    }
+  },
+  renderConfig: DEFAULT_RENDER_CONFIG,
+  stateStyle: DEFAULT_CARD_STATE_STYLE
+};
+
+/**
+ * 기본 카드 섹션 설정
+ */
+export const DEFAULT_CARD_SECTION: ICardSection = {
+  type: 'body',
+  displayOptions: {
+    showTitle: true,
+    showFileName: true,
+    showFirstHeader: true,
+    showContent: true,
+    showTags: true,
+    showCreatedAt: true,
+    showUpdatedAt: true,
+    showProperties: true,
+    renderConfig: DEFAULT_RENDER_CONFIG
   }
-};
-
-/**
- * 기본 카드 바디 스타일
- */
-export const DEFAULT_CARD_BODY_STYLE: ICardStyle = {
-  ...DEFAULT_CARD_STYLE,
-  classes: [...DEFAULT_CARD_STYLE.classes, 'card-body'],
-  padding: '16px'
-};
-
-/**
- * 기본 카드 푸터 스타일
- */
-export const DEFAULT_CARD_FOOTER_STYLE: ICardStyle = {
-  ...DEFAULT_CARD_STYLE,
-  classes: [...DEFAULT_CARD_STYLE.classes, 'card-footer'],
-  backgroundColor: '#f5f5f5',
-  fontSize: '0.9em',
-  color: '#666666',
-  padding: '8px 16px',
-  border: {
-    ...DEFAULT_CARD_STYLE.border,
-    width: '1px 0 0 0',
-    style: 'solid'
-  }
-};
-
-/**
+};/**
  * 기본 카드 생성 설정
  */
 export const DEFAULT_CARD_CREATE_CONFIG: ICardCreateConfig = {
-  titleSource: TitleSource.FILE_NAME,
   stateStyle: DEFAULT_CARD_STATE_STYLE,
+  displayOptions: DEFAULT_CARD_DISPLAY_OPTIONS,
   header: {
-    type: 'header',
-    displayOptions: {
-      ...DEFAULT_CARD_DISPLAY_OPTIONS,
-      showTitle: true,
-      showFileName: false,
-      showFirstHeader: false,
-      showContent: false,
-      showTags: false,
-      showCreatedAt: false,
-      showUpdatedAt: false,
-      showProperties: false
-    },
-    style: DEFAULT_CARD_HEADER_STYLE
+    ...DEFAULT_CARD_SECTION,
+    type: 'header'
   },
   body: {
-    type: 'body',
-    displayOptions: {
-      ...DEFAULT_CARD_DISPLAY_OPTIONS,
-      showTitle: false,
-      showFileName: false,
-      showFirstHeader: false,
-      showContent: true,
-      showTags: true,
-      showCreatedAt: false,
-      showUpdatedAt: false,
-      showProperties: false
-    },
-    style: DEFAULT_CARD_BODY_STYLE
+    ...DEFAULT_CARD_SECTION,
+    type: 'body'
   },
   footer: {
-    type: 'footer',
-    displayOptions: {
-      ...DEFAULT_CARD_DISPLAY_OPTIONS,
-      showTitle: false,
-      showFileName: false,
-      showFirstHeader: false,
-      showContent: false,
-      showTags: true,
-      showCreatedAt: true,
-      showUpdatedAt: true,
-      showProperties: true
-    },
-    style: DEFAULT_CARD_FOOTER_STYLE
-  }
+    ...DEFAULT_CARD_SECTION,
+    type: 'footer'
+  },
+  renderConfig: DEFAULT_RENDER_CONFIG
 };
+

@@ -1,55 +1,12 @@
 import { 
-  ICardStyle, 
-  DEFAULT_CARD_STYLE,
-  ICardDisplayOptions,
-  DEFAULT_CARD_DISPLAY_OPTIONS,
-  ICardSection,
-  DEFAULT_CARD_SECTION,
-  IRenderConfig,
-  DEFAULT_RENDER_CONFIG,
-  ICardStateStyle,
-  DEFAULT_CARD_STATE_STYLE
+  ICardDomainSettings,
+  DEFAULT_CARD_DOMAIN_SETTINGS
 } from './Card';
 import { CardSetType, ICardSetConfig, DEFAULT_CARD_SET_CONFIG } from './CardSet';
 import { ILayoutConfig, DEFAULT_LAYOUT_CONFIG } from './Layout';
 import { ISearchConfig, DEFAULT_SEARCH_CONFIG } from './Search';
 import { ISortConfig, DEFAULT_SORT_CONFIG } from './Sort';
-import { IPresetContentConfig, DEFAULT_PRESET_CONTENT_CONFIG, IPresetFeatureConfig, DEFAULT_PRESET_FEATURE_CONFIG, IPresetMapping } from './Preset';
-
-/**
- * 카드 도메인 설정 인터페이스
- */
-export interface ICardDomainSettings {
-  /** 카드 스타일 */
-  style: ICardStyle;
-  /** 카드 표시 옵션 */
-  displayOptions: ICardDisplayOptions;
-  /** 카드 섹션 설정 */
-  sections: {
-    header: ICardSection;
-    body: ICardSection;
-    footer: ICardSection;
-  };
-  /** 카드 렌더링 설정 */
-  renderConfig: IRenderConfig;
-  /** 카드 상태별 스타일 */
-  stateStyle: ICardStateStyle;
-}
-
-/**
- * 기본 카드 도메인 설정
- */
-export const DEFAULT_CARD_DOMAIN_SETTINGS: ICardDomainSettings = {
-  style: DEFAULT_CARD_STYLE,
-  displayOptions: DEFAULT_CARD_DISPLAY_OPTIONS,
-  sections: {
-    header: DEFAULT_CARD_SECTION,
-    body: DEFAULT_CARD_SECTION,
-    footer: DEFAULT_CARD_SECTION
-  },
-  renderConfig: DEFAULT_RENDER_CONFIG,
-  stateStyle: DEFAULT_CARD_STATE_STYLE
-};
+import { IPresetContentConfig, DEFAULT_PRESET_CONTENT_CONFIG, IPresetMapping } from './Preset';
 
 /**
  * 카드셋 도메인 설정 인터페이스
@@ -172,8 +129,6 @@ export class PluginSettings implements IPluginSettings {
    */
   validate(): boolean {
     return (
-      !!this.card.style &&
-      !!this.card.displayOptions &&
       !!this.card.sections.header &&
       !!this.card.sections.body &&
       !!this.card.sections.footer &&
