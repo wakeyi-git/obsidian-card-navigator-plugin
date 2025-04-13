@@ -75,6 +75,13 @@
   width: 100%;
   position: relative;
   overflow: hidden;
+  padding: 16px;
+}
+
+/* 메이슨리 레이아웃 */
+.card-navigator-container[data-layout="masonry"] {
+  column-count: var(--masonry-columns, 3);
+  column-gap: var(--card-gap, 16px);
 }
 
 /* 카드 그리드 */
@@ -106,45 +113,46 @@
 
 /* 카드 요소 */
 .card-navigator-card {
+  break-inside: avoid;
   background-color: var(--card-bg, var(--background-primary));
-  border: 1px solid var(--card-border-color, var(--background-modifier-border));
+  border: var(--card-border-width, 1px) solid var(--card-border-color, var(--background-modifier-border));
   border-radius: var(--radius-m);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  width: var(--card-width, 300px);
-  min-width: var(--card-min-width, 250px);
-  min-height: var(--card-min-height, 150px);
-  max-width: 100%;
-  box-sizing: border-box;
+  box-shadow: var(--shadow-s);
+  width: 100%;
+  margin-bottom: var(--card-gap, 16px);
   display: flex;
   flex-direction: column;
   transition: all 0.2s ease;
   position: relative;
-  margin-bottom: var(--card-gap, 16px);
+  font-size: var(--card-font-size, var(--font-size-normal));
 }
 
 /* 카드 헤더 */
-.card-navigator-card .card-header {
+.card-navigator-card-header {
   padding: 12px 16px;
   border-bottom: 1px solid var(--header-border-color, var(--background-modifier-border));
   background-color: var(--header-bg, var(--background-secondary));
   border-radius: var(--radius-m) var(--radius-m) 0 0;
+  font-weight: bold;
+  font-size: var(--header-font-size, var(--font-size-normal));
 }
 
 /* 카드 바디 */
-.card-navigator-card .card-body {
+.card-navigator-card-body {
   padding: 16px;
   flex-grow: 1;
   overflow: hidden;
   background-color: var(--body-bg, var(--background-primary));
+  font-size: var(--body-font-size, var(--font-size-normal));
 }
 
 /* 카드 푸터 */
-.card-navigator-card .card-footer {
+.card-navigator-card-footer {
   padding: 8px 16px;
   border-top: 1px solid var(--footer-border-color, var(--background-modifier-border));
   background-color: var(--footer-bg, var(--background-secondary-alt));
   border-radius: 0 0 var(--radius-m) var(--radius-m);
-  font-size: 0.8rem;
+  font-size: var(--footer-font-size, 0.8rem);
   color: var(--text-muted);
 }
 
@@ -205,15 +213,19 @@
 /* 활성 카드 스타일 */
 .card-navigator-card.active {
   border-color: var(--active-card-border-color, var(--interactive-accent));
-  box-shadow: 0 0 0 1px var(--active-card-border-color, var(--interactive-accent));
+  box-shadow: 0 0 0 var(--active-card-border-width, 1px) var(--active-card-border-color, var(--interactive-accent));
   z-index: 5;
+  background-color: var(--active-card-bg, var(--background-primary));
+  font-size: var(--active-card-font-size, var(--font-size-normal));
 }
 
 /* 포커스 카드 스타일 */
 .card-navigator-card.focused {
   border-color: var(--focused-card-border-color, var(--interactive-accent));
-  box-shadow: 0 0 0 2px var(--focused-card-border-color, var(--interactive-accent));
+  box-shadow: 0 0 0 var(--focused-card-border-width, 2px) var(--focused-card-border-color, var(--interactive-accent));
   z-index: 10;
+  background-color: var(--focused-card-bg, var(--background-primary));
+  font-size: var(--focused-card-font-size, var(--font-size-normal));
 }
 
 /* 마우스 오버 스타일 */

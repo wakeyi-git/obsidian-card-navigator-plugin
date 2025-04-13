@@ -298,10 +298,27 @@ export class CardRenderManager implements ICardRenderManager {
     try {
       this.logger.debug('카드 렌더링 시작', { cardId: card.id });
 
+      // 렌더링 설정 가져오기
+      const config = this.getRenderConfig();
+
       // 카드 요소 생성
       const cardEl = document.createElement('div');
       cardEl.className = 'card-navigator-card';
       cardEl.setAttribute('data-card-id', card.id);
+
+      // 스타일 적용
+      const style = config.style;
+      cardEl.style.backgroundColor = style.backgroundColor;
+      cardEl.style.fontSize = style.fontSize;
+      cardEl.style.color = style.color;
+      cardEl.style.borderWidth = style.border.width;
+      cardEl.style.borderColor = style.border.color;
+      cardEl.style.borderStyle = style.border.style;
+      cardEl.style.borderRadius = style.border.radius;
+      cardEl.style.padding = style.padding;
+      cardEl.style.boxShadow = style.boxShadow;
+      cardEl.style.lineHeight = style.lineHeight;
+      cardEl.style.fontFamily = style.fontFamily;
 
       // 헤더
       const headerEl = document.createElement('div');
