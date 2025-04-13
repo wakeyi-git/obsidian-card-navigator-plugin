@@ -17,6 +17,7 @@ import { ActiveFileWatcher } from '../../application/services/application/Active
 import { FocusManager } from '../../application/manager/FocusManager';
 import { CardDisplayManager } from '../../application/manager/CardDisplayManager';
 import { CardFactory } from '../../application/factories/CardFactory';
+import { CardSetFactory } from '../../application/factories/CardSetFactory';
 import { PresetManager } from '../../application/manager/PresetManager';
 import { PresetService } from '../../application/services/application/PresetService';
 import { ToolbarService } from '../../application/services/application/ToolbarService';
@@ -54,9 +55,12 @@ export function registerServices(container: Container): void {
   container.register('IFileService', () => FileService.getInstance(), true);
   container.register('IClipboardService', () => ClipboardService.getInstance(), true);
   container.register('IActiveFileWatcher', () => ActiveFileWatcher.getInstance(), true);
+
+  // 매니저 등록
   container.register('IFocusManager', () => FocusManager.getInstance(), true);
   container.register('ICardDisplayManager', () => CardDisplayManager.getInstance(), true);
   container.register('ICardFactory', () => CardFactory.getInstance(), true);
+  container.register('ICardSetFactory', () => CardSetFactory.getInstance(), true);
   container.register('IPresetManager', () => PresetManager.getInstance(), true);
   container.register('IPresetService', () => PresetService.getInstance(), true);
   container.register('IToolbarService', () => ToolbarService.getInstance(), true);

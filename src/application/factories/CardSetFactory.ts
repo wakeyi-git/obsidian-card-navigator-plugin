@@ -7,6 +7,20 @@ import { ICardSetFactory } from '@/domain/factories/ICardSetFactory';
  */
 @injectable()
 export class CardSetFactory implements ICardSetFactory {
+  private static instance: CardSetFactory;
+
+  private constructor() {}
+
+  /**
+   * 싱글톤 인스턴스 반환
+   */
+  static getInstance(): CardSetFactory {
+    if (!CardSetFactory.instance) {
+      CardSetFactory.instance = new CardSetFactory();
+    }
+    return CardSetFactory.instance;
+  }
+
   /**
    * 카드셋을 생성합니다.
    * @param type 카드셋 타입
