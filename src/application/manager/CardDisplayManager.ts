@@ -26,7 +26,7 @@ const DEFAULT_CARD_STYLE: ICardStyle = {
     style: 'solid',
     radius: '8px'
   },
-  padding: 'var(--size-4-2)',
+  padding: '0px',
   boxShadow: 'var(--shadow-s)',
   lineHeight: 'var(--line-height-normal)',
   fontFamily: 'var(--font-family)'
@@ -297,7 +297,7 @@ export class CardDisplayManager implements ICardDisplayManager {
           style: 'solid',
           radius: '8px'
         },
-        padding: 'var(--size-4-2)',
+        padding: '0px',
         boxShadow: 'var(--shadow-s)',
         lineHeight: 'var(--line-height-normal)',
         fontFamily: 'var(--font-family)'

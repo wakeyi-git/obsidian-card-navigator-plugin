@@ -771,7 +771,7 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
     }
 
     getCardStyle(): ICardStyle {
-        return this._state.settings.card.style;
+        return this._state.settings.card.stateStyle.normal;
     }
 
     getCurrentCardSet(): ICardSet | null {

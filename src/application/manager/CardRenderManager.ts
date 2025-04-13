@@ -1,5 +1,5 @@
 import { ICardRenderManager } from '@/domain/managers/ICardRenderManager';
-import { IRenderConfig, IRenderState } from '@/domain/models/Card';
+import { IRenderConfig, IRenderState, DEFAULT_CARD_STYLE } from '@/domain/models/Card';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
@@ -235,7 +235,7 @@ export class CardRenderManager implements ICardRenderManager {
             style: 'solid',
             radius: '8px'
           },
-          padding: 'var(--size-4-2)',
+          padding: '0px',
           boxShadow: 'var(--shadow-s)',
           lineHeight: 'var(--line-height-normal)',
           fontFamily: 'var(--font-family)'
@@ -307,7 +307,7 @@ export class CardRenderManager implements ICardRenderManager {
       cardEl.setAttribute('data-card-id', card.id);
 
       // 스타일 적용
-      const style = config.style;
+      const style = config.style || DEFAULT_CARD_STYLE;
       cardEl.style.backgroundColor = style.backgroundColor;
       cardEl.style.fontSize = style.fontSize;
       cardEl.style.color = style.color;

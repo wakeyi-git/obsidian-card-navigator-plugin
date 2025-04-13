@@ -240,6 +240,8 @@ export interface ICardCreateConfig {
   footer: ICardSection;
   /** 렌더링 설정 */
   renderConfig: IRenderConfig;
+  /** 제목 소스 */
+  titleSource: TitleSource;
 }
 
 /**
@@ -272,7 +274,7 @@ export const DEFAULT_CARD_STYLE: ICardStyle = {
     style: 'solid',
     radius: '8px'
   },
-  padding: '16px',
+  padding: '10px',
   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
   lineHeight: '1.5',
   fontFamily: 'system-ui, -apple-system, sans-serif'
@@ -407,7 +409,9 @@ export const DEFAULT_CARD_SECTION: ICardSection = {
     showProperties: true,
     renderConfig: DEFAULT_RENDER_CONFIG
   }
-};/**
+};
+
+/**
  * 기본 카드 생성 설정
  */
 export const DEFAULT_CARD_CREATE_CONFIG: ICardCreateConfig = {
@@ -425,6 +429,7 @@ export const DEFAULT_CARD_CREATE_CONFIG: ICardCreateConfig = {
     ...DEFAULT_CARD_SECTION,
     type: 'footer'
   },
-  renderConfig: DEFAULT_RENDER_CONFIG
+  renderConfig: DEFAULT_RENDER_CONFIG,
+  titleSource: TitleSource.FILE_NAME
 };
 

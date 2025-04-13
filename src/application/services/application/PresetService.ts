@@ -241,7 +241,6 @@ export class PresetService implements IPresetService {
         },
         {
           cardStateStyle: DEFAULT_PRESET_CONTENT_CONFIG.cardStateStyle,
-          cardDisplayOptions: DEFAULT_PRESET_CONTENT_CONFIG.cardDisplayOptions,
           cardSections: {
             header: cardSection,
             body: cardSection,

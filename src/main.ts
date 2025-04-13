@@ -128,7 +128,6 @@ export default class CardNavigatorPlugin extends Plugin {
                     card: {
                         ...this.viewModel.state.value.settings.card,
                         stateStyle: preset.config.cardStateStyle,
-                        displayOptions: preset.config.cardDisplayOptions,
                         sections: preset.config.cardSections,
                         renderConfig: preset.config.cardRenderConfig
                     },
@@ -166,7 +165,6 @@ export default class CardNavigatorPlugin extends Plugin {
                     card: {
                         ...this.viewModel.state.value.settings.card,
                         stateStyle: preset.config.cardStateStyle,
-                        displayOptions: preset.config.cardDisplayOptions,
                         sections: preset.config.cardSections,
                         renderConfig: preset.config.cardRenderConfig
                     },
@@ -198,7 +196,10 @@ export default class CardNavigatorPlugin extends Plugin {
                     ...this.viewModel.state.value.settings,
                     card: {
                         ...this.viewModel.state.value.settings.card,
-                        style: newStyle
+                        stateStyle: {
+                            ...this.viewModel.state.value.settings.card.stateStyle,
+                            normal: newStyle
+                        }
                     }
                 }
             });
@@ -230,7 +231,10 @@ export default class CardNavigatorPlugin extends Plugin {
                             body: cardSection,
                             footer: cardSection
                         },
-                        style: cardStyle
+                        stateStyle: {
+                            ...this.viewModel.state.value.settings.card.stateStyle,
+                            normal: cardStyle
+                        }
                     },
                     layout: {
                         ...this.viewModel.state.value.settings.layout,

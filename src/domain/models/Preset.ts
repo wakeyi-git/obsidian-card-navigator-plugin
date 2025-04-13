@@ -129,6 +129,8 @@ export interface IPresetContentConfig {
   readonly sortConfig: ISortConfig;
   /** 레이아웃 설정 */
   readonly layoutConfig: ILayoutConfig;
+  /** 카드 상태별 스타일 */
+  readonly cardStateStyle: ICardStateStyle;
 }
 
 /**
@@ -183,7 +185,8 @@ export const DEFAULT_PRESET_CONTENT_CONFIG: IPresetContentConfig = {
   cardSetConfig: DEFAULT_CARD_SET_CONFIG,
   searchConfig: DEFAULT_SEARCH_CONFIG,
   sortConfig: DEFAULT_SORT_CONFIG,
-  layoutConfig: DEFAULT_LAYOUT_CONFIG
+  layoutConfig: DEFAULT_LAYOUT_CONFIG,
+  cardStateStyle: DEFAULT_CARD_STATE_STYLE
 };
 
 /**

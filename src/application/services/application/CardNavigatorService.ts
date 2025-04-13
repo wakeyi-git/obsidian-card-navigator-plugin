@@ -253,7 +253,8 @@ export class CardNavigatorService implements ICardNavigatorService {
         try {
             this.logger.debug('카드 표시 옵션 적용 시작', { cardId: card.id });
             
-            this.cardDisplayManager.updateCardStyle(card, settings.card.style as unknown as 'normal' | 'active' | 'focused');
+            // 카드 스타일을 상태별 스타일에서 가져옴
+            this.cardDisplayManager.updateCardStyle(card, 'normal');
             
             this.logger.info('카드 표시 옵션 적용 완료', { cardId: card.id });
         } catch (error) {
@@ -319,7 +320,6 @@ export class CardNavigatorService implements ICardNavigatorService {
                 card: {
                     ...DEFAULT_PLUGIN_SETTINGS.card,
                     stateStyle: defaultPreset.config.cardStateStyle,
-                    displayOptions: defaultPreset.config.cardDisplayOptions,
                     sections: defaultPreset.config.cardSections,
                     renderConfig: defaultPreset.config.cardRenderConfig
                 },
