@@ -162,6 +162,7 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
 
     public updateState(state: ICardNavigatorState): void {
         if (!this.cardContainerEl) {
+            this.loggingService.error('카드 컨테이너가 초기화되지 않았습니다.');
             return;
         }
 
@@ -170,7 +171,25 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
 
         // 카드 렌더링
         if (state.activeCardSet) {
+            const cardCount = state.activeCardSet.cards.length;
+            this.loggingService.debug('카드 렌더링 시작', { 
+                cardCount,
+                cardSetId: state.activeCardSet.id,
+                cardIds: state.activeCardSet.cards.map(card => card.id)
+            });
+            
+            // 카드 컨테이너 초기화
+            this.cardContainerEl.empty();
+            this.cardElements.clear();
+            
+            // 카드 렌더링
             this.renderCards(state.activeCardSet.cards);
+            
+            this.loggingService.debug('카드 렌더링 완료', { 
+                cardCount,
+                renderedCount: this.cardElements.size,
+                cardSetId: state.activeCardSet.id
+            });
         }
 
         // 선택된 카드 업데이트
@@ -323,10 +342,6 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
         const timer = this.performanceMonitor.startTimer('CardNavigatorView.initializeView');
         try {
             this.loggingService.debug('카드 내비게이터 뷰 초기화');
-
-            // 뷰 컨테이너 초기화
-            this.contentEl.empty();
-            this.contentEl.addClass('card-navigator-view');
 
             // 툴바 생성
             this.createToolbar();

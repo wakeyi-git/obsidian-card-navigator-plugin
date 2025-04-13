@@ -15,6 +15,7 @@ import { CardSetServiceError } from '@/domain/errors/CardSetServiceError';
 import { ISearchConfig } from '@/domain/models/Search';
 import { ICardSetFactory } from '@/domain/factories/ICardSetFactory';
 import { ICardService } from '@/domain/services/domain/ICardService';
+import { CardSet } from '@/domain/models/CardSet';
 
 /**
  * 카드셋 서비스 구현체
@@ -188,21 +189,26 @@ export class CardSetService implements ICardSetService {
         throw new CardSetError('카드를 생성할 수 없습니다.');
       }
 
-      const updatedCardSet: ICardSet = {
-        ...cardSet,
-        cards: [...cardSet.cards, card],
-        cardCount: cardSet.cardCount + 1
-      };
+      // 카드셋에 카드 추가
+      if (cardSet instanceof CardSet) {
+        cardSet.addCard(card);
+        
+        // 이벤트 발생
+        this.eventDispatcher.dispatch(new CardSetUpdatedEvent(cardSet));
+        
+        // 분석 이벤트 추적
+        this.analyticsService.trackEvent('card_added_to_set', {
+          cardSetId: cardSet.id,
+          filePath: file.path
+        });
 
-      this.eventDispatcher.dispatch(new CardSetUpdatedEvent(updatedCardSet));
-      this.analyticsService.trackEvent('card_added_to_set', {
-        cardSetId: updatedCardSet.id,
-        filePath: file.path
-      });
-
-      this.loggingService.info('카드셋에 카드 추가 완료', { 
-        cardSetId: updatedCardSet.id
-      });
+        this.loggingService.info('카드셋에 카드 추가 완료', { 
+          cardSetId: cardSet.id,
+          cardCount: cardSet.cardCount
+        });
+      } else {
+        throw new CardSetError('카드셋이 CardSet 인스턴스가 아닙니다.');
+      }
     } catch (error) {
       this.loggingService.error('카드셋에 카드 추가 실패', { error });
       this.errorHandler.handleError(error as Error, 'CardSetService.addCardToSet');

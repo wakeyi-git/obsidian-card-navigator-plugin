@@ -43,9 +43,24 @@ export class CardRenderManager implements ICardRenderManager {
   }
 
   initialize(): void {
-    if (this.initialized) return;
-    this.initialized = true;
-    this.logger.debug('카드 렌더링 관리자 초기화 완료');
+    const timer = this.performanceMonitor.startTimer('CardRenderManager.initialize');
+    try {
+      this.logger.debug('카드 렌더링 관리자 초기화 시작');
+      
+      // 렌더링 상태 초기화
+      this.renderStates.clear();
+      this.renderResources.clear();
+      
+      // 초기화 완료
+      this.initialized = true;
+      
+      this.logger.info('카드 렌더링 관리자 초기화 완료');
+    } catch (error) {
+      this.logger.error('카드 렌더링 관리자 초기화 실패', { error });
+      this.errorHandler.handleError(error as Error, 'CardRenderManager.initialize');
+    } finally {
+      timer.stop();
+    }
   }
 
   cleanup(): void {

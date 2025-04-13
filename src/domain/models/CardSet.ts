@@ -243,23 +243,43 @@ export const DEFAULT_CARD_SET: ICardSet = {
  * 카드셋 클래스
  */
 export class CardSet implements ICardSet {
+  private _cards: ICard[] = [];
+  private _cardCount: number = 0;
+  private _lastUpdated: Date;
+
   readonly id: string;
   readonly config: ICardSetConfig;
-  readonly cards: readonly ICard[];
-  readonly cardCount: number;
-  readonly isActive: boolean;
-  readonly lastUpdated: Date;
   readonly type: CardSetType;
   readonly criteria: ICardSetCriteria;
+  readonly isActive: boolean;
 
   constructor(type: CardSetType, config: ICardSetConfig) {
     this.id = `card-set-${Date.now()}`;
     this.config = config;
-    this.cards = [];
-    this.cardCount = 0;
-    this.isActive = true;
-    this.lastUpdated = new Date();
     this.type = type;
     this.criteria = config.criteria;
+    this.isActive = true;
+    this._lastUpdated = new Date();
+  }
+
+  get cards(): readonly ICard[] {
+    return this._cards;
+  }
+
+  get cardCount(): number {
+    return this._cardCount;
+  }
+
+  get lastUpdated(): Date {
+    return this._lastUpdated;
+  }
+
+  /**
+   * 카드 추가
+   */
+  addCard(card: ICard): void {
+    this._cards.push(card);
+    this._cardCount = this._cards.length;
+    this._lastUpdated = new Date();
   }
 }
