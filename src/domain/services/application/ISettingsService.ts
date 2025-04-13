@@ -1,5 +1,5 @@
 import { IPluginSettings, ICardSetDomainSettings, ILayoutDomainSettings, ISearchDomainSettings, ISortDomainSettings, IPresetDomainSettings } from '../../models/PluginSettings';
-import { ICardSection, ICardStyle, ICardStateStyle } from '../../models/Card';
+import { ICardSection, ICardStyle } from '../../models/Card';
 import { CardSetType } from '../../models/CardSet';
 
 /**

@@ -75,13 +75,45 @@
   width: 100%;
   position: relative;
   overflow: hidden;
-  /* padding: 10px; */
+}
+
+/* 카드 내비게이터 툴바 */
+.card-navigator-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.card-navigator-cardset-select {
+  flex: 0 0 auto;
+  margin-right: 8px;
+}
+
+.card-navigator-search-input {
+  flex: 1;
+  min-width: 0;
+  margin-right: 8px;
+}
+
+.card-navigator-sort-button,
+.card-navigator-settings-button {
+  flex: 0 0 auto;
+  margin-left: 8px;
 }
 
 /* 메이슨리 레이아웃 */
 .card-navigator-container[data-layout="masonry"] {
   column-count: var(--masonry-columns, 3);
   column-gap: var(--card-gap, 10px);
+  padding: 10px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 /* 카드 그리드 */
@@ -347,16 +379,6 @@
 .card-navigator-loading-message {
   font-size: 1rem;
   color: var(--text-normal);
-}
-
-/* 카드 내비게이터 툴바 */
-.card-navigator-toolbar {
-  display: flex;
-  align-items: center;
-  padding: 8px 16px;
-  background-color: var(--background-secondary);
-  border-bottom: 1px solid var(--background-modifier-border);
-  z-index: 10;
 }
 
 /* 반응형 스타일 */
