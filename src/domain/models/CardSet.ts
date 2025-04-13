@@ -183,6 +183,10 @@ export interface ICardSetConfig {
 export interface ICardSet {
   /** 카드셋 ID */
   readonly id: string;
+  /** 카드셋 타입 */
+  readonly type: CardSetType;
+  /** 카드셋 기준 */
+  readonly criteria: ICardSetCriteria;
   /** 카드셋 설정 */
   readonly config: ICardSetConfig;
   /** 카드 목록 */
@@ -230,5 +234,32 @@ export const DEFAULT_CARD_SET: ICardSet = {
   cards: [],
   cardCount: 0,
   isActive: true,
-  lastUpdated: new Date()
+  lastUpdated: new Date(),
+  type: CardSetType.FOLDER,
+  criteria: DEFAULT_CARD_SET_CRITERIA
 };
+
+/**
+ * 카드셋 클래스
+ */
+export class CardSet implements ICardSet {
+  readonly id: string;
+  readonly config: ICardSetConfig;
+  readonly cards: readonly ICard[];
+  readonly cardCount: number;
+  readonly isActive: boolean;
+  readonly lastUpdated: Date;
+  readonly type: CardSetType;
+  readonly criteria: ICardSetCriteria;
+
+  constructor(type: CardSetType, config: ICardSetConfig) {
+    this.id = `card-set-${Date.now()}`;
+    this.config = config;
+    this.cards = [];
+    this.cardCount = 0;
+    this.isActive = true;
+    this.lastUpdated = new Date();
+    this.type = type;
+    this.criteria = config.criteria;
+  }
+}

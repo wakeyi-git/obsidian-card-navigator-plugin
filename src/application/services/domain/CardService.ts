@@ -38,6 +38,7 @@ export class CardService implements ICardService {
       const performanceMonitor = Container.getInstance().resolve<IPerformanceMonitor>('IPerformanceMonitor');
       const analyticsService = Container.getInstance().resolve<IAnalyticsService>('IAnalyticsService');
       const eventDispatcher = Container.getInstance().resolve<IEventDispatcher>('IEventDispatcher');
+      const cardFactory = Container.getInstance().resolve<ICardFactory>('ICardFactory');
 
       CardService.instance = new CardService(
         app,
@@ -47,6 +48,7 @@ export class CardService implements ICardService {
         analyticsService,
         eventDispatcher
       );
+      CardService.instance.setCardFactory(cardFactory);
     }
     return CardService.instance;
   }
@@ -64,6 +66,8 @@ export class CardService implements ICardService {
 
       this.loggingService.debug('카드 서비스 초기화 시작');
       this.selectedCards.clear();
+      const cardFactory = Container.getInstance().resolve<ICardFactory>('ICardFactory');
+      this.setCardFactory(cardFactory);
       this.initialized = true;
       this.loggingService.info('카드 서비스 초기화 완료');
     } catch (error) {

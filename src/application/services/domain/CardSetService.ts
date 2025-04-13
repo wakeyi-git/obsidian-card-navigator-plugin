@@ -9,11 +9,12 @@ import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { Container } from '@/infrastructure/di/Container';
 import { CardSetError } from '@/domain/errors/CardSetError';
-import { ICardService } from '@/domain/services/domain/ICardService';
-import { CardSetCreatedEvent, CardSetUpdatedEvent, CardSetDeletedEvent } from '@/domain/events/CardSetEvents';
+import { CardSetUpdatedEvent, CardSetDeletedEvent } from '@/domain/events/CardSetEvents';
 import { DEFAULT_CARD_SECTION } from '@/domain/models/Card';
 import { CardSetServiceError } from '@/domain/errors/CardSetServiceError';
 import { ISearchConfig } from '@/domain/models/Search';
+import { ICardSetFactory } from '@/domain/factories/ICardSetFactory';
+import { ICardService } from '@/domain/services/domain/ICardService';
 
 /**
  * 카드셋 서비스 구현체
@@ -25,12 +26,13 @@ export class CardSetService implements ICardSetService {
 
   private constructor(
     private readonly app: App,
-    private readonly cardService: ICardService,
     private readonly errorHandler: IErrorHandler,
     private readonly loggingService: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
     private readonly analyticsService: IAnalyticsService,
-    private readonly eventDispatcher: IEventDispatcher
+    private readonly eventDispatcher: IEventDispatcher,
+    private readonly cardSetFactory: ICardSetFactory,
+    private readonly cardService: ICardService
   ) {}
 
   static getInstance(): CardSetService {
@@ -38,12 +40,13 @@ export class CardSetService implements ICardSetService {
       const container = Container.getInstance();
       CardSetService.instance = new CardSetService(
         container.resolve('App'),
-        container.resolve('ICardService'),
         container.resolve('IErrorHandler'),
         container.resolve('ILoggingService'),
         container.resolve('IPerformanceMonitor'),
         container.resolve('IAnalyticsService'),
-        container.resolve('IEventDispatcher')
+        container.resolve('IEventDispatcher'),
+        container.resolve('ICardSetFactory'),
+        container.resolve('ICardService')
       );
     }
     return CardSetService.instance;
@@ -93,78 +96,40 @@ export class CardSetService implements ICardSetService {
   async createCardSet(type: CardSetType, config: ICardSetConfig): Promise<ICardSet> {
     const timer = this.performanceMonitor.startTimer('CardSetService.createCardSet');
     try {
-      this.loggingService.debug('카드셋 생성 시작', { 
-        type, 
-        config: {
-          criteria: {
-            type: config.criteria.type,
-            folderPath: config.criteria.folderPath,
-            tag: config.criteria.tag,
-            filePath: config.criteria.filePath,
-            linkType: config.criteria.linkType
-          },
-          filter: {
-            includeSubfolders: config.filter.includeSubfolders,
-            includeSubtags: config.filter.includeSubtags,
-            linkDepth: config.filter.linkDepth
-          }
+      this.loggingService.debug('카드셋 생성 시작', { type, config });
+
+      const cardSet = this.cardSetFactory.create(type, config);
+      const files = await this.getFilesByCardSet(cardSet);
+
+      for (const file of files) {
+        try {
+          await this.addCardToSet(cardSet, file);
+        } catch (error) {
+          this.loggingService.error('카드셋에 카드 추가 실패', { error });
+          this.errorHandler.handleError(error as Error, 'CardSetService.addCardToSet');
+          throw new CardSetError('카드셋에 카드를 추가할 수 없습니다.');
         }
-      });
+      }
 
-      const cardSet: ICardSet = {
-        id: crypto.randomUUID(),
-        config,
-        cards: [],
-        cardCount: 0,
-        isActive: true,
-        lastUpdated: new Date()
-      };
-
-      // 생성된 카드셋을 Map에 저장
-      this.cardSets.set(cardSet.id, cardSet);
-
-      this.eventDispatcher.dispatch(new CardSetCreatedEvent(cardSet));
       this.analyticsService.trackEvent('card_set_created', {
         cardSetId: cardSet.id,
-        type: config.criteria.type,
-        cardCount: cardSet.cardCount,
-        criteria: {
-          folderPath: config.criteria.folderPath,
-          tag: config.criteria.tag,
-          filePath: config.criteria.filePath,
-          linkType: config.criteria.linkType
-        }
+        type: cardSet.type,
+        cardCount: cardSet.cards.length,
+        criteria: cardSet.criteria
       });
 
-      this.loggingService.info('카드셋 생성 완료', { 
+      this.loggingService.info('카드셋 생성 완료', {
         cardSetId: cardSet.id,
-        type: config.criteria.type,
-        cardCount: cardSet.cardCount,
-        criteria: {
-          folderPath: config.criteria.folderPath,
-          tag: config.criteria.tag,
-          filePath: config.criteria.filePath,
-          linkType: config.criteria.linkType
-        }
+        type: cardSet.type,
+        cardCount: cardSet.cards.length,
+        criteria: cardSet.criteria
       });
 
       return cardSet;
     } catch (error) {
-      this.loggingService.error('카드셋 생성 실패', { 
-        error,
-        type,
-        config: {
-          criteria: {
-            type: config.criteria.type,
-            folderPath: config.criteria.folderPath,
-            tag: config.criteria.tag,
-            filePath: config.criteria.filePath,
-            linkType: config.criteria.linkType
-          }
-        }
-      });
+      this.loggingService.error('카드셋 생성 실패', { error });
       this.errorHandler.handleError(error as Error, 'CardSetService.createCardSet');
-      throw new CardSetError('카드셋 생성에 실패했습니다.');
+      throw new CardSetError('카드셋을 생성할 수 없습니다.');
     } finally {
       timer.stop();
     }
@@ -714,7 +679,11 @@ export class CardSetService implements ICardSetService {
   async getFilesByCardSet(cardSet: ICardSet): Promise<TFile[]> {
     const timer = this.performanceMonitor.startTimer('CardSetService.getFilesByCardSet');
     try {
-      this.loggingService.debug('카드셋 파일 조회 시작', { cardSetId: cardSet.id });
+      this.loggingService.debug('카드셋 파일 조회 시작', { 
+        cardSetId: cardSet.id,
+        criteria: cardSet.config.criteria,
+        filter: cardSet.config.filter
+      });
 
       const files: TFile[] = [];
       const { criteria, filter } = cardSet.config;
@@ -723,22 +692,71 @@ export class CardSetService implements ICardSetService {
         case CardSetType.FOLDER: {
           const folderPath = criteria.folderPath || '';
           const includeSubfolders = filter.includeSubfolders || false;
-          files.push(...this.getFolderFiles(folderPath, includeSubfolders));
+          this.loggingService.debug('폴더 카드셋 파일 조회', { 
+            folderPath,
+            includeSubfolders
+          });
+          try {
+            const folderFiles = this.getFolderFiles(folderPath, includeSubfolders);
+            this.loggingService.debug('폴더 파일 조회 결과', { 
+              folderPath,
+              fileCount: folderFiles.length
+            });
+            files.push(...folderFiles);
+          } catch (error) {
+            this.loggingService.error('폴더 파일 조회 실패', { 
+              error,
+              folderPath
+            });
+          }
           break;
         }
         case CardSetType.TAG: {
           const tag = criteria.tag || '';
           const includeSubtags = filter.includeSubtags || false;
-          files.push(...this.getTaggedFiles([tag]));
+          this.loggingService.debug('태그 카드셋 파일 조회', { 
+            tag,
+            includeSubtags
+          });
+          try {
+            const taggedFiles = this.getTaggedFiles([tag]);
+            this.loggingService.debug('태그 파일 조회 결과', { 
+              tag,
+              fileCount: taggedFiles.length
+            });
+            files.push(...taggedFiles);
+          } catch (error) {
+            this.loggingService.error('태그 파일 조회 실패', { 
+              error,
+              tag
+            });
+          }
           break;
         }
         case CardSetType.LINK: {
           const filePath = criteria.filePath || '';
           const linkType = criteria.linkType;
           const linkDepth = filter.linkDepth || 1;
-          const file = this.app.vault.getAbstractFileByPath(filePath);
-          if (file instanceof TFile) {
-            files.push(...this.getLinkedFiles(file, linkDepth));
+          this.loggingService.debug('링크 카드셋 파일 조회', { 
+            filePath,
+            linkType,
+            linkDepth
+          });
+          try {
+            const file = this.app.vault.getAbstractFileByPath(filePath);
+            if (file instanceof TFile) {
+              const linkedFiles = this.getLinkedFiles(file, linkDepth);
+              this.loggingService.debug('링크 파일 조회 결과', { 
+                filePath,
+                fileCount: linkedFiles.length
+              });
+              files.push(...linkedFiles);
+            }
+          } catch (error) {
+            this.loggingService.error('링크 파일 조회 실패', { 
+              error,
+              filePath
+            });
           }
           break;
         }
@@ -839,8 +857,17 @@ export class CardSetService implements ICardSetService {
    * @returns 파일 목록
    */
   private getFolderFiles(folderPath: string, includeSubfolders: boolean): TFile[] {
+    this.loggingService.debug('폴더 파일 조회 시작', { 
+      folderPath,
+      includeSubfolders
+    });
+
     const folder = this.app.vault.getAbstractFileByPath(folderPath);
     if (!(folder instanceof TFolder)) {
+      this.loggingService.error('폴더를 찾을 수 없음', { 
+        folderPath,
+        folderType: folder?.constructor.name
+      });
       throw new CardSetServiceError(`폴더를 찾을 수 없습니다: ${folderPath}`);
     }
 
@@ -856,6 +883,10 @@ export class CardSetService implements ICardSetService {
     };
 
     collectFiles(folder);
+    this.loggingService.debug('폴더 파일 조회 완료', { 
+      folderPath,
+      fileCount: files.length
+    });
     return files;
   }
 

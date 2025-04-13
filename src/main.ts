@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { Plugin } from 'obsidian';
 import { CardNavigatorView, VIEW_TYPE_CARD_NAVIGATOR } from './ui/views/CardNavigatorView';
 import { CardNavigatorSettingTab } from '@/ui/settings/CardNavigatorSettingTab';
@@ -27,6 +28,7 @@ export default class CardNavigatorPlugin extends Plugin {
 
         // 이벤트 시스템 초기화
         this.eventBus = EventBus.getInstance();
+        container.registerInstance('EventBus', this.eventBus);
         this.eventBus.initialize();
 
         // 서비스 및 뷰모델 초기화

@@ -7,6 +7,9 @@ import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
 import { Container } from '@/infrastructure/di/Container';
 import { RenderType, RenderStatus } from '@/domain/models/Card';
 import { ICard } from '@/domain/models/Card';
+import { EventBus } from '@/domain/events/EventBus';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { DomainEvent } from '@/domain/events/DomainEvent';
 
 /**
  * 카드 렌더링 관리자 구현체
@@ -16,21 +19,13 @@ export class CardRenderManager implements ICardRenderManager {
   private initialized: boolean = false;
   private renderStates: Map<string, IRenderState> = new Map();
   private renderResources: Map<string, any> = new Map();
-  private renderEventCallbacks: Array<(event: {
-    type: 'render' | 'cache-update';
-    cardId?: string;
-    data?: {
-      status: string;
-      config?: IRenderConfig;
-      error?: string;
-    };
-  }) => void> = [];
 
   private constructor(
     private readonly errorHandler: IErrorHandler,
     private readonly logger: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
-    private readonly analyticsService: IAnalyticsService
+    private readonly analyticsService: IAnalyticsService,
+    private readonly eventBus: EventBus
   ) {}
 
   static getInstance(): CardRenderManager {
@@ -40,7 +35,8 @@ export class CardRenderManager implements ICardRenderManager {
         container.resolve<IErrorHandler>('IErrorHandler'),
         container.resolve<ILoggingService>('ILoggingService'),
         container.resolve<IPerformanceMonitor>('IPerformanceMonitor'),
-        container.resolve<IAnalyticsService>('IAnalyticsService')
+        container.resolve<IAnalyticsService>('IAnalyticsService'),
+        container.resolve<EventBus>('EventBus')
       );
     }
     return CardRenderManager.instance;
@@ -57,7 +53,6 @@ export class CardRenderManager implements ICardRenderManager {
     try {
       this.renderStates.clear();
       this.renderResources.clear();
-      this.renderEventCallbacks = [];
       this.initialized = false;
       this.logger.debug('카드 렌더링 관리자 정리 완료');
     } catch (error) {
@@ -142,11 +137,19 @@ export class CardRenderManager implements ICardRenderManager {
       error?: string;
     };
   }) => void): void {
-    this.renderEventCallbacks.push(callback);
+    this.eventBus.subscribe(DomainEventType.CARD_RENDERING, (event: DomainEvent<typeof DomainEventType.CARD_RENDERING>) => {
+      callback({
+        type: 'render',
+        cardId: event.data.card.id,
+        data: {
+          status: 'completed'
+        }
+      });
+    });
   }
 
   unsubscribeFromRenderEvents(callback: (event: any) => void): void {
-    this.renderEventCallbacks = this.renderEventCallbacks.filter(c => c !== callback);
+    this.eventBus.unsubscribe(DomainEventType.CARD_RENDERING, callback);
   }
 
   registerRenderResource(cardId: string, resource: any): void {
@@ -311,6 +314,9 @@ export class CardRenderManager implements ICardRenderManager {
         error: null,
         timestamp: Date.now()
       });
+
+      // 렌더링 이벤트 발생
+      this.eventBus.dispatch(new DomainEvent(DomainEventType.CARD_RENDERING, { card }));
 
       this.logger.info('카드 렌더링 완료', { cardId: card.id });
       return cardEl;
