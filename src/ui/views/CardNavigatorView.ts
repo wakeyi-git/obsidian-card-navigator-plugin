@@ -15,12 +15,14 @@ import { LayoutType } from '@/domain/models/Layout';
 import { CardDisplayManager } from '@/application/manager/CardDisplayManager';
 import { CardRenderManager } from '@/application/manager/CardRenderManager';
 import { IAnalyticsService } from '@/domain/infrastructure/IAnalyticsService';
+import { DomainEventType } from '@/domain/events/DomainEventType';
+import { EventBus } from '@/domain/events/EventBus';
 
 export const VIEW_TYPE_CARD_NAVIGATOR = 'card-navigator-view';
 
 export class CardNavigatorView extends ItemView implements ICardNavigatorView {
     private plugin: CardNavigatorPlugin;
-    private viewModel: ICardNavigatorViewModel;
+    private readonly viewModel: ICardNavigatorViewModel;
     private toolbarEl: HTMLElement;
     private cardContainerEl: HTMLElement;
     private cardElements: Map<string, HTMLElement> = new Map();
@@ -30,6 +32,8 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
     private cardDisplayManager: CardDisplayManager;
     private cardRenderManager: CardRenderManager;
     private analyticsService: IAnalyticsService;
+    private eventBus: EventBus;
+    private initialized: boolean = false;
 
     constructor(
         leaf: WorkspaceLeaf,
@@ -37,16 +41,42 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
         viewModel: ICardNavigatorViewModel
     ) {
         super(leaf);
+
+        // 의존성 주입
         this.plugin = plugin;
         this.viewModel = viewModel;
-        this.viewModel.setView(this);
+
         const container = Container.getInstance();
         this.errorHandler = container.resolve<IErrorHandler>('IErrorHandler');
         this.loggingService = container.resolve<ILoggingService>('ILoggingService');
         this.performanceMonitor = container.resolve<IPerformanceMonitor>('IPerformanceMonitor');
-        this.cardDisplayManager = CardDisplayManager.getInstance();
-        this.cardRenderManager = CardRenderManager.getInstance();
+        this.cardDisplayManager = container.resolve<CardDisplayManager>('ICardDisplayManager');
+        this.cardRenderManager = container.resolve<CardRenderManager>('ICardRenderManager');
         this.analyticsService = container.resolve<IAnalyticsService>('IAnalyticsService');
+        this.eventBus = container.resolve<EventBus>('IEventDispatcher');
+
+        // 초기화 검증
+        if (!this.performanceMonitor) {
+            throw new Error('PerformanceMonitor가 주입되지 않았습니다.');
+        }
+        if (!this.loggingService) {
+            throw new Error('LoggingService가 주입되지 않았습니다.');
+        }
+        if (!this.errorHandler) {
+            throw new Error('ErrorHandler가 주입되지 않았습니다.');
+        }
+        if (!this.cardDisplayManager) {
+            throw new Error('CardDisplayManager가 주입되지 않았습니다.');
+        }
+        if (!this.cardRenderManager) {
+            throw new Error('CardRenderManager가 주입되지 않았습니다.');
+        }
+        if (!this.analyticsService) {
+            throw new Error('AnalyticsService가 주입되지 않았습니다.');
+        }
+        if (!this.eventBus) {
+            throw new Error('EventBus가 주입되지 않았습니다.');
+        }
     }
 
     getViewType(): string {
@@ -65,8 +95,14 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
         this.contentEl.empty();
         this.contentEl.addClass('card-navigator-view');
 
+        // 툴바 생성
+        this.createToolbar();
+
+        // 카드 컨테이너 생성
+        this.createCardContainer();
+
         // 뷰 초기화
-        this.initializeView();
+        this.initialize();
 
         // 초기 상태 로드
         await this.viewModel.initialize();
@@ -140,7 +176,7 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
         cards.forEach(card => {
             try {
                 // CardRenderManager를 통해 카드 렌더링
-                const cardEl = this.cardRenderManager.renderCard(card);
+                const cardEl = this.cardRenderManager.renderCard(card, this.cardContainerEl);
                 if (cardEl) {
                     this.cardContainerEl.appendChild(cardEl);
                     this.cardElements.set(card.id, cardEl);
@@ -161,45 +197,23 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
     }
 
     public updateState(state: ICardNavigatorState): void {
+        this.loggingService.debug('상태 업데이트 시작');
+        
         if (!this.cardContainerEl) {
             this.loggingService.error('카드 컨테이너가 초기화되지 않았습니다.');
             return;
         }
-
-        // 레이아웃 모드 설정
-        this.cardContainerEl.setAttribute('data-layout', state?.settings?.layout?.config?.type ?? LayoutType.GRID);
-
+        
+        // 카드 컨테이너 초기화
+        this.cardContainerEl.empty();
+        this.cardElements.clear();
+        
         // 카드 렌더링
         if (state.activeCardSet) {
-            const cardCount = state.activeCardSet.cards.length;
-            this.loggingService.debug('카드 렌더링 시작', { 
-                cardCount,
-                cardSetId: state.activeCardSet.id,
-                cardIds: state.activeCardSet.cards.map(card => card.id)
-            });
-            
-            // 카드 컨테이너 초기화
-            this.cardContainerEl.empty();
-            this.cardElements.clear();
-            
-            // 카드 렌더링
             this.renderCards(state.activeCardSet.cards);
-            
-            this.loggingService.debug('카드 렌더링 완료', { 
-                cardCount,
-                renderedCount: this.cardElements.size,
-                cardSetId: state.activeCardSet.id
-            });
         }
-
-        // 선택된 카드 업데이트
-        this.updateSelectedCards(state.selectedCards);
-
-        // 포커스된 카드 업데이트
-        this.updateFocusedCard(state.focusedCard?.id ?? null);
-
-        // 활성 카드 업데이트
-        this.updateActiveCard(state.activeCard?.id ?? null);
+        
+        this.loggingService.debug('상태 업데이트 완료');
     }
 
     public updateSelectedCards(cardIds: Set<string>): void {
@@ -338,29 +352,40 @@ export class CardNavigatorView extends ItemView implements ICardNavigatorView {
         this.contentEl.empty();
     }
 
-    private initializeView(): void {
-        const timer = this.performanceMonitor.startTimer('CardNavigatorView.initializeView');
+    private initialize(): void {
+        const timer = this.performanceMonitor.startTimer('CardNavigatorView.initialize');
         try {
-            this.loggingService.debug('카드 내비게이터 뷰 초기화');
-
-            // 툴바 생성
-            this.createToolbar();
-
-            // 카드 컨테이너 생성
-            this.createCardContainer();
-
-            // 렌더링 매니저 초기화
-            this.cardRenderManager.initialize();
-
-            // 상태 구독
-            this.viewModel.state.subscribe((state: ICardNavigatorState) => {
-                this.updateState(state);
+            this.loggingService.debug('카드 내비게이터 뷰 초기화 시작');
+            
+            // 이벤트 구독
+            this.eventBus.subscribe(DomainEventType.CARD_SECTION_DISPLAY_CHANGED, () => {
+                this.loggingService.debug('카드 섹션 표시 설정 변경 이벤트 수신');
+                const state = this.viewModel.state.value;
+                this.renderCards(state.activeCardSet?.cards ?? []);
+            });
+            
+            this.eventBus.subscribe(DomainEventType.CARD_STYLE_CHANGED, () => {
+                this.loggingService.debug('카드 스타일 설정 변경 이벤트 수신');
+                const state = this.viewModel.state.value;
+                this.renderCards(state.activeCardSet?.cards ?? []);
             });
 
-            this.analyticsService.trackEvent('view_initialized');
+            // 상태 변경 구독
+            this.viewModel.state.subscribe((state: ICardNavigatorState) => {
+                this.loggingService.debug('상태 변경 이벤트 수신', {
+                    hasActiveCardSet: !!state.activeCardSet,
+                    cardCount: state.activeCardSet?.cards.length ?? 0
+                });
+                this.updateState(state);
+            });
+            
+            // 초기화 완료
+            this.initialized = true;
+            
+            this.loggingService.info('카드 내비게이터 뷰 초기화 완료');
         } catch (error) {
             this.loggingService.error('카드 내비게이터 뷰 초기화 실패', { error });
-            this.errorHandler.handleError(error as Error, 'CardNavigatorView.initializeView');
+            this.errorHandler.handleError(error as Error, 'CardNavigatorView.initialize');
         } finally {
             timer.stop();
         }

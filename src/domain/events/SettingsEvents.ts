@@ -7,6 +7,7 @@ import { ILayoutConfig } from '../models/Layout';
 import { ISortConfig } from '../models/Sort';
 import { ISearchConfig } from '../models/Search';
 import { ICardDisplayOptions } from '../models/Card';
+import { TitleSource } from '../models/Card';
 
 /**
  * 설정 변경 이벤트
@@ -66,8 +67,13 @@ export class SearchConfigChangedEvent extends DomainEvent<typeof DomainEventType
  * 카드 스타일 변경 이벤트
  */
 export class CardStyleChangedEvent extends DomainEvent<typeof DomainEventType.CARD_STYLE_CHANGED> {
-  constructor(oldStyle: ICardStyle, newStyle: ICardStyle) {
-    super(DomainEventType.CARD_STYLE_CHANGED, { oldStyle, newStyle });
+  constructor(
+    public readonly section: 'card' | 'header' | 'body' | 'footer',
+    public readonly state: 'normal' | 'active' | 'focused' | 'style',
+    public readonly property: string,
+    public readonly value: string | number
+  ) {
+    super(DomainEventType.CARD_STYLE_CHANGED, { section, state, property, value });
   }
 }
 
@@ -77,10 +83,25 @@ export class CardStyleChangedEvent extends DomainEvent<typeof DomainEventType.CA
 export class CardSectionDisplayChangedEvent extends DomainEvent<typeof DomainEventType.CARD_SECTION_DISPLAY_CHANGED> {
   constructor(
     public readonly section: 'header' | 'body' | 'footer',
-    public readonly property: keyof ICardSection['displayOptions'],
-    public readonly oldValue: boolean,
-    public readonly newValue: boolean
+    public readonly property: keyof ICardDisplayOptions | 'titleSource',
+    public readonly oldValue: boolean | TitleSource,
+    public readonly newValue: boolean | TitleSource
   ) {
     super(DomainEventType.CARD_SECTION_DISPLAY_CHANGED, { section, property, oldValue, newValue });
+  }
+}
+
+/**
+ * 타이틀 소스 변경 이벤트
+ */
+export class TitleSourceChangedEvent extends DomainEvent<typeof DomainEventType.TITLE_SOURCE_CHANGED> {
+  constructor(
+    public readonly oldValue: TitleSource,
+    public readonly newValue: TitleSource
+  ) {
+    super(DomainEventType.TITLE_SOURCE_CHANGED, {
+      oldSource: oldValue,
+      newSource: newValue
+    });
   }
 } 

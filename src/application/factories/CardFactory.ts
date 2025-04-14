@@ -76,12 +76,19 @@ export class CardFactory implements ICardFactory {
     try {
       this.loggingService.debug('카드 생성 시작', { fileName });
 
+      const settings = this.settingsService.getSettings();
+      const titleSource = settings.card.titleSource || TitleSource.FILE_NAME;
+      
+      const finalTitle = titleSource === TitleSource.FIRST_HEADER && firstHeader 
+        ? firstHeader 
+        : fileName.replace(/\.[^/.]+$/, '');
+
       const card: ICard = {
         id,
         file,
         filePath,
         fileName,
-        title,
+        title: finalTitle,
         firstHeader,
         content,
         tags,
@@ -94,7 +101,7 @@ export class CardFactory implements ICardFactory {
           file,
           filePath,
           fileName,
-          title,
+          title: finalTitle,
           firstHeader,
           content,
           tags,
@@ -151,7 +158,14 @@ export class CardFactory implements ICardFactory {
       const tags = FileSystemUtils.extractTags(fileContent);
       const properties = FileSystemUtils.extractProperties(fileContent);
       const id = this.generateCardId(filePath);
-      const title = this.generateCardTitle(file.basename, firstHeader, config);
+      
+      // 설정에서 타이틀 소스를 가져와서 전달
+      const settings = this.settingsService.getSettings();
+      const titleConfig: ICardCreateConfig = {
+        ...config,
+        titleSource: settings.card.titleSource
+      };
+      const title = this.generateCardTitle(file.basename, firstHeader, titleConfig);
 
       const card = this.create(
         id,
@@ -165,7 +179,7 @@ export class CardFactory implements ICardFactory {
         properties,
         file.stat.ctime ? new Date(file.stat.ctime) : new Date(),
         file.stat.mtime ? new Date(file.stat.mtime) : new Date(),
-        config
+        titleConfig
       );
 
       this.analyticsService.trackEvent('card_created_from_file', {
@@ -204,7 +218,14 @@ export class CardFactory implements ICardFactory {
       const tags = metadata?.tags?.map(tag => tag.tag) || [];
       const properties = metadata?.frontmatter || {};
       const id = this.generateCardId(file.path);
-      const title = this.generateCardTitle(file.basename, firstHeader, DEFAULT_CARD_CREATE_CONFIG);
+      
+      // 설정에서 타이틀 소스를 가져와서 전달
+      const settings = this.settingsService.getSettings();
+      const config: ICardCreateConfig = {
+        ...DEFAULT_CARD_CREATE_CONFIG,
+        titleSource: settings.card.titleSource
+      };
+      const title = this.generateCardTitle(file.basename, firstHeader, config);
 
       const card = this.create(
         id,
@@ -218,7 +239,7 @@ export class CardFactory implements ICardFactory {
         properties,
         new Date(file.stat.ctime),
         new Date(file.stat.mtime),
-        DEFAULT_CARD_CREATE_CONFIG
+        config
       );
 
       this.loggingService.info('카드 생성 완료', { fileName: file.name });
@@ -362,8 +383,10 @@ export class CardFactory implements ICardFactory {
     firstHeader: string | null,
     config: ICardCreateConfig
   ): string {
-    if (config.titleSource === TitleSource.FIRST_HEADER && firstHeader) {
-      return firstHeader;
+    const titleSource = config.titleSource || TitleSource.FILE_NAME;
+
+    if (titleSource === TitleSource.FIRST_HEADER) {
+      return firstHeader || fileName.replace(/\.[^/.]+$/, ''); // 퍼스트헤더가 없으면 파일명 사용
     }
     return fileName.replace(/\.[^/.]+$/, ''); // 확장자 제거
   }

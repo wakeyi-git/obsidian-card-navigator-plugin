@@ -8,7 +8,7 @@ import { IPluginSettings } from '../models/PluginSettings';
 import { ICardStyle, ICardStateStyle, ICardSection } from '../models/Card';
 import { ISortConfig } from '../models/Sort';
 import { ICardSetFilter } from '../models/CardSet';
-import { ICardDisplayOptions } from '../models/Card';
+import { ICardDisplayOptions, TitleSource } from '../models/Card';
 
 /**
  * 도메인 이벤트 타입
@@ -167,6 +167,9 @@ export const DomainEventType = {
   SEARCH_SETTINGS_SECTION_CHANGED: 'search:settings:section:changed',
   SORT_SETTINGS_SECTION_CHANGED: 'sort:settings:section:changed',
   CARD_SET_SETTINGS_SECTION_CHANGED: 'card:set:settings:section:changed',
+
+  // 타이틀 소스 이벤트
+  TITLE_SOURCE_CHANGED: 'title:source:changed',
 } as const;
 
 /**
@@ -303,9 +306,9 @@ export type EventDataType = {
   };
   'card:section:display:changed': {
     readonly section: 'header' | 'body' | 'footer';
-    readonly property: keyof ICardDisplayOptions;
-    readonly oldValue: boolean;
-    readonly newValue: boolean;
+    readonly property: keyof ICardDisplayOptions | 'titleSource';
+    readonly oldValue: boolean | TitleSource;
+    readonly newValue: boolean | TitleSource;
   };
   'toolbar:cardSetType:changed': {
     oldType: CardSetType;
@@ -324,8 +327,10 @@ export type EventDataType = {
     newSection: ICardSection;
   };
   'toolbar:cardStyle:changed': {
-    oldStyle: ICardStyle;
-    newStyle: ICardStyle;
+    readonly section: 'card' | 'header' | 'body' | 'footer';
+    readonly state: 'normal' | 'active' | 'focused' | 'style';
+    readonly property: string;
+    readonly value: string | number;
   };
   'toolbar:layoutConfig:changed': {
     oldConfig: ILayoutConfig;
@@ -350,8 +355,10 @@ export type EventDataType = {
     readonly newConfig: ISearchConfig;
   };
   'card:style:changed': {
-    readonly oldStyle: ICardStyle;
-    readonly newStyle: ICardStyle;
+    readonly section: 'card' | 'header' | 'body' | 'footer';
+    readonly state: 'normal' | 'active' | 'focused' | 'style';
+    readonly property: string;
+    readonly value: string | number;
   };
   'card:set:sort:started': { cardSet: ICardSet; config: ISortConfig };
   'card:set:sort:completed': { cardSet: ICardSet; config: ISortConfig };
@@ -415,6 +422,10 @@ export type EventDataType = {
     readonly oldConfig: ICardStateStyle;
     /** 새로운 설정 */
     readonly newConfig: ICardStateStyle;
+  };
+  'title:source:changed': {
+    oldSource: string;
+    newSource: string;
   };
 };
 

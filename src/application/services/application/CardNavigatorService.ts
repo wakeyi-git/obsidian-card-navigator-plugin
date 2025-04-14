@@ -230,7 +230,9 @@ export class CardNavigatorService implements ICardNavigatorService {
         try {
             this.logger.debug('카드 렌더링 시작', { cardId: card.id });
             
-            const cardElement = this.cardRenderManager.renderCard(card);
+            // 임시 컨테이너 생성
+            const container = document.createElement('div');
+            const cardElement = this.cardRenderManager.renderCard(card, container);
             
             this.logger.info('카드 렌더링 완료', { cardId: card.id });
             return cardElement;

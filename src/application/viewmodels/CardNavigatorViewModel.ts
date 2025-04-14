@@ -1080,4 +1080,11 @@ export class CardNavigatorViewModel implements ICardNavigatorViewModel {
             timer.stop();
         }
     }
+
+    /**
+     * 현재 상태 가져오기
+     */
+    getState(): ICardNavigatorState {
+        return this.state.value;
+    }
 } 

@@ -1,5 +1,5 @@
 import { ICardRenderManager } from '@/domain/managers/ICardRenderManager';
-import { IRenderConfig, IRenderState, DEFAULT_CARD_STYLE } from '@/domain/models/Card';
+import { IRenderConfig, IRenderState, DEFAULT_CARD_STYLE, DEFAULT_CARD_DOMAIN_SETTINGS, DEFAULT_CARD_SECTION } from '@/domain/models/Card';
 import { IErrorHandler } from '@/domain/infrastructure/IErrorHandler';
 import { ILoggingService } from '@/domain/infrastructure/ILoggingService';
 import { IPerformanceMonitor } from '@/domain/infrastructure/IPerformanceMonitor';
@@ -10,6 +10,8 @@ import { ICard } from '@/domain/models/Card';
 import { EventBus } from '@/domain/events/EventBus';
 import { DomainEventType } from '@/domain/events/DomainEventType';
 import { DomainEvent } from '@/domain/events/DomainEvent';
+import { ISettingsService } from '@/domain/services/application/ISettingsService';
+import { TitleSource } from '@/domain/models/Card';
 
 /**
  * 카드 렌더링 관리자 구현체
@@ -25,7 +27,8 @@ export class CardRenderManager implements ICardRenderManager {
     private readonly logger: ILoggingService,
     private readonly performanceMonitor: IPerformanceMonitor,
     private readonly analyticsService: IAnalyticsService,
-    private readonly eventBus: EventBus
+    private readonly eventBus: EventBus,
+    private readonly settingsService: ISettingsService
   ) {}
 
   static getInstance(): CardRenderManager {
@@ -36,7 +39,8 @@ export class CardRenderManager implements ICardRenderManager {
         container.resolve<ILoggingService>('ILoggingService'),
         container.resolve<IPerformanceMonitor>('IPerformanceMonitor'),
         container.resolve<IAnalyticsService>('IAnalyticsService'),
-        container.resolve<EventBus>('EventBus')
+        container.resolve<EventBus>('EventBus'),
+        container.resolve<ISettingsService>('ISettingsService')
       );
     }
     return CardRenderManager.instance;
@@ -50,6 +54,21 @@ export class CardRenderManager implements ICardRenderManager {
       // 렌더링 상태 초기화
       this.renderStates.clear();
       this.renderResources.clear();
+      
+      // 설정 변경 이벤트 구독
+      this.eventBus.subscribe(DomainEventType.CARD_SECTION_DISPLAY_CHANGED, (event: DomainEvent<typeof DomainEventType.CARD_SECTION_DISPLAY_CHANGED>) => {
+        this.logger.debug('카드 섹션 표시 설정 변경 이벤트 수신', { event });
+        // 모든 카드의 렌더링 상태를 PENDING으로 변경
+        this.renderStates.forEach((state, cardId) => {
+          this.updateRenderState(cardId, {
+            status: RenderStatus.PENDING,
+            startTime: Date.now(),
+            endTime: 0,
+            error: null,
+            timestamp: Date.now()
+          });
+        });
+      });
       
       // 초기화 완료
       this.initialized = true;
@@ -220,25 +239,25 @@ export class CardRenderManager implements ICardRenderManager {
     try {
       this.logger.debug('렌더링 설정 가져오기 시작');
       
+      // 설정 서비스에서 설정값 가져오기
+      const settings = this.settingsService.getSettings();
+      const cardSettings = settings.card || DEFAULT_CARD_DOMAIN_SETTINGS;
+      
       const config: IRenderConfig = {
-        type: RenderType.MARKDOWN,
-        contentLengthLimitEnabled: true,
-        contentLengthLimit: 1000, // 기본값 1000자
-        style: {
-          classes: ['card'],
-          backgroundColor: 'var(--background-primary)',
-          fontSize: 'var(--font-size-normal)',
-          color: 'var(--text-normal)',
-          border: {
-            width: '1px',
-            color: 'var(--background-modifier-border)',
-            style: 'solid',
-            radius: '8px'
+        type: cardSettings.renderConfig.type,
+        contentLengthLimitEnabled: cardSettings.renderConfig.contentLengthLimitEnabled,
+        contentLengthLimit: cardSettings.renderConfig.contentLengthLimit,
+        style: cardSettings.stateStyle.normal,
+        sections: {
+          header: {
+            displayOptions: cardSettings.sections.header.displayOptions
           },
-          padding: '0px',
-          boxShadow: 'var(--shadow-s)',
-          lineHeight: 'var(--line-height-normal)',
-          fontFamily: 'var(--font-family)'
+          body: {
+            displayOptions: cardSettings.sections.body.displayOptions
+          },
+          footer: {
+            displayOptions: cardSettings.sections.footer.displayOptions
+          }
         },
         state: {
           status: RenderStatus.PENDING,
@@ -258,21 +277,17 @@ export class CardRenderManager implements ICardRenderManager {
         type: RenderType.MARKDOWN,
         contentLengthLimitEnabled: false,
         contentLengthLimit: 0,
-        style: {
-          classes: [],
-          backgroundColor: '',
-          fontSize: '',
-          color: '',
-          border: {
-            width: '',
-            color: '',
-            style: '',
-            radius: ''
+        style: DEFAULT_CARD_STYLE,
+        sections: {
+          header: {
+            displayOptions: DEFAULT_CARD_SECTION.displayOptions
           },
-          padding: '',
-          boxShadow: '',
-          lineHeight: '',
-          fontFamily: ''
+          body: {
+            displayOptions: DEFAULT_CARD_SECTION.displayOptions
+          },
+          footer: {
+            displayOptions: DEFAULT_CARD_SECTION.displayOptions
+          }
         },
         state: {
           status: RenderStatus.PENDING,
@@ -290,72 +305,126 @@ export class CardRenderManager implements ICardRenderManager {
   /**
    * 카드를 렌더링합니다.
    * @param card 렌더링할 카드
-   * @returns 렌더링된 HTML 요소
+   * @param container 카드를 렌더링할 컨테이너
+   * @returns 렌더링된 카드 요소
    */
-  renderCard(card: ICard): HTMLElement {
+  renderCard(card: ICard, container: HTMLElement): HTMLElement {
     const timer = this.performanceMonitor.startTimer('CardRenderManager.renderCard');
-    const startTime = Date.now();
     try {
       this.logger.debug('카드 렌더링 시작', { cardId: card.id });
 
-      // 렌더링 설정 가져오기
-      const config = this.getRenderConfig();
+      // 기존 카드 요소 제거
+      const existingCard = container.querySelector(`[data-card-id="${card.id}"]`);
+      if (existingCard) {
+        existingCard.remove();
+      }
 
-      // 카드 요소 생성
+      // 카드 컨테이너 생성
       const cardEl = document.createElement('div');
       cardEl.className = 'card-navigator-card';
       cardEl.setAttribute('data-card-id', card.id);
 
-      // 스타일 적용
-      const style = config.style || DEFAULT_CARD_STYLE;
-      cardEl.style.backgroundColor = style.backgroundColor;
-      cardEl.style.fontSize = style.fontSize;
-      cardEl.style.color = style.color;
-      cardEl.style.borderWidth = style.border.width;
-      cardEl.style.borderColor = style.border.color;
-      cardEl.style.borderStyle = style.border.style;
-      cardEl.style.borderRadius = style.border.radius;
-      cardEl.style.padding = style.padding;
-      cardEl.style.boxShadow = style.boxShadow;
-      cardEl.style.lineHeight = style.lineHeight;
-      cardEl.style.fontFamily = style.fontFamily;
+      // 설정에서 스타일 가져오기
+      const settings = this.settingsService.getSettings();
+      const cardSettings = settings.card || DEFAULT_CARD_DOMAIN_SETTINGS;
+      const style = cardSettings.stateStyle.normal;
 
-      // 헤더
+      // 카드 스타일 적용
+      Object.assign(cardEl.style, style);
+
+      // 헤더 섹션 생성
       const headerEl = document.createElement('div');
       headerEl.className = 'card-navigator-card-header';
-      headerEl.textContent = card.firstHeader || card.title || card.fileName || '제목 없음';
+
+      // 타이틀 생성
+      const titleEl = document.createElement('div');
+      titleEl.className = 'card-navigator-card-title';
+      
+      // 설정에서 타이틀 소스 가져오기
+      const titleSource = settings.card?.titleSource || TitleSource.FIRST_HEADER;
+      const title = titleSource === TitleSource.FIRST_HEADER ? card.firstHeader : card.fileName;
+      titleEl.textContent = title || card.fileName.replace(/\.[^/.]+$/, '');
+
+      headerEl.appendChild(titleEl);
       cardEl.appendChild(headerEl);
 
-      // 바디
+      // 바디 섹션 생성
       const bodyEl = document.createElement('div');
       bodyEl.className = 'card-navigator-card-body';
-      bodyEl.textContent = card.content || '내용 없음';
+
+      // 컨텐츠 생성
+      const contentEl = document.createElement('div');
+      contentEl.className = 'card-navigator-card-content';
+      contentEl.textContent = card.content;
+      bodyEl.appendChild(contentEl);
+
+      // 태그 생성
+      if (card.tags && card.tags.length > 0) {
+        const tagsEl = document.createElement('div');
+        tagsEl.className = 'card-navigator-card-tags';
+        tagsEl.textContent = card.tags.join(' ');
+        bodyEl.appendChild(tagsEl);
+      }
+
       cardEl.appendChild(bodyEl);
 
-      // 풋터
+      // 푸터 섹션 생성
       const footerEl = document.createElement('div');
       footerEl.className = 'card-navigator-card-footer';
-      footerEl.textContent = card.tags && card.tags.length > 0 ? card.tags.join(', ') : '태그 없음';
+
+      // 생성일, 수정일, 프로퍼티 추가
+      if (card.createdAt) {
+        const createdAtEl = document.createElement('div');
+        createdAtEl.className = 'card-navigator-card-created-at';
+        createdAtEl.textContent = card.createdAt.toLocaleString();
+        footerEl.appendChild(createdAtEl);
+      }
+
+      if (card.updatedAt) {
+        const updatedAtEl = document.createElement('div');
+        updatedAtEl.className = 'card-navigator-card-updated-at';
+        updatedAtEl.textContent = card.updatedAt.toLocaleString();
+        footerEl.appendChild(updatedAtEl);
+      }
+
+      if (card.properties) {
+        const propertiesEl = document.createElement('div');
+        propertiesEl.className = 'card-navigator-card-properties';
+        propertiesEl.textContent = JSON.stringify(card.properties);
+        footerEl.appendChild(propertiesEl);
+      }
+
       cardEl.appendChild(footerEl);
 
-      // 렌더링 상태 등록
-      this.registerRenderState(card.id, {
+      // 컨테이너에 카드 추가
+      container.appendChild(cardEl);
+
+      // 렌더링 상태 업데이트
+      this.updateRenderState(card.id, {
         status: RenderStatus.COMPLETED,
-        startTime: startTime,
         endTime: Date.now(),
-        error: null,
         timestamp: Date.now()
       });
-
-      // 렌더링 이벤트 발생
-      this.eventBus.dispatch(new DomainEvent(DomainEventType.CARD_RENDERING, { card }));
 
       this.logger.info('카드 렌더링 완료', { cardId: card.id });
       return cardEl;
     } catch (error) {
       this.logger.error('카드 렌더링 실패', { error, cardId: card.id });
       this.errorHandler.handleError(error as Error, 'CardRenderManager.renderCard');
-      throw error;
+      
+      // 에러 상태 업데이트
+      this.updateRenderState(card.id, {
+        status: RenderStatus.FAILED,
+        endTime: Date.now(),
+        error: (error as Error).message,
+        timestamp: Date.now()
+      });
+
+      // 에러 요소 반환
+      const errorEl = document.createElement('div');
+      errorEl.className = 'card-navigator-card-error';
+      errorEl.textContent = '카드 렌더링 중 오류가 발생했습니다.';
+      return errorEl;
     } finally {
       timer.stop();
     }

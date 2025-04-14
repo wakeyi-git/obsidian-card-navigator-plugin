@@ -9,7 +9,9 @@ import {
   IRenderConfig,
   DEFAULT_CARD_DOMAIN_SETTINGS,
   DEFAULT_CARD_SECTION,
-  DEFAULT_CARD_STYLE
+  DEFAULT_CARD_STYLE,
+  TitleSource,
+  RenderStatus
 } from '@/domain/models/Card';
 import { ICardDisplayManager } from '@/domain/managers/ICardDisplayManager';
 import { Container } from '@/infrastructure/di/Container';
@@ -17,7 +19,8 @@ import type { ISettingsService } from '@/domain/services/application/ISettingsSe
 import { IEventDispatcher } from '@/domain/infrastructure/IEventDispatcher';
 import { IPluginSettings } from '@/domain/models/PluginSettings';
 import { SettingsUtils } from '@/domain/utils/settingsUtils';
-import { CardSectionDisplayChangedEvent } from '@/domain/events/SettingsEvents';
+import { CardSectionDisplayChangedEvent, CardStyleChangedEvent } from '@/domain/events/SettingsEvents';
+import { ICardRenderManager } from '@/domain/managers/ICardRenderManager';
 
 type SectionType = 'card' | 'header' | 'body' | 'footer';
 
@@ -127,6 +130,45 @@ export class CardSettingsSection {
               this.cardPreview.updateConfig(cardConfig);
             }
           }));
+
+    // 제목 소스 설정
+    new Setting(this.containerEl)
+      .setName('제목 소스')
+      .setDesc('카드에 표시할 제목의 소스를 선택합니다.')
+      .addDropdown(dropdown => {
+        dropdown
+          .addOption(TitleSource.FILE_NAME, '파일명')
+          .addOption(TitleSource.FIRST_HEADER, '퍼스트헤더')
+          .setValue(settings.card.titleSource || TitleSource.FILE_NAME)
+          .onChange(async (value) => {
+            const oldValue = settings.card.titleSource;
+            await this.settingsService.saveSettings({
+              ...settings,
+              card: {
+                ...settings.card,
+                titleSource: value as TitleSource
+              }
+            });
+            
+            // 설정 변경 이벤트 발생
+            this.eventDispatcher.dispatch(new CardSectionDisplayChangedEvent('header', 'titleSource', oldValue, value as TitleSource));
+            
+            // 카드 렌더링 이벤트 발생
+            const cardRenderManager = Container.getInstance().resolve<ICardRenderManager>('ICardRenderManager');
+            cardRenderManager.updateRenderState('all', {
+              status: RenderStatus.PENDING,
+              startTime: Date.now(),
+              endTime: 0,
+              error: null,
+              timestamp: Date.now()
+            });
+            
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(settings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
+          });
+      });
 
     // 본문 길이 제한
     new Setting(this.containerEl)
@@ -248,7 +290,18 @@ export class CardSettingsSection {
     const newSettings = SettingsUtils.updateNestedSettings(settings, path, value);
     await this.settingsService.saveSettings(newSettings);
     
+    // 설정 변경 이벤트 발생
     this.eventDispatcher.dispatch(new CardSectionDisplayChangedEvent(section, settingName, oldValue, value));
+    
+    // 카드 렌더링 이벤트 발생
+    const cardRenderManager = Container.getInstance().resolve<ICardRenderManager>('ICardRenderManager');
+    cardRenderManager.updateRenderState('all', {
+      status: RenderStatus.PENDING,
+      startTime: Date.now(),
+      endTime: 0,
+      error: null,
+      timestamp: Date.now()
+    });
     
     if (this.cardPreview) {
       const cardConfig = this.createCardConfig(newSettings);
@@ -293,19 +346,21 @@ export class CardSettingsSection {
         color
           .setValue(stateStyle.normal.backgroundColor)
           .onChange(async value => {
+            const newStateStyle = {
+              ...stateStyle,
+              normal: {
+                ...stateStyle.normal,
+                backgroundColor: value
+              }
+            };
             await this.settingsService.saveSettings({
               ...settings,
               card: {
                 ...cardSettings,
-                stateStyle: {
-                  ...stateStyle,
-                  normal: {
-                    ...stateStyle.normal,
-                    backgroundColor: value
-                  }
-                }
+                stateStyle: newStateStyle
               }
             });
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent('card', 'normal', 'backgroundColor', value));
             if (this.cardPreview) {
               const cardConfig = this.createCardConfig(settings);
               this.cardPreview.updateConfig(cardConfig);
@@ -323,19 +378,21 @@ export class CardSettingsSection {
           .setLimits(8, 24, 1)
           .setDynamicTooltip()
           .onChange(async value => {
+            const newStateStyle = {
+              ...stateStyle,
+              normal: {
+                ...stateStyle.normal,
+                fontSize: `${value}px`
+              }
+            };
             await this.settingsService.saveSettings({
               ...settings,
               card: {
                 ...cardSettings,
-                stateStyle: {
-                  ...stateStyle,
-                  normal: {
-                    ...stateStyle.normal,
-                    fontSize: `${value}px`
-                  }
-                }
+                stateStyle: newStateStyle
               }
             });
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent('card', 'normal', 'fontSize', value));
             if (this.cardPreview) {
               const cardConfig = this.createCardConfig(settings);
               this.cardPreview.updateConfig(cardConfig);
@@ -351,22 +408,24 @@ export class CardSettingsSection {
         color
           .setValue(stateStyle.normal.border.color)
           .onChange(async value => {
+            const newStateStyle = {
+              ...stateStyle,
+              normal: {
+                ...stateStyle.normal,
+                border: {
+                  ...stateStyle.normal.border,
+                  color: value
+                }
+              }
+            };
             await this.settingsService.saveSettings({
               ...settings,
               card: {
                 ...cardSettings,
-                stateStyle: {
-                  ...stateStyle,
-                  normal: {
-                    ...stateStyle.normal,
-                    border: {
-                      ...stateStyle.normal.border,
-                      color: value
-                    }
-                  }
-                }
+                stateStyle: newStateStyle
               }
             });
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent('card', 'normal', 'border.color', value));
             if (this.cardPreview) {
               const cardConfig = this.createCardConfig(settings);
               this.cardPreview.updateConfig(cardConfig);
@@ -384,22 +443,24 @@ export class CardSettingsSection {
           .setLimits(0, 4, 1)
           .setDynamicTooltip()
           .onChange(async value => {
+            const newStateStyle = {
+              ...stateStyle,
+              normal: {
+                ...stateStyle.normal,
+                border: {
+                  ...stateStyle.normal.border,
+                  width: `${value}px`
+                }
+              }
+            };
             await this.settingsService.saveSettings({
               ...settings,
               card: {
                 ...cardSettings,
-                stateStyle: {
-                  ...stateStyle,
-                  normal: {
-                    ...stateStyle.normal,
-                    border: {
-                      ...stateStyle.normal.border,
-                      width: `${value}px`
-                    }
-                  }
-                }
+                stateStyle: newStateStyle
               }
             });
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent('card', 'normal', 'border.width', value));
             if (this.cardPreview) {
               const cardConfig = this.createCardConfig(settings);
               this.cardPreview.updateConfig(cardConfig);
@@ -420,19 +481,21 @@ export class CardSettingsSection {
         color
           .setValue(stateStyle.active.backgroundColor)
           .onChange(async value => {
+            const newStateStyle = {
+              ...stateStyle,
+              active: {
+                ...stateStyle.active,
+                backgroundColor: value
+              }
+            };
             await this.settingsService.saveSettings({
               ...settings,
               card: {
                 ...cardSettings,
-                stateStyle: {
-                  ...stateStyle,
-                  active: {
-                    ...stateStyle.active,
-                    backgroundColor: value
-                  }
-                }
+                stateStyle: newStateStyle
               }
             });
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent('card', 'active', 'backgroundColor', value));
             if (this.cardPreview) {
               const cardConfig = this.createCardConfig(settings);
               this.cardPreview.updateConfig(cardConfig);
@@ -450,19 +513,21 @@ export class CardSettingsSection {
           .setLimits(8, 24, 1)
           .setDynamicTooltip()
           .onChange(async value => {
+            const newStateStyle = {
+              ...stateStyle,
+              active: {
+                ...stateStyle.active,
+                fontSize: `${value}px`
+              }
+            };
             await this.settingsService.saveSettings({
               ...settings,
               card: {
                 ...cardSettings,
-                stateStyle: {
-                  ...stateStyle,
-                  active: {
-                    ...stateStyle.active,
-                    fontSize: `${value}px`
-                  }
-                }
+                stateStyle: newStateStyle
               }
             });
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent('card', 'active', 'fontSize', value));
             if (this.cardPreview) {
               const cardConfig = this.createCardConfig(settings);
               this.cardPreview.updateConfig(cardConfig);
@@ -478,22 +543,24 @@ export class CardSettingsSection {
         color
           .setValue(stateStyle.active.border.color)
           .onChange(async value => {
+            const newStateStyle = {
+              ...stateStyle,
+              active: {
+                ...stateStyle.active,
+                border: {
+                  ...stateStyle.active.border,
+                  color: value
+                }
+              }
+            };
             await this.settingsService.saveSettings({
               ...settings,
               card: {
                 ...cardSettings,
-                stateStyle: {
-                  ...stateStyle,
-                  active: {
-                    ...stateStyle.active,
-                    border: {
-                      ...stateStyle.active.border,
-                      color: value
-                    }
-                  }
-                }
+                stateStyle: newStateStyle
               }
             });
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent('card', 'active', 'border.color', value));
             if (this.cardPreview) {
               const cardConfig = this.createCardConfig(settings);
               this.cardPreview.updateConfig(cardConfig);
@@ -511,22 +578,24 @@ export class CardSettingsSection {
           .setLimits(0, 4, 1)
           .setDynamicTooltip()
           .onChange(async value => {
+            const newStateStyle = {
+              ...stateStyle,
+              active: {
+                ...stateStyle.active,
+                border: {
+                  ...stateStyle.active.border,
+                  width: `${value}px`
+                }
+              }
+            };
             await this.settingsService.saveSettings({
               ...settings,
               card: {
                 ...cardSettings,
-                stateStyle: {
-                  ...stateStyle,
-                  active: {
-                    ...stateStyle.active,
-                    border: {
-                      ...stateStyle.active.border,
-                      width: `${value}px`
-                    }
-                  }
-                }
+                stateStyle: newStateStyle
               }
             });
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent('card', 'active', 'border.width', value));
             if (this.cardPreview) {
               const cardConfig = this.createCardConfig(settings);
               this.cardPreview.updateConfig(cardConfig);
@@ -547,19 +616,21 @@ export class CardSettingsSection {
         color
           .setValue(stateStyle.focused.backgroundColor)
           .onChange(async value => {
+            const newStateStyle = {
+              ...stateStyle,
+              focused: {
+                ...stateStyle.focused,
+                backgroundColor: value
+              }
+            };
             await this.settingsService.saveSettings({
               ...settings,
               card: {
                 ...cardSettings,
-                stateStyle: {
-                  ...stateStyle,
-                  focused: {
-                    ...stateStyle.focused,
-                    backgroundColor: value
-                  }
-                }
+                stateStyle: newStateStyle
               }
             });
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent('card', 'focused', 'backgroundColor', value));
             if (this.cardPreview) {
               const cardConfig = this.createCardConfig(settings);
               this.cardPreview.updateConfig(cardConfig);
@@ -577,19 +648,21 @@ export class CardSettingsSection {
           .setLimits(8, 24, 1)
           .setDynamicTooltip()
           .onChange(async value => {
+            const newStateStyle = {
+              ...stateStyle,
+              focused: {
+                ...stateStyle.focused,
+                fontSize: `${value}px`
+              }
+            };
             await this.settingsService.saveSettings({
               ...settings,
               card: {
                 ...cardSettings,
-                stateStyle: {
-                  ...stateStyle,
-                  focused: {
-                    ...stateStyle.focused,
-                    fontSize: `${value}px`
-                  }
-                }
+                stateStyle: newStateStyle
               }
             });
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent('card', 'focused', 'fontSize', value));
             if (this.cardPreview) {
               const cardConfig = this.createCardConfig(settings);
               this.cardPreview.updateConfig(cardConfig);
@@ -605,22 +678,24 @@ export class CardSettingsSection {
         color
           .setValue(stateStyle.focused.border.color)
           .onChange(async value => {
+            const newStateStyle = {
+              ...stateStyle,
+              focused: {
+                ...stateStyle.focused,
+                border: {
+                  ...stateStyle.focused.border,
+                  color: value
+                }
+              }
+            };
             await this.settingsService.saveSettings({
               ...settings,
               card: {
                 ...cardSettings,
-                stateStyle: {
-                  ...stateStyle,
-                  focused: {
-                    ...stateStyle.focused,
-                    border: {
-                      ...stateStyle.focused.border,
-                      color: value
-                    }
-                  }
-                }
+                stateStyle: newStateStyle
               }
             });
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent('card', 'focused', 'border.color', value));
             if (this.cardPreview) {
               const cardConfig = this.createCardConfig(settings);
               this.cardPreview.updateConfig(cardConfig);
@@ -638,22 +713,24 @@ export class CardSettingsSection {
           .setLimits(0, 4, 1)
           .setDynamicTooltip()
           .onChange(async value => {
+            const newStateStyle = {
+              ...stateStyle,
+              focused: {
+                ...stateStyle.focused,
+                border: {
+                  ...stateStyle.focused.border,
+                  width: `${value}px`
+                }
+              }
+            };
             await this.settingsService.saveSettings({
               ...settings,
               card: {
                 ...cardSettings,
-                stateStyle: {
-                  ...stateStyle,
-                  focused: {
-                    ...stateStyle.focused,
-                    border: {
-                      ...stateStyle.focused.border,
-                      width: `${value}px`
-                    }
-                  }
-                }
+                stateStyle: newStateStyle
               }
             });
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent('card', 'focused', 'border.width', value));
             if (this.cardPreview) {
               const cardConfig = this.createCardConfig(settings);
               this.cardPreview.updateConfig(cardConfig);
@@ -683,7 +760,7 @@ export class CardSettingsSection {
               ...style,
               backgroundColor: value
             };
-            await this.settingsService.saveSettings({
+            const newSettings = {
               ...settings,
               card: {
                 ...cardSettings,
@@ -695,9 +772,11 @@ export class CardSettingsSection {
                   }
                 }
               }
-            });
+            };
+            await this.settingsService.saveSettings(newSettings);
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent(section, 'style', 'backgroundColor', value));
             if (this.cardPreview) {
-              const cardConfig = this.createCardConfig(settings);
+              const cardConfig = this.createCardConfig(newSettings);
               this.cardPreview.updateConfig(cardConfig);
             }
           }));
@@ -717,7 +796,7 @@ export class CardSettingsSection {
               ...style,
               fontSize: `${value}px`
             };
-            await this.settingsService.saveSettings({
+            const newSettings = {
               ...settings,
               card: {
                 ...cardSettings,
@@ -729,9 +808,11 @@ export class CardSettingsSection {
                   }
                 }
               }
-            });
+            };
+            await this.settingsService.saveSettings(newSettings);
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent(section, 'style', 'fontSize', value));
             if (this.cardPreview) {
-              const cardConfig = this.createCardConfig(settings);
+              const cardConfig = this.createCardConfig(newSettings);
               this.cardPreview.updateConfig(cardConfig);
             }
           });
@@ -752,7 +833,7 @@ export class CardSettingsSection {
                 color: value
               }
             };
-            await this.settingsService.saveSettings({
+            const newSettings = {
               ...settings,
               card: {
                 ...cardSettings,
@@ -764,9 +845,11 @@ export class CardSettingsSection {
                   }
                 }
               }
-            });
+            };
+            await this.settingsService.saveSettings(newSettings);
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent(section, 'style', 'border.color', value));
             if (this.cardPreview) {
-              const cardConfig = this.createCardConfig(settings);
+              const cardConfig = this.createCardConfig(newSettings);
               this.cardPreview.updateConfig(cardConfig);
             }
           }));
@@ -789,7 +872,7 @@ export class CardSettingsSection {
                 width: `${value}px`
               }
             };
-            await this.settingsService.saveSettings({
+            const newSettings = {
               ...settings,
               card: {
                 ...cardSettings,
@@ -801,9 +884,11 @@ export class CardSettingsSection {
                   }
                 }
               }
-            });
+            };
+            await this.settingsService.saveSettings(newSettings);
+            this.eventDispatcher.dispatch(new CardStyleChangedEvent(section, 'style', 'border.width', value));
             if (this.cardPreview) {
-              const cardConfig = this.createCardConfig(settings);
+              const cardConfig = this.createCardConfig(newSettings);
               this.cardPreview.updateConfig(cardConfig);
             }
           });
@@ -930,13 +1015,29 @@ export class CardSettingsSection {
         toggle
           .setValue(currentDisplayOptions.showTitle)
           .onChange(async value => {
-            await this.updateSetting(
-              `card.sections.${section}.displayOptions.showTitle`,
-              value,
-              currentDisplayOptions.showTitle,
-              section,
-              'showTitle'
-            );
+            const newDisplayOptions = {
+              ...currentDisplayOptions,
+              showTitle: value
+            };
+            const newSettings = {
+              ...settings,
+              card: {
+                ...cardSettings,
+                sections: {
+                  ...cardSettings.sections,
+                  [section]: {
+                    ...sectionSettings,
+                    displayOptions: newDisplayOptions
+                  }
+                }
+              }
+            };
+            await this.settingsService.saveSettings(newSettings);
+            this.eventDispatcher.dispatch(new CardSectionDisplayChangedEvent(section, 'showTitle', currentDisplayOptions.showTitle, value));
+            if (this.cardPreview) {
+              const cardConfig = this.createCardConfig(newSettings);
+              this.cardPreview.updateConfig(cardConfig);
+            }
           }));
 
     // 파일명 표시 설정

@@ -1,7 +1,7 @@
-import { DomainEvent, IEventDispatcher } from '../events/DomainEvent';
-import { DomainEventType } from '../events/DomainEventType';
+import { DomainEvent, IEventDispatcher } from '../../domain/events/DomainEvent';
+import { DomainEventType } from '../../domain/events/DomainEventType';
 import { Subject, Subscription } from 'rxjs';
-import { IEventHandler } from './IEventDispatcher';
+import { IEventHandler } from '../../domain/infrastructure/IEventDispatcher';
 
 /**
  * 이벤트 버스 클래스

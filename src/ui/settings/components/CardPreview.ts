@@ -125,6 +125,14 @@ export class CardPreview {
     el.style.borderColor = style.border.color;
     el.style.borderStyle = style.border.style;
     el.style.borderRadius = style.border.radius;
+
+    // CSS 변수 대신 직접 스타일 값 적용
+    el.style.setProperty('--background-primary', style.backgroundColor);
+    el.style.setProperty('--font-size-normal', style.fontSize);
+    el.style.setProperty('--text-normal', style.color);
+    el.style.setProperty('--background-modifier-border', style.border.color);
+    el.style.setProperty('--line-height-normal', style.lineHeight);
+    el.style.setProperty('--font-family', style.fontFamily);
   }
 
   /**
@@ -133,30 +141,30 @@ export class CardPreview {
    * @param displayOptions - 카드 표시 옵션
    */
   private renderSectionContent(el: HTMLElement, displayOptions: ICardDisplayOptions) {
-    if (displayOptions.showTitle) {
-      el.createDiv({ text: 'Title', cls: 'title' });
-    }
-    if (displayOptions.showFileName) {
-      el.createDiv({ text: 'File Name', cls: 'file-name' });
-    }
-    if (displayOptions.showFirstHeader) {
-      el.createDiv({ text: 'First Header', cls: 'first-header' });
-    }
-    if (displayOptions.showContent) {
-      el.createDiv({ text: 'Content', cls: 'content' });
-    }
-    if (displayOptions.showTags) {
-      el.createDiv({ text: '#tag1 #tag2', cls: 'tags' });
-    }
-    if (displayOptions.showCreatedAt) {
-      el.createDiv({ text: 'Created: 2024-03-21', cls: 'created-at' });
-    }
-    if (displayOptions.showUpdatedAt) {
-      el.createDiv({ text: 'Updated: 2024-03-21', cls: 'updated-at' });
-    }
-    if (displayOptions.showProperties) {
-      el.createDiv({ text: 'Properties: { key: value }', cls: 'properties' });
-    }
+    // 기존 내용 제거
+    el.empty();
+
+    // 표시 옵션에 따라 내용 렌더링
+    const contentMap = {
+      showTitle: { text: 'Title', cls: 'title' },
+      showFileName: { text: 'File Name', cls: 'file-name' },
+      showFirstHeader: { text: 'First Header', cls: 'first-header' },
+      showContent: { text: 'Content', cls: 'content' },
+      showTags: { text: '#tag1 #tag2', cls: 'tags' },
+      showCreatedAt: { text: 'Created: 2024-03-21', cls: 'created-at' },
+      showUpdatedAt: { text: 'Updated: 2024-03-21', cls: 'updated-at' },
+      showProperties: { text: 'Properties: { key: value }', cls: 'properties' }
+    };
+
+    Object.entries(contentMap).forEach(([key, value]) => {
+      if (displayOptions[key as keyof ICardDisplayOptions]) {
+        const div = el.createDiv({ text: value.text, cls: value.cls });
+        // 태그는 푸터에만 표시
+        if (key === 'showTags' && !el.classList.contains('footer')) {
+          div.style.display = 'none';
+        }
+      }
+    });
   }
 
   /**

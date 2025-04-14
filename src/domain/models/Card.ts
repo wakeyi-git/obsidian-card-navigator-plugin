@@ -222,6 +222,45 @@ export interface IRenderConfig {
   readonly style?: ICardStyle;
   /** 렌더링 상태 */
   readonly state: IRenderState;
+  /** 섹션 설정 */
+  readonly sections?: {
+    header?: {
+      displayOptions?: {
+        showTitle?: boolean;
+        showFileName?: boolean;
+        showFirstHeader?: boolean;
+        showContent?: boolean;
+        showTags?: boolean;
+        showCreatedAt?: boolean;
+        showUpdatedAt?: boolean;
+        showProperties?: boolean;
+      };
+    };
+    body?: {
+      displayOptions?: {
+        showTitle?: boolean;
+        showFileName?: boolean;
+        showFirstHeader?: boolean;
+        showContent?: boolean;
+        showTags?: boolean;
+        showCreatedAt?: boolean;
+        showUpdatedAt?: boolean;
+        showProperties?: boolean;
+      };
+    };
+    footer?: {
+      displayOptions?: {
+        showTitle?: boolean;
+        showFileName?: boolean;
+        showFirstHeader?: boolean;
+        showContent?: boolean;
+        showTags?: boolean;
+        showCreatedAt?: boolean;
+        showUpdatedAt?: boolean;
+        showProperties?: boolean;
+      };
+    };
+  };
 }
 
 /**
@@ -258,6 +297,8 @@ export interface ICardDomainSettings {
   readonly renderConfig: IRenderConfig;
   /** 카드 상태별 스타일 */
   readonly stateStyle: ICardStateStyle;
+  /** 제목 소스 */
+  readonly titleSource: TitleSource;
 }
 
 /**
@@ -390,7 +431,8 @@ export const DEFAULT_CARD_DOMAIN_SETTINGS: ICardDomainSettings = {
     }
   },
   renderConfig: DEFAULT_RENDER_CONFIG,
-  stateStyle: DEFAULT_CARD_STATE_STYLE
+  stateStyle: DEFAULT_CARD_STATE_STYLE,
+  titleSource: TitleSource.FILE_NAME
 };
 
 /**
